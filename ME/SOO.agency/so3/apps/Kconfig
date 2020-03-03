@@ -1,0 +1,14 @@
+
+menu "SO3 Applications"
+
+	config NETSTREAM_MESSAGING
+		bool "Netstream messaging functionalities"
+		depends on VNETSTREAM_FRONTEND
+
+	config APP_TEST_MALLOC
+		bool "malloc() stress test application"
+	
+	config APP_DEFAULT
+		bool "Default application with thread environment"
+	
+endmenu

@@ -1,0 +1,5 @@
+config SO3VIRT_SERIAL
+	bool "SO3VIRT serial driver (rely on vuart frontend)"
+	depends on SO3VIRT
+	
+	

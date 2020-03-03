@@ -1,0 +1,17 @@
+#
+# SOO Mobile Entity configuration
+#
+
+menu "SOO Mobile Entity frontend drivers"
+
+config VUART_FRONTEND
+	bool "vuart serial driver"
+
+config VDOGA12V6NM_FRONTEND
+	bool "vDoga12v6nm frontend for the DOGA 12V 6Nm blind motor"
+
+config VUIHANDLER_FRONTEND
+	bool "vuihandler UI manager driver"
+
+endmenu
+
