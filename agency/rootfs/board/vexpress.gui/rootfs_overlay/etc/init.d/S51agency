@@ -1,0 +1,24 @@
+#!/bin/sh
+
+SOO_CORE_MAJOR=126
+DCM_MAJOR=127
+
+case "$1" in
+    start)
+        echo -n "Creating SOO Agency devices and starting SOO Agency core... "
+        mkdir /dev/soo
+        mknod /dev/soo/core c ${SOO_CORE_MAJOR} 0
+        mknod /dev/soo/dcm c ${DCM_MAJOR} 0
+        /root/agency &
+        echo "OK"
+        
+        ;;
+    stop)
+        ;;
+    restart|force-reload)
+        ;;
+    *)
+        ;;
+esac
+
+exit 0

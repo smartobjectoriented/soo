@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Set the Smart Object name
+/root/soo_name.sh
+
+sleep 1
+udhcpc
+
+# Start the agency
+killall -USR1 agency

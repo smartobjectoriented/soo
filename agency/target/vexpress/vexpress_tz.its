@@ -1,0 +1,97 @@
+/*
+ * Copyright (C) 2019 Daniel Rossier <daniel.rossier@soo.tech>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
+
+/dts-v1/;
+
+/ {
+	description = "SOO Agency components for vExpress environment";
+	#address-cells = <0>;
+	#size-cells = <0>;
+
+	images {
+                #address-cells = <0>;
+                #size-cells = <0>;
+        
+                avz {
+			description = "AVZ Hypervisor (32-bit)";
+                        data = /incbin/("../../avz/avz.bin");
+			type = "kernel";
+                        os = "linux";
+			arch = "arm";
+			compression = "none";
+			load = <0x80008000>;
+			entry = <0x80008000>;
+		};
+        
+		agency {
+			description = "Agency Linux kernel";
+			data = /incbin/("../../linux/arch/arm/boot/Image");
+			type = "kernel";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x80c08000>;
+			entry = <0x80c08000>;
+            
+			#address-cells = <0>;
+			#size-cells = <0>;
+
+			hash {
+				algo = "crc32";
+			};
+		};
+			
+       fdt {
+			description = "SOO Agency device tree blob";
+			data = /incbin/("../../linux/arch/arm/boot/dts/vexpress-tz.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			
+			load = <0x9e000000>;
+			hash {
+				algo = "crc32";
+			};
+		};
+	
+		initrd {
+			description = "Agency initial rootfs (initrd)";
+			data = /incbin/("../../rootfs/board/vexpress/initrd.cpio");
+			type = "ramdisk";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x9f000000>;
+			
+			hash {
+				algo = "crc32";
+			};
+		};
+	};
+	
+	configurations {
+		default = "conf";
+		conf {
+			description = "SOO Agency on vExpress";
+            loadables = "agency";
+            kernel = "avz";
+            fdt = "fdt";
+            ramdisk = "initrd";
+		};
+	};
+};

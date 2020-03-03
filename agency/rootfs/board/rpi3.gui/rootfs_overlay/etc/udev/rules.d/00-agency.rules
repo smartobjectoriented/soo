@@ -1,0 +1,4 @@
+SUBSYSTEM=="net", ACTION=="add", KERNEL=="vnet1", RUN+="/sbin/ifup vnet1"
+SUBSYSTEM=="net", ACTION=="remove", KERNEL=="vnet1", RUN+="/sbin/ifdown vnet1"
+
+

@@ -1,0 +1,17 @@
+#!/bin/sh
+
+case "$1" in
+    start)
+        echo -n "Configuring Bluetooth... "
+        /root/btmanager.sh &
+        echo "OK"
+        ;;
+    stop)
+        ;;
+    restart|force-reload)
+        ;;
+    *)
+        ;;
+esac
+
+exit 0

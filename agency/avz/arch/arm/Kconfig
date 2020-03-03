@@ -1,0 +1,100 @@
+
+menu "Platform"
+
+config ARM
+	bool
+	default y
+	help
+	  The ARM series is a line of low-power-consumption RISC chip designs
+	  licensed by ARM Ltd and targeted at embedded applications and
+	  handhelds such as the Compaq IPAQ.  ARM-based PCs are no longer
+	  manufactured, but legacy ARM-based PC hardware remains popular in
+	  Europe.  There is an ARM Linux project with a web page at
+	  <http://www.arm.linux.org.uk/>.
+
+config PSCI
+	bool "PSCI CPU power management (used in TrustZone)"
+	help
+	  Enabling PSCI-based CPU power handling. 
+          It enables/disables secondary CPUs within the Secure mode.
+
+choice
+prompt "Select a platform type"
+
+config MACH_SUN50I
+	bool "Allwinner A64 (sun50i) SoCs support" 
+	select CPU_V7
+	select GIC
+	select ARM_TIMER
+ 
+config MACH_VEXPRESS
+    bool "ARM Ltd. Versatile Express (vExpress) CA15 support"
+    select CPU_V7
+    select GIC
+    select ARM_TIMER
+
+config MACH_RPI4
+    bool "Raspberry Pi 4 Model B support"
+    select CPU_V7
+    select GIC
+    select ARM_TIMER
+    
+config MACH_BCM2835
+	bool "ARM Broadcomm 2835 Raspberry Pi 3 Model B support"
+	select CPU_V7
+	select ARM_TIMER
+endchoice
+  
+endmenu
+
+menu "Kernel Features"
+
+config HZ
+	int
+	default 100
+
+config SCHED_FLIP_SCHEDFREQ
+	int "Scheduler flip frequency"
+	default "30"
+	help
+	  The rate in ms at which the scheduler is invoked.
+ 
+config ALIGNMENT_TRAP
+	bool
+	default y if !ARCH_EBSA110
+	help
+	  ARM processors can not fetch/store information which is not
+	  naturally aligned on the bus, i.e., a 4 byte fetch must start at an
+	  address divisible by 4. On 32-bit ARM processors, these non-aligned
+	  fetch/store instructions will be emulated in software if you say
+	  here, which has a severe performance impact. This is necessary for
+	  correct operation of some network protocols. With an IP-only
+	  configuration it is safe to say N, otherwise say Y.
+
+endmenu
+
+choice
+  prompt "Target"
+  
+	config VEXPRESS
+    		bool "Vexpress"
+    		
+	config MERIDA
+		bool "Merida V2"
+		
+	config RPI4
+		bool "Raspberry Pi 4"
+		
+	config RPI3
+		bool "Raspberry Pi 3"
+		
+	config BPI
+		bool "BananaPi M2 Zero"
+   
+endchoice
+
+source "arch/arm/vexpress/Kconfig"
+source "arch/arm/merida/Kconfig"
+source "arch/arm/bpi/Kconfig"
+source "arch/arm/rpi4/Kconfig"
+source "arch/arm/rpi3/Kconfig"

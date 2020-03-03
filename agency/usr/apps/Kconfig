@@ -1,0 +1,4 @@
+
+menuconfig WEATHER
+    default n
+	bool "Weather data parser (SOO.outdoor)"

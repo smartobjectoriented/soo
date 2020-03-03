@@ -1,0 +1,8 @@
+{
+  "type": "SOO.blind",
+  "is_upgradable": true,
+  "itb": 1,
+  "uboot": 1,
+  "uEnv": 1,
+  "rootfs": 1
+}

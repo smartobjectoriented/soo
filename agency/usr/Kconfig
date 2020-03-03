@@ -1,0 +1,19 @@
+#
+# For a description of the syntax of this configuration file,
+# see Documentation/kbuild/kconfig-language.txt.
+#
+mainmenu "SOO Agency $KERNELVERSION User space Configuration"
+
+menu "Agency subsystems"
+
+source "core/Kconfig"
+
+source "dcm/Kconfig"
+
+source "apps/Kconfig"
+
+source "lib/Kconfig"
+
+source "apps/Kconfig"
+endmenu
+

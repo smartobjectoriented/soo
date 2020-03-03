@@ -1,0 +1,6 @@
+
+
+obj-y := datacomm.o
+
+
+

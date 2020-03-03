@@ -1,0 +1,21 @@
+#
+# Automatically generated file; DO NOT EDIT.
+# SOO Agency  User space Configuration
+#
+
+#
+# Agency subsystems
+#
+
+#
+# Agency Core Configuration
+#
+CONFIG_MIGRATION_CYCLE_FREQ=1
+# CONFIG_LEDS is not set
+CONFIG_DCM=y
+# CONFIG_WEATHER is not set
+
+#
+# Library Configuration
+#
+CONFIG_LZ4=y

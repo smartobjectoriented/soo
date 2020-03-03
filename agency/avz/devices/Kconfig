@@ -1,0 +1,6 @@
+config GIC
+	bool
+
+config ARM_TIMER
+	bool
+	

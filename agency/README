@@ -1,0 +1,3 @@
+
+In order to build on boards other than vExpress, it is necessary to have a symlink called bsp which refers to the BSP directory of the board.
+
