@@ -7,4 +7,4 @@ if [ $# -ne 1 ]; then
 	exit 0
 fi 
 echo "Here: board is $1"
-../../tools/mount_cpio.sh $PWD/board/$1/initrd.cpio
+../../scripts/mount_cpio.sh $PWD/board/$1/initrd.cpio

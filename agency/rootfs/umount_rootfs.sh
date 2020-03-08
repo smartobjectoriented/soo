@@ -7,6 +7,6 @@ if [ $# -ne 1 ]; then
 	exit 0
 fi 
 echo "Here: board is $1"
-../../tools/umount_cpio.sh $PWD/board/$1/rootfs.cpio
+../../scripts/umount_cpio.sh $PWD/board/$1/rootfs.cpio
 
 
