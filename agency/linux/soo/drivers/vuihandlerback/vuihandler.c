@@ -61,6 +61,16 @@
 
 #include "common.h"
 
+/*
+ * vuiHandler is dedicated to manage interactions between a (external) tablet/smartphone and the components
+ * running in the agency (the agency itself or a ME).
+ * For example, the injector can use vuiHandler to receive a ME from the tablet (dynamic injection).
+ * Any GUI-capable ME can also resort to the vuiHandler.
+ * The communication channel can be either Bluetooth or TCP; TCP means a network connection based on socket,
+ * for example in the case of SOO.net connected to RJ-45, such a smart object can retrieve data from a remote tablet
+ * connected to Internet.
+ */
+
 /* Max missed keepalive beacon count for disconnection */
 #define MAX_FAILED_PING_COUNT	3
 

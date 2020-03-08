@@ -119,23 +119,23 @@ if [ "$deploy_boot" == "y" ]; then
         
         # Deploy SPL in the image
         echo Deploying SPL ...
-        dd if=../../u-boot/spl/sunxi-spl.bin of=sdcard.img bs=1k seek=8 conv=notrunc
+        dd if=../../u-boot/spl/sunxi-spl.bin of=sdcard.img.${PLATFORM} bs=1k seek=8 conv=notrunc
 
         # ATF bl31.bin
         echo Deploying ATF bl31.bin
-        dd if=../../trusted-firmware-a/build/sun50i_a64/debug/bl31.bin of=sdcard.img bs=512 seek=10000 conv=notrunc
+        dd if=../../trusted-firmware-a/build/sun50i_a64/debug/bl31.bin of=sdcard.img.${PLATFORM} bs=512 seek=10000 conv=notrunc
 
         # OP-TEE OS
         echo Deploying OP-TEE OS
-        dd if=../../optee_os/out/arm-plat-sunxi/core/tee-pager_v2.bin of=sdcard.img bs=512 seek=10100 conv=notrunc
+        dd if=../../optee_os/out/arm-plat-sunxi/core/tee-pager_v2.bin of=sdcard.img.${PLATFORM} bs=512 seek=10100 conv=notrunc
 
         # U-boot uEnv.txt
         echo Deploying uEnv.txt for U-boot environment
-        dd if=../../u-boot/uEnv.d/uEnv_merida.txt of=sdcard.img bs=512 seek=11000 conv=notrunc
+        dd if=../../u-boot/uEnv.d/uEnv_merida.txt of=sdcard.img.${PLATFORM} bs=512 seek=11000 conv=notrunc
         
         # U-Boot
         echo Deploying u-boot with its dtb
-        dd if=../../u-boot/u-boot-dtb.bin of=sdcard.img bs=512 seek=11001 conv=notrunc
+        dd if=../../u-boot/u-boot-dtb.bin of=sdcard.img.${PLATFORM} bs=512 seek=11001 conv=notrunc
         
         cd ..
     fi
@@ -182,7 +182,7 @@ fi
 if [ "$deploy_transfer" == "y" ]; then
  
     # Deploy on the board using fastboot (Merida use case)
-     ../bsp/merida/fastboot/build/fastboot/fastboot flash agency filesystem/sdcard.img
+     ../bsp/merida/fastboot/build/fastboot/fastboot flash agency filesystem/sdcard.img.${PLATFORM}
      ../bsp/merida/fastboot/build/fastboot/fastboot continue
 
 fi
@@ -217,6 +217,6 @@ fi
 if [ "$deploy_fastboot" == "y" ]; then
  
     # Deploy on the board using fastboot (Merida use case)
-    ../bsp/merida/fastboot/build/fastboot/fastboot boot target/${PLATFORM}/${PLATFORM_TYPE}
+    ../bsp/merida/fastboot/build/fastboot/fastboot boot target/${PLATFORM}/${PLATFORM_TYPE}.itb
 
 fi

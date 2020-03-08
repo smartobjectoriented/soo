@@ -66,7 +66,6 @@
 #include <soo/core/core.h>
 #include <soo/core/device_access.h>
 #include <soo/core/upgrader.h>
-#include <soo/uimgr/uimgr.h>
 
 #include <soo/uapi/soo.h>
 #include <soo/uapi/logbool.h>

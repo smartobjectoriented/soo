@@ -10,12 +10,15 @@ if [ "$PLATFORM" == "" ]; then
     PLATFORM=$2
 fi
 
+sudo rm -rf fs/*
+mkdir -p fs
+ 
 if [ "$PLATFORM" == "vexpress" -o "$PLATFORM" = "merida" ]; then
     devname=$(sudo losetup --partscan --find --show sdcard.img.${PLATFORM})
     FS_IMG=sdcard.img.${PLATFORM}
 
     #sudo losetup -P --find --show flash
-    mkdir -p fs
+   
 
     # device is loopback (loop<n>)
     sudo mount ${devname}p$1 fs 
@@ -32,6 +35,5 @@ if [[ "$devname" = *[0-9] ]]; then
 fi
 
 if [ "$PLATFORM" == "rpi3" -o "$PLATFORM" == "bpi" -o "$PLATFORM" == "rpi4" ]; then
-    mkdir -p fs
-    sudo mount /dev/"$devname"$1 fs
+    sudo mount /dev/"${devname}"$1 fs
 fi

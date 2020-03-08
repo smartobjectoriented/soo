@@ -611,7 +611,6 @@ asmlinkage __visible void __init start_kernel(void)
 	setup_log_buf(0);
 	vfs_caches_init_early();
 	sort_main_extable();
-
 	trap_init();
 	mm_init();
 
@@ -857,11 +856,12 @@ static __init_or_module void
 trace_initcall_start_cb(void *data, initcall_t fn)
 {
 	ktime_t *calltime = (ktime_t *)data;
-	/* SOO.tech */
-	lprintk(KERN_DEBUG "calling  %pF @ %i\n", fn, task_pid_nr(current));
+
 #if 0 /* SOO.tech */
 	printk(KERN_DEBUG "calling  %pF @ %i\n", fn, task_pid_nr(current));
 #endif
+	lprintk(KERN_DEBUG "calling  %pF @ %i\n", fn, task_pid_nr(current));
+	
 	*calltime = ktime_get();
 }
 
@@ -872,22 +872,12 @@ trace_initcall_finish_cb(void *data, initcall_t fn, int ret)
 	ktime_t delta, rettime;
 	unsigned long long duration;
 
-	/* SOO.tech */
-	/* printk > lprintk */
-#if 0
-	printk(KERN_DEBUG "calling  %pF @ %i\n", fn, task_pid_nr(current));
-#endif /* 0 */
-
-	lprintk("calling  %pF @ %i\n", fn, task_pid_nr(current));
-	
-	*calltime = ktime_get();
-	ret = fn();
 	rettime = ktime_get();
 	delta = ktime_sub(rettime, *calltime);
 	duration = (unsigned long long) ktime_to_ns(delta) >> 10;
 
 #if 0 /* SOO.tech */
-	lprintk(KERN_DEBUG "initcall %pF returned %d after %lld usecs\n",
+	printk(KERN_DEBUG "initcall %pF returned %d after %lld usecs\n",
 		 fn, ret, duration);
 #endif /* 0 */
 

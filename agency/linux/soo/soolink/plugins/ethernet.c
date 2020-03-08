@@ -36,7 +36,8 @@
 #include <soo/soolink/discovery.h>
 
 #include <soo/core/device_access.h>
-#include <soo/uimgr/mediamgr.h>
+
+#include <soo/soolink/lib/tcpbridge.h>
 
 static spinlock_t send_ethernet_lock;
 static spinlock_t recv_ethernet_lock;
@@ -274,7 +275,7 @@ void propagate_plugin_tcp_send(void) {
 
 	spin_unlock(&send_tcp_lock);
 
-	mediamgr_sendto(__plugin_send_args.data, __plugin_send_args.size);
+	tcpbridge_sendto(__plugin_send_args.data, __plugin_send_args.size);
 }
 
 /*

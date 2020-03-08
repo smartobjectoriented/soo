@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ $# -ne 1 ]; then
-	echo "Please provide the board name (vexpress, rpi3, merida, bpi)"
+	echo "Please provide the board name (vexpress, rpi3, rpi4, merida, bpi)"
 	exit 0
 fi 
 
@@ -15,7 +15,7 @@ if [ "$1" == "vexpress" -o "$1" == "merida" ]; then
     #create image first
     echo Creating sdcard.img.$1 ... 
     
-    if [ "$1" == "vexpress" -o "$1" == "rpi3" ]; then
+    if [ "$1" == "vexpress" -o "$1" == "rpi3" -o "$1" == "rpi4" ]; then
         dd_size=1G
     else
         dd_size=400M
@@ -27,7 +27,7 @@ if [ "$1" == "vexpress" -o "$1" == "merida" ]; then
     devname=${devname#"/dev/"}
 fi
 
-if [ "$1" == "rpi3" -o "$1" == "bpi" ]; then
+if [ "$1" == "rpi3" -o "$1" == "bpi" -o "$1" == "rpi4" ]; then
     echo "Specify the MMC device you want to deploy on (ex: sdb or mmcblk0 or other...)" 
     read devname
 fi
@@ -38,11 +38,12 @@ if [ "$1" == "merida" ]; then
     	(echo o; echo n; echo p; echo; echo 16384; echo +32M; echo t; echo e; echo a; echo n; echo p; echo; echo 81920; echo +100M; echo n; echo p; echo; echo 286720; echo +100M; echo n; echo p; echo 491520; echo +100M; echo w)   | sudo fdisk /dev/"$devname";
 fi
 
-if [ "$1" == "vexpress" -o "$1" == "rpi3" -o "$1" == "bpi" ]; then
+if [ "$1" == "vexpress" -o "$1" == "rpi3" -o "$1" == "bpi" -o "$1" == "rpi4" ]; then
 #create the partition layout this way
     (echo o; echo n; echo p; echo; echo; echo +64M; echo t; echo c; echo n; echo p; echo; echo; echo +400M; echo n; echo p; echo; echo; echo +100M; echo n; echo p; echo; echo; echo; echo w)   | sudo fdisk /dev/"$devname";
 fi
 
+# Give a chance to the real SD-card to be sync'd
 sleep 1s
 
 if [[ "$devname" = *[0-9] ]]; then

@@ -758,14 +758,11 @@ static pte_t * __init arm_pte_alloc(pmd_t *pmd, unsigned long addr,
 	return pte_offset_kernel(pmd, addr);
 }
 
-/* SOO.tech */
-#ifdef CONFIG_HIGHMEM
 static pte_t * __init early_pte_alloc(pmd_t *pmd, unsigned long addr,
 				      unsigned long prot)
 {
 	return arm_pte_alloc(pmd, addr, prot, early_alloc);
 }
-#endif
 
 static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 				  unsigned long end, unsigned long pfn,
@@ -1375,15 +1372,19 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 	/*
 	 * Clear page table except top pmd used by early fixmaps
 	 */
+
 #if 0 /* SOO.tech */
 	for (addr = VMALLOC_START; addr < (FIXADDR_TOP & PMD_MASK); addr += PMD_SIZE)
 		pmd_clear(pmd_off_k(addr));
-#endif
-	/* temporary for debugging purposes */
- 	for (addr = VMALLOC_START; addr < 0xf8000000; addr += PMD_SIZE)
- 			pmd_clear(pmd_off_k(addr));
+#endif /* 0 */
 
- 	/* paravirt */
+	for (addr = VMALLOC_START; addr < 0xff000000; addr += PMD_SIZE)
+			pmd_clear(pmd_off_k(addr));
+
+	for (addr = FIXADDR_START; addr < (FIXADDR_TOP & PMD_MASK); addr += PMD_SIZE)
+		pmd_clear(pmd_off_k(addr));
+
+/* SOO.tech */
 #ifdef CONFIG_MACH_SUN50I
 	debug_map_count += map_ll_gpio(&debug_map[debug_map_count]);
 	iotable_init(debug_map, debug_map_count);
@@ -1480,10 +1481,9 @@ static void __init kmap_init(void)
 	pkmap_page_table = early_pte_alloc(pmd_off_k(PKMAP_BASE),
 		PKMAP_BASE, _PAGE_KERNEL_TABLE);
 #endif
-#if 0 /* SOO.tech */
+
 	early_pte_alloc(pmd_off_k(FIXADDR_START), FIXADDR_START,
 			_PAGE_KERNEL_TABLE);
-#endif
 }
 
 static void __init map_lowmem(void)
@@ -1652,10 +1652,7 @@ static void __init early_fixmap_shutdown(void)
 	unsigned long va = fix_to_virt(__end_of_permanent_fixed_addresses - 1);
 
 	pte_offset_fixmap = pte_offset_late_fixmap;
-#if 0 /* SOO.tech */
 	pmd_clear(fixmap_pmd(va));
-#endif
-
 	local_flush_tlb_kernel_page(va);
 
 	for (i = 0; i < __end_of_permanent_fixed_addresses; i++) {
