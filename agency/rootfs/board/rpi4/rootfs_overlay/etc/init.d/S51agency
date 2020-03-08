@@ -11,13 +11,15 @@ case "$1" in
         mknod /dev/soo/dcm c ${DCM_MAJOR} 0
         echo "OK"
 
+        echo -n "Setting Smart Object environment..."
+        # Set the Smart Object environment
+        /root/soo_env.sh
+        echo "OK"
+        
         echo -n "Configuring Bluetooth... "
         /root/btmanager.sh
         echo "OK"
         
-        # Set the Smart Object name
-        /root/soo_name.sh
-
         # Set up wifi
         echo -n "Configuring wi-fi... "
         /root/wifimanager.sh

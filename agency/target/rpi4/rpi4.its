@@ -47,10 +47,6 @@
                         compression = "none";
                         load = <0x00c08000>;
                         entry = <0x00c08000>;
-            
-                        hash {
-                                algo = "crc32";
-                        };
                 };
 
                 fdt {
@@ -60,10 +56,6 @@
                         arch = "arm";
                         compression = "none";
                         load = <0x0a000000>;
-                                
-                        hash {
-                                algo = "crc32";
-                        };
                 };
 	
                 initrd {
@@ -74,9 +66,6 @@
                         os = "linux";
                         compression = "none";
                         load = <0x0b000000>;
-                        hash {
-                                algo = "crc32";
-                        };
                 };
         };
 	

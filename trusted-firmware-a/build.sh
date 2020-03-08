@@ -9,12 +9,12 @@ if [ "$var" != "" ]; then
 fi
 done < ../agency/build.conf
 
-if [ "$_PLATFORM" == "merida" ]; then
+if [ "$PLATFORM" == "merida" ]; then
     echo "Building ATF for running on MERIDA"
     make  CROSS_COMPILE=aarch64-linux-gnu- PLAT=sun50i_a64 DEBUG=1 SPD=opteed bl31 -j8
 fi
 
-if [ "$_PLATFORM" == "vexpress" ]; then
+if [ "$PLATFORM" == "vexpress" ]; then
     echo "Building ATF for running on vExpress Qemu"
     make  PLAT=qemu DEBUG=1 -j8
 fi

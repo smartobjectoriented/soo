@@ -7,8 +7,8 @@ fi
 done < ../build.conf
 
 echo Deploying transient content
-./mount_initrd.sh ${_PLATFORM}
+./mount_initrd.sh ${PLATFORM}
 cp -r transient/* initrd/transient/
-./umount_initrd.sh ${_PLATFORM}
+./umount_initrd.sh ${PLATFORM}
 
 echo Done...

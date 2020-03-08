@@ -1,0 +1,9 @@
+
+#ifndef MACH_UART_H
+#define MACH_UART_H
+
+#define CONFIG_DEBUG_UART_PHYS 0x01c28000
+#define CONFIG_DEBUG_UART_VIRT 0xf8c28000
+
+#endif /* MACH_UART_H */
+

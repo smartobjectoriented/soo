@@ -10,13 +10,6 @@ hciattach ${BT_TTY} bcm2035 3000000 flow - ${BDADDR}
 
 DEFAULT_HCI_NAME="soo-bt"
 
-SOO_CONF_FILE="/etc/soo/soo.conf"
-
-if [[ -f ${SOO_CONF_FILE} ]]
-then
-    source ${SOO_CONF_FILE}
-fi
-
 if [[ -n ${BT_NAME} ]]
 then
     HCI_NAME=${BT_NAME}
@@ -25,15 +18,17 @@ else
 fi
 
 /usr/libexec/bluetooth/bluetoothd &
-
 hciconfig hci0 up
-# Secure Simple Pairing Mode
-hciconfig hci0 sspmode 1
+hciconfig hci0 name ${HCI_NAME}
 # Discoverable
 hciconfig hci0 piscan
 # Class Networking
+# Secure Simple Pairing Mode
+hciconfig hci0 sspmode 1
+# Class Networking
 hciconfig hci0 class 020300
-hciconfig hci0 name ${HCI_NAME}
+
+
 
 
 
