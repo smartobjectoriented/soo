@@ -16,10 +16,6 @@
  *
  */
 
-
-
-#define CONFIG_DEBUG_UART_PHYS 0x01c28000
-#define CONFIG_DEBUG_UART_VIRT 0xf8c28000
-
+#include <mach/uart.h>
 
 #include <asm/hardware/debug-ns16550.S>

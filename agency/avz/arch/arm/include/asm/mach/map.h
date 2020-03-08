@@ -10,6 +10,9 @@
  *  Page table mapping constructs and function prototypes
  */
 
+#ifndef MACH_MAP_H
+#define MACH_MAP_H
+
 #include <asm/page.h>
 
 struct map_desc {
@@ -42,8 +45,9 @@ enum {
 
 
 #define MT_NONSHARED_DEVICE     MT_DEVICE_NONSHARED
-#define MT_IXP2000_DEVICE       MT_DEVICE_IXP2000
 
 extern void iotable_init(struct map_desc *, int);
 extern void create_mapping(struct map_desc *md, pde_t *pgd);
 
+
+#endif /* MACH_MAP_H */

@@ -16,22 +16,14 @@
  *
  */
 
-#include <mach/rpi4.h>
+#include <mach/uart.h>
 
-#define CONFIG_DEBUG_UART_PHYS RPI4_UART0_PHYS
-#define CONFIG_DEBUG_UART_VIRT RPI4_UART0_VIRT
+.extern __uart_vaddr
 
-#if 0
-.macro __print
-	ldr r0, =0xf8c15040
-	ldr r1, ='!'
-
-	str r1, [r0]
-.endm
-#endif
 		.macro	addruart, rp, rv, tmp
 		ldr	\rp, =CONFIG_DEBUG_UART_PHYS
-		ldr	\rv, =CONFIG_DEBUG_UART_VIRT
+		ldr \rv, =__uart_vaddr
+		ldr \rv, [\rv]
 		.endm
 
 		.macro	senduart,rd,rx
@@ -51,3 +43,4 @@
 		beq	1002b
 
 		.endm
+

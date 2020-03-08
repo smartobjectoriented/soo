@@ -18,9 +18,12 @@
 
 #include <linux/serial_reg.h>
 
+.extern __uart_vaddr
+
 		.macro	addruart, rp, rv, tmp
 		ldr	\rp, =CONFIG_DEBUG_UART_PHYS
-		ldr	\rv, =CONFIG_DEBUG_UART_VIRT
+		ldr \rv, =__uart_vaddr
+		ldr \rv, [\rv]T
 		.endm
 
 		.macro	senduart,rd,rx

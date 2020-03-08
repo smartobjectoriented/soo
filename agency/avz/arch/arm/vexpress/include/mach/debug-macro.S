@@ -16,11 +16,16 @@
  *
  */
 
+#include <mach/uart.h>
+
+.extern __uart_vaddr
 
 .macro	addruart, rp, rv
-		mov	\rp,      #0x00090000
-		orr	\rv, \rp, #0xf8000000	@ virtual base
-		orr	\rp, \rp, #0x1c000000 	@ physical base
+		ldr \rv, =__uart_vaddr
+		ldr \rv, [\rv]
+
+		ldr	 \rp, =#CONFIG_DEBUG_UART_PHYS 	@ physical base
 .endm
 
 #include <asm/hardware/debug-pl01x.S>
+

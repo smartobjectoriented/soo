@@ -52,7 +52,6 @@
 	ldr	\rd, =(PHYS_OFFSET+0x4000)
 	.endm
 
-@.global setup_page_table_hypervisor
 /*
  * Kernel startup entry point.
  * ---------------------------
@@ -264,7 +263,7 @@ __create_page_tables:
 	 */
 	mov	r6, pc, lsr #20			@ start of kernel section
 	orr	r3, r7, r6, lsl #20		@ flags + kernel base
-	str	r3, [r4, r6, lsl #2]		@ identity mapping
+	str	r3, [r4, r6, lsl #2]	@ identity mapping
 
 	/*
 	 * Now setup the pagetables for our kernel direct
@@ -287,7 +286,9 @@ __create_page_tables:
  * This allows debug messages to be output
  * via a serial console before paging_init.
 */
-   addruart r7, r3
+
+   ldr	   r7, =CONFIG_DEBUG_UART_PHYS
+   ldr	   r3, =CONFIG_DEBUG_UART_VIRT
 
    mov     r3, r3, lsr #20
    mov     r3, r3, lsl #2

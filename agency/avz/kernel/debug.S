@@ -17,17 +17,18 @@
  * references to these in a production kernel!
  */
 
-
 #include <mach/debug-macro.S>
 
 .global printascii
 .global printhex8
 .global printch
 
+.global __uart_vaddr
+
 .macro	addruart_current, rx, tmp1, tmp2
 		addruart	\tmp1, \tmp2
-		mrc		p15, 0, \rx, c1, c0
-		tst		\rx, #1
+		mrc			p15, 0, \rx, c1, c0
+		tst			\rx, #1
 		moveq		\rx, \tmp1
 		movne		\rx, \tmp2
 .endm
@@ -86,3 +87,7 @@ printch:
 		b	1b
 
 hexbuf:		.space 16
+
+__uart_vaddr:
+		.word CONFIG_DEBUG_UART_VIRT
+

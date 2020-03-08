@@ -442,7 +442,7 @@ void __init setup_arch(char **cmdline_p)
 
 	if (fdt_paddr) {
 
-		/* paravirt: use __lva and not phys_to_virt since device tree may be in guest domain range */
+		/* Use __lva and not phys_to_virt since device tree may be in guest domain range */
 		tags = (struct tag *) __lva(fdt_paddr);
 
 	} else if (mdesc->boot_params)
@@ -461,7 +461,7 @@ void __init setup_arch(char **cmdline_p)
 		if (tags->hdr.tag == ATAG_CORE) {
 			if (meminfo.nr_banks != 0)
 				squash_mem_tags(tags); /* remove corresponding MEM tag if something found from the fixup */
-			//save_atags(tags);   /* unused in the hypervisor */
+
 			parse_tags(tags);
 		}
 	}

@@ -22,13 +22,12 @@
 #define __ASM_ARM_IO_H
 
 
-#ifdef __KERNEL__
-
 #include <avz/types.h>
 
 #include <asm/byteorder.h>
 #include <asm/memory.h>
 #include <asm/mm.h>
+#include <asm/mach/map.h>
 
 /*
  * ISA I/O bus memory addresses are 1:1 with the physical address.
@@ -268,40 +267,7 @@ out:
 #define iowrite16_rep(p,s,c)	__raw_writesw(p,s,c)
 #define iowrite32_rep(p,s,c)	__raw_writesl(p,s,c)
 
-extern void __iomem *ioport_map(unsigned long port, unsigned int nr);
-extern void ioport_unmap(void __iomem *addr);
 #endif
 
-struct pci_dev;
-
-extern void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long maxlen);
-extern void pci_iounmap(struct pci_dev *dev, void __iomem *addr);
-
-/*
- * can the hardware map this into one segment or not, given no other
- * constraints.
- */
-#define BIOVEC_MERGEABLE(vec1, vec2)	\
-	((bvec_to_phys((vec1)) + (vec1)->bv_len) == bvec_to_phys((vec2)))
-
-/*
- * Convert a physical pointer to a virtual kernel pointer for /dev/mem
- * access
- */
-#define xlate_dev_mem_ptr(p)	__va(p)
-
-/*
- * Convert a virtual cached pointer to an uncached pointer
- */
-#define xlate_dev_kmem_ptr(p)	p
-
-/*
- * Register ISA memory and port locations for glibc iopl/inb/outb
- * emulation.
- */
-extern void register_isa_ports(unsigned int mmio, unsigned int io,
-			       unsigned int io_shift);
-
-#endif	/* __KERNEL__ */
 
 #endif	/* __ASM_ARM_IO_H */

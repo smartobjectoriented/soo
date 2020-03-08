@@ -139,39 +139,6 @@ void init_idle_domain(void)
 	this_cpu(curr_vcpu) = current;
 }
 
-
-static void __init start_of_day(void)
-{
-
-	logbool_init();
-
-	printk("Init IRQ...\n");
-	init_IRQ();
-
-	printk("Init machine...\n");
-	customize_machine();
-
-	printk("Init scheduler...\n");
-	scheduler_init();
-
-	initialize_keytable();
-
-	printk("Initializing timer...\n");
-	/* get the time base kicked */
-
-	timer_init();
-	init_time();
-
-	/* create idle domain */
-	init_idle_domain();
-
-	/* for further create_mapping use... */
-	current->arch.guest_table = mk_pagetable(__pa(swapper_pg_dir));
-
-	do_initcalls();
-
-}
-
 extern void setup_arch(char **);
 extern struct vcpu *__init alloc_domU_vcpu0(struct domain *d);
 
@@ -219,7 +186,35 @@ void __init __start_avz(void)
 
 	trap_init();
 
-	start_of_day();
+	/* Prepare to adapt the serial virtual address at a better location in the I/O space. */
+	console_init_post();
+
+	logbool_init();
+
+	printk("Init IRQ...\n");
+	init_IRQ();
+
+	printk("Init machine...\n");
+	customize_machine();
+
+	printk("Init scheduler...\n");
+	scheduler_init();
+
+	initialize_keytable();
+
+	printk("Initializing timer...\n");
+	/* get the time base kicked */
+
+	timer_init();
+	init_time();
+
+	/* create idle domain */
+	init_idle_domain();
+
+	/* for further create_mapping use... */
+	current->arch.guest_table = mk_pagetable(__pa(swapper_pg_dir));
+
+	do_initcalls();
 
 	/* Deal with secondary processors.  */
 	printk("spinning up at most %d total processors ...\n", max_cpus);

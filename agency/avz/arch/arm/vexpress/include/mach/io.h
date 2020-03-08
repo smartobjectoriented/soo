@@ -26,7 +26,6 @@
 
 #define IOMEM(x)        ((void __force __iomem *)(x))
 
-
 #define __chk_io_ptr(x) (void)0
 
 #define __raw_writeb(v,a)	(__chk_io_ptr(a), *(volatile unsigned char __force  *)(a) = (v))

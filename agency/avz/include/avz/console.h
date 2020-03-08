@@ -24,6 +24,8 @@
 #include <soo/uapi/avz.h>
 
 void console_init(void);
+void console_init_post(void);
+
 void printch(char c);
 
 #endif /* __CONSOLE_H__ */
