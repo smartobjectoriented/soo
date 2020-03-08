@@ -423,7 +423,7 @@ static void backend_changed(struct vbus_device *dev, enum vbus_state backend_sta
 		mutex_lock(&processing_lock);
 
 		__connected = false;
-		reinit_completion(&connected_sync);
+		complete(&connected_sync);
 
 		vuihandler_suspend();
 		break;

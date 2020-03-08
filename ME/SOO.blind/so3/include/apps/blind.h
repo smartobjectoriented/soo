@@ -30,6 +30,8 @@
 /* Cooperation with SOO.outdoor */
 #include <apps/outdoor.h>
 
+#define APP_NAME "blind"
+
 /* Commands */
 #define IOCTL_BLIND_UP		_IOW(0x500b118du, 1, uint32_t)
 #define IOCTL_BLIND_DOWN	_IOW(0x500b118du, 2, uint32_t)

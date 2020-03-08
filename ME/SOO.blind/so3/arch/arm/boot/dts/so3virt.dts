@@ -71,12 +71,12 @@
 
 			vdummy {
 				compatible = "vdummy,frontend";
-				status = "ok";
+				status = "disabled";
 			};
 	
 			vuihandler {
 				compatible = "vuihandler,frontend";
-				status = "disabled";
+				status = "ok";
 			};
     
 			vuart {
@@ -88,6 +88,12 @@
 				compatible = "vnetstream,frontend";
 				status = "disabled";
 			};
+            
+            vdoga12v6nm {
+				compatible = "vdoga12v6nm,frontend";
+				status = "ok";
+			};
+
 		};
 	
 		features {
