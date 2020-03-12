@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcutils.a  CMakeFiles/cutils.dir/sockets.cpp.o CMakeFiles/cutils.dir/sockets_unix.cpp.o CMakeFiles/cutils.dir/socket_network_client_unix.c.o CMakeFiles/cutils.dir/socket_inaddr_any_server_unix.c.o CMakeFiles/cutils.dir/android_get_control_file.cpp.o
+/usr/bin/ranlib libcutils.a

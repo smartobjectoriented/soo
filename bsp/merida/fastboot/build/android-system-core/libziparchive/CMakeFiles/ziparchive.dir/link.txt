@@ -1,0 +1,2 @@
+/usr/bin/ar qc libziparchive.a  CMakeFiles/ziparchive.dir/zip_archive.cc.o CMakeFiles/ziparchive.dir/zip_archive_stream_entry.cc.o CMakeFiles/ziparchive.dir/zip_writer.cc.o
+/usr/bin/ranlib libziparchive.a

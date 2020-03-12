@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdiagnose_usb.a  CMakeFiles/diagnose_usb.dir/diagnose_usb.cpp.o
+/usr/bin/ranlib libdiagnose_usb.a

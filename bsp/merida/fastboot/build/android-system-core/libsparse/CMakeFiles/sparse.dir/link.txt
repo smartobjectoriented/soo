@@ -1,0 +1,2 @@
+/usr/bin/ar qc libsparse.a  CMakeFiles/sparse.dir/backed_block.c.o CMakeFiles/sparse.dir/output_file.c.o CMakeFiles/sparse.dir/sparse.c.o CMakeFiles/sparse.dir/sparse_crc32.c.o CMakeFiles/sparse.dir/sparse_err.c.o CMakeFiles/sparse.dir/sparse_read.c.o
+/usr/bin/ranlib libsparse.a
