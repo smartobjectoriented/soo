@@ -34,7 +34,8 @@ static req_type_t protocol_to_req_type[ETH_P_SL_MAX - ETH_P_SL_MIN] = {
 	[ETH_P_SOOLINK_IAMASOO - ETH_P_SL_MIN] = SL_REQ_DISCOVERY,
 	[ETH_P_SOOLINK_BT - ETH_P_SL_MIN] = SL_REQ_BT,
 	[ETH_P_SOOLINK_NETSTREAM - ETH_P_SL_MIN] = SL_REQ_NETSTREAM,
-	[ETH_P_SOOLINK_TCP - ETH_P_SL_MIN] = SL_REQ_TCP
+	[ETH_P_SOOLINK_TCP - ETH_P_SL_MIN] = SL_REQ_TCP,
+	[ETH_P_SOOLINK_PEER - ETH_P_SL_MIN] = SL_REQ_PEER
 };
 
 static uint16_t req_type_to_protocol[SL_REQ_N] = {
@@ -42,7 +43,8 @@ static uint16_t req_type_to_protocol[SL_REQ_N] = {
 	[SL_REQ_DISCOVERY] = ETH_P_SOOLINK_IAMASOO,
 	[SL_REQ_BT] = ETH_P_SOOLINK_BT,
 	[SL_REQ_NETSTREAM] = ETH_P_SOOLINK_NETSTREAM,
-	[SL_REQ_TCP] = ETH_P_SOOLINK_TCP
+	[SL_REQ_TCP] = ETH_P_SOOLINK_TCP,
+	[SL_REQ_PEER] = ETH_P_SOOLINK_PEER
 };
 
 struct list_head plugin_list;
@@ -63,41 +65,19 @@ static plugin_desc_t *find_plugin_by_if_type(if_type_t if_type) {
 }
 
 /**
- * Send a packet using all the active available plugins.
- * The loopback plugin is ignored.
- */
-void all_plugins_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
-	plugin_desc_t *cur;
-
-	list_for_each_entry(cur, &plugin_list, list) {
-
-		/*
-		 * When requesting a propagation over all the available plugins, sending the
-		 * packet through the loopback plugin has no sense. For instance, the discovery
-		 * subsystem sends beacons but does not expect to receive its own beacons back.
-		 */
-		if ((likely(cur->if_type != SL_IF_LO)) && (likely(cur->tx_callback)))
-			cur->tx_callback(sl_desc, data, size, flags);
-	}
-}
-
-/**
  * Send a packet using a plugin.
  */
 void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
 	plugin_desc_t *plugin_desc;
 
-	if (sl_desc->if_type == SL_IF_ALL)
-		all_plugins_tx(sl_desc, data, size, flags);
-	else {
-		/* Find a plugin descriptor which matches with the if_type */
-		plugin_desc = find_plugin_by_if_type(sl_desc->if_type);
+	/* Find a plugin descriptor which matches with the if_type */
+	plugin_desc = find_plugin_by_if_type(sl_desc->if_type);
 
-		/* Currently, it should not fail... */
-		BUG_ON(!plugin_desc);
+	/* Currently, it should not fail... */
+	BUG_ON(!plugin_desc);
 
-		plugin_desc->tx_callback(sl_desc, data, size, flags);
-	}
+	plugin_desc->tx_callback(sl_desc, data, size, flags);
+
 }
 
 /**
@@ -110,6 +90,9 @@ void plugin_rx(plugin_desc_t *plugin_desc, agencyUID_t *agencyUID_from, req_type
 	sl_desc = find_sl_desc_by_req_type(req_type);
 	if (!sl_desc)
 		/* We did not find any available descriptor able to process this data. Simply ignore it... */
+		return ;
+
+	if (sl_desc->req_type == SL_REQ_PEER)
 		return ;
 
 	memcpy(&sl_desc->agencyUID_from, agencyUID_from, SOO_AGENCY_UID_SIZE);
