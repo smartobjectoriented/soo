@@ -38,8 +38,8 @@
 static spinlock_t send_lock;
 static spinlock_t recv_lock;
 
-static plugin_send_args_t plugin_send_args;
-static plugin_recv_args_t plugin_recv_args;
+static volatile plugin_send_args_t plugin_send_args;
+static volatile plugin_recv_args_t plugin_recv_args;
 
 #if defined(CONFIG_BT_RFCOMM)
 /* Interface with the RFCOMM subsystem */
@@ -61,7 +61,7 @@ static void plugin_bluetooth_tx(sl_desc_t *sl_desc, void *data, size_t size, uns
 	plugin_send_args.data = data;
 	plugin_send_args.size = size;
 
-	rtdm_do_sync_dom(DOMID_AGENCY, DC_PLUGIN_BLUETOOTH_SEND);
+	do_sync_dom(DOMID_AGENCY, DC_PLUGIN_BLUETOOTH_SEND);
 }
 
 void propagate_plugin_bluetooth_send(void) {
@@ -119,7 +119,7 @@ void rtdm_propagate_sl_plugin_bluetooth_rx(void) {
 	__plugin_recv_args.req_type = plugin_recv_args.req_type;
 	__plugin_recv_args.data = plugin_recv_args.data;
 	__plugin_recv_args.size = plugin_recv_args.size;
-	memcpy(__plugin_recv_args.mac, plugin_recv_args.mac, ETH_ALEN);
+	memcpy(__plugin_recv_args.mac, (void *) plugin_recv_args.mac, ETH_ALEN);
 
 	spin_unlock(&recv_lock);
 

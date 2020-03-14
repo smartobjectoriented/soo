@@ -69,13 +69,16 @@
  * Value -1 means no dc_event in progress.
  */
 atomic_t dc_outgoing_domID[DC_EVENT_MAX];
+extern atomic_t rtdm_dc_outgoing_domID[DC_EVENT_MAX];
 
 /*
  * Used to store the domID issuing a (incoming) dc_event
  */
 atomic_t dc_incoming_domID[DC_EVENT_MAX];
+extern atomic_t rtdm_dc_incoming_domID[DC_EVENT_MAX];
 
 static struct completion dc_stable_lock[DC_EVENT_MAX];
+extern rtdm_event_t rtdm_dc_stable_event[DC_EVENT_MAX];
 
 static DEFINE_SEMAPHORE(sooeventd_lock);
 DEFINE_SEMAPHORE(usr_feedback);
@@ -91,11 +94,30 @@ void dc_stable(int dc_event)
 	/* It may happen that the thread which performs the down did not have time to perform the call and is not suspended.
 	 * In this case, complete() will increment the count and wait_for_completion() will go straightforward.
 	 */
-	atomic_set(&dc_outgoing_domID[dc_event], -1);
-	atomic_set(&dc_incoming_domID[dc_event], -1);
+	if (smp_processor_id() == AGENCY_RT_CPU)
+		rtdm_event_signal(&rtdm_dc_stable_event[dc_event]);
+	else
+		complete(&dc_stable_lock[dc_event]);
 
-	complete(&dc_stable_lock[dc_event]);
 }
+
+
+/*
+ * Called to inform the non-RT side that we have completed a dc_event processing.
+ */
+void rtdm_tell_dc_stable(int dc_event)  {
+	DBG("Now pinging domain %d back\n", DOMID_AGENCY);
+
+	/* Make sure a previous transaction is not being processed */
+	set_dc_event(AGENCY_CPU, dc_event);
+
+	atomic_set(&rtdm_dc_incoming_domID[dc_event], -1);
+
+	notify_remote_via_evtchn(dc_evtchn[DOMID_AGENCY]);
+
+}
+
+
 
 /*
  * Prepare a remote ME to react to a ping event.
@@ -104,7 +126,8 @@ void dc_stable(int dc_event)
 void set_dc_event(domid_t domID, dc_event_t dc_event)
 {
 	soo_hyp_dc_event_t dc_event_args;
-	int rc;
+	int rc = -EBUSY;
+	int cpu = smp_processor_id();
 
 	DBG("%s(%d, %d)\n", __func__, domID, dc_event);
 
@@ -112,9 +135,12 @@ void set_dc_event(domid_t domID, dc_event_t dc_event)
 	dc_event_args.dc_event = dc_event;
 
 	rc = soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
-	if (rc != 0) {
-		lprintk("%s: Failed to set directcomm event from hypervisor (%d)\n", __func__, rc);
-		BUG();
+	while (rc == -EBUSY) {
+		if (cpu == AGENCY_RT_CPU)
+			xnsched_run();
+		else
+			schedule();
+		rc = soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
 	}
 }
 
@@ -122,21 +148,23 @@ void set_dc_event(domid_t domID, dc_event_t dc_event)
  * Sends a ping event to a remote domain in order to get synchronized.
  * Various types of event (dc_event) can be sent.
  *
- * To perform a ping from the RT domain, please use rtdm_do_sync_agency() in rtdm_vbus.c
- *
- * As for the domain table, the index 0 and 1 are for the agency and the indexes 2..MAX_DOMAINS
- * are for the MEs. If a ME_slotID is provided, the proper index is given by ME_slotID.
- *
  * @domID: the target domain
  * @dc_event: type of event used in the synchronization
  */
 void do_sync_dom(int domID, dc_event_t dc_event)
 {
+	int cpu = smp_processor_id();
+
 	/* Ping the remote domain to perform the task associated to the DC event */
 	DBG("%s: ping domain %d...\n", __func__, domID);
 
 	/* Make sure a previous transaction is not ongoing. */
-	while (atomic_cmpxchg(&dc_outgoing_domID[dc_event], -1, domID) != -1) { }
+	if (cpu == AGENCY_RT_CPU) {
+		while (atomic_cmpxchg(&rtdm_dc_outgoing_domID[dc_event], -1, domID) != -1)
+			xnsched_run();
+	} else
+		while (atomic_cmpxchg(&dc_outgoing_domID[dc_event], -1, domID) != -1)
+			schedule();
 
 	/* Configure the dc event on the target domain */
 
@@ -144,8 +172,14 @@ void do_sync_dom(int domID, dc_event_t dc_event)
 
 	notify_remote_via_evtchn(dc_evtchn[domID]);
 
-	/* Wait for the response from the outgoing domain */
-	wait_for_completion(&dc_stable_lock[dc_event]);
+	/* Wait for the response from the outgoing domain, and reset the barrier. */
+	if (cpu == AGENCY_RT_CPU) {
+		rtdm_event_wait(&rtdm_dc_stable_event[dc_event]);
+		atomic_set(&rtdm_dc_outgoing_domID[dc_event], -1);
+	} else {
+		wait_for_completion(&dc_stable_lock[dc_event]);
+		atomic_set(&dc_outgoing_domID[dc_event], -1);
+	}
 }
 
 /*
@@ -154,22 +188,33 @@ void do_sync_dom(int domID, dc_event_t dc_event)
  */
 void tell_dc_stable(int dc_event)  {
 	int domID;
+	int cpu = smp_processor_id();
 
-	domID = atomic_read(&dc_incoming_domID[dc_event]);
+	if (cpu == AGENCY_RT_CPU) {
+		domID = atomic_read(&rtdm_dc_incoming_domID[dc_event]);
+		BUG_ON(domID != AGENCY_CPU);
+	} else {
+		domID = atomic_read(&dc_incoming_domID[dc_event]);
+		BUG_ON(domID == -1);
 
-	BUG_ON(domID == -1);
+	}
 
 	DBG("vbus_stable: now pinging domain %d back\n", domID);
-
 	set_dc_event(domID, dc_event);
 
 	/* Ping the remote domain to perform the task associated to the DC event */
-	DBG("%s: ping domain %d...\n", __func__, dc_incoming_domID[dc_event]);
+	DBG("%s: ping domain %d...\n", __func__, domID);
 
-	atomic_set(&dc_incoming_domID[dc_event], -1);
+	if (cpu == AGENCY_RT_CPU) {
+		atomic_set(&rtdm_dc_incoming_domID[dc_event], -1);
+		notify_remote_via_evtchn(dc_evtchn[DOMID_AGENCY]);
+	} else {
+		atomic_set(&dc_incoming_domID[dc_event], -1);
+		notify_remote_via_evtchn(dc_evtchn[domID]);
+	}
 
-	notify_remote_via_evtchn(dc_evtchn[domID]);
 }
+
 
 int sooeventd_resume(void)
 {
@@ -240,8 +285,8 @@ static bool check_uevent(unsigned int uevent_type, unsigned int slotID) {
 	soo_uevent_t *cur;
 
 	list_for_each_entry(cur, &uevents, list)
-		if ((cur->uevent_type == uevent_type) && (cur->slotID == slotID))
-			return true;
+	if ((cur->uevent_type == uevent_type) && (cur->slotID == slotID))
+		return true;
 
 	return false;
 }
@@ -329,7 +374,7 @@ int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
 
 	current_pending_uevent = 0;
 
-out:
+	out:
 	return ret;
 
 }
@@ -420,12 +465,12 @@ int set_ME_state(unsigned int ME_slotID, ME_state_t state)
  * Spawn a separate thread for processing wlan send() outside the directcomm bottom half context.
  */
 static int sl_plugin_wlan_send_fn(void *args) {
-	
+
 	propagate_plugin_wlan_send();
-	
+
 	tell_dc_stable(DC_PLUGIN_WLAN_SEND);
 
-        return 0;
+	return 0;
 }
 
 #endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
@@ -439,7 +484,7 @@ static int sl_plugin_loopback_send_fn(void *args) {
 	propagate_plugin_loopback_send();
 	tell_dc_stable(DC_PLUGIN_LOOPBACK_SEND);
 
-        return 0;
+	return 0;
 }
 
 #endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
@@ -453,7 +498,7 @@ static int sl_plugin_ethernet_send_fn(void *args) {
 	propagate_plugin_ethernet_send();
 	tell_dc_stable(DC_PLUGIN_ETHERNET_SEND);
 
-        return 0;
+	return 0;
 }
 
 /*
@@ -463,7 +508,7 @@ static int sl_plugin_tcp_send_fn(void *args) {
 	propagate_plugin_tcp_send();
 	tell_dc_stable(DC_PLUGIN_TCP_SEND);
 
-        return 0;
+	return 0;
 }
 
 #endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
@@ -477,7 +522,7 @@ static int sl_plugin_bluetooth_send_fn(void *args) {
 	propagate_plugin_bluetooth_send();
 	tell_dc_stable(DC_PLUGIN_BLUETOOTH_SEND);
 
-        return 0;
+	return 0;
 }
 
 #endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
@@ -618,11 +663,11 @@ int agency_ctl(agency_ctl_args_t *agency_ctl_args)
 		devaccess_get_soo_name(agency_ctl_args->u.soo_name_args.soo_name);
 		break;
 
-    case AG_AGENCY_UPGRADE:
-        DBG("Upgrade buffer pfn: 0x%08X with size %lu\n", agency_ctl_args->u.agency_upgrade_args.buffer_pfn, agency_ctl_args->u.agency_upgrade_args.buffer_len);
-        devaccess_store_upgrade(agency_ctl_args->u.agency_upgrade_args.buffer_pfn, agency_ctl_args->u.agency_upgrade_args.buffer_len, agency_ctl_args->slotID);
-        
-        break;
+	case AG_AGENCY_UPGRADE:
+		DBG("Upgrade buffer pfn: 0x%08X with size %lu\n", agency_ctl_args->u.agency_upgrade_args.buffer_pfn, agency_ctl_args->u.agency_upgrade_args.buffer_len);
+		devaccess_store_upgrade(agency_ctl_args->u.agency_upgrade_args.buffer_pfn, agency_ctl_args->u.agency_upgrade_args.buffer_len, agency_ctl_args->slotID);
+
+		break;
 
 	default:
 		lprintk("%s: agency_ctl %d cmd not processed by the agency yet... \n", __func__, agency_ctl_args->cmd);

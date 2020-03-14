@@ -99,7 +99,7 @@ int datalink_xmit(sl_desc_t *sl_desc, void *packet, size_t size, bool completed)
 			break;
 
 		default:
-		/* SL_MODE_UNICAST */
+			/* SL_MODE_UNICAST */
 			sender_tx(sl_desc, packet, size, 0);
 			return 0;
 
@@ -124,7 +124,7 @@ void datalink_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, s
 			break;
 
 		default:
-		/* SL_MODE_UNICAST */
+			/* SL_MODE_UNICAST */
 			receiver_rx(sl_desc, plugin_desc, packet, size);
 			break;
 	}

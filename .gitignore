@@ -22,7 +22,6 @@ vmlinux.*dom*
 
 # Backup files
 *~
-*.d
 
 # Hidden files
 .*

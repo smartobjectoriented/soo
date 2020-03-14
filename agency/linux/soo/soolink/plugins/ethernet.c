@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -42,33 +42,58 @@
 static spinlock_t send_ethernet_lock;
 static spinlock_t recv_ethernet_lock;
 
-static spinlock_t send_tcp_lock;
-static spinlock_t recv_tcp_lock;
-
 static spinlock_t list_lock;
 
-static plugin_send_args_t plugin_send_args;
-static plugin_recv_args_t plugin_recv_args;
+static volatile plugin_send_args_t plugin_send_args;
+static volatile plugin_recv_args_t plugin_recv_args;
 
 static struct net_device *net_dev = NULL;
 
 static struct list_head remote_soo_list;
 
 static bool plugin_ready = false;
-
+static int ii = 0;
 static void rtdm_plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
 
 	if (unlikely(!plugin_ready))
 		return;
 
 	spin_lock(&send_ethernet_lock);
+if (sl_desc->req_type != SL_REQ_PEER) {
+	ii=0;
 
 	plugin_send_args.sl_desc = sl_desc;
 	plugin_send_args.data = data;
 	plugin_send_args.size = size;
 
-	rtdm_do_sync_dom(DOMID_AGENCY, DC_PLUGIN_ETHERNET_SEND);
+		{
+				transceiver_packet_t *packet;
+				req_type_t req_type;
 
+				packet = (transceiver_packet_t *) plugin_send_args.data;
+				lprintk("### **********SEND PREPA CHECKPOINT(%x): ", data); lprintk_buffer(packet->payload, SOO_AGENCY_UID_SIZE);
+
+				}
+
+
+} else {
+	ii =1;
+
+}
+	do_sync_dom(DOMID_AGENCY, DC_PLUGIN_ETHERNET_SEND);
+
+}
+void __valid(char *fn, int line) {
+	transceiver_packet_t *packet = (transceiver_packet_t *) plugin_send_args.data;
+	if (!packet)
+		return ;
+	lprintk("## %s:%d (%x) content: %x %x %x\n", fn, line, packet, packet->payload[1], packet->payload[2], packet->payload[3]);
+}
+
+void __trigger(void) {
+	spin_lock(&send_ethernet_lock);
+	ii= 1;
+	do_sync_dom(DOMID_AGENCY, DC_PLUGIN_ETHERNET_SEND);
 }
 
 int propagate_plugin_ethernet_send_fn(void *args) {
@@ -78,8 +103,8 @@ int propagate_plugin_ethernet_send_fn(void *args) {
 }
 
 static plugin_desc_t plugin_ethernet_desc = {
-	.tx_callback	= rtdm_plugin_ethernet_tx,
-	.if_type	= SL_IF_ETH
+	.tx_callback = rtdm_plugin_ethernet_tx,
+	.if_type = SL_IF_ETH
 };
 
 static void plugin_tcp_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
@@ -88,13 +113,13 @@ static void plugin_tcp_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned 
 	if (sl_desc->req_type == SL_REQ_DISCOVERY)
 		return ;
 
-	spin_lock(&send_tcp_lock);
+	spin_lock(&send_ethernet_lock);
 
 	plugin_send_args.sl_desc = sl_desc;
 	plugin_send_args.data = data;
 	plugin_send_args.size = size;
 
-	rtdm_do_sync_dom(DOMID_AGENCY, DC_PLUGIN_TCP_SEND);
+	do_sync_dom(DOMID_AGENCY, DC_PLUGIN_TCP_SEND);
 }
 
 int propagate_plugin_tcp_send_fn(void *args) {
@@ -104,8 +129,8 @@ int propagate_plugin_tcp_send_fn(void *args) {
 }
 
 static plugin_desc_t plugin_tcp_desc = {
-	.tx_callback	= plugin_tcp_tx,
-	.if_type	= SL_IF_TCP
+	.tx_callback = plugin_tcp_tx,
+	.if_type = SL_IF_TCP
 };
 
 /**
@@ -205,6 +230,13 @@ void propagate_plugin_ethernet_send(void) {
 	const uint8_t *dest;
 	uint8_t *__data;
 
+	if (ii == 1) {
+		lprintk("### releasing now the lock\n");
+		spin_unlock(&send_ethernet_lock);
+
+		return ;
+	}
+
 	__plugin_send_args = plugin_send_args;
 	DBG("Requester type: %d\n", __plugin_send_args.sl_desc->req_type);
 
@@ -233,8 +265,9 @@ void propagate_plugin_ethernet_send(void) {
 	if (dest == NULL)
 		return ;
 
-	__data = skb_put(skb, __plugin_send_args.size);
-	memcpy(__data, __plugin_send_args.data, __plugin_send_args.size);
+	memcpy(skb->data, __plugin_send_args.data, __plugin_send_args.size);
+
+	skb_put(skb, __plugin_send_args.size);
 
 	dev_hard_header(skb, net_dev, proto, dest, net_dev->dev_addr, skb->len);
 	if ((!netif_running(net_dev)) || (!netif_device_present(net_dev))) {
@@ -243,6 +276,7 @@ void propagate_plugin_ethernet_send(void) {
 	}
 
 	txq = netdev_pick_tx(net_dev, skb, NULL);
+
 	netdev_start_xmit(skb, net_dev, txq, false);
 }
 
@@ -252,6 +286,7 @@ void propagate_plugin_ethernet_send(void) {
  */
 void sl_plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src) {
 	req_type_t req_type;
+	transceiver_packet_t *packet;
 
 	req_type = get_sl_req_type_from_protocol(ntohs(skb->protocol));
 
@@ -260,7 +295,11 @@ void sl_plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint
 	plugin_recv_args.req_type = req_type;
 	plugin_recv_args.data = skb->data;
 	plugin_recv_args.size = skb->len;
-	memcpy(plugin_recv_args.mac, mac_src, ETH_ALEN);
+	memcpy((void *) plugin_recv_args.mac, mac_src, ETH_ALEN);
+
+
+	packet = (transceiver_packet_t *) skb->data;
+	lprintk("### *************RECV ********* req_type: %d ****: ", req_type); lprintk_buffer(packet->payload, SOO_AGENCY_UID_SIZE);
 
 	do_sync_dom(DOMID_AGENCY_RT, DC_PLUGIN_ETHERNET_RECV);
 
@@ -270,10 +309,17 @@ void sl_plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint
 void propagate_plugin_tcp_send(void) {
 	plugin_send_args_t __plugin_send_args;
 
+	if (ii == 1) {
+		lprintk("### tcp releasing now the lock\n");
+		spin_unlock(&send_ethernet_lock);
+
+		return ;
+	}
+
 	__plugin_send_args = plugin_send_args;
 	DBG("TCP: Requester type: %d\n", __plugin_send_args.sl_desc->req_type);
 
-	spin_unlock(&send_tcp_lock);
+	spin_unlock(&send_ethernet_lock);
 
 	tcpbridge_sendto(__plugin_send_args.data, __plugin_send_args.size);
 }
@@ -285,11 +331,11 @@ void propagate_plugin_tcp_send(void) {
  */
 void sl_plugin_tcp_rx(void *data, size_t size) {
 
-	/* In case where external function calls this, before the plugin finishes its initialization (like mediamgr for instance). */
+	/* In case where external function calls this, before the plugin finishes its initialization (like tcpbridge for instance). */
 	if (!plugin_ready)
 		return ;
 
-	spin_lock(&recv_tcp_lock);
+	spin_lock(&recv_ethernet_lock);
 
 	plugin_recv_args.req_type = SL_REQ_TCP;
 	plugin_recv_args.data = data;
@@ -342,7 +388,7 @@ void rtdm_propagate_sl_plugin_ethernet_rx(void) {
 	__plugin_recv_args.req_type = plugin_recv_args.req_type;
 	__plugin_recv_args.data = plugin_recv_args.data;
 	__plugin_recv_args.size = plugin_recv_args.size;
-	memcpy(__plugin_recv_args.mac, plugin_recv_args.mac, ETH_ALEN);
+	memcpy(__plugin_recv_args.mac, (void *) plugin_recv_args.mac, ETH_ALEN);
 
 	spin_unlock(&recv_ethernet_lock);
 
@@ -366,7 +412,7 @@ void rtdm_propagate_sl_plugin_tcp_rx(void) {
 	__plugin_recv_args.data = plugin_recv_args.data;
 	__plugin_recv_args.size = plugin_recv_args.size;
 
-	spin_unlock(&recv_tcp_lock);
+	spin_unlock(&recv_ethernet_lock);
 
 	rtdm_sl_plugin_tcp_rx(__plugin_recv_args.req_type, __plugin_recv_args.data, __plugin_recv_args.size);
 }
@@ -403,8 +449,6 @@ static int plugin_ethernet_init(void) {
 
 	spin_lock_init(&send_ethernet_lock);
 	spin_lock_init(&recv_ethernet_lock);
-	spin_lock_init(&send_tcp_lock);
-	spin_lock_init(&recv_tcp_lock);
 
 	spin_lock_init(&list_lock);
 
@@ -412,6 +456,8 @@ static int plugin_ethernet_init(void) {
 	transceiver_plugin_register(&plugin_tcp_desc);
 
 	discovery_listener_register(&plugin_ethernet_discovery_desc);
+
+	plugin_send_args.data = NULL;
 
 	kthread_run(net_dev_detect, NULL, "eth_detect");
 

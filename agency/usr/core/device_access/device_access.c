@@ -163,7 +163,7 @@ void inject_MEs_from_filesystem(void) {
 	while ((ent = readdir(directory)) != NULL) {
 
 		/* Ignore . and .. */
-		if ((!strcmp(ent->d_name, ".")) || (!strcmp(ent->d_name, "..")))
+		if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || !strcmp(ent->d_name, "lost+found"))
 			continue;
 
 		printf("Found new ME to inject : %s\n", ent->d_name);
