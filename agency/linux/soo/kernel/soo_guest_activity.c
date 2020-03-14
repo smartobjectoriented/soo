@@ -101,24 +101,6 @@ void dc_stable(int dc_event)
 
 }
 
-
-/*
- * Called to inform the non-RT side that we have completed a dc_event processing.
- */
-void rtdm_tell_dc_stable(int dc_event)  {
-	DBG("Now pinging domain %d back\n", DOMID_AGENCY);
-
-	/* Make sure a previous transaction is not being processed */
-	set_dc_event(AGENCY_CPU, dc_event);
-
-	atomic_set(&rtdm_dc_incoming_domID[dc_event], -1);
-
-	notify_remote_via_evtchn(dc_evtchn[DOMID_AGENCY]);
-
-}
-
-
-
 /*
  * Prepare a remote ME to react to a ping event.
  * @domID: the target ME

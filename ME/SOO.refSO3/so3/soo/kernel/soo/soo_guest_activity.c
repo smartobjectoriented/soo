@@ -26,6 +26,7 @@
 #include <heap.h>
 #include <list.h>
 #include <schedule.h>
+#include <errno.h>
 
 #include <device/irq.h>
 
@@ -36,7 +37,7 @@
 #include <soo/console.h>
 #include <soo/debug/logbool.h>
 
-#define MAX_PENDING_UEVENT		10
+#define MAX_PENDING_UEVENT 	10
 
 /*
  * Used to keep track of the target domain for a certain (outgoing) dc_event.

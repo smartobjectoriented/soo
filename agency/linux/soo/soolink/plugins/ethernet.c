@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -52,48 +52,19 @@ static struct net_device *net_dev = NULL;
 static struct list_head remote_soo_list;
 
 static bool plugin_ready = false;
-static int ii = 0;
+
 static void rtdm_plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
 
 	if (unlikely(!plugin_ready))
 		return;
 
 	spin_lock(&send_ethernet_lock);
-if (sl_desc->req_type != SL_REQ_PEER) {
-	ii=0;
-
 	plugin_send_args.sl_desc = sl_desc;
 	plugin_send_args.data = data;
 	plugin_send_args.size = size;
-
-		{
-				transceiver_packet_t *packet;
-				req_type_t req_type;
-
-				packet = (transceiver_packet_t *) plugin_send_args.data;
-				lprintk("### **********SEND PREPA CHECKPOINT(%x): ", data); lprintk_buffer(packet->payload, SOO_AGENCY_UID_SIZE);
-
-				}
-
-
-} else {
-	ii =1;
-
-}
+	
 	do_sync_dom(DOMID_AGENCY, DC_PLUGIN_ETHERNET_SEND);
 
-}
-void __valid(char *fn, int line) {
-	transceiver_packet_t *packet = (transceiver_packet_t *) plugin_send_args.data;
-	if (!packet)
-		return ;
-	lprintk("## %s:%d (%x) content: %x %x %x\n", fn, line, packet, packet->payload[1], packet->payload[2], packet->payload[3]);
-}
-
-void __trigger(void) {
-	spin_lock(&send_ethernet_lock);
-	ii= 1;
-	do_sync_dom(DOMID_AGENCY, DC_PLUGIN_ETHERNET_SEND);
 }
 
 int propagate_plugin_ethernet_send_fn(void *args) {
@@ -228,14 +199,6 @@ void propagate_plugin_ethernet_send(void) {
 	struct netdev_queue *txq;
 	__be16 proto;
 	const uint8_t *dest;
-	uint8_t *__data;
-
-	if (ii == 1) {
-		lprintk("### releasing now the lock\n");
-		spin_unlock(&send_ethernet_lock);
-
-		return ;
-	}
 
 	__plugin_send_args = plugin_send_args;
 	DBG("Requester type: %d\n", __plugin_send_args.sl_desc->req_type);
@@ -299,7 +262,6 @@ void sl_plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint
 
 
 	packet = (transceiver_packet_t *) skb->data;
-	lprintk("### *************RECV ********* req_type: %d ****: ", req_type); lprintk_buffer(packet->payload, SOO_AGENCY_UID_SIZE);
 
 	do_sync_dom(DOMID_AGENCY_RT, DC_PLUGIN_ETHERNET_RECV);
 
@@ -308,13 +270,6 @@ void sl_plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint
 
 void propagate_plugin_tcp_send(void) {
 	plugin_send_args_t __plugin_send_args;
-
-	if (ii == 1) {
-		lprintk("### tcp releasing now the lock\n");
-		spin_unlock(&send_ethernet_lock);
-
-		return ;
-	}
 
 	__plugin_send_args = plugin_send_args;
 	DBG("TCP: Requester type: %d\n", __plugin_send_args.sl_desc->req_type);

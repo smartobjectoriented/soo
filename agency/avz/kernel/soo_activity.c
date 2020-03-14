@@ -538,7 +538,7 @@ int do_soo_hypercall(soo_hyp_t *args) {
 		/*
 		 * AVZ_DC_SET is used to assign a new dc_event number in the (target) domain shared info page.
 		 * This has to be done atomically so that if there is still a "pending" value in the field,
-		 * the hypercall must return with -1; in this case, the caller has to busy-loop (using schedule preferably)
+		 * the hypercall must return with -BUSY; in this case, the caller has to busy-loop (using schedule preferably)
 		 * until the field gets free, i.e. set to DC_NO_EVENT.
 		 */
 		dc_event_args = (soo_hyp_dc_event_t *) op.p_val1;
@@ -548,7 +548,7 @@ int do_soo_hypercall(soo_hyp_t *args) {
 
 		/* The shared info page is set as non cacheable, i.e. if a CPU tries to update it, it becomes visible to other CPUs */
 		if (atomic_cmpxchg(&dom->shared_info->dc_event, DC_NO_EVENT, dc_event_args->dc_event) != DC_NO_EVENT)
-			return -EBUSY;
+			rc = -EBUSY;
 
 		break;
 
