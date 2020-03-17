@@ -40,7 +40,7 @@
 static bool discovery_enabled = false;
 
 static struct list_head neighbour_list;
-static rtdm_task_t rt_watch_loop_task;
+static rtdm_task_t rt_watch_loop_task, rt_soo_stream_task;
 iamasoo_pkt_t iamasoo_beacon_pkt;
 
 static struct list_head discovery_listener_list;
@@ -496,6 +496,56 @@ void discovery_listener_register(discovery_listener_t *listener) {
 	spin_unlock(&discovery_listener_lock);
 }
 
+static void (soo_stream_recv)(sl_desc_t *sl_desc, void *data, size_t size) {
+
+	lprintk("## got %d bytes\n", size);
+
+}
+
+/*
+ * Testing RT task to send a stream to a specific smart object.
+ * Helpful to perform assessment of the wireless transmission.
+ */
+static void soo_stream_task_fn(void *args) {
+
+	sl_desc_t *sl_desc;
+	neighbour_desc_t *dst;
+	char *data = "Hello me";
+
+#if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
+	sl_desc = sl_register(SL_REQ_PEER, SL_IF_WLAN, SL_MODE_UNICAST);
+#else /* CONFIG_SOOLINK_PLUGIN_WLAN */
+	sl_desc = sl_register(SL_REQ_PEER, SL_IF_ETH, SL_MODE_UNICAST);
+#endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
+
+	rtdm_sl_set_recv_callback(sl_desc, soo_stream_recv);
+
+	while (true) {
+		lprintk("### streaming now...\n");
+
+		discovery_dump_neighbours();
+		//neighbour_list_protection(true);
+
+		/* Check if we are first? */
+		//dst = list_first_entry(&neighbour_list, neighbour_desc_t, list);
+
+		//neighbour_list_protection(false);
+
+		//if (&dst->list != &neighbour_list) {
+
+
+			//rtdm_sl_send(sl_desc, data, strlen(data)+1, &dst->agencyUID, 10);
+			//sender_xmit(sl_desc, data, strlen(data)+1, true);
+
+		//}
+
+
+		rtdm_task_wait_period(NULL);
+	}
+
+}
+
+
 /*
  * Main initialization function of the Discovery functional block
  */
@@ -509,7 +559,11 @@ void discovery_init(void) {
 	INIT_LIST_HEAD(&neigh_blacklist);
 
 	/* Register a new requester in Soolink for Discovery. */
-	discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_ALL, SL_MODE_BROADCAST);
+#if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
+	discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_WLAN, SL_MODE_BROADCAST);
+#else /* CONFIG_SOOLINK_PLUGIN_WLAN */
+	discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_ETH, SL_MODE_BROADCAST);
+#endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
 
 	DBG_BUFFER(&discovery_sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
 
@@ -536,4 +590,5 @@ void discovery_start(void) {
 	discovery_enable();
 
 	rtdm_task_init(&rt_watch_loop_task, "Discovery", iamasoo_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
+	rtdm_task_init(&rt_soo_stream_task, "SOO-streaming", soo_stream_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
 }
