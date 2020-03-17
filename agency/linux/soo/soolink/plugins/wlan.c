@@ -237,8 +237,8 @@ void propagate_plugin_wlan_send(void) {
 }
 
 static plugin_desc_t plugin_wlan_desc = {
-	.tx_callback 	= rtdm_plugin_wlan_tx,
-	.if_type	= SL_IF_WLAN
+	.tx_callback = rtdm_plugin_wlan_tx,
+	.if_type = SL_IF_WLAN
 };
 
 static void rtdm_sl_plugin_wlan_rx(req_type_t req_type, void *data, size_t size, uint8_t *mac_src) {
