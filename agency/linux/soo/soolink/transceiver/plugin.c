@@ -92,9 +92,6 @@ void plugin_rx(plugin_desc_t *plugin_desc, agencyUID_t *agencyUID_from, req_type
 		/* We did not find any available descriptor able to process this data. Simply ignore it... */
 		return ;
 
-	if (sl_desc->req_type == SL_REQ_PEER)
-		return ;
-
 	memcpy(&sl_desc->agencyUID_from, agencyUID_from, SOO_AGENCY_UID_SIZE);
 
 	receiver_request_rx(sl_desc, plugin_desc, data, size);

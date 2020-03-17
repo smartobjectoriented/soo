@@ -150,6 +150,8 @@ void rtdm_sl_tx_request(sl_desc_t *sl_desc);
 bool sl_try_update_tx(void);
 void sl_release_update_tx(void);
 
+bool sl_ready_to_send(sl_desc_t *sl_desc);
+
 /* prio can be 0 to 99 (the greater the higher priority) */
 void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio);
 int sl_recv(sl_desc_t *sl_desc, void **data);

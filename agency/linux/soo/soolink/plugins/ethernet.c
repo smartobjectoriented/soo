@@ -260,7 +260,6 @@ void sl_plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint
 	plugin_recv_args.size = skb->len;
 	memcpy((void *) plugin_recv_args.mac, mac_src, ETH_ALEN);
 
-
 	packet = (transceiver_packet_t *) skb->data;
 
 	do_sync_dom(DOMID_AGENCY_RT, DC_PLUGIN_ETHERNET_RECV);

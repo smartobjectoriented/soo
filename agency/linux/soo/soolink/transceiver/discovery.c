@@ -497,10 +497,12 @@ void discovery_listener_register(discovery_listener_t *listener) {
 }
 
 static void (soo_stream_recv)(sl_desc_t *sl_desc, void *data, size_t size) {
+	static int count = 0;
 
-	lprintk("## got %d bytes\n", size);
-
+	lprintk("## count %d got %d bytes\n", count++, size);
 }
+
+static unsigned char buffer[1024*1024];
 
 /*
  * Testing RT task to send a stream to a specific smart object.
@@ -511,40 +513,28 @@ static void soo_stream_task_fn(void *args) {
 	sl_desc_t *sl_desc;
 	neighbour_desc_t *dst;
 	char *data = "Hello me";
+	int i;
 
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
-	sl_desc = sl_register(SL_REQ_PEER, SL_IF_WLAN, SL_MODE_UNICAST);
+	sl_desc = sl_register(SL_REQ_PEER, SL_IF_WLAN, SL_MODE_UNIBROAD);
 #else /* CONFIG_SOOLINK_PLUGIN_WLAN */
-	sl_desc = sl_register(SL_REQ_PEER, SL_IF_ETH, SL_MODE_UNICAST);
+	sl_desc = sl_register(SL_REQ_PEER, SL_IF_ETH, SL_MODE_UNIBROAD);
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
+
+	for (i = 0; i < 1024*1024; i++)
+		buffer[i] = i;
 
 	rtdm_sl_set_recv_callback(sl_desc, soo_stream_recv);
 
 	while (true) {
 		lprintk("### streaming now...\n");
 
-		discovery_dump_neighbours();
-		//neighbour_list_protection(true);
-
-		/* Check if we are first? */
-		//dst = list_first_entry(&neighbour_list, neighbour_desc_t, list);
-
-		//neighbour_list_protection(false);
-
-		//if (&dst->list != &neighbour_list) {
-
-
-			//rtdm_sl_send(sl_desc, data, strlen(data)+1, &dst->agencyUID, 10);
-			//sender_xmit(sl_desc, data, strlen(data)+1, true);
-
-		//}
-
+		rtdm_sl_send(sl_desc, buffer, 1024*1024, get_null_agencyUID(), 10);
 
 		rtdm_task_wait_period(NULL);
 	}
 
 }
-
 
 /*
  * Main initialization function of the Discovery functional block
