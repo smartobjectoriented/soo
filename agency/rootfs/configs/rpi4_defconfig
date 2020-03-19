@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Buildroot 2020.02-rc3-g75bd1daf8-dirty Configuration
+# Buildroot 2020.02-rc3-gbedb121af-dirty Configuration
 #
 BR2_HAVE_DOT_CONFIG=y
 BR2_HOST_GCC_AT_LEAST_4_9=y
@@ -1416,6 +1416,7 @@ BR2_PACKAGE_PYTHON_RTIMULIB=y
 # BR2_PACKAGE_PYTHON_SECRETSTORAGE is not set
 # BR2_PACKAGE_PYTHON_SEE is not set
 # BR2_PACKAGE_PYTHON_SEMVER is not set
+BR2_PACKAGE_PYTHON_SENSE_HAT=y
 # BR2_PACKAGE_PYTHON_SENTRY_SDK is not set
 # BR2_PACKAGE_PYTHON_SERIAL is not set
 # BR2_PACKAGE_PYTHON_SERIAL_ASYNCIO is not set

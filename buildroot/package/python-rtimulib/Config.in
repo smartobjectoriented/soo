@@ -5,3 +5,6 @@ config BR2_PACKAGE_PYTHON_RTIMULIB
 	  This module is basically used by the sense hat module
 	  running on Raspberry Pi 4.
 	  
+	  https://github.com/RTIMULib/RTIMULib2
+
+	  
