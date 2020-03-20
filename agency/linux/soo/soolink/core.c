@@ -34,6 +34,7 @@
 #include <soo/uapi/debug.h>
 
 #include <soo/core/device_access.h>
+#include <soo/core/sysfs.h>
 
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/transcoder.h>

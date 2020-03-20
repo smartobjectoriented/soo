@@ -220,11 +220,11 @@ const struct attribute_group *vbus_backend_bus_groups[] = {
 };
 
 static struct vbus_type vbus_backend = {
-	.root = "backend",
+	.root = "soo",
 	.get_bus_id = backend_bus_id,
 	.otherend_changed = frontend_changed,
 	.bus = {
-		.name		= "avz",
+		.name		= "backend",
 		.match		= vbus_match,
 		.uevent		= vbus_uevent_backend,
 		.probe		= vbus_dev_probe,
