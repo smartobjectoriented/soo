@@ -225,8 +225,8 @@ void set_agencyUID(uint8_t val) {
 void devaccess_init(void) {
 	init_agencyUID();
 
-    upgrade_buffer_pfn = 0;
-    upgrade_buffer_size = 0;
+	upgrade_buffer_pfn = 0;
+	upgrade_buffer_size = 0;
 
 	/* Initialize the device capabilities bitmap */
 	memset(devcaps_class, 0, DEVCAPS_CLASS_NR);

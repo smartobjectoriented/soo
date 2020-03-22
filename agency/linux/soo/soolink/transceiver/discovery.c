@@ -28,6 +28,7 @@
 #include <soo/soolink/sender.h>
 
 #include <soo/core/device_access.h>
+#include <soo/core/sysfs.h>
 
 #include <xenomai/rtdm/driver.h>
 
@@ -496,13 +497,17 @@ void discovery_listener_register(discovery_listener_t *listener) {
 	spin_unlock(&discovery_listener_lock);
 }
 
+static int count = 0;
 static void (soo_stream_recv)(sl_desc_t *sl_desc, void *data, size_t size) {
-	static int count = 0;
 
 	lprintk("## count %d got %d bytes\n", count++, size);
 }
 
 static unsigned char buffer[1024*1024];
+
+void stream_count_read(char *str) {
+	sprintf(str, "%d", count);
+}
 
 /*
  * Testing RT task to send a stream to a specific smart object.
@@ -526,8 +531,9 @@ static void soo_stream_task_fn(void *args) {
 
 	rtdm_sl_set_recv_callback(sl_desc, soo_stream_recv);
 
+	soo_sysfs_register(stream_count, stream_count_read, NULL);
+
 	while (true) {
-		lprintk("### streaming now...\n");
 
 		rtdm_sl_send(sl_desc, buffer, 1024*1024, get_null_agencyUID(), 10);
 
