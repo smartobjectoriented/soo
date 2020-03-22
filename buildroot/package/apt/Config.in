@@ -1,6 +1,0 @@
-config BR2_PACKAGE_APT
-	bool "apt"
-	help
-	  APT Package Manager
-
-	  https://github.com/lipnitsk/libcue
