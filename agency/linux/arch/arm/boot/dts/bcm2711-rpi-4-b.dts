@@ -136,15 +136,19 @@
 	status = "okay";
 };
 
+/* SOO.tech */
+/* Aligned (but not exactly the same) with 4.19-rpi4 */
 &genet {
 	phy-handle = <&phy1>;
-	phy-mode = "rgmii-rxid";
+	phy-mode = "rgmii";
 	status = "okay";
 };
 
 &genet_mdio {
 	phy1: ethernet-phy@1 {
+		compatible = "ethernet-phy-ieee802.3-c22";
 		/* No PHY interrupt */
+		max-speed = <1000>;
 		reg = <0x1>;
 	};
 };

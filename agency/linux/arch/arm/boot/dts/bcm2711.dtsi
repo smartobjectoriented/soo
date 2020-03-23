@@ -337,9 +337,9 @@
 		#size-cells = <1>;
 
 		ranges = <0x0 0x7c000000  0x0 0xfc000000  0x03800000>;
-
+                
 		genet: ethernet@7d580000 {
-			compatible = "brcm,bcm2711-genet-v5";
+			compatible = "brcm,genet-v5";
 			reg = <0x0 0x7d580000 0x10000>;
 			#address-cells = <0x1>;
 			#size-cells = <0x1>;
