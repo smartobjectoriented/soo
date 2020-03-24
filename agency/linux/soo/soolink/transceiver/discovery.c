@@ -516,8 +516,6 @@ void stream_count_read(char *str) {
 static void soo_stream_task_fn(void *args) {
 
 	sl_desc_t *sl_desc;
-	neighbour_desc_t *dst;
-	char *data = "Hello me";
 	int i;
 
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
