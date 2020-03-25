@@ -367,7 +367,7 @@ static int asf_get_key_size(void)
  ************************************************************************/
 
 
-int asf_encode(uint8_t *plain_buf, size_t plain_buf_sz, uint8_t **enc_buf)
+int asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t **enc_buf)
 {
 	struct tee_context *ctx;
 	uint32_t session_id;
@@ -408,7 +408,7 @@ err_encode:
 	return -1;
 }
 
-int asf_decode(uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **plain_buf)
+int asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **plain_buf)
 {
 	struct tee_context *ctx;
 	uint32_t session_id;
@@ -463,13 +463,13 @@ void asf_example(void)
 	uint8_t *decoded = NULL;
 
 	lprintk("## %s: Example - Encoding\n", __func__);
-	size = asf_encode(plain, sizeof(plain), &encoded);
+	size = asf_encrypt(ASF_KEY_COM, plain, sizeof(plain), &encoded);
 	lprintk("Encoded buffer size: %d\n", size);
 	if (size > 0)
 		lprintk_buffer(encoded, size);
 
 	lprintk("## %s: Example - Decoding\n", __func__);
-	size = asf_decode(encoded, size, &decoded);
+	size = asf_decrypt(ASF_KEY_COM, encoded, size, &decoded);
 	lprintk("decoded buffer size: %d\n", size);
 
 	lprintk("buffer: ");
@@ -503,7 +503,7 @@ void asf_big_buf(void)
 
 	lprintk(" ===  Testing big buffer (encoding) ===\n");
 
-	size = asf_encode(plain, plain_sz, &encoded);
+	size = asf_encrypt(ASF_KEY_COM, plain, plain_sz, &encoded);
 	lprintk("Encoded buffer size: %d\n", size);
 
 	if (size < 0)
@@ -511,7 +511,7 @@ void asf_big_buf(void)
 
 	lprintk(" ===  Testing big buffer (decoding) ===\n");
 
-	size = asf_decode(encoded, size, &decoded);
+	size = asf_decrypt(ASF_KEY_COM, encoded, size, &decoded);
 	lprintk("decoded buffer size: %d\n", size);
 
 	if (size != plain_sz)
@@ -542,15 +542,10 @@ static int asf_init(void)
 	lprintk("Agency Security Framework initialization...\n");
 
 	/* Get the size of the key. It is needed for buffer padding */
+
+
 	asf_key_size = asf_get_key_size();
-
-	asf_shm_size   = tee_get_shm_size();
-
-	lprintk("== JP - asf_shm_size: %d\n", asf_shm_size);
-
-#ifdef DEBUG
-	asf_crypte_test();
-#endif
+	asf_shm_size = tee_get_shm_size();
 
 #if 0
 	asf_big_buf();
