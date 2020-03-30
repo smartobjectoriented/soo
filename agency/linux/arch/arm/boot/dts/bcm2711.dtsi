@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
-#include "bcm283x.dtsi"
+
+#include "bcm2838.dtsi"
+#include "bcm270x.dtsi"
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/bcm2835-pm.h>
@@ -32,7 +34,7 @@
 	};
 
 
-	soc {
+	soc: soc {
 		/*
 		 * Defined ranges:
 		 *   Common BCM283x peripherals
@@ -52,18 +54,6 @@
 		local_intc: local_intc@40000000 {
 			compatible = "brcm,bcm2836-l1-intc";
 			reg = <0x40000000 0x100>;
-		};
-
-		gicv2: interrupt-controller@40041000 {
-			interrupt-controller;
-			#interrupt-cells = <3>;
-			compatible = "arm,gic-400";
-			reg =	<0x40041000 0x1000>,
-				<0x40042000 0x2000>,
-				<0x40044000 0x2000>,
-				<0x40046000 0x2000>;
-			interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(4) |
-						 IRQ_TYPE_LEVEL_HIGH)>;
 		};
 
 		dma: dma@7e007000 {
@@ -337,24 +327,6 @@
 		#size-cells = <1>;
 
 		ranges = <0x0 0x7c000000  0x0 0xfc000000  0x03800000>;
-                
-		genet: ethernet@7d580000 {
-			compatible = "brcm,genet-v5";
-			reg = <0x0 0x7d580000 0x10000>;
-			#address-cells = <0x1>;
-			#size-cells = <0x1>;
-			interrupts = <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>;
-			status = "disabled";
-
-			genet_mdio: mdio@e14 {
-				compatible = "brcm,genet-mdio-v5";
-				reg = <0xe14 0x8>;
-				reg-names = "mdio";
-				#address-cells = <0x0>;
-				#size-cells = <0x1>;
-			};
-		};
 	};
 };
 
@@ -379,7 +351,7 @@
 };
 
 &gpio {
-	compatible = "brcm,bcm2711-gpio";
+	/* compatible = "brcm,bcm2711-gpio"; */
 	interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>,
@@ -419,7 +391,7 @@
 			bias-disable;
 		};
 	};
-	i2c1_gpio46: i2c1_gpio46 {
+	/*i2c1_gpio46: i2c1_gpio46 {
 		pin-sda {
 			function = "alt1";
 			pins = "gpio46";
@@ -430,7 +402,20 @@
 			pins = "gpio47";
 			bias-disable;
 		};
+	};*/
+	i2c1_gpio2: i2c1_gpio2 {
+		pin-sda {
+			function = "alt0";
+			pins = "gpio2";
+			bias-pull-up;
+		};
+		pin-scl {
+			function = "alt0";
+			pins = "gpio3";
+			bias-disable;
+		};
 	};
+
 	i2c3_gpio2: i2c3_gpio2 {
 		pin-sda {
 			function = "alt5";
@@ -834,11 +819,6 @@
 };
 
 &i2c0 {
-	compatible = "brcm,bcm2711-i2c", "brcm,bcm2835-i2c";
-	interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
-};
-
-&i2c1 {
 	compatible = "brcm,bcm2711-i2c", "brcm,bcm2835-i2c";
 	interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
 };
