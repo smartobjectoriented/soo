@@ -1,4 +1,4 @@
 
-obj-y += core.o datacomm.o compressor.o
+obj-y += core.o datacomm.o compressor.o security.o
 
 

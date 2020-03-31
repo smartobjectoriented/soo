@@ -32,6 +32,7 @@
 
 #include <soo/dcm/datacomm.h>
 #include <soo/dcm/compressor.h>
+#include <soo/dcm/security.h>
 
 #include <soo/soolink/soolink.h>
 
@@ -81,8 +82,10 @@ static void datacomm_recv(void **ME_buffer, size_t *size_p) {
 
 static int recv_thread_task_fn(void *data) {
 	void *ME_compressed_buffer, *ME_decompressed_buffer;
+	void *ME_decrypt;
 	size_t compressed_size, decompressed_size;
 	int ret;
+	int size;
 
 	while (1) {
 		/* Receive data from Soolink */
@@ -92,7 +95,11 @@ static int recv_thread_task_fn(void *data) {
 		if (!compressed_size)
 			continue;
 
-		if ((ret = decompress_data(&ME_decompressed_buffer, ME_compressed_buffer, compressed_size)) < 0) {
+		size = security_decrypt(ME_compressed_buffer, compressed_size, &ME_decrypt);
+		if (size <= 0)
+			continue;
+
+		if ((ret = decompress_data(&ME_decompressed_buffer, ME_decrypt, size)) < 0) {
 			/*
 			 * If dcm_decompress_ME returns -EIO, this means that the decompressor could not
 			 * decompress the ME. We have to discard it.
@@ -100,6 +107,7 @@ static int recv_thread_task_fn(void *data) {
 
 			vfree((void *) ME_decompressed_buffer);
 			vfree((void *) ME_compressed_buffer);
+			kfree(ME_decrypt);
 
 			continue;
 		}
@@ -107,6 +115,7 @@ static int recv_thread_task_fn(void *data) {
 
 		/* Release the original compressed buffer */
 		vfree((void *) ME_compressed_buffer);
+		kfree(ME_decrypt);
 
 		ret = dcm_ME_rx(ME_decompressed_buffer, compressed_size);
 
