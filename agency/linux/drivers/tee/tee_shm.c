@@ -374,10 +374,19 @@ void tee_shm_free(struct tee_shm *shm)
 	 * In the case of driver private memory we call tee_shm_release
 	 * directly instead as it doesn't have a reference counter.
 	 */
-	if (shm->flags & TEE_SHM_DMA_BUF)
+	if (shm->flags & TEE_SHM_DMA_BUF) {
+
+#if 0 /* SOO.tec */
 		dma_buf_put(shm->dmabuf);
-	else
+#endif
+
+		if (atomic_long_dec_and_test(&shm->dmabuf->file->f_count))
+			shm->dmabuf->ops->release(shm->dmabuf);
+
+
+	} else {
 		tee_shm_release(shm);
+	}
 }
 EXPORT_SYMBOL_GPL(tee_shm_free);
 

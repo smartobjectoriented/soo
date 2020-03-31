@@ -23,6 +23,9 @@
 #include <linux/of.h>
 #include <linux/sched.h>
 #include <linux/delay.h>
+#include <linux/mutex.h>
+
+#include <linux/file.h>
 
 #include <soo/uapi/console.h>
 
@@ -49,6 +52,8 @@ static uint8_t asf_uuid[] = { 0x6a, 0xca, 0x96, 0xec, 0xd0, 0xa4, 0x11, 0xe9,
 
 static unsigned asf_key_size = 0;
 static size_t asf_shm_size;
+
+DEFINE_MUTEX(asf_mutex);
 
 /************************************************************************
  *                          ASF core                                    *
@@ -127,7 +132,6 @@ static struct tee_shm *asf_shm_alloc(struct tee_context *ctx)
 	struct tee_shm *shm = NULL;
 	size_t shm_sz = 2*ASF_MAX_BUFF_SIZE + ASF_TAG_SIZE + ASF_IV_SIZE;
 
-#warning check without TEE_SHM_DMA_BUF option
 	shm = tee_shm_alloc(ctx, shm_sz, TEE_SHM_MAPPED | TEE_SHM_DMA_BUF);
 	if (IS_ERR(shm)) {
 		lprintk("ASF ERROR - share buffer allocation failed\n");
@@ -142,8 +146,10 @@ static void asf_shm_free(struct tee_shm *shm)
 	tee_shm_free(shm);
 
 	/* The share buffer are freed only after one jiffies */
-	msleep(1000 / HZ);
+#if 0 /* Current tee driver does not delay the 'release' of the shm */
+	msleep(jiffies_to_msecs(1));
 	flush_scheduled_work();
+#endif
 }
 
 
@@ -305,7 +311,7 @@ static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, i
 
 		ret = asf_invoke_cypto(ctx, session_id, mode, shm, in, out, cur_buf_sz, iv, tag);
 		if (ret) {
-			lprintk("ASF ERROR - Buffer decryption failed\n");
+			lprintk("ASF ERROR - asf_invoke_cypto failed\n");
 			return -1;
 		}
 
@@ -376,6 +382,8 @@ int asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t 
 	int block_nr;
 	int rest;
 
+	mutex_lock(&asf_mutex);
+
 	/* 1. Encoded/result buffer allocation */
 	rest     = (plain_buf_sz % ASF_MAX_BUFF_SIZE);
 	block_nr = (plain_buf_sz / ASF_MAX_BUFF_SIZE);
@@ -400,9 +408,12 @@ int asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t 
 	if (ret)
 		goto err_encode;
 
+	mutex_unlock(&asf_mutex);
+
 	return res_buf_sz;
 
 err_encode:
+	mutex_unlock(&asf_mutex);
 	kfree(*enc_buf);
 
 	return -1;
@@ -417,6 +428,8 @@ int asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **pl
 	uint8_t *res_buf = NULL;
 	int block_nr;
 	int rest;
+
+	mutex_lock(&asf_mutex);
 
 	/* 1. Plain/result buffer allocation */
 	rest     = (enc_buf_sz % (ASF_MAX_BUFF_SIZE + ASF_IV_SIZE + ASF_TAG_SIZE));
@@ -440,10 +453,12 @@ int asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **pl
 
 	*plain_buf = res_buf;
 
+	mutex_unlock(&asf_mutex);
+
 	return res_buf_sz;
 
 err_decode:
-
+	mutex_unlock(&asf_mutex);
 	kfree(res_buf);
 
 	return -1;
@@ -542,8 +557,6 @@ static int asf_init(void)
 	lprintk("Agency Security Framework initialization...\n");
 
 	/* Get the size of the key. It is needed for buffer padding */
-
-
 	asf_key_size = asf_get_key_size();
 	asf_shm_size = tee_get_shm_size();
 
