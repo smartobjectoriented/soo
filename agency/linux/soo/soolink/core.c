@@ -174,6 +174,9 @@ void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID
 
 /*
  * Send data over a specific interface configured in the sl_desc descriptor.
+ * It is important to note that sending a buffer should be followed by sending a "NULL"
+ * since - at the datalink level (transceiver) - we could remain "speaker" over a while
+ * and prevent other smart objects belonging to the neighborhood to become a speaker.
  *
  * This function runs in the RT agency domain.
  */
