@@ -33,6 +33,7 @@ size_t security_decrypt(void *enc_buf, size_t enc_buf_sz, void **plain_buf)
 	return asf_decrypt(ASF_KEY_COM, (uint8_t *)enc_buf, enc_buf_sz, (uint8_t **)plain_buf);
 }
 
+#if 0
 
 /* DEBUG */
 void dcm_asf_test(void)
@@ -64,3 +65,4 @@ void dcm_asf_test(void)
 
 
 
+#endif

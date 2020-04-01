@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BT_TTY="/dev/ttyAMA0"
+BT_TTY="/dev/ttyAMA1"
 
 # The MAC address is generated using some agency UID bytes
 AGENCYUID_FILE="/sys/devices/system/soo/soo0/agencyUID"

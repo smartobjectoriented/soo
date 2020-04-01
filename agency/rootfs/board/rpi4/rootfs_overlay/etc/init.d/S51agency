@@ -13,7 +13,7 @@ case "$1" in
 
         echo -n "Setting Smart Object environment..."
         # Set the Smart Object environment
-        /root/soo_env.sh
+        source /root/soo_env.sh
         echo "OK"
         
         echo -n "Configuring Bluetooth... "
@@ -27,6 +27,10 @@ case "$1" in
         
         echo -n "Starting Agency Core... "
         /root/agency &
+        echo "OK"
+        
+        echo -n "Staring additional applications..."
+        /root/otherapps.sh
         echo "OK"
         ;;
     stop)

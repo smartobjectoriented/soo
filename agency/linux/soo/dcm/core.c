@@ -81,9 +81,11 @@ static int find_free_buffer(void) {
 static void dcm_send_ME(unsigned long arg) {
 	dcm_ioctl_send_args_t args;
 	void *ME_data;
-	void *ME_cryp;
 	size_t size = 0;
 	int ret;
+#ifdef CONFIG_ARM_PSCI
+	void *ME_crypt;
+#endif
 
 	if ((ret = copy_from_user(&args, (void *) arg, sizeof(dcm_ioctl_send_args_t))) < 0) {
 		lprintk("Error when retrieving args (%d)...\n", ret);
@@ -99,11 +101,16 @@ static void dcm_send_ME(unsigned long arg) {
 	/* Check for end of transmission. */
 	size = compress_data(COMPRESSOR_LZ4, &ME_data, args.ME_data, args.size);
 
+#ifdef CONFIG_ARM_PSCI
 	/* ME encryption */
 	size = security_encrypt(ME_data, size, &ME_cryp);
 
 	/* Prio is not supported yet. Default value: 0. */
-	datacomm_send(ME_cryp, size, 0);;
+	datacomm_send(ME_crypt size, 0);
+#else
+	/* Prio is not supported yet. Default value: 0. */
+	datacomm_send(ME_data, size, 0);
+#endif
 
 	/* Free the compressed ME area. */
 	vfree((void *) ME_data);
@@ -111,8 +118,11 @@ static void dcm_send_ME(unsigned long arg) {
 	/* Free the original (uncompressed) buffer */
 	vfree((void *) args.ME_data);
 
+#ifdef CONFIG_ARM_PSCI
 	/* Free the encrypted buffer */
-	kfree(ME_cryp);
+	kfree(ME_crypt);
+#endif
+
 }
 
 /* ME receival */
