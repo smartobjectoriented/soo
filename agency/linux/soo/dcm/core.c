@@ -33,6 +33,7 @@
 
 #include <soo/dcm/datacomm.h>
 #include <soo/dcm/compressor.h>
+#include <soo/dcm/security.h>
 
 #include <soo/uapi/dcm.h>
 
@@ -82,6 +83,9 @@ static void dcm_send_ME(unsigned long arg) {
 	void *ME_data;
 	size_t size = 0;
 	int ret;
+#ifdef CONFIG_ARM_PSCI
+	void *ME_crypt;
+#endif
 
 	if ((ret = copy_from_user(&args, (void *) arg, sizeof(dcm_ioctl_send_args_t))) < 0) {
 		lprintk("Error when retrieving args (%d)...\n", ret);
@@ -97,14 +101,28 @@ static void dcm_send_ME(unsigned long arg) {
 	/* Check for end of transmission. */
 	size = compress_data(COMPRESSOR_LZ4, &ME_data, args.ME_data, args.size);
 
+#ifdef CONFIG_ARM_PSCI
+	/* ME encryption */
+	size = security_encrypt(ME_data, size, &ME_cryp);
+
+	/* Prio is not supported yet. Default value: 0. */
+	datacomm_send(ME_crypt size, 0);
+#else
 	/* Prio is not supported yet. Default value: 0. */
 	datacomm_send(ME_data, size, 0);
+#endif
 
 	/* Free the compressed ME area. */
 	vfree((void *) ME_data);
 
 	/* Free the original (uncompressed) buffer */
 	vfree((void *) args.ME_data);
+
+#ifdef CONFIG_ARM_PSCI
+	/* Free the encrypted buffer */
+	kfree(ME_crypt);
+#endif
+
 }
 
 /* ME receival */
@@ -198,7 +216,7 @@ int dcm_ME_rx(void *ME_buffer, size_t size) {
 static long dcm_release_ME(unsigned long arg) {
 	void *ME_addr;
 	int i;
-	
+
 	/* Obviously, the address placed in arg is in the kernel space (vmalloc'd by the decompressor) */
 	ME_addr = (void *) arg;
 
@@ -241,7 +259,7 @@ static int __configure_neighbourhood(unsigned long arg) {
 	/* If prio is to -1, we simply dump the list of neighbours */
 	if (neigh_bitmap == -1) {
 		lprintk(" ** Agency UID: "); lprintk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
-		
+
 		/* At the same time, we enable the discovery process here. */
 		sl_discovery_start();
 

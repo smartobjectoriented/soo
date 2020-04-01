@@ -49,7 +49,7 @@ CFG_TEE_CORE_DEBUG ?= y
 # 2: error + warning
 # 3: error + warning + debug
 # 4: error + warning + debug + flow
-CFG_TEE_CORE_LOG_LEVEL ?= 4
+CFG_TEE_CORE_LOG_LEVEL ?= 0
 
 # TA log level
 # If user-mode library libutils.a is built with CFG_TEE_TA_LOG_LEVEL=0,
@@ -60,7 +60,7 @@ CFG_TEE_TA_LOG_LEVEL ?= 1
 # TA enablement
 # When defined to "y", TA traces are output according to
 # CFG_TEE_TA_LOG_LEVEL. Otherwise, they are not output at all
-CFG_TEE_CORE_TA_TRACE ?= y
+CFG_TEE_CORE_TA_TRACE ?= n
 
 # If y, enable the memory leak detection feature in the bget memory allocator.
 # When this feature is enabled, calling mdbg_check(1) will print a list of all
