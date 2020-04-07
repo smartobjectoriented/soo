@@ -12,6 +12,8 @@
  *
  */
 
+/* SOO.tech - this file has moved. Original path: 'drivers/tee/optee/' */
+
 #ifndef OPTEE_PRIVATE_H
 #define OPTEE_PRIVATE_H
 
@@ -180,6 +182,10 @@ u64 *optee_allocate_pages_list(size_t num_entries);
 void optee_free_pages_list(void *array, size_t num_entries);
 void optee_fill_pages_list(u64 *dst, struct page **pages, int num_pages,
 			   size_t page_offset);
+
+
+/* SOO.tech */
+struct tee_context *teedev_open(struct tee_device *teedev);
 
 /*
  * Small helpers

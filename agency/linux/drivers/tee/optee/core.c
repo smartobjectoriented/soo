@@ -26,7 +26,8 @@
 #include <linux/tee_drv.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
-#include "optee_private.h"
+/* SOO.tech */
+#include <linux/optee_private.h>
 #include "optee_smc.h"
 #include "shm_pool.h"
 
@@ -692,7 +693,8 @@ static const struct of_device_id optee_match[] = {
 	{},
 };
 
-static struct optee *optee_svc;
+/* SOO.tech */
+/*static */ struct optee *optee_svc;
 
 static int __init optee_driver_init(void)
 {

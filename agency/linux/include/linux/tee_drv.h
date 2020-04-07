@@ -199,6 +199,9 @@ struct tee_shm {
 	int id;
 };
 
+/* SOO.tech */
+extern struct optee *optee_svc;
+
 /**
  * struct tee_shm_pool_mgr - shared memory manager
  * @ops:		operations

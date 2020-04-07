@@ -376,7 +376,7 @@ void tee_shm_free(struct tee_shm *shm)
 	 */
 	if (shm->flags & TEE_SHM_DMA_BUF) {
 
-#if 0 /* SOO.tec */
+#if 0 /* SOO.tech */
 		dma_buf_put(shm->dmabuf);
 #endif
 

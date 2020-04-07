@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/tee_drv.h>
+#include <linux/optee_private.h>
 #include <linux/of.h>
 #include <linux/sched.h>
 #include <linux/delay.h>
@@ -84,7 +85,7 @@ static int asf_open_session(struct tee_context **ctx)
 	int ret;
 
 	/* Initialize a context connecting us to the TEE */
-	*ctx = tee_client_open_context(NULL, asf_tee_ctx_match, NULL, NULL);
+	*ctx = teedev_open(optee_svc->teedev);
 	if (IS_ERR(*ctx)) {
 		lprintk("ASF ERROR - Open Context failed\n");
 		return -1;
