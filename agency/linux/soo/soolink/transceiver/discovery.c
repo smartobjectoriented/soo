@@ -29,6 +29,7 @@
 
 #include <soo/core/device_access.h>
 #include <soo/core/sysfs.h>
+#include <soo/core/asf.h>
 
 #include <xenomai/rtdm/driver.h>
 
@@ -218,14 +219,20 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size) {
 	bool known_neighbour = false;
 	struct list_head *cur;
 	neighbour_desc_t *neighbour, *cur_neighbour;
-	iamasoo_pkt_t *iamasoo_pkt = (iamasoo_pkt_t *) data;
+	iamasoo_pkt_t *iamasoo_pkt;
+
+	if (!discovery_enabled)
+		return ;
+
+	/* Beacon decryption */
+	size = asf_decrypt(ASF_KEY_COM, (uint8_t *)data, size, (uint8_t **)&iamasoo_pkt);
 
 	spin_lock(&discovery_listener_lock);
 
 	/* Look for the neighbour in the list */
 	list_for_each(cur, &neighbour_list) {
 		cur_neighbour = list_entry(cur, neighbour_desc_t, list);
-		if (!memcmp(&cur_neighbour->agencyUID, data, SOO_AGENCY_UID_SIZE)) {
+		if (!memcmp(&cur_neighbour->agencyUID, iamasoo_pkt->agencyUID, SOO_AGENCY_UID_SIZE)) {
 			known_neighbour = true;
 			break;
 		}
@@ -235,7 +242,7 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size) {
 	if (!known_neighbour) {
 		list_for_each(cur, &neigh_blacklist) {
 			cur_neighbour = list_entry(cur, neighbour_desc_t, list);
-			if (!memcmp(&cur_neighbour->agencyUID, data, SOO_AGENCY_UID_SIZE)) {
+			if (!memcmp(&cur_neighbour->agencyUID, iamasoo_pkt->agencyUID, SOO_AGENCY_UID_SIZE)) {
 				known_neighbour = true;
 				break;
 			}
@@ -278,6 +285,8 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size) {
 		cur_neighbour->present = true;  /* If disappeared in between */
 	}
 
+	kfree(iamasoo_pkt);
+
 	spin_unlock(&discovery_listener_lock);
 }
 
@@ -285,6 +294,9 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size) {
  * Send a Iamasoo beacon.
  */
 static void send_beacon(void) {
+	int size;
+	uint8_t *iamasoo_pkt_crypt;
+
 	/* If the agency UID has not been initialized yet, do not send any Iamasoo beacon */
 	if (unlikely(!agencyUID_is_valid(get_my_agencyUID())))
 		return ;
@@ -294,11 +306,16 @@ static void send_beacon(void) {
 	memset(iamasoo_beacon_pkt.name, 0, SOO_NAME_SIZE);
 	devaccess_get_soo_name(iamasoo_beacon_pkt.name);
 
+	/* Beacon encryption */
+	size = asf_encrypt(ASF_KEY_COM, (uint8_t *)&iamasoo_beacon_pkt, sizeof(iamasoo_pkt_t), &iamasoo_pkt_crypt);
+
 	/* Now send the Iamasoo beacon to the sender */
 	DBG("%s: sending to: ", __func__);
 	DBG_BUFFER(&discovery_sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
 
-	sender_xmit(discovery_sl_desc, &iamasoo_beacon_pkt, sizeof(iamasoo_pkt_t), true);
+	sender_xmit(discovery_sl_desc, iamasoo_pkt_crypt, size, true);
+
+	kfree(iamasoo_pkt_crypt);
 }
 
 /**
