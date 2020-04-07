@@ -61,7 +61,7 @@ static TEE_Result asf_enc_dec(uint32_t type, TEE_Param params[TEE_NUM_PARAMS], T
 	size_t buf_sz;
 	uint8_t *tag;
 	uint8_t *iv;
-	size_t tag_sz;
+	size_t tag_sz = ASF_TAG_SIZE;
 	int ret;
 	void *ctx = NULL;
 
