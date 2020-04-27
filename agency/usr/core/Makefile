@@ -21,8 +21,9 @@ BR_LIBS_PATH= ../../rootfs/host/arm-buildroot-linux-gnueabihf/sysroot/usr/lib/
 LIBZ=libz.so
 LIBARCHIVE=libarchive.so
 LIBEXPAT=libexpat.so
+LIBNETTLE=libnettle.so
 
 build/agency: built-in.o
 	$(Q)echo Generating agency application
-	$(Q)cp $(BR_LIBS_PATH)$(LIBZ) $(BR_LIBS_PATH)$(LIBARCHIVE) $(BR_LIBS_PATH)$(LIBEXPAT) $(PWD)/lib/
-	$(Q)$(CC) $(LDFLAGS) $(PWD)/core/$< -lpthread -lc -ldcm -llz4 -lfrozen $(LIBARCHIVE_LIBS) -o $(PWD)/$@
+	$(Q)cp $(BR_LIBS_PATH)$(LIBZ) $(BR_LIBS_PATH)$(LIBARCHIVE) $(BR_LIBS_PATH)$(LIBNETTLE) $(BR_LIBS_PATH)$(LIBEXPAT) $(PWD)/lib/
+	$(Q)$(CC) $(LDFLAGS) $(PWD)/core/$< -lpthread -lc -ldcm -llz4 -lnettle -lfrozen $(LIBARCHIVE_LIBS) -o $(PWD)/$@
