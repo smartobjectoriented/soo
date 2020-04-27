@@ -39,6 +39,8 @@
 
 #include <dcm/core.h>
 
+#include <injector/core.h>
+
 #if defined(CONFIG_LEDS)
 #include <leds/leds.h>
 #endif /* CONFIG_LEDS */
@@ -183,6 +185,8 @@ int main(int argc, char *argv[]) {
 	migration_init();
 
 	upgrader_init();
+
+	injector_init();
 
 #if defined(CONFIG_LEDS)
 	for (i = 0 ; i < SOO_N_LEDS ; i++)

@@ -2,6 +2,7 @@
 
 SOO_CORE_MAJOR=126
 DCM_MAJOR=127
+INJECTOR_MAJOR=122
 
 case "$1" in
     start)
@@ -9,6 +10,7 @@ case "$1" in
         mkdir /dev/soo
         mknod /dev/soo/core c ${SOO_CORE_MAJOR} 0
         mknod /dev/soo/dcm c ${DCM_MAJOR} 0
+        mknod /dev/soo/injector c ${INJECTOR_MAJOR} 0
         /root/agency -w &
         echo "OK"
         ;;

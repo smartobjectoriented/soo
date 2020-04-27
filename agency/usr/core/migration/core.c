@@ -45,6 +45,7 @@
 #include <core/uevent.h>
 
 #include <dcm/core.h>
+#include <injector/core.h>
 
 #if defined(CONFIG_LEDS)
 #include <leds/leds.h>
@@ -247,6 +248,8 @@ void main_loop(int cycle_period) {
 				check_for_uevent();
 
 		} while (available_ME);
+
+		inject_from_BT();
 
 		DBG0("Send ME\n");
 
