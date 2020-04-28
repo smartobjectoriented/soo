@@ -10,10 +10,10 @@ apps_final: apps_build
 
 apps_build:
 # Smart Object specific apps
-#ifeq ($(CONFIG_app),y)
-#	make -C <app>
-#endif
+ifeq ($(CONFIG_ASF),y)
+	make -C asf_usr
+endif
 
 clean:
-	#$(Q)make -C <app> clean
 	$(Q)echo "Cleaning apps completed"
+	$(Q)make -C asf_usr clean
