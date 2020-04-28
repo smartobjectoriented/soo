@@ -103,10 +103,10 @@ static void dcm_send_ME(unsigned long arg) {
 
 #ifdef CONFIG_ARM_PSCI
 	/* ME encryption */
-	size = security_encrypt(ME_data, size, &ME_cryp);
+	size = security_encrypt(ME_data, size, &ME_crypt);
 
 	/* Prio is not supported yet. Default value: 0. */
-	datacomm_send(ME_crypt size, 0);
+	datacomm_send(ME_crypt, size, 0);
 #else
 	/* Prio is not supported yet. Default value: 0. */
 	datacomm_send(ME_data, size, 0);
