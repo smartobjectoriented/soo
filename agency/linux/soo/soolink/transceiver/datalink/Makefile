@@ -6,4 +6,4 @@
 obj-y := winenet.o
 
 # Winenet Netstream extension
-obj-y += winenet_netstream.o
+#obj-y += winenet_netstream.o

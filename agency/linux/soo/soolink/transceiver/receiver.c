@@ -41,10 +41,8 @@ static rtdm_mutex_t receiver_lock;
 void receiver_request_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size) {
 	transceiver_packet_t *transceiver_packet;
 
-	if (sl_desc->req_type != SL_REQ_NETSTREAM) {
-		transceiver_packet = (transceiver_packet_t *) packet;
-		transceiver_packet->size = size;
-	}
+	transceiver_packet = (transceiver_packet_t *) packet;
+	transceiver_packet->size = size;
 
 	datalink_rx(sl_desc, plugin_desc, packet, size);
 }
@@ -52,7 +50,7 @@ void receiver_request_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *p
 /**
  * This function is called by Datalink when the packet is ready to be
  * forwarded to the consumer(s).
- * The size parameter refers to the whole transceiver packet. It is set to 0 in netstream mode.
+ * The size parameter refers to the whole transceiver packet.
  */
 void receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size) {
 	transceiver_packet_t *transceiver_packet;
@@ -61,9 +59,6 @@ void receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, s
 	rtdm_mutex_lock(&receiver_lock);
 
 	switch (sl_desc->req_type) {
-	case SL_REQ_NETSTREAM:
-		decoder_stream_rx(sl_desc, packet);
-		break;
 
 	case SL_REQ_DISCOVERY:
 		transceiver_packet = (transceiver_packet_t *) packet;

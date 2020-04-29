@@ -65,18 +65,11 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 	}
 
 	/* End of transmission ? */
+#warning sending all MEs at each time ?
 	if (!data) {
 		sender_xmit(sl_desc, NULL, 0, true);
 		return ;
 	}
-
-	/* At this point, we proceed in two steps. First, we require the transceiver to be prepared
-	 * to transmit our packets. This step depends on the interface type, but it is managed by the transceiver.
-	 * During this operation, the data content can still be updated by the upper layer.
-	 * Then, the update is not possible anymore and the block is processed and sent out.
-	 */
-
-	sender_request_xmit(sl_desc);
 
 	/*
 	 * Take the lock for managing the block and packets.
@@ -97,6 +90,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 		/* We forward the packet to the Transceiver. The size at the reception
 		 * will be taken from the plugin (RX).
 		 */
+
 		sender_xmit(sl_desc, pkt, sizeof(transcoder_packet_format_t) + size, true);
 
 		kfree(pkt);
@@ -131,6 +125,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 			 * We forward the packet to the Transceiver. The size at the reception
 			 * will be taken from the plugin (RX).
 			 */
+
 			if (sender_xmit(sl_desc, pkt, sizeof(transcoder_packet_format_t) + pkt->u.ext.payload_length, completed) < 0) {
 				/* There has been something wrong with Datalink. Abort the transmission of the block. */
 
@@ -153,13 +148,5 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
  */
 void coder_init(void) {
 	rtdm_mutex_init(&coder_tx_lock);
-}
-
-/**
- * Send data in netstream mode.
- * The data pointer points to the payload.
- */
-void coder_stream_send(sl_desc_t *sl_desc, void *data) {
-	sender_stream_xmit(sl_desc, data);
 }
 

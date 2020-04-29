@@ -48,37 +48,11 @@ void datalink_register_protocol(datalink_proto_t proto, datalink_proto_desc_t *p
 }
 
 /**
- * Datalink XMIT request.
- * This function triggers a XMIT request.
- */
-int datalink_request_xmit(sl_desc_t *sl_desc) {
-	switch (sl_desc->trans_mode) {
-	case SL_MODE_BROADCAST:
-	case SL_MODE_UNIBROAD:
-	case SL_MODE_NETSTREAM:
-		if (datalink_protocols[SL_DL_PROTO_WINENET])
-			return datalink_protocols[SL_DL_PROTO_WINENET]->request_xmit_callback(sl_desc);
-		else
-			return 0;
-		break;
-
-	default:
-		return 0;
-	}
-
-	return 0;
-}
-
-bool datalink_ready_to_send(sl_desc_t *sl_desc) {
-	return datalink_protocols[SL_DL_PROTO_WINENET]->ready_to_send(sl_desc);
-}
-
-/**
  * Datalink XMIT function (TX).
  * If a Datalink protocol is registered, its datalink_xmit callback is called.
  * Otherwise, the sender XMIT function is directly called.
  * This function is called by the Sender.
- * packet is a netstream transceiver packet in netstream mode, otherwise it is a (standard) transceiver packet.
+ * packet is a (standard) transceiver packet.
  * The size parameter refers to the payload.
  */
 int datalink_xmit(sl_desc_t *sl_desc, void *packet, size_t size, bool completed) {
@@ -89,7 +63,6 @@ int datalink_xmit(sl_desc_t *sl_desc, void *packet, size_t size, bool completed)
 	switch (sl_desc->trans_mode) {
 		case SL_MODE_BROADCAST:
 		case SL_MODE_UNIBROAD:
-		case SL_MODE_NETSTREAM:
 			if (datalink_protocols[SL_DL_PROTO_WINENET])
 				return datalink_protocols[SL_DL_PROTO_WINENET]->xmit_callback(sl_desc, packet, size, completed);
 			else {
@@ -116,7 +89,6 @@ void datalink_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, s
 	switch (sl_desc->trans_mode) {
 		case SL_MODE_BROADCAST:
 		case SL_MODE_UNIBROAD:
-		case SL_MODE_NETSTREAM:
 			if (datalink_protocols[SL_DL_PROTO_WINENET])
 				datalink_protocols[SL_DL_PROTO_WINENET]->rx_callback(sl_desc, plugin_desc, packet, size);
 			else
@@ -128,6 +100,12 @@ void datalink_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, s
 			receiver_rx(sl_desc, plugin_desc, packet, size);
 			break;
 	}
+}
+
+void datalink_setup(sl_desc_t *sl_desc) {
+	if (sl_desc->trans_mode == SL_MODE_UNIBROAD)
+		if (datalink_protocols[SL_DL_PROTO_WINENET])
+			datalink_protocols[SL_DL_PROTO_WINENET]->setup_callback(sl_desc);
 }
 
 /*

@@ -28,25 +28,49 @@
 
 #include <soo/uapi/soo.h>
 
-#define SOOLINK_PRESENCE_TICK_MAX	10
+#define SOOLINK_MISSING_TICK_MAX	10
 
 typedef struct {
 
-	agencyUID_t	agencyUID;
-	uint8_t		name[SOO_NAME_SIZE];
-	plugin_desc_t	*plugin;
-	uint32_t	presence_tick;
+	agencyUID_t agencyUID;
+	uint8_t name[SOO_NAME_SIZE];
 
-	bool		present;
+	/* "plugin" is the interface by which the iamasoo beacon has been received
+	 * NULL means it is ourself.
+	 */
+	plugin_desc_t *plugin;
+
+	uint32_t missing_tick;
+
+	bool present;
+
+	/* List of neighbours (called friends) for this neighbour */
+	struct list_head friends;
+
+	void *priv;
 
 	/* List of neighbours */
 	struct list_head list;
 
 } neighbour_desc_t;
 
+/* Iamasoo packet structure used in the beacon
+ * sent by the Discovery to discover the neighbourhood.
+ * Some datalink protocol related fields are also defined.
+ */
 typedef struct {
 	uint8_t	agencyUID[SOO_AGENCY_UID_SIZE];
 	uint8_t name[SOO_NAME_SIZE];
+
+	/* State of the smart object regarding the datalink protocol */
+	uint8_t state;
+
+	uint8_t priv_len;
+
+	/* Start of private data followed by the friends belonging to this neighbour */
+	uint8_t extra[0];
+
+
 } iamasoo_pkt_t;
 
 typedef struct {
@@ -57,6 +81,12 @@ typedef struct {
 	/* When a neighbour disappears */
 	void (*remove_neighbour_callback)(neighbour_desc_t *neighbour);
 
+	/* When a discovery beacon is received and has private data */
+	void (*update_neighbour_priv_callback)(neighbour_desc_t *neighbour);
+
+	/* Get information about the private data before sending a discovery beacon */
+	uint8_t (*get_neighbour_priv_callback)(neighbour_desc_t *neigh);
+
 	struct list_head list;
 
 } discovery_listener_t;
@@ -64,6 +94,8 @@ typedef struct {
 /* Get the list of current neighbours. Entries of this list are neighbour_desc_t entries */
 int discovery_get_neighbours(struct list_head *new_list);
 void discovery_clear_neighbour_list(struct list_head *list);
+
+uint32_t discovery_neighbour_count(void);
 
 void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size);
 

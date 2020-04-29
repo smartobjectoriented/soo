@@ -35,20 +35,6 @@
 
 #include <soo/soolink/receiver.h>
 
-extern bool datalink_ready_to_send(sl_desc_t *sl_desc);
-
-bool sender_ready_to_send(sl_desc_t *sl_desc) {
-	return datalink_ready_to_send(sl_desc);
-}
-
-/*
- * Prepare a transmission along the TX path. We give the Datalink layer a change to acquire a medium.
- * Typically, modification on the contents can still be done.
- */
-void sender_request_xmit(sl_desc_t *sl_desc) {
-	datalink_request_xmit(sl_desc);
-}
-
 /**
  * This function requests to send a packet. Datalink will forward the packet
  * to the selected protocol. Datalink decides when the packet has to be sent.
@@ -82,15 +68,6 @@ int sender_xmit(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
 }
 
 /**
- * Send data in netstream mode.
- * The data pointer points to the payload.
- */
-int sender_stream_xmit(sl_desc_t *sl_desc, void *data) {
-	/* No netstream transceiver packet allocation is necessary */
-	return datalink_xmit(sl_desc, data, 0, false);
-}
-
-/**
  * This function is called by Datalink when the packet is ready to be
  * forwarded to the plugin(s). It should not be called by anyone else.
  * The size parameter refers to the payload.
@@ -104,10 +81,6 @@ void sender_tx(sl_desc_t *sl_desc, void *packet, size_t size, unsigned long flag
 	case SL_MODE_UNICAST:
 		/* Add the transceiver's packet header size to the total size */
 		packet_size = size + sizeof(transceiver_packet_t);
-		break;
-	case SL_MODE_NETSTREAM:
-		/* Add the transceiver's packet header size to the total size */
-		packet_size = size + sizeof(netstream_transceiver_packet_t);
 		break;
 	}
 

@@ -32,8 +32,7 @@
  */
 typedef struct {
 
-	/* Function to inform if the sl_desc channel is ready for sending. */
-	bool (*ready_to_send)(sl_desc_t *sl_desc);
+	void (*setup_callback)(sl_desc_t *sl_desc);
 
 	/* Function to be called when sending data */
 	int (*xmit_callback)(sl_desc_t *sl_desc, void *packet, size_t size, bool completed);
@@ -41,15 +40,14 @@ typedef struct {
 	/* Function to be called when receiving data */
 	void (*rx_callback)(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
 
-	/* Function to be called when requesting to send data */
-	int (*request_xmit_callback)(sl_desc_t *sl_desc);
-
 } datalink_proto_desc_t;
 
 void datalink_register_protocol(datalink_proto_t proto, datalink_proto_desc_t *proto_desc);
-int datalink_request_xmit(sl_desc_t *sl_desc);
+
 int datalink_xmit(sl_desc_t *sl_desc, void *packet, size_t size, bool completed);
 void datalink_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
+
+void datalink_setup(sl_desc_t *sl_desc);
 
 void datalink_init(void);
 

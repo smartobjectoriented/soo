@@ -48,10 +48,6 @@ static bool datacomm_initialized = false;
 
 static struct task_struct *recv_thread = NULL;
 
-bool datacomm_ready_to_send(void) {
-	return sl_ready_to_send(datacomm_sl_desc);
-}
-
 /**
  * At the moment, we experiment a broadcast (no known recipient) and
  * a fixed prio got from the DCM Core.
@@ -156,10 +152,9 @@ static int recv_thread_task_fn(void *data) {
 long datacomm_init(void) {
 	DBG("Registering the DCM with Soolink\n");
 
-	/* At this point, we can start the Discovery process */
-	sl_discovery_start();
-
-	lprintk("%s: my agency UID is: ", __func__); lprintk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
+	lprintk("%s: my agency UID is: ", __func__);
+	lprintk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
+	lprintk("\n");
 
 	/*
 	 * By default, we are using the WLAN plugin on the MERIDA board, or the
@@ -170,6 +165,9 @@ long datacomm_init(void) {
 #else /* CONFIG_SOOLINK_PLUGIN_WLAN */
 	datacomm_sl_desc = sl_register(SL_REQ_DCM, SL_IF_ETH, SL_MODE_UNIBROAD);
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
+
+	/* At this point, we can start the Discovery process */
+	sl_discovery_start();
 
 	recv_thread = kthread_run(recv_thread_task_fn, NULL, "datacomm_recv");
 

@@ -164,8 +164,6 @@ int main_kernel(void *args) {
 
 	printk("SOO Mobile Entity booting ...\n");
 
-	avz_shared_info->dom_desc.u.ME.spad.valid = true;
-
 	soo_guest_activity_init();
 
 	callbacks_init();

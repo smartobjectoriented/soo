@@ -28,7 +28,7 @@ typedef enum {
 	/** SOOlink */
 
 	/*** Discovery ***/
-	stream_count
+	stream_count, neighbours
 } soo_sysfs_attr_t;
 
 /* These callback types are used to make use of show/store sysfs callback as generic as possible. */
