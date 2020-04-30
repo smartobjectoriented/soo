@@ -61,19 +61,6 @@ DEFINE_MUTEX(asf_mutex);
  ************************************************************************/
 
 /**
- * asf_tee_ctx_match() - check TEE device version
- *
- *  Callback called by tee_client_open_context()
- */
-static int asf_tee_ctx_match(struct tee_ioctl_version_data *ver, const void *data)
-{
-	if (ver->impl_id == TEE_IMPL_ID_OPTEE)
-		return 1;
-	else
-		return 0;
-}
-
-/**
  * asf_open_session() - Open a context & session with ASF TEE
  *
  * @ctx: TEE context
