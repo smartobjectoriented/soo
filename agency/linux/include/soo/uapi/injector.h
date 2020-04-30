@@ -22,10 +22,10 @@
 
 #ifdef __KERNEL__
 #include <asm-generic/ioctl.h>
+#include <linux/mutex.h>
 #else
 #include <stdint.h>
 #include <stddef.h>
-#include <linux/mutex.h>
 
 #endif /* __KERNEL__ */
 

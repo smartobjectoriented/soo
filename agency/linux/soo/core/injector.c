@@ -132,47 +132,10 @@ void injector_retrieve_ME(unsigned long arg) {
 }
 
 
-static long injector_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
-	injector_ioctl_recv_args_t args;
-
-	switch (cmd) {
-
-	case INJECTOR_IOCTL_CLEAN_ME:
-		injector_clean_ME();
-		return 0;
-
-	case INJECTOR_IOCTL_RETRIEVE_ME:
-		/* Check if an ME is present */
-		if (ME_size == 0 || (current_size != ME_size)) {
-			args.ME_data = NULL;
-			args.size = 0;
-			return 0;
-		}
-
-		args.ME_data = ME_buffer;
-		args.size = ME_size;
-
-		if ((copy_to_user((void *) arg, &args, sizeof(injector_ioctl_recv_args_t))) != 0) {
-			lprintk("Agency: %s:%d Failed to copy args to userspace\n", __func__, __LINE__);
-			BUG();
-		}
-		return 0;
-	
-
-	default:
-		lprintk("%s: DCM ioctl %d unavailable...\n", __func__, cmd);
-		panic("DCM core");
-	}
-
-	return -EINVAL;
-}
-
-
 /**
  * Injector initialization function.
  */
 int injector_init(struct mutex lock) {
-	int rc;
 
 	DBG("Injector subsys initializing ...\n");
 
