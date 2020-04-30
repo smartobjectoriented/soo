@@ -7,13 +7,14 @@ ASF_MAJOR=100
 
 case "$1" in
     start)
-        echo -n "Creating SOO Agency devices and starting SOO Agency core... "
+        echo -n "Creating SOO Agency devices and starting SOO Agency core... \n"
         mkdir /dev/soo
         mknod /dev/soo/core c ${SOO_CORE_MAJOR} 0
         mknod /dev/soo/dcm c ${DCM_MAJOR} 0
         mknod /dev/soo/injector c ${INJECTOR_MAJOR} 0
         mknod /dev/soo/asf c ${ASF_MAJOR} 0
         /root/agency.sh &
+        /root/asf_usr
         echo "OK"
 
         ;;
