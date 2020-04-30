@@ -25,6 +25,8 @@
 #else
 #include <stdint.h>
 #include <stddef.h>
+#include <linux/mutex.h>
+
 #endif /* __KERNEL__ */
 
 
@@ -97,9 +99,18 @@ typedef struct {
 
 } injector_buffer_desc_t;
 
-int injector_receive_ME_BT(void *data);
 void injector_prepare(uint32_t size);
+void injector_retrieve_ME(unsigned long arg);
+void injector_clean_ME(void);
 int injector_receive_ME(void *ME, size_t size);
+
+int injector_init(struct mutex lock);
+
+void *injector_get_ME_buffer(void);
+size_t injector_get_ME_size(void);
+
+void *injector_get_tmp_buf(void);
+size_t injector_get_tmp_size(void);
 
 #endif /* __KERNEL__ */
 
