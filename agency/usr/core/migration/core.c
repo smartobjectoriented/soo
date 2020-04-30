@@ -249,8 +249,6 @@ void main_loop(int cycle_period) {
 
 		} while (available_ME);
 
-		inject_from_BT();
-
 		DBG0("Send ME\n");
 
 		/* Send the next available ME */

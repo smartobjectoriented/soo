@@ -70,6 +70,7 @@
 
 #include <soo/uapi/soo.h>
 #include <soo/uapi/logbool.h>
+#include <soo/uapi/injector.h>
 
 #define AGENCY_DEV_NAME "soo/core"
 #define AGENCY_DEV_MAJOR 126
@@ -932,6 +933,16 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	case AGENCY_IOCTL_STORE_VERSIONS:
 		rc = ioctl_store_versions(arg);
 		break;
+		
+	case INJECTOR_IOCTL_CLEAN_ME:
+		injector_clean_ME();
+		break;
+
+	case INJECTOR_IOCTL_RETRIEVE_ME:
+		injector_retrieve_ME(arg);
+		break;
+	
+	
 
 	default:
 		lprintk("%s: Unrecognized IOCTL: 0x%x\n", __func__, cmd);
@@ -963,9 +974,45 @@ static int agency_upgrade_mmap(struct file *filp, struct vm_area_struct *vma) {
 	return 0;
 }
 
+DEFINE_MUTEX(injector_mutex);
+
+static ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
+	int maxbytes;           /* maximum bytes that can be read from ppos to BUFFER_SIZE*/
+        int bytes_to_read;      /* gives the number of bytes to read*/
+        int bytes_read;         /* number of bytes actually read*/
+
+	// void *ME = injector_get_ME_buffer();
+        // maxbytes = injector_get_ME_size() - *ppos;
+
+	void *ME = injector_get_tmp_buf();
+        maxbytes = injector_get_tmp_size();
+
+	printk(KERN_INFO "charDev : usr want to read %dB \n", length);
+
+
+
+
+        if (maxbytes > length)
+                bytes_to_read = length;
+        else
+                bytes_to_read = maxbytes;
+		
+        if (bytes_to_read == 0)
+                printk(KERN_INFO "charDev : Reached the end of the device\n");
+
+        bytes_read = bytes_to_read - copy_to_user(buff + *ppos, ME, bytes_to_read);
+
+	mutex_unlock(&injector_mutex);
+
+        *ppos += bytes_read;
+
+        return bytes_read;
+}
+
 struct file_operations agency_fops = {
     .owner = THIS_MODULE,
     .open = agency_open,
+    .read = agency_read,
     .release = agency_release,
     .unlocked_ioctl = agency_ioctl,
     .mmap = agency_upgrade_mmap,
@@ -1121,6 +1168,11 @@ int agency_init(void) {
 
 	/* Initialize the agency UID and the dev caps bitmap */
 	devaccess_init();
+
+	/* Initialize the injector subsystem */
+
+	mutex_init(&injector_mutex);
+	injector_init(injector_mutex);
 
 	/* Initialize the dbgvar facility */
 	dbgvar_init();
