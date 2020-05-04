@@ -22,8 +22,9 @@ LIBZ=libz.so
 LIBARCHIVE=libarchive.so
 LIBEXPAT=libexpat.so
 LIBNETTLE=libnettle.so
+LIBLZ4=liblz4.so
 
 build/agency: built-in.o
 	$(Q)echo Generating agency application
-	$(Q)cp $(BR_LIBS_PATH)$(LIBZ) $(BR_LIBS_PATH)$(LIBARCHIVE) $(BR_LIBS_PATH)$(LIBNETTLE) $(BR_LIBS_PATH)$(LIBEXPAT) $(PWD)/lib/
+	$(Q)cp $(BR_LIBS_PATH)$(LIBZ) $(BR_LIBS_PATH)$(LIBARCHIVE) $(BR_LIBS_PATH)$(LIBNETTLE) $(BR_LIBS_PATH)$(LIBEXPAT) $(BR_LIBS_PATH)$(LIBLZ4) $(PWD)/lib/
 	$(Q)$(CC) $(LDFLAGS) $(PWD)/core/$< -lpthread -lc -ldcm -llz4 -lnettle -lfrozen $(LIBARCHIVE_LIBS) -o $(PWD)/$@
