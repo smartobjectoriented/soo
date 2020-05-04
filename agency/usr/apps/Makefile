@@ -14,6 +14,11 @@ ifeq ($(CONFIG_ASF),y)
 	make -C asf_usr
 endif
 
+ifeq ($(CONFIG_HELLO_WORLD_TA_TST),y)
+	make -C hello_world_ta_tst
+endif
+
 clean:
 	$(Q)echo "Cleaning apps completed"
 	$(Q)make -C asf_usr clean
+	$(Q)make -C hello_world_ta_tst clean

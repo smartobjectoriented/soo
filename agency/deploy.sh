@@ -31,6 +31,7 @@ while getopts "abcerumfgt" o; do
       deploy_boot=y
       deploy_usr=y
       deploy_me=y
+      deploy_ta=y
       ;;
     b)
       deploy_boot=y

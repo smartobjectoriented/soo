@@ -8,4 +8,12 @@ config ASF
 	bool "ASF support usr app"
 	default n
 	help
-	   ASF appliction. Use to send TA to secure storage
+	   ASF application. Use to send TA to secure storage
+
+
+config HELLO_WORLD_TA_TST
+	bool "Hello World TA test app"
+	default n
+	help
+	   Application used to test Hello World TA.
+
