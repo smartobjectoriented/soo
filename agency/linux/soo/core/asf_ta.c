@@ -37,6 +37,10 @@
 #define TA_HELLO_WORLD_CMD_INC_VALUE		0
 
 
+typedef struct {
+	int val;
+} hello_args_t;
+
 
 static uint8_t mgmt_ta_uuid[] = { 0x6e, 0x25, 0x6c, 0xba, 0xfc, 0x4d, 0x49, 0x41,
 				                  0xad, 0x09, 0x2c, 0xa1, 0x86, 0x03, 0x42, 0xdd };
@@ -180,7 +184,7 @@ ssize_t asf_ta_write(struct file *filp, const char __user *buf, size_t len, loff
 }
 
 
-static void hello_world_cmd(void)
+static void hello_world_cmd(int val)
 {
 	struct tee_context *ctx;
 	uint32_t session_id;
@@ -203,7 +207,7 @@ static void hello_world_cmd(void)
 	arg.num_params = 1;
 
 	param[0].attr = TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_INOUT;
-	param[0].u.value.a = 42;
+	param[0].u.value.a = val;
 	ret = tee_client_invoke_func(ctx, &arg, param);
 
 	printk(ASF_MSG "hello_world_cmd, res: %d\n", (int)param[0].u.value.a);
@@ -217,10 +221,12 @@ long asf_ta_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int rc = 0;
 
+	hello_args_t *args =  (hello_args_t *)arg;
+
 	switch (cmd) {
 
 		case ASF_TA_IOCTL_HELLO_WORLD:
-			hello_world_cmd();
+			hello_world_cmd(args->val);
 			break;
 
 		default:
