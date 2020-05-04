@@ -514,13 +514,6 @@ err_memunmap:
 	return rc;
 }
 
-/* SOO.tech */
-size_t tee_get_shm_size(void)
-{
-	return shm_size;
-}
-EXPORT_SYMBOL(tee_get_shm_size);
-
 /* Simple wrapper functions to be able to use a function pointer */
 static void optee_smccc_smc(unsigned long a0, unsigned long a1,
 			    unsigned long a2, unsigned long a3,

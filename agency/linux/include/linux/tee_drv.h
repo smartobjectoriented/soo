@@ -542,12 +542,4 @@ int tee_client_invoke_func(struct tee_context *ctx,
 			   struct tee_ioctl_invoke_arg *arg,
 			   struct tee_param *param);
 
-
-/**
- * tee_get_shm_size() - Return the size of the shared memory
- *
- * Returns the size of the shared memory
- */
-size_t tee_get_shm_size(void);
-
 #endif /*__TEE_DRV_H*/

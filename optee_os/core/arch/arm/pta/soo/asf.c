@@ -21,7 +21,6 @@
 /* Supported commands */
 #define AFS_TA_CMD_ENCODE		0
 #define AFS_TA_CMD_DECODE		1
-#define ASF_TA_CMD_KEY_SZ		2
 
 static uint8_t aes_key[] =  {
 	0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
@@ -141,21 +140,6 @@ static TEE_Result asf_decode_buf(uint32_t type, TEE_Param params[TEE_NUM_PARAMS]
 	return asf_enc_dec(type, params, TEE_MODE_DECRYPT);
 }
 
-static TEE_Result asf_get_key_size(uint32_t type, TEE_Param params[TEE_NUM_PARAMS])
-{
-	/* Checking parameters */
-	if (TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_OUTPUT,
-			            TEE_PARAM_TYPE_NONE,
-			            TEE_PARAM_TYPE_NONE,
-			            TEE_PARAM_TYPE_NONE) != type) {
-		return TEE_ERROR_BAD_PARAMETERS;
-	}
-
-	params[0].value.a = sizeof(aes_key);
-
-	return TEE_SUCCESS;
-}
-
 /*
  * Trusted Application Entry Points
  */
@@ -168,8 +152,6 @@ static TEE_Result asf_invoke_command(void *psess __unused,
 		return asf_encode_buf(ptypes, params);
 	case AFS_TA_CMD_DECODE:
 		return asf_decode_buf(ptypes, params);
-	case ASF_TA_CMD_KEY_SZ:
-		return asf_get_key_size(ptypes, params);
 	default:
 		EMSG("ASF - Command  Not Supported (%d)", cmd);
 		break;
