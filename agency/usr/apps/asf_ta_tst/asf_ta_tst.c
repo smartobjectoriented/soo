@@ -24,7 +24,9 @@
 #include <unistd.h>
 
 #define ASF_TA_DEV_NAME  			"/dev/soo/asf"
-#define ASF_TA_IOCTL_HELLO_WORLD	0
+
+#define ASF_IOCTL_CRYPTO_TEST		0
+#define ASF_IOCTL_HELLO_WORLD		1
 
 typedef struct {
 	int val;
@@ -43,19 +45,18 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	args.val = 42;
-	ret = ioctl(devfd, ASF_TA_IOCTL_HELLO_WORLD, &args);
+	/* Hello World Test TA test */
+
+	args.val = 5;
+	ret = ioctl(devfd, ASF_IOCTL_HELLO_WORLD, &args);
 	if (ret != 0) {
 		printf("ioctl command failed\n");
 		return -1;
 	}
 
-	args.val = 5;
-	ret = ioctl(devfd, ASF_TA_IOCTL_HELLO_WORLD, &args);
-	if (ret != 0) {
-		printf("ioctl command failed\n");
-		return -1;
-	}
+	/* ASF TA crypto Test  */
+
+	ioctl(devfd, ASF_IOCTL_CRYPTO_TEST, NULL);
 
 	close(devfd);
 

@@ -2,7 +2,7 @@
 # Makefile
 #
 
-hello_world_ta_final: build/hello_world_ta_tst
+asf_ta_final: build/asf_ta_tst
 
 KBUILD_CFLAGS	+=  -Wall -Wno-long-long -Wno-variadic-macros
 KBUILD_AFLAGS	+=
@@ -10,7 +10,7 @@ KBUILD_AFLAGS	+=
 %.o: %.c
 	$(CC) -o $@ -c $< $(CFLAGS)
 
-build/hello_world_ta_tst: hello_world_ta_tst.o
+build/asf_ta_tst: asf_ta_tst.o
 	$(Q)$(CC) $(LDFLAGS) $<  -o $(PWD)/$@
 
 clean:

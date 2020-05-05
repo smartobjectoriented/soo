@@ -14,6 +14,8 @@ CONFIG_MIGRATION_CYCLE_FREQ=1
 # CONFIG_LEDS is not set
 CONFIG_DCM=y
 # CONFIG_WEATHER is not set
+CONFIG_ASF=y
+CONFIG_ASF_TA_TST=y
 
 #
 # Library Configuration

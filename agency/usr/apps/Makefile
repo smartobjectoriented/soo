@@ -14,8 +14,8 @@ ifeq ($(CONFIG_ASF),y)
 	make -C asf_usr
 endif
 
-ifeq ($(CONFIG_HELLO_WORLD_TA_TST),y)
-	make -C hello_world_ta_tst
+ifeq ($(CONFIG_ASF_TA_TST),y)
+	make -C asf_ta_tst
 endif
 
 clean:
