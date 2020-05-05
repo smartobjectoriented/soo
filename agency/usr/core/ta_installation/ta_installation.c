@@ -106,7 +106,7 @@ static size_t read_ta_file(const char *ta, void **buf)
 	return size;
 
 read_ta_free:
-	free(buf);
+	free(*buf);
 read_ta_close:
 	fclose(file);
 read_ta_failed:
@@ -154,7 +154,6 @@ write_ta_error:
 static bool install_ta(const char *ta)
 {
 	void *buf = NULL;
-	int fd;
 	bool ret = true;
 	size_t size = 0;
 
@@ -182,12 +181,8 @@ static void erase_ta(const char *ta)
 	char cmd_rm[100] = "rm ";
 
 	ASF_IMSG("Erase '%s' TA\n", ta);
-
 	strncat(cmd_shred, ta, strlen(ta));
 	strncat(cmd_rm, ta, strlen(ta));
-
-	printf("%s\n", cmd_shred);
-	printf("%s\n", cmd_rm);
 
 	system(cmd_shred);
 	system(cmd_rm);
@@ -203,8 +198,9 @@ static bool ends_with(const char *str, const char *ext)
     size_t str_len;
     size_t ext_len;
 
-    if (!str || !ext)
+    if (!str || !ext) {
         return 0;
+    }
 
 	str_len = strlen(str);
 	ext_len = strlen(ext);
@@ -234,16 +230,17 @@ static bool is_ta(const char *file_name)
 }
 
 
-int main(int argc, char *argv[])
+void ta_installation(void)
 {
-	// size_t ret = 0;
 	bool ret;
-	int mode;
 	DIR *d;
 	struct dirent *dir;
 	char ta_path[100];
+	char tas[10][100];
+	int n_ta = 0;
+	int i;
 
-	ASF_IMSG("ASF User Space app\n");
+	ASF_IMSG("Installation of the TAs\n");
 
 	d = opendir(ASF_TA_PATH);
 	if (d) {
@@ -253,20 +250,18 @@ int main(int argc, char *argv[])
 
 				strncat(ta_path, dir->d_name, strlen(dir->d_name));
 
+				strcpy(tas[n_ta], ta_path);
+				n_ta++;
+
 				ret = install_ta(ta_path);
-				/* TODO what to if installation failed ? */
 				if (!ret)
 					ASF_EMSG("TA installation failed\n");
-
-				/* Erase the TA in all cases to avoid this TA To remains in */
-				/* the Linux file system */
-				erase_ta(ta_path);
 			}
-
 		}
 		closedir(d);
-
   	}
 
-	return 0;
+	/* Erase the TA in all cases to avoid this TA To remains in the Linux file system */
+  	for (i=0; i<n_ta; i++)
+  		erase_ta(tas[i]);
 }

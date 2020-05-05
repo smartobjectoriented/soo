@@ -36,6 +36,7 @@
 #include <core/device_access.h>
 #include <core/debug.h>
 #include <core/types.h>
+#include <core/ta_installation.h>
 
 #include <dcm/core.h>
 
@@ -78,6 +79,10 @@ int main(int argc, char *argv[]) {
 	char *token;
 	int rc;
 	uint8_t val;
+
+	/* Before starting core operation, installation of the new TA (if any)  */
+	/* The TA are located in '/root/ta' folder  */
+	ta_installation();
 
 	printf("SOO Agency core application.\n");
 	printf("Version: %s\n", AGENCY_CORE_VERSION);

@@ -8,11 +8,11 @@ core_final: build/agency
 # Ensure linker flags are correct
 
 
-KBUILD_CFLAGS	+=  -Wall -Wno-long-long -Wno-variadic-macros #-Wextra -Wcast-align -Wcast-qual -Wmissing-declarations -Wsign-conversion -Wswitch-default -Wundef -Werror -W no-unused 
+KBUILD_CFLAGS	+=  -Wall -Wno-long-long -Wno-variadic-macros #-Wextra -Wcast-align -Wcast-qual -Wmissing-declarations -Wsign-conversion -Wswitch-default -Wundef -Werror -W no-unused
 
-KBUILD_AFLAGS	+=  
+KBUILD_AFLAGS	+=
 
-obj-y += core.o injector.o leds.o migration/ upgrader/ device_access/
+obj-y += core.o injector.o leds.o migration/ upgrader/ device_access/ ta_installation/
 
 LIBARCHIVE_LIBS = -lz -lexpat -larchive
 
