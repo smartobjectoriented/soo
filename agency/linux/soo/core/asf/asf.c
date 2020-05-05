@@ -45,7 +45,8 @@
 #define ASF_IV_SIZE				12
 
 /* ASF IOCTL - Send cmd to Hello World TA */
-#define ASF_IOCTL_HELLO_WORLD		0
+#define ASF_IOCTL_CRYPTO_TEST		0
+#define ASF_IOCTL_HELLO_WORLD		1
 
 /* Management pTA boostrap command. It is used to install TA in Secure Storage */
 #define PTA_SECSTOR_TA_MGMT_BOOTSTRAP	0
@@ -329,7 +330,6 @@ static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, i
  *                             APIs                                     *
  ************************************************************************/
 
-
 int asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t **enc_buf)
 {
 	struct tee_context *ctx;
@@ -466,7 +466,6 @@ ssize_t asf_write(struct file *filp, const char __user *buf, size_t len, loff_t 
 		ret1 = 1;
 	}
 
-
 	ret2 = asf_close_session(ctx, session_id);
 	if (ret2)
 		lprintk("ASF ERROR - Close session failed\n");
@@ -481,16 +480,19 @@ long asf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int rc = 0;
 
-
 	switch (cmd) {
 
-		case ASF_IOCTL_HELLO_WORLD:
-			rc = hello_world_ta_cmd((hello_args_t *)(arg));
-			break;
+	case ASF_IOCTL_CRYPTO_TEST:
+		asf_crypto_example();
+		break;
 
-		default:
-			printk("ASF Command %d not supported\n", cmd);
-			rc = -1;
+	case ASF_IOCTL_HELLO_WORLD:
+		rc = hello_world_ta_cmd((hello_args_t *)(arg));
+		break;
+
+	default:
+		printk("ASF Command %d not supported\n", cmd);
+		rc = -1;
 	}
 
 	return rc;
@@ -524,8 +526,6 @@ static int asf_init(void)
 		printk("Cannot obtain the major number %d\n", ASF_DEV_MAJOR);
 		BUG();
 	}
-
-	asf_crypto_example();
 
 	asf_enabled = true;
 

@@ -35,9 +35,6 @@
 
 #define OPTEE_SHM_NUM_PRIV_PAGES	CONFIG_OPTEE_SHM_NUM_PRIV_PAGES
 
-/* SOO.tech */
-static size_t shm_size;
-
 /**
  * optee_from_msg_param() - convert from OPTEE_MSG parameters to
  *			    struct tee_param

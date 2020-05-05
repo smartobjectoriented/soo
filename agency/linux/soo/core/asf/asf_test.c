@@ -46,7 +46,7 @@ void asf_crypto_example(void)
 		lprintk("buffer: ");
 		lprintk_buffer(encoded, size);
 	} else {
-		lprintk("## %s: Encoding failed: %d\n", __func__);
+		lprintk("## %s: Encoding failed\n", __func__);
 		return;
 	}
 
@@ -57,7 +57,7 @@ void asf_crypto_example(void)
 		lprintk("buffer: ");
 		lprintk_buffer(decoded, size);
 	} else {
-		lprintk("## %s: Decoding failed: %d\n", __func__);
+		lprintk("## %s: Decoding failed\n", __func__);
 		kfree(encoded);
 		return;
 	}
