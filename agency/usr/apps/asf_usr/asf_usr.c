@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
 	int mode;
 	DIR *d;
 	struct dirent *dir;
-	char ta_path[100] = ASF_TA_PATH;
+	char ta_path[100];
 
 	ASF_IMSG("ASF User Space app\n");
 
@@ -249,6 +249,8 @@ int main(int argc, char *argv[])
 	if (d) {
 		while ((dir = readdir(d)) != NULL) {
 			if ((dir->d_type == DT_REG) && (is_ta(dir->d_name))) {
+				strcpy(ta_path, ASF_TA_PATH);
+
 				strncat(ta_path, dir->d_name, strlen(dir->d_name));
 
 				ret = install_ta(ta_path);
