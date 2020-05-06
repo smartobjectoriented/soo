@@ -225,7 +225,11 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size) {
 		return ;
 
 	/* Beacon decryption */
+#ifdef CONFIG_ARM_PSCI
 	size = asf_decrypt(ASF_KEY_COM, (uint8_t *)data, size, (uint8_t **)&iamasoo_pkt);
+#else
+	iamasoo_pkt = (iamasoo_pkt_t *) data;
+#endif
 
 	spin_lock(&discovery_listener_lock);
 
@@ -285,7 +289,9 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size) {
 		cur_neighbour->present = true;  /* If disappeared in between */
 	}
 
+#ifdef CONFIG_ARM_PSCI
 	kfree(iamasoo_pkt);
+#endif
 
 	spin_unlock(&discovery_listener_lock);
 }
@@ -294,8 +300,11 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size) {
  * Send a Iamasoo beacon.
  */
 static void send_beacon(void) {
+
+#ifdef CONFIG_ARM_PSCI
 	int size;
 	uint8_t *iamasoo_pkt_crypt;
+#endif
 
 	/* If the agency UID has not been initialized yet, do not send any Iamasoo beacon */
 	if (unlikely(!agencyUID_is_valid(get_my_agencyUID())))
@@ -307,15 +316,23 @@ static void send_beacon(void) {
 	devaccess_get_soo_name(iamasoo_beacon_pkt.name);
 
 	/* Beacon encryption */
+#ifdef CONFIG_ARM_PSCI
 	size = asf_encrypt(ASF_KEY_COM, (uint8_t *)&iamasoo_beacon_pkt, sizeof(iamasoo_pkt_t), &iamasoo_pkt_crypt);
+#endif
 
 	/* Now send the Iamasoo beacon to the sender */
 	DBG("%s: sending to: ", __func__);
 	DBG_BUFFER(&discovery_sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
 
+#ifdef CONFIG_ARM_PSCI
 	sender_xmit(discovery_sl_desc, iamasoo_pkt_crypt, size, true);
+#else
+	sender_xmit(discovery_sl_desc, &iamasoo_beacon_pkt, sizeof(iamasoo_pkt_t), true);
+#endif
 
+#ifdef CONFIG_ARM_PSCI
 	kfree(iamasoo_pkt_crypt);
+#endif
 }
 
 /**
