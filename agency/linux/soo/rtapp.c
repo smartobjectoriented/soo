@@ -337,6 +337,7 @@ extern void reconfigure_wifi(void);
 int rtapp_main(void *args) {
 
 	lprintk("RT Agency ready\n");
+
 #if 0
 
 	ll_bandwidth_init();

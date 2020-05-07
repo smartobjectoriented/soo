@@ -153,7 +153,7 @@ int vleds_init(void) {
 	int ret;
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vleds");
+	np = of_find_compatible_node(NULL, NULL, "vleds,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))

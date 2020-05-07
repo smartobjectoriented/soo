@@ -40,8 +40,8 @@
 static spinlock_t send_lock;
 static spinlock_t recv_lock;
 
-static plugin_send_args_t plugin_send_args;
-static plugin_recv_args_t plugin_recv_args;
+static volatile plugin_send_args_t plugin_send_args;
+static volatile plugin_recv_args_t plugin_recv_args;
 
 /* Linux net_device structure */
 static struct net_device *net_dev = NULL;
@@ -62,7 +62,7 @@ static void plugin_loopback_tx(sl_desc_t *sl_desc, void *data, size_t size, unsi
 	plugin_send_args.data = data;
 	plugin_send_args.size = size;
 
-	rtdm_do_sync_dom(DOMID_AGENCY, DC_PLUGIN_LOOPBACK_SEND);
+	do_sync_dom(DOMID_AGENCY, DC_PLUGIN_LOOPBACK_SEND);
 }
 
 /*
@@ -113,7 +113,7 @@ void propagate_plugin_loopback_send(void) {
 
 static plugin_desc_t plugin_loopback_desc = {
 	.tx_callback		= plugin_loopback_tx,
-	.if_type		= SL_IF_LOOPBACK
+	.if_type		= SL_IF_LOOP
 };
 
 
@@ -167,12 +167,12 @@ void rtdm_propagate_sl_plugin_loopback_rx(void) {
 	__plugin_recv_args.req_type = plugin_recv_args.req_type;
 	__plugin_recv_args.data = plugin_recv_args.data;
 	__plugin_recv_args.size = plugin_recv_args.size;
-	memcpy(__plugin_recv_args.mac, plugin_recv_args.mac, ETH_ALEN);
+	memcpy(__plugin_recv_args.mac, (void *) plugin_recv_args.mac, ETH_ALEN);
 
 	/* Now unlock the spinlock used to protect args */
 	spin_unlock(&recv_lock);
 
-	rtdm_sl_plugin_loopback_rx(__plugin_recv_args.req_type, __plugin_recv_args.skb->data, __plugin_recv_args.skb->len);
+	rtdm_sl_plugin_loopback_rx(__plugin_recv_args.req_type, __plugin_recv_args.data, __plugin_recv_args.size);
 }
 
 /**

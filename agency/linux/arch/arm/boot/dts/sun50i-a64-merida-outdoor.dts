@@ -68,31 +68,30 @@
 
 	agency {
 		domain-size = <0x20000000>; /* 512 MB */
-	
-        /* Backends */
-        backends {
-        	compatible = "arm,soo";
-		
-        	vuart {
-        	    	compatible = "soo,vuart";
-                	status = "ok";
-            	};
-		
-            	vweather {
-                	compatible = "soo,vweather";
-                	status = "ok";
-            	};
-             
-	   	 vuihandler {
-			compatible = "soo,vuihandler";
-			status = "ok";
-	    	};
-		
-        };
-    };
 
-    psci {
-   		compatible	=  "arm,psci-0.2";
+		/* Backends */
+		backends {
+
+			vuart {
+				compatible = "vuart,backend";
+				status = "ok";
+			};
+
+			vuihandler {
+				compatible = "vuihandler,backend";
+				status = "ok";
+			};
+
+			vweather {
+				compatible = "vweather,backend";
+				status = "ok";
+			};
+		};
+
+	};
+
+	psci {
+		compatible	=  "arm,psci-0.2";
    		method		=  "smc";
    		psci_version =        <0x84000000>;
    		cpu_suspend	=         <0xc4000001>;

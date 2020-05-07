@@ -74,15 +74,15 @@ nanosecs_abs_t rtdm_clock_read(void);
  */
 
 struct args_task_create {
-	rtdm_task_t *task;
-	const char *name;
+	rtdm_task_t * volatile task;
+	const char * volatile name;
 	rtdm_task_proc_t task_proc;
-	void *arg;
+	void * volatile arg;
 	int priority;
 	nanosecs_rel_t period;
 };
 
-static struct args_task_create args_task_create;
+static volatile struct args_task_create args_task_create;
 
 /**
  * @brief Initialise and start a real-time task

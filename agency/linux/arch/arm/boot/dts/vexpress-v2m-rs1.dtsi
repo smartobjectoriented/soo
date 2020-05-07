@@ -228,7 +228,7 @@
 					dvi-transmitter@39 {
 						compatible = "sil,sii9022-tpi", "sil,sii9022";
 						reg = <0x39>;
-
+#if 0 /* SOO.tech */
 						ports {
 							#address-cells = <1>;
 							#size-cells = <0>;
@@ -240,6 +240,7 @@
 								};
 							};
 						};
+#endif
 					};
 
 					dvi-transmitter@60 {
@@ -262,7 +263,7 @@
 					       0x1a0100 0xf00>;
 					reg-shift = <2>;
 				};
-
+ 
 				clcd@1f0000 {
 					compatible = "arm,pl111", "arm,primecell";
 					reg = <0x1f0000 0x1000>;
@@ -274,13 +275,13 @@
 					max-memory-bandwidth = <54000000>;
 					memory-region = <&vram>;
 
-					port {
+					port { 
 						clcd_pads: endpoint {
 							remote-endpoint = <&clcd_panel>;
 							arm,pl11x,tft-r0g0b0-pads = <0 8 16>;
 						};
-					};
-
+					}; 
+					
 					panel {
 						compatible = "panel-dpi";
 
@@ -291,18 +292,20 @@
 						};
 
 						panel-timing {
-							clock-frequency = <65000000>;
-							hactive = <1024>;
-							vactive = <768>;
-							hsync-len = <136>;
-							hfront-porch = <20>;
-							hback-porch = <160>;
-							vfront-porch = <3>;
-							vback-porch = <29>;
-							vsync-len = <6>;
+							clock-frequency = <25175000>;
+							hactive = <640>;
+							hback-porch = <40>;
+							hfront-porch = <24>;
+							hsync-len = <96>;
+							vactive = <480>;
+							vback-porch = <32>;
+							vfront-porch = <11>;
+							vsync-len = <2>;
 						};
 					};
+					
 				};
+		
 			};
 
 			v2m_fixed_3v3: fixed-regulator-0 {

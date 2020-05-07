@@ -34,6 +34,7 @@
 #include <soo/uapi/debug.h>
 
 #include <soo/core/device_access.h>
+#include <soo/core/sysfs.h>
 
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/transcoder.h>
@@ -159,8 +160,8 @@ void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID
 		do_sync_dom(DOMID_AGENCY_RT, DC_SL_BT_SEND);
 		break;
 
-	case SL_IF_LO:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_LO_SEND);
+	case SL_IF_LOOP:
+		do_sync_dom(DOMID_AGENCY_RT, DC_SL_LOOP_SEND);
 		break;
 
 	default:
@@ -252,8 +253,8 @@ int sl_recv(sl_desc_t *sl_desc, void **data) {
 		do_sync_dom(DOMID_AGENCY_RT, DC_SL_BT_RECV);
 		break;
 
-	case SL_IF_LO:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_LO_RECV);
+	case SL_IF_LOOP:
+		do_sync_dom(DOMID_AGENCY_RT, DC_SL_LOOP_RECV);
 		break;
 
 	default:

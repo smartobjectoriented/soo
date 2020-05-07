@@ -53,6 +53,15 @@
 			};
 		};	
 
+                ramdisk {
+                        description = "SO3 environment minimal rootfs";
+                        data = /incbin/("../rootfs/board/so3virt/rootfs.fat");
+                        type = "ramdisk";
+                        arch = "arm";
+                        os = "linux";
+                        compression = "none";
+                };
+
     };
 	configurations {
 		default = "conf";
@@ -60,7 +69,7 @@
 			description = "SO3 kernel image including device tree";
 			kernel = "kernel";
 			fdt = "fdt";
-		    ramdisk = "ramdisk";
+                        ramdisk = "ramdisk";
 		};
 	};
 };

@@ -47,8 +47,6 @@ static bool datacomm_initialized = false;
 
 static struct task_struct *recv_thread = NULL;
 
-extern bool sl_ready_to_send(sl_desc_t *sl_desc);
-
 bool datacomm_ready_to_send(void) {
 	return sl_ready_to_send(datacomm_sl_desc);
 }

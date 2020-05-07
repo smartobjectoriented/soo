@@ -404,7 +404,7 @@ void vnetstream_connected(struct vbus_device *dev) {
 int vnetstream_init(void) {
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vnetstream");
+	np = of_find_compatible_node(NULL, NULL, "vnetstream,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))

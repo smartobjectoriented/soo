@@ -62,6 +62,7 @@
 #include <soo/hypervisor.h>
 #include <soo/vbstore.h>
 #include <soo/vbus.h>
+#include <soo/core/sysfs.h>
 
 #include <soo/core/core.h>
 #include <soo/core/device_access.h>
@@ -1070,7 +1071,8 @@ const struct attribute_group *soo_dev_groups[] = {
 
 static struct device soo_dev = {
     .bus = &soo_subsys,
-    .groups = soo_dev_groups};
+    .groups = soo_dev_groups
+};
 
 #endif /* CONFIG_ARM */
 
@@ -1090,6 +1092,8 @@ int agency_init(void) {
 #endif
 
 	DBG("SOO Migration subsystem registering...\n");
+
+	soo_sysfs_init();
 
 	soo_guest_activity_init();
 

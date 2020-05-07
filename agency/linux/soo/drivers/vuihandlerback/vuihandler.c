@@ -605,7 +605,7 @@ int vuihandler_init(void) {
 	uint32_t i;
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vuihandler");
+	np = of_find_compatible_node(NULL, NULL, "vuihandler,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))

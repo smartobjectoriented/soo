@@ -28,6 +28,7 @@
 #include <soo/soolink/sender.h>
 
 #include <soo/core/device_access.h>
+#include <soo/core/sysfs.h>
 
 #include <xenomai/rtdm/driver.h>
 
@@ -496,6 +497,56 @@ void discovery_listener_register(discovery_listener_t *listener) {
 	spin_unlock(&discovery_listener_lock);
 }
 
+
+#if 0 /* Debug purposes */
+static rtdm_task_t rt_soo_stream_task;
+static int count = 0;
+static void (soo_stream_recv)(sl_desc_t *sl_desc, void *data, size_t size) {
+
+	lprintk("## count %d got %d bytes\n", count++, size);
+}
+
+static unsigned char buffer[1024*1024];
+
+void stream_count_read(char *str) {
+	sprintf(str, "%d", count);
+}
+
+/*
+ * Testing RT task to send a stream to a specific smart object.
+ * Helpful to perform assessment of the wireless transmission.
+ */
+static void soo_stream_task_fn(void *args) {
+
+	sl_desc_t *sl_desc;
+	neighbour_desc_t *dst;
+	char *data = "Hello me";
+	int i;
+
+#if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
+	sl_desc = sl_register(SL_REQ_PEER, SL_IF_WLAN, SL_MODE_UNIBROAD);
+#else /* CONFIG_SOOLINK_PLUGIN_WLAN */
+	sl_desc = sl_register(SL_REQ_PEER, SL_IF_ETH, SL_MODE_UNIBROAD);
+#endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
+
+	for (i = 0; i < 1024*1024; i++)
+		buffer[i] = i;
+
+	rtdm_sl_set_recv_callback(sl_desc, soo_stream_recv);
+
+	soo_sysfs_register(stream_count, stream_count_read, NULL);
+
+	while (true) {
+
+		rtdm_sl_send(sl_desc, buffer, 1024*1024, get_null_agencyUID(), 10);
+
+		rtdm_task_wait_period(NULL);
+	}
+
+}
+
+#endif /* 0 */
+
 /*
  * Main initialization function of the Discovery functional block
  */
@@ -509,7 +560,11 @@ void discovery_init(void) {
 	INIT_LIST_HEAD(&neigh_blacklist);
 
 	/* Register a new requester in Soolink for Discovery. */
-	discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_ALL, SL_MODE_BROADCAST);
+#if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
+	discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_WLAN, SL_MODE_BROADCAST);
+#else /* CONFIG_SOOLINK_PLUGIN_WLAN */
+	discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_ETH, SL_MODE_BROADCAST);
+#endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
 
 	DBG_BUFFER(&discovery_sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
 
@@ -536,4 +591,7 @@ void discovery_start(void) {
 	discovery_enable();
 
 	rtdm_task_init(&rt_watch_loop_task, "Discovery", iamasoo_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
+#if 0
+	rtdm_task_init(&rt_soo_stream_task, "SOO-streaming", soo_stream_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
+#endif
 }

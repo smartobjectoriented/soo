@@ -53,6 +53,8 @@
 #include <fdt.h>
 #include <libfdt.h>
 
+#include <avz/lib.h>
+
 #include "libfdt_internal.h"
 
 int fdt_check_header(const void *fdt)
@@ -247,4 +249,29 @@ int fdt_move(const void *fdt, void *buf, int bufsize)
 
 	memmove(buf, fdt, fdt_totalsize(fdt));
 	return 0;
+}
+
+/**
+ * fdt_find_or_add_subnode() - find or possibly add a subnode of a given node
+ *
+ * @fdt: pointer to the device tree blob
+ * @parentoffset: structure block offset of a node
+ * @name: name of the subnode to locate
+ *
+ * fdt_subnode_offset() finds a subnode of the node with a given name.
+ * If the subnode does not exist, it will be created.
+ */
+int fdt_find_or_add_subnode(void *fdt, int parentoffset, const char *name)
+{
+	int offset;
+
+	offset = fdt_subnode_offset(fdt, parentoffset, name);
+
+	if (offset == -FDT_ERR_NOTFOUND)
+		offset = fdt_add_subnode(fdt, parentoffset, name);
+
+	if (offset < 0)
+		printk("%s: %s: %s\n", __func__, name, fdt_strerror(offset));
+
+	return offset;
 }

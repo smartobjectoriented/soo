@@ -28,13 +28,22 @@
 
 /* Sender / plugin flags */
 
-/* Soolink requester type */
+/*
+ * SOOlink requester type.
+ *
+ * The following requester type are defined:
+ * - SL_REQ_DCM:	used by the DCM for ME migration
+ * - SL_REQ_TCP:	used by application which needs tcp/ip routing
+ * - SL_REQ_BT:
+ *
+ */
 typedef enum {
 	SL_REQ_DCM = 0,
 	SL_REQ_TCP,
 	SL_REQ_BT,
 	SL_REQ_DISCOVERY,
 	SL_REQ_NETSTREAM,
+	SL_REQ_PEER,
 	SL_REQ_N
 } req_type_t;
 
@@ -44,9 +53,7 @@ typedef enum {
 	SL_IF_ETH,
 	SL_IF_TCP,
 	SL_IF_BT,
-	SL_IF_LO,
-	SL_IF_ANY,
-	SL_IF_ALL
+	SL_IF_LOOP
 } if_type_t;
 
 /* Transmission mode type */
@@ -142,6 +149,8 @@ void rtdm_sl_tx_request(sl_desc_t *sl_desc);
 
 bool sl_try_update_tx(void);
 void sl_release_update_tx(void);
+
+bool sl_ready_to_send(sl_desc_t *sl_desc);
 
 /* prio can be 0 to 99 (the greater the higher priority) */
 void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio);

@@ -43,6 +43,11 @@ void __lprintk(const char *format, va_list va) {
 
 }
 
+void lprintch(char c) {
+	if (likely(__printch))
+		__printch(c);
+}
+
 void lprintk(char *format, ...) {
 
 	va_list va;

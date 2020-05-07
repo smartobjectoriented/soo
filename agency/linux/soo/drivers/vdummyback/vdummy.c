@@ -145,7 +145,7 @@ int generator_fn(void *arg) {
 int vdummy_init(void) {
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vdummy");
+	np = of_find_compatible_node(NULL, NULL, "vdummy,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))

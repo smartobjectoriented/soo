@@ -3,10 +3,8 @@
 
 # Deploy usr apps into the first partition
 echo Deploying usr apps into the first partition...
-cd ../filesystem
-./mount.sh 1
-
-sudo cp ../usr/out/*.elf fs/
-sudo cp ../usr/resources/* fs/
-
-sudo ./umount.sh
+cd ../rootfs
+./mount_rootfs.sh
+sudo rm -rf fs/*
+sudo cp -r ../usr/out/* fs/
+sudo ./umount_rootfs.sh

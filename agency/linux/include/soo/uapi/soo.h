@@ -75,8 +75,8 @@ typedef enum {
 	DC_SL_TCP_RECV,
 	DC_SL_BT_SEND,
 	DC_SL_BT_RECV,
-	DC_SL_LO_SEND,
-	DC_SL_LO_RECV,
+	DC_SL_LOOP_SEND,
+	DC_SL_LOOP_RECV,
 
 	/* Plugin non-RT and RT interactions */
 	DC_PLUGIN_WLAN_SEND,

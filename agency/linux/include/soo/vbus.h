@@ -38,7 +38,6 @@
 #include <soo/vbstore.h>
 
 extern unsigned int rtdm_dc_evtchn;
-void rtdm_do_sync_dom(domid_t domid, dc_event_t dc_event);
 
 /* VBS_KEY_LENGTH as it is managed by vbstore */
 #define VBS_KEY_LENGTH		50

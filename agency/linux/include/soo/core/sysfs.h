@@ -1,6 +1,6 @@
+
 /*
- * Copyright (C) 2016-2018 Baptiste Delporte <bonel@bonel.net>
- * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2020 Daniel Rossier <daniel.rossier@soo.tech>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,34 +17,25 @@
  *
  */
 
-#ifndef VUART_H
-#define VUART_H
+#ifndef SOO_CORE_SYSFS_H
+#define SOO_CORE_SYSFS_H
 
-#include <soo/ring.h>
-#include <soo/grant_table.h>
+/* Attribute names */
 
-#include <linux/vt_kern.h>
+typedef enum {
+	/* SOO */
 
-#define VUART_NAME	"vuart"
-#define VUART_PREFIX	"[" VUART_NAME "] "
+	/** SOOlink */
 
-#define INPUT_TRANSMIT_DESTINATION_VTTY (1 << 0)
-#define INPUT_TRANSMIT_DESTINATION_TTY (1 << 1)
+	/*** Discovery ***/
+	stream_count
+} soo_sysfs_attr_t;
 
-#define MAX_BUF_CHARS	16
+/* These callback types are used to make use of show/store sysfs callback as generic as possible. */
+typedef void (*sysfs_handler_t)(char *str);
 
-typedef struct {
-	char c;
-	uint8_t	pad[1];
-} vuart_request_t;
+void soo_sysfs_init(void);
 
-typedef struct {
-	char c;
-	uint8_t	pad[1];
-} vuart_response_t;
+void soo_sysfs_register(soo_sysfs_attr_t attr, sysfs_handler_t show_handler, sysfs_handler_t store_handler);
 
-DEFINE_RING_TYPES(vuart, vuart_request_t, vuart_response_t);
-
-bool vuart_ready(void);
-
-#endif /* VUART_H */
+#endif /* SOO_CORE_SYSFS_H */

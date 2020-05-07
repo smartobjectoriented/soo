@@ -75,7 +75,7 @@ int sender_xmit(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
 
 	ret = datalink_xmit(sl_desc, packet, size, completed);
 
-	/* Release the transcoder packet */
+	/* Release the transceiver packet */
 	kfree(packet);
 
 	return ret;

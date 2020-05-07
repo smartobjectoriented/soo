@@ -122,7 +122,7 @@ void vdummyrt_connected(struct vbus_device *dev) {
 int vdummyrt_init(void) {
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vdummyrt");
+	np = of_find_compatible_node(NULL, NULL, "vdummyrt,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))
