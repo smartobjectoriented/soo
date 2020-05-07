@@ -32,7 +32,7 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-#include "common.h"
+#include <soo/dev/vdummy.h>
 
 /* Protection against shutdown (or other) */
 static mutex_t processing_lock;

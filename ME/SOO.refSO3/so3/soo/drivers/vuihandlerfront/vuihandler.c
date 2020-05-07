@@ -34,8 +34,6 @@
 
 #include <soo/dev/vuihandler.h>
 
-#include "common.h"
-
 vuihandler_t vuihandler;
 
 ui_update_spid_t __ui_update_spid = NULL;

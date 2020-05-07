@@ -33,7 +33,7 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-#include "common.h"
+#include <soo/dev/vdummy.h>
 
 vdummy_t vdummy;
 

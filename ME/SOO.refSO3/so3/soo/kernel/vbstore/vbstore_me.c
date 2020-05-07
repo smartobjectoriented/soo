@@ -21,8 +21,6 @@
 #define DEBUG
 #endif
 
-#include <sync.h>
-
 #include <soo/avz.h>
 #include <soo/soo.h>
 #include <soo/hypervisor.h>

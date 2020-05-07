@@ -173,6 +173,11 @@ __enable_mmu:
 
   isb
 
+#else
+
+  mov	r5, #0xffffffff				@ all domains are manager at the beginning
+  mcr	p15, 0, r5, c3, c0, 0		@ load domain access register
+
 #endif /* CONFIG_SO3VIRT */
 
   @ Readjust the stack

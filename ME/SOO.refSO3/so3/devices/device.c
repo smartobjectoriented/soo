@@ -23,6 +23,10 @@
 #include <common.h>
 #include <heap.h>
 #include <memory.h>
+#include <list.h>
+#include <errno.h>
+#include <ctype.h>
+#include <vfs.h>
 
 #include <device/fdt/libfdt.h>
 
@@ -44,6 +48,15 @@ static char *__dev_state_str[] = {
 		"init pending",
 		"initialized",
 };
+
+/*
+ * A list of registered devices.
+ *
+ * A device is registered with the dev_register function from its driver file.
+ * It is registered so that it can be accessed e.g. by the VFS using the
+ * dev_get_fops function.
+ */
+static LIST_HEAD(registered_dev);
 
 char *dev_state_str(dev_status_t status) {
 	return __dev_state_str[status];
@@ -152,6 +165,126 @@ void parse_dtb(void) {
 	/* We have always the last allocation which will not be used */
 	free(dev);
 }
+
+/*
+ * Get the device id of a specific fd.
+ * Returns by-default id 0 if no number is specified at the end of the class name.
+ */
+int devclass_get_id(int fd) {
+	char *pos;
+	int val;
+
+	pos = vfs_get_filename(fd);
+
+	while (*pos) {
+	    if (isdigit(*pos)) {
+	        /* Found a number */
+	        val = simple_strtoul(pos, NULL, 10);
+	        return val;
+	    } else
+	        /* Otherwise, move on to the next character. */
+	        pos++;
+	}
+
+	return -1;
+}
+
+void devclass_set_priv(struct classdev *cdev, void *priv) {
+	cdev->priv = priv;
+}
+
+void *devclass_get_priv(struct classdev *cdev) {
+	return cdev->priv;
+}
+
+/* Register a device. Usually called from the device driver. */
+void devclass_register(dev_t *dev, struct classdev *cdev)
+{
+	cdev->dev = dev;
+	INIT_LIST_HEAD(&cdev->list);
+
+	list_add(&cdev->list, &registered_dev);
+}
+
+/*
+ * Get the cdev of a registered device using the given filename. The vfs_type
+ * is also set to the proper value.
+ *
+ * A device filename has the following format:
+ *   /dev/<dev-class>[dev-id]
+ *   e.g. /dev/fb0, /dev/input1
+ *
+ * If dev-id is not specified, 0 is assumed.
+ *
+ * Note: the given `filename' must not include the /dev/ prefix.
+ */
+struct classdev *devclass_get_cdev(const char *filename)
+{
+	uint32_t dev_id, i;
+	char *dev_id_s;
+	size_t dev_class_len;
+	struct classdev *cur_dev;
+
+	/* Find the beginning of the device id string. */
+	dev_id_s = (char *) filename;
+	while (*dev_id_s && !isdigit(*dev_id_s))
+		dev_id_s++;
+
+	if (dev_id_s == filename) {
+		lprintk("%s: no device class specified.\n", __func__);
+		return NULL;
+	}
+
+	/*
+	 * Get the device id. If dev_id_s is NULL then 0 should be returned.
+	 * TODO simple_strtox functions are deprecated.
+	 */
+	if (*dev_id_s)
+		dev_id = (uint32_t) simple_strtoul(dev_id_s, NULL, 10);
+	else
+		dev_id = 0;
+
+	/* Get the device class length. */
+	dev_class_len = dev_id_s - filename;
+
+	/* Loop through registered_dev. */
+	i = 0;
+	list_for_each_entry(cur_dev, &registered_dev, list) {
+
+		/*
+		 * We compare the lengths and use strncmp to compare only the
+		 * device class part of `filename'.
+		 */
+		if ((strlen(cur_dev->class) == dev_class_len) && !strncmp(filename, cur_dev->class, dev_class_len)) {
+
+			if ((dev_id == i++) || ((dev_id >= cur_dev->id_start) && (dev_id <= cur_dev->id_end)))
+				return cur_dev;
+		}
+	}
+
+	lprintk("%s: device not found.\n", __func__);
+
+	return NULL;
+}
+
+/*
+ * Get the fops of a registered device using the given filename. The vfs_type
+ * is also set to the proper value.
+ *
+ */
+struct file_operations *devclass_get_fops(const char *filename, uint32_t *vfs_type)
+{
+	struct classdev *cdev;
+
+	cdev = devclass_get_cdev(filename);
+	if (!cdev)
+		return NULL;
+
+	*vfs_type = cdev->type;
+
+	return cdev->fops;
+}
+
 
 /*
  * Main device initialization function.

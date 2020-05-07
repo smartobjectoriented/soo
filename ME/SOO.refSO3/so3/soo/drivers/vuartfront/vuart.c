@@ -23,6 +23,8 @@
 
 #include <mutex.h>
 #include <heap.h>
+#include <completion.h>
+
 #include <device/driver.h>
 #include <device/irq.h>
 
@@ -34,62 +36,17 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-#include "common.h"
+#include <soo/dev/vuart.h>
 
 vuart_t vuart;
+completion_t reader_wait;
 
 bool vuart_ready(void) {
 	return vuart_is_connected();
 }
 
-static void process_pending_rsp(void) {
-	RING_IDX i, rp;
-	vuart_response_t *ring_rsp;
-
-	rp = vuart.ring.sring->rsp_prod;
-	dmb();
-
-	for (i = vuart.ring.sring->rsp_cons; i != rp; i++) {
-		ring_rsp = RING_GET_RESPONSE(&vuart.ring, i);
-
-#warning For debugging purposes
-#if defined(CONFIG_NETSTREAM_MESSAGING)
-		switch (ring_rsp->c) {
-		case '0': {
-			extern void debug0(void);
-			debug0();
-			break;
-		}
-
-		case '1': {
-			extern void debug1(void);
-			debug1();
-			break;
-		}
-
-		case '2': {
-			extern void debug2(void);
-			debug2();
-			break;
-		}
-
-		case '3': {
-			extern void debug3(void);
-			debug3();
-			break;
-		}
-
-		case '4': {
-			extern void debug4(void);
-			debug4();
-			break;
-		}
-		}
-#endif /* CONFIG_NETSTREAM_MESSAGING */
-		lprintk("!! got %c !!\n", ring_rsp->c);
-	}
-
-	vuart.ring.sring->rsp_cons = i;
+void process_pending_rsp(void) {
+	complete(&reader_wait);
 }
 
 irq_return_t vuart_interrupt(int irq, void *dev_id) {
@@ -131,6 +88,22 @@ void vuart_write(char *buffer, int count) {
 
 	vuart_end();
 
+}
+
+char vuart_read_char(void) {
+	vuart_response_t *ring_rsp;
+	char byte;
+
+	while (vuart.ring.sring->rsp_cons == vuart.ring.sring->rsp_prod)
+		/* Wait for a character available. */
+		wait_for_completion(&reader_wait);
+
+	ring_rsp = RING_GET_RESPONSE(&vuart.ring, vuart.ring.sring->rsp_cons);
+	byte = ring_rsp->c;
+
+	vuart.ring.sring->rsp_cons++;
+
+	return byte;
 }
 
 void vuart_probe(void) {
@@ -175,6 +148,8 @@ void vuart_connected(void) {
 }
 
 static int vuart_init(dev_t *dev) {
+
+	init_completion(&reader_wait);
 
 	vuart_vbus_init();
 
