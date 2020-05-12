@@ -33,7 +33,7 @@
 #include <soo/hypervisor.h>
 #include <soo/uapi/debug.h>
 
-#include "common.h"
+#include <soo/dev/vuart.h>
 
 /* Protection against shutdown (or other) */
 static struct mutex processing_lock[MAX_DOMAINS];

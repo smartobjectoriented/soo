@@ -40,4 +40,39 @@ typedef struct  {
  */
 DEFINE_RING_TYPES(vdummy, vdummy_request_t, vdummy_response_t);
 
+typedef struct {
+
+	vdummy_back_ring_t ring;
+	unsigned int irq;
+
+} vdummy_ring_t;
+
+/*
+ * General structure for this virtual device (backend side)
+ */
+typedef struct {
+
+	vdummy_ring_t rings[MAX_DOMAINS];
+	struct vbus_device *vdev[MAX_DOMAINS];
+
+} vdummy_t;
+
+extern vdummy_t vdummy;
+
+irqreturn_t vdummy_interrupt(int irq, void *dev_id);
+
+void vdummy_probe(struct vbus_device *dev);
+void vdummy_close(struct vbus_device *dev);
+void vdummy_suspend(struct vbus_device *dev);
+void vdummy_resume(struct vbus_device *dev);
+void vdummy_connected(struct vbus_device *dev);
+void vdummy_reconfigured(struct vbus_device *dev);
+void vdummy_shutdown(struct vbus_device *dev);
+
+extern void vdummy_vbus_init(void);
+
+bool vdummy_start(domid_t domid);
+void vdummy_end(domid_t domid);
+bool vdummy_is_connected(domid_t domid);
+
 #endif /* VDUMMY_H */

@@ -32,6 +32,7 @@
 
 #include <soo/core/device_access.h>
 
+#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
@@ -39,8 +40,6 @@
 #include <soo/uapi/debug.h>
 
 #include <soo/dev/vuart.h>
-
-#include "common.h"
 
 /*  This is a reserved char code we use to query (patched) Qemu to retrieve the window size. */
 #define SERIAL_GWINSZ   '\254'

@@ -39,7 +39,7 @@
 #include <stdarg.h>
 #include <linux/kthread.h>
 
-#include "common.h"
+#include <soo/dev/vleds.h>
 
 #if defined(CONFIG_LEDS_FAN5702)
 /* Interface with the HW LED controller */

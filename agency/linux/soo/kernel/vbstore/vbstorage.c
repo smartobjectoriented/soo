@@ -456,11 +456,6 @@ void vbstorage_agency_init(void) {
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vuihandler");
 
-	/* Agency backend side of virtual netstream device */
-	np = of_find_compatible_node(NULL, NULL, "vnetstream,backend");
-	if (of_device_is_available(np))
-		vbs_store_mkdir("/backend/vnetstream");
-
 	/* Agency backend side of virtual UART device */
 	np = of_find_compatible_node(NULL, NULL, "vuart,backend");
 	if (of_device_is_available(np))
@@ -470,11 +465,6 @@ void vbstorage_agency_init(void) {
 	np = of_find_compatible_node(NULL, NULL, "vdummy,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vdummy");
-
-	/* Agency backend side of virtual RT dummy device (reference backend) */
-	np = of_find_compatible_node(NULL, NULL, "vdummyrt,backend");
-	if (of_device_is_available(np))
-		vbs_store_mkdir("/backend/vdummyrt");
 
 	/* Agency backend side of virtual weather (weather station) */
 	np = of_find_compatible_node(NULL, NULL, "vweather,backend");

@@ -59,7 +59,7 @@
 
 #include <soo/soolink/soolink.h>
 
-#include "common.h"
+#include <soo/dev/vuihandler.h>
 
 /*
  * vuiHandler is dedicated to manage interactions between a (external) tablet/smartphone and the components

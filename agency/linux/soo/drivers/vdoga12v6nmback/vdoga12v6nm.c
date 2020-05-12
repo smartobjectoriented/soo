@@ -46,7 +46,7 @@
 
 #include <stdarg.h>
 
-#include "common.h"
+#include <soo/dev/vdoga12v6nm.h>
 
 vdoga12v6nm_t vdoga12v6nm;
 

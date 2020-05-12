@@ -75,6 +75,18 @@ typedef struct {
 
 DEFINE_RING_TYPES(vuihandler_tx, vuihandler_tx_request_t, vuihandler_tx_response_t);
 
+/* Not used */
+typedef struct {
+	uint32_t		val;
+} vuihandler_rx_request_t;
+
+typedef struct {
+	uint32_t		id;
+	size_t			size;
+} vuihandler_rx_response_t;
+
+DEFINE_RING_TYPES(vuihandler_rx, vuihandler_rx_request_t, vuihandler_rx_response_t);
+
 typedef struct {
 	uint8_t			spid[SPID_SIZE];
 	struct list_head	list;

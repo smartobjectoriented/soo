@@ -29,6 +29,7 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 
+#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
@@ -37,7 +38,7 @@
 #include <stdarg.h>
 #include <linux/kthread.h>
 
-#include "common.h"
+#include <soo/dev/vdummy.h>
 
 vdummy_t vdummy;
 

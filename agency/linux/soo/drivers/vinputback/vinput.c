@@ -27,8 +27,6 @@
 #include <linux/slab.h>
 #include <linux/hid.h>
 
-#include "common.h"
-
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
@@ -38,6 +36,9 @@
 #include <stdarg.h>
 #include <linux/kthread.h>
 
+#include <soo/dev/vinput.h>
+
+#if 0
 vinput_t vinput;
 
 struct mutex sending;
@@ -200,4 +201,4 @@ int vinput_init(void)
 
 
 module_init(vinput_init);
-
+#endif

@@ -48,7 +48,7 @@
 
 #include <stdarg.h>
 
-#include "common.h"
+#include <soo/dev/vweather.h>
 
 vweather_t vweather;
 

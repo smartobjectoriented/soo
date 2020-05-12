@@ -22,7 +22,8 @@
 
 #include <mutex.h>
 #include <heap.h>
-#include <sync.h>
+#include <completion.h>
+
 #include <device/driver.h>
 
 #include <soo/evtchn.h>
@@ -31,7 +32,7 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-#include "common.h"
+#include <soo/dev/vdoga12v6nm.h>
 
 vdoga12v6nm_t vdoga12v6nm;
 
