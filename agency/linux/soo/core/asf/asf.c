@@ -484,6 +484,7 @@ long asf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case ASF_IOCTL_CRYPTO_TEST:
 		asf_crypto_example();
+		asf_crypto_large_buf_test();
 		break;
 
 	case ASF_IOCTL_HELLO_WORLD:

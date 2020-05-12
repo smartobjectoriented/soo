@@ -39,9 +39,11 @@ void asf_crypto_example(void)
 	uint8_t *encoded = NULL;
 	uint8_t *decoded = NULL;
 
+	lprintk("## ASF Crypto example\n");
+
 	lprintk("## %s: Encoding\n", __func__);
 	size = asf_encrypt(ASF_KEY_COM, plain, sizeof(plain), &encoded);
-	if (size > 0) {
+	if ((int)size > 0) {
 		lprintk("## %s: Encoded buffer size: %d\n", __func__, size);
 		lprintk("buffer: ");
 		lprintk_buffer(encoded, size);
@@ -52,7 +54,7 @@ void asf_crypto_example(void)
 
 	lprintk("## %s: Decoding\n", __func__);
 	size = asf_decrypt(ASF_KEY_COM, encoded, size, &decoded);
-	if (size > 0) {
+	if ((int)size > 0) {
 		lprintk("## %s: decoded buffer size: %d\n", __func__, size);
 		lprintk("buffer: ");
 		lprintk_buffer(decoded, size);
@@ -65,6 +67,65 @@ void asf_crypto_example(void)
 	kfree(encoded);
 	kfree(decoded);
 }
+
+
+/**
+ *  asf_crypto_large_buf_test() - ASF test with a large buffer encryption flow
+ */
+void asf_crypto_large_buf_test(void)
+{
+	int size;
+	int i;
+	uint8_t *plain;
+	uint8_t *encoded;
+	uint8_t *decoded;
+	int plain_sz = 1046628;
+
+	lprintk("## ASF Testing with a large buffer, size: %d\n", plain_sz);
+
+	plain = (uint8_t *)kmalloc(plain_sz, GFP_KERNEL);
+	if (!plain) {
+		lprintk("## Buffer allocation failed\n");
+		return;
+	}
+
+	for (i = 0; i < plain_sz; i++)
+		plain[i] = (uint8_t)i;
+
+	lprintk("## %s: Encoding\n", __func__);
+	size = asf_encrypt(ASF_KEY_COM, plain, plain_sz, &encoded);
+	if ((int)size > 0) {
+		lprintk("## %s: Encoded buffer size: %d\n", __func__, size);
+	} else {
+		lprintk("## %s: Encoding failed\n", __func__);
+		goto err0;
+	}
+
+	lprintk("## %s: Decoding\n", __func__);
+	size = asf_decrypt(ASF_KEY_COM, encoded, size, &decoded);
+	lprintk("decoded buffer size: %d\n", size);
+
+	if (size != plain_sz) {
+		lprintk("## %s: Decoding failed, decoded buffer size %d, expected %d\n", __func__, size, plain_sz);
+		goto err1;
+	}
+
+	for (i = 0; i < size; i++) {
+		if (decoded[i] != (uint8_t)i) {
+			lprintk("## %s: Wrong decoded\n", __func__);
+			break;
+		}
+	}
+
+	kfree(decoded);
+err1:
+	kfree(encoded);
+err0:
+	kfree(plain);
+}
+
+
+
 
 /**
  * hello_world_ta_cmd() - Send 'Inc value' cmd to Hello World TA

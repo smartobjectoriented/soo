@@ -37,6 +37,8 @@ int asf_close_session(struct tee_context *ctx, int session_id);
 
 void asf_crypto_example(void);
 
+void asf_crypto_large_buf_test(void);
+
 int hello_world_ta_cmd(hello_args_t *args);
 
 #endif /* ASF_PRIV_H */
