@@ -165,6 +165,10 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_types,
 		TEE_Param __maybe_unused params[4],
 		void __maybe_unused **sess_ctx)
 {
+	char key[32];
+	uint32_t key_len;
+	int res;
+
 	uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_NONE,
 						   TEE_PARAM_TYPE_NONE,
 						   TEE_PARAM_TYPE_NONE,
@@ -176,6 +180,13 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_types,
 	/* Unused parameters */
 	(void)&params;
 	(void)&sess_ctx;
+
+	/* Example - how to get/use properties */
+	res = TEE_GetPropertyAsBinaryBlock(TEE_PROPSET_CURRENT_TA, "gp.ta.com_key", key, &key_len);
+	if (res == TEE_SUCCESS)
+		IMSG("Got communication key, len: %d", key_len);
+	else
+		IMSG("TEE_GetPropertyAsString, error: %d", res);
 
 	return TEE_SUCCESS;
 }

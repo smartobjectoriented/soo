@@ -37,6 +37,10 @@
 
 #define TA_UUID				ASF_TA_UUID
 
+
+/* Properties testing */
+#define ASF_COM_KEY			"DOZZEK8cSDO4l9btp0AAWnfTDrb9N7VmlY1CVW8q7/Q="
+
 /*
  * TA properties: multi-instance TA, no specific attribute
  * TA_FLAG_EXEC_DDR is meaningless but mandated.
@@ -56,10 +60,7 @@
 #define TA_DESCRIPTION	"Agency Security Framework (asf) Trusted Application"
 
 /* Extra properties */
-#if 0
 #define TA_CURRENT_TA_EXT_PROPERTIES \
-    { "org.linaro.optee.examples.hello_world.property1", USER_TA_PROP_TYPE_STRING, "Some string" }, \
-    { "org.linaro.optee.examples.hello_world.property2", USER_TA_PROP_TYPE_U32, &(const uint32_t){ 0x0010 } }
-#endif
+    { "gp.ta.com_key", USER_TA_PROP_TYPE_BINARY_BLOCK, ASF_COM_KEY }
 
 #endif /* USER_TA_HEADER_DEFINES_H */
