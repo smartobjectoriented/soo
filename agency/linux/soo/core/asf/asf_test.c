@@ -141,7 +141,7 @@ int hello_world_ta_cmd(hello_args_t *args)
 	/* Open Session */
 	session_id = asf_open_session(&ctx, hello_world_uuid);
 	if (session_id < 0) {
-		printk("ASF Error - Open session failed\n");
+		lprintk("ASF Error - Open session failed\n");
 		return -1;
 	}
 
@@ -159,7 +159,7 @@ int hello_world_ta_cmd(hello_args_t *args)
 		lprintk("ASF ERROR - Installation of TA failed\n");
 		ret1 = 1;
 	} else {
-		printk("ASF - hello_world_cmd result: %d\n", (int)param[0].u.value.a);
+		lprintk("ASF - hello_world_cmd result: %d\n", (int)param[0].u.value.a);
 	}
 
 	ret2 = asf_close_session(ctx, session_id);

@@ -126,7 +126,7 @@ int asf_close_session(struct tee_context *ctx, int session_id)
 static struct tee_shm *asf_shm_alloc(struct tee_context *ctx)
 {
 	struct tee_shm *shm = NULL;
-	size_t shm_sz = 2*ASF_MAX_BUFF_SIZE + ASF_TAG_SIZE + ASF_IV_SIZE;
+	size_t shm_sz = ASF_MAX_BUFF_SIZE + ASF_TAG_SIZE + ASF_IV_SIZE;
 
 	shm = tee_shm_alloc(ctx, shm_sz, TEE_SHM_MAPPED | TEE_SHM_DMA_BUF);
 	if (IS_ERR(shm)) {
@@ -166,8 +166,7 @@ static int asf_invoke_cypto(struct tee_context *ctx, int session_id, int mode, s
 		           uint8_t *bufin, uint8_t *bufout, size_t buf_sz, uint8_t *iv, uint8_t *tag)
 {
 	struct tee_ioctl_invoke_arg arg;
-	uint8_t *data_in = NULL;
-	uint8_t *data_out = NULL;
+	uint8_t *data_inout = NULL;
 	uint8_t *data_tag = NULL;
 	uint8_t *data_iv = NULL;
 	struct tee_param param[1];
@@ -182,14 +181,13 @@ static int asf_invoke_cypto(struct tee_context *ctx, int session_id, int mode, s
 	param[0].attr = TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INOUT;
 	param[0].u.memref.shm = shm;
 	param[0].u.memref.shm_offs = 0;
-	param[0].u.memref.size = buf_sz;
+	param[0].u.memref.size =  buf_sz + ASF_TAG_SIZE + ASF_IV_SIZE ;
 
-	data_in  = tee_shm_get_va(shm, 0);
-	data_out = tee_shm_get_va(shm, buf_sz);
-	data_iv  = tee_shm_get_va(shm, 2*buf_sz);
-	data_tag = tee_shm_get_va(shm, 2*buf_sz + ASF_IV_SIZE);
+	data_inout  = tee_shm_get_va(shm, 0);
+	data_iv  = tee_shm_get_va(shm, buf_sz);
+	data_tag = tee_shm_get_va(shm, buf_sz + ASF_IV_SIZE);
 
-	memcpy(data_in, bufin, buf_sz);
+	memcpy(data_inout, bufin, buf_sz);
 	if (mode == ASF_TA_CMD_DECODE) {
 		memcpy(data_tag, tag, ASF_TAG_SIZE);
 		memcpy(data_iv, iv, ASF_IV_SIZE);
@@ -201,7 +199,7 @@ static int asf_invoke_cypto(struct tee_context *ctx, int session_id, int mode, s
 		return -1;
 	}
 
-	memcpy(bufout, data_out, buf_sz);
+	memcpy(bufout, data_inout, buf_sz);
 	if (mode == ASF_TA_CMD_ENCODE) {
 		memcpy(iv, data_iv, ASF_IV_SIZE);
 		memcpy(tag, data_tag, ASF_TAG_SIZE);

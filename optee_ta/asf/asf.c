@@ -43,12 +43,11 @@ static void asf_iv_inc(void)
 
 static TEE_Result asf_enc_dec(uint32_t type, TEE_Param params[TEE_NUM_PARAMS], TEE_OperationMode mode)
 {
-	uint8_t *inbuf;
-	uint8_t *outbuf;
-	size_t buf_sz;
+	uint8_t *buf;
+	uint32_t buf_sz;
 	uint8_t *tag;
 	uint8_t *iv;
-	size_t tag_sz = ASF_TAG_SIZE;
+	uint32_t tag_sz = ASF_TAG_SIZE;
 	int ret = TEE_SUCCESS;
 	TEE_Attribute attr;
 	TEE_OperationHandle op_handle = TEE_HANDLE_NULL;
@@ -63,15 +62,15 @@ static TEE_Result asf_enc_dec(uint32_t type, TEE_Param params[TEE_NUM_PARAMS], T
 	}
 
 	buf_sz = params[0].memref.size;
+	buf_sz = (buf_sz - ASF_TAG_SIZE - ASF_IV_SZ);
 
-	inbuf  = params[0].memref.buffer;
-	outbuf = inbuf + buf_sz;
-	tag    = inbuf + 2*buf_sz + ASF_IV_SZ;
+	buf = params[0].memref.buffer;
+	tag = buf + buf_sz + ASF_IV_SZ;
 
 	if (mode == TEE_MODE_ENCRYPT)
 		iv = asf_iv;
 	else
-		iv = inbuf + 2*buf_sz;
+		iv = buf + buf_sz;
 
 	ret = TEE_AllocateOperation(&op_handle, TEE_ALG_AES_GCM, mode, sizeof(aes_key)*8);
 	if (ret != TEE_SUCCESS) {
@@ -107,23 +106,23 @@ static TEE_Result asf_enc_dec(uint32_t type, TEE_Param params[TEE_NUM_PARAMS], T
 
 	if (mode == TEE_MODE_ENCRYPT) {
 
-		ret = TEE_AEEncryptFinal(op_handle, inbuf, buf_sz, outbuf, &buf_sz, tag, &tag_sz);
+		ret = TEE_AEEncryptFinal(op_handle, buf, buf_sz, buf, &buf_sz, tag, &tag_sz);
 		if (ret != TEE_SUCCESS) {
 			EMSG("ASF - crypto_authenc_enc_final failed, ret: 0x%x\n", ret);
 			goto out_free_key;
 		}
 
 		/* Copy current IV and increment it for next use */
-		memcpy(inbuf + 2*buf_sz, iv, ASF_IV_SZ);
+		memcpy(buf + buf_sz, iv, ASF_IV_SZ);
 		asf_iv_inc();
 
 	} else if (mode == TEE_MODE_DECRYPT) {
 
-		ret = TEE_AEDecryptFinal(op_handle, inbuf, buf_sz, outbuf, &buf_sz, tag, ASF_TAG_SIZE);
+		ret = TEE_AEDecryptFinal(op_handle, buf, buf_sz, buf, &buf_sz, tag, ASF_TAG_SIZE);
 		if (ret != TEE_SUCCESS) {
 			EMSG("ASF - crypto_authenc_dec_final failed, ret: 0x%x\n", ret);
 			/* Decryption failed --> reset the output buffer */
-			memset(outbuf, 0, buf_sz);
+			memset(buf, 0, buf_sz);
 			goto out_free_key;
 		}
 
