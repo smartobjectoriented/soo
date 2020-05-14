@@ -24,8 +24,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef TA_HELLO_WORLD_H
-#define TA_HELLO_WORLD_H
+#ifndef TA_ASF_H
+#define TA_ASF_H
 
 
 /*
@@ -40,4 +40,4 @@
 #define AFS_TA_CMD_ENCODE		0
 #define AFS_TA_CMD_DECODE		1
 
-#endif /*TA_HELLO_WORLD_H*/
+#endif /* TA_ASF_H */

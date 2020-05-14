@@ -9,15 +9,13 @@
 #include <string.h>
 #include <asf_ta.h>
 
+#define ASF_KEY_SIZE		32 /* AES 256 */
 #define ASF_TAG_SIZE		16
 #define ASF_IV_SZ			12
 
-static uint8_t aes_key[] =  {
-	0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
-	0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c,
-	0x3b, 0x4e, 0x12, 0x61, 0x82, 0xea, 0x2d, 0x6a,
-	0xac, 0x7f, 0x15, 0x88, 0x90, 0xfc, 0xf4, 0xc3
-};
+static uint8_t aes_com_key[ASF_KEY_SIZE];
+static uint8_t aes_inject_key[ASF_KEY_SIZE];
+
 
 
 static uint8_t asf_iv[] = {
@@ -72,21 +70,21 @@ static TEE_Result asf_enc_dec(uint32_t type, TEE_Param params[TEE_NUM_PARAMS], T
 	else
 		iv = buf + buf_sz;
 
-	ret = TEE_AllocateOperation(&op_handle, TEE_ALG_AES_GCM, mode, sizeof(aes_key)*8);
+	ret = TEE_AllocateOperation(&op_handle, TEE_ALG_AES_GCM, mode, sizeof(aes_com_key)*8);
 	if (ret != TEE_SUCCESS) {
 		EMSG("ASF - TEE_AllocateOperation failed, ret: %u\n", ret);
 		return ret;
 	}
 
 	/* Set key - the key is store in the session handle */
-	ret = TEE_AllocateTransientObject(TEE_TYPE_AES, sizeof(aes_key) * 8, &key_handle);
+	ret = TEE_AllocateTransientObject(TEE_TYPE_AES, sizeof(aes_com_key) * 8, &key_handle);
 	if (ret != TEE_SUCCESS) {
 		EMSG("ASF -Failed to allocate transient object");
 		key_handle = TEE_HANDLE_NULL;
 		goto out_free_op;
 	}
 
-	TEE_InitRefAttribute(&attr, TEE_ATTR_SECRET_VALUE, aes_key, sizeof(aes_key));
+	TEE_InitRefAttribute(&attr, TEE_ATTR_SECRET_VALUE, aes_com_key, sizeof(aes_com_key));
 
 	ret = TEE_PopulateTransientObject(key_handle, &attr, 1);
 	if (ret != TEE_SUCCESS) {
@@ -165,8 +163,8 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_types,
 		TEE_Param __maybe_unused params[4],
 		void __maybe_unused **sess_ctx)
 {
-	char key[32];
-	uint32_t key_len;
+	uint32_t com_key_size;
+	uint32_t inject_key_size;
 	int res;
 
 	uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_NONE,
@@ -181,13 +179,21 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_types,
 	(void)&params;
 	(void)&sess_ctx;
 
-	/* Example - how to get/use properties */
-	res = TEE_GetPropertyAsBinaryBlock(TEE_PROPSET_CURRENT_TA, "gp.ta.com_key", key, &key_len);
-	if (res == TEE_SUCCESS)
-		IMSG("Got communication key, len: %d", key_len);
-	else
-		IMSG("TEE_GetPropertyAsString, error: %d", res);
+	/* Get AES communication key */
+	res = TEE_GetPropertyAsBinaryBlock(TEE_PROPSET_CURRENT_TA, "gp.ta.com_key", aes_com_key, &com_key_size);
+	if ((res != TEE_SUCCESS) || (com_key_size != ASF_KEY_SIZE)) {
+		EMSG("ASF - Recuperation of asf communication key failed");
+		return TEE_ERROR_GENERIC;
+	}
 
+	/* Get AES communication key */
+#if 1
+	res = TEE_GetPropertyAsBinaryBlock(TEE_PROPSET_CURRENT_TA, "gp.ta.inject_key", aes_inject_key, &inject_key_size);
+	if ((res != TEE_SUCCESS) || (inject_key_size != ASF_KEY_SIZE)) {
+		EMSG("ASF - Recuperation of asf communication key failed");
+		return TEE_ERROR_GENERIC;
+	}
+#endif
 	return TEE_SUCCESS;
 }
 
