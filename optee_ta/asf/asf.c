@@ -13,6 +13,11 @@
 #define ASF_TAG_SIZE		16
 #define ASF_IV_SZ			12
 
+typedef enum {
+	ASF_KEY_COM = 0, /* Symmetric key for the 'Communication' flow */
+	ASF_KEY_INJECT,  /* Symmetric key for the 'Injection' flow */
+} sym_key_t;
+
 static uint8_t aes_com_key[ASF_KEY_SIZE];
 static uint8_t aes_inject_key[ASF_KEY_SIZE];
 
@@ -45,6 +50,7 @@ static TEE_Result asf_enc_dec(uint32_t type, TEE_Param params[TEE_NUM_PARAMS], T
 	uint32_t buf_sz;
 	uint8_t *tag;
 	uint8_t *iv;
+	uint8_t *key = NULL;
 	uint32_t tag_sz = ASF_TAG_SIZE;
 	int ret = TEE_SUCCESS;
 	TEE_Attribute attr;
@@ -53,7 +59,7 @@ static TEE_Result asf_enc_dec(uint32_t type, TEE_Param params[TEE_NUM_PARAMS], T
 
 	/* Checking parameters */
 	if (TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INOUT,
-			            TEE_PARAM_TYPE_NONE,
+			            TEE_PARAM_TYPE_VALUE_INPUT,
 			            TEE_PARAM_TYPE_NONE,
 			            TEE_PARAM_TYPE_NONE) != type) {
 		return TEE_ERROR_BAD_PARAMETERS;
@@ -70,21 +76,31 @@ static TEE_Result asf_enc_dec(uint32_t type, TEE_Param params[TEE_NUM_PARAMS], T
 	else
 		iv = buf + buf_sz;
 
-	ret = TEE_AllocateOperation(&op_handle, TEE_ALG_AES_GCM, mode, sizeof(aes_com_key)*8);
+	/* get the key to use */
+	if (params[1].value.a == ASF_KEY_COM) {
+		key = aes_com_key;
+	} else if (params[1].value.a == ASF_KEY_INJECT) {
+		key = aes_inject_key;
+	} else {
+		EMSG("ASF - Unsupported key (%d)\n", params[1].value.a);
+		return TEE_ERROR_BAD_PARAMETERS;
+	}
+
+	ret = TEE_AllocateOperation(&op_handle, TEE_ALG_AES_GCM, mode, ASF_KEY_SIZE * 8);
 	if (ret != TEE_SUCCESS) {
 		EMSG("ASF - TEE_AllocateOperation failed, ret: %u\n", ret);
 		return ret;
 	}
 
 	/* Set key - the key is store in the session handle */
-	ret = TEE_AllocateTransientObject(TEE_TYPE_AES, sizeof(aes_com_key) * 8, &key_handle);
+	ret = TEE_AllocateTransientObject(TEE_TYPE_AES, ASF_KEY_SIZE * 8, &key_handle);
 	if (ret != TEE_SUCCESS) {
 		EMSG("ASF -Failed to allocate transient object");
 		key_handle = TEE_HANDLE_NULL;
 		goto out_free_op;
 	}
 
-	TEE_InitRefAttribute(&attr, TEE_ATTR_SECRET_VALUE, aes_com_key, sizeof(aes_com_key));
+	TEE_InitRefAttribute(&attr, TEE_ATTR_SECRET_VALUE, key, ASF_KEY_SIZE);
 
 	ret = TEE_PopulateTransientObject(key_handle, &attr, 1);
 	if (ret != TEE_SUCCESS) {

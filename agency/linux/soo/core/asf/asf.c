@@ -163,25 +163,28 @@ static void asf_shm_free(struct tee_shm *shm)
  * @return 0 in case of success or -1
  */
 static int asf_invoke_cypto(struct tee_context *ctx, int session_id, int mode, struct tee_shm *shm,
-		           uint8_t *bufin, uint8_t *bufout, size_t buf_sz, uint8_t *iv, uint8_t *tag)
+		           sym_key_t key, uint8_t *bufin, uint8_t *bufout, size_t buf_sz, uint8_t *iv, uint8_t *tag)
 {
 	struct tee_ioctl_invoke_arg arg;
 	uint8_t *data_inout = NULL;
 	uint8_t *data_tag = NULL;
 	uint8_t *data_iv = NULL;
-	struct tee_param param[1];
+	struct tee_param param[2];
 	int ret = 0;
 
 	memset(&arg, 0, sizeof(arg));
 	memset(&param, 0, sizeof(param));
 	arg.func = mode;
 	arg.session = session_id;
-	arg.num_params = 1;
+	arg.num_params = 2;
 
 	param[0].attr = TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INOUT;
 	param[0].u.memref.shm = shm;
 	param[0].u.memref.shm_offs = 0;
 	param[0].u.memref.size =  buf_sz + ASF_TAG_SIZE + ASF_IV_SIZE ;
+
+	param[1].attr = TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_INPUT;
+	param[1].u.value.a = key;
 
 	data_inout  = tee_shm_get_va(shm, 0);
 	data_iv  = tee_shm_get_va(shm, buf_sz);
@@ -257,7 +260,7 @@ static size_t asf_res_buf_alloc(size_t slice_nr, size_t rest, int mode, uint8_t 
  * @rest: the size of the last slice (non-full slice)
  * @return 0 in case of success or -1 in case of error
  */
-static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, int mode, uint8_t *inbuf, uint8_t *outbuf,  size_t slice_nr, size_t rest)
+static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, int mode, sym_key_t key, uint8_t *inbuf, uint8_t *outbuf,  size_t slice_nr, size_t rest)
 {
 	unsigned loop_nr;
 	struct tee_shm *shm;
@@ -303,7 +306,7 @@ static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, i
 
 		tag = iv + ASF_IV_SIZE;
 
-		ret = asf_invoke_cypto(ctx, session_id, mode, shm, in, out, cur_buf_sz, iv, tag);
+		ret = asf_invoke_cypto(ctx, session_id, mode, shm, key, in, out, cur_buf_sz, iv, tag);
 		if (ret) {
 			lprintk("ASF ERROR - asf_invoke_cypto failed\n");
 			return -1;
@@ -354,7 +357,7 @@ int asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t 
 	}
 
 	/* 3. 'Slicing' the buffer and sent it to TEE */
-	ret = asf_send_slice_buffer(ctx, session_id, ASF_TA_CMD_ENCODE, plain_buf, *enc_buf, block_nr, rest);
+	ret = asf_send_slice_buffer(ctx, session_id, ASF_TA_CMD_ENCODE, key, plain_buf, *enc_buf, block_nr, rest);
 	if (ret)
 		goto err_encode;
 
@@ -401,7 +404,7 @@ int asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **pl
 	}
 
 	/* 3. 'Slicing' the buffer in bloc of ASF_MAX_BUFF_SIZE size */
-	ret = asf_send_slice_buffer(ctx, session_id, ASF_TA_CMD_DECODE, enc_buf, res_buf, block_nr, rest);
+	ret = asf_send_slice_buffer(ctx, session_id, ASF_TA_CMD_DECODE, key, enc_buf, res_buf, block_nr, rest);
 
 	/* 4. close context */
 	ret = asf_close_session(ctx, session_id);
