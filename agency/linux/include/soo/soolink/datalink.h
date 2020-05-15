@@ -32,10 +32,8 @@
  */
 typedef struct {
 
-	void (*setup_callback)(sl_desc_t *sl_desc);
-
 	/* Function to be called when sending data */
-	int (*xmit_callback)(sl_desc_t *sl_desc, void *packet, size_t size, bool completed);
+	int (*tx_callback)(sl_desc_t *sl_desc, void *packet, size_t size, bool completed);
 
 	/* Function to be called when receiving data */
 	void (*rx_callback)(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
@@ -44,10 +42,8 @@ typedef struct {
 
 void datalink_register_protocol(datalink_proto_t proto, datalink_proto_desc_t *proto_desc);
 
-int datalink_xmit(sl_desc_t *sl_desc, void *packet, size_t size, bool completed);
+int datalink_tx(sl_desc_t *sl_desc, void *packet, size_t size, bool completed);
 void datalink_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
-
-void datalink_setup(sl_desc_t *sl_desc);
 
 void datalink_init(void);
 

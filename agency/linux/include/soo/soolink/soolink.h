@@ -33,8 +33,11 @@
  *
  * The following requester type are defined:
  * - SL_REQ_DCM:	used by the DCM for ME migration
- * - SL_REQ_TCP:	used by application which needs tcp/ip routing
- * - SL_REQ_BT:
+ * - SL_REQ_TCP:	currently used by vuihandler to manage Ethernet configuration (remote access from Internet to applications)
+ * - SL_REQ_BT:		currently used by vuihandler and its stuff
+ * - SL_REQ_DISCOVERY:  reserved to the Discovery for handling Iamasoo beacons sent between smart objects
+ * - SL_REQ_PEER:	simple transmission between smart objects. Used for debugging purposes mainly.
+ * - SL_REQ_DATALINK:   used by the Winenet datalink protocol for beacon management.
  *
  */
 typedef enum {
@@ -43,10 +46,11 @@ typedef enum {
 	SL_REQ_BT,
 	SL_REQ_DISCOVERY,
 	SL_REQ_PEER,
+	SL_REQ_DATALINK,
 	SL_REQ_N
 } req_type_t;
 
-/* Type of interface a requester can use with Soolink */
+/* Type of interface a requester can use with SOOlink */
 typedef enum {
 	SL_IF_WLAN = 0,
 	SL_IF_ETH,

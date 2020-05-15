@@ -57,7 +57,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 		memcpy(pkt->payload, data, size);
 
 		/* Forward the packet to the Transceiver */
-		sender_xmit(sl_desc, pkt, sizeof(transcoder_packet_format_t) + size, true);
+		sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + size, true);
 
 		kfree(pkt);
 
@@ -67,7 +67,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 	/* End of transmission ? */
 #warning sending all MEs at each time ?
 	if (!data) {
-		sender_xmit(sl_desc, NULL, 0, true);
+		sender_tx(sl_desc, NULL, 0, true);
 		return ;
 	}
 
@@ -91,7 +91,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 		 * will be taken from the plugin (RX).
 		 */
 
-		sender_xmit(sl_desc, pkt, sizeof(transcoder_packet_format_t) + size, true);
+		sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + size, true);
 
 		kfree(pkt);
 
@@ -126,7 +126,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 			 * will be taken from the plugin (RX).
 			 */
 
-			if (sender_xmit(sl_desc, pkt, sizeof(transcoder_packet_format_t) + pkt->u.ext.payload_length, completed) < 0) {
+			if (sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + pkt->u.ext.payload_length, completed) < 0) {
 				/* There has been something wrong with Datalink. Abort the transmission of the block. */
 
 				kfree(pkt);

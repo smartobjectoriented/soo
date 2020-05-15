@@ -223,8 +223,8 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		 */
 		if (sl_desc->rtdm_recv_callback)
 			sl_desc->rtdm_recv_callback(sl_desc, block->incoming_block, block->size);
-
-		rtdm_event_signal(&sl_desc->recv_event);
+		else
+			rtdm_event_signal(&sl_desc->recv_event);
 
 	} else {
 
@@ -267,7 +267,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			sl_desc->incoming_block = NULL;
 			sl_desc->incoming_block_size = 0;
 
-			/* Wake up potential requester which performs a synchonous call */
+			/* Wake up potential requester which performs a synchronous call */
 			rtdm_event_signal(&sl_desc->recv_event);
 
 			/*
@@ -346,11 +346,12 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			 */
 			if (sl_desc->rtdm_recv_callback)
 				sl_desc->rtdm_recv_callback(sl_desc, block->incoming_block, block->size);
+			else
+				/* Inform the synchronous waiter about available data */
+				rtdm_event_signal(&sl_desc->recv_event);
 
 			block->block_ext_in_progress = false;
 
-			/* Inform the synchronous waiter about available data */
-			rtdm_event_signal(&sl_desc->recv_event);
 		}
 
 	}

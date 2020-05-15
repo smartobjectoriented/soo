@@ -38,7 +38,7 @@ static rtdm_mutex_t receiver_lock;
  * the packet has to be given back to the Receiver.
  * The size parameter refers to the whole transceiver packet.
  */
-void receiver_request_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size) {
+void __receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size) {
 	transceiver_packet_t *transceiver_packet;
 
 	transceiver_packet = (transceiver_packet_t *) packet;

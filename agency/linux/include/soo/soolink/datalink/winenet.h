@@ -24,13 +24,6 @@
 #include <soo/soolink/transceiver.h>
 #include <soo/soolink/discovery.h>
 
-/*
- * Various state indicator stored in the Iamasoo packet of Discovery.
- * Each state is encoded as a bit in the state field.
- */
-
-//#define IAMASOO_
-
 /* Maximal number of retries */
 #define WNET_RETRIES_MAX 6
 
@@ -47,65 +40,46 @@
 #define WNET_MIN_DRAND		1000
 #define WNET_MAX_DRAND		2000
 
-/*
- * As the DCM send thread is non-RT, we choose a higher value to TSpeakerXMIT to give it a
- * chance to catch the TX request end before the expiration of the timeout.
- * The Tlistener timeout is adapted accordingly.
- */
-#if defined(WNET_CONFIG_NETSTREAM)
-
-/* Timeouts are expressed in us */
-
-#if !defined(CONFIG_ARCH_VEXPRESS)
-
-#define WNET_TSPEAKER_ACK	2000
-#define WNET_TCHAIN_DELAY	5500
-#define WNET_TIFS			180
-#define WNET_TPROPA			350
-#define WNET_TMARGIN		200
-
-#else
-
-#define WNET_TSPEAKER_ACK	15000
-#define WNET_TCHAIN_DELAY	55000
-#define WNET_TIFS			1800
-#define WNET_TPROPA			3500
-#define WNET_TMARGIN		2000
-
-#endif /* !CONFIG_ARCH_VEXPRESS */
-
-/* n is the number of Smart Objects in the ecosystem */
-#define WNET_TLISTENER(n_soodios)	(n_soodios * WNET_TCHAIN_DELAY)
-
-#elif defined(WNET_CONFIG_UNIBROAD)
-
-/* TSPEAKER_XMIT must remain higher than the propagation cycle (currently, it is at 100 ms, so 5x more) */
-#define WNET_TSPEAKER_XMIT	MILLISECS(500)
 #define WNET_TSPEAKER_ACK	MILLISECS(200)
 
-/* TLISTENER_LONG is used when the smart object belongs to a group, and for one iteration more (right after leaving a group) */
-#define WNET_TLISTENER_LONG	MILLISECS(10000)
-
-/* TLISTENER_SHORT is used when the smart object does not receive anything any longer. */
-#define WNET_TLISTENER_SHORT	MILLISECS(1000)
-
-#define WNET_TMEDIUM_FREE	MICROSECS(1200)
-
-#endif /* CONFIG_NETSTREAM, CONFIG_UNIBROAD, CONFIG_BROADCAST, mutually exclusive */
-
+/*
+ * Winenet states FSM
+ * - INIT: first state used during early set up.
+ * - IDLE: starting state and used when there is no neighbor.
+ * - SPEAKER: the opportunity to send MEs until completion.
+ * - LISTENER: the mode in which ME can be received.
+ */
 typedef enum {
-	WNET_STATE_IDLE	= 0,
-	WNET_STATE_JOIN,
+	WNET_STATE_INIT = 0,
+	WNET_STATE_IDLE,
 	WNET_STATE_SPEAKER,
 	WNET_STATE_LISTENER,
 	WNET_STATE_N
 } wnet_state_t;
 
+/*
+ * When a new smart object wants to join the neighborhood.
+ * The rule is that the smart object with the lower agencyUID sends
+ * a PING REQUEST and waits for the response to be considered as valid.
+ */
 typedef enum {
 	WNET_PING_REQUEST = 0,
 	WNET_PING_RESPONSE = 1,
 } wnet_ping_t;
 
+/*
+ * Winenet beacons:
+ *
+ * - GO_SPEAKER: a (previous speaker) gives the turn to the next smart object.
+ *
+ * - ACKNOWLEDGMENT: most beacons and data must be acknowledged.
+ *
+ * - BROADCAST_SPEAKER: to inform the other neighbours that we are ready to send.
+ *   the smart object which received this beacon binds itself to the speaker by using
+ *   the private data of the neighbour_desc_t structure of Discovery.
+ *
+ * - PING: to establish the link within the neighborhood.
+ */
 typedef enum {
 	WNET_BEACON_GO_SPEAKER = 0,
 	WNET_BEACON_ACKNOWLEDGMENT = 1,
@@ -115,54 +89,46 @@ typedef enum {
 } wnet_beacon_id_t;
 
 typedef struct {
+
 	uint8_t id;
-	bool discard;
-	union {
-		struct {
-		} go_speaker;
+	void *priv;
+	uint8_t agencyUID[SOO_AGENCY_UID_SIZE];
 
-		struct {
-		} broadcast_speaker;
-
-		struct {
-			wnet_ping_t type;
-		} ping;
-
-		struct {
-			uint32_t transID;
-			bool data;
-		} acknowledgment;
-
-	} u;
 } wnet_beacon_t;
 
 typedef struct {
-	sl_desc_t		*sl_desc;
-	plugin_desc_t		*plugin_desc;
+	sl_desc_t *sl_desc;
 
-	/* TX/XMIT path */
-	bool			tx_pending;
-	transceiver_packet_t	*tx_packet;
-	size_t			tx_size;
-	uint32_t		tx_transID;
-	bool			tx_completed;
-	int			tx_ret;
-	rtdm_event_t		xmit_event;
+	bool pending;
+	transceiver_packet_t *packet;
+	size_t	size;
+	uint32_t transID;
+	bool completed;
+	int ret;
+	rtdm_event_t xmit_event;
 
-	/* RX path */
-	bool			data_received;
-	bool			rx_completed;
-	uint32_t		rx_transID;
+} wnet_tx_t;
+
+typedef struct {
+	sl_desc_t *sl_desc;
+
+	bool data_received;
+	bool completed;
+	uint32_t transID;
 
 	/* Last received beacon */
-	wnet_beacon_t		last_beacon;
-} wnet_tx_rx_data_t;
+	wnet_beacon_t last_beacon;
+
+} wnet_rx_t;
 
 typedef struct {
 	struct list_head list;
 
 	/* valid means the neighbour has been confirmed through the initial ping procedure. */
 	bool valid;
+
+	/* Helper field to make a round of neighbours */
+	bool processed;
 
 	neighbour_desc_t *neighbour;
 	uint32_t last_transID;
@@ -183,14 +149,11 @@ typedef struct {
 uint8_t *winenet_get_state_string(wnet_state_t state);
 uint8_t *winenet_get_beacon_id_string(wnet_beacon_id_t beacon_id);
 
-void winenet_send_beacon(wnet_beacon_id_t beacon_id, agencyUID_t *dest_agencyUID, void *arg, uint32_t opt, bool discard);
+void winenet_send_beacon(wnet_beacon_t *outgoing_beacon, wnet_beacon_id_t beacon_id, agencyUID_t *dest_agencyUID, void *arg);
 
-void winenet_copy_tx_rx_data(wnet_tx_rx_data_t *tx_rx_data);
 void winenet_xmit_data_processed(int ret);
 void winenet_wait_xmit_event(void);
 void winenet_get_last_beacon(wnet_beacon_t *last_beacon);
-void winenet_tx_rx_data_protection(bool protect);
-wnet_tx_rx_data_t *winenet_get_tx_rx_data(void);
 
 struct list_head *winenet_get_neighbours(void);
 int winenet_get_my_index_and_listener(uint8_t *index, neighbour_desc_t *listener);

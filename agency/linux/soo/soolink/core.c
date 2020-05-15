@@ -98,9 +98,6 @@ sl_desc_t *sl_register(req_type_t req_type, if_type_t if_type, trans_mode_t tran
 
 	list_add_tail(&sl_desc->list, &sl_req_list);
 
-	/* Initialize the datalink transport if required. */
-	datalink_setup(sl_desc);
-
 	return sl_desc;
 }
 
