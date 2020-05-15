@@ -471,7 +471,6 @@ long asf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 	case ASF_IOCTL_SESSION_OPENED:
-		lprintk("ASF ioctl ASF_IOCTL_SESSION_OPENED called, status: %d\n", asf_ctx_openend);
 		return asf_ctx_openend;
 
 	case ASF_IOCTL_CLOSE_SESSION:
