@@ -1,0 +1,1 @@
+obj-y += asf.o ta_installation.o

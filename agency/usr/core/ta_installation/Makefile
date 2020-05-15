@@ -1,1 +1,0 @@
-obj-y += ta_installation.o

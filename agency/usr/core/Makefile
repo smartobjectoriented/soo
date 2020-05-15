@@ -12,7 +12,7 @@ KBUILD_CFLAGS	+=  -Wall -Wno-long-long -Wno-variadic-macros #-Wextra -Wcast-alig
 
 KBUILD_AFLAGS	+=
 
-obj-y += core.o injector.o leds.o migration/ upgrader/ device_access/ ta_installation/
+obj-y += core.o injector.o leds.o migration/ upgrader/ device_access/ asf/
 
 LIBARCHIVE_LIBS = -lz -lexpat -larchive
 

@@ -33,7 +33,7 @@ static uint8_t hello_world_uuid[] = { 0x8a, 0xaa, 0xf2, 0x00, 0x24, 0x50, 0x11, 
  */
 void asf_crypto_example(void)
 {
-	int size;
+	ssize_t size;
 	uint8_t  plain[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
 	                    0x08, 0x09, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6};
 	uint8_t *encoded = NULL;
@@ -43,7 +43,7 @@ void asf_crypto_example(void)
 
 	lprintk("## %s: Encoding\n", __func__);
 	size = asf_encrypt(ASF_KEY_COM, plain, sizeof(plain), &encoded);
-	if ((int)size > 0) {
+	if (size > 0) {
 		lprintk("## %s: Encoded buffer size: %d\n", __func__, size);
 		lprintk("buffer: ");
 		lprintk_buffer(encoded, size);
@@ -54,7 +54,7 @@ void asf_crypto_example(void)
 
 	lprintk("## %s: Decoding\n", __func__);
 	size = asf_decrypt(ASF_KEY_COM, encoded, size, &decoded);
-	if ((int)size > 0) {
+	if (size > 0) {
 		lprintk("## %s: decoded buffer size: %d\n", __func__, size);
 		lprintk("buffer: ");
 		lprintk_buffer(decoded, size);
@@ -74,12 +74,12 @@ void asf_crypto_example(void)
  */
 void asf_crypto_large_buf_test(void)
 {
-	int size;
+	ssize_t size;
 	int i;
 	uint8_t *plain;
 	uint8_t *encoded;
 	uint8_t *decoded;
-	int plain_sz = 1046628;
+	int plain_sz = 1879878;
 
 	lprintk("## ASF Testing with a large buffer, size: %d\n", plain_sz);
 

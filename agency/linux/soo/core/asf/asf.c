@@ -26,15 +26,13 @@
 #include <linux/fs.h>
 #include <linux/file.h>
 
+#include <soo/uapi/asf.h>
+
 #include "asf_priv.h"
 
 #if 0
 #define DEBUG
 #endif
-
-/* ASF char drv related constants */
-#define ASF_DEV_MAJOR	100
-#define ASF_DEV_NAME  	"/dev/soo/asf"
 
 /* ASF TA supported commands */
 #define ASF_TA_CMD_ENCODE		0
@@ -44,14 +42,14 @@
 #define ASF_TAG_SIZE			16
 #define ASF_IV_SIZE				12
 
-/* ASF IOCTL - Send cmd to Hello World TA */
-#define ASF_IOCTL_CRYPTO_TEST		0
-#define ASF_IOCTL_HELLO_WORLD		1
-
 /* Management pTA boostrap command. It is used to install TA in Secure Storage */
 #define PTA_SECSTOR_TA_MGMT_BOOTSTRAP	0
 
+static struct tee_context *asf_ctx;
+static int asf_sess_id;
+
 static bool asf_enabled = false;
+static bool asf_ctx_openend = false;
 
 /* UUID of ASF Trusted application */
 static uint8_t asf_uuid[] = { 0x6a, 0xca, 0x96, 0xec, 0xd0, 0xa4, 0x11, 0xe9,
@@ -220,7 +218,7 @@ static int asf_invoke_cypto(struct tee_context *ctx, int session_id, int mode, s
  * @res_buf: result buffer
  * @return the size of the result buffer or -1 in case of error
  */
-static size_t asf_res_buf_alloc(size_t slice_nr, size_t rest, int mode, uint8_t **res_buf)
+static ssize_t asf_res_buf_alloc(size_t slice_nr, size_t rest, int mode, uint8_t **res_buf)
 {
 	size_t rest_sz;
 	size_t slice_sz;
@@ -245,7 +243,7 @@ static size_t asf_res_buf_alloc(size_t slice_nr, size_t rest, int mode, uint8_t 
 		return -1;
 	}
 
-	return res_buf_sz;
+	return (ssize_t)res_buf_sz;
 }
 
 /**
@@ -331,11 +329,9 @@ static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, i
  *                             APIs                                     *
  ************************************************************************/
 
-int asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t **enc_buf)
+ssize_t asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t **enc_buf)
 {
-	struct tee_context *ctx;
-	uint32_t session_id;
-	int res_buf_sz;
+	ssize_t res_buf_sz;
 	int ret;
 	int block_nr;
 	int rest;
@@ -350,19 +346,8 @@ int asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t 
 	if (res_buf_sz < 0)
 		return -1;
 
-	/* 2. Initialize a context connecting us to the TEE */
-	session_id = asf_open_session(&ctx, asf_uuid);
-	if (session_id < 0) {
-		goto err_encode;
-	}
-
 	/* 3. 'Slicing' the buffer and sent it to TEE */
-	ret = asf_send_slice_buffer(ctx, session_id, ASF_TA_CMD_ENCODE, key, plain_buf, *enc_buf, block_nr, rest);
-	if (ret)
-		goto err_encode;
-
-	/* 4. close context */
-	ret = asf_close_session(ctx, session_id);
+	ret = asf_send_slice_buffer(asf_ctx, asf_sess_id, ASF_TA_CMD_ENCODE, key, plain_buf, *enc_buf, block_nr, rest);
 	if (ret)
 		goto err_encode;
 
@@ -377,12 +362,10 @@ err_encode:
 	return -1;
 }
 
-int asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **plain_buf)
+ssize_t asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **plain_buf)
 {
-	struct tee_context *ctx;
-	uint32_t session_id;
 	int ret;
-	size_t res_buf_sz;
+	ssize_t res_buf_sz;
 	uint8_t *res_buf = NULL;
 	int block_nr;
 	int rest;
@@ -397,27 +380,14 @@ int asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **pl
 	if (res_buf_sz < 0)
 		return -1;
 
-	/* 2. Initialize a context connecting us to the TEE */
-	session_id = asf_open_session(&ctx, asf_uuid);
-	if (session_id < 0) {
-		goto err_decode;
-	}
-
 	/* 3. 'Slicing' the buffer in bloc of ASF_MAX_BUFF_SIZE size */
-	ret = asf_send_slice_buffer(ctx, session_id, ASF_TA_CMD_DECODE, key, enc_buf, res_buf, block_nr, rest);
-
-	/* 4. close context */
-	ret = asf_close_session(ctx, session_id);
+	ret = asf_send_slice_buffer(asf_ctx, asf_sess_id, ASF_TA_CMD_DECODE, key, enc_buf, res_buf, block_nr, rest);
 
 	*plain_buf = res_buf;
 
 	mutex_unlock(&asf_mutex);
 
 	return res_buf_sz;
-
-err_decode:
-	mutex_unlock(&asf_mutex);
-	kfree(res_buf);
 
 	return -1;
 }
@@ -479,25 +449,43 @@ ssize_t asf_write(struct file *filp, const char __user *buf, size_t len, loff_t 
 
 long asf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	int rc = 0;
+	int res;
 
 	switch (cmd) {
 
 	case ASF_IOCTL_CRYPTO_TEST:
 		asf_crypto_example();
 		asf_crypto_large_buf_test();
-		break;
+		return 0;
 
-	case ASF_IOCTL_HELLO_WORLD:
-		rc = hello_world_ta_cmd((hello_args_t *)(arg));
-		break;
+	case ASF_IOCTL_HELLO_WORLD_TEST:
+		return hello_world_ta_cmd((hello_args_t *)(arg));
+
+	case ASF_IOCTL_OPEN_SESSION:
+		asf_sess_id = asf_open_session(&asf_ctx, asf_uuid);
+		if (asf_sess_id < 0) {
+			return -1;
+		} else {
+			asf_ctx_openend = true;
+			return 0;
+		}
+
+	case ASF_IOCTL_SESSION_OPENED:
+		lprintk("ASF ioctl ASF_IOCTL_SESSION_OPENED called, status: %d\n", asf_ctx_openend);
+		return asf_ctx_openend;
+
+	case ASF_IOCTL_CLOSE_SESSION:
+		res = asf_close_session(asf_ctx, asf_sess_id);
+		if (res == 0)
+			asf_ctx_openend = false;
+		return res;
 
 	default:
-		printk("ASF Command %d not supported\n", cmd);
-		rc = -1;
+		lprintk("ASF ioctl %d unavailable !\n", cmd);
+		panic("ASF");
 	}
 
-	return rc;
+	return -EINVAL;
 }
 
 struct file_operations asf_fops = {

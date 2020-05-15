@@ -16,47 +16,32 @@
  *
  */
 
+#ifndef ASF_PRIV_H
+#define ASF_PRIV_H
+
 #include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
+#include <stdarg.h>
 
 #include <uapi/asf.h>
 
-typedef struct {
-	int val;
-} hello_args_t;
+#define ASF_MAX_PRINT_SIZE	256
+
+#define ASF_IMSG(fmt, ...)   asf_print(__func__, __LINE__, "ASF", "INFO", fmt, ##__VA_ARGS__)
+#define ASF_EMSG(fmt, ...)   asf_print(__func__, __LINE__, "ASF", "ERROR", fmt, ##__VA_ARGS__)
+
+/* It should not be used directly. Use ASF_EMSG or ASF_IMSG macro */
+void asf_print(const char *function, int line, const char *prefix, char *level, const char *fmt, ...);
 
 
-int main(int argc, char *argv[])
-{
-	int devfd;
-	hello_args_t args;
-	int ret;
-	int res;
+void asf_ta_installation(void);
 
-	devfd = open(ASF_DEV_NAME, O_RDWR);
-	if (!devfd) {
-		printf("Opening '%s' failed\n", ASF_DEV_NAME);
-		return -1;
-	}
-
-	/* Hello World Test TA test */
-#if 1
-	args.val = 5;
-	printf("Hello World TA Test, value: %d\n", args.val);
-	ret = ioctl(devfd, ASF_IOCTL_HELLO_WORLD_TEST, &args);
-	if (ret != 0) {
-		printf("ioctl command failed\n");
-		return -1;
-	}
-#endif
-	/* ASF TA crypto Test  */
-	ioctl(devfd, ASF_IOCTL_CRYPTO_TEST, NULL);
-
-	close(devfd);
-
-	return 0;
-}
+#endif /* ASF_PRIV_H */

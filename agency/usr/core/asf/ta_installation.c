@@ -16,53 +16,10 @@
  *
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <dirent.h>
-#include <stdbool.h>
-#include <string.h>
-#include<stdarg.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-
-#define ASF_MAX_PRINT_SIZE	256
-
-#define ASF_TA_DEV_NAME  	"/dev/soo/asf"
+#include "asf_priv.h"
 
 #define ASF_TA_PATH			"/root/ta/"
 #define ASF_TA_EXTENSION	"ta"
-
-#define ASF_IMSG(fmt, ...)   asf_print(__func__, __LINE__, "ASF", "INFO", fmt, ##__VA_ARGS__)
-#define ASF_EMSG(fmt, ...)   asf_print(__func__, __LINE__, "ASF", "ERROR", fmt, ##__VA_ARGS__)
-
-
-/**
- * asf_print() - ASF raw print/log function.
- *
- * It should not be used directly. Use ASF_EMSG or ASF_IMSG macro
- */
-static void asf_print(const char *function, int line, const char *prefix, char *level, const char *fmt, ...)
-{
-	char msg[ASF_MAX_PRINT_SIZE];
-	int n = 0;
-	va_list ap;
-
-	n = snprintf(msg, sizeof(msg), "> %s %s/%s:%d: ", prefix, level, function, line);
-	if (n < 0)
-		return;
-
-	if ((size_t)n < sizeof(msg)) {
-		va_start(ap, fmt);
-		n = vsnprintf(msg + n, sizeof(msg) - n, fmt, ap);
-		va_end(ap);
-		if (n < 0)
-			return;
-	}
-
-	fprintf(stdout, "%s", msg);
-}
 
 /**
  * read_ta_file() - Read a TA binary file and store the result in 'buf'
@@ -122,14 +79,14 @@ static bool write_ta(void *buf, size_t size)
 
 	ASF_IMSG("Write TA\n");
 
-	fd = open(ASF_TA_DEV_NAME, O_RDWR);
+	fd = open(ASF_DEV_NAME, O_RDWR);
 	if (!fd) {
-		ASF_EMSG("Opening '%s' failed\n", ASF_TA_DEV_NAME);
+		ASF_EMSG("Opening '%s' failed\n", ASF_DEV_NAME);
 		goto write_ta_error;
 	}
 
 	if (write(fd, buf,size) != size) {
-		ASF_EMSG("Write TA failed\n", ASF_TA_DEV_NAME);
+		ASF_EMSG("Write TA failed\n", ASF_DEV_NAME);
 		goto write_ta_failed;
 	}
 
@@ -229,8 +186,7 @@ static bool is_ta(const char *file_name)
 	return ret;
 }
 
-
-void ta_installation(void)
+void asf_ta_installation(void)
 {
 	bool ret;
 	DIR *d;

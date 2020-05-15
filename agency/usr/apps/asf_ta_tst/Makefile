@@ -8,7 +8,7 @@ KBUILD_CFLAGS	+=  -Wall -Wno-long-long -Wno-variadic-macros
 KBUILD_AFLAGS	+=
 
 %.o: %.c
-	$(CC) -o $@ -c $< $(CFLAGS)
+	$(CC) -o $@ -I../../include -c $< $(CFLAGS)
 
 build/asf_ta_tst: asf_ta_tst.o
 	$(Q)$(CC) $(LDFLAGS) $<  -o $(PWD)/$@

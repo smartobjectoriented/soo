@@ -36,7 +36,7 @@
 #include <core/device_access.h>
 #include <core/debug.h>
 #include <core/types.h>
-#include <core/ta_installation.h>
+#include <core/asf.h>
 
 #include <dcm/core.h>
 
@@ -80,9 +80,8 @@ int main(int argc, char *argv[]) {
 	int rc;
 	uint8_t val;
 
-	/* Before starting core operation, installation of the new TA (if any)  */
-	/* The TA are located in '/root/ta' folder  */
-	ta_installation();
+	/* ASF initializations has to be performed before any thing else.  */
+	asf_init();
 
 	printf("SOO Agency core application.\n");
 	printf("Version: %s\n", AGENCY_CORE_VERSION);
