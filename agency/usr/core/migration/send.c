@@ -40,20 +40,6 @@
 #include <leds/leds.h>
 #endif /* CONFIG_LEDS */
 
-/*
- * Check if the DCM is ready to send a ME (according to its internal buffer management)
- */
-bool dcm_is_ready_to_send(void) {
-	int rc;
-	dcm_ioctl_send_args_t args;
-
-	if ((rc = ioctl(fd_dcm, DCM_IOCTL_IS_READY_TO_SEND, &args)) < 0) {
-		printf("Failed to check if there is a slot populated by a ME with the same slot ID (%d)\n", rc);
-		BUG();
-	}
-
-	return (rc == 1);
-}
 
 /**
  * Try to send the ME in the slot slotID.
@@ -68,7 +54,7 @@ bool ME_processing_send(unsigned int ME_slotID) {
 	void *buffer;
 	size_t buffer_size;
 
-	if (unlikely(ME_slotID < 2) || unlikely(ME_slotID > MAX_DOMAINS)) {
+	if ((ME_slotID < 2) || (ME_slotID > MAX_DOMAINS)) {
 		printf("%s: bad ME slot ID %d\n", __func__, ME_slotID);
 		BUG();
 	}
@@ -89,11 +75,13 @@ bool ME_processing_send(unsigned int ME_slotID) {
 		return false;
 	}
 
-	/* Ensure that the communication layer is ready for sending. */
-	if (!dcm_is_ready_to_send()) {
-		DBG0("No free send buffer. Return.\n");
+	/* We ask the DCM if there is some smart object in the neighborhood.
+	 * Otherwise, no interest to take a ME snapshot or whatever...
+	 */
+
+	if (ioctl(fd_dcm, DCM_IOCTL_NEIGHBOUR_COUNT, 0) == 0)
+		/* Nothing to send */
 		return false;
-	}
 
 	DBG("Send ME %d, slotID=%d\n", ME_slotID, ME_slotID);
 

@@ -202,10 +202,6 @@ void propagate_plugin_wlan_send(void) {
 
 	proto = get_protocol_from_sl_req_type(__plugin_send_args.sl_desc->req_type);
 
-	/* A priority of 7 is not compliant with aggregation, use it only in Netstream mode */
-	if (__plugin_send_args.sl_desc->trans_mode == SL_MODE_NETSTREAM)
-		skb->priority = 7;
-
 	/*
 	 * If no valid recipient agency UID is given, broadcast the packet.
 	 * identify_remote_soo_by_agencyUID updates target_addr only if the agency UID has been found.

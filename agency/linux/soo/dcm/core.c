@@ -39,6 +39,7 @@
 
 #include <soo/core/device_access.h>
 
+#include <soo/soolink/soolink.h>
 #include <soo/soolink/datalink.h>
 #include <soo/soolink/discovery.h>
 
@@ -258,10 +259,9 @@ static int __configure_neighbourhood(unsigned long arg) {
 
 	/* If prio is to -1, we simply dump the list of neighbours */
 	if (neigh_bitmap == -1) {
-		lprintk(" ** Agency UID: "); lprintk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
-
-		/* At the same time, we enable the discovery process here. */
-		sl_discovery_start();
+		lprintk(" ** Agency UID: ");
+		lprintk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
+		lprintk("\n");
 
 		discovery_dump_neighbours();
 	} else
@@ -283,8 +283,8 @@ static long dcm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	case DCM_IOCTL_INIT:
 		return datacomm_init();
 
-	case DCM_IOCTL_IS_READY_TO_SEND:
-		return datacomm_ready_to_send();
+	case DCM_IOCTL_NEIGHBOUR_COUNT:
+		return sl_neighbour_count();
 
 	case DCM_IOCTL_SEND:
 		dcm_send_ME(arg);

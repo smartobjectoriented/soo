@@ -51,7 +51,6 @@ typedef uint16_t domid_t;
 /* We include the (non-RT & RT) agency domain */
 #define MAX_DOMAINS	    (2 + MAX_ME_DOMAINS)
 
-#
 
 /*
  * Directcomm event management

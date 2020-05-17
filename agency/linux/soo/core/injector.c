@@ -44,8 +44,6 @@
 #include <soo/uapi/debug.h>
 #include <soo/uapi/soo.h>
 
-#include <soo/me_bin.h>
-
 size_t ME_size;
 
 void *ME_buffer;

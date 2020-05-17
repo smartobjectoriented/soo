@@ -33,18 +33,18 @@ static req_type_t protocol_to_req_type[ETH_P_SL_MAX - ETH_P_SL_MIN] = {
 	[ETH_P_SOOLINK_DCM - ETH_P_SL_MIN] = SL_REQ_DCM,
 	[ETH_P_SOOLINK_IAMASOO - ETH_P_SL_MIN] = SL_REQ_DISCOVERY,
 	[ETH_P_SOOLINK_BT - ETH_P_SL_MIN] = SL_REQ_BT,
-	[ETH_P_SOOLINK_NETSTREAM - ETH_P_SL_MIN] = SL_REQ_NETSTREAM,
 	[ETH_P_SOOLINK_TCP - ETH_P_SL_MIN] = SL_REQ_TCP,
-	[ETH_P_SOOLINK_PEER - ETH_P_SL_MIN] = SL_REQ_PEER
+	[ETH_P_SOOLINK_PEER - ETH_P_SL_MIN] = SL_REQ_PEER,
+	[ETH_P_SOOLINK_DATALINK - ETH_P_SL_MIN] = SL_REQ_DATALINK
 };
 
 static uint16_t req_type_to_protocol[SL_REQ_N] = {
 	[SL_REQ_DCM] = ETH_P_SOOLINK_DCM,
 	[SL_REQ_DISCOVERY] = ETH_P_SOOLINK_IAMASOO,
 	[SL_REQ_BT] = ETH_P_SOOLINK_BT,
-	[SL_REQ_NETSTREAM] = ETH_P_SOOLINK_NETSTREAM,
 	[SL_REQ_TCP] = ETH_P_SOOLINK_TCP,
-	[SL_REQ_PEER] = ETH_P_SOOLINK_PEER
+	[SL_REQ_PEER] = ETH_P_SOOLINK_PEER,
+	[SL_REQ_DATALINK] = ETH_P_SOOLINK_DATALINK
 };
 
 struct list_head plugin_list;
@@ -94,7 +94,7 @@ void plugin_rx(plugin_desc_t *plugin_desc, agencyUID_t *agencyUID_from, req_type
 
 	memcpy(&sl_desc->agencyUID_from, agencyUID_from, SOO_AGENCY_UID_SIZE);
 
-	receiver_request_rx(sl_desc, plugin_desc, data, size);
+	__receiver_rx(sl_desc, plugin_desc, data, size);
 }
 
 /**

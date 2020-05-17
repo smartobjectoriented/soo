@@ -35,19 +35,7 @@
 
 #include <soo/soolink/receiver.h>
 
-extern bool datalink_ready_to_send(sl_desc_t *sl_desc);
-
-bool sender_ready_to_send(sl_desc_t *sl_desc) {
-	return datalink_ready_to_send(sl_desc);
-}
-
-/*
- * Prepare a transmission along the TX path. We give the Datalink layer a change to acquire a medium.
- * Typically, modification on the contents can still be done.
- */
-void sender_request_xmit(sl_desc_t *sl_desc) {
-	datalink_request_xmit(sl_desc);
-}
+static rtdm_mutex_t sender_lock;
 
 /**
  * This function requests to send a packet. Datalink will forward the packet
@@ -55,12 +43,12 @@ void sender_request_xmit(sl_desc_t *sl_desc) {
  * This function is called by the producer.
  * The size parameter refers to the payload.
  */
-int sender_xmit(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
+int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
 	int ret;
 	transceiver_packet_t *packet;
 
 	if (!data) {
-		datalink_xmit(sl_desc, NULL, 0, true);
+		datalink_tx(sl_desc, NULL, 0, true);
 		return 0;
 	}
 
@@ -73,7 +61,7 @@ int sender_xmit(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
 	/* Copy the data into the transceiver packet's payload */
 	memcpy(packet->payload, data, size);
 
-	ret = datalink_xmit(sl_desc, packet, size, completed);
+	ret = datalink_tx(sl_desc, packet, size, completed);
 
 	/* Release the transceiver packet */
 	kfree(packet);
@@ -82,38 +70,25 @@ int sender_xmit(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
 }
 
 /**
- * Send data in netstream mode.
- * The data pointer points to the payload.
- */
-int sender_stream_xmit(sl_desc_t *sl_desc, void *data) {
-	/* No netstream transceiver packet allocation is necessary */
-	return datalink_xmit(sl_desc, data, 0, false);
-}
-
-/**
  * This function is called by Datalink when the packet is ready to be
  * forwarded to the plugin(s). It should not be called by anyone else.
  * The size parameter refers to the payload.
  */
-void sender_tx(sl_desc_t *sl_desc, void *packet, size_t size, unsigned long flags) {
+void __sender_tx(sl_desc_t *sl_desc, void *packet, size_t size, unsigned long flags) {
 	size_t packet_size = 0;
 
-	switch (sl_desc->trans_mode) {
-	case SL_MODE_BROADCAST:
-	case SL_MODE_UNIBROAD:
-	case SL_MODE_UNICAST:
-		/* Add the transceiver's packet header size to the total size */
-		packet_size = size + sizeof(transceiver_packet_t);
-		break;
-	case SL_MODE_NETSTREAM:
-		/* Add the transceiver's packet header size to the total size */
-		packet_size = size + sizeof(netstream_transceiver_packet_t);
-		break;
-	}
-
+	/* Add the transceiver's packet header size to the total size */
+	packet_size = size + sizeof(transceiver_packet_t);
+	
+	rtdm_mutex_lock(&sender_lock);
+	
 	plugin_tx(sl_desc, packet, packet_size, flags);
+
+	rtdm_mutex_unlock(&sender_lock);
 }
 
 void sender_init(void) {
 	
+	rtdm_mutex_init(&sender_lock);
+
 }

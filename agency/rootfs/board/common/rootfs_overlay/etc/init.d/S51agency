@@ -19,7 +19,7 @@ case "$1" in
         echo "OK"
 
         echo -n "Configuring Bluetooth... "
-        /root/btmanager.sh &
+        /root/btmanager.sh
         echo "OK"
 
         # Set up wifi
@@ -29,6 +29,10 @@ case "$1" in
 
         echo -n "Starting Agency Core... "
         /root/agency &
+        echo "OK"
+        
+        echo -n "Staring additional applications..."
+        /root/otherapps.sh
         echo "OK"
         ;;
     stop)
