@@ -17,7 +17,6 @@
  */
 #include <errno.h>
 #include <fcntl.h>
-#include <kconfig.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>

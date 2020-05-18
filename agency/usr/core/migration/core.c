@@ -28,7 +28,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <kconfig.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -47,9 +46,7 @@
 #include <dcm/core.h>
 #include <injector/core.h>
 
-#if defined(CONFIG_LEDS)
 #include <leds/leds.h>
-#endif /* CONFIG_LEDS */
 
 int fd_migration;
 
@@ -226,10 +223,7 @@ long long get_system_time(void) {
 void main_loop(int cycle_period) {
 	static unsigned int mig_count = 1;
 	bool available_ME = false;
-
-#if defined(CONFIG_LEDS)
 	uint32_t i;
-#endif /* CONFIG_LEDS */
 
 	while (!ag_cycle_interrupted) {
 		DBG("* Migration Cycle %d *\n", mig_count);
@@ -260,10 +254,8 @@ void main_loop(int cycle_period) {
 		mig_count++;
 	}
 
-#if defined(CONFIG_LEDS)
 	for (i = 0 ; i < SOO_N_LEDS ; i++)
 		led_off(i + 1);
-#endif /* CONFIG_LEDS */
 
 	printf("SOO Agency core application: end\n");
 

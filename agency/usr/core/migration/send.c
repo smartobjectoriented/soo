@@ -23,8 +23,6 @@
 
 #define _GNU_SOURCE
 
-#include <kconfig.h>
-
 #include <sys/ioctl.h>
 
 #include <core/core.h>
@@ -36,10 +34,7 @@
 
 #include <dcm/core.h>
 
-#if defined(CONFIG_LEDS)
 #include <leds/leds.h>
-#endif /* CONFIG_LEDS */
-
 
 /**
  * Try to send the ME in the slot slotID.
@@ -85,9 +80,7 @@ bool ME_processing_send(unsigned int ME_slotID) {
 
 	DBG("Send ME %d, slotID=%d\n", ME_slotID, ME_slotID);
 
-#if defined(CONFIG_LEDS)
 	led_on(3);
-#endif /* CONFIG_LEDS */
 
 	/* Perform initialization sequence, and checks if the ME is ready to be migrated,
 	 * i.e. the ME did not get killed.
@@ -120,9 +113,7 @@ bool ME_processing_send(unsigned int ME_slotID) {
 
 	return true;
 out:
-#if defined(CONFIG_LEDS)
 	led_off(3);
-#endif /* CONFIG_LEDS */
 
 	return false;
 }
