@@ -138,24 +138,6 @@ static wnet_state_t last_state = WNET_STATE_N;
 
 static int wait_for_ack(wnet_beacon_t *beacon);
 
-/* Helper function to compare agencyUID */
-static inline int cmpUID(agencyUID_t *u1, agencyUID_t *u2) {
-	return memcmp(u1, u2, SOO_AGENCY_UID_SIZE);
-}
-
-/* Helper function to display agencyUID */
-static inline void printUID(agencyUID_t *uid) {
-	/* Normally, the length of agencyUID is SOO_AGENCY_UID_SIZE bytes, but we display less. */
-	lprintk_buffer(uid, 5);
-}
-
-/* Helper function to display agencyUID */
-static inline void printlnUID(agencyUID_t *uid) {
-	printUID(uid);
-	lprintk("\n");
-}
-
-
 /* Debugging functions */
 
 char *winenet_get_state_str(wnet_state_t state) {
@@ -873,6 +855,7 @@ void forward_next_speaker(void) {
 	int ack;
 	int retry_count;
 	wnet_beacon_t beacon;
+
 	neighbour_list_protection(true);
 
 again:
@@ -906,7 +889,7 @@ retry_waitack:
 					return ;
 				}
 
-				if ((wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) || (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER))
+				if ((wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) || (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER))
 					beacon_clear();
 
 				goto retry_waitack;
@@ -1205,10 +1188,17 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 			continue;
 
 		/* Delayed (spurious) beacon */
-		if ((wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) || (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER)) {
+		if (wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
+			winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, &wnet_rx.sl_desc->agencyUID_from, NULL);
 
-			/* We ignore it since we already received a GO_SPEAKER. If these beacons are due
-			 * to some new neighbours, the send/ack flow operations will lead to abort one or the other
+			beacon_clear();
+			continue;
+		}
+
+		if (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) {
+
+			/* We ignore it since we already received a GO_SPEAKER. If this beacon comes from
+			 * new neighbors, the send/ack flow operations will lead to abort one or the other
 			 * and the system will get stable along new a new discovery add/remove & ping procedure.
 			 */
 
@@ -1315,15 +1305,15 @@ retry_ack1:
 			if (ack != 0) {
 
 				/* Delayed (spurious) beacon */
-				if ((wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) || (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER)) {
-
-					/* We ignore it since we already received a GO_SPEAKER. If these beacons are due
-					 * to some new neighbours, the send/ack flow operations will lead to abort one or the other
-					 * and the system will get stable along new a new discovery add/remove & ping procedure.
-					 */
+				if (wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
+					winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, &wnet_rx.sl_desc->agencyUID_from, NULL);
 
 					beacon_clear();
+					continue;
+				}
+				if (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) {
 
+					beacon_clear();
 					goto retry_ack1;
 				}
 
@@ -1344,12 +1334,13 @@ retry_ack2:
 					ack = wait_for_ack(&beacon);
 
 					/* Delayed (spurious) beacon */
-					if ((wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) || (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER)) {
+					if (wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
+						winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, &wnet_rx.sl_desc->agencyUID_from, NULL);
 
-						/* We ignore it since we already received a GO_SPEAKER. If these beacons are due
-						 * to some new neighbours, the send/ack flow operations will lead to abort one or the other
-						 * and the system will get stable along new a new discovery add/remove & ping procedure.
-						 */
+						beacon_clear();
+						continue;
+					}
+					if (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) {
 
 						beacon_clear();
 						goto retry_ack2;
@@ -1744,12 +1735,9 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
 	rtdm_event_wait(&wnet_tx.xmit_event);
 
 	/* completed ? */
-	if (wnet_tx.completed) {
-		lprintk("### Okay, transmission COMPLETED\n");
-
+	if (wnet_tx.completed)
 		/* Reset the TX trans ID */
 		sent_packet_transID = 0;
-	}
 
 	ret = wnet_tx.ret;
 
@@ -1775,14 +1763,7 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 
 	packet = (transceiver_packet_t *) packet_ptr;
 
-	if (unlikely((sl_desc->req_type == SL_REQ_DISCOVERY))) {
-
-		receiver_rx(sl_desc, plugin_desc, packet_ptr, size);
-
-		return ;
-	}
-
-#if 0 /* Debug */
+#ifdef VERBOSE
 	lprintk("** receiving: agencyUID_to: ");
 	printlnUID(&sl_desc->agencyUID_to);
 

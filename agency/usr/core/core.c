@@ -80,9 +80,6 @@ int main(int argc, char *argv[]) {
 	int rc;
 	uint8_t val;
 
-	/* ASF initializations has to be performed before any thing else.  */
-	asf_init();
-
 	printf("SOO Agency core application.\n");
 	printf("Version: %s\n", AGENCY_CORE_VERSION);
 	printf("*****************************************************\n\n\n");
@@ -167,6 +164,9 @@ int main(int argc, char *argv[]) {
 			exit(0);
 		}
 	}
+
+	/* ASF initializations has to be performed before any thing else.  */
+	asf_init();
 
 	/* Display the agencyUID and visible neighbours at this time. */
 	neigh_bitmap = -1;

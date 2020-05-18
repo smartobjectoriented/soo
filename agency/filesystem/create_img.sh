@@ -5,11 +5,11 @@ if [ $# -ne 1 ]; then
 	exit 0
 fi 
 
-# Partition layout on the sdcard:
-# - Partition #1: 32 MB (u-boot, kernel, etc.)
-# - Partition #2: 70 MB (agency rootfs 1)
+# Partition layout on the sdcard (vExpress for example):
+# - Partition #1: 65 MB (u-boot, kernel, etc.)
+# - Partition #2: 400 MB (agency rootfs 1)
 # - Partition #3: 100 MB (MEs)
-# - Partition #4: 70 MB (agency rootfs 2)
+# - Partition #4: remaining size (agency rootfs 2)
 
 if [ "$1" == "vexpress" -o "$1" == "merida" ]; then
     #create image first

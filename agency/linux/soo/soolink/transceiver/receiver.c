@@ -58,21 +58,10 @@ void receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, s
 
 	rtdm_mutex_lock(&receiver_lock);
 
-	switch (sl_desc->req_type) {
-
-	case SL_REQ_DISCOVERY:
-		transceiver_packet = (transceiver_packet_t *) packet;
-		/* Substract the transceiver's packet header size from the total size */
-		payload_size = size - sizeof(transceiver_packet_t);
-		discovery_rx(plugin_desc, transceiver_packet->payload, payload_size);
-		break;
-
-	default:
-		transceiver_packet = (transceiver_packet_t *) packet;
-		/* Substract the transceiver's packet header size from the total size */
-		payload_size = size - sizeof(transceiver_packet_t);
-		decoder_rx(sl_desc, transceiver_packet->payload, payload_size);
-	}
+	transceiver_packet = (transceiver_packet_t *) packet;
+	/* Substract the transceiver's packet header size from the total size */
+	payload_size = size - sizeof(transceiver_packet_t);
+	decoder_rx(sl_desc, transceiver_packet->payload, payload_size);
 
 	rtdm_mutex_unlock(&receiver_lock);
 }

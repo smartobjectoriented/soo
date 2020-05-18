@@ -93,11 +93,10 @@ typedef struct {
 
 /* Get the list of current neighbours. Entries of this list are neighbour_desc_t entries */
 int discovery_get_neighbours(struct list_head *new_list);
-void discovery_clear_neighbour_list(struct list_head *list);
 
 uint32_t discovery_neighbour_count(void);
 
-void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size);
+void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *mac_src);
 
 void discovery_listener_register(discovery_listener_t *listener);
 

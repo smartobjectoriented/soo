@@ -113,7 +113,6 @@ static int recv_thread_task_fn(void *data) {
 		decompressed_size = ret;
 
 		/* Release the original compressed buffer */
-		vfree((void *) ME_compressed_buffer);
 		kfree(ME_decrypt);
 
 #else /* !CONFIG_ARM_PSCI */

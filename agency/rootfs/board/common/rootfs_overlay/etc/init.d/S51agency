@@ -31,9 +31,11 @@ case "$1" in
         /root/agency &
         echo "OK"
         
-        echo -n "Staring additional applications..."
-        /root/otherapps.sh
-        echo "OK"
+        if [ -r /root/otherapps.sh ]; then
+                echo -n "Staring additional applications..."
+                /root/otherapps.sh
+                echo "OK"
+        fi
         ;;
     stop)
         ;;

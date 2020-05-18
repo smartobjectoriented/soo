@@ -40,7 +40,7 @@
 #define WNET_MIN_DRAND		1000
 #define WNET_MAX_DRAND		2000
 
-#define WNET_TSPEAKER_ACK	MILLISECS(200)
+#define WNET_TSPEAKER_ACK	MILLISECS(300)
 
 /*
  * Winenet states FSM

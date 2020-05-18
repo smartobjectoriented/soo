@@ -37,10 +37,11 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
 
+static rtdm_task_t rt_watch_loop_task;
+
 static bool discovery_enabled = false;
 
 static struct list_head neighbour_list;
-static rtdm_task_t rt_watch_loop_task, rt_soo_stream_task;
 iamasoo_pkt_t iamasoo_beacon_pkt;
 
 static struct list_head discovery_listener_list;
@@ -97,6 +98,10 @@ static void callbacks_remove_neighbour(neighbour_desc_t *neighbour) {
 		if (cur_neighbour->remove_neighbour_callback)
 			cur_neighbour->remove_neighbour_callback(neighbour);
 	}
+
+	if (neighbour->plugin)
+		/* Inform the plugin layer to remove the associated MAC address (if any) */
+		detach_agencyUID(&neighbour->agencyUID);
 }
 
 /**
@@ -341,7 +346,7 @@ void reset_friends(struct list_head *friends) {
 /**
  * Asynchronous callback function called when a Iamasoo packet is received.
  */
-void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size) {
+void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *mac_src) {
 	bool known_neighbour = false;
 	struct list_head *cur;
 	neighbour_desc_t *neighbour;
@@ -352,10 +357,13 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size) {
 
 	/* Beacon decryption */
 #ifdef CONFIG_ARM_PSCI
-	size = asf_decrypt(ASF_KEY_COM, (uint8_t *)data, size, (uint8_t **)&iamasoo_pkt);
+	size = asf_decrypt(ASF_KEY_COM, (uint8_t *) data, size, (uint8_t **) &iamasoo_pkt);
 #else
 	iamasoo_pkt = (iamasoo_pkt_t *) data;
 #endif
+
+	/* Check if there is a binding with the MAC address already. */
+	attach_agencyUID((agencyUID_t *) iamasoo_pkt->agencyUID, mac_src);
 
 	spin_lock(&discovery_listener_lock);
 
@@ -484,6 +492,7 @@ static void send_beacon(void) {
 	/* If the agency UID has not been initialized yet, do not send any Iamasoo beacon */
 	if (unlikely(!agencyUID_is_valid(get_my_agencyUID())))
 		return ;
+
 	/* Prepare to broadcast */
 	BUG_ON(memcmp(&discovery_sl_desc->agencyUID_to, get_null_agencyUID(), SOO_AGENCY_UID_SIZE));
 
@@ -523,9 +532,8 @@ static void send_beacon(void) {
 
 	/* Beacon encryption */
 #ifdef CONFIG_ARM_PSCI
-	size = asf_encrypt(ASF_KEY_COM, (uint8_t *)&iamasoo_pkt, size, &iamasoo_pkt_crypt);
+	size = asf_encrypt(ASF_KEY_COM, (uint8_t *) iamasoo_pkt, size, &iamasoo_pkt_crypt);
 #endif
-
 	/* Now send the Iamasoo beacon to the sender */
 	DBG("%s: sending to: ", __func__);
 	DBG_BUFFER(&discovery_sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
@@ -538,9 +546,8 @@ static void send_beacon(void) {
 
 #ifdef CONFIG_ARM_PSCI
 	kfree(iamasoo_pkt_crypt);
-#else
-	kfree(iamasoo_pkt);
 #endif
+	kfree(iamasoo_pkt);
 }
 
 /**
@@ -728,24 +735,6 @@ void neighbour_list_protection(bool protect) {
 	spin_unlock(&discovery_listener_lock);
 }
 
-
-/**
- * Clear the neighbour list given as parameter. Its elements are freed.
- */
-void discovery_clear_neighbour_list(struct list_head *list) {
-	struct list_head *cur, *tmp;
-	neighbour_desc_t *neighbour;
-
-	spin_lock(&discovery_listener_lock);
-
-	list_for_each_safe(cur, tmp, list) {
-		neighbour = list_entry(cur, neighbour_desc_t, list);
-
-		list_del(cur);
-	}
-	spin_unlock(&discovery_listener_lock);
-}
-
 /**
  * Dump the active neighbour list.
  */
@@ -823,7 +812,12 @@ void discovery_listener_register(discovery_listener_t *listener) {
 	spin_unlock(&discovery_listener_lock);
 }
 
+
+#if 0 /* Debugging purposes */
+
 static int count = 0;
+static rtdm_task_t rt_soo_stream_task;
+
 static void (soo_stream_recv)(sl_desc_t *sl_desc, void *data, size_t size) {
 
 	count++;
@@ -884,6 +878,8 @@ static void soo_stream_task_fn(void *args) {
 	}
 
 }
+
+#endif /* 0 */
 
 /*
  * Main initialization function of the Discovery functional block

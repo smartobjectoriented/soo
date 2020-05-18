@@ -18,7 +18,7 @@
 
 #include "asf_priv.h"
 
-#define ASF_TA_PATH			"/root/ta/"
+#define ASF_TA_PATH		"/root/ta/"
 #define ASF_TA_EXTENSION	"ta"
 
 /**
@@ -218,6 +218,8 @@ void asf_ta_installation(void)
   	}
 
 	/* Erase the TA in all cases to avoid this TA To remains in the Linux file system */
-  	for (i=0; i<n_ta; i++)
+
+  	for (i = 0; i < n_ta; i++)
   		erase_ta(tas[i]);
+
 }

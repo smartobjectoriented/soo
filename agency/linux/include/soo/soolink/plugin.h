@@ -49,9 +49,12 @@ void transceiver_plugin_init(void);
 void transceiver_plugin_register(plugin_desc_t *plugin_desc);
 
 void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags);
-void plugin_rx(plugin_desc_t *plugin_desc, agencyUID_t *agencyUID_from, req_type_t req_type, void *data, size_t size);
+void plugin_rx(plugin_desc_t *plugin_desc, req_type_t req_type, void *data, size_t size, uint8_t *mac_src);
 
-extern unsigned char broadcast_addr[ETH_ALEN];
+uint8_t *get_mac_addr(agencyUID_t *agencyUID);
+
+void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src);
+void detach_agencyUID(agencyUID_t *agencyUID);
 
 req_type_t get_sl_req_type_from_protocol(uint16_t protocol);
 uint16_t get_protocol_from_sl_req_type(req_type_t req_type);
