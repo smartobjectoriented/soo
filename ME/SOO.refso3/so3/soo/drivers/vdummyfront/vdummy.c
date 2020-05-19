@@ -40,48 +40,16 @@ vdummy_t vdummy;
 static bool thread_created = false;
 
 irq_return_t vdummy_interrupt(int irq, void *dev_id) {
-	RING_IDX i, rp;
+	vdummy_response_t *vdummy_response;
 
 	if (!vdummy_is_connected())
 		return IRQ_COMPLETED;
 
 	DBG("%s, %d\n", __func__, ME_domID());
 
-	rp = vdummy.ring.sring->rsp_prod;
-	dmb(); /* Ensure we see queued responses up to 'rp'. Just to make sure ;-) not necessary in all cases... */
+	vdummy_response = vdummy_ring_response_next(&vdummy.ring);
 
-	for (i = vdummy.ring.sring->rsp_cons; i != rp; i++) {
-		DBG("%s, cons=%d\n", __func__, i);
-
-		/* Do something with the response */
-	}
-
-	/* At the end rsp_cons = rsp_prod and refers to a free response index */
-	vdummy.ring.sring->rsp_cons = i;
-
-#if 0
-	/* Example of batch of responses processing */
-
-	again:
-
-	rp = vdummy.ring.sring->rsp_prod;
-	dmb(); /* Ensure we see queued responses up to 'rp'. Just to make sure ;-) not necessary in all cases... */
-
-	for (i = vdummy.ring.sring->rsp_cons; i != rp; i++) {
-		ring_rsp = RING_GET_RESPONSE(&vdummy.ring, i);
-
-		/* Do something with the response */
-	}
-
-	vdummy.ring.sring->rsp_cons = i;
-
-	RING_FINAL_CHECK_FOR_RESPONSES(&vdummy.ring, work_to_do);
-
-	if (work_to_do)
-		goto again;
-
-
-#endif /* 0 */
+	/* Do something... */
 
 	return IRQ_COMPLETED;
 }
@@ -98,52 +66,15 @@ void vdummy_generate_request(char *buffer) {
 	/*
 	 * Try to generate a new request to the backend
 	 */
-	if (!RING_FULL(&vdummy.ring)) {
-		ring_req = RING_GET_REQUEST(&vdummy.ring, vdummy.ring.req_prod_pvt);
 
+	ring_req = vdummy_ring_request_next(&vdummy.ring);
+	if (ring_req) {
 		memcpy(ring_req->buffer, buffer, VDUMMY_PACKET_SIZE);
 
-		/* Fill in the ring_req structure */
-
-		/* Make sure the other end "sees" the request when updating the index */
-		dmb();
-
-		vdummy.ring.req_prod_pvt++;
-
-		RING_PUSH_REQUESTS(&vdummy.ring);
+		vdummy_ring_request_ready(&vdummy.ring);
 
 		notify_remote_via_irq(vdummy.irq);
 	}
-
-#if 0
-
-	/* Example of batch of request processing */
-
-	if (!RING_FULL(&vdummy.ring)) {
-
-		/* We generate the first request */
-
-		/* Fill in the ring_req structure */
-
-		vdummy.ring.req_prod_pvt++;
-
-		/* At this time the request is not visible yet to the other end.
-		 * We could proceed with additional requests.
-		 */
-
-
-		/* Now, we are ready to push the first available requests
-		 * and we let the macro decide if a notification is required or not.
-		 */
-
-		RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&vdummy.ring, notify);
-
-		if (notify)
-			notify_remote_via_irq(vdummy.irq);
-
-	}
-
-#endif /* 0 */
 
 	vdummy_end();
 }
