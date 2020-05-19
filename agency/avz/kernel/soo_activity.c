@@ -35,6 +35,7 @@
 #include <avz/lib.h>
 #include <avz/domain.h>
 #include <avz/init.h>
+#include <avz/errno.h>
 
 #include <avz/sched.h>
 
@@ -534,13 +535,20 @@ int do_soo_hypercall(soo_hyp_t *args) {
 		break;
 
 	case AVZ_DC_SET:
+		/*
+		 * AVZ_DC_SET is used to assign a new dc_event number in the (target) domain shared info page.
+		 * This has to be done atomically so that if there is still a "pending" value in the field,
+		 * the hypercall must return with -BUSY; in this case, the caller has to busy-loop (using schedule preferably)
+		 * until the field gets free, i.e. set to DC_NO_EVENT.
+		 */
 		dc_event_args = (soo_hyp_dc_event_t *) op.p_val1;
 
 		dom = domains[dc_event_args->domID];
 		BUG_ON(dom == NULL);
 
 		/* The shared info page is set as non cacheable, i.e. if a CPU tries to update it, it becomes visible to other CPUs */
-		while (atomic_cmpxchg(&dom->shared_info->dc_event, DC_NO_EVENT, dc_event_args->dc_event) != DC_NO_EVENT) ;
+		if (atomic_cmpxchg(&dom->shared_info->dc_event, DC_NO_EVENT, dc_event_args->dc_event) != DC_NO_EVENT)
+			rc = -EBUSY;
 
 		break;
 

@@ -181,8 +181,13 @@ struct xnthread *xnsched_pick_next(struct xnsched *sched)
 		 * of the scheduling class it belongs to, if not yet
 		 * linked to it (XNREADY tells us if it is).
 		 */
+		/* SOO.tech */
+		/* xnsched_requeue() has been replaced by xnsched_enqueue() which will put the thread
+		 * at the queue tail so that we give a chance to other threads of the same priority to
+		 * be executed. This is useful for managing busy looping on dc_event variable for example.
+		 */
 		if (!xnthread_test_state(curr, XNREADY)) {
-			xnsched_requeue(curr);
+			xnsched_enqueue(curr);
 			xnthread_set_state(curr, XNREADY);
 		}
 	}

@@ -42,20 +42,6 @@ typedef struct {
 
 } transceiver_packet_t;
 
-typedef struct {
-
-	uint8_t packet_type; /* Data or beacon */
-
-	uint32_t peerID; /* SOO concerned by the packet within the burst */
-
-	/*
-	 * First byte of the payload. Accessing to its address gives a direct access to the
-	 * payload buffer.
-	 */
-	uint8_t	payload[0];
-
-} netstream_transceiver_packet_t;
-
 void transceiver_init(void);
 
 #endif /* TRANSCEIVER_H */

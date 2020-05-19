@@ -23,6 +23,7 @@
 #ifdef __KERNEL__
 #include <asm-generic/ioctl.h>
 #include <linux/mutex.h>
+#include <linux/wait.h>
 #else
 #include <stdint.h>
 #include <stddef.h>
@@ -104,13 +105,15 @@ void injector_retrieve_ME(unsigned long arg);
 void injector_clean_ME(void);
 int injector_receive_ME(void *ME, size_t size);
 
-int injector_init(struct mutex lock);
+int injector_init(wait_queue_head_t *_wq_prod, wait_queue_head_t *_wq_cons);
 
 void *injector_get_ME_buffer(void);
 size_t injector_get_ME_size(void);
 
 void *injector_get_tmp_buf(void);
 size_t injector_get_tmp_size(void);
+bool injector_is_full(void);
+void injector_set_full(bool _full);
 
 #endif /* __KERNEL__ */
 

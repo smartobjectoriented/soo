@@ -53,6 +53,8 @@ typedef struct {
 
 #define VUIHANDLER_BEACON	0
 #define VUIHANDLER_DATA		1
+#define VUIHANDLER_ME_INJECT	2
+#define VUIHANDLER_ME_SIZE	3
 
 #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
 

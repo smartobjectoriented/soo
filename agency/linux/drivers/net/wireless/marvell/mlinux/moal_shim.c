@@ -865,7 +865,7 @@ moal_recv_packet(IN t_void *pmoal_handle, IN pmlan_buffer pmbuf)
 	struct sk_buff *skb = NULL;
 	moal_handle *handle = (moal_handle *)pmoal_handle;
 
-	/* paravirt */
+	/* SOO.tech */
 	struct ethhdr *p_ethhdr;
 	uint8_t mac_src[ETH_ALEN];
 	__be16 skb_protocol;
@@ -917,7 +917,7 @@ moal_recv_packet(IN t_void *pmoal_handle, IN pmlan_buffer pmbuf)
 				wake_lock_timeout(&handle->wake_lock,
 						wakelock_timeout);
 #endif
-			/* paravirt */
+			/* SOO.tech */
 			p_ethhdr = eth_hdr(skb);
 			memcpy(mac_src, p_ethhdr->h_source, ETH_ALEN);
 

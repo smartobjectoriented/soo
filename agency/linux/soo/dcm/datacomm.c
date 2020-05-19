@@ -32,6 +32,7 @@
 
 #include <soo/dcm/datacomm.h>
 #include <soo/dcm/compressor.h>
+#include <soo/dcm/security.h>
 
 #include <soo/soolink/soolink.h>
 
@@ -46,12 +47,6 @@ static sl_desc_t *datacomm_sl_desc = NULL;
 static bool datacomm_initialized = false;
 
 static struct task_struct *recv_thread = NULL;
-
-extern bool sl_ready_to_send(sl_desc_t *sl_desc);
-
-bool datacomm_ready_to_send(void) {
-	return sl_ready_to_send(datacomm_sl_desc);
-}
 
 /**
  * At the moment, we experiment a broadcast (no known recipient) and
@@ -85,6 +80,10 @@ static int recv_thread_task_fn(void *data) {
 	void *ME_compressed_buffer, *ME_decompressed_buffer;
 	size_t compressed_size, decompressed_size;
 	int ret;
+#ifdef CONFIG_ARM_PSCI
+	int size;
+	void *ME_decrypt;
+#endif
 
 	while (1) {
 		/* Receive data from Soolink */
@@ -94,6 +93,30 @@ static int recv_thread_task_fn(void *data) {
 		if (!compressed_size)
 			continue;
 
+#ifdef CONFIG_ARM_PSCI
+		size = security_decrypt(ME_compressed_buffer, compressed_size, &ME_decrypt);
+		if (size <= 0)
+			continue;
+
+		if ((ret = decompress_data(&ME_decompressed_buffer, ME_decrypt, size)) < 0) {
+			/*
+			 * If dcm_decompress_ME returns -EIO, this means that the decompressor could not
+			 * decompress the ME. We have to discard it.
+			 */
+
+			vfree((void *) ME_decompressed_buffer);
+			vfree((void *) ME_compressed_buffer);
+			kfree(ME_decrypt);
+			continue;
+		}
+
+		decompressed_size = ret;
+
+		/* Release the original compressed buffer */
+		kfree(ME_decrypt);
+
+#else /* !CONFIG_ARM_PSCI */
+
 		if ((ret = decompress_data(&ME_decompressed_buffer, ME_compressed_buffer, compressed_size)) < 0) {
 			/*
 			 * If dcm_decompress_ME returns -EIO, this means that the decompressor could not
@@ -102,9 +125,10 @@ static int recv_thread_task_fn(void *data) {
 
 			vfree((void *) ME_decompressed_buffer);
 			vfree((void *) ME_compressed_buffer);
-
 			continue;
 		}
+#endif /* !CONFIG_ARM_PSCI */
+
 		decompressed_size = ret;
 
 		/* Release the original compressed buffer */
@@ -127,10 +151,9 @@ static int recv_thread_task_fn(void *data) {
 long datacomm_init(void) {
 	DBG("Registering the DCM with Soolink\n");
 
-	/* At this point, we can start the Discovery process */
-	sl_discovery_start();
-
-	lprintk("%s: my agency UID is: ", __func__); lprintk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
+	lprintk("%s: my agency UID is: ", __func__);
+	lprintk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
+	lprintk("\n");
 
 	/*
 	 * By default, we are using the WLAN plugin on the MERIDA board, or the
@@ -141,6 +164,9 @@ long datacomm_init(void) {
 #else /* CONFIG_SOOLINK_PLUGIN_WLAN */
 	datacomm_sl_desc = sl_register(SL_REQ_DCM, SL_IF_ETH, SL_MODE_UNIBROAD);
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
+
+	/* At this point, we can start the Discovery process */
+	sl_discovery_start();
 
 	recv_thread = kthread_run(recv_thread_task_fn, NULL, "datacomm_recv");
 

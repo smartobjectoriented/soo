@@ -32,6 +32,10 @@
 #define WLAN_NET_DEV_NAME 	"wlan0"
 #endif
 
+#ifndef WLAN_NET_DEV_NAME
+#define WLAN_NET_DEV_NAME	"wlandummy"
+#endif
+
 void sl_plugin_wlan_rx_skb(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
 
 void propagate_plugin_wlan_send(void);

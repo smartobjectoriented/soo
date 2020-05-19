@@ -29,22 +29,22 @@
 #define NET_DEV_DETECT_DELAY	(3 * 1000)
 
 typedef struct {
-	sl_desc_t		*sl_desc;
-	void			*data;
-	size_t			size;
-	struct list_head	list;
+	sl_desc_t *sl_desc;
+	void * volatile data;
+	size_t size;
+	struct list_head list;
 } plugin_send_args_t;
 
 typedef struct {
-	req_type_t	req_type;
-	void		*data;
-	size_t		size;
-	uint8_t		mac[ETH_ALEN];
+	req_type_t req_type;
+	void * volatile data;
+	size_t size;
+	uint8_t	mac[ETH_ALEN];
 } plugin_recv_args_t;
 
 typedef struct {
-	agencyUID_t		agencyUID;
-	uint8_t			mac[ETH_ALEN];
-	struct list_head	list;   /* Take part of the list of neighbours */
+	agencyUID_t agencyUID;
+	uint8_t mac[ETH_ALEN];
+	struct list_head list;   /* Take part of the list of neighbours */
 } plugin_remote_soo_desc_t;
 

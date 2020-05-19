@@ -41,7 +41,12 @@
 #include <soo/debug/dbgvar.h>
 #include <soo/debug/time.h>
 
-/* This code is mainly for debugging purposes. */
+/*
+ * This code is mainly for debugging purposes.
+ *
+ * It is the only code which may not be fully compliant with the coding convention.
+ * But try to keep it as clean as possible anyway.
+ */
 
 #if 1 /* Testing code */
 	rtdm_task_t rt_task1;
@@ -130,7 +135,9 @@ static void my_rt_task1_fn(void *args) {
 #if 1
 	while (1) {
 
-		lprintk("## i: %d\n", i++);
+		rtdm_event_wait(&rt_event);
+		lprintk("## Got %d\n", i++);
+
 #if 0
 		if (!toggle) {
 
@@ -142,7 +149,7 @@ static void my_rt_task1_fn(void *args) {
 		}
 #endif
 
-		rtdm_task_wait_period(NULL);
+		//rtdm_task_wait_period(NULL);
 
 	}
 #endif
@@ -150,18 +157,9 @@ static void my_rt_task1_fn(void *args) {
 }
 
 static void rt_task2_fn(void *args) {
-	static int i = 0;
 
-	while (1) {
-
-		lprintk("## T2 i: %d\n", i++);
-		if (i == 15)
-			return ;
-		//rtdm_event_signal(&rt_event);
-
-		rtdm_task_wait_period(NULL);
-
-	}
+	rtdm_event_signal(&rt_event);
+	rtdm_event_signal(&rt_event);
 
 }
 
@@ -357,9 +355,10 @@ int rtapp_main(void *args) {
 	//rtdm_mutex_init(&rt_mutex);
 
 	//rtdm_task_init(&rt_isr, "rt_isr_t", rtdm_isr_thread, NULL, 90, 0);
+	rtdm_event_init(&rt_event, 0);
 
 	rtdm_task_init(&rt_task1, "rt_task_1", my_rt_task1_fn, NULL, 50, 1000000000);
-	rtdm_task_init(&rt_task2, "rt_task_2", rt_task2_fn, NULL, 50, 500000000);
+	rtdm_task_init(&rt_task2, "rt_task_2", rt_task2_fn, NULL, 50, 0); //500000000);
 
 	//rtdm_task_init(&rt_task3, "rt_task_3", my_rt_task_sub, NULL, 50, 1000000000);
 
