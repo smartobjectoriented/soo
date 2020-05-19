@@ -35,7 +35,6 @@ int main(int argc, char *argv[])
 	int devfd;
 	hello_args_t args;
 	int ret;
-	int res;
 
 	devfd = open(ASF_DEV_NAME, O_RDWR);
 	if (!devfd) {
@@ -44,7 +43,6 @@ int main(int argc, char *argv[])
 	}
 
 	/* Hello World Test TA test */
-#if 1
 	args.val = 5;
 	printf("Hello World TA Test, value: %d\n", args.val);
 	ret = ioctl(devfd, ASF_IOCTL_HELLO_WORLD_TEST, &args);
@@ -52,7 +50,7 @@ int main(int argc, char *argv[])
 		printf("ioctl command failed\n");
 		return -1;
 	}
-#endif
+
 	/* ASF TA crypto Test  */
 	ioctl(devfd, ASF_IOCTL_CRYPTO_TEST, NULL);
 
