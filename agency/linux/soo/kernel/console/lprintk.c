@@ -66,7 +66,6 @@ void lprintk_buffer(void *buffer, uint32_t n) {
 
 	for (i = 0 ; i < n ; i++)
 		lprintk("%02x ", ((char *) buffer)[i]);
-	lprintk("\n");
 }
 
 /**
