@@ -1,2 +1,0 @@
-/usr/bin/ar qc libbase.a  CMakeFiles/base.dir/file.cpp.o CMakeFiles/base.dir/logging.cpp.o CMakeFiles/base.dir/parsenetaddress.cpp.o CMakeFiles/base.dir/quick_exit.cpp.o CMakeFiles/base.dir/stringprintf.cpp.o CMakeFiles/base.dir/strings.cpp.o CMakeFiles/base.dir/test_utils.cpp.o CMakeFiles/base.dir/errors_unix.cpp.o
-/usr/bin/ranlib libbase.a
