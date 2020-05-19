@@ -56,6 +56,8 @@ boot_stage_t boot_stage = BOOT_STAGE_INIT;
  */
 int root_proc(void *args)
 {
+	printk("SO3: starting the initial process (shell) ...\n\n\n");
+
 	/* Start the first process */
 	__exec("sh.elf");
 
@@ -122,7 +124,7 @@ void kernel_start(void) {
 	setup_arch();
 
 	lprintk("\n\n********** Smart Object Oriented SO3 Operating System **********\n");
-	lprintk("Copyright (c) 2014-2019 REDS Institute, HEIG-VD, Yverdon\n");
+	lprintk("Copyright (c) 2014-2020 REDS Institute, HEIG-VD, Yverdon\n");
 	lprintk("Version %s\n", SO3_KERNEL_VERSION);
 
 	lprintk("\n\nNow bootstraping the kernel ...\n");
@@ -141,15 +143,18 @@ void kernel_start(void) {
 	/* Scheduler init */
 	scheduler_init();
 
+	boot_stage = BOOT_STAGE_IRQ_ENABLE;
+
 	local_irq_enable();
+
 	calibrate_delay();
 
 	/*
 	 * Perform the rest of bootstrap sequence in a separate thread, so that
 	 * we can rely on the scheduler for subsequent threads.
-	 * The priority is 2, above the idle thread priority (1).
+	 * The priority is max (99) over other possible threads (normally there is no such thread at this time).
 	 */
-	kernel_thread(rest_init, "so3_boot", NULL, 2);
+	kernel_thread(rest_init, "so3_boot", NULL, 99);
 
 	/*
 	 * We loop forever, just the time the scheduler gives the hand to a ready thread.
