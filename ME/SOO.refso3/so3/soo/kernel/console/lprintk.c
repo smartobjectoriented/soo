@@ -17,6 +17,8 @@
  */
 
 #include <string.h>
+#include <process.h>
+#include <vfs.h>
 
 #include <soo/hypervisor.h>
 #include <soo/console.h>
@@ -31,18 +33,20 @@ void lprintk(char *format, ...) {
 	va_list va;
 	uint32_t flags;
 
-	flags = local_irq_save();
-
 	va_start(va, format);
-
 	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
-
-	for (i = 0; i < strlen(buf); i++)
-		__printch(buf[i]);
-
 	va_end(va);
 
-	local_irq_restore(flags);
+	if (cpu_mode() == USR_MODE)
+		__write(STDOUT, buf, strlen(buf));
+	else {
+		flags = local_irq_save();
+
+		for (i = 0; i < strlen(buf); i++)
+			__printch(buf[i]);
+
+		local_irq_restore(flags);
+	}
 }
 
 /**

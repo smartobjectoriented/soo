@@ -46,10 +46,12 @@
 #define SYSCALL_THREAD_EXIT	18
 #define SYSCALL_PIPE 		19
 #define SYSCALL_IOCTL		20
+#define SYSCALL_FCNTL		21
 #define SYSCALL_DUP		22
 #define SYSCALL_DUP2		23
 
 #define SYSCALL_STAT		34
+#define SYSCALL_MMAP		35
 #define SYSCALL_GETPID		37
 
 #define SYSCALL_THREAD_YIELD	40
@@ -58,6 +60,8 @@
 #define SYSCALL_SIGACTION	46
 #define SYSCALL_KILL		47
 #define SYSCALL_SIGRETURN	48
+
+#define SYSCALL_LSEEK		50
 
 #define SYSCALL_MUTEX_LOCK	60
 #define SYSCALL_MUTEX_UNLOCK	61
@@ -71,7 +75,7 @@
 #include <errno.h>
 #include <types.h>
 
-int syscall_handle(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+int syscall_handle(uint32_t, uint32_t, uint32_t, uint32_t);
 
 void set_errno(uint32_t val);
 #endif /* __ASSEMBLY__ */

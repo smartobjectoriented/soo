@@ -20,6 +20,8 @@
 #ifndef VUART_H
 #define VUART_H
 
+#include <device/irq.h>
+
 #include <soo/ring.h>
 #include <soo/grant_table.h>
 
@@ -30,12 +32,12 @@
 #define INPUT_TRANSMIT_DESTINATION_TTY (1 << 1)
 
 typedef struct {
-	uint8_t c;
+	char c;
 	uint8_t	pad[1];
 } vuart_request_t;
 
 typedef struct {
-	uint8_t c;
+	char c;
 	uint8_t	pad[1];
 } vuart_response_t;
 
@@ -47,5 +49,41 @@ extern struct vc_data *__vc;
 
 void vuart_write(char *buffer, int count);
 void send_to_console(char ch);
+char vuart_read_char(void);
+
+typedef struct {
+
+	struct vbus_device  *dev;
+
+	vuart_front_ring_t ring;
+	grant_ref_t ring_ref;
+	grant_handle_t handle;
+	uint32_t evtchn;
+	uint32_t irq;
+
+
+} vuart_t;
+
+/* ISR associated to the ring */
+extern vuart_t vuart;
+
+irq_return_t vuart_interrupt(int irq, void *data);
+
+/* State management */
+void vuart_probe(void);
+void vuart_closed(void);
+void vuart_suspend(void);
+void vuart_resume(void);
+void vuart_connected(void);
+void vuart_reconfiguring(void);
+void vuart_shutdown(void);
+
+void vuart_vbus_init(void);
+
+/* Processing and connected state management */
+void vuart_start(void);
+void vuart_end(void);
+bool vuart_is_connected(void);
+
 
 #endif /* VUART_H */

@@ -22,6 +22,8 @@
 #include <soo/avz.h>
 #include <soo/physdev.h>
 
+#define GUEST_VECTOR_VADDR	0xffff5000
+
 extern start_info_t *avz_start_info;
 
 shared_info_t *avz_map_shared_info(unsigned long pa);

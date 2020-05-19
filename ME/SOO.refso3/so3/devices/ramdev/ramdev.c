@@ -41,6 +41,10 @@ bool valid_ramdev(void) {
 	return (ramdev_size > 0);
 }
 
+uint32_t get_ramdev_size(void) {
+	return ramdev_size;
+}
+
 unsigned long ramdev_read(int dev, lbaint_t start, lbaint_t blkcnt, void *buffer) {
 	uint32_t bytes_count;
 
@@ -153,6 +157,6 @@ void ramdev_init(void) {
 	ramdev_size = get_ramdev((void *) _fdt_addr);
 
 	if (ramdev_size > 0)
-		printk("so3: rootfs in RAM detected (ramdev enabled)...\n");
+		printk("so3: rootfs in RAM detected (ramdev enabled) with size of %d bytes...\n", ramdev_size);
 }
 

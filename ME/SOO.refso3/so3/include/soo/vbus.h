@@ -20,7 +20,8 @@
 #ifndef VBUS_H
 #define VBUS_H
 
-#include <sync.h>
+#include <completion.h>
+
 #include <device/driver.h>
 
 #include <soo/hypervisor.h>

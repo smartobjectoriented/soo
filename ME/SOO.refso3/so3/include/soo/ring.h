@@ -113,7 +113,23 @@ struct __name##_back_ring {                                             \
 /* Syntactic sugar */                                                   \
 typedef struct __name##_sring __name##_sring_t;                         \
 typedef struct __name##_front_ring __name##_front_ring_t;               \
-typedef struct __name##_back_ring __name##_back_ring_t
+typedef struct __name##_back_ring __name##_back_ring_t;			\
+									\
+static inline __req_t *__name##_ring_request_next(__name##_front_ring_t *__name##_front_ring) { 	\
+return RING_GET_REQUEST(__name##_front_ring, __name##_front_ring->req_prod_pvt++);			\
+}													\
+ 	 	 	 	 									\
+static inline void __name##_ring_request_ready(__name##_front_ring_t *__name##_front_ring) {		\
+RING_PUSH_REQUESTS(__name##_front_ring);								\
+}													\
+													\
+static inline __rsp_t *__name##_ring_response_next(__name##_front_ring_t *__name##_front_ring) {	\
+	if (__name##_front_ring->sring->req_cons == __name##_front_ring->sring->rsp_prod)		\
+		return NULL;										\
+else													\
+	return RING_GET_RESPONSE(__name##_front_ring, __name##_front_ring->sring->rsp_cons++);		\
+}
+
 
 /*
  * Macros for manipulating rings.

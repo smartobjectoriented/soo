@@ -19,7 +19,7 @@
 #ifndef VBSTORE_ME_H
 #define VBSTORE_ME_H
 
-#include <sync.h>
+#include <completion.h>
 
 extern struct completion vbstore_populated_sync;
 extern bool vbstore_populated;

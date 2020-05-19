@@ -50,6 +50,9 @@ void *__guestvectors = NULL;
 
 extern uint8_t _vectors[];
 
+
+extern void inject_syscall_vector(void);
+
 int do_presetup_adjust_variables(void *arg)
 {
 	struct DOMCALL_presetup_adjust_variables_args *args = arg;
@@ -100,26 +103,29 @@ void vectors_setup(void) {
  	/* Make a copy of the existing vectors. The L2 pagetable was allocated by AVZ and cannot be used as such by the guest.
  	 * Therefore, we will make our own mapping in the guest for this vector page.
  	 */
- 	memcpy(vectors_tmp, (void *) 0xffff0000, PAGE_SIZE);
+ 	memcpy(vectors_tmp, (void *) VECTOR_VADDR, PAGE_SIZE);
 
  	/* Reset the L1 PTE used for the vector page. */
- 	clear_l1pte(NULL, 0xffff0000);
+ 	clear_l1pte(NULL, VECTOR_VADDR);
 
- 	create_mapping(NULL, 0xffff0000, __pa((uint32_t) vectors), PAGE_SIZE, true);
+ 	create_mapping(NULL, VECTOR_VADDR, __pa((uint32_t) vectors), PAGE_SIZE, true);
 
- 	memcpy((void *) 0xffff0000, vectors_tmp, PAGE_SIZE);
+ 	memcpy((void *) VECTOR_VADDR, vectors_tmp, PAGE_SIZE);
 
-	/* Create the guest vector pages at 0xffff5000 in order to have a good mapping with MT_HIGH_VECTORS privileges */
-	create_mapping(NULL, 0xffff5000, __pa((uint32_t) __guestvectors), PAGE_SIZE, true);
+	/* Create the guest vector pages at 0xffff5000 in order to have a good mapping with all required privileges */
+	create_mapping(NULL, GUEST_VECTOR_VADDR, __pa((uint32_t) __guestvectors), PAGE_SIZE, true);
 
 	/* From now on... */
-	__guestvectors = (unsigned int *) 0xffff5000;
+	__guestvectors = (unsigned int *) GUEST_VECTOR_VADDR;
 
 	memcpy(__guestvectors, (void *) _vectors, PAGE_SIZE);
 
-	flush_tlb_all();
-	cache_clean_flush();
+	/* We need to add handling of swi/svc software interrupt instruction for syscall processing.
+	 * Such an exception is fully processed by the SO3 domain.
+	 */
+	inject_syscall_vector();
 
+	flush_icache_range(VECTOR_VADDR, VECTOR_VADDR + PAGE_SIZE);
 }
 
 /*
