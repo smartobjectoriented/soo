@@ -131,11 +131,13 @@ static const struct of_device_id rpisense_js_id[] = {
 MODULE_DEVICE_TABLE(of, rpisense_js_id);
 #endif
 
+#if 0 /* Not used */
 static struct platform_device_id rpisense_js_device_id[] = {
 	{ .name = "rpi-sense-js" },
 	{ },
 };
 MODULE_DEVICE_TABLE(platform, rpisense_js_device_id);
+#endif
 
 static struct platform_driver rpisense_js_driver = {
 	.probe = rpisense_js_probe,

@@ -42,7 +42,7 @@
 
 /* IOCTL codes exposed to the user space side */
 #define DCM_IOCTL_INIT				_IOW(0x5000DC30, 0, char)
-#define DCM_IOCTL_IS_READY_TO_SEND		_IOW(0x5000DC30, 1, char)
+#define DCM_IOCTL_NEIGHBOUR_COUNT	_IOW(0x5000DC30, 1, char)
 #define DCM_IOCTL_SEND				_IOW(0x5000DC30, 2, char)
 #define DCM_IOCTL_RECV				_IOR(0x5000DC30, 5, char)
 #define DCM_IOCTL_RELEASE			_IOW(0x5000DC30, 6, char)

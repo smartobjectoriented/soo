@@ -43,6 +43,8 @@ static spinlock_t recv_lock;
 static volatile plugin_send_args_t plugin_send_args;
 static volatile plugin_recv_args_t plugin_recv_args;
 
+static uint8_t broadcast_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+
 /* Linux net_device structure */
 static struct net_device *net_dev = NULL;
 
@@ -142,25 +144,6 @@ void sl_plugin_loopback_rx(struct sk_buff *skb) {
 	kfree_skb(skb);
 }
 
-/*
- * This function can be used from the RT agency directly.
- */
-void rtdm_sl_plugin_loopback_rx(req_type_t req_type, void *data, size_t size) {
-	agencyUID_t agencyUID_from;
-
-	/*
-	 * Look for an existing mapping between (received) MAC and agencyUID. If we do not find any
-	 * known agencyUID retrieved by the Discovery block, we simply ignore the packet.
-	 */
-	/* The source is (struct ethhdr *) skb->head)-> ...(skb, recv_addr); */
-
-	/* Special case of loopback */
-	memcpy(&agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
-
-	plugin_rx(&plugin_loopback_desc, &agencyUID_from, req_type, data, size);
-}
-
-
 void rtdm_propagate_sl_plugin_loopback_rx(void) {
 	plugin_recv_args_t __plugin_recv_args;
 
@@ -172,7 +155,7 @@ void rtdm_propagate_sl_plugin_loopback_rx(void) {
 	/* Now unlock the spinlock used to protect args */
 	spin_unlock(&recv_lock);
 
-	rtdm_sl_plugin_loopback_rx(__plugin_recv_args.req_type, __plugin_recv_args.data, __plugin_recv_args.size);
+	plugin_rx(&plugin_loopback_desc, __plugin_recv_args.req_type, __plugin_recv_args.data, __plugin_recv_args.size, NULL);
 }
 
 /**

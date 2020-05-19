@@ -151,15 +151,15 @@
 /* SOO.tech */
 
 /* Soolink LLC IDs */
-#define ETH_P_SL_MIN				0x1000
-#define ETH_P_SOOLINK_DCM			0x1001
+#define ETH_P_SL_MIN			0x1000
+#define ETH_P_SOOLINK_DCM		0x1001
 #define ETH_P_SOOLINK_IAMASOO		0x1002
-#define ETH_P_SOOLINK_BT			0x1003
+#define ETH_P_SOOLINK_BT		0x1003
 #define ETH_P_SOOLINK_NETSTREAM		0x1004
-#define ETH_P_SOOLINK_TCP			0x1005
-#define ETH_P_SOOLINK_PEER		   	0x1006
-#define ETH_P_SL_MAX				0x1040
-
+#define ETH_P_SOOLINK_TCP		0x1005
+#define ETH_P_SOOLINK_PEER		0x1006
+#define ETH_P_SOOLINK_DATALINK		0x1007
+#define ETH_P_SL_MAX			0x1040
 
 /*
  *	This is an Ethernet frame header.

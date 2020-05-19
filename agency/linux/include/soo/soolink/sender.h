@@ -23,11 +23,8 @@
 #include <soo/soolink/transceiver.h>
 #include <soo/soolink/soolink.h>
 
-void sender_request_xmit(sl_desc_t *sl_desc);
-int sender_xmit(sl_desc_t *sl_desc, void *data, size_t size, bool completed);
-void sender_tx(sl_desc_t *sl_desc, void *packet, size_t size, unsigned long flags);
-
-int sender_stream_xmit(sl_desc_t *sl_desc, void *data);
+int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed);
+void __sender_tx(sl_desc_t *sl_desc, void *packet, size_t size, unsigned long flags);
 
 void sender_init(void);
 

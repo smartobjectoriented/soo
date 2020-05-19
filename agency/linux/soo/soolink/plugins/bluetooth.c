@@ -106,10 +106,6 @@ void sl_plugin_bluetooth_rx(struct sk_buff *skb) {
 	/* Do not free the skb here, it is freed in the RFCOMM layer */
 }
 
-static void rtdm_sl_plugin_bluetooth_rx(req_type_t req_type, void *data, size_t size) {
-	plugin_rx(&plugin_bluetooth_desc, get_null_agencyUID(), req_type, data, size);
-}
-
 /**
  * This function has to be called in a realtime context, from the directcomm RT thread.
  */
@@ -123,7 +119,7 @@ void rtdm_propagate_sl_plugin_bluetooth_rx(void) {
 
 	spin_unlock(&recv_lock);
 
-	rtdm_sl_plugin_bluetooth_rx(__plugin_recv_args.req_type, __plugin_recv_args.data, __plugin_recv_args.size);
+	plugin_rx(&plugin_bluetooth_desc, __plugin_recv_args.req_type, __plugin_recv_args.data, __plugin_recv_args.size, __plugin_recv_args.mac);
 }
 
 static int plugin_bluetooth_init(void) {

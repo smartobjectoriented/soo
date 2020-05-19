@@ -33,8 +33,11 @@
  *
  * The following requester type are defined:
  * - SL_REQ_DCM:	used by the DCM for ME migration
- * - SL_REQ_TCP:	used by application which needs tcp/ip routing
- * - SL_REQ_BT:
+ * - SL_REQ_TCP:	currently used by vuihandler to manage Ethernet configuration (remote access from Internet to applications)
+ * - SL_REQ_BT:		currently used by vuihandler and its stuff
+ * - SL_REQ_DISCOVERY:  reserved to the Discovery for handling Iamasoo beacons sent between smart objects
+ * - SL_REQ_PEER:	simple transmission between smart objects. Used for debugging purposes mainly.
+ * - SL_REQ_DATALINK:   used by the Winenet datalink protocol for beacon management.
  *
  */
 typedef enum {
@@ -42,12 +45,12 @@ typedef enum {
 	SL_REQ_TCP,
 	SL_REQ_BT,
 	SL_REQ_DISCOVERY,
-	SL_REQ_NETSTREAM,
 	SL_REQ_PEER,
+	SL_REQ_DATALINK,
 	SL_REQ_N
 } req_type_t;
 
-/* Type of interface a requester can use with Soolink */
+/* Type of interface a requester can use with SOOlink */
 typedef enum {
 	SL_IF_WLAN = 0,
 	SL_IF_ETH,
@@ -61,7 +64,6 @@ typedef enum {
 	SL_MODE_BROADCAST,
 	SL_MODE_UNICAST,
 	SL_MODE_UNIBROAD,
-	SL_MODE_NETSTREAM,
 } trans_mode_t;
 
 /* Datalink protocol */
@@ -77,20 +79,20 @@ typedef struct sl_desc sl_desc_t;
 
 typedef void (*rtdm_recv_callback_t)(sl_desc_t *sl_desc, void *data, size_t size);
 
-/* Soolink descriptor */
+/* SOOlink descriptor */
 typedef struct sl_desc {
 
 	struct list_head list;  /* Used to keep a list of requesters */
 
-	req_type_t	req_type;
-	if_type_t	if_type;
-	trans_mode_t	trans_mode;
+	req_type_t req_type;
+	if_type_t if_type;
+	trans_mode_t trans_mode;
 
 	/* prio can be 1 to 100 (the greater the higher priority) */
-	uint32_t	prio;
+	uint32_t prio;
 
 	/* Tell soolink that the requester has exclusive access on the associated interface */
-	bool		exclusive;
+	bool exclusive;
 
 	/* Identification of the source, if any */
 	agencyUID_t	agencyUID_from;
@@ -102,14 +104,13 @@ typedef struct sl_desc {
 	rtdm_recv_callback_t rtdm_recv_callback;
 
 	/* Event and parameters to perform synchronous call to the Decoder receive function */
-	rtdm_event_t	recv_event;
-	void		*incoming_block;
+	rtdm_event_t recv_event;
+	void *incoming_block;
 
 	/*
 	 * Number of received bytes.
-	 * In case of netstream mode, the field is used to store the fixed packet length.
 	 */
-	size_t		incoming_block_size;
+	size_t incoming_block_size;
 
 } sl_desc_t;
 
@@ -151,7 +152,7 @@ void rtdm_sl_tx_request(sl_desc_t *sl_desc);
 bool sl_try_update_tx(void);
 void sl_release_update_tx(void);
 
-bool sl_ready_to_send(sl_desc_t *sl_desc);
+uint32_t sl_neighbour_count(void);
 
 /* prio can be 0 to 99 (the greater the higher priority) */
 void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio);
@@ -166,8 +167,5 @@ int rtdm_sl_stream_recv(sl_desc_t *sl_desc, void **data);
 void rtdm_sl_stream_terminate(sl_desc_t *sl_desc);
 
 void sl_discovery_start(void);
-
-int sl_get_neighbours(struct list_head *new_list);
-int rtdm_sl_get_neighbours(struct list_head *new_list);
 
 #endif /* SOOLINK_H */

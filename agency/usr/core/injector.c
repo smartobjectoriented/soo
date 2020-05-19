@@ -26,7 +26,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <kconfig.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include <errno.h>

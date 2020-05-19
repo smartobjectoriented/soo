@@ -37,7 +37,7 @@ typedef enum {
  *
  * return the size of the 'enc_buf' or -1 in case of error
  */
-int asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t **enc_buf);
+ssize_t asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t **enc_buf);
 
 
 /* Performs a buffer decryption (AES).
@@ -51,7 +51,7 @@ int asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t 
  *
  * return the size of the 'plain_buf' decoded buffer or -1 in case of error
  */
-int asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **plain_buf);
+ssize_t asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **plain_buf);
 
 
 #endif /* ASF_H */

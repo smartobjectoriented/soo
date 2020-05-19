@@ -38,13 +38,11 @@ static rtdm_mutex_t receiver_lock;
  * the packet has to be given back to the Receiver.
  * The size parameter refers to the whole transceiver packet.
  */
-void receiver_request_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size) {
+void __receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size) {
 	transceiver_packet_t *transceiver_packet;
 
-	if (sl_desc->req_type != SL_REQ_NETSTREAM) {
-		transceiver_packet = (transceiver_packet_t *) packet;
-		transceiver_packet->size = size;
-	}
+	transceiver_packet = (transceiver_packet_t *) packet;
+	transceiver_packet->size = size;
 
 	datalink_rx(sl_desc, plugin_desc, packet, size);
 }
@@ -52,7 +50,7 @@ void receiver_request_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *p
 /**
  * This function is called by Datalink when the packet is ready to be
  * forwarded to the consumer(s).
- * The size parameter refers to the whole transceiver packet. It is set to 0 in netstream mode.
+ * The size parameter refers to the whole transceiver packet.
  */
 void receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size) {
 	transceiver_packet_t *transceiver_packet;
@@ -60,24 +58,10 @@ void receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, s
 
 	rtdm_mutex_lock(&receiver_lock);
 
-	switch (sl_desc->req_type) {
-	case SL_REQ_NETSTREAM:
-		decoder_stream_rx(sl_desc, packet);
-		break;
-
-	case SL_REQ_DISCOVERY:
-		transceiver_packet = (transceiver_packet_t *) packet;
-		/* Substract the transceiver's packet header size from the total size */
-		payload_size = size - sizeof(transceiver_packet_t);
-		discovery_rx(plugin_desc, transceiver_packet->payload, payload_size);
-		break;
-
-	default:
-		transceiver_packet = (transceiver_packet_t *) packet;
-		/* Substract the transceiver's packet header size from the total size */
-		payload_size = size - sizeof(transceiver_packet_t);
-		decoder_rx(sl_desc, transceiver_packet->payload, payload_size);
-	}
+	transceiver_packet = (transceiver_packet_t *) packet;
+	/* Substract the transceiver's packet header size from the total size */
+	payload_size = size - sizeof(transceiver_packet_t);
+	decoder_rx(sl_desc, transceiver_packet->payload, payload_size);
 
 	rtdm_mutex_unlock(&receiver_lock);
 }
