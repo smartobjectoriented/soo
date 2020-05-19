@@ -68,6 +68,7 @@ typedef enum {
 typedef enum {
 	SL_DL_PROTO_DISABLED = 0,
 	SL_DL_PROTO_WINENET,
+    SL_DL_PROTO_BT,
 	SL_DL_PROTO_N
 } datalink_proto_t;
 

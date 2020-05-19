@@ -108,58 +108,18 @@ void save_itb(void *ME_buffer, size_t size) {
 }
 
 
-
-/**
- * Polls the injector kernel module to see if a ME was 
- * received by Bluetooth. If a ME is available, inject it.
- */
-void inject_from_BT(void) {
-	injector_ioctl_recv_args_t args;
-	int i;
-
-	void *ME;
-
-	memset(&args, 0, sizeof(injector_ioctl_recv_args_t));
-
-
-	if ((ioctl(fd_core, INJECTOR_IOCTL_RETRIEVE_ME, &args)) < 0) {
-		DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
-		BUG();
-	}
-	if (args.size != 0) {
-		printf("AN ME (%dB) IS READY TO BE INJECTED!\n", args.size);
-#if 0 /* Using the copy in the userspace */ 
-		ME = malloc(args.size);
-		memcpy(ME, args.ME_data, args.size);
-		
-		ME_inject(ME);
-		free(ME);
-#else /* Using the memory allocated in the kernel. NOT WORKING FOR NOW */
-		
-		ME_inject((void *)args.ME_data);
-	
-#endif			
-		if ((ioctl(fd_core, INJECTOR_IOCTL_CLEAN_ME, NULL)) < 0) {
-			DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
-			BUG();
-		}
-	}
-	
-}
-
-
 void *ME_retrieve_fn(void *dummy) {
 
-
 	injector_ioctl_recv_args_t args;
-	int i;
 
 	void *ME;
-	int br;
+	int br = 0;
+	int current_size = 0;
+	int chunk = 2000;
 
 	memset(&args, 0, sizeof(injector_ioctl_recv_args_t));
 
-	printf("INJECTOR: ME retrieve thread started\n");
+	printf("Injector: ME retrieve thread started\n");
 	while(1) {
 
 		usleep(500 * 1000);
@@ -171,12 +131,15 @@ void *ME_retrieve_fn(void *dummy) {
 		
 		if (args.size != 0) {
 
-			printf("INJECTOR: AN ME IS READY TO BE INJECTED\n");
+			printf("Injector: An ME is ready to be retrieved (%d B)\n", args.size);
 			ME = malloc(args.size);
 
-			br = read(fd_core, ME, args.size);
 
-			printf("INJECTOR: %db read from the injector core\n", br);
+			while (current_size != args.size) {
+				br = read(fd_core, ME+current_size, chunk);
+				current_size += br;
+
+			}
 
 			ME_inject(ME);
 

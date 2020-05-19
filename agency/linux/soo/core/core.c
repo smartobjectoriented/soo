@@ -42,6 +42,7 @@
 #include <linux/sched.h>
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
+#include <linux/wait.h>
 
 #include <soo/soolink/discovery.h>
 
@@ -974,37 +975,35 @@ static int agency_upgrade_mmap(struct file *filp, struct vm_area_struct *vma) {
 	return 0;
 }
 
-DEFINE_MUTEX(injector_mutex);
+DECLARE_WAIT_QUEUE_HEAD(wq_prod);
+DECLARE_WAIT_QUEUE_HEAD(wq_cons);
 
 static ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
-	int maxbytes;           /* maximum bytes that can be read from ppos to BUFFER_SIZE*/
-        int bytes_to_read;      /* gives the number of bytes to read*/
-        int bytes_read;         /* number of bytes actually read*/
+	int maxbytes;
+        int bytes_to_read;
+        int bytes_read;
+	void *ME;
 
-	// void *ME = injector_get_ME_buffer();
-        // maxbytes = injector_get_ME_size() - *ppos;
-
-	void *ME = injector_get_tmp_buf();
+	/* Wait for the Injector to produce data */
+	wait_event_interruptible(wq_cons, injector_is_full() == true);
+#if 0
+	void *ME = injector_get_ME_buffer();
+        maxbytes = injector_get_ME_size() - *ppos;
+#else
+	ME = injector_get_tmp_buf();
         maxbytes = injector_get_tmp_size();
-
-	printk(KERN_INFO "charDev : usr want to read %dB \n", length);
-
-
-
+#endif
 
         if (maxbytes > length)
                 bytes_to_read = length;
         else
                 bytes_to_read = maxbytes;
 		
-        if (bytes_to_read == 0)
-                printk(KERN_INFO "charDev : Reached the end of the device\n");
+        bytes_read = copy_to_user(buff, ME, bytes_to_read);
 
-        bytes_read = bytes_to_read - copy_to_user(buff + *ppos, ME, bytes_to_read);
-
-	mutex_unlock(&injector_mutex);
-
-        *ppos += bytes_read;
+	/* Notify the Injector we read the buffer */
+	injector_set_full(false);
+	wake_up_interruptible(&wq_prod);
 
         return bytes_read;
 }
@@ -1170,14 +1169,11 @@ int agency_init(void) {
 	devaccess_init();
 
 	/* Initialize the injector subsystem */
-
-	mutex_init(&injector_mutex);
-	injector_init(injector_mutex);
+	injector_init(&wq_prod, &wq_cons);
 
 	/* Initialize the dbgvar facility */
 	dbgvar_init();
 #endif
-
 	return 0;
 }
 

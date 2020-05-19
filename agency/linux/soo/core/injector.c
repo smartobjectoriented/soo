@@ -30,6 +30,7 @@
 #include <linux/kthread.h>
 #include <linux/completion.h>
 #include <linux/mutex.h>
+#include <linux/wait.h>
 
 #include <soo/uapi/injector.h>
 
@@ -55,9 +56,10 @@ size_t current_size = 0;
 void *tmp_buf;
 size_t tmp_size;
 
+bool full = false;
 
-
-DEFINE_MUTEX(injection_lock);
+static wait_queue_head_t *wq_cons;
+static wait_queue_head_t *wq_prod;
 
 
 /**
@@ -68,14 +70,21 @@ DEFINE_MUTEX(injection_lock);
  * @return 0 
  */
 int injector_receive_ME(void *ME, size_t size) {
-	memcpy((uint8_t *)ME_buffer+current_size, (uint8_t *)ME, size);
+
+#if 0
+	printk("%d\n", size);
+	return;
+#endif	
+	wait_event_interruptible(*wq_prod, full == false);
+
 	current_size += size;
+
 	tmp_buf = ME;
 	tmp_size = size;
 
-	printk("Before lock\n");
-	mutex_lock(&injection_lock);
-	printk("After lock\n");
+	full = true;
+
+	wake_up_interruptible(wq_cons);
 
 	return 0;
 }
@@ -83,8 +92,17 @@ int injector_receive_ME(void *ME, size_t size) {
 void *injector_get_tmp_buf(void) {
 	return tmp_buf;
 }
+
 size_t injector_get_tmp_size(void) {
 	return tmp_size;
+}
+
+bool injector_is_full(void) {
+	return full;
+}
+
+void injector_set_full(bool _full) {
+	full = _full;
 }
 
 void *injector_get_ME_buffer(void) {
@@ -95,13 +113,8 @@ size_t injector_get_ME_size(void) {
 	return ME_size;
 }
 
-
 void injector_prepare(uint32_t size) {
 	ME_size = size;
-
-	ME_buffer = vmalloc(size);
-
-	BUG_ON(ME_buffer == NULL);
 }
 
 
@@ -116,11 +129,11 @@ void injector_retrieve_ME(unsigned long arg) {
 	injector_ioctl_recv_args_t args;
 
 	/* Check if an ME is present */
-	if (ME_size == 0 || (current_size != ME_size)) {
-		args.ME_data = NULL;
-		args.size = 0;
-		return;
-	}
+	// if (ME_size == 0 || (current_size != ME_size)) {
+	// 	args.ME_data = NULL;
+	// 	args.size = 0;
+	// 	return;
+	// }
 
 	args.ME_data = ME_buffer;
 	args.size = ME_size;
@@ -135,22 +148,11 @@ void injector_retrieve_ME(unsigned long arg) {
 /**
  * Injector initialization function.
  */
-int injector_init(struct mutex lock) {
+int injector_init(wait_queue_head_t *_wq_prod, wait_queue_head_t *_wq_cons) {
 
 	DBG("Injector subsys initializing ...\n");
-
-
-	injection_lock = lock;
-
-#if 0 /* Enable to simulate an ME injection at boot */  
-	printk("ME INJECTION SIMULATED!\n");
-	ME_buffer = vmalloc(ME_length);
-
-	memcpy(ME_buffer, ME, ME_length);
-
-	ME_size = ME_length;
-	current_size = ME_length;
-#endif
+	wq_cons = _wq_cons;
+	wq_prod = _wq_prod;
 
 	return 0;
 }

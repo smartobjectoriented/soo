@@ -27,6 +27,7 @@
 #include <soo/soolink/receiver.h>
 
 #include <soo/soolink/datalink/winenet.h>
+#include <soo/soolink/datalink/bluetooth.h>
 
 /*
  * Protocol table. It contains the Datalink protocol descriptors associated to the
@@ -125,7 +126,10 @@ void datalink_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, s
 
 		default:
 			/* SL_MODE_UNICAST */
-			receiver_rx(sl_desc, plugin_desc, packet, size);
+			if (datalink_protocols[SL_DL_PROTO_BT])
+				datalink_protocols[SL_DL_PROTO_BT]->rx_callback(sl_desc, plugin_desc, packet, size);
+			else
+				receiver_rx(sl_desc, plugin_desc, packet, size);
 			break;
 	}
 }
@@ -136,4 +140,5 @@ void datalink_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, s
 void datalink_init(void) {
 	/* Initialize the Winenet protocol */
 	winenet_init();
+	bluetooth_init();
 }
