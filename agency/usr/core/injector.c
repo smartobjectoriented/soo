@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -26,7 +26,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <kconfig.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -40,6 +39,12 @@
 #include <core/types.h>
 
 #include <uapi/dcm.h>
+
+#include <injector/core.h>
+
+
+static int fd_core;
+
 
 /**
  * Inject a ME.
@@ -84,5 +89,123 @@ void ME_inject(unsigned char *ME_buffer) {
 
 	/* Be ready for future migration */
 	set_personality_initiator();
+}
 
+
+void save_itb(void *ME_buffer, size_t size) {
+	FILE *f;
+
+	int i;
+	
+	f = fopen("/root/test_ME.itb", "wb");
+
+	for (i = 0; i < size; ++i) {
+		fwrite(ME_buffer+i, sizeof(char), 1, f);
+	}
+
+	fclose(f);
+}
+
+
+
+/**
+ * Polls the injector kernel module to see if a ME was 
+ * received by Bluetooth. If a ME is available, inject it.
+ */
+void inject_from_BT(void) {
+	injector_ioctl_recv_args_t args;
+	int i;
+
+	void *ME;
+
+	memset(&args, 0, sizeof(injector_ioctl_recv_args_t));
+
+
+	if ((ioctl(fd_core, INJECTOR_IOCTL_RETRIEVE_ME, &args)) < 0) {
+		DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
+		BUG();
+	}
+	if (args.size != 0) {
+		printf("AN ME (%dB) IS READY TO BE INJECTED!\n", args.size);
+#if 0 /* Using the copy in the userspace */ 
+		ME = malloc(args.size);
+		memcpy(ME, args.ME_data, args.size);
+		
+		ME_inject(ME);
+		free(ME);
+#else /* Using the memory allocated in the kernel. NOT WORKING FOR NOW */
+		
+		ME_inject((void *)args.ME_data);
+	
+#endif			
+		if ((ioctl(fd_core, INJECTOR_IOCTL_CLEAN_ME, NULL)) < 0) {
+			DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
+			BUG();
+		}
+	}
+	
+}
+
+
+void *ME_retrieve_fn(void *dummy) {
+
+
+	injector_ioctl_recv_args_t args;
+	int i;
+
+	void *ME;
+	int br;
+
+	memset(&args, 0, sizeof(injector_ioctl_recv_args_t));
+
+	printf("INJECTOR: ME retrieve thread started\n");
+	while(1) {
+
+		usleep(500 * 1000);
+
+		if ((ioctl(fd_core, INJECTOR_IOCTL_RETRIEVE_ME, &args)) < 0) {
+			DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
+			BUG();
+		}
+		
+		if (args.size != 0) {
+
+			printf("INJECTOR: AN ME IS READY TO BE INJECTED\n");
+			ME = malloc(args.size);
+
+			br = read(fd_core, ME, args.size);
+
+			printf("INJECTOR: %db read from the injector core\n", br);
+
+			ME_inject(ME);
+
+			if ((ioctl(fd_core, INJECTOR_IOCTL_CLEAN_ME, NULL)) < 0) {
+				DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
+				BUG();
+			}
+			
+			return NULL;
+
+		}
+	}
+	
+	return NULL;
+}
+
+void injector_dev_init(void) {
+	if ((fd_core = open(SOO_CORE_DEVICE, O_RDWR)) < 0) {
+		printf("Failed to open device: " INJECTOR_DEV_NAME " (%d)\n", fd_core);
+		perror("injector_dev_init");
+		BUG();
+	}
+}
+
+
+void injector_init(void) {
+
+	pthread_t injection_thread;
+
+	injector_dev_init();
+
+	pthread_create(&injection_thread, NULL, ME_retrieve_fn, NULL);
 }

@@ -1,8 +1,0 @@
-
-menu "Library Configuration"
-
-config LZ4
-	bool "lz4-r130 compression library"
-
-endmenu
-
