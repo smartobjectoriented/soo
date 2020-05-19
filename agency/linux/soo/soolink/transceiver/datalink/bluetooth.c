@@ -24,35 +24,6 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
 
-static bool bluetooth_ready_to_send(sl_desc_t *sl_desc) {
-	DBG("IN %s\n", __func__);
-	return true;
-}
-
-static int bluetooth_xmit(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool completed) {
-	transceiver_packet_t *packet;
-	int ret = 0;
-	DBG("IN %s\n", __func__);
-
-	return ret;
-}
-
-/**
- * This function is called when a TX request is being issued.
- * The call is made by the Sender.
- */
-static int bluetooth_request_xmit(sl_desc_t *sl_desc) {
-	DBG("IN %s\n", __func__);
-
-	return 0;
-}
-
-
-static int pkt_cnt = 0;
-static int cur_size = 0;
-static void *buffer;
-
-
 
 typedef struct bt_sl_buf {
 	void *buffer;
@@ -69,8 +40,8 @@ static int cur_buf_idx = 0;
  * WIP
  */
 void bluetooth_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr, size_t size) {
-	DBG("IN %s\n", __func__);
 	int i;
+	DBG("IN %s\n", __func__);
 #if 0
 	receiver_rx(sl_desc, plugin_desc, packet_ptr, size);
 	return;
@@ -92,10 +63,7 @@ void bluetooth_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_p
  * Callbacks of the bluetooth protocol
  */
 static datalink_proto_desc_t bluetooth_proto = {
-	.ready_to_send = bluetooth_ready_to_send,
-	.xmit_callback = bluetooth_xmit,
 	.rx_callback = bluetooth_rx,
-	.request_xmit_callback = bluetooth_request_xmit,
 };
 
 /**
