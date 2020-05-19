@@ -1,3 +1,7 @@
+
+# CMake for building all agency usr applications
+# It includes the basic utility like agency and other apps
+
 cmake_minimum_required(VERSION 3.1)
 
 project(agency-usr LANGUAGES C)
