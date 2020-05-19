@@ -39,8 +39,11 @@
 
 .globl _vectors
 .globl ret_from_fork
-.globl __get_syscall_args_ext
 .global __call_sig_handler
+
+#ifdef CONFIG_SO3VIRT
+.global inject_syscall_vector
+#endif /* CONFIG_SO3VIRT */
 
 .extern current_thread
 .extern irq_handle
@@ -104,6 +107,24 @@ _not_used:              .word not_used
 _irq:                   .word irq
 _fiq:                   .word fiq
 _pad:                   .word 0x12345678 @ now 16*4=64
+
+#ifdef CONFIG_SO3VIRT
+
+@ Inject the real syscall vector used by SO3
+@ Modified registers: r0, r1
+inject_syscall_vector:
+
+	ldr r0, =_vectors
+	ldr r1, [r0, #8] 	@ Vector location of swi in standard ARM vector table
+	ldr r2, [r0, #36] 	@ And the re-direction stored in the same page, at this position (+36), following the vector table.
+
+	ldr r0, =VECTOR_VADDR
+
+	str r1, [r0, #8]
+	str r2, [r0, #36]
+
+	mov pc, lr
+#endif /* CONFIG_SO3VIRT */
 
 @ exception handlers
 .align  5
@@ -272,31 +293,27 @@ ret_from_fork:
 	mov		r0, #0
 	b		__ret_from_fork
 
-
-@ Get the additional arguments linked to the syscall.
-@ The ABI convention is described in crt0.S of the libc.
-@ r7 contains the syscall number
-@ r10 contains the address of the errno variable
-__get_syscall_args_ext:
-
-	str		r7, [r0]
-	str		r10, [r1]
-
-	mov 	pc, lr
-
 .align  5
 prefetch_abort:
 
+	@ Call the C data abort handler with the following args:
+	@ r0 = IFAR, r1 = IFSR, r2 = LR
+
 	mrc	p15, 0, r0, c6, c0, 2		@ get IFAR
 	mrc	p15, 0, r1, c5, c0, 1		@ get IFSR
+	mov r2, lr
 
     b __prefetch_abort
 
 .align  5
 data_abort:
 
+	@ Call the C data abort handler with the following args:
+	@ r0 = FAR, r1 = FSR, r2 = LR
+
 	mrc	p15, 0, r1, c5, c0, 0		@ get FSR
 	mrc	p15, 0, r0, c6, c0, 0		@ get FAR
+	mov r2, lr
 
     b __data_abort
 
@@ -417,8 +434,23 @@ fiq:
 
 #ifdef CONFIG_SO3VIRT
 
+
+@ The cpu_regs_t from avz remains compatible in the range of
+@ ARM registers with the SPSR stored after r15.
 .align 5
 ENTRY(avz_vector_callback)
+
+	@ Store the current value of sp which is at the base of cpu_regs_t
+	@ from avz. It may be not 8-byte aligned so that we are
+	@ re-adjusting the sp as follows.
+
+	mov	    r1, sp
+
+	tst		sp, #0x7	@ 8-bytes aligned
+	subne	sp, sp, #4
+	subeq	sp, sp, #8
+
+	str		r1, [sp]	@ save current sp; now, we know that at this position we will retrieve the correct sp.
 
 	@ Check if the stack is 8-byte aligned.
 	tst		sp, #0x7
@@ -427,13 +459,29 @@ ENTRY(avz_vector_callback)
 	@ r0 is set to cpu_regs_t by avz
 	bl 		irq_handle
 
-	ldr 	r3, [sp, #OFFSET_PSR]
+	@ restore the sp at the entry of the function
+	ldr		sp, [sp]
 
-	msr		spsr_cxsf, r3
+	ldr		r0, [sp, #OFFSET_PSR]			@ Check if return is in guest SVC or guest USR
+	msr		spsr_cxsf, r0
 
-	ldmia	sp, {r0 - pc}^			@ load r0 - pc, cpsr
+	and		r0, r0, #MODE_MASK
+	cmp		r0, #USR_MODE   			@ usr ?
+	bne		restore_svc
 
-    .align 5
+	ldr     lr, [sp, #OFFSET_PC]!                @ Get PC
+
+	ldmdb   sp, {r0 - lr}^                  @ Get calling r0 - lr
+	mov     r0, r0
+	add     sp, sp, #72 - OFFSET_PC
+
+	movs    pc, lr                          @ return & move spsr_svc into cpsr
+
+restore_svc:
+
+	ldmia	sp, {r0 - pc}^		@ load r0 - pc, cpsr
+
+.align 5
 
     /*
      * Hypercall trampoline has the following arguments:

@@ -19,6 +19,8 @@
 #ifndef VDUMMY_H
 #define VDUMMY_H
 
+#include <device/irq.h>
+
 #include <soo/ring.h>
 #include <soo/grant_table.h>
 
@@ -39,5 +41,38 @@ typedef struct  {
  * Generate blkif ring structures and types.
  */
 DEFINE_RING_TYPES(vdummy, vdummy_request_t, vdummy_response_t);
+
+typedef struct {
+
+	struct vbus_device  *dev;
+
+	vdummy_front_ring_t ring;
+	grant_ref_t ring_ref;
+	grant_handle_t handle;
+	uint32_t evtchn;
+	uint32_t irq;
+
+} vdummy_t;
+
+extern vdummy_t vdummy;
+
+/* ISR associated to the ring */
+irq_return_t vdummy_interrupt(int irq, void *data);
+
+/* State management */
+void vdummy_probe(void);
+void vdummy_closed(void);
+void vdummy_suspend(void);
+void vdummy_resume(void);
+void vdummy_connected(void);
+void vdummy_reconfiguring(void);
+void vdummy_shutdown(void);
+
+void vdummy_vbus_init(void);
+
+/* Processing and connected state management */
+void vdummy_start(void);
+void vdummy_end(void);
+bool vdummy_is_connected(void);
 
 #endif /* VDUMMY_H */

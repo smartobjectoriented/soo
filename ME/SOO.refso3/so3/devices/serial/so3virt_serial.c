@@ -1,26 +1,18 @@
 /*
+ * Copyright (C) 2017-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
- * ----- SO3 Smart Object Oriented (SOO) Operating System -----
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- * Copyright (c) 2014-2019 REDS Institute, HEIG-VD, Switzerland
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * This software is released under the MIT License whose terms are defined hereafter.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
- *
- * Contributors:
- *
- * - August 2017: Daniel Rossier
- * - February 2019: Daniel Rossier
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -39,12 +31,24 @@ void __ll_put_byte(char c) {
 static int so3virt_put_byte(char c) {
 
 	if (!vuart_ready())
-		lprintk("%c", c);
+		__ll_put_byte(c);
 	else
 		vuart_write(&c, 1);
 
 	return 1;
 }
+
+/*
+ * Read bytes coming from the backend.
+ */
+static char so3virt_get_byte(bool polling) {
+
+	if (!vuart_ready())
+		DBG("## %s: failed to read (vuart not ready yet)\n", __func__);
+
+	return vuart_read_char();
+}
+
 
 static int so3virt_serial_init(dev_t *dev) {
 
@@ -53,8 +57,7 @@ static int so3virt_serial_init(dev_t *dev) {
 	memcpy(&so3virt_serial_dev, dev, sizeof(dev_t));
 
 	serial_ops.put_byte = so3virt_put_byte;
-
-	/* At the moment, there is no way to get input from SO3 directly. */
+	serial_ops.get_byte = so3virt_get_byte;
 
 	serial_ops.dev = dev;
 

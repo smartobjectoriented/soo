@@ -22,7 +22,7 @@
 
 #include <common.h>
 #include <thread.h>
-#include <sync.h>
+#include <completion.h>
 #include <heap.h>
 #include <list.h>
 #include <schedule.h>
