@@ -71,9 +71,6 @@ int root_proc(void *args)
 
 int rest_init(void *dummy) {
 
-	/* Start the idle thread with priority 1. */
-	tcb_idle = kernel_thread(thread_idle, "idle", NULL, 1);
-
 #ifdef CONFIG_SO3VIRT
 
 	printk("SOO Mobile Entity booting ...\n");
@@ -105,8 +102,6 @@ int rest_init(void *dummy) {
 #elif defined(CONFIG_PROC_ENV)
 
 	/* Launch the root process (should be the shell...) */
-	printk("SO3: starting the initial process (shell) ...\n\n\n");
-
 	create_process(root_proc, "root_proc");
 
 	/* We should never reach this ... */
