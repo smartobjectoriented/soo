@@ -34,7 +34,9 @@
 
 #include <dcm/core.h>
 
+#ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>
+#endif
 
 /**
  * Try to send the ME in the slot slotID.
@@ -80,7 +82,9 @@ bool ME_processing_send(unsigned int ME_slotID) {
 
 	DBG("Send ME %d, slotID=%d\n", ME_slotID, ME_slotID);
 
+#ifdef WITH_LED_ACTIVITIES
 	led_on(3);
+#endif
 
 	/* Perform initialization sequence, and checks if the ME is ready to be migrated,
 	 * i.e. the ME did not get killed.
@@ -113,7 +117,10 @@ bool ME_processing_send(unsigned int ME_slotID) {
 
 	return true;
 out:
+
+#ifdef WITH_LED_ACTIVITIES
 	led_off(3);
+#endif
 
 	return false;
 }

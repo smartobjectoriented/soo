@@ -2,9 +2,15 @@
 # CMake for building all agency usr applications
 # It includes the basic utility like agency and other apps
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.10)
 
 project(agency-usr LANGUAGES C)
+
+option(WITH_LED_ACTIVITIES "LED activities during migration" ON)
+
+if (WITH_LED_ACTIVITIES)
+	add_definitions(-DWITH_LED_ACTIVITIES)
+endif()
 
 include_directories(
 	include

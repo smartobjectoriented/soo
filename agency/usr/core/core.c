@@ -41,7 +41,9 @@
 
 #include <injector/core.h>
 
+#ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>
+#endif
 
 #define AGENCY_CORE_VERSION "2019.2"
 
@@ -175,8 +177,10 @@ int main(int argc, char *argv[]) {
 	signal(SIGUSR1, sig_agency_start);
 	signal(SIGUSR2, sig_inject_ME_from_memory);
 
+#ifdef WITH_LED_ACTIVITIES
 	/* Initialize the LED Interface */
 	leds_init();
+#endif
 
 	/* Initialzation of the DCM subsystem */
 	dcm_init();
@@ -187,10 +191,12 @@ int main(int argc, char *argv[]) {
 
 	injector_init();
 
+#ifdef WITH_LED_ACTIVITIES
 	for (i = 0 ; i < SOO_N_LEDS ; i++)
 		led_off(i + 1);
 
 	led_on(1);
+#endif
 
 	/* Automatically inject the MEs in the /ME directory */
 	inject_MEs_from_filesystem();

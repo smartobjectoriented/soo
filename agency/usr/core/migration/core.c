@@ -46,7 +46,9 @@
 #include <dcm/core.h>
 #include <injector/core.h>
 
+#ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>
+#endif
 
 int fd_migration;
 
@@ -254,8 +256,10 @@ void main_loop(int cycle_period) {
 		mig_count++;
 	}
 
+#ifdef WITH_LED_ACTIVITIES
 	for (i = 0 ; i < SOO_N_LEDS ; i++)
 		led_off(i + 1);
+#endif
 
 	printf("SOO Agency core application: end\n");
 
