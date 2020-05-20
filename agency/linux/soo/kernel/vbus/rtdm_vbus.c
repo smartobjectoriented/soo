@@ -53,7 +53,7 @@
 
 #include <linux/sched/task.h>
 
-static rtdm_event_t rtdm_dc_stable_event[DC_EVENT_MAX];
+rtdm_event_t rtdm_dc_stable_event[DC_EVENT_MAX];
 
 static rtdm_event_t dc_isr_event;
 
@@ -138,51 +138,6 @@ void rtdm_register_dc_event_callback(dc_event_t dc_event, dc_event_fn_t *callbac
 extern void propagate_interrupt_from_nonrt(void);
 #endif
 
-static void rtdm_dc_stable(int dc_event)
-{
-	atomic_set(&rtdm_dc_outgoing_domID[dc_event], -1);
-
-	/* Wake up the waiter */
-	rtdm_event_signal(&rtdm_dc_stable_event[dc_event]);
-}
-
-/*
- * Called to inform the non-RT side that we have completed a dc_event processing.
- */
-void rtdm_tell_dc_stable(int dc_event)  {
-	DBG("Now pinging domain %d back\n", DOMID_AGENCY);
-
-	/* Make sure a previous transaction is not being processed */
-	set_dc_event(AGENCY_CPU, dc_event);
-
-	atomic_set(&rtdm_dc_incoming_domID[dc_event], -1);
-
-	notify_remote_via_evtchn(dc_evtchn[DOMID_AGENCY]);
-
-}
-
-/*
- * Sends a ping event to a non-realtime agency in order to get synchronized.
- * Various types of event (dc_event) can be sent.
- *
- * @dc_event: type of event used in the synchronization
- */
-void rtdm_do_sync_dom(domid_t domID, dc_event_t dc_event) {
-
-	/* Ping the remote domain to perform the task associated to the DC event */
-	DBG("%s: ping domain %d...\n", __func__, domID);
-
-	/* Make sure a previous transaction is not being processed */
-	while (atomic_cmpxchg(&rtdm_dc_outgoing_domID[dc_event], -1, domID) != -1) ;
-
-	/* We avoid that a domain running on another CPU tries to update the dc_event field at the same time. */
-	set_dc_event(domID, dc_event);
-
-	notify_remote_via_evtchn(dc_evtchn[domID]);
-
-	/* Wait for the response */
-	rtdm_event_wait(&rtdm_dc_stable_event[dc_event]);
-}
 
 #ifdef CONFIG_SOOLINK_PLUGIN_WLAN
 
@@ -193,29 +148,38 @@ void rtdm_do_sync_dom(domid_t domID, dc_event_t dc_event) {
  * we keep free the non-RT to RT path.
  */
 static void rtdm_sl_wlan_send_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_wlan_send_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_wlan_send_event);
 
 		rtdm_propagate_sl_send();
-		rtdm_tell_dc_stable(DC_SL_WLAN_SEND);
+		tell_dc_stable(DC_SL_WLAN_SEND);
 	}
 }
 
 static void rtdm_sl_wlan_recv_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_wlan_recv_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_wlan_recv_event);
 
 		rtdm_propagate_sl_recv();
-		rtdm_tell_dc_stable(DC_SL_WLAN_RECV);
+		tell_dc_stable(DC_SL_WLAN_RECV);
 	}
 }
 
 static void rtdm_sl_plugin_wlan_rx_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_plugin_wlan_rx_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_plugin_wlan_rx_event);
 		rtdm_propagate_sl_plugin_wlan_rx();
 
-		rtdm_tell_dc_stable(DC_PLUGIN_WLAN_RECV);
+		tell_dc_stable(DC_PLUGIN_WLAN_RECV);
 	}
 }
 
@@ -231,58 +195,74 @@ static void rtdm_sl_plugin_wlan_rx_task_fn(void *arg)  {
 
 /* Low-level Ethernet handling */
 static void rtdm_sl_eth_send_task_fn(void *arg)  {
+	rtdm_event_init(&rtdm_sl_eth_send_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_eth_send_event);
 
 		rtdm_propagate_sl_send();
-		rtdm_tell_dc_stable(DC_SL_ETH_SEND);
+		tell_dc_stable(DC_SL_ETH_SEND);
 	}
 }
 
 static void rtdm_sl_eth_recv_task_fn(void *arg)  {
+	rtdm_event_init(&rtdm_sl_eth_recv_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_eth_recv_event);
 
 		rtdm_propagate_sl_recv();
-		rtdm_tell_dc_stable(DC_SL_ETH_RECV);
+		tell_dc_stable(DC_SL_ETH_RECV);
 	}
 }
 
 static void rtdm_sl_plugin_eth_rx_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_plugin_ethernet_rx_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_plugin_ethernet_rx_event);
 		rtdm_propagate_sl_plugin_ethernet_rx();
 
-		rtdm_tell_dc_stable(DC_PLUGIN_ETHERNET_RECV);
+		tell_dc_stable(DC_PLUGIN_ETHERNET_RECV);
 	}
 }
 
 /* TCP/IP over Ethernet */
 
 static void rtdm_sl_tcp_send_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_tcp_send_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_tcp_send_event);
 
 		rtdm_propagate_sl_send();
-		rtdm_tell_dc_stable(DC_SL_TCP_SEND);
+		tell_dc_stable(DC_SL_TCP_SEND);
 	}
 }
 
 static void rtdm_sl_tcp_recv_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_tcp_recv_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_tcp_recv_event);
 
 		rtdm_propagate_sl_recv();
-		rtdm_tell_dc_stable(DC_SL_TCP_RECV);
+		tell_dc_stable(DC_SL_TCP_RECV);
 	}
 }
 
 static void rtdm_sl_plugin_tcp_rx_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_plugin_tcp_rx_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_plugin_tcp_rx_event);
 		rtdm_propagate_sl_plugin_tcp_rx();
 
-		rtdm_tell_dc_stable(DC_PLUGIN_TCP_RECV);
+		tell_dc_stable(DC_PLUGIN_TCP_RECV);
 	}
 }
 #endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
@@ -295,29 +275,38 @@ static void rtdm_sl_plugin_tcp_rx_task_fn(void *arg)  {
  * we keep free the non-RT to RT path.
  */
 static void rtdm_sl_bt_send_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_bt_send_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_bt_send_event);
 
 		rtdm_propagate_sl_send();
-		rtdm_tell_dc_stable(DC_SL_BT_SEND);
+		tell_dc_stable(DC_SL_BT_SEND);
 	}
 }
 
 static void rtdm_sl_bt_recv_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_bt_recv_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_bt_recv_event);
 
 		rtdm_propagate_sl_recv();
-		rtdm_tell_dc_stable(DC_SL_BT_RECV);
+		tell_dc_stable(DC_SL_BT_RECV);
 	}
 }
 
 static void rtdm_sl_plugin_bt_rx_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_plugin_bluetooth_rx_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_plugin_bluetooth_rx_event);
 		rtdm_propagate_sl_plugin_bluetooth_rx();
 
-		rtdm_tell_dc_stable(DC_PLUGIN_BLUETOOTH_RECV);
+		tell_dc_stable(DC_PLUGIN_BLUETOOTH_RECV);
 	}
 }
 #endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
@@ -330,30 +319,37 @@ static void rtdm_sl_plugin_bt_rx_task_fn(void *arg)  {
  * we keep free the non-RT to RT path.
  */
 static void rtdm_sl_lo_send_task_fn(void *arg)  {
+	rtdm_event_init(&rtdm_sl_lo_send_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_lo_send_event);
 
 		rtdm_propagate_sl_send();
-		rtdm_tell_dc_stable(DC_SL_LO_SEND);
+		tell_dc_stable(DC_SL_LOOP_SEND);
 	}
 }
 
 static void rtdm_sl_lo_recv_task_fn(void *arg)  {
+
+	rtdm_event_init(&rtdm_sl_lo_recv_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_lo_recv_event);
 
-		rtdm_propagate_sl_recv()
-		rtdm_tell_dc_stable(DC_SL_LO_RECV);
+		rtdm_propagate_sl_recv();
+		tell_dc_stable(DC_SL_LOOP_RECV);
 	}
 }
 
 static void rtdm_sl_plugin_loopback_rx_task_fn(void *arg)  {
 
+	rtdm_event_init(&rtdm_sl_plugin_loopback_rx_event, 0);
+
 	while (true) {
 		rtdm_event_wait(&rtdm_sl_plugin_loopback_rx_event);
 		rtdm_propagate_sl_plugin_loopback_rx();
 
-		rtdm_tell_dc_stable(DC_PLUGIN_LOOPBACK_RECV);
+		tell_dc_stable(DC_PLUGIN_LOOPBACK_RECV);
 	}
 }
 #endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
@@ -442,11 +438,11 @@ void rtdm_dc_sl_fn(dc_event_t dc_event) {
 
 #ifdef CONFIG_SOOLINK_PLUGIN_LOOPBACK
 
-	case DC_SL_LO_SEND:
+	case DC_SL_LOOP_SEND:
 		rtdm_event_signal(&rtdm_sl_lo_send_event);
 		break;
 
-	case DC_SL_LO_RECV:
+	case DC_SL_LOOP_RECV:
 		rtdm_event_signal(&rtdm_sl_lo_recv_event);
 		break;
 #endif
@@ -460,7 +456,7 @@ void rtdm_dc_sl_fn(dc_event_t dc_event) {
 }
 
 /*
- * Proceed with the dc_event family dedeicated to the plugin management.
+ * Proceed with the dc_event family dedicated to the plugin management.
  */
 void rtdm_dc_plugin_fn(dc_event_t dc_event) {
 
@@ -543,8 +539,8 @@ static int rtdm_dc_isr(rtdm_irq_t *unused) {
 #endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
 
 #ifdef CONFIG_SOOLINK_PLUGIN_LOOPBACK
-	case DC_SL_LO_SEND:
-	case DC_SL_LO_RECV:
+	case DC_SL_LOOP_SEND:
+	case DC_SL_LOOP_RECV:
 	case DC_PLUGIN_LOOPBACK_RECV:
 #endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
 
@@ -556,7 +552,7 @@ static int rtdm_dc_isr(rtdm_irq_t *unused) {
 	case DC_PLUGIN_WLAN_SEND:
 
 		if (atomic_read(&rtdm_dc_outgoing_domID[dc_event]) != -1)
-			rtdm_dc_stable(dc_event);
+			dc_stable(dc_event);
 		else {
 			/* We should not receive twice a same dc_event, before it has been fully processed. */
 			BUG_ON(atomic_read(&rtdm_dc_incoming_domID[dc_event]) != -1);
@@ -637,42 +633,6 @@ void rtdm_vbus_task_fn(void *unused) {
 	}
 
 	/* Initialize deferred processing outside the directcomm ISR bottom half */
-#ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-
-	rtdm_event_init(&rtdm_sl_wlan_send_event, 0);
-	rtdm_event_init(&rtdm_sl_wlan_recv_event, 0);
-	rtdm_event_init(&rtdm_sl_plugin_wlan_rx_event, 0);
-
-#endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-
-	rtdm_event_init(&rtdm_sl_eth_send_event, 0);
-	rtdm_event_init(&rtdm_sl_eth_recv_event, 0);
-
-	rtdm_event_init(&rtdm_sl_tcp_send_event, 0);
-	rtdm_event_init(&rtdm_sl_tcp_recv_event, 0);
-
-	rtdm_event_init(&rtdm_sl_plugin_ethernet_rx_event, 0);
-	rtdm_event_init(&rtdm_sl_plugin_tcp_rx_event, 0);
-
-#endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-
-	rtdm_event_init(&rtdm_sl_bt_send_event, 0);
-	rtdm_event_init(&rtdm_sl_bt_recv_event, 0);
-	rtdm_event_init(&rtdm_sl_plugin_bluetooth_rx_event, 0);
-
-#endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_LOOPBACK
-
-	rtdm_event_init(&rtdm_sl_lo_send_event, 0);
-	rtdm_event_init(&rtdm_sl_lo_recv_event, 0);
-	rtdm_event_init(&rtdm_sl_plugin_loopback_rx_event, 0);
-
-#endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
 
 	rtdm_register_dc_event_callback(DC_PLUGIN_WLAN_RECV, rtdm_dc_plugin_fn);
 	rtdm_register_dc_event_callback(DC_PLUGIN_ETHERNET_RECV, rtdm_dc_plugin_fn);
@@ -688,9 +648,8 @@ void rtdm_vbus_task_fn(void *unused) {
 	rtdm_register_dc_event_callback(DC_SL_TCP_RECV, rtdm_dc_sl_fn);
 	rtdm_register_dc_event_callback(DC_SL_BT_SEND, rtdm_dc_sl_fn);
 	rtdm_register_dc_event_callback(DC_SL_BT_RECV, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_LO_SEND, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_LO_RECV, rtdm_dc_sl_fn);
-
+	rtdm_register_dc_event_callback(DC_SL_LOOP_SEND, rtdm_dc_sl_fn);
+	rtdm_register_dc_event_callback(DC_SL_LOOP_RECV, rtdm_dc_sl_fn);
 
 	/* Binding the irqhandler to the eventchannel */
 	DBG("%s: setting up the directcomm event channel (%d) ...\n", __func__, nort_dc_evtchn);

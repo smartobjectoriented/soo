@@ -17,6 +17,3 @@ srcs-$(CFG_SDP_PTA) += sdp_pta.c
 srcs-$(CFG_SYSTEM_PTA) += system.c
 srcs-$(CFG_DEVICE_ENUM_PTA) += device.c
 
-# SOO.tech 
-# core-platform-subdirs += $(arch-dir)/pta/soo/
-include  $(arch-dir)/pta/soo/sub.mk

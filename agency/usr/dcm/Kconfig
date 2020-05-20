@@ -1,2 +1,0 @@
-config DCM
-	bool "Dedicated Communication Module (DCM)"

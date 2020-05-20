@@ -23,7 +23,7 @@
 		.macro	addruart, rp, rv, tmp
 		ldr	\rp, =CONFIG_DEBUG_UART_PHYS
 		ldr \rv, =__uart_vaddr
-		ldr \rv, [\rv]T
+		ldr \rv, [\rv]
 		.endm
 
 		.macro	senduart,rd,rx

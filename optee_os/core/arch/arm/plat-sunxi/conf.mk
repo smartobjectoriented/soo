@@ -48,7 +48,3 @@ $(call force,CFG_WITH_ARM_TRUSTED_FW,y)
 
 CFG_WITH_STACK_CANARIES ?= y
 CFG_WITH_STATS ?= y
-
-# SOO.tech
-CFG_WITH_ASF ?= y
-

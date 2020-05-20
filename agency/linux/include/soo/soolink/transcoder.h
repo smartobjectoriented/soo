@@ -63,7 +63,5 @@ typedef struct {
 } transcoder_packet_t;
 
 void transcoder_init(void);
-void transcoder_stream_init(sl_desc_t *sl_desc);
-void transcoder_stream_terminate(sl_desc_t *sl_desc);
 
 #endif /* TRANSCODER_H */

@@ -17,7 +17,8 @@
 #include <linux/genalloc.h>
 #include <linux/slab.h>
 #include <linux/tee_drv.h>
-#include "optee_private.h"
+/* SOO.tech */
+#include <linux/optee_private.h>
 #include "optee_smc.h"
 #include "shm_pool.h"
 

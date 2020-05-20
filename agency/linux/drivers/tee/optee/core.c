@@ -26,16 +26,14 @@
 #include <linux/tee_drv.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
-#include "optee_private.h"
+/* SOO.tech */
+#include <linux/optee_private.h>
 #include "optee_smc.h"
 #include "shm_pool.h"
 
 #define DRIVER_NAME "optee"
 
 #define OPTEE_SHM_NUM_PRIV_PAGES	CONFIG_OPTEE_SHM_NUM_PRIV_PAGES
-
-/* SOO.tech */
-static size_t shm_size;
 
 /**
  * optee_from_msg_param() - convert from OPTEE_MSG parameters to
@@ -513,13 +511,6 @@ err_memunmap:
 	return rc;
 }
 
-/* SOO.tech */
-size_t tee_get_shm_size(void)
-{
-	return shm_size;
-}
-EXPORT_SYMBOL(tee_get_shm_size);
-
 /* Simple wrapper functions to be able to use a function pointer */
 static void optee_smccc_smc(unsigned long a0, unsigned long a1,
 			    unsigned long a2, unsigned long a3,
@@ -692,7 +683,8 @@ static const struct of_device_id optee_match[] = {
 	{},
 };
 
-static struct optee *optee_svc;
+/* SOO.tech */
+/*static */ struct optee *optee_svc;
 
 static int __init optee_driver_init(void)
 {

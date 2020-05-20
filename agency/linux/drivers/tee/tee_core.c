@@ -39,7 +39,7 @@ static struct class *tee_class;
 static dev_t tee_devt;
 
 /* SOO.tech */
-static struct tee_context *teedev_open(struct tee_device *teedev)
+struct tee_context *teedev_open(struct tee_device *teedev)
 {
 	int rc;
 	struct tee_context *ctx;
@@ -53,6 +53,7 @@ static struct tee_context *teedev_open(struct tee_device *teedev)
 		goto err;
 	}
 
+	kref_init(&ctx->refcount);
 	ctx->teedev = teedev;
 	INIT_LIST_HEAD(&ctx->list_shm);
 	rc = teedev->desc->ops->open(ctx);

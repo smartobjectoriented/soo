@@ -14,7 +14,8 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
-#include "optee_private.h"
+/* SOO.tech */
+#include <linux/optee_private.h>
 
 struct optee_supp_req {
 	struct list_head link;

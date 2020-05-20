@@ -26,6 +26,8 @@
 #include <brcmu_utils.h>
 #include <brcmu_wifi.h>
 
+#include <soo/soolink/plugin/wlan.h>
+
 #include "core.h"
 #include "bus.h"
 #include "debug.h"
@@ -375,6 +377,11 @@ void brcmf_txflowblock_if(struct brcmf_if *ifp,
 
 void brcmf_netif_rx(struct brcmf_if *ifp, struct sk_buff *skb)
 {
+	/* SOO.tech */
+	uint8_t mac_src[ETH_ALEN];
+	__be16 skb_protocol;
+	struct ethhdr *p_ethhdr;
+
 	/* Most of Broadcom's firmwares send 802.11f ADD frame every time a new
 	 * STA connects to the AP interface. This is an obsoleted standard most
 	 * users don't use, so don't pass these frames up unless requested.
@@ -396,14 +403,27 @@ void brcmf_netif_rx(struct brcmf_if *ifp, struct sk_buff *skb)
 	ifp->ndev->stats.rx_packets++;
 
 	brcmf_dbg(DATA, "rx proto=0x%X\n", ntohs(skb->protocol));
-	if (in_interrupt())
-		netif_rx(skb);
-	else
-		/* If the receive is not processed inside an ISR,
-		 * the softirqd must be woken explicitly to service
-		 * the NET_RX_SOFTIRQ.  This is handled by netif_rx_ni().
-		 */
-		netif_rx_ni(skb);
+
+	/* SOO.tech */
+	p_ethhdr = eth_hdr(skb);
+	memcpy(mac_src, p_ethhdr->h_source, ETH_ALEN);
+
+	/* Clear the flag bits */
+	skb_protocol = ntohs(skb->protocol) & 0x10ff;
+
+	if ((skb_protocol > ETH_P_SL_MIN) && (skb_protocol < ETH_P_SL_MAX))
+		sl_plugin_wlan_rx_skb(skb, ifp->ndev, mac_src);
+	else {	
+
+		if (in_interrupt())
+			netif_rx(skb);
+		else
+			/* If the receive is not processed inside an ISR,
+			 * the softirqd must be woken explicitly to service
+			 * the NET_RX_SOFTIRQ.  This is handled by netif_rx_ni().
+			 */
+			netif_rx_ni(skb);
+	}
 }
 
 void brcmf_netif_mon_rx(struct brcmf_if *ifp, struct sk_buff *skb)

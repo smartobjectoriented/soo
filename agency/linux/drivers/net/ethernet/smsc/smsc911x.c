@@ -77,6 +77,7 @@
 #include <soo/uapi/debug.h>
 #include <soo/uapi/console.h>
 
+#include <soo/soolink/transceiver.h>
 #include <soo/soolink/plugin/ethernet.h>
 
 #define SMSC_CHIPNAME		"smsc911x"
@@ -92,6 +93,7 @@ static int debug = 16;
 #else
 static int debug = 3;
 #endif
+extern req_type_t get_sl_req_type_from_protocol(uint16_t protocol);
 
 module_param(debug, int, 0);
 MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
@@ -1248,7 +1250,8 @@ static void receiver_work_handler(struct work_struct *w) {
 
 		memcpy(mac_src, p_ethhdr->h_source, ETH_ALEN);
 
-		/* paravirt */
+		/* SOO.tech */
+
 #ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
 		sl_plugin_ethernet_rx(skb, smsc911x_netdev, mac_src);
 #endif
@@ -1332,7 +1335,7 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
 			 * (atomic context: "scheduling while atomic" errors occur). Furthermore, we can
 			 * have deadlocks if Ethernet's TX and RX paths are not separated. For these
 			 * reasons, we are using a work queue that defers the propagation of the received
-			 * skbs to Soolink.
+			 * skbs to SOOlink.
 			 */
 			skb_queue_tail(&smsc911x_skb_queue, skb);
 			queue_delayed_work(receiver_work_wq, &receiver_work, 0);

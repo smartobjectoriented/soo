@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -26,7 +26,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <kconfig.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -40,6 +39,12 @@
 #include <core/types.h>
 
 #include <uapi/dcm.h>
+
+#include <injector/core.h>
+
+
+static int fd_core;
+
 
 /**
  * Inject a ME.
@@ -84,5 +89,86 @@ void ME_inject(unsigned char *ME_buffer) {
 
 	/* Be ready for future migration */
 	set_personality_initiator();
+}
 
+
+void save_itb(void *ME_buffer, size_t size) {
+	FILE *f;
+
+	int i;
+	
+	f = fopen("/root/test_ME.itb", "wb");
+
+	for (i = 0; i < size; ++i) {
+		fwrite(ME_buffer+i, sizeof(char), 1, f);
+	}
+
+	fclose(f);
+}
+
+
+void *ME_retrieve_fn(void *dummy) {
+
+	injector_ioctl_recv_args_t args;
+
+	void *ME;
+	int br = 0;
+	int current_size = 0;
+	int chunk = 2000;
+
+	memset(&args, 0, sizeof(injector_ioctl_recv_args_t));
+
+	printf("Injector: ME retrieve thread started\n");
+	while(1) {
+
+		usleep(500 * 1000);
+
+		if ((ioctl(fd_core, INJECTOR_IOCTL_RETRIEVE_ME, &args)) < 0) {
+			DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
+			BUG();
+		}
+		
+		if (args.size != 0) {
+
+			printf("Injector: An ME is ready to be retrieved (%d B)\n", args.size);
+			ME = malloc(args.size);
+
+
+			while (current_size != args.size) {
+				br = read(fd_core, ME+current_size, chunk);
+				current_size += br;
+
+			}
+
+			ME_inject(ME);
+
+			if ((ioctl(fd_core, INJECTOR_IOCTL_CLEAN_ME, NULL)) < 0) {
+				DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
+				BUG();
+			}
+			
+			return NULL;
+
+		}
+	}
+	
+	return NULL;
+}
+
+void injector_dev_init(void) {
+	if ((fd_core = open(SOO_CORE_DEVICE, O_RDWR)) < 0) {
+		printf("Failed to open device: " INJECTOR_DEV_NAME " (%d)\n", fd_core);
+		perror("injector_dev_init");
+		BUG();
+	}
+}
+
+
+void injector_init(void) {
+
+	pthread_t injection_thread;
+
+	injector_dev_init();
+
+	pthread_create(&injection_thread, NULL, ME_retrieve_fn, NULL);
 }
