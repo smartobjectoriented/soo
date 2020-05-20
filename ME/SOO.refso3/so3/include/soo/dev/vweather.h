@@ -88,4 +88,46 @@ void vweather_register_interrupt(vweather_interrupt_t update_interrupt);
 
 vweather_data_t *vweather_get_data(void);
 
+
+typedef struct {
+
+	bool		connected;
+	struct vbus_device  *dev;
+
+	uint32_t	evtchn;
+	uint32_t	irq;
+
+	char		*weather_data;
+	unsigned int	weather_pfn;
+
+} vweather_t;
+
+extern vweather_t vweather;
+
+/* ISR associated to the notification */
+irq_return_t vweather_update_interrupt(int irq, void *dev_id);
+
+/*
+ * Interface with the client.
+ * This function must be provided in the applicative part.
+ */
+void weather_data_update_interrupt(void);
+
+/* State management */
+void vweather_probe(void);
+void vweather_close(void);
+void vweather_suspend(void);
+void vweather_resume(void);
+void vweather_connected(void);
+void vweather_reconfiguring(void);
+void vweather_shutdown(void);
+
+void vweather_vbus_init(void);
+
+/* Processing and connected state management */
+void vweather_start(void);
+void vweather_end(void);
+bool vweather_is_connected(void);
+
+
 #endif /* VWEATHER_H */

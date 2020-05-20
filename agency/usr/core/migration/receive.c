@@ -49,7 +49,10 @@ bool ME_processing_receive(void) {
 	unsigned char *ME_buffer;
 	size_t ME_size;
 	int slotID;
+
+#ifdef WITH_LED_ACTIVITIES
 	static uint8_t toggle = 0;
+#endif
 
 	DBG0("Recv ME\n");
 	/* Perform receive processing as long as there are available MEs */

@@ -447,42 +447,32 @@ void vbstorage_agency_init(void) {
 	vbs_store_mkdir("/soo/directcomm/6");
 
 	/* Agency backend side of virtual LED device  */
-	np = of_find_compatible_node(NULL, NULL, "soo,vleds");
+	np = of_find_compatible_node(NULL, NULL, "vleds,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vleds");
 
 	/* Agency backend side of virtual UI handler device */
-	np = of_find_compatible_node(NULL, NULL, "soo,vuihandler");
+	np = of_find_compatible_node(NULL, NULL, "vuihandler,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vuihandler");
 
-	/* Agency backend side of virtual netstream device */
-	np = of_find_compatible_node(NULL, NULL, "soo,vnetstream");
-	if (of_device_is_available(np))
-		vbs_store_mkdir("/backend/vnetstream");
-
 	/* Agency backend side of virtual UART device */
-	np = of_find_compatible_node(NULL, NULL, "soo,vuart");
+	np = of_find_compatible_node(NULL, NULL, "vuart,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vuart");
 
 	/* Agency backend side of virtual dummy device (reference backend) */
-	np = of_find_compatible_node(NULL, NULL, "soo,vdummy");
+	np = of_find_compatible_node(NULL, NULL, "vdummy,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vdummy");
 
-	/* Agency backend side of virtual RT dummy device (reference backend) */
-	np = of_find_compatible_node(NULL, NULL, "soo,vdummyrt");
-	if (of_device_is_available(np))
-		vbs_store_mkdir("/backend/vdummyrt");
-
 	/* Agency backend side of virtual weather (weather station) */
-	np = of_find_compatible_node(NULL, NULL, "soo,vweather");
+	np = of_find_compatible_node(NULL, NULL, "vweather,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vweather");
 
 	/* Agency backend side of virtual DOGA 12V 6NM device */
-	np = of_find_compatible_node(NULL, NULL, "soo,vdoga12v6nm");
+	np = of_find_compatible_node(NULL, NULL, "vdoga12v6nm,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vdoga12v6nm");
 

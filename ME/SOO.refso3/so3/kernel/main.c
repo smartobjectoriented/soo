@@ -156,6 +156,8 @@ void kernel_start(void) {
 	 */
 	kernel_thread(rest_init, "so3_boot", NULL, 99);
 
+	boot_stage = BOOT_STAGE_COMPLETED;
+
 	/*
 	 * We loop forever, just the time the scheduler gives the hand to a ready thread.
 	 * After that, this code will never be executed anymore ...

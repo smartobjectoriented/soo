@@ -23,7 +23,8 @@
 
 #include <mutex.h>
 #include <heap.h>
-#include <sync.h>
+#include <completion.h>
+
 #include <device/driver.h>
 
 #include <soo/evtchn.h>
@@ -33,8 +34,6 @@
 #include <soo/debug.h>
 
 #include <soo/dev/vuihandler.h>
-
-#include "common.h"
 
 vuihandler_t vuihandler;
 

@@ -32,6 +32,7 @@
 
 #include <soo/core/device_access.h>
 
+#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
@@ -40,46 +41,18 @@
 
 #include <soo/dev/vuart.h>
 
-#include "common.h"
+/*  This is a reserved char code we use to query (patched) Qemu to retrieve the window size. */
+#define SERIAL_GWINSZ   '\254'
 
 vuart_t vuart;
 
 /* Ring protection */
 static spinlock_t sendc_lock;
 
-static void print_guest(uint8_t ch) {
-	/* Avoiding to use printk() / lprintk() is the direct path to the UART */
+static void print_guest(char ch) {
 
-	lprintk("%c", ch);
-}
-
-irqreturn_t vuart_interrupt(int irq, void *dev_id) {
-	struct vbus_device *dev = (struct vbus_device *) dev_id;
-	RING_IDX i, rp;
-	vuart_request_t *ring_req;
-
-	if (!vuart_is_connected(dev->otherend_id))
-		return IRQ_HANDLED;
-
-	rp = vuart.rings[dev->otherend_id].ring.sring->req_prod;
-	dmb();
-
-	for (i = vuart.rings[dev->otherend_id].ring.sring->req_cons; i != rp; i++) {
-		ring_req = RING_GET_REQUEST(&vuart.rings[dev->otherend_id].ring, i);
-		print_guest(ring_req->c);
-	}
-
-	vuart.rings[dev->otherend_id].ring.sring->req_cons = i;
-
-	return IRQ_HANDLED;
-}
-
-/**
- * Bufferize a char while the backend is not in Connected state.
- */
-static void add_buf_char(domid_t domid, char c) {
-	vuart.buf_chars[domid][vuart.buf_chars_prod[domid] % MAX_BUF_CHARS] = c;
-	vuart.buf_chars_prod[domid]++;
+	/* lprintch() goes directly to the UART through avz. */
+	lprintch(ch);
 }
 
 static void push_response(domid_t domid, uint8_t ch) {
@@ -94,6 +67,48 @@ static void push_response(domid_t domid, uint8_t ch) {
 	RING_PUSH_RESPONSES(&vuart.rings[domid].ring);
 
 	notify_remote_via_virq(vuart.rings[domid].irq);
+}
+
+irqreturn_t vuart_interrupt(int irq, void *dev_id) {
+	struct vbus_device *dev = (struct vbus_device *) dev_id;
+	RING_IDX i, rp;
+	vuart_request_t *ring_req;
+	struct winsize wsz;
+
+	if (!vuart_is_connected(dev->otherend_id))
+		return IRQ_HANDLED;
+
+	rp = vuart.rings[dev->otherend_id].ring.sring->req_prod;
+	dmb();
+
+	for (i = vuart.rings[dev->otherend_id].ring.sring->req_cons; i != rp; i++) {
+		ring_req = RING_GET_REQUEST(&vuart.rings[dev->otherend_id].ring, i);
+
+		if (ring_req->c == SERIAL_GWINSZ) {
+			/* Process the window size info */
+
+			/* At the moment, we hardcode these values */
+			wsz.ws_col = 80;
+			wsz.ws_row = 25;
+
+			push_response(dev->otherend_id, wsz.ws_row);
+			push_response(dev->otherend_id, wsz.ws_col);
+
+		} else
+			print_guest(ring_req->c);
+	}
+
+	vuart.rings[dev->otherend_id].ring.sring->req_cons = i;
+
+	return IRQ_HANDLED;
+}
+
+/**
+ * Bufferize a char while the backend is not in Connected state.
+ */
+static void add_buf_char(domid_t domid, char c) {
+	vuart.buf_chars[domid][vuart.buf_chars_prod[domid] % MAX_BUF_CHARS] = c;
+	vuart.buf_chars_prod[domid]++;
 }
 
 /**
@@ -159,7 +174,7 @@ int vuart_init(void) {
 	unsigned int i;
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vuart");
+	np = of_find_compatible_node(NULL, NULL, "vuart,backend");
 
 	/* Check if DTS has vuart enabled */
 	if (!of_device_is_available(np))

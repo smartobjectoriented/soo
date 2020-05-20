@@ -29,6 +29,7 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 
+#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
@@ -37,7 +38,7 @@
 #include <stdarg.h>
 #include <linux/kthread.h>
 
-#include "common.h"
+#include <soo/dev/vdummy.h>
 
 vdummy_t vdummy;
 
@@ -145,7 +146,7 @@ int generator_fn(void *arg) {
 int vdummy_init(void) {
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vdummy");
+	np = of_find_compatible_node(NULL, NULL, "vdummy,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))

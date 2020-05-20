@@ -23,7 +23,6 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
-#include "common.h"
 
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
@@ -32,6 +31,8 @@
 
 #include <stdarg.h>
 #include <linux/kthread.h>
+
+#include <soo/dev/vfb.h>
 
 vfb_t vfb;
 

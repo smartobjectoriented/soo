@@ -90,8 +90,12 @@ int avz_switch_console(char ch)
 {
 	static int switch_code_count = 0;
 	static char *input_str[N_SWITCH_FOCUS] = { "Agency domain", "Agency-RT domain", "ME-1(2)", "ME-2(3)", "ME-3(4)", "ME-4(5)", "ME-5(6)", "Agency AVZ Hypervisor" };
+
 	int active = 0;
+#if 0
 	int next = 1;
+#endif
+	int next = 2;
 
 /* Debugging purpose - enabled forces to forward to an ME */
 #if 0
@@ -102,8 +106,21 @@ int avz_switch_console(char ch)
 		/* We eat CTRL-<switch_char> in groups of 2 to switch console input. */
 		if (++switch_code_count == 1) {
 
+			if (avzcons_get_focus() == 0) {
+
+				active = 2;
+				next = 0;
+
+			} else {
+				active = 0;
+				next = 2;
+			}
+			avzcons_set_focus(active);
+
+#if 0
 			active = avzcons_set_focus((avzcons_get_focus() + 1) % N_SWITCH_FOCUS);
 			next = (avzcons_get_focus() + 1) % N_SWITCH_FOCUS;
+#endif
 			switch_code_count = 0;
 
 			lprintk("*** Serial input -> %s (type 'CTRL-%c' twice to switch input to %s).\n", input_str[active], 'a', input_str[next]);
@@ -119,8 +136,11 @@ int avz_switch_console(char ch)
 		default:
 		case 0: /* Input to the agency */
 			return 0;
+#if 0
 		case 1: /* RT domain */
+#endif
 		case 2: /* Input to ME #2 */
+
 		case 3: /* Input to ME #3 */
 		case 4: /* Input to ME #4 */
 		case 5: /* Input to ME #5 */

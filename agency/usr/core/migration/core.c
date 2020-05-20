@@ -225,7 +225,9 @@ long long get_system_time(void) {
 void main_loop(int cycle_period) {
 	static unsigned int mig_count = 1;
 	bool available_ME = false;
+#ifdef WITH_LED_ACTIVITIES
 	uint32_t i;
+#endif
 
 	while (!ag_cycle_interrupted) {
 		DBG("* Migration Cycle %d *\n", mig_count);

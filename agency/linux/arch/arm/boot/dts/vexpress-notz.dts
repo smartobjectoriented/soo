@@ -367,20 +367,19 @@
 	
 		/* Backends */
 		backends {
-			compatible = "arm,soo";
 
 			vdummy {
-				compatible = "soo,vdummy";
+				compatible = "vdummy,backend";
 				status = "ok";
 			};
 	
 			vuart {
-				compatible = "soo,vuart";
+				compatible = "vuart,backend";
 				status = "ok";
 			};
 		
 			vuihandler {
-				compatible = "soo,vuihandler";
+				compatible = "vuihandler,backend";
 				status = "disabled";
 			};
 		

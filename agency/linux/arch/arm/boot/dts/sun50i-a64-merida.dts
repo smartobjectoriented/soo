@@ -71,27 +71,26 @@
 	
         /* Backends */
         backends {
-        	compatible = "arm,soo";
-		
+	
             vuart {
-        	    compatible = "soo,vuart";
+        	compatible = "vuart,backend";
                 status = "ok";
             };
 		
             vdummy {
-            	compatible = "soo,vdummy";
+            	compatible = "vdummy,backend";
                 status = "ok";
             };
             
-			vdummyrt {
-				compatible = "soo,vdummyrt";
-				status = "disabled";
-			};
+            vdummyrt {
+		compatible = "vdummyrt,backend";
+		status = "disabled";
+            };
 		
-			vuihandler {
-				compatible = "soo,vuihandler";
-				status = "ok";
-			};
+            vuihandler {
+		compatible = "vuihandler,backend";
+		status = "ok";
+            };
 		
         };
     };

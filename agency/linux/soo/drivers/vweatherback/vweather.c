@@ -48,7 +48,7 @@
 
 #include <stdarg.h>
 
-#include "common.h"
+#include <soo/dev/vweather.h>
 
 vweather_t vweather;
 
@@ -430,7 +430,7 @@ int vweather_init(void) {
 	int ret;
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vweather");
+	np = of_find_compatible_node(NULL, NULL, "vweather,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))

@@ -42,18 +42,47 @@ DEFINE_RING_TYPES(vinput, struct vinput_request, struct vinput_response);
 
 /* Bridging with the Linux input subsystem */
 
-#ifdef CONFIG_SOO_AGENCY
-
 extern struct hid_device *__hiddev;
 int vinput_pass_event(struct input_dev *dev, unsigned int type, unsigned int code, int value);
 void vinput_connect(void);
 void vinput_disconnect(void);
 
-#endif
+/* Olimex keyboards values */
+#define OLIMEX_KBD_VENDOR_ID			0x1220
+#define OLIMEX_KBD_PRODUCT_ID			0x0008
 
-#ifdef CONFIG_SOO_ME
-extern void input_event(struct input_dev *dev, unsigned int type, unsigned int code, int value);
-bool kbd_present(void);
-#endif
+extern int vinput_vbus_init(void);
+
+typedef struct {
+	struct vbus_device *dev;
+
+	vinput_back_ring_t ring;
+	uint32_t evtchn;
+	unsigned int irq;
+} vinput_ring_t;
+
+/*
+ * General structure for this virtual device (backend side)
+ */
+typedef struct {
+	atomic_t refcnt;
+	wait_queue_head_t waiting_to_free;
+
+	vinput_ring_t rings[MAX_ME_DOMAINS];
+
+	int domfocus;
+
+} vinput_t;
+
+extern vinput_t vinput;
+irqreturn_t vinput_interrupt(int irq, void *dev_id);
+
+int vinput_subsys_init(struct vbus_device *dev);
+int vinput_subsys_enable(struct vbus_device *dev);
+void vinput_subsys_remove(struct vbus_device *dev);
+void vinput_subsys_disable(struct vbus_device *dev);
+
+#define DRV_PFX "vinput:"
+#define DPRINTK(fmt, args...)	pr_debug(DRV_PFX "(%s:%d) " fmt ".\n",	__func__, __LINE__, ##args)
 
 #endif /* VINPUT_H */

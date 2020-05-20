@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project(agency-usr LANGUAGES C)
 
-option(WITH_LED_ACTIVITIES "LED activities during migration" ON)
+option(WITH_LED_ACTIVITIES "LED activities during migration" OFF)
 
 if (WITH_LED_ACTIVITIES)
 	add_definitions(-DWITH_LED_ACTIVITIES)
