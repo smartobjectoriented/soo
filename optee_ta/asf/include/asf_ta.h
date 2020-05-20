@@ -37,7 +37,7 @@
 			{ 0xbb, 0x65, 0x2a, 0x2a, 0xe2, 0xdb, 0xcc, 0xe4 }}
 
 /* The function IDs implemented in this TA */
-#define AFS_TA_CMD_ENCODE		0
-#define AFS_TA_CMD_DECODE		1
+#define ASF_TA_CMD_ENCODE		0
+#define ASF_TA_CMD_DECODE		1
 
 #endif /* TA_ASF_H */
