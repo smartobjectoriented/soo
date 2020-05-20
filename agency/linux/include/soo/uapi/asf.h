@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Baptiste Delporte <bonel@bonel.net>
- * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2014-2019 Jean-Pierre Miceli <jean-pierre.miceli@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,31 +16,19 @@
  *
  */
 
-#ifndef TRANSCEIVER_H
-#define TRANSCEIVER_H
 
-#include <linux/types.h>
+#ifndef ASF_USR_H
+#define ASF_USR_H
 
-#define TRANSCEIVER_PKT_DATA	 	1
-#define TRANSCEIVER_PKT_DATALINK 	2
+/* ASF char drv related constants */
+#define ASF_DEV_MAJOR	100
+#define ASF_DEV_NAME  	"/dev/soo/asf"
 
-typedef struct {
+/* ASF IOCTL - Send cmd to Hello World TA */
+#define ASF_IOCTL_CRYPTO_TEST		_IOW(0x5000DD30, 0, char)
+#define ASF_IOCTL_HELLO_WORLD_TEST	_IOW(0x5000DD30, 1, char)
+#define ASF_IOCTL_OPEN_SESSION		_IOW(0x5000DD30, 2, char)
+#define ASF_IOCTL_SESSION_OPENED	_IOW(0x5000DD30, 3, char)
+#define ASF_IOCTL_CLOSE_SESSION		_IOW(0x5000DD30, 4, char)
 
-	uint8_t packet_type;
-
-	/* The size is the size of the payload */
-	size_t size;
-
-	uint32_t transID;
-
-	/*
-	 * First byte of the payload. Accessing to its address gives a direct access to the
-	 * payload buffer.
-	 */
-	uint8_t	payload[0];
-
-} transceiver_packet_t;
-
-void transceiver_init(void);
-
-#endif /* TRANSCEIVER_H */
+#endif /* ASF_USR_H */

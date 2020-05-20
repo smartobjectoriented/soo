@@ -116,11 +116,12 @@ void sl_unregister(sl_desc_t *sl_desc) {
 		}
 
 }
-extern bool sender_ready_to_send(sl_desc_t *sl_desc);
 
-bool sl_ready_to_send(sl_desc_t *sl_desc) {
-
-	return sender_ready_to_send(sl_desc);
+/*
+ * Return the number of smart objects detected in the neighborhood.
+ */
+uint32_t sl_neighbour_count(void) {
+	return discovery_neighbour_count();
 }
 
 /*
@@ -174,6 +175,9 @@ void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID
 
 /*
  * Send data over a specific interface configured in the sl_desc descriptor.
+ * It is important to note that sending a buffer should be followed by sending a "NULL"
+ * since - at the datalink level (transceiver) - we could remain "speaker" over a while
+ * and prevent other smart objects belonging to the neighborhood to become a speaker.
  *
  * This function runs in the RT agency domain.
  */
@@ -190,7 +194,7 @@ void rtdm_sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agen
 
 	coder_send(sl_desc, data, size);
 
-	DBG("rtdm_sl_send: OK. Sent out.\n");
+	DBG("rtdm_sl_send: OK.\n");
 }
 
 /*
@@ -206,14 +210,6 @@ void rtdm_propagate_sl_send(void) {
 	spin_unlock(&send_lock);
 
 	rtdm_sl_send(__sl_send_args.sl_desc, __sl_send_args.data, __sl_send_args.size, __sl_send_args.agencyUID, __sl_send_args.prio);
-}
-
-/**
- * Send data in netstream mode.
- * The data pointer points to the payload.
- */
-void rtdm_sl_stream_send(sl_desc_t *sl_desc, void *data) {
-	coder_stream_send(sl_desc, data);
 }
 
 /*
@@ -275,14 +271,6 @@ void rtdm_sl_recv(sl_desc_t *sl_desc, void **data, size_t *size_p) {
 	*size_p = decoder_recv(sl_desc, data);
 }
 
-/**
- * Receive data in netstream mode.
- * The pointer targeted with data points to a netstream transceiver packet.
- */
-int rtdm_sl_stream_recv(sl_desc_t *sl_desc, void **data) {
-	return decoder_stream_recv(sl_desc, data);
-}
-
 /*
  * Called from rtdm_vbus in order to propagate the call to rtdm_sl_recv()
  */
@@ -313,55 +301,7 @@ bool is_exclusive(sl_desc_t *sl_desc) {
  * Configure a receive callback function for asynchronous receive from the transcoder functional block (decoder).
  */
 void rtdm_sl_set_recv_callback(sl_desc_t *sl_desc, rtdm_recv_callback_t rtdm_recv_fn) {
-	/* Currently, asynchronous receiving of stream packets have to be managed by the requester, outside SOOlink */
-	BUG_ON(sl_desc->trans_mode == SL_MODE_NETSTREAM);
-
 	sl_desc->rtdm_recv_callback = rtdm_recv_fn;
-}
-
-/*
- * Get a list of agencyUIDs which refer to SOO devices which are active in the neighbourhood.
- * Non RT version.
- */
-int sl_get_neighbours(struct list_head *new_list) {
-	return discovery_get_neighbours(new_list);
-}
-
-/*
- * Get a list of agencyUIDs which refer to SOO devices which are active in the neighbourhood.
- * RT version.
- */
-int rtdm_sl_get_neighbours(struct list_head *new_list) {
-	return sl_get_neighbours(new_list);
-}
-
-/*
- * Configure the smart object to be used in a netstream transmission.
- * packet_size refers to the payload size.
- */
-void rtdm_sl_stream_init(sl_desc_t *sl_desc, void *data, size_t packet_size) {
-	BUG_ON(sl_desc->trans_mode != SL_MODE_NETSTREAM);
-
-	/* The burst buffer will be propagated using the incoming_block field to Winenet */
-	sl_desc->incoming_block = data;
-
-	/* The packet size will be propagated using the incoming_block_size field to Winenet */
-	sl_desc->incoming_block_size = packet_size;
-
-	transcoder_stream_init(sl_desc);
-}
-
-/**
- * Terminate the streaming.
- */
-void rtdm_sl_stream_terminate(sl_desc_t *sl_desc) {
-	BUG_ON(sl_desc->trans_mode != SL_MODE_NETSTREAM);
-
-	/* 0 values will be interpreted as termination request */
-	sl_desc->incoming_block = NULL;
-	sl_desc->incoming_block_size = 0;
-
-	transcoder_stream_terminate(sl_desc);
 }
 
 /* Forward the call to the Discovery block to enable the discovery process. */

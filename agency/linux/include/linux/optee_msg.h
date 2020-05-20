@@ -24,6 +24,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+/* SOO.tech - this file has moved. Original path: 'drivers/tee/optee/' */
+
 #ifndef _OPTEE_MSG_H
 #define _OPTEE_MSG_H
 

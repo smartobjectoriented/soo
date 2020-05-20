@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Baptiste Delporte <bonel@bonel.net>
- * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2020 Jean-Pierre Miceli <jean-pierre.miceli@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,31 +16,17 @@
  *
  */
 
-#ifndef TRANSCEIVER_H
-#define TRANSCEIVER_H
+#ifndef SECURITY_H
+#define SECURITY_H
 
 #include <linux/types.h>
 
-#define TRANSCEIVER_PKT_DATA	 	1
-#define TRANSCEIVER_PKT_DATALINK 	2
+/* Encryption/decryption functions for the 'Communication' flow */
+size_t security_encrypt(void *plain_buf, size_t plain_buf_sz, void **enc_buf);
+size_t security_decrypt(void *enc_buf, size_t enc_buf_sz, void **plain_buf);
 
-typedef struct {
 
-	uint8_t packet_type;
+void dcm_asf_test(void);
 
-	/* The size is the size of the payload */
-	size_t size;
 
-	uint32_t transID;
-
-	/*
-	 * First byte of the payload. Accessing to its address gives a direct access to the
-	 * payload buffer.
-	 */
-	uint8_t	payload[0];
-
-} transceiver_packet_t;
-
-void transceiver_init(void);
-
-#endif /* TRANSCEIVER_H */
+#endif /* SECURITY_H */

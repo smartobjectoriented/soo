@@ -19,53 +19,52 @@
 #include <stdarg.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <linux/tee_drv.h>
 #include <linux/of.h>
 #include <linux/sched.h>
 #include <linux/delay.h>
+#include <linux/mutex.h>
+#include <linux/fs.h>
+#include <linux/file.h>
 
-#include <soo/uapi/console.h>
+#include <soo/uapi/asf.h>
 
-#include <soo/core/asf.h>
+#include "asf_priv.h"
 
 #if 0
 #define DEBUG
 #endif
 
-/* ASF supported commands */
+/* ASF TA supported commands */
 #define ASF_TA_CMD_ENCODE		0
 #define ASF_TA_CMD_DECODE		1
-#define ASF_TA_CMD_KEY_SZ		2
 
 #define ASF_MAX_BUFF_SIZE		(1 << 19)
 #define ASF_TAG_SIZE			16
 #define ASF_IV_SIZE				12
 
+/* Management pTA boostrap command. It is used to install TA in Secure Storage */
+#define PTA_SECSTOR_TA_MGMT_BOOTSTRAP	0
+
+static struct tee_context *asf_ctx;
+static int asf_sess_id;
+
 static bool asf_enabled = false;
+static bool asf_ctx_openend = false;
 
 /* UUID of ASF Trusted application */
 static uint8_t asf_uuid[] = { 0x6a, 0xca, 0x96, 0xec, 0xd0, 0xa4, 0x11, 0xe9,
 			                  0xbb, 0x65, 0x2a, 0x2a, 0xe2, 0xdb, 0xcc, 0xe4};
 
-static unsigned asf_key_size = 0;
-static size_t asf_shm_size;
+/* UUID for management pTA. It is responsible to install TA in Security Storage */
+static uint8_t mgmt_ta_uuid[] = { 0x6e, 0x25, 0x6c, 0xba, 0xfc, 0x4d, 0x49, 0x41,
+				                  0xad, 0x09, 0x2c, 0xa1, 0x86, 0x03, 0x42, 0xdd };
+
+
+DEFINE_MUTEX(asf_mutex);
 
 /************************************************************************
  *                          ASF core                                    *
  ************************************************************************/
-
-/**
- * asf_tee_ctx_match() - check TEE device version
- *
- *  Callback called by tee_client_open_context()
- */
-static int asf_tee_ctx_match(struct tee_ioctl_version_data *ver, const void *data)
-{
-	if (ver->impl_id == TEE_IMPL_ID_OPTEE)
-		return 1;
-	else
-		return 0;
-}
 
 /**
  * asf_open_session() - Open a context & session with ASF TEE
@@ -73,13 +72,13 @@ static int asf_tee_ctx_match(struct tee_ioctl_version_data *ver, const void *dat
  * @ctx: TEE context
  * @return the TEE session ID or -1 in case of error
  */
-static int asf_open_session(struct tee_context **ctx)
+int asf_open_session(struct tee_context **ctx, uint8_t *uuid)
 {
 	struct tee_ioctl_open_session_arg sess_arg;
 	int ret;
 
 	/* Initialize a context connecting us to the TEE */
-	*ctx = tee_client_open_context(NULL, asf_tee_ctx_match, NULL, NULL);
+	*ctx = teedev_open(optee_svc->teedev);
 	if (IS_ERR(*ctx)) {
 		lprintk("ASF ERROR - Open Context failed\n");
 		return -1;
@@ -87,7 +86,7 @@ static int asf_open_session(struct tee_context **ctx)
 
 	memset(&sess_arg, 0, sizeof(sess_arg));
 
-	memcpy(sess_arg.uuid, asf_uuid, TEE_IOCTL_UUID_LEN);
+	memcpy(sess_arg.uuid, uuid, TEE_IOCTL_UUID_LEN);
 	sess_arg.clnt_login = TEE_IOCTL_LOGIN_PUBLIC;
 	sess_arg.num_params = 0;
 
@@ -107,7 +106,7 @@ static int asf_open_session(struct tee_context **ctx)
  * @session_id: the TEE session ID
  * @return 0 in case of success or -1
  */
-static int asf_close_session(struct tee_context *ctx, int session_id)
+int asf_close_session(struct tee_context *ctx, int session_id)
 {
 	int ret;
 
@@ -125,9 +124,8 @@ static int asf_close_session(struct tee_context *ctx, int session_id)
 static struct tee_shm *asf_shm_alloc(struct tee_context *ctx)
 {
 	struct tee_shm *shm = NULL;
-	size_t shm_sz = 2*ASF_MAX_BUFF_SIZE + ASF_TAG_SIZE + ASF_IV_SIZE;
+	size_t shm_sz = ASF_MAX_BUFF_SIZE + ASF_TAG_SIZE + ASF_IV_SIZE;
 
-#warning check without TEE_SHM_DMA_BUF option
 	shm = tee_shm_alloc(ctx, shm_sz, TEE_SHM_MAPPED | TEE_SHM_DMA_BUF);
 	if (IS_ERR(shm)) {
 		lprintk("ASF ERROR - share buffer allocation failed\n");
@@ -142,8 +140,10 @@ static void asf_shm_free(struct tee_shm *shm)
 	tee_shm_free(shm);
 
 	/* The share buffer are freed only after one jiffies */
-	msleep(1000 / HZ);
+#if 0 /* Current tee driver does not delay the 'release' of the shm */
+	msleep(jiffies_to_msecs(1));
 	flush_scheduled_work();
+#endif
 }
 
 
@@ -161,33 +161,34 @@ static void asf_shm_free(struct tee_shm *shm)
  * @return 0 in case of success or -1
  */
 static int asf_invoke_cypto(struct tee_context *ctx, int session_id, int mode, struct tee_shm *shm,
-		           uint8_t *bufin, uint8_t *bufout, size_t buf_sz, uint8_t *iv, uint8_t *tag)
+		           sym_key_t key, uint8_t *bufin, uint8_t *bufout, size_t buf_sz, uint8_t *iv, uint8_t *tag)
 {
 	struct tee_ioctl_invoke_arg arg;
-	uint8_t *data_in = NULL;
-	uint8_t *data_out = NULL;
+	uint8_t *data_inout = NULL;
 	uint8_t *data_tag = NULL;
 	uint8_t *data_iv = NULL;
-	struct tee_param param[1];
+	struct tee_param param[2];
 	int ret = 0;
 
 	memset(&arg, 0, sizeof(arg));
 	memset(&param, 0, sizeof(param));
 	arg.func = mode;
 	arg.session = session_id;
-	arg.num_params = 1;
+	arg.num_params = 2;
 
 	param[0].attr = TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INOUT;
 	param[0].u.memref.shm = shm;
 	param[0].u.memref.shm_offs = 0;
-	param[0].u.memref.size = buf_sz;
+	param[0].u.memref.size =  buf_sz + ASF_TAG_SIZE + ASF_IV_SIZE ;
 
-	data_in  = tee_shm_get_va(shm, 0);
-	data_out = tee_shm_get_va(shm, buf_sz);
-	data_iv  = tee_shm_get_va(shm, 2*buf_sz);
-	data_tag = tee_shm_get_va(shm, 2*buf_sz + ASF_IV_SIZE);
+	param[1].attr = TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_INPUT;
+	param[1].u.value.a = key;
 
-	memcpy(data_in, bufin, buf_sz);
+	data_inout  = tee_shm_get_va(shm, 0);
+	data_iv  = tee_shm_get_va(shm, buf_sz);
+	data_tag = tee_shm_get_va(shm, buf_sz + ASF_IV_SIZE);
+
+	memcpy(data_inout, bufin, buf_sz);
 	if (mode == ASF_TA_CMD_DECODE) {
 		memcpy(data_tag, tag, ASF_TAG_SIZE);
 		memcpy(data_iv, iv, ASF_IV_SIZE);
@@ -199,7 +200,7 @@ static int asf_invoke_cypto(struct tee_context *ctx, int session_id, int mode, s
 		return -1;
 	}
 
-	memcpy(bufout, data_out, buf_sz);
+	memcpy(bufout, data_inout, buf_sz);
 	if (mode == ASF_TA_CMD_ENCODE) {
 		memcpy(iv, data_iv, ASF_IV_SIZE);
 		memcpy(tag, data_tag, ASF_TAG_SIZE);
@@ -217,7 +218,7 @@ static int asf_invoke_cypto(struct tee_context *ctx, int session_id, int mode, s
  * @res_buf: result buffer
  * @return the size of the result buffer or -1 in case of error
  */
-static size_t asf_res_buf_alloc(size_t slice_nr, size_t rest, int mode, uint8_t **res_buf)
+static ssize_t asf_res_buf_alloc(size_t slice_nr, size_t rest, int mode, uint8_t **res_buf)
 {
 	size_t rest_sz;
 	size_t slice_sz;
@@ -242,7 +243,7 @@ static size_t asf_res_buf_alloc(size_t slice_nr, size_t rest, int mode, uint8_t 
 		return -1;
 	}
 
-	return res_buf_sz;
+	return (ssize_t)res_buf_sz;
 }
 
 /**
@@ -257,7 +258,7 @@ static size_t asf_res_buf_alloc(size_t slice_nr, size_t rest, int mode, uint8_t 
  * @rest: the size of the last slice (non-full slice)
  * @return 0 in case of success or -1 in case of error
  */
-static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, int mode, uint8_t *inbuf, uint8_t *outbuf,  size_t slice_nr, size_t rest)
+static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, int mode, sym_key_t key, uint8_t *inbuf, uint8_t *outbuf,  size_t slice_nr, size_t rest)
 {
 	unsigned loop_nr;
 	struct tee_shm *shm;
@@ -303,9 +304,9 @@ static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, i
 
 		tag = iv + ASF_IV_SIZE;
 
-		ret = asf_invoke_cypto(ctx, session_id, mode, shm, in, out, cur_buf_sz, iv, tag);
+		ret = asf_invoke_cypto(ctx, session_id, mode, shm, key, in, out, cur_buf_sz, iv, tag);
 		if (ret) {
-			lprintk("ASF ERROR - Buffer decryption failed\n");
+			lprintk("ASF ERROR - asf_invoke_cypto failed\n");
 			return -1;
 		}
 
@@ -324,57 +325,18 @@ static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, i
 	return 0;
 }
 
-/**
- * asf_get_key_size() -  Get the size of the key used
- *
- * return the key size or -1 in case of error
- */
-static int asf_get_key_size(void)
-{
-	struct tee_ioctl_invoke_arg arg;
-	struct tee_param param[1];
-	struct tee_context *ctx;
-	uint32_t session_id;
-	int ret;
-	int key_sz;
-
-	/* Initialize a context connecting us to the TEE */
-	session_id = asf_open_session(&ctx);
-	if (session_id < 0)
-		return -1;
-
-	memset(&arg, 0, sizeof(arg));
-	memset(&param, 0, sizeof(param));
-	arg.func = ASF_TA_CMD_KEY_SZ;
-	arg.session = session_id;
-	arg.num_params = 1;
-
-	param[0].attr = TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_OUTPUT;
-
-	ret = tee_client_invoke_func(ctx, &arg, param);
-	key_sz = param[0].u.value.a;
-
-	ret = asf_close_session(ctx, session_id);
-	if (ret)
-		return ret;
-
-	return key_sz;
-}
-
-
 /************************************************************************
  *                             APIs                                     *
  ************************************************************************/
 
-
-int asf_encode(uint8_t *plain_buf, size_t plain_buf_sz, uint8_t **enc_buf)
+ssize_t asf_encrypt(sym_key_t key, uint8_t *plain_buf, size_t plain_buf_sz, uint8_t **enc_buf)
 {
-	struct tee_context *ctx;
-	uint32_t session_id;
-	int res_buf_sz;
+	ssize_t res_buf_sz;
 	int ret;
 	int block_nr;
 	int rest;
+
+	mutex_lock(&asf_mutex);
 
 	/* 1. Encoded/result buffer allocation */
 	rest     = (plain_buf_sz % ASF_MAX_BUFF_SIZE);
@@ -384,39 +346,31 @@ int asf_encode(uint8_t *plain_buf, size_t plain_buf_sz, uint8_t **enc_buf)
 	if (res_buf_sz < 0)
 		return -1;
 
-	/* 2. Initialize a context connecting us to the TEE */
-	session_id = asf_open_session(&ctx);
-	if (session_id < 0) {
-		goto err_encode;
-	}
-
 	/* 3. 'Slicing' the buffer and sent it to TEE */
-	ret = asf_send_slice_buffer(ctx, session_id, ASF_TA_CMD_ENCODE, plain_buf, *enc_buf, block_nr, rest);
+	ret = asf_send_slice_buffer(asf_ctx, asf_sess_id, ASF_TA_CMD_ENCODE, key, plain_buf, *enc_buf, block_nr, rest);
 	if (ret)
 		goto err_encode;
 
-	/* 4. close context */
-	ret = asf_close_session(ctx, session_id);
-	if (ret)
-		goto err_encode;
+	mutex_unlock(&asf_mutex);
 
 	return res_buf_sz;
 
 err_encode:
+	mutex_unlock(&asf_mutex);
 	kfree(*enc_buf);
 
 	return -1;
 }
 
-int asf_decode(uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **plain_buf)
+ssize_t asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **plain_buf)
 {
-	struct tee_context *ctx;
-	uint32_t session_id;
 	int ret;
-	size_t res_buf_sz;
+	ssize_t res_buf_sz;
 	uint8_t *res_buf = NULL;
 	int block_nr;
 	int rest;
+
+	mutex_lock(&asf_mutex);
 
 	/* 1. Plain/result buffer allocation */
 	rest     = (enc_buf_sz % (ASF_MAX_BUFF_SIZE + ASF_IV_SIZE + ASF_TAG_SIZE));
@@ -426,106 +380,118 @@ int asf_decode(uint8_t *enc_buf, size_t enc_buf_sz, uint8_t **plain_buf)
 	if (res_buf_sz < 0)
 		return -1;
 
-	/* 2. Initialize a context connecting us to the TEE */
-	session_id = asf_open_session(&ctx);
-	if (session_id < 0) {
-		goto err_decode;
-	}
-
 	/* 3. 'Slicing' the buffer in bloc of ASF_MAX_BUFF_SIZE size */
-	ret = asf_send_slice_buffer(ctx, session_id, ASF_TA_CMD_DECODE, enc_buf, res_buf, block_nr, rest);
-
-	/* 4. close context */
-	ret = asf_close_session(ctx, session_id);
+	ret = asf_send_slice_buffer(asf_ctx, asf_sess_id, ASF_TA_CMD_DECODE, key, enc_buf, res_buf, block_nr, rest);
 
 	*plain_buf = res_buf;
 
+	mutex_unlock(&asf_mutex);
+
 	return res_buf_sz;
-
-err_decode:
-
-	kfree(res_buf);
 
 	return -1;
 }
 
-
 /************************************************************************
- *                     ASF test and examples                            *
+ *                     Char drv related operations                      *
  ************************************************************************/
 
-void asf_example(void)
+ssize_t asf_write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
 {
-	int size;
-	uint8_t  plain[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-	                    0x08, 0x09, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6};
-	uint8_t *encoded = NULL;
-	uint8_t *decoded = NULL;
+	uint32_t session_id;
+	uint8_t *data_in = NULL;
+	struct tee_context *ctx;
+	struct tee_ioctl_invoke_arg arg;
+	struct tee_param param[1];
+	struct tee_shm *shm = NULL;
+	int ret1, ret2;
 
-	lprintk("## %s: Example - Encoding\n", __func__);
-	size = asf_encode(plain, sizeof(plain), &encoded);
-	lprintk("Encoded buffer size: %d\n", size);
-	if (size > 0)
-		lprintk_buffer(encoded, size);
+	printk("ASF - Write --> TA Installation\n");
 
-	lprintk("## %s: Example - Decoding\n", __func__);
-	size = asf_decode(encoded, size, &decoded);
-	lprintk("decoded buffer size: %d\n", size);
-
-	lprintk("buffer: ");
-	if (size > 0)
-		lprintk_buffer(decoded, size);
-
-	kfree(encoded);
-	kfree(decoded);
-}
-
-void asf_big_buf(void)
-{
-	int size;
-	int i;
-	uint8_t *plain;
-	uint8_t *encoded;
-	uint8_t *decoded;
-	int plain_sz = 1046628;
-
-	lprintk(" ===  Testing big buffer ===\n");
-	lprintk(" 	   buffer size: %d\n", plain_sz);
-
-	plain = (uint8_t *)kmalloc(plain_sz, GFP_KERNEL);
-	if (!plain) {
-		lprintk("\n!!!!! ======== BIG BUFFER ALLOCATION FAILED ======== !!!!!\n\n");
-		return;
+	/* Open Session */
+	session_id = asf_open_session(&ctx, mgmt_ta_uuid);
+	if (session_id < 0) {
+		printk("ASF Error - Open session failed\n");
+		return -1;
 	}
 
-	for (i = 0; i < plain_sz; i++)
-		plain[i] = (uint8_t)i;
+	memset(&arg, 0, sizeof(arg));
+	memset(&param, 0, sizeof(param));
 
-	lprintk(" ===  Testing big buffer (encoding) ===\n");
+	arg.func = PTA_SECSTOR_TA_MGMT_BOOTSTRAP;
+	arg.session = session_id;
+	arg.num_params = 1;
 
-	size = asf_encode(plain, plain_sz, &encoded);
-	lprintk("Encoded buffer size: %d\n", size);
+	shm = tee_shm_alloc(ctx, len, TEE_SHM_MAPPED | TEE_SHM_DMA_BUF);
+	data_in  = tee_shm_get_va(shm, 0);
+	memcpy(data_in, buf, len);
 
-	if (size < 0)
-		return;
+	param[0].attr = TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INPUT;
+	param[0].u.memref.shm = shm;
+	param[0].u.memref.shm_offs = 0;
+	param[0].u.memref.size = len;
 
-	lprintk(" ===  Testing big buffer (decoding) ===\n");
-
-	size = asf_decode(encoded, size, &decoded);
-	lprintk("decoded buffer size: %d\n", size);
-
-	if (size != plain_sz)
-		lprintk("\n!!!!! ======== Result size is wrong, got %d, expected %d\n", size, plain_sz);
-
-	for (i = 0; i < size; i++) {
-		if (decoded[i] != (uint8_t)i)
-			lprintk(" WRONG decoded DATA\n");
+	ret1 = tee_client_invoke_func(ctx, &arg, param);
+	if ((ret1) || (arg.ret)) {
+		lprintk("ASF ERROR - Installation of TA failed\n");
+		ret1 = 1;
 	}
 
-	kfree(plain);
-	kfree(encoded);
-	kfree(decoded);
+	ret2 = asf_close_session(ctx, session_id);
+	if (ret2)
+		lprintk("ASF ERROR - Close session failed\n");
+
+	if ((ret1) || (ret2))
+		return -1;
+	else
+		return len;
 }
+
+long asf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	int res;
+
+	switch (cmd) {
+
+	case ASF_IOCTL_CRYPTO_TEST:
+		asf_crypto_example();
+		asf_crypto_large_buf_test();
+		return 0;
+
+	case ASF_IOCTL_HELLO_WORLD_TEST:
+		return hello_world_ta_cmd((hello_args_t *)(arg));
+
+	case ASF_IOCTL_OPEN_SESSION:
+		asf_sess_id = asf_open_session(&asf_ctx, asf_uuid);
+		if (asf_sess_id < 0) {
+			return -1;
+		} else {
+			asf_ctx_openend = true;
+			return 0;
+		}
+
+	case ASF_IOCTL_SESSION_OPENED:
+		return asf_ctx_openend;
+
+	case ASF_IOCTL_CLOSE_SESSION:
+		res = asf_close_session(asf_ctx, asf_sess_id);
+		if (res == 0)
+			asf_ctx_openend = false;
+		return res;
+
+	default:
+		lprintk("ASF ioctl %d unavailable !\n", cmd);
+		panic("ASF");
+	}
+
+	return -EINVAL;
+}
+
+struct file_operations asf_fops = {
+		.owner = THIS_MODULE,
+		.unlocked_ioctl = asf_ioctl,
+		.write = asf_write,
+};
 
 /************************************************************************
  *                     ASF Initialization                               *
@@ -533,6 +499,8 @@ void asf_big_buf(void)
 
 static int asf_init(void)
 {
+	int rc;
+
 	/* Check if TrustZone is activated. Currently, this is done
 	 * by examining the presence of psci property in the device tree.
 	 */
@@ -541,21 +509,12 @@ static int asf_init(void)
 
 	lprintk("Agency Security Framework initialization...\n");
 
-	/* Get the size of the key. It is needed for buffer padding */
-	asf_key_size = asf_get_key_size();
-
-	asf_shm_size   = tee_get_shm_size();
-
-	lprintk("== JP - asf_shm_size: %d\n", asf_shm_size);
-
-#ifdef DEBUG
-	asf_crypte_test();
-#endif
-
-#if 0
-	asf_big_buf();
-#endif
-	asf_example();
+	/* Registering device */
+	rc = register_chrdev(ASF_DEV_MAJOR, ASF_DEV_NAME, &asf_fops);
+	if (rc < 0) {
+		printk("Cannot obtain the major number %d\n", ASF_DEV_MAJOR);
+		BUG();
+	}
 
 	asf_enabled = true;
 

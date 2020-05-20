@@ -55,6 +55,10 @@ struct xnsynch {
 	struct list_head pendq;	 /** Pending threads */
 	struct xnthread *owner;	/** Thread which owns the resource */
 	atomic_t *fastlock; /** Pointer to fast lock word */
+
+	/* SOO.tech */
+	int occurrence;  /** Track the occurence of an event */
+
 	void (*cleanup)(struct xnsynch *synch); /* Cleanup handler */
 };
 

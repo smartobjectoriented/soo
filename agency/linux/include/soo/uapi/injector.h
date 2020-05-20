@@ -17,23 +17,27 @@
  *
  */
 
-#ifndef DCM_H
-#define DCM_H
+#ifndef INJECTOR_H
+#define INJECTOR_H
 
 #ifdef __KERNEL__
 #include <asm-generic/ioctl.h>
+#include <linux/mutex.h>
+#include <linux/wait.h>
 #else
 #include <stdint.h>
 #include <stddef.h>
+
 #endif /* __KERNEL__ */
 
-#define DCM_DEV_NAME		"/dev/soo/dcm"
+
+#define INJECTOR_DEV_NAME		"/dev/soo/injector"
 
 #ifdef __KERNEL__
 
-#define DCM_MAJOR		127
+#define INJECTOR_MAJOR		122
 
-#define DCM_N_RECV_BUFFERS	10
+#define INJECTOR_N_RECV_BUFFERS	10
 
 /* Max ME size in bytes */
 #define DATACOMM_ME_MAX_SIZE	(32 * 1024 * 1024)
@@ -41,53 +45,50 @@
 #endif /* __KERNEL__ */
 
 /* IOCTL codes exposed to the user space side */
-#define DCM_IOCTL_INIT				_IOW(0x5000DC30, 0, char)
-#define DCM_IOCTL_NEIGHBOUR_COUNT	_IOW(0x5000DC30, 1, char)
-#define DCM_IOCTL_SEND				_IOW(0x5000DC30, 2, char)
-#define DCM_IOCTL_RECV				_IOR(0x5000DC30, 5, char)
-#define DCM_IOCTL_RELEASE			_IOW(0x5000DC30, 6, char)
-#define DCM_IOCTL_CONFIGURE_NEIGHBOURHOOD	_IOW(0x5000DC30, 7, char)
-#define DCM_IOCTL_RESET_NEIGHBOURHOOD		_IOW(0x5000DC30, 8, char)
-#define DCM_IOCTL_SET_AGENCY_UID		_IOW(0x5000DC30, 9, char)
+#define INJECTOR_IOCTL_INIT				_IOW(0x5000DC40, 0, char)
+#define INJECTOR_IOCTL_IS_READY_TO_SEND	_IOW(0x5000DC40, 1, char)
+#define INJECTOR_IOCTL_RETRIEVE_ME		_IOW(0x5000DC40, 2, char)
+#define INJECTOR_IOCTL_CLEAN_ME		    _IOW(0x5000DC40, 3, char)
 
 typedef struct {
 	void *ME_data;	/* Reference to the uncompressed ME */
 	size_t size;		/* Size of this ME ready to be compressed */
 	uint32_t prio;		/* Priority of this ME (unused at the moment) */
-} dcm_ioctl_send_args_t;
+} injector_ioctl_send_args_t;
 
 typedef struct {
 	void *ME_data;
 	size_t	size;
-} dcm_ioctl_recv_args_t;
+} injector_ioctl_recv_args_t;
 
 /*
  * Types of buffer; helpful to manage buffers in a seamless way.
  */
 typedef enum {
-	DCM_BUFFER_SEND = 0,
-	DCM_BUFFER_RECV
-} dcm_buffer_direction_t;
+	INJECTOR_BUFFER_SEND = 0,
+	INJECTOR_BUFFER_RECV
+} injector_buffer_direction_t;
+
 
 #ifdef __KERNEL__
 
 /*
- * - DCM_BUFFER_FREE means the buffer is ready for send/receive operations.
- * - DCM_BUFFER_BUSY means the buffer is reserved for a ME.
- * - DCM_BUFFER_SENDING means the buffer is currently along the path for being sent out.
+ * - INJECTOR_BUFFER_FREE means the buffer is ready for send/receive operations.
+ * - INJECTOR_BUFFER_BUSY means the buffer is reserved for a ME.
+ * - INJECTOR_BUFFER_SENDING means the buffer is currently along the path for being sent out.
  *   The buffer can still be altered depending on the steps of sending (See SOOlink/Coder).
  */
 typedef enum {
-	DCM_BUFFER_FREE = 0,
-	DCM_BUFFER_BUSY,
-	DCM_BUFFER_SENDING,
-} dcm_buffer_status_t;
+	INJECTOR_BUFFER_FREE = 0,
+	INJECTOR_BUFFER_BUSY,
+	INJECTOR_BUFFER_SENDING,
+} injector_buffer_status_t;
 
 /*
  * Buffer descriptor
  */
 typedef struct {
-	dcm_buffer_status_t	status;
+	injector_buffer_status_t	status;
 
 	/*
 	 * Reference to the ME.
@@ -97,12 +98,24 @@ typedef struct {
 
 	uint32_t prio;
 
-} dcm_buffer_desc_t;
+} injector_buffer_desc_t;
+
+void injector_prepare(uint32_t size);
+void injector_retrieve_ME(unsigned long arg);
+void injector_clean_ME(void);
+int injector_receive_ME(void *ME, size_t size);
+
+int injector_init(wait_queue_head_t *_wq_prod, wait_queue_head_t *_wq_cons);
+
+void *injector_get_ME_buffer(void);
+size_t injector_get_ME_size(void);
+
+void *injector_get_tmp_buf(void);
+size_t injector_get_tmp_size(void);
+bool injector_is_full(void);
+void injector_set_full(bool _full);
 
 #endif /* __KERNEL__ */
 
-#ifdef __KERNEL__
-int dcm_ME_rx(void *ME_buffer, size_t size);
-#endif /* __KERNEL__ */
 
-#endif /* DCM_H */
+#endif /* INJECTOR_H */

@@ -42,6 +42,7 @@
 #include <linux/sched.h>
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
+#include <linux/wait.h>
 
 #include <soo/soolink/discovery.h>
 
@@ -70,6 +71,7 @@
 
 #include <soo/uapi/soo.h>
 #include <soo/uapi/logbool.h>
+#include <soo/uapi/injector.h>
 
 #define AGENCY_DEV_NAME "soo/core"
 #define AGENCY_DEV_MAJOR 126
@@ -932,6 +934,16 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	case AGENCY_IOCTL_STORE_VERSIONS:
 		rc = ioctl_store_versions(arg);
 		break;
+		
+	case INJECTOR_IOCTL_CLEAN_ME:
+		injector_clean_ME();
+		break;
+
+	case INJECTOR_IOCTL_RETRIEVE_ME:
+		injector_retrieve_ME(arg);
+		break;
+	
+	
 
 	default:
 		lprintk("%s: Unrecognized IOCTL: 0x%x\n", __func__, cmd);
@@ -963,9 +975,43 @@ static int agency_upgrade_mmap(struct file *filp, struct vm_area_struct *vma) {
 	return 0;
 }
 
+DECLARE_WAIT_QUEUE_HEAD(wq_prod);
+DECLARE_WAIT_QUEUE_HEAD(wq_cons);
+
+static ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
+	int maxbytes;
+        int bytes_to_read;
+        int bytes_read;
+	void *ME;
+
+	/* Wait for the Injector to produce data */
+	wait_event_interruptible(wq_cons, injector_is_full() == true);
+#if 0
+	void *ME = injector_get_ME_buffer();
+        maxbytes = injector_get_ME_size() - *ppos;
+#else
+	ME = injector_get_tmp_buf();
+        maxbytes = injector_get_tmp_size();
+#endif
+
+        if (maxbytes > length)
+                bytes_to_read = length;
+        else
+                bytes_to_read = maxbytes;
+		
+        bytes_read = copy_to_user(buff, ME, bytes_to_read);
+
+	/* Notify the Injector we read the buffer */
+	injector_set_full(false);
+	wake_up_interruptible(&wq_prod);
+
+        return bytes_read;
+}
+
 struct file_operations agency_fops = {
     .owner = THIS_MODULE,
     .open = agency_open,
+    .read = agency_read,
     .release = agency_release,
     .unlocked_ioctl = agency_ioctl,
     .mmap = agency_upgrade_mmap,
@@ -1122,10 +1168,12 @@ int agency_init(void) {
 	/* Initialize the agency UID and the dev caps bitmap */
 	devaccess_init();
 
+	/* Initialize the injector subsystem */
+	injector_init(&wq_prod, &wq_cons);
+
 	/* Initialize the dbgvar facility */
 	dbgvar_init();
 #endif
-
 	return 0;
 }
 
