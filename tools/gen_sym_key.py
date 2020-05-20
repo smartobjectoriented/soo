@@ -35,8 +35,8 @@ inject_key_info = KeyFileInfo('asf_injection_key.h',     'ASF_INJECT_KEY')
 
 def gen_key():
 
-	command =['openssl', 'rand', '-base64', '32']
-	# command =['openssl', 'rand', '-hex', '32']
+	# command =['openssl', 'rand', '-base64', '32']
+	command =['openssl', 'rand', '-hex', '32']
 	proc = subprocess.Popen(command, stdout=subprocess.PIPE)
 	results = proc.stdout.read()
 	proc.wait()

@@ -9,6 +9,9 @@
 #include <string.h>
 #include <asf_ta.h>
 
+#include "asf_communication_key.h"
+#include "asf_injection_key.h"
+
 #define ASF_KEY_SIZE		32 /* AES 256 */
 #define ASF_TAG_SIZE		16
 #define ASF_IV_SZ			12
@@ -17,11 +20,6 @@ typedef enum {
 	ASF_KEY_COM = 0, /* Symmetric key for the 'Communication' flow */
 	ASF_KEY_INJECT,  /* Symmetric key for the 'Injection' flow */
 } sym_key_t;
-
-static uint8_t aes_com_key[ASF_KEY_SIZE];
-static uint8_t aes_inject_key[ASF_KEY_SIZE];
-
-
 
 static uint8_t asf_iv[] = {
 	0x01, 0x00, 0x00, 0x00, 0x00, 0x0,
@@ -78,9 +76,9 @@ static TEE_Result asf_enc_dec(uint32_t type, TEE_Param params[TEE_NUM_PARAMS], T
 
 	/* get the key to use */
 	if (params[1].value.a == ASF_KEY_COM) {
-		key = aes_com_key;
+		key = (uint8_t *)ASF_COM_KEY;
 	} else if (params[1].value.a == ASF_KEY_INJECT) {
-		key = aes_inject_key;
+		key = (uint8_t *)ASF_INJECT_KEY;
 	} else {
 		EMSG("ASF - Unsupported key (%d)\n", params[1].value.a);
 		return TEE_ERROR_BAD_PARAMETERS;
@@ -179,10 +177,6 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_types,
 		TEE_Param __maybe_unused params[4],
 		void __maybe_unused **sess_ctx)
 {
-	uint32_t com_key_size;
-	uint32_t inject_key_size;
-	int res;
-
 	uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_NONE,
 						   TEE_PARAM_TYPE_NONE,
 						   TEE_PARAM_TYPE_NONE,
@@ -195,21 +189,6 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_types,
 	(void)&params;
 	(void)&sess_ctx;
 
-	/* Get AES communication key */
-	res = TEE_GetPropertyAsBinaryBlock(TEE_PROPSET_CURRENT_TA, "gp.ta.com_key", aes_com_key, &com_key_size);
-	if ((res != TEE_SUCCESS) || (com_key_size != ASF_KEY_SIZE)) {
-		EMSG("ASF - Recuperation of asf communication key failed");
-		return TEE_ERROR_GENERIC;
-	}
-
-	/* Get AES communication key */
-#if 1
-	res = TEE_GetPropertyAsBinaryBlock(TEE_PROPSET_CURRENT_TA, "gp.ta.inject_key", aes_inject_key, &inject_key_size);
-	if ((res != TEE_SUCCESS) || (inject_key_size != ASF_KEY_SIZE)) {
-		EMSG("ASF - Recuperation of asf communication key failed");
-		return TEE_ERROR_GENERIC;
-	}
-#endif
 	return TEE_SUCCESS;
 }
 
@@ -226,9 +205,9 @@ TEE_Result TA_InvokeCommandEntryPoint(void __maybe_unused *sess_ctx,
 	(void)&sess_ctx; /* Unused parameter */
 
 	switch (cmd_id) {
-	case AFS_TA_CMD_ENCODE:
+	case ASF_TA_CMD_ENCODE:
 		return asf_encode_buf(param_types, params);
-	case AFS_TA_CMD_DECODE:
+	case ASF_TA_CMD_DECODE:
 		return asf_decode_buf(param_types, params);
 	default:
 		EMSG("ASF - Command  Not Supported (%d)", cmd_id);
