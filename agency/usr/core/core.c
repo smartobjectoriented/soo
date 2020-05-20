@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <kconfig.h>
 #include <unistd.h>
 
 #include <sys/ioctl.h>
@@ -36,12 +35,15 @@
 #include <core/device_access.h>
 #include <core/debug.h>
 #include <core/types.h>
+#include <core/asf.h>
 
 #include <dcm/core.h>
 
-#if defined(CONFIG_LEDS)
+#include <injector/core.h>
+
+#ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>
-#endif /* CONFIG_LEDS */
+#endif
 
 #define AGENCY_CORE_VERSION "2019.2"
 
@@ -162,6 +164,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	/* ASF initializations has to be performed before any thing else.  */
+	asf_init();
+
 	/* Display the agencyUID and visible neighbours at this time. */
 	neigh_bitmap = -1;
 	ioctl(fd_dcm, DCM_IOCTL_CONFIGURE_NEIGHBOURHOOD, &neigh_bitmap);
@@ -172,10 +177,10 @@ int main(int argc, char *argv[]) {
 	signal(SIGUSR1, sig_agency_start);
 	signal(SIGUSR2, sig_inject_ME_from_memory);
 
-#if defined(CONFIG_LEDS)
+#ifdef WITH_LED_ACTIVITIES
 	/* Initialize the LED Interface */
 	leds_init();
-#endif /* CONFIG_LEDS */
+#endif
 
 	/* Initialzation of the DCM subsystem */
 	dcm_init();
@@ -184,12 +189,14 @@ int main(int argc, char *argv[]) {
 
 	upgrader_init();
 
-#if defined(CONFIG_LEDS)
+	injector_init();
+
+#ifdef WITH_LED_ACTIVITIES
 	for (i = 0 ; i < SOO_N_LEDS ; i++)
 		led_off(i + 1);
 
 	led_on(1);
-#endif /* CONFIG_LEDS */
+#endif
 
 	/* Automatically inject the MEs in the /ME directory */
 	inject_MEs_from_filesystem();

@@ -1572,6 +1572,4 @@ int fdt_del_node(void *fdt, int nodeoffset);
 
 const char *fdt_strerror(int errval);
 
-int fdt_find_or_add_subnode(void *fdt, int parentoffset, const char *name);
-
 #endif /* _LIBFDT_H */

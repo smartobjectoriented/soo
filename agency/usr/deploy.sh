@@ -5,6 +5,7 @@
 echo Deploying usr apps into the agency partition...
 cd ../filesystem
 ./mount.sh 2
-sudo cp ../usr/build/* fs/root/
+sudo cp -r ../usr/build/deploy/* fs/root/
+ 
 ./umount.sh
 

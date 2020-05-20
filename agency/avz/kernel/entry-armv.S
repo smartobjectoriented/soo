@@ -65,30 +65,6 @@
 	stmia	r5, {r0 - r4}
 	.endm
 
-	.macro	usr_entry
-	sub	sp, sp, #S_FRAME_SIZE
- 	stmib	sp, {r1 - r12}
-
-	ldmia	r0, {r1 - r3}
-	add	r0, sp, #S_PC		@ here for interlock avoidance
-	mov	r4, #-1			@  ""  ""     ""        ""
-
-	str	r1, [sp]		@ save the "real" r0 copied
-					@ from the exception stack
-
-	@
-	@ We are now ready to fill in the remaining blanks on the stack:
-	@
-	@  r2 - lr_<exception>, already fixed up for correct return/restart
-	@  r3 - spsr_<exception>
-	@  r4 - orig_r0 (see pt_regs definition in ptrace.h)
-	@
-	@ Also, separately save sp_usr and lr_usr
-	@
-	stmia	r0, {r2 - r4}
- 	stmdb	r0, {sp, lr}^
-
-	.endm
 
 	.align	5
 .LCcralign:  @ Not handled properly...
@@ -166,30 +142,6 @@ __irq_svc:
 #if defined(CONFIG_AEABI) && (__LINUX_ARM_ARCH__ >= 5) && (S_FRAME_SIZE & 7)
 #error "sizeof(struct pt_regs) must be a multiple of 8"
 #endif
-
-__irq_usr:
-	usr_entry
-
-	mov		r1, #0x18				@ IRQ
-	str		r1, [sp, #S_CONTEXT]
-
-	current_cpu	r10
-
-	ldr 	r0, .LCpseudo_usr_mode
-	mov		r1, #0 					@ setting svc
-	str		r1, [r0, r10, lsl #2]
-
-
-	mov		r1, sp
-	ldr 	r0, .LChypervisor_stack   @ Get the running hypervisor SVC stack
-	ldr		sp, [r0, r10, lsl #2]
-
-	vcpu	r0
-	str		r1, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
-
-    irq_handler
-
-	b	ret_to_user
 
 
 .global prep_switch_domain
@@ -318,7 +270,6 @@ __vector_fault:
 	mrc	p15, 0, r1, c5, c0, 0		@ get FSR
 	mrc	p15, 0, r0, c6, c0, 0		@ get FAR
 
-	mov r2, lr
 	b	__fault_trap
 
 .align  5
@@ -378,7 +329,7 @@ __stubs_start:
  */
 	vector_stub	irq, IRQ_MODE, 4
 
-	.long	__irq_usr			@  0  (USR_26 / USR_32)
+	.long	__invalid			@  0  (USR_26 / USR_32)
 	.long	__invalid			@  1  (FIQ_26 / FIQ_32)
 	.long	__invalid			@  2  (IRQ_26 / IRQ_32)
 	.long	__irq_svc			@  3  (SVC_26 / SVC_32)

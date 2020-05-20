@@ -133,9 +133,15 @@ int main_kernel(void *args) {
 	kernel_thread(thread1, "thread1", NULL, 0);
 #endif
 
+	/* Test phase 2: threaded activity */
+#if 0
+	init_completion(&compl);
 
-	/* init_timer(&timer, timer_fn, NULL); */
+	kernel_thread(netstream_task_fn, "netstream", NULL, 15);
+	kernel_thread(audio_task_fn, "audio", NULL, 0);
+#endif
 
+	//init_timer(&timer, timer_fn, NULL);
 #if 0
 	*((char *) localinfo_data) = 'A';
 

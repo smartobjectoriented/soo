@@ -28,7 +28,6 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <unistd.h>
-#include <kconfig.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -47,7 +46,7 @@ static FILE *f_led[SOO_N_LEDS];
  * The id value is between 1 and SOO_N_LEDS.
  */
 void led_set(uint32_t id, uint8_t value) {
-	uint8_t value_str[4] = { 0 };
+	char value_str[4] = { 0 };
 
 	sprintf(value_str, "%u", value);
 
@@ -75,8 +74,8 @@ void led_off(uint32_t id) {
 
 void leds_init(void) {
 	uint8_t i;
-	uint8_t sysfs_led[64];
-	uint8_t led_id[2] = { 0 };
+	char sysfs_led[64];
+	char led_id[2] = { 0 };
 
 	for (i = 0 ; i < SOO_N_LEDS ; i++) {
 		memset(sysfs_led, 0, 64);

@@ -21,8 +21,6 @@
 #define DEBUG
 #endif
 
-#include <kconfig.h>
-
 #include <core/core.h>
 #include <core/receive.h>
 #include <core/debug.h>
@@ -32,9 +30,9 @@
 
 #include <uapi/debug.h>
 
-#if defined(CONFIG_LEDS)
+#ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>
-#endif /* CONFIG_LEDS */
+#endif
 
 /**
  * Try to retrieve a ME from the DCM and deploy it.
@@ -51,10 +49,7 @@ bool ME_processing_receive(void) {
 	unsigned char *ME_buffer;
 	size_t ME_size;
 	int slotID;
-
-#if defined(CONFIG_LEDS)
 	static uint8_t toggle = 0;
-#endif /* CONFIG_LEDS */
 
 	DBG0("Recv ME\n");
 	/* Perform receive processing as long as there are available MEs */
@@ -64,8 +59,8 @@ bool ME_processing_receive(void) {
 		DBG0("No ME available. Return\n");
 		return false;
 	}
-	
-#if defined(CONFIG_LEDS)
+
+#ifdef WITH_LED_ACTIVITIES
 	led_on(4);
 
 	if (toggle == 0) {
@@ -77,7 +72,7 @@ bool ME_processing_receive(void) {
 		led_off(5);
 	}
 	toggle = (toggle + 1) % 2;
-#endif /* CONFIG_LEDS */
+#endif
 
 	DBG("ME available: 0x%08x, %d\n", (unsigned int) ME_buffer, ME_size);
 
@@ -118,9 +113,9 @@ bool ME_processing_receive(void) {
 
 	dcm_release_ME(ME_buffer);
 
-#if defined(CONFIG_LEDS)
+#ifdef WITH_LED_ACTIVITIES
 	led_off(4);
-#endif /* CONFIG_LEDS */
+#endif
 
 	return true;
 }

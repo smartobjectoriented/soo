@@ -36,8 +36,6 @@ int serial_puts(char *buf, int len);
 
 int thread_fn1(void *arg)
 {
-	int i;
-
 	printk("%s: hello\n", __func__);
 	while (1); 
 #if 0
@@ -48,6 +46,7 @@ int thread_fn1(void *arg)
 	counter += 1;
 	printk("\n Job %d started\n", counter);
 
+
 	for (i = 0; i < 100000; i++)
 		count++;
 
@@ -55,6 +54,7 @@ int thread_fn1(void *arg)
 
 #if 0
 	mutex_unlock(&lock);
+#endif
 #endif
 
 	return 0;

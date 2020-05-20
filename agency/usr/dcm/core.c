@@ -29,7 +29,6 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <unistd.h>
-#include <kconfig.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -55,6 +54,8 @@ int fd_dcm;
  * This function triggers the TX request by Datalink's side.
  * To indicate the end of propagation to the DCM, the NULL value is passed as ME_buffer.
  */
+#warning We should improve the send path with a delay of waiting to become speaker to avoid sending ME getting too old...
+
 void dcm_send_ME(void *ME_buffer, size_t ME_size, uint32_t prio) {
 	int rc;
 	dcm_ioctl_send_args_t args;

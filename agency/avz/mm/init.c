@@ -591,6 +591,17 @@ static void __init devicemaps_init(void)
 	map.type = MT_HIGH_VECTORS;
 	create_mapping(&map, NULL);
 
+	if (!vectors_high()) {
+		/* Clear the vector region */
+		addr = 0;
+		pde = (pde_t *) (swapper_pg_dir + pde_index(addr));
+		pmd_clear(pde);
+
+		map.virtual = 0;
+		map.type = MT_LOW_VECTORS;
+		create_mapping(&map, NULL);
+	}
+
 	flush_all();
 
 }

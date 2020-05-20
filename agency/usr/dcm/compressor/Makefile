@@ -1,6 +1,0 @@
-
-obj-y := compressor.o
-
-
-
-

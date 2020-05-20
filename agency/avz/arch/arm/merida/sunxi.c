@@ -20,7 +20,7 @@
 #include <avz/init.h>
 #include <avz/cpumask.h>
 
-#include <mach//a64.h>
+#include <mach/a64.h>
 
 #include <asm/page.h>
 #include <asm/time.h>
@@ -65,14 +65,7 @@ void ll_gpio_set(int pin, int value) {
 	sun50i_gpio_set(pin, value);
 }
 
-static struct map_desc sunxi_io_desc[] __initdata = {
-	{
-		.virtual = 	SUNXI_UART0_VIRT,
-		.pfn = __phys_to_pfn(SUNXI_UART0_PHYS),
-		.length = SZ_4K,
-		.type = MT_DEVICE,
-	},
-};
+
 
 static void __init sun50i_ll_gpio_init(void) {
 	membase_gpio = ioremap(SUNXI_GPIO_CTRL_REG_PHYS, SUNXI_GPIO_REGS_SIZE);
@@ -80,8 +73,6 @@ static void __init sun50i_ll_gpio_init(void) {
 }
 
 static void __init sun50i_map_io(void) {
-	iotable_init(sunxi_io_desc, ARRAY_SIZE(sunxi_io_desc));
-
 	sun50i_ll_gpio_init();
 }
 

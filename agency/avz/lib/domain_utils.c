@@ -66,15 +66,12 @@ void loadAgency(void)
 void loadME(unsigned int slotID, uint8_t *img, dtb_feat_t *dtb_feat) {
 	u32 realtime;
 	void *ME_vaddr;
-	size_t size, fdt_size, initrd_size;
-	void *fdt_vaddr, *initrd_vaddr;
+	size_t size, fdt_size;
+	void *fdt_vaddr;
 	void *dest_ME_vaddr;
 	int section_nr;
 	uint32_t current_pgtable_paddr;
 	uint32_t *pgtable_from;
-	uint32_t initrd_start, initrd_end;
-	int nodeoffset;
-	int ret;
 
 	/* Pick the current pgtable from the agency and copy the PTEs corresponding to the user space region. */
 	current_pgtable_paddr = cpu_get_pgd_phys();
@@ -93,9 +90,6 @@ void loadME(unsigned int slotID, uint8_t *img, dtb_feat_t *dtb_feat) {
 	/* Get the associated device tree. */
 	fit_image_get_data_and_size(img, fit_image_get_node(img, "fdt"), (const void **) &fdt_vaddr, &fdt_size);
 
-	/* Get the initrd if any. */
-	ret = fit_image_get_data_and_size(img, fit_image_get_node(img, "ramdisk"), (const void **) &initrd_vaddr, &initrd_size);
-
 	dest_ME_vaddr = (void *) __lva(memslot[slotID].base_paddr);
 
 	dest_ME_vaddr += L_TEXT_OFFSET;
@@ -110,28 +104,6 @@ void loadME(unsigned int slotID, uint8_t *img, dtb_feat_t *dtb_feat) {
 
 	memcpy((void *) __lva(memslot[slotID].fdt_paddr), fdt_vaddr, fdt_size);
 
-	/* We put then the initrd (if any) right under the device tree. */
-
-	if (ret == 0) {
-		/* Expand the device tree */
-		fdt_open_into((void *) __lva(memslot[slotID].fdt_paddr), (void *) __lva(memslot[slotID].fdt_paddr), fdt_size+128);
-
-		/* find or create "/chosen" node. */
-		nodeoffset = fdt_find_or_add_subnode((void *) __lva(memslot[slotID].fdt_paddr), 0, "chosen");
-		BUG_ON(nodeoffset < 0);
-
-		initrd_start = memslot[slotID].fdt_paddr - initrd_size;
-		initrd_start = ALIGN_DOWN(initrd_start, PAGE_SIZE);
-		initrd_end = initrd_start + initrd_size;
-
-		ret = fdt_setprop_u32((void *) __lva(memslot[slotID].fdt_paddr), nodeoffset, "linux,initrd-start", (uint32_t) initrd_start);
-		BUG_ON(ret != 0);
-
-		ret = fdt_setprop_u32((void *) __lva(memslot[slotID].fdt_paddr), nodeoffset, "linux,initrd-end", (uint32_t) initrd_end);
-		BUG_ON(ret != 0);
-
-		memcpy((void *) __lva(initrd_start), initrd_vaddr, initrd_size);
-	}
 	realtime = fdt_getprop_u32_default((const void *) __lva(memslot[slotID].fdt_paddr), "/ME/features", "realtime", 0);
 
 	dtb_feat->realtime = ((realtime == 1) ? true : false);
