@@ -26,6 +26,7 @@
 #include <heap.h>
 #include <list.h>
 #include <schedule.h>
+#include <errno.h>
 
 #include <device/irq.h>
 
@@ -36,7 +37,7 @@
 #include <soo/console.h>
 #include <soo/debug/logbool.h>
 
-#define MAX_PENDING_UEVENT		10
+#define MAX_PENDING_UEVENT 	10
 
 /*
  * Used to keep track of the target domain for a certain (outgoing) dc_event.
@@ -67,8 +68,6 @@ void dc_stable(int dc_event)
 	/* It may happen that the thread which performs the down did not have time to perform the call and is not suspended.
 	 * In this case, complete() will increment the count and wait_for_completion() will go straightforward.
 	 */
-	atomic_set(&dc_outgoing_domID[dc_event], -1);
-	atomic_set(&dc_incoming_domID[dc_event], -1);
 
 	complete(&dc_stable_lock[dc_event]);
 }
@@ -92,7 +91,8 @@ void do_sync_dom(int domID, dc_event_t dc_event)
 	DBG("%s: ping domain %d...\n", __func__, domID);
 
 	/* Make sure a previous transaction is not ongoing. */
-	while (atomic_cmpxchg(&dc_outgoing_domID[dc_event], -1, domID) != -1) ;
+	while (atomic_cmpxchg(&dc_outgoing_domID[dc_event], -1, domID) != -1)
+		schedule();
 
 	set_dc_event(domID, dc_event);
 
@@ -100,6 +100,9 @@ void do_sync_dom(int domID, dc_event_t dc_event)
 
 	/* Wait for the response from the outgoing domain */
 	wait_for_completion(&dc_stable_lock[dc_event]);
+
+	/* Now, reset the barrier. */
+	atomic_set(&dc_outgoing_domID[dc_event], -1);
 }
 
 /*
@@ -141,9 +144,9 @@ int set_dc_event(unsigned int domID, dc_event_t dc_event)
 	dc_event_args.dc_event = dc_event;
 
 	rc = soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
-	if (rc != 0) {
-		printk("%s: Failed to set directcomm event from hypervisor (%d)\n", __func__, rc);
-		BUG();
+	while (rc == -EBUSY) {
+		schedule();
+		rc = soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
 	}
 
 	return 0;

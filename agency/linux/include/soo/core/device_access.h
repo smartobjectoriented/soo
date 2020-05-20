@@ -23,6 +23,7 @@
 #include <linux/device.h>
 
 #include <soo/uapi/soo.h>
+#include <soo/uapi/console.h>
 
 extern uint8_t devcaps_class[DEVCAPS_CLASS_NR];
 
@@ -69,5 +70,22 @@ ssize_t agencyUID_show(struct device *dev, struct device_attribute *attr, char *
 ssize_t agencyUID_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size);
 ssize_t soo_name_show(struct device *dev, struct device_attribute *attr, char *buf);
 ssize_t soo_name_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size);
+
+/* Helper function to compare agencyUID */
+static inline int cmpUID(agencyUID_t *u1, agencyUID_t *u2) {
+	return memcmp(u1, u2, SOO_AGENCY_UID_SIZE);
+}
+
+/* Helper function to display agencyUID */
+static inline void printUID(agencyUID_t *uid) {
+	/* Normally, the length of agencyUID is SOO_AGENCY_UID_SIZE bytes, but we display less. */
+	lprintk_buffer(uid, 5);
+}
+
+/* Helper function to display agencyUID */
+static inline void printlnUID(agencyUID_t *uid) {
+	printUID(uid);
+	lprintk("\n");
+}
 
 #endif /* DEVICE_ACCESS_H */

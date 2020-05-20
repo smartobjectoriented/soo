@@ -101,7 +101,10 @@ static struct file *__alloc_file(int flags, const struct cred *cred)
 	if (unlikely(!f))
 		return ERR_PTR(-ENOMEM);
 
-	f->f_cred = get_cred(cred);
+	/* SOO.tech */
+	if (smp_processor_id() == AGENCY_CPU)
+		f->f_cred = get_cred(cred);
+
 	error = security_file_alloc(f);
 	if (unlikely(error)) {
 		file_free_rcu(&f->f_u.fu_rcuhead);

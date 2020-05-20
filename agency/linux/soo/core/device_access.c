@@ -91,13 +91,15 @@ unsigned int devaccess_get_upgrade_ME_slotID(void) {
 }
 
 void devaccess_store_upgrade_addr(uint32_t buffer_pfn, uint32_t buffer_size) {
-    //printk("Storing upgrade image: pfn %u, size %u\n", buffer_pfn, buffer_size);
+
     upgrade_buffer_pfn = buffer_pfn;
     upgrade_buffer_size = buffer_size;
 }
 
 void devaccess_store_upgrade(uint32_t buffer_pfn, uint32_t buffer_size, unsigned int ME_slotID) {
+
     printk("Storing upgrade image: pfn %u, size %u, slot %d\n", buffer_pfn, buffer_size, ME_slotID);
+
     upgrade_buffer_pfn = buffer_pfn;
     upgrade_buffer_size = buffer_size;
     upgrade_ME_slotID = ME_slotID;
@@ -225,8 +227,8 @@ void set_agencyUID(uint8_t val) {
 void devaccess_init(void) {
 	init_agencyUID();
 
-    upgrade_buffer_pfn = 0;
-    upgrade_buffer_size = 0;
+	upgrade_buffer_pfn = 0;
+	upgrade_buffer_size = 0;
 
 	/* Initialize the device capabilities bitmap */
 	memset(devcaps_class, 0, DEVCAPS_CLASS_NR);

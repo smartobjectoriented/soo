@@ -1038,8 +1038,8 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	case DC_SL_TCP_RECV:
 	case DC_SL_BT_SEND:
 	case DC_SL_BT_RECV:
-	case DC_SL_LO_SEND:
-	case DC_SL_LO_RECV:
+	case DC_SL_LOOP_SEND:
+	case DC_SL_LOOP_RECV:
 
 	case DC_PLUGIN_WLAN_SEND:
 	case DC_PLUGIN_ETHERNET_SEND:

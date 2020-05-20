@@ -199,6 +199,9 @@ struct tee_shm {
 	int id;
 };
 
+/* SOO.tech */
+extern struct optee *optee_svc;
+
 /**
  * struct tee_shm_pool_mgr - shared memory manager
  * @ops:		operations
@@ -538,13 +541,5 @@ int tee_client_close_session(struct tee_context *ctx, u32 session);
 int tee_client_invoke_func(struct tee_context *ctx,
 			   struct tee_ioctl_invoke_arg *arg,
 			   struct tee_param *param);
-
-
-/**
- * tee_get_shm_size() - Return the size of the shared memory
- *
- * Returns the size of the shared memory
- */
-size_t tee_get_shm_size(void);
 
 #endif /*__TEE_DRV_H*/

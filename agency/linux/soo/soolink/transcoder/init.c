@@ -29,20 +29,3 @@ void transcoder_init(void) {
 	coder_init();
 	decoder_init();
 }
-
-/*
- * Initiate a netstream with neighbours.
- */
-void transcoder_stream_init(sl_desc_t *sl_desc) {
-	/* Ask the transcoder to deactivate the Discovery */
-	discovery_disable();
-
-	/* Initiate the netstream. Now or soon, we will become speaker. In the meanwhile, we will
-	 * be designated as listener.
-	 */
-	sender_request_xmit(sl_desc);
-}
-
-void transcoder_stream_terminate(sl_desc_t *sl_desc) {
-	sender_request_xmit(sl_desc);
-}

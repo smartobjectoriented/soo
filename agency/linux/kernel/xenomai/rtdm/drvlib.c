@@ -74,15 +74,15 @@ nanosecs_abs_t rtdm_clock_read(void);
  */
 
 struct args_task_create {
-	rtdm_task_t *task;
-	const char *name;
+	rtdm_task_t * volatile task;
+	const char * volatile name;
 	rtdm_task_proc_t task_proc;
-	void *arg;
+	void * volatile arg;
 	int priority;
 	nanosecs_rel_t period;
 };
 
-static struct args_task_create args_task_create;
+static volatile struct args_task_create args_task_create;
 
 /**
  * @brief Initialise and start a real-time task
@@ -690,8 +690,14 @@ void rtdm_event_init(rtdm_event_t *event, unsigned long pending)
 	xnlock_get_irqsave(&nklock, s);
 
 	xnsynch_init(&event->synch_base, XNSYNCH_PRIO, NULL);
-	if (pending)
+
+	/* SOO.tech */
+	if (pending) {
 		xnsynch_set_status(&event->synch_base, RTDM_EVENT_PENDING);
+		event->synch_base.occurrence = pending;
+	} else
+		event->synch_base.occurrence = 0;
+
 	xnselect_init(&event->select_block);
 
 	xnlock_put_irqrestore(&nklock, s);
@@ -743,6 +749,15 @@ EXPORT_SYMBOL_GPL(rtdm_event_pulse);
  *
  * @coretags{unrestricted, might-switch}
  */
+
+/* SOO.tech */
+
+/*
+ * We added the notion of event occurrence which can be multiple.
+ * In case of multiple occurrences, each call to rtdm_event_wait() will
+ * decrement one occurrence at a time. In that sense, it is pretty
+ * similar to a realtime completion structure.
+ */
 void rtdm_event_signal(rtdm_event_t *event)
 {
 	int resched = 0;
@@ -753,6 +768,10 @@ void rtdm_event_signal(rtdm_event_t *event)
 	xnlock_get_irqsave(&nklock, s);
 
 	xnsynch_set_status(&event->synch_base, RTDM_EVENT_PENDING);
+
+	/* SOO.tech */
+	event->synch_base.occurrence++;
+
 	if (xnsynch_flush(&event->synch_base, 0))
 		resched = 1;
 	if (xnselect_signal(&event->select_block, 1))
@@ -840,8 +859,15 @@ int rtdm_event_timedwait(rtdm_event_t *event, nanosecs_rel_t timeout,
 	if (unlikely(event->synch_base.status & RTDM_SYNCH_DELETED))
 		err = -EIDRM;
 	else if (likely(event->synch_base.status & RTDM_EVENT_PENDING)) {
-		xnsynch_clear_status(&event->synch_base, RTDM_EVENT_PENDING);
-		xnselect_signal(&event->select_block, 0);
+
+		/* SOO.tech */
+		event->synch_base.occurrence--;
+
+		if (event->synch_base.occurrence == 0) {
+			xnsynch_clear_status(&event->synch_base, RTDM_EVENT_PENDING);
+			xnselect_signal(&event->select_block, 0);
+		}
+
 	} else {
 		/* non-blocking mode */
 		if (timeout < 0) {
@@ -860,9 +886,16 @@ int rtdm_event_timedwait(rtdm_event_t *event, nanosecs_rel_t timeout,
 			ret = xnsynch_sleep_on(&event->synch_base, timeout, XN_RELATIVE);
 
 		if (likely(ret == 0)) {
-			xnsynch_clear_status(&event->synch_base,
-					    RTDM_EVENT_PENDING);
-			xnselect_signal(&event->select_block, 0);
+
+			/* SOO.tech */
+			event->synch_base.occurrence--;
+
+			if (event->synch_base.occurrence == 0) {
+				xnsynch_clear_status(&event->synch_base,
+						RTDM_EVENT_PENDING);
+				xnselect_signal(&event->select_block, 0);
+			}
+
 		} else if (ret & XNTIMEO)
 			err = -ETIMEDOUT;
 		else if (ret & XNRMID)
@@ -893,6 +926,11 @@ void rtdm_event_clear(rtdm_event_t *event)
 	trace_cobalt_driver_event_clear(event);
 
 	xnlock_get_irqsave(&nklock, s);
+
+	/* SOO.tech */
+	/* We clear the number of occurrence of this event. */
+
+	event->synch_base.occurrence = 0;
 
 	xnsynch_clear_status(&event->synch_base, RTDM_EVENT_PENDING);
 	xnselect_signal(&event->select_block, 0);

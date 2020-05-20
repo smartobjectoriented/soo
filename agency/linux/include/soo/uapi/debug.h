@@ -27,16 +27,7 @@
 
 #ifdef __KERNEL__
 
-#if !defined(CONFIG_SOO_AGENCY) && !defined(CONFIG_SOO_ME)
-#define lprintk printk
-#define lprintk_buffer printk_buffer
-#else
 #include <soo/uapi/console.h>
-#endif
-
-#else
-
-#include <stdio.h>
 
 #endif /* __KERNEL__ */
 

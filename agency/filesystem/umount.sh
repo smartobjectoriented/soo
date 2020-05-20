@@ -10,7 +10,12 @@ if [ "$PLATFORM" == "" ]; then
     PLATFORM=$1
 fi
 
+sleep 1
+
 sudo umount fs
+
+# Let the filesystem be synchronized
+sleep 1
 
 if [ "$PLATFORM" == "vexpress" -o "$PLATFORM" == "merida" ]; then
     sudo losetup -D

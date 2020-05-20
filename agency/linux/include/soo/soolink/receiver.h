@@ -25,7 +25,7 @@
 #include <soo/soolink/transceiver.h>
 #include <soo/soolink/plugin.h>
 
-void receiver_request_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
+void __receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
 void receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
 
 void receiver_init(void);

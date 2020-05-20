@@ -1,4 +1,5 @@
-#!bin/bash
+
+# This script is sourced by initd script
 
 export WIFI_SSID="soo-domotics"
 export WIFI_CHANNEL=40
