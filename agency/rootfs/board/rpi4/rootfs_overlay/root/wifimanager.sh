@@ -3,13 +3,6 @@
 DEFAULT_CHANNEL=36
 DEFAULT_SSID="soo-wifi"
 
-SOO_CONF_FILE="/etc/soo/soo.conf"
-
-if [[ -f ${SOO_CONF_FILE} ]]
-then
-    source ${SOO_CONF_FILE}
-fi
-
 if [[ -n ${WIFI_SSID} ]]
 then
     SSID=${WIFI_SSID}

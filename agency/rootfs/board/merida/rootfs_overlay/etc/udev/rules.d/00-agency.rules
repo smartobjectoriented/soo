@@ -1,2 +1,0 @@
-ACTION=="add", SUBSYSTEM=="net", KERNEL=="mlan0", RUN+="/root/agency.sh"
-
