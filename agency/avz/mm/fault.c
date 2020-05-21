@@ -70,11 +70,9 @@ void __warn(char *file, int line)
 	dump_execution_state();
 }
 
-void __fault_trap(uint32_t far, uint32_t fsr) {
+void __fault_trap(uint32_t far, uint32_t fsr, uint32_t lr) {
 
-	printk("### %s: possible far: %x fsr: %x\n", __func__, far, fsr);
-
-	debugger_trap_immediate();
+	printk("### %s details are far: %x fsr: %x lr(r14)-8: %x ###\n", __func__, far, fsr, lr-8);
 
 	machine_halt();
 }

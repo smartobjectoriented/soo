@@ -53,6 +53,8 @@ typedef struct {
 
 #define VUIHANDLER_BEACON	0
 #define VUIHANDLER_DATA		1
+#define VUIHANDLER_ME_INJECT	2
+#define VUIHANDLER_ME_SIZE	3
 
 #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
 
@@ -86,6 +88,7 @@ typedef struct {
 } vuihandler_connected_app_t;
 
 bool vuihandler_ready(void);
+
 void vuihandler_open_rfcomm(pid_t pid);
 
 void vuihandler_sl_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size);
