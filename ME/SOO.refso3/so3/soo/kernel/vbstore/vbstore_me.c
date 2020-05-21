@@ -221,12 +221,6 @@ void remove_vbstore_entries(void) {
 		vbstore_dev_remove(ME_domID(), "vuihandler");
 	}
 
-	fdt_node = fdt_find_compatible_node("vnetstream,frontend");
-	if (fdt_device_is_available(fdt_node)) {
-		DBG("%s: Removing vNetstream from vbstore...\n", __func__);
-		vbstore_dev_remove(ME_domID(), "vnetstream");
-	}
-
 	fdt_node = fdt_find_compatible_node("vuart,frontend");
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: removing vuart from vbstore...\n", __func__);
@@ -249,12 +243,6 @@ void remove_vbstore_entries(void) {
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: removing vdummy from vbstore...\n", __func__);
 		vbstore_dev_remove(ME_domID(), "vdummy");
-	}
-
-	fdt_node = fdt_find_compatible_node("vdummyrt,frontend");
-	if (fdt_device_is_available(fdt_node)) {
-		DBG("%s: removing vdummyrt from vbstore...\n", __func__);
-		vbstore_dev_remove(ME_domID(), "vdummyrt");
 	}
 }
 
@@ -284,12 +272,6 @@ void vbstore_devices_populate(void) {
 		vbstore_dev_init(ME_domID(), "vuihandler", false);
 	}
 
-	fdt_node = fdt_find_compatible_node("vnetstream,frontend");
-	if (fdt_device_is_available(fdt_node)) {
-		DBG("%s: Init vNetstream...\n", __func__);
-		vbstore_dev_init(ME_domID(), "vnetstream", false);
-	}
-
 	fdt_node = fdt_find_compatible_node("vuart,frontend");
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: init vuart...\n", __func__);
@@ -308,11 +290,6 @@ void vbstore_devices_populate(void) {
 		vbstore_dev_init(ME_domID(), "vdoga12v6nm", false);
 	}
 
-	fdt_node = fdt_find_compatible_node("vdummyrt,frontend");
-	if (fdt_device_is_available(fdt_node)) {
-		DBG("%s: init vdummyrt...\n", __func__);
-		vbstore_dev_init(ME_domID(), "vdummyrt", false);
-	}
 }
 
 void vbstore_trigger_dev_probe(void) {

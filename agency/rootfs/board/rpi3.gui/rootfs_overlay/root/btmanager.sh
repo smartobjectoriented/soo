@@ -10,6 +10,8 @@ hciattach ${BT_TTY} bcm2035 3000000 flow - ${BDADDR}
 
 DEFAULT_HCI_NAME="soo-bt"
 
+SOO_CONF_FILE="/etc/soo/soo.conf"
+
 if [[ -f ${SOO_CONF_FILE} ]]
 then
     source ${SOO_CONF_FILE}

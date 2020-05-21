@@ -44,6 +44,8 @@ DEFAULT_CHANNEL=36
 DEFAULT_BANDWIDTH="HT40+"
 DEFAULT_SSID="soo-wifi"
 
+SOO_CONF_FILE="/etc/soo/soo.conf"
+
 if [[ -f ${SOO_CONF_FILE} ]]
 then
     source ${SOO_CONF_FILE}

@@ -29,20 +29,17 @@ else
     HCI_NAME=${DEFAULT_HCI_NAME}
 fi
 
-/usr/libexec/bluetooth/bluetoothd --compat &
+/usr/sbin/bluetoothd &
 
 hciconfig hci0 up
 # Secure Simple Pairing Mode
-#hciconfig hci0 sspmode 1
+hciconfig hci0 sspmode 1
 # Discoverable
 hciconfig hci0 piscan
 hciconfig hci0 class 001101
 hciconfig hci0 name ${HCI_NAME}
 # Serial Port
 sdptool add SP
-
-bt-agent -c NoInputNoOutput -d
-
 
 # Launch a dumy hciconfig pinger to detect Bluetooth freezes
 /root/hciping.sh &
@@ -53,5 +50,5 @@ do
     killall -9 rfcomm > /dev/null 2>&1
     rfcomm release all
     # Watch for RFCOMM connections
-    rfcomm -r watch hci0
+    rfcomm -r watch 1
 done
