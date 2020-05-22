@@ -79,7 +79,6 @@ bool ME_processing_send(unsigned int ME_slotID) {
 	if (ioctl(fd_dcm, DCM_IOCTL_NEIGHBOUR_COUNT, 0) == 0)
 		/* Nothing to send */
 		return false;
-	}
 
 	DBG("Send ME %d, slotID=%d\n", ME_slotID, ME_slotID);
 
