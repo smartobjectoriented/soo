@@ -25,7 +25,7 @@
 #define SOO_BOOT_PART		"/mnt/boot/"
 #define SOO_ROOTFS_P2 		"/mnt/rootfs1/"
 #define SOO_ROOTFS_P4 		"/mnt/rootfs2/"
-#define ROOT_PATH 			"/root/"
+#define ROOT_PATH 		"/root/"
 
 #define ROOTFS1_PART		'2'
 #define ROOTFS2_PART		'4'
