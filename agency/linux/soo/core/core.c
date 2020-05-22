@@ -593,33 +593,6 @@ static int ioctl_finalize_migration(unsigned long arg) {
 	return 0;
 }
 
-/**
- * Initiate the injection of a ME.
- */
-static int ioctl_inject_ME(unsigned long arg) {
-	agency_tx_args_t args;
-
-	if (copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	DBG("Original contents at address: 0x%08x\n", (unsigned int) args.buffer);
-
-	/* We use paddr1 to pass virtual address of the crc32 */
-	if (soo_hypercall(AVZ_INJECT_ME, args.buffer, NULL, &args.ME_slotID, NULL) < 0) {
-		lprintk("Agency: %s:%d Failed to finalize migration.\n", __func__, __LINE__);
-		BUG();
-	}
-
-	if ((copy_to_user((void *) arg, &args, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	return 0;
-}
-
 static int ioctl_get_upgrade_image(unsigned long arg) {
 	upgrader_ioctl_recv_args_t args;
 
@@ -943,8 +916,6 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		injector_retrieve_ME(arg);
 		break;
 	
-	
-
 	default:
 		lprintk("%s: Unrecognized IOCTL: 0x%x\n", __func__, cmd);
 		rc = -EINVAL;

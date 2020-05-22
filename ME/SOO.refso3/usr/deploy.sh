@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # Deploy usr apps into the first partition
