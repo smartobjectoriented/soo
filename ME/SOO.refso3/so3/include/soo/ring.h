@@ -124,7 +124,7 @@ RING_PUSH_REQUESTS(__name##_front_ring);								\
 }													\
 													\
 static inline __rsp_t *__name##_ring_response_next(__name##_front_ring_t *__name##_front_ring) {	\
-	if (__name##_front_ring->sring->req_cons == __name##_front_ring->sring->rsp_prod)		\
+	if (__name##_front_ring->sring->rsp_cons == __name##_front_ring->sring->rsp_prod)		\
 		return NULL;										\
 else													\
 	return RING_GET_RESPONSE(__name##_front_ring, __name##_front_ring->sring->rsp_cons++);		\
