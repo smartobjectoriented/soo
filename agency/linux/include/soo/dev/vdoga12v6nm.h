@@ -64,4 +64,48 @@ DEFINE_RING_TYPES(vdoga12v6nm_cmd, vdoga12v6nm_cmd_request_t, vdoga12v6nm_cmd_re
 /* GPIO polling period expressed in ms */
 #define GPIO_POLL_PERIOD	100
 
+typedef struct {
+
+	vdoga12v6nm_cmd_back_ring_t ring;
+	unsigned int	irq;
+
+} vdoga12v6nm_cmd_ring_t;
+
+typedef struct {
+	unsigned int	irq;
+} vdoga12v6nm_notification_t;
+
+typedef struct {
+
+	struct vbus_device *vdev[MAX_DOMAINS];
+
+	vdoga12v6nm_cmd_ring_t		cmd_rings[MAX_DOMAINS];
+
+	vdoga12v6nm_notification_t	up_notifications[MAX_DOMAINS];
+	vdoga12v6nm_notification_t	down_notifications[MAX_DOMAINS];
+
+} vdoga12v6nm_t;
+
+extern vdoga12v6nm_t vdoga12v6nm;
+
+/* ISRs associated to the ring and notifications */
+irqreturn_t vdoga12v6nm_cmd_interrupt(int irq, void *dev_id);
+irqreturn_t vdoga12v6nm_up_interrupt(int irq, void *dev_id);
+irqreturn_t vdoga12v6nm_down_interrupt(int irq, void *dev_id);
+
+/* State management */
+void vdoga12v6nm_probe(struct vbus_device *dev);
+void vdoga12v6nm_close(struct vbus_device *dev);
+void vdoga12v6nm_suspend(struct vbus_device *dev);
+void vdoga12v6nm_resume(struct vbus_device *dev);
+void vdoga12v6nm_connected(struct vbus_device *dev);
+void vdoga12v6nm_reconfigured(struct vbus_device *dev);
+void vdoga12v6nm_shutdown(struct vbus_device *dev);
+
+void vdoga12v6nm_vbus_init(void);
+
+bool vdoga12v6nm_start(domid_t domid);
+void vdoga12v6nm_end(domid_t domid);
+bool vdoga12v6nm_is_connected(domid_t domid);
+
 #endif /* VDOGA12V6NM_H */

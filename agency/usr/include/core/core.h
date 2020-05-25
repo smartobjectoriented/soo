@@ -29,7 +29,7 @@
 
 #define SOO_CORE_DEVICE		"/dev/soo/core"
 
-extern int fd_migration;
+extern int fd_core;
 extern int fd_dcm;
 
 /* Arguments of the agency application */

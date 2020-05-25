@@ -44,6 +44,7 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 #include <soo/uapi/soo.h>
+#include <soo/uapi/injector.h>
 
 size_t ME_size;
 
@@ -58,6 +59,33 @@ bool full = false;
 
 static wait_queue_head_t *wq_cons;
 static wait_queue_head_t *wq_prod;
+
+/**
+ * Initiate the injection of a ME.
+ */
+int ioctl_inject_ME(unsigned long arg) {
+	agency_tx_args_t args;
+
+	if (copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) {
+		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
+		BUG();
+	}
+
+	DBG("Original contents at address: 0x%08x\n", (unsigned int) args.buffer);
+
+	/* We use paddr1 to pass virtual address of the crc32 */
+	if (soo_hypercall(AVZ_INJECT_ME, args.buffer, NULL, &args.ME_slotID, NULL) < 0) {
+		lprintk("Agency: %s:%d Failed to finalize migration.\n", __func__, __LINE__);
+		BUG();
+	}
+
+	if ((copy_to_user((void *) arg, &args, sizeof(agency_tx_args_t))) != 0) {
+		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
+		BUG();
+	}
+
+	return 0;
+}
 
 
 /**
@@ -125,13 +153,6 @@ void injector_clean_ME(void) {
 
 void injector_retrieve_ME(unsigned long arg) {
 	injector_ioctl_recv_args_t args;
-
-	/* Check if an ME is present */
-	// if (ME_size == 0 || (current_size != ME_size)) {
-	// 	args.ME_data = NULL;
-	// 	args.size = 0;
-	// 	return;
-	// }
 
 	args.ME_data = ME_buffer;
 	args.size = ME_size;

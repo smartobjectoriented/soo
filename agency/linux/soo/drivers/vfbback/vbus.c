@@ -21,14 +21,14 @@
 #define DEBUG
 #endif
 
-#include <soo/evtchn.h>
 #include <linux/slab.h>
 
+#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/uapi/debug.h>
 
-#include "common.h"
+#include <soo/dev/vfb.h>
 
 /* Protection against shutdown (or other) */
 static struct mutex processing_lock[MAX_DOMAINS];
@@ -151,7 +151,7 @@ static void setup_sring(struct vbus_device *dev) {
 
 	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
 
-	res = bind_interdomain_evtchn_to_irqhandler(dev->otherend_id, evtchn, vfb_interrupt, NULL, 0, VFB_NAME "-backend", dev);
+	res = bind_interdomain_evtchn_to_virqhandler(dev->otherend_id, evtchn, vfb_interrupt, NULL, 0, VFB_NAME "-backend", dev);
 	BUG_ON(res < 0);
 
 	vfb.data[dev->otherend_id].irq = res;

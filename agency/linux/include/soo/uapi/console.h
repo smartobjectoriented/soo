@@ -30,6 +30,8 @@
 
 struct pt_regs;
 
+void lprintch(char c);
+
 void avzcons_rx(char *buf, unsigned len, struct pt_regs *regs);
 void avzcons_tx(void);
 

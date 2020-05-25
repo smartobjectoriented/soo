@@ -46,9 +46,11 @@
 #include <dcm/core.h>
 #include <injector/core.h>
 
+#ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>
+#endif
 
-int fd_migration;
+int fd_core;
 
 /**
  * Set the personality.
@@ -59,7 +61,7 @@ static int set_personality(soo_personality_t personality) {
 
 	args.value = (int) personality;
 
-	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_SET_PERSONALITY, &args)) < 0) {
+	if ((rc = ioctl(fd_core, AGENCY_IOCTL_SET_PERSONALITY, &args)) < 0) {
 		printf("Failed to set personality (%d)\n", rc);
 		BUG();
 	}
@@ -70,7 +72,7 @@ static int set_personality(soo_personality_t personality) {
 int get_personality(void) {
 	struct agency_tx_args args;
 
-	if (ioctl(fd_migration, AGENCY_IOCTL_GET_PERSONALITY, &args) < 0) {
+	if (ioctl(fd_core, AGENCY_IOCTL_GET_PERSONALITY, &args) < 0) {
 		printf("Failed to set personality.\n");
 		BUG();
 	}
@@ -100,7 +102,7 @@ int initialize_migration(unsigned int ME_slotID) {
 
 	args.ME_slotID = ME_slotID;
 
-	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_INIT_MIGRATION, &args)) < 0) {
+	if ((rc = ioctl(fd_core, AGENCY_IOCTL_INIT_MIGRATION, &args)) < 0) {
 		printf("Failed to initialize migration (%d)\n", rc);
 		BUG();
 	}
@@ -117,7 +119,7 @@ int get_ME_free_slot(size_t ME_size) {
 
 	args.value = ME_size;
 
-	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_GET_ME_FREE_SLOT, &args)) < 0) {
+	if ((rc = ioctl(fd_core, AGENCY_IOCTL_GET_ME_FREE_SLOT, &args)) < 0) {
 		printf("Failed to get ME slot (%d)\n", rc);
 		BUG();
 	}
@@ -137,7 +139,7 @@ int get_ME_desc(unsigned int ME_slotID, ME_desc_t *ME_desc) {
 	args.ME_slotID = ME_slotID;
 	args.buffer = (unsigned char *) ME_desc;
 
-	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_GET_ME_DESC, &args)) < 0) {
+	if ((rc = ioctl(fd_core, AGENCY_IOCTL_GET_ME_DESC, &args)) < 0) {
 		printf("Failed to get ME desc (%d)\n", rc);
 		BUG();
 	}
@@ -156,7 +158,7 @@ void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size) {
 
 	args.ME_slotID = slotID;
 
-	if ((ioctl(fd_migration, AGENCY_IOCTL_READ_SNAPSHOT, &args)) < 0) {
+	if ((ioctl(fd_core, AGENCY_IOCTL_READ_SNAPSHOT, &args)) < 0) {
 		printf("%s: (ioctl) Failed to read the ME snapshot.\n", __func__);
 		BUG();
 	}
@@ -178,7 +180,7 @@ void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer) {
 	args.ME_slotID = slotID;
 	args.buffer = ME_buffer;
 
-	if (ioctl(fd_migration, AGENCY_IOCTL_WRITE_SNAPSHOT, &args) < 0) {
+	if (ioctl(fd_core, AGENCY_IOCTL_WRITE_SNAPSHOT, &args) < 0) {
 		printf("%s: (ioctl) failed to write snapshot.\n", __func__);
 		BUG();
 	}
@@ -196,7 +198,7 @@ int finalize_migration(unsigned int slotID) {
 
 	args.ME_slotID = slotID;
 
-	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_FINAL_MIGRATION, &args)) < 0) {
+	if ((rc = ioctl(fd_core, AGENCY_IOCTL_FINAL_MIGRATION, &args)) < 0) {
 		printf("Failed to initialize migration (%d)\n", rc);
 		BUG();
 	}
@@ -223,7 +225,9 @@ long long get_system_time(void) {
 void main_loop(int cycle_period) {
 	static unsigned int mig_count = 1;
 	bool available_ME = false;
+#ifdef WITH_LED_ACTIVITIES
 	uint32_t i;
+#endif
 
 	while (!ag_cycle_interrupted) {
 		DBG("* Migration Cycle %d *\n", mig_count);
@@ -254,8 +258,10 @@ void main_loop(int cycle_period) {
 		mig_count++;
 	}
 
+#ifdef WITH_LED_ACTIVITIES
 	for (i = 0 ; i < SOO_N_LEDS ; i++)
 		led_off(i + 1);
+#endif
 
 	printf("SOO Agency core application: end\n");
 
@@ -267,8 +273,8 @@ void main_loop(int cycle_period) {
  */
 void migration_init(void) {
 	/* Open the migration SOO device */
-	if ((fd_migration = open(SOO_CORE_DEVICE, O_RDWR)) < 0) {
-		printf("Failed to open device: " SOO_CORE_DEVICE " (%d)\n", fd_migration);
+	if ((fd_core = open(SOO_CORE_DEVICE, O_RDWR)) < 0) {
+		printf("Failed to open device: " SOO_CORE_DEVICE " (%d)\n", fd_core);
 		BUG();
 	}
 }

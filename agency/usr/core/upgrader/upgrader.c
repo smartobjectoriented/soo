@@ -156,7 +156,7 @@ static bool is_upgrade_present(upgrader_args_t *args) {
  }
 
 /**
- * Map the upgarde image from the kernel space and decompress it.
+ * Map the upgrade image from the kernel space and decompress it.
  * 
  * Params:
  * 	args [IN/OUT]: Contains the information about the upgarde. After this function,
@@ -259,6 +259,7 @@ static void finish_upgrade(upgrader_args_t *args) {
  * done by the ME.
  * 
  */
+#warning To replace polling mechanism with a blocking sync...
 void *upgrade_poll_fct(void *param) {
 	/* We use these ioctl args to pass information between the different steps */
 	upgrader_args_t args;
@@ -277,15 +278,12 @@ void *upgrade_poll_fct(void *param) {
 	return NULL;
 }
 
+/*
+ * Initializing the upgrader functional block.
+ * The general fd_core descriptor will be used to handle IOCTL requests.
+ */
 void upgrader_init(void) {
 	upgrade_versions_args_t args;
-	pthread_t th1;
-
-	/* Open the migration SOO device */
-	if ((fd_core = open(SOO_CORE_DEVICE, O_RDWR)) < 0) {
-		printf("Failed to open device: " SOO_CORE_DEVICE " (%d)\n", fd_core);
-		BUG();
-	}
 
 	/* Reads the agency version numbers from the JSON and store them in VBStore */
 	read_version_number_json(&args);
@@ -294,5 +292,8 @@ void upgrader_init(void) {
 		BUG();
 	}
 
-	pthread_create (&th1, NULL, upgrade_poll_fct, NULL);
+#warning Upgrader.. To be reworked out with a non-polling mechanism
+#if 0
+	pthread_create(&th1, NULL, upgrade_poll_fct, NULL);
+#endif
 }

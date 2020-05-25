@@ -48,7 +48,6 @@
 #include <linux/of.h>
 
 #include <soo/core/device_access.h>
-#include <soo/uapi/injector.h>
 
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
@@ -60,7 +59,7 @@
 
 #include <soo/soolink/soolink.h>
 
-#include "common.h"
+#include <soo/dev/vuihandler.h>
 
 /*
  * vuiHandler is dedicated to manage interactions between a (external) tablet/smartphone and the components
@@ -302,7 +301,7 @@ static void recv_beacon(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_
 		return ;
 	}
 
-	/* Explicit connexion command */
+	/* Explicit disconnection command */
 	if (vuihandler_pkt->payload[0] == 'C') {
 		DBG0(VUIHANDLER_PREFIX "Connect beacon\n");
 
@@ -362,36 +361,10 @@ static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, si
 	recv_count++;
 }
 
-static int count = 0;
-
 void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
 	size_t size;
 	int me_id;
-	uint8_t *ME_pkt_payload;
 
-
-	// printk("TYPE: %d, SIZE %d\n", vuihandler_pkt->type, vuihandler_pkt_size);
-	// printk("cnt: %d\n", count++);
-
-	if (vuihandler_pkt->type == VUIHANDLER_ME_SIZE) {
-		count = 0;
-		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
-
-		printk("ME size: %u\n", *((uint32_t *)(ME_pkt_payload+1)));
-		
-
-		injector_prepare(*((uint32_t *)(ME_pkt_payload+1)));
-		return;
-	}
-
-	if (vuihandler_pkt->type == VUIHANDLER_ME_INJECT) {
-
-		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
-
-		injector_receive_ME((void *)(ME_pkt_payload+1), vuihandler_pkt_size-1);
-		return ;
-	}
-	
 	if (vuihandler_pkt->type == VUIHANDLER_BEACON) {
 		/* This is a vUIHandler beacon */
 		recv_beacon(vuihandler_pkt, vuihandler_pkt_size);
@@ -471,10 +444,9 @@ static int rx_bt_task_fn(void *arg) {
 	size_t size;
 	void *priv_buffer = NULL;
 
-
 	while (1) {
 		size = sl_recv(vuihandler_bt_sl_desc, &priv_buffer);
-		
+
 		lprintk("(B<%d)", size);
 
 		vuihandler_recv(priv_buffer, size);
@@ -512,8 +484,6 @@ void vuihandler_open_rfcomm(pid_t pid) {
 	rfcomm_tty_pid = pid;
 	mutex_unlock(&rfcomm_lock);
 }
-
-
 
 /**
  * Watchdog thread that detects a dead (disconnected) remote application and updates the connected
@@ -635,7 +605,7 @@ int vuihandler_init(void) {
 	uint32_t i;
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vuihandler");
+	np = of_find_compatible_node(NULL, NULL, "vuihandler,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))

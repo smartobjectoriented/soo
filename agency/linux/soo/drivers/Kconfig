@@ -39,12 +39,6 @@ config VUIHANDLER_BACKEND
 	help
 	  vUihandler backend driver for remote UI over Bluetooth or WLAN.
 	  
-config VNETSTREAM_BACKEND
-	tristate "vNetstream backend driver"
-	default N
-	help
-	  Streaming facility with low-latency constraints.
-
 config VLEDS_BACKEND
         bool "vleds LEDS backend driver"
         default N

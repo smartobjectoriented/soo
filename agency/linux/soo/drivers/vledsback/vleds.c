@@ -39,7 +39,7 @@
 #include <stdarg.h>
 #include <linux/kthread.h>
 
-#include "common.h"
+#include <soo/dev/vleds.h>
 
 #if defined(CONFIG_LEDS_FAN5702)
 /* Interface with the HW LED controller */
@@ -153,7 +153,7 @@ int vleds_init(void) {
 	int ret;
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vleds");
+	np = of_find_compatible_node(NULL, NULL, "vleds,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))

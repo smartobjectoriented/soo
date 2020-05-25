@@ -356,7 +356,7 @@ int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
 
 	current_pending_uevent = 0;
 
-	out:
+out:
 	return ret;
 
 }

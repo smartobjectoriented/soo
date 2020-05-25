@@ -20,17 +20,18 @@
 #define DEBUG
 #endif
 
-#include "common.h"
-
-#include <soo/evtchn.h>
 #include <linux/wait.h>
 #include <linux/slab.h>
 
+#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
 #include <soo/uapi/debug.h>
 
+#include <soo/dev/vinput.h>
+
+#if 0
 /* Give the possibility to maintain the number of frontend currently connected to this backend,
  * and to manage an associated waitqueue.
  */
@@ -230,6 +231,5 @@ int vinput_vbus_init(void) {
 
   return vbus_register_backend(&vinput_drv);
 }
-
-
+#endif
 

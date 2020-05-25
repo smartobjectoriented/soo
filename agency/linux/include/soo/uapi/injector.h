@@ -115,6 +115,8 @@ size_t injector_get_tmp_size(void);
 bool injector_is_full(void);
 void injector_set_full(bool _full);
 
+int ioctl_inject_ME(unsigned long arg);
+
 #endif /* __KERNEL__ */
 
 

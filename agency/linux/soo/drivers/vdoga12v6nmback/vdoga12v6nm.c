@@ -46,7 +46,7 @@
 
 #include <stdarg.h>
 
-#include "common.h"
+#include <soo/dev/vdoga12v6nm.h>
 
 vdoga12v6nm_t vdoga12v6nm;
 
@@ -441,7 +441,7 @@ void vdoga12v6nm_connected(struct vbus_device *dev) {
 int vdoga12v6nm_init(void) {
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "soo,vdoga12v6nm");
+	np = of_find_compatible_node(NULL, NULL, "vdoga12v6nm,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))
