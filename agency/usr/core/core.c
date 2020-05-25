@@ -43,6 +43,18 @@
 
 #include <leds/leds.h>
 
+
+#include <sys/socket.h>
+#include <bluetooth/bluetooth.h>
+#include <bluetooth/rfcomm.h>
+#include <pthread.h>
+#include <bluetooth/hci.h>
+#include <bluetooth/hci_lib.h>
+
+#include <errno.h>
+#include <termios.h>
+#include <fcntl.h>
+
 #define AGENCY_CORE_VERSION "2019.2"
 
 static volatile bool __started = false;
@@ -67,6 +79,121 @@ static void sig_agency_start(int sig) {
 	__started = true;
 }
 
+
+#define MAXPATHLEN 30
+
+
+static bool stopped = false;
+
+void sig_term(int sig) {
+	printf("End of the rfcomm session, restarting one...\n");
+	stopped = true;
+}
+
+
+/*
+ * Thread function which opens a RFCOMM socket and listen for 
+ * incoming connection from the tablet. 
+ * 
+ */
+static void *BT_thread(void *dummy) {
+
+	return NULL;
+
+	struct sockaddr_rc loc_addr = { 0 }, rem_addr = { 0 };
+	int s, client;
+	socklen_t opt = sizeof(rem_addr);
+
+	struct rfcomm_dev_req req;
+	struct termios ti;
+
+	int dev = 0;
+	char devname[MAXPATHLEN];
+	int fd;
+
+	struct sigaction sa;
+
+	sa.sa_handler = sig_term;
+	sigaction(SIGTERM, &sa, NULL);
+
+	while (1) {
+
+		/* bind socket to channel 1 of the first available 
+		 local bluetooth adapter */
+		loc_addr.rc_family = AF_BLUETOOTH;
+		loc_addr.rc_channel = (uint8_t) 1;
+
+		s = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+
+		if(bind(s, (struct sockaddr *)&loc_addr, sizeof(loc_addr)) < 0) {
+			perror("Can't bind RFCOMM socket");
+			close(s);
+			return NULL;
+		}
+
+		printf("Waiting for connection on channel %d\n", loc_addr.rc_channel);
+
+		listen(s, 1);
+
+		client = accept(s, (struct sockaddr *)&rem_addr, &opt);
+
+		opt = sizeof(loc_addr);
+
+		if (getsockname(client, (struct sockaddr *)&loc_addr, &opt) < 0) {
+			perror("Can't get RFCOMM socket name");
+			close(client);
+			return NULL;
+		}
+
+		memset(&req, 0, sizeof(req));
+		req.dev_id = dev;
+		req.flags = (1 << RFCOMM_REUSE_DLC) | (1 << RFCOMM_RELEASE_ONHUP);
+
+		bacpy(&req.src, &loc_addr.rc_bdaddr);
+		bacpy(&req.dst, &rem_addr.rc_bdaddr);
+		req.channel = rem_addr.rc_channel;
+
+		dev = ioctl(client, RFCOMMCREATEDEV, &req);
+		if (dev < 0) {
+			perror("Can't create RFCOMM TTY");
+			close(s);
+			return NULL;
+		}
+
+		/* Opens the socket fd */
+		snprintf(devname, MAXPATHLEN - 1, "/dev/rfcomm%d", dev);
+		while ((fd = open(devname, O_RDONLY | O_NOCTTY)) < 0) {
+			if (errno == EACCES) {
+				perror("Can't open RFCOMM device");
+				goto release;
+			}
+		}
+
+		/* Make the RFCOMM socket raw to use TTY */
+		tcflush(fd, TCIOFLUSH);
+		cfmakeraw(&ti);
+		tcsetattr(fd, TCSANOW, &ti);
+
+		// close(s);
+		// close(client);
+
+		while (!stopped);
+		stopped = false;
+	}
+
+   	return NULL;
+
+release:
+	memset(&req, 0, sizeof(req));
+	req.dev_id = dev;
+	req.flags = (1 << RFCOMM_HANGUP_NOW);
+	ioctl(client, RFCOMMRELEASEDEV, &req);
+
+	close(s);
+
+   	return NULL;
+}
+
 /**
  * Main entry point of the Agency core subsystem.
  */
@@ -76,6 +203,8 @@ int main(int argc, char *argv[]) {
 	char *token;
 	int rc;
 	uint8_t val;
+
+	pthread_t th_bt;
 
 	printf("SOO Agency core application.\n");
 	printf("Version: %s\n", AGENCY_CORE_VERSION);
@@ -174,9 +303,11 @@ int main(int argc, char *argv[]) {
 	signal(SIGTERM, sig_agency_exit);
 	signal(SIGUSR1, sig_agency_start);
 	signal(SIGUSR2, sig_inject_ME_from_memory);
-
+#if 0
 	/* Initialize the LED Interface */
 	leds_init();
+#endif
+	pthread_create(&th_bt, NULL, BT_thread, NULL);
 
 	/* Initialzation of the DCM subsystem */
 	dcm_init();
@@ -186,11 +317,12 @@ int main(int argc, char *argv[]) {
 	upgrader_init();
 
 	injector_init();
-
+#if 0
 	for (i = 0 ; i < SOO_N_LEDS ; i++)
 		led_off(i + 1);
 
 	led_on(1);
+#endif	
 
 	/* Automatically inject the MEs in the /ME directory */
 	inject_MEs_from_filesystem();
