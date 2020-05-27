@@ -1,6 +1,5 @@
-
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2015-2018 Daniel Rossier <daniel.rossier@soo.tech>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,13 +16,13 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
+#include <soo/evtchn.h>
 #include <linux/slab.h>
 
-#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/uapi/debug.h>
@@ -145,18 +144,44 @@ bool vfb_is_connected(domid_t domid) {
  */
 static void setup_sring(struct vbus_device *dev) {
 	int res;
+	unsigned long ring_ref;
 	unsigned int evtchn;
+	vfb_sring_t *sring;
+	vfb_ring_t *p_vfb_ring;
 
-	vbus_gather(VBT_NIL, dev->otherend, "ring-evtchn", "%u", &evtchn, NULL);
+	p_vfb_ring = &vfb.rings[dev->otherend_id];
+
+	vbus_gather(VBT_NIL, dev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
 	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
 
-	res = bind_interdomain_evtchn_to_virqhandler(dev->otherend_id, evtchn, vfb_interrupt, NULL, 0, VFB_NAME "-backend", dev);
+	res = vbus_map_ring_valloc(dev, ring_ref, (void **) &sring);
 	BUG_ON(res < 0);
 
-	vfb.data[dev->otherend_id].irq = res;
+	SHARED_RING_INIT(sring);
+	BACK_RING_INIT(&p_vfb_ring->ring, sring, PAGE_SIZE);
+
+	res = bind_interdomain_evtchn_to_virqhandler(dev->otherend_id, evtchn, vfb_interrupt, NULL, 0, VFB_NAME "-backend", dev);
+
+	BUG_ON(res < 0);
+
+	p_vfb_ring->irq = res;
 }
 
+/*
+ * Free the ring and unbind evtchn.
+ */
+static void free_sring(struct vbus_device *dev) {
+	vfb_ring_t *p_vfb_ring = &vfb.rings[dev->otherend_id];
+
+	/* Prepare to empty all buffers */
+	BACK_RING_INIT(&p_vfb_ring->ring, (&p_vfb_ring->ring)->sring, PAGE_SIZE);
+
+	unbind_from_virqhandler(p_vfb_ring->irq, dev);
+
+	vbus_unmap_ring_vfree(dev, p_vfb_ring->ring.sring);
+	p_vfb_ring->ring.sring = NULL;
+}
 
 /*
  * Entry point to this code when a new device is created.  Allocate the basic
@@ -194,9 +219,7 @@ static void frontend_changed(struct vbus_device *dev, enum vbus_state frontend_s
 
 		vfb_reconfigured(dev);
 
-		/* At the beginning, the lock is not hold. */
-		if (mutex_is_locked(&processing_lock[dev->otherend_id]))
-			mutex_unlock(&processing_lock[dev->otherend_id]);
+		mutex_unlock(&processing_lock[dev->otherend_id]);
 
 		break;
 
@@ -219,6 +242,7 @@ static void frontend_changed(struct vbus_device *dev, enum vbus_state frontend_s
 		reinit_completion(&connected_sync[dev->otherend_id]);
 
 		vfb_close(dev);
+		free_sring(dev);
 
 		vfb.vdev[dev->otherend_id] = NULL;
 
@@ -227,10 +251,43 @@ static void frontend_changed(struct vbus_device *dev, enum vbus_state frontend_s
 
 		break;
 
+	case VbusStateSuspended:
+		/* Suspend Step 3 */
+		DBG("frontend_suspended: %s ...\n", dev->nodename);
+
+		break;
+
 	case VbusStateUnknown:
 	default:
 		break;
 	}
+}
+
+static int __vfb_suspend(struct vbus_device *dev) {
+
+	DBG0("vfb_suspend: wait for frontend now...\n");
+
+	mutex_lock(&processing_lock[dev->otherend_id]);
+
+	__connected[dev->otherend_id] = false;
+	reinit_completion(&connected_sync[dev->otherend_id]);
+
+	vfb_suspend(dev);
+
+	return 0;
+}
+
+static int __vfb_resume(struct vbus_device *dev) {
+	/* Resume Step 1 */
+#warning workaround
+	//BUG_ON(__connected[dev->otherend_id]);
+
+	DBG("backend resuming: %s ...\n", dev->nodename);
+	vfb_resume(dev);
+
+	mutex_unlock(&processing_lock[dev->otherend_id]);
+
+	return 0;
 }
 
 /* ** Driver Registration ** */
@@ -246,6 +303,8 @@ static struct vbus_driver vfb_drv = {
 	.ids = vfb_ids,
 	.probe = __vfb_probe,
 	.otherend_changed = frontend_changed,
+	.suspend = __vfb_suspend,
+	.resume = __vfb_resume,
 };
 
 void vfb_vbus_init(void) {

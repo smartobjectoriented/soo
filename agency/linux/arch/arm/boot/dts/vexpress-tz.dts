@@ -361,8 +361,8 @@
 	};
 	
 	agency {
-		domain-size = <0x20000000>; /* 512 MB */	
-	
+		domain-size = <0x20000000>; /* 512 MB */
+
 		/* Backends */
 
 		backends {
@@ -371,17 +371,21 @@
 				compatible = "vdummy,backend";
 				status = "ok";
 			};
-	
+
 			vuart {
 				compatible = "vuart,backend";
 				status = "ok";
 			};
-		
+
 			vuihandler {
 				compatible = "vuihandler,backend";
 				status = "disabled";
 			};
-		
+
+			vfb {
+				compatible = "vfb,backend";
+				status = "ok";
+			};
 		};
 	};
 

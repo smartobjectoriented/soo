@@ -1,6 +1,7 @@
-
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2020 Nikolaos Garanis <nikolaos.garanis@heig-vd.ch>
+ * Copyright (C) 2016-2018 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2016 Baptiste Delporte <bonel@bonel.net>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,13 +18,19 @@
  *
  */
 
+#if 1
+#define DEBUG
+#endif
+
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/of.h>
 
-
+#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
@@ -36,124 +43,65 @@
 
 vfb_t vfb;
 
-/*
- * Interrupt routine called when a notification from the frontend is received.
- * All processing within this function is performed with IRQs disabled (top half processing).
- */
+void vfb_notify(domid_t domid)
+{
+	vfb_ring_t *p_vfb_ring = &vfb.rings[domid];
+
+	RING_PUSH_RESPONSES(&p_vfb_ring->ring);
+
+	/* Send a notification to the frontend only if connected.
+	 * Otherwise, the data remain present in the ring. */
+
+	notify_remote_via_virq(p_vfb_ring->irq);
+
+}
+
 irqreturn_t vfb_interrupt(int irq, void *dev_id)
 {
-	/* Not used ... */
+	struct vbus_device *dev = (struct vbus_device *) dev_id;
+	RING_IDX i, rp;
+	vfb_request_t *ring_req;
+	vfb_response_t *ring_rsp;
+
+	if (!vfb_is_connected(dev->otherend_id))
+		return IRQ_HANDLED;
+
+	DBG("%d\n", dev->otherend_id);
+
+	rp = vfb.rings[dev->otherend_id].ring.sring->req_prod;
+	dmb();
+
+	for (i = vfb.rings[dev->otherend_id].ring.sring->req_cons; i != rp; i++) {
+
+		ring_req = RING_GET_REQUEST(&vfb.rings[dev->otherend_id].ring, i);
+
+		ring_rsp = RING_GET_RESPONSE(&vfb.rings[dev->otherend_id].ring, vfb.rings[dev->otherend_id].ring.rsp_prod_pvt);
+
+		DBG("%s, cons=%d, prod=%d\n", __func__, i, vfb.rings[dev->otherend_id].ring.rsp_prod_pvt);
+
+		memcpy(ring_rsp->buffer, ring_req->buffer, VFB_PACKET_SIZE);
+
+		dmb();
+		vfb.rings[dev->otherend_id].ring.rsp_prod_pvt++;
+
+		RING_PUSH_RESPONSES(&vfb.rings[dev->otherend_id].ring);
+
+		notify_remote_via_virq(vfb.rings[dev->otherend_id].irq);
+	}
+
+	vfb.rings[dev->otherend_id].ring.sring->req_cons = i;
 
 	return IRQ_HANDLED;
 }
 
-/*
- * Set a framebuffer property in vbstore for MEs.
- */
-int set_fb_property(unsigned int domid, struct vbus_transaction vbt, char *prop, unsigned int val)
-{
-	char node[50];
-
-	sprintf(node, "/backend/vfb/%d/0", domid);
-
-	vbus_printf(vbt, node, prop, "%u", val);
-
-	return 0;
-}
-
-
 void vfb_probe(struct vbus_device *dev) {
-	struct vbus_transaction vbt;
-	int ret = 0;
 
 	DBG(VFB_PREFIX "Backend probe: %d\n", dev->otherend_id);
-
-	vfb.domfocus = dev->otherend_id;
-
-	ret = vfb_get_params(&vfb.data[1].fb_hw);
-	if (ret)
-		BUG();
-
-	vbus_transaction_start(&vbt);
-
-	ret = set_fb_property(1, vbt, "width", vfb.data[1].fb_hw.width);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "height", vfb.data[1].fb_hw.height);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "depth", vfb.data[1].fb_hw.depth);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "red_length", vfb.data[1].fb_hw.red.length);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "red_offset", vfb.data[1].fb_hw.red.offset);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "red_msb_right", vfb.data[1].fb_hw.red.msb_right);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "green_length", vfb.data[1].fb_hw.green.length);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "green_offset", vfb.data[1].fb_hw.green.offset);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "green_msb_right", vfb.data[1].fb_hw.green.msb_right);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "blue_length", vfb.data[1].fb_hw.blue.length);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "blue_offset", vfb.data[1].fb_hw.blue.offset);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "blue_msb_right", vfb.data[1].fb_hw.blue.msb_right);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "transp_length", vfb.data[1].fb_hw.transp.length);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "transp_offset", vfb.data[1].fb_hw.transp.offset);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "transp_msb_right", vfb.data[1].fb_hw.transp.msb_right);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "line_length", vfb.data[1].fb_hw.line_length);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "fb_mem_len", vfb.data[1].fb_hw.fb_mem_len);
-	if (ret)
-		BUG();
-
-	vbus_transaction_end(vbt);
-
 }
 
 void vfb_close(struct vbus_device *dev) {
 
 	DBG(VFB_PREFIX "Backend close: %d\n", dev->otherend_id);
-
-	/* Unmap reviously mapped fb */
-	vunmap(vfb.data[dev->otherend_id].fb);
 }
 
 void vfb_suspend(struct vbus_device *dev) {
@@ -168,51 +116,69 @@ void vfb_resume(struct vbus_device *dev) {
 
 void vfb_reconfigured(struct vbus_device *dev) {
 
-	vbus_gather(VBT_NIL, dev->otherend, "vfb_fb_pfn", "%u", &vfb.data[dev->otherend_id].fb_pfn, NULL);
-
 	DBG(VFB_PREFIX "Backend reconfigured: %d\n", dev->otherend_id);
 }
 
 void vfb_connected(struct vbus_device *dev) {
-	int  nr_pages, i;
-	struct page **phys_pages;
-	vfb_info_t dom_info;
-	struct fb_event event;
 
 	DBG(VFB_PREFIX "Backend connected: %d\n", dev->otherend_id);
+}
+/*
+int generator_fn(void *arg) {
+	uint32_t i;
 
-	/* Map the virtual framebuffer pixel array */
+	while (1) {
+		msleep(50);
 
-	/*
-	 * Allocate an array of struct page pointers. map_vm_area() wants
-	 * this, rather than just an array of pages.
-	 */
+		for (i = 0; i < MAX_DOMAINS; i++) {
 
-	/* Propagate the register event to the framebuffer driver */
-	dom_info.domid = dev->otherend_id;
-	dom_info.paddr = vfb.data[dev->otherend_id].fb_pfn << PAGE_SHIFT;
-	dom_info.len = vfb.data[dev->otherend_id].fb_hw.fb_mem_len;
-	event.data = &dom_info;
+			if (!vfb_start(i))
+				continue;
 
-	fb_notifier_call_chain(VFB_EVENT_DOM_REGISTER, &event);
+			vfb_notify(i);
 
+			vfb_end(i);
+		}
+	}
+
+	return 0;
+}
+*/
+
+void fb_ph_addr(struct vbus_watch *watch) {
+
+	DBG(VFB_PREFIX "ok ok\n");
 }
 
 int vfb_init(void) {
-	struct device_node *np;
 
+	struct device_node *np;
+	struct vbus_watch watch;
+	struct vbus_transaction vbt;
+
+	DBG(VFB_PREFIX "vfb init backend 1\n");
 	np = of_find_compatible_node(NULL, NULL, "vfb,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))
 		return 0;
 
+#if 0
+	kthread_run(generator_fn, NULL, "vFb-gen");
+#endif
+
 	vfb_vbus_init();
+	DBG(VFB_PREFIX "vfb init backend 2\n");
+
+	/* add watch */
+	vbus_transaction_start(&vbt);
+	vbus_mkdir(vbt, "/backend/vfb", "fb-ph-addr");
+	//vbus_write(vbt, vfb.dev->nodename, "fb-ph-addr", "a value");
+	vbus_transaction_end(vbt);
+
+	vbus_watch_path(vfb.vdev[0], "/backend/vfb/fb-ph-addr", &watch, fb_ph_addr);
 
 	return 0;
 }
 
-device_initcall(vfb_init);
-
-
-
+module_init(vfb_init);
