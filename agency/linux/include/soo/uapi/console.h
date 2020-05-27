@@ -30,8 +30,6 @@
 
 struct pt_regs;
 
-void lprintch(char c);
-
 void avzcons_rx(char *buf, unsigned len, struct pt_regs *regs);
 void avzcons_tx(void);
 
@@ -44,6 +42,8 @@ void lprintk_buffer(void *buffer, uint32_t n);
 void lprintk_buffer_separator(void *buffer, uint32_t n, char separator);
 
 void __lprintk(const char *format, va_list va);
+
+void lprintch(char c);
 
 void lprintk_int64_post(s64 number, char *post);
 void lprintk_int64(s64 number);

@@ -254,7 +254,7 @@ static int soo_pre_propagate(unsigned int slotID, int *propagate_status) {
 
 	if ((rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args, domains[0])) != 0) {
 		printk("%s: DOMCALL failed (%d)\n", __func__, rc);
-		return rc;
+		BUG();
 	}
 
 	/* Reset the current mapped domain to NULL for subsequent domcalls. */
