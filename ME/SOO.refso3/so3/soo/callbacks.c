@@ -53,7 +53,9 @@ static int live_count = 0;
  * migrated_once allows the dormant ME to control its oneshot propagation, i.e.
  * the ME must be broadcast in the neighborhood, then disappear from the smart object.
  */
+#if 0
 static uint32_t migration_count = 0;
+#endif
 
 /**
  * PRE-ACTIVATE
@@ -61,13 +63,17 @@ static uint32_t migration_count = 0;
  * Should receive local information through args
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
-#if 1 /* alphabet */
+	DBG(">> ME %d: cb_pre_activate..\n", ME_domID());
+
+#if 0 /* alphabet */
 	agency_ctl_args_t agency_ctl_args;
 
 	agencyUID_t refUID = {
 		.id = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08}
 	};
 #endif /* 0 */
+
+	#if 0
 	char target_soo_name[SOO_NAME_SIZE];
 
 	DBG(">> ME %d: cb_pre_activate..\n", ME_domID());
@@ -76,6 +82,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	agency_ctl_args.cmd = AG_SOO_NAME;
 	args->__agency_ctl(&agency_ctl_args);
 	strcpy(target_soo_name, (const char *) agency_ctl_args.u.soo_name_args.soo_name);
+#endif
 
 #if 0 /* dummy_activity */
 	/* Kill MEs that are in slot 3 or beyond to keep only 2 MEs */
@@ -86,7 +93,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 #endif
 
 
-#if 1 /* alphabet */
+#if 0 /* alphabet */
 	lprintk("## (slotID: %d) bringing value %c (found: %d)\n", args->slotID, *((char *) localinfo_data), *((char *) localinfo_data+1));
 	if (get_ME_state() != ME_state_preparing) {
 
@@ -125,11 +132,13 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
+	pre_propagate_args->propagate_status = 0;
+
 #if 0 /* dummy_activity */
 	pre_propagate_args->propagate_status = 1;
 #endif
 
-#if 1 /* Alphabet */
+#if 0 /* Alphabet */
 
 	pre_propagate_args->propagate_status = 0;
 
@@ -427,359 +436,4 @@ void callbacks_init(void) {
 
 }
 
-/*** THIS IS OLD STUFF TO BE GRADUALLY IMPORTED IN THE NEW SCHEME. ESPECIALLY THE IMEC-RELATED STUFF. ***/
-
-#if 0
-
-/*
- * PRE_SUSPEND
- *
- * This callback is executed right before suspending the state of frontend drivers, before migrating
- *
- * Returns 0 if no propagation to the user space is required, 1 otherwise
- */
-int cb_pre_suspend(soo_domcall_arg_t *args) {
-	int rc;
-
-	area = alloc_vm_area(PAGE_SIZE, NULL);
-
-	/* Currently, never freed */
-	ME_data = (void *) __get_free_page(GFP_NOIO | __GFP_HIGH);
-
-	imec_channel = (imec_channel_t *) area->addr;
-
-	rc = ioremap_page((unsigned long) imec_channel, virt_to_phys(ME_data), get_mem_type(MT_HIGH_VECTORS));
-
-	if (rc) {
-		lprintk("%s failed with rc = %d\n", __func__, rc);
-		return -1;
-	}
-
-	flush_all();
-
-	memset(imec_channel, 0, sizeof(imec_channel_t));
-
-	imec_init_channel(imec_channel, imec_interrupt);
-	/*
-	 * Hold the RT tasks for example...
-	 * Linux provides a nice mechanism to do that thanks to kthread_park() functions.
-	 * These functions wait until the threads have been parked. So, it is not necessary
-	 * to use other synchronization mechanisms.
-	 */
-
-	if (t1_started) {
-		kthread_park(t1);
-
-		kthread_park(t2);
-	}
-	tick_suspend();
-
-	return 0;
-}
-
-/*
- * PRE-ACTIVATE
- *
- * Should receive local information through args
- */
-int cb_pre_activate(soo_domcall_arg_t *args) {
-#ifdef SOOTEST_AVZ_MEMORY
-	//agency_ctl_args_t agency_ctl_args;
-#endif
-
-/*#ifdef SOOTEST_AVZ_MEMORY
-	lprintk("SOOTEST: kill %d\n", ME_domID());
-
-	agency_ctl_args.cmd = AG_KILL_ME;
-	agency_ctl_args.slotID = ME_domID();
-
-	args->__agency_ctl(&agency_ctl_args);
-#endif*/
-
-	return 0;
-}
-
-/*
- * COOPERATE
- *
- */
-int cb_cooperate(soo_domcall_arg_t *args) {
-#if defined(SOOTEST_ME_IMEC) || defined(SOOTEST_AVZ_MEMORY)
-	unsigned char spad_capabilities[SPAD_CAPABILITIES_SIZE];
-	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
-	agency_ctl_args_t agency_ctl_args;
-	int i;
-#endif
-
-#ifdef SOOTEST_ME_IMEC
-	int rc;
-	unsigned int revtchn, rirq;
-	irq_handler_t handler;
-#endif
-
-#ifdef SOOTEST_AVZ_MEMORY
-	char kill_me = 0;
-#endif
-
-#if defined(SOOTEST_ME_RTNORT) || defined(SOOTEST_ME_RTRT)
-	return 0;
-#endif
-
-#if defined(SOOTEST_ME_IMEC) || defined(SOOTEST_AVZ_MEMORY)
-	switch (cooperate_args->role) {
-
-	case COOPERATE_INITIATOR:
-
-		DBG("INITIATER currently in slot ID: %d\n", ME_domID());
-
-		if (cooperate_args->alone)
-			return 0;
-
-		/* We prepare to transfer information about our IMEC structure */
-
-		/*
-		 * We get the set of MEs which are ready to collaborate. We can exchange information based on their aptitudes.
-		 */
-		for (i = 0; i < MAX_ME_DOMAINS; i++) {
-
-			if (!cooperate_args->u.target_coop_slot[i].spad.valid)
-				continue;
-
-			memcpy(spad_capabilities, cooperate_args->u.target_coop_slot[i].spad.caps, SPAD_CAPABILITIES_SIZE);
-
-			/* Same SPID: a residing ME is already here */
-			if (!memcmp(cooperate_args->u.target_coop_slot[i].spid, get_ME_desc()->spid, SPID_SPID_SIZE)) {
-#ifdef SOOTEST_AVZ_MEMORY
-				kill_me = 1;
-				break;
-#endif
-
-#ifdef SOOTEST_ME_IMEC
-				//if (cooperate_args->u.target_coop_slot[i].spad.valid) {
-				DBG("### %s 1\n", __func__);
-				agency_ctl_args.cmd = AG_COOPERATE;
-				agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
-
-				imec_channel->initiator_slotID = ME_domID();
-				imec_channel->peer_slotID = agency_ctl_args.slotID;
-
-				agency_ctl_args.u.target_cooperate_args.pfns.imec = (unsigned int) virt_to_pfn(ME_data);
-
-				args->__agency_ctl(&agency_ctl_args);
-
-				/* Refuse subsequent cooperate */
-
-				//get_ME_desc()->spad.valid = false;
-#endif
-			}
-
-			//return 0;
-			//}
-		}
-
-#ifdef SOOTEST_AVZ_MEMORY
-		if (kill_me) {
-			DBG("Killing ME #%d\n", ME_domID());
-			lprintk("SOOTEST: kill RT %d\n", ME_domID());
-
-			agency_ctl_args.cmd = AG_KILL_ME;
-			agency_ctl_args.slotID = ME_domID();
-
-			args->__agency_ctl(&agency_ctl_args);
-		}
-#endif
-
-		break;
-
-	case COOPERATE_TARGET:
-
-		DBG("TARGET currently in slot ID: %d\n", ME_domID());
-
-#if 0 /* PATTERN: Only if we refuse to cooperate with a ME of our family (same SPID) */
-	  	if (memcmp(get_ME_desc()->spid, cooperate_args->spid, SPID_SPID_SIZE))
-	  		break;
-#endif
-
-
-#ifdef SOOTEST_ME_IMEC
-		/* We access the existing virtual mapping in order to reach the pfn passed by the other ME.
-		 * From now on, we refer to the imec_channel belonging to the initiator.
-		 */
-		revtchn = imec_channel->levtchn;
-		rirq = imec_channel->lirq;
-		handler = imec_channel->initiator_handler;
-
-		vunmap_page_range((unsigned long) imec_channel, ((unsigned long) imec_channel) + PAGE_SIZE);
-
-		flush_all();
-
-		rc = ioremap_page((unsigned long) imec_channel, __pfn_to_phys(cooperate_args->u.pfns.imec), get_mem_type(MT_HIGH_VECTORS));
-
-		if (rc) {
-			lprintk("%s failed with rc = %d\n", __func__, rc);
-			return -1;
-		}
-
-		flush_all();
-
-		/* We set up the communication channel */
-		imec_channel->revtchn = revtchn;
-		imec_channel->rirq = rirq;
-		imec_channel->peer_handler = handler;
-
-		/* Refuse subsequent cooperate */
-
-		get_ME_desc()->spad.valid = false;
-#endif
-
-		break;
-
-	}
-#endif
-
-	return 0;
-}
-
-#if 0
-bool sent = false;
-
-irqreturn_t imec_interrupt(int irq, void *dev_id) {
-	imec_content_t *content;
-
-	if (imec_peer(imec_channel)) {
-		content = imec_cons_request(imec_channel);
-
-		DBG("received: %s\n", content->content.data);
-		lprintk("received: %s\n", content->content.data);
-
-		content = imec_prod_response(imec_channel);
-
-		strcpy(content->content.data, "Good\n");
-
-		imec_notify(imec_channel);
-
-		sent = true;
-
-	}
-	else if (imec_initiator(imec_channel)) {
-
-		content = imec_cons_response(imec_channel);
-
-		DBG("recvd: %s\n", content->content.data);
-		lprintk("received: %s\n", content->content.data);
-
-		sent = true;
-
-	}
-
-	return IRQ_HANDLED;
-}
-#endif
-
-#ifdef SOOTEST_ME_IMEC
-bool sent = false;
-
-irqreturn_t imec_interrupt(int irq, void *dev_id) {
-	imec_content_t *content;
-	int val;
-	bool (*availability_test)(imec_channel_t *imec_channel) = (imec_peer(imec_channel)) ? &imec_available_request : &imec_available_response;
-	int k;
-	static int recv_count = 0;
-	static bool recv_count_end = false;
-
-	while ((*availability_test)(imec_channel)) {
-		if (recv_count < SOOTEST_N_PACKETS) {
-			if (imec_peer(imec_channel)) {
-
-				content = imec_cons_request(imec_channel);
-
-				memcpy(&val, content->content.data, sizeof(int));
-
-				//lprintk("(R%d)", val);
-
-				recv_vals[val / 8] |= 1 << (val % 8);
-
-				if (val == SOOTEST_N_REQS - 1) {
-					//lprintk("\n"); // DEBUG
-					lprintk("Recv Peer: ");
-					for (k = SOOTEST_N_REQS / 8 - 1 ; k >= 0 ; k--)
-						lprintk("%02x-", recv_vals[k]);
-					lprintk("\n");
-					memset(recv_vals, 0, sizeof(recv_vals));
-
-					recv_count++;
-				}
-			}
-
-			if (imec_initiator(imec_channel)) {
-
-				content = imec_cons_response(imec_channel);
-
-				memcpy(&val, content->content.data, sizeof(int));
-				recv_vals[val / 8] |= 1 << (val % 8);
-
-				if (recv_count < SOOTEST_N_PACKETS) {
-					if (val == SOOTEST_N_REQS - 1) {
-						lprintk("Recv Init: ");
-						for (k = SOOTEST_N_REQS / 8 - 1 ; k >= 0 ; k--)
-							lprintk("%02x-", recv_vals[k]);
-						lprintk("\n");
-						memset(recv_vals, 0, sizeof(recv_vals));
-
-						recv_count++;
-					}
-				}
-			}
-
-			if (recv_count == SOOTEST_N_PACKETS - 1) {
-				if (!recv_count_end)
-					lprintk("SOOTEST: end IMEC %d\n", ME_domID());
-				recv_count_end = true;
-			}
-		}
-	}
-
-	return IRQ_HANDLED;
-}
-#endif
-
-
-/*
- * post_activate callback is called in both client ME (which stays in the SOO) and server ME (after migration).
- */
-
-int cb_post_activate(soo_domcall_arg_t *args) {
-	/* Open the IMEC channel with the other ME */
-
-	/*
-	 * Here, peer_slotID is not zero in the migrated ME and a setup can be done followed
-	 * by unparking the parked threads.
-	 * In the client ME, peer_slotID remains at 0 and the condition is false.
-	 *
-	 */
-
-	tick_resume();
-
-	if (!t1_started) {
-
-		rtapp_main();
-
-	} else {
-
-		kthread_unpark(t1);
-		kthread_unpark(t2);
-
-	}
-
-#ifdef SOOTEST_ME_IMEC
-	if ((imec_channel->peer_slotID != 0) && !imec_ready(imec_channel))
-		imec_initiator_setup(imec_channel);
-#endif
-
-	/* Returning 1 for propagating to the user space */
-
-	return 0;
-}
-
-#endif /* 0 */
 

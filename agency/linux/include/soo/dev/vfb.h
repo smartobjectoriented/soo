@@ -24,7 +24,7 @@
 
 #define VFB_PACKET_SIZE	32
 
-#define VFB_NAME		"VFB"
+#define VFB_NAME		"vfb"
 #define VFB_PREFIX		"[" VFB_NAME "] "
 
 typedef struct {
@@ -55,6 +55,8 @@ typedef struct {
 	vfb_ring_t rings[MAX_DOMAINS];
 	struct vbus_device *vdev[MAX_DOMAINS];
 
+#warning only for one ME...
+	struct vbus_watch watch;
 } vfb_t;
 
 extern vfb_t vfb;

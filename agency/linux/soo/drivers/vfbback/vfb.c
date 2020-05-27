@@ -94,7 +94,23 @@ irqreturn_t vfb_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+void fb_ph_addr(struct vbus_watch *watch) {
+
+	DBG(VFB_PREFIX "ok ok\n");
+}
+
+
 void vfb_probe(struct vbus_device *dev) {
+
+	struct vbus_transaction vbt;
+
+	/* add watch */
+		vbus_transaction_start(&vbt);
+		vbus_mkdir(vbt, "backend/vfb", "fb-ph-addr");
+		vbus_write(vbt, "backend/vfb/fb-ph-addr", "value", "try");
+		vbus_transaction_end(vbt);
+
+	vbus_watch_path(dev, "backend/vfb/fb-ph-addr/value", &vfb.watch, fb_ph_addr);
 
 	DBG(VFB_PREFIX "Backend probe: %d\n", dev->otherend_id);
 }
@@ -145,16 +161,9 @@ int generator_fn(void *arg) {
 }
 */
 
-void fb_ph_addr(struct vbus_watch *watch) {
-
-	DBG(VFB_PREFIX "ok ok\n");
-}
-
 int vfb_init(void) {
 
 	struct device_node *np;
-	struct vbus_watch watch;
-	struct vbus_transaction vbt;
 
 	DBG(VFB_PREFIX "vfb init backend 1\n");
 	np = of_find_compatible_node(NULL, NULL, "vfb,backend");
@@ -170,13 +179,6 @@ int vfb_init(void) {
 	vfb_vbus_init();
 	DBG(VFB_PREFIX "vfb init backend 2\n");
 
-	/* add watch */
-	vbus_transaction_start(&vbt);
-	vbus_mkdir(vbt, "/backend/vfb", "fb-ph-addr");
-	//vbus_write(vbt, vfb.dev->nodename, "fb-ph-addr", "a value");
-	vbus_transaction_end(vbt);
-
-	vbus_watch_path(vfb.vdev[0], "/backend/vfb/fb-ph-addr", &watch, fb_ph_addr);
 
 	return 0;
 }

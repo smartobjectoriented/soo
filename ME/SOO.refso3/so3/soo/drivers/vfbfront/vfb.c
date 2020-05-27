@@ -82,6 +82,9 @@ void vfb_generate_request(char *buffer)
 
 void vfb_probe(void)
 {
+	DBG("vfb init ok\n");
+	write_vbstore();
+
 	DBG0("[" VFB_NAME "] Frontend probe\n");
 }
 
@@ -148,7 +151,7 @@ void write_vbstore(void)
 	struct vbus_transaction vbt;
 	//local_irq_enable();
 	vbus_transaction_start(&vbt);
-	vbus_write(vbt, vfb.dev->nodename, "fb-ph-addr", "a value");
+	vbus_write(vbt, "backend/vfb/fb-ph-addr", "value", "try2");
 	vbus_transaction_end(vbt);
 	//local_irq_disable();
 }
@@ -156,8 +159,7 @@ void write_vbstore(void)
 static int vfb_init(dev_t *dev)
 {
 	vfb_vbus_init();
-	DBG("vfb init ok\n");
-	write_vbstore();
+
 
 	return 0;
 }
