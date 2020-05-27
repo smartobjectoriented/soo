@@ -8,6 +8,7 @@ source "devices/serial/Kconfig"
 source "devices/ramdev/Kconfig"
 source "devices/timer/Kconfig"
 source "devices/irq/Kconfig"
+source "devices/fb/Kconfig"
 
 
 endmenu

@@ -278,6 +278,12 @@ void vbstore_devices_populate(void) {
 		vbstore_dev_init(ME_domID(), "vuart", false);
 	}
 
+	fdt_node = fdt_find_compatible_node("vfb,frontend");
+	if (fdt_device_is_available(fdt_node)) {
+		DBG("%s: init vfb...\n", __func__);
+		vbstore_dev_init(ME_domID(), "vfb", false);
+	}
+
 	fdt_node = fdt_find_compatible_node("vweather,frontend");
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: init vweather...\n", __func__);

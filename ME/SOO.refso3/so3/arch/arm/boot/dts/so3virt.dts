@@ -29,12 +29,17 @@
 		compatible = "arm,cortex-a15";
 		reg = <0 0>;
 	};
-	
+
 	so3virt-serial {
 		compatible = "serial,so3virt";
 		status = "ok";
 	};
-		
+
+	so3virt-fb {
+		compatible = "fb,so3virt";
+		status = "ok";
+	};
+
 	/* SO3 virtual timer managed by AVZ */
  
 	so3virt-timer {
@@ -47,18 +52,17 @@
 		compatible = "so3virt-timer,clocksource-timer";
 		status = "ok";
 	};
-		
+
 	oneshot-timer {
 		compatible ="so3virt-timer,oneshot-timer";
 		status = "ok";
 	};
-	
+
 	so3virt-irq {
 		compatible = "so3virt-irq";
 		status = "ok";
 	};
-	
-	
+
 	ME {
 		domain-size = <0x1000000>; /* 16 MB */
 		
@@ -73,17 +77,20 @@
 				compatible = "vuihandler,frontend";
 				status = "disabled";
 			};
-    
+
 			vuart {
 				compatible = "vuart,frontend";
 				status = "ok";
 			};
 
+			vfb {
+				compatible = "vfb,frontend";
+				status = "ok";
+			};
 		};
 	
 		features {
 			realtime = <0>;
 		};
-	
 	};
 };

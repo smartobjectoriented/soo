@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2020 Nikolaos Garanis <nikolaos.garanis@heig-vd.ch>
  * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -19,36 +20,63 @@
 #ifndef VFB_H
 #define VFB_H
 
-#include <linux/fb.h> /* struct fb_bitfield */
+#include <device/irq.h>
+
+#include <soo/ring.h>
+#include <soo/grant_table.h>
+
+#define VFB_PACKET_SIZE	32
+
+#define VFB_NAME		"vfb"
+#define VFB_PREFIX		"[" VFB_NAME "] "
 
 typedef struct {
-	int32_t width;
-	int32_t height;
-	int32_t depth;    /* bits_per_pixel */
+	char buffer[VFB_PACKET_SIZE];
+} vfb_request_t;
 
-	struct fb_bitfield red;		/* bitfield in fb mem if true color, */
-	struct fb_bitfield green;	/* else only length is significant */
-	struct fb_bitfield blue;
-	struct fb_bitfield transp;	/* transparency */
+typedef struct  {
+	char buffer[VFB_PACKET_SIZE];
+} vfb_response_t;
 
-	uint32_t line_length;
-
-	unsigned int fb_mem_len;
-
-} vfb_hw_params_t;
-
-/* Additional FB event types to be used by standard notifiers */
-/* MUST NOT OVERLAP WITH FB_EVENT_xxx from linux/fb.h */
-#define VFB_EVENT_DOM_REGISTER	0x20
-#define VFB_EVENT_DOM_SWITCH	0x21
+/*
+ * Generate blkif ring structures and types.
+ */
+DEFINE_RING_TYPES(vfb, vfb_request_t, vfb_response_t);
 
 typedef struct {
-	uint16_t domid;
-	unsigned long addr;
-	unsigned long vaddr;
-	unsigned int len;
-} vfb_info_t;
 
-int vfb_get_params(vfb_hw_params_t *hw_params);
+	struct vbus_device  *dev;
+
+	vfb_front_ring_t ring;
+	grant_ref_t ring_ref;
+	grant_handle_t handle;
+	uint32_t evtchn;
+	uint32_t irq;
+
+} vfb_t;
+
+extern vfb_t vfb;
+
+/* ISR associated to the ring */
+irq_return_t vfb_interrupt(int irq, void *data);
+
+/* State management */
+void vfb_probe(void);
+void vfb_closed(void);
+void vfb_suspend(void);
+void vfb_resume(void);
+void vfb_connected(void);
+void vfb_reconfiguring(void);
+void vfb_shutdown(void);
+
+void vfb_vbus_init(void);
+
+/* Processing and connected state management */
+void vfb_start(void);
+void vfb_end(void);
+bool vfb_is_connected(void);
+
+/**/
+void write_vbstore(void);
 
 #endif /* VFB_H */
