@@ -44,6 +44,7 @@
 #include <uapi/dcm.h>
 
 #include <injector/core.h>
+#include <injector/server.h>
 
 /**
  * Inject a ME.
@@ -174,22 +175,10 @@ void inject_MEs_from_filesystem(void) {
 	closedir(directory);
 }
 
-
-void save_itb(void *ME_buffer, size_t size) {
-	FILE *f;
-
-	int i;
-	
-	f = fopen("/root/test_ME.itb", "wb");
-
-	for (i = 0; i < size; ++i) {
-		fwrite(ME_buffer+i, sizeof(char), 1, f);
-	}
-
-	fclose(f);
-}
-
-
+/**
+ * Thread function which periodically checks if a ME is present in the kernel side Injector.
+ * If a ME is present, read the core fd to retrieve the ME data and inject it.
+ */
 void *ME_retrieve_fn(void *dummy) {
 
 	injector_ioctl_recv_args_t args;
@@ -206,20 +195,23 @@ void *ME_retrieve_fn(void *dummy) {
 
 		usleep(500 * 1000);
 
+		/* If a ME is present in the Injector, the args.size is > 0 */
 		if ((ioctl(fd_core, INJECTOR_IOCTL_RETRIEVE_ME, &args)) < 0) {
 			DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
 			BUG();
 		}
 		
 		if (args.size != 0) {
-
 			printf("Injector: An ME is ready to be retrieved (%d B)\n", args.size);
+			/* Allocate the ME buffer in the userspace */ 
 			ME = malloc(args.size);
 			if (!ME) {
 				printf("%s: failure during malloc...\n", __func__);
 				BUG();
 			}
-
+			/* Read while the ME is not fully retrieved. It is possible that not
+			all the ME is directly available as it is received by the vuiHandler 
+			packets by packets. */
 			while (current_size != args.size) {
 				br = read(fd_core, ME+current_size, chunk);
 				current_size += br;
@@ -228,19 +220,23 @@ void *ME_retrieve_fn(void *dummy) {
 
 			ME_inject(ME);
 
+			/* Clean the ME buffer in the kernel Injector */
 			if ((ioctl(fd_core, INJECTOR_IOCTL_CLEAN_ME, NULL)) < 0) {
 				DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
 				BUG();
 			}
 			
 			return NULL;
-
 		}
 	}
 	
 	return NULL;
 }
 
+
+/**
+ * Opens the core fd
+ */ 
 void injector_dev_init(void) {
 	if ((fd_core = open(SOO_CORE_DEVICE, O_RDWR)) < 0) {
 		printf("Failed to open device: " INJECTOR_DEV_NAME " (%d)\n", fd_core);
@@ -257,4 +253,6 @@ void injector_init(void) {
 	injector_dev_init();
 
 	pthread_create(&injection_thread, NULL, ME_retrieve_fn, NULL);
+
+	start_BT_server();
 }
