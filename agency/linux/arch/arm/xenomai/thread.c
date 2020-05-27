@@ -256,6 +256,7 @@ int xnarch_handle_fpu_fault(struct xnthread *from,
 struct thread_info *xnthread_current_ti(void) {
 	return xnthread_archtcb(xnthread_current())->ti;
 }
+EXPORT_SYMBOL(xnthread_current_ti);
 
 /* To be completed later on */
 void xnarch_init_thread(struct xnthread *thread) {
