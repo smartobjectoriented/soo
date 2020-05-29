@@ -35,6 +35,9 @@
 /* To get the TA UUID definition */
 #include <asf_ta.h>
 
+#include "asf_communication_key.h"
+#include "asf_injection_key.h"
+
 #define TA_UUID				ASF_TA_UUID
 
 /*
@@ -56,9 +59,8 @@
 #define TA_DESCRIPTION	"Agency Security Framework (asf) Trusted Application"
 
 /* Extra properties */
-#if 0 /* Not used currently */
 #define TA_CURRENT_TA_EXT_PROPERTIES \
     { "gp.ta.com_key",    USER_TA_PROP_TYPE_BINARY_BLOCK, ASF_COM_KEY }, \
     { "gp.ta.inject_key", USER_TA_PROP_TYPE_BINARY_BLOCK, ASF_INJECT_KEY }
-#endif
+
 #endif /* USER_TA_HEADER_DEFINES_H */
