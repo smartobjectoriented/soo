@@ -386,19 +386,18 @@ void write_ptbase(struct vcpu *v)
  */
 void switch_mm(struct vcpu *prev, struct vcpu *next) {
 
-	if (prev == NULL) {
-	  prev = current;
+	if (prev == NULL)
+		prev = current;
 
-	  /* Preserve the current configuration of MMU registers of the running domain before doing a switch */
-	  prev->arch.guest_context.sys_regs.guest_context_id = READ_CP32(CONTEXTIDR);
+	/* Preserve the current configuration of MMU registers of the running domain before doing a switch */
+	prev->arch.guest_context.sys_regs.guest_context_id = READ_CP32(CONTEXTIDR);
 
-	  prev->arch.guest_context.sys_regs.guest_ttbr0 = READ_CP32(TTBR0_32);
-	  prev->arch.guest_context.sys_regs.guest_ttbr1 = READ_CP32(TTBR1_32);
-	  prev->arch.guest_context.sys_regs.guest_ttbcr = READ_CP32(TTBCR);
+	prev->arch.guest_context.sys_regs.guest_ttbr0 = READ_CP32(TTBR0_32);
+	prev->arch.guest_context.sys_regs.guest_ttbr1 = READ_CP32(TTBR1_32);
+	prev->arch.guest_context.sys_regs.guest_ttbcr = READ_CP32(TTBCR);
 
-	  dmb();
+	dmb();
 
-	}
 
 	if (next == NULL)
 		next = current;

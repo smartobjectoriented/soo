@@ -243,13 +243,9 @@ static void finish_upgrade(upgrader_args_t *args) {
 	}
 
 	upgrade_done = true;
-#if 1
-	/* Notify the kernel we want to reboot */
-	if ((ioctl(fd_core, AGENCY_IOCTL_REBOOT, &args->ME_slotID)) < 0) {
-		DBG0("ioctl AGENCY_IOCTL_REBOOT failed.\n");
-		BUG();
-	}
-#endif
+
+	/* We initiate a reboot of the system including shutdowning the user space properly. */
+	system("reboot");
 }
 
 /**

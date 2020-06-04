@@ -254,7 +254,7 @@ static int soo_pre_propagate(unsigned int slotID, int *propagate_status) {
 
 	if ((rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args, domains[0])) != 0) {
 		printk("%s: DOMCALL failed (%d)\n", __func__, rc);
-		return rc;
+		BUG();
 	}
 
 	/* Reset the current mapped domain to NULL for subsequent domcalls. */
@@ -448,6 +448,7 @@ static struct keyhandler dump_vbstore_keyhandler = {
 
 /**
  * Return the descriptor of a domain (agency or ME).
+ * A size of 0 means there is no ME in the slot.
  */
 void get_dom_desc(unsigned int slotID, dom_desc_t *dom_desc) {
 	/* Check for authorization... (to be done) */
@@ -456,7 +457,7 @@ void get_dom_desc(unsigned int slotID, dom_desc_t *dom_desc) {
 	 * If no ME is present in the slot specified by slotID, we assign a size of 0 in the ME descriptor.
 	 * We presume that the slotID of agency is never free...
 	 */
-	if ((slotID > 1) && (!memslot[slotID].busy))
+	if ((slotID > 1) && !memslot[slotID].busy)
 		dom_desc->u.ME.size = 0;
 	else
 		/* Copy the content to the target desc */

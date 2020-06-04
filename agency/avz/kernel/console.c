@@ -155,18 +155,9 @@ static void __putstr(const char *str)
 	sercon_puts(str);
 }
 
-void printk(const char *fmt, ...)
-{
-	static char   buf[1024];
-
-	va_list       args;
-	char         *p, *q;
-
-	spin_lock(&console_lock);
-
-	va_start(args, fmt);
-	(void)vsnprintf(buf, sizeof(buf), fmt, args);
-	va_end(args);
+/* The console_lock must be hold. */
+static void __printk(char *buf) {
+	char *p, *q;
 
 	p = buf;
 
@@ -180,10 +171,40 @@ void printk(const char *fmt, ...)
 
 	if (*p != '\0')
 		__putstr(p);
+}
+
+void printk(const char *fmt, ...)
+{
+	static char   buf[1024];
+	va_list       args;
+
+	spin_lock(&console_lock);
+
+	va_start(args, fmt);
+	(void)vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	__printk(buf);
 
 	spin_unlock(&console_lock);
-
 }
+
+/* Just to keep compatibility with uapi/soo in Linux */
+void lprintk(char *fmt, ...) {
+	static char   buf[1024];
+	va_list       args;
+
+	spin_lock(&console_lock);
+
+	va_start(args, fmt);
+	(void)vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	__printk(buf);
+
+	spin_unlock(&console_lock);
+}
+
 
 void printk_buffer(void *buffer, int n) {
 	int i;

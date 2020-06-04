@@ -161,7 +161,7 @@ int upgrade_uEnv_txt(char *uEnv_updated, size_t size) {
  * Upgrades the ITB located in the boot partition.
  *
  * Params:
- * 	itb_updated: Pointer to the begining of the new ITB binary data.
+ * 	itb_updated: Pointer to the beginning of the new ITB binary data.
  * 		     Needs to be already uncompressed.
  * 	size: Size of the new ITB data. 
  * 

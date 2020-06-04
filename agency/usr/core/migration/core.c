@@ -94,7 +94,7 @@ int set_personality_selfreferent(void) {
 
 /**
  * Initiate the migration process of a ME.
- * Returns 0 if the migration can go forward, -1 otherwise (if the ME got killed for instance).
+ * In any case, the function can't fail. As a principle, any error leads to BUG().
  */
 int initialize_migration(unsigned int ME_slotID) {
 	int rc;
