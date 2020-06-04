@@ -34,8 +34,29 @@
 #include <soo/uapi/avz.h>
 
 #include <soo/grant_table.h>
-#include <soo/dev/vbus.h>
 #include <soo/vbstore.h>
+
+/*
+ * The following states are used to synchronize backend and frontend activities.
+ * Detailed description is given in the SOO Framework technical reference.
+ */
+
+enum vbus_state
+{
+	VbusStateUnknown      = 0,
+	VbusStateInitialising = 1,
+	VbusStateInitWait     = 2,
+	VbusStateInitialised  = 3,
+	VbusStateConnected    = 4,
+	VbusStateClosing      = 5,
+	VbusStateClosed       = 6,
+	VbusStateReconfiguring = 7,
+	VbusStateReconfigured  = 8,
+	VbusStateSuspending    = 9,
+	VbusStateSuspended     = 10,
+	VbusStateResuming      = 11
+
+};
 
 extern unsigned int rtdm_dc_evtchn;
 
@@ -75,8 +96,6 @@ struct vbus_type
 
 /* A vbus device. */
 struct vbus_device {
-	uint32_t id;  /* A unique ID for a particular instance */
-
 	char devicetype[VBUS_DEV_TYPE];
 	char nodename[VBS_KEY_LENGTH];
 	char otherend[VBS_KEY_LENGTH];
@@ -88,7 +107,15 @@ struct vbus_device {
 	struct vbus_watch event_from_nonrt;
 
 	struct device dev;
+
 	enum vbus_state state;
+
+	/*
+	 * State of the associated frontend.
+	 * As soon as the frontend state, we get a watch event on the state
+	 * property from vbstore, and we are up-to-date.
+	 */
+	enum vbus_state fe_state;
 
 	/* So far, only the ME use this completion struct. On the agency side,
 	 * the device can not be shutdown on live.
@@ -108,27 +135,24 @@ static inline struct vbus_device *to_vbus_device(struct device *dev)
 	return container_of(dev, struct vbus_device, dev);
 }
 
-struct vbus_device_id
-{
-	/* .../device/<device_type>/<identifier> */
-	char devicetype[32]; 	/* General class of device. */
-};
-
 /* A vbus driver. */
 struct vbus_driver {
 	char *name;
 	struct module *owner;
-	const struct vbus_device_id *ids;
-	int (*probe)(struct vbus_device *dev, const struct vbus_device_id *id);
-	void (*otherend_changed)(struct vbus_device *dev, enum vbus_state backend_state);
+	char devicetype[32];
 
-	int (*shutdown)(struct vbus_device *dev);
+	struct device_driver driver;
+
+	void (*probe)(struct vbus_device *dev);
+	void (*remove)(struct vbus_device *dev);
+
+	void (*otherend_changed)(struct vbus_device *dev, enum vbus_state backend_state);
 
 	int (*suspend)(struct vbus_device *dev);
 	int (*resume)(struct vbus_device *dev);
 
 	int (*uevent)(struct vbus_device *, struct kobj_uevent_env *);
-	struct device_driver driver;
+
 	void (*read_otherend_details)(struct vbus_device *dev);
 };
 

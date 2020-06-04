@@ -74,8 +74,8 @@ struct vbus_device {
 
 	dev_t *dev;
 
-	struct vbus_type *bus;
-	struct vbus_driver *drv;
+	struct vbus_type *vbus;
+	struct vbus_driver *vdrv;
 
 	/* Used by the main frontend device list */
 	struct list_head list;
@@ -96,18 +96,13 @@ struct vbus_device {
 };
 
 
-struct vbus_device_id
-{
-	/* .../device/<device_type>/<identifier> */
-	char devicetype[32]; 	/* General class of device. */
-};
-
 /* A vbus driver. */
 struct vbus_driver {
 	char *name;
 
-	const struct vbus_device_id *ids;
-	int (*probe)(struct vbus_device *dev, const struct vbus_device_id *id);
+	char devicetype[32];
+
+	int (*probe)(struct vbus_device *dev);
 	void (*otherend_changed)(struct vbus_device *dev, enum vbus_state backend_state);
 
 	int (*shutdown)(struct vbus_device *dev);
@@ -183,7 +178,7 @@ extern int vbus_register_driver_common(struct vbus_driver *drv);
 
 extern int vbus_probe_devices(struct vbus_type *bus);
 
-extern void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus);
+extern void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus, const char *compat);
 
 extern void vbus_dev_shutdown(struct vbus_device *dev);
 
@@ -195,7 +190,8 @@ extern void vbus_read_otherend_details(struct vbus_device *vdev, char *id_node, 
 int vbus_suspend_devices(unsigned int domID);
 int vbus_resume_devices(unsigned int domID);
 
-int vdev_probe(char *node);
+int vdev_probe(char *node, const char *compat);
+
 void vbus_probe_frontend_init(void);
 
 #define VBUS_IS_ERR_READ(str) ({			\

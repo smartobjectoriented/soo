@@ -1,3 +1,2 @@
-obj-$(CONFIG_VUART_BACKEND) := vuartback.o
+obj-y := vuart.o
 
-vuartback-y := vuart.o vbus.o 

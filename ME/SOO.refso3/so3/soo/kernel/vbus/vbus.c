@@ -61,17 +61,17 @@ LIST_HEAD(vbus_drivers);
  */
 void vbus_drivers_for_each(void *data, int (*fn)(struct vbus_driver *, void *)) {
 	struct list_head *pos;
-	struct vbus_driver *drv;
+	struct vbus_driver *vdrv;
 
 	list_for_each(pos, &vbus_drivers)
 	{
-		drv = list_entry(pos, struct vbus_driver, list);
-		if (fn(drv, data) == 1)
+		vdrv = list_entry(pos, struct vbus_driver, list);
+		if (fn(vdrv, data) == 1)
 			return ;
 	}
 }
 
-static int __vbus_switch_state(struct vbus_device *dev, enum vbus_state state, bool force)
+static int __vbus_switch_state(struct vbus_device *vdev, enum vbus_state state, bool force)
 {
 	/*
 	 * We check whether the state is currently set to the given value, and if not, then the state is set.  We don't want to unconditionally
@@ -82,7 +82,7 @@ static int __vbus_switch_state(struct vbus_device *dev, enum vbus_state state, b
 
 	struct vbus_transaction vbt;
 
-	if (!force && (state == dev->state))
+	if (!force && (state == vdev->state))
 		return 0;
 
 	/* Make visible the new state to the rest of world NOW...
@@ -93,12 +93,12 @@ static int __vbus_switch_state(struct vbus_device *dev, enum vbus_state state, b
 	 * and simultaneous changes should simply NEVER happen.
 	 */
 
-	dev->state = state;
+	vdev->state = state;
 
 	dmb();
 
 	vbus_transaction_start(&vbt);
-	vbus_printf(vbt, dev->nodename, "state", "%d", state);
+	vbus_printf(vbt, vdev->nodename, "state", "%d", state);
 	vbus_transaction_end(vbt);
 
 	return 0;
@@ -106,94 +106,83 @@ static int __vbus_switch_state(struct vbus_device *dev, enum vbus_state state, b
 
 /**
  * vbus_switch_state
- * @dev: vbus device
+ * @vdev: vbus device
  * @state: new state
  *
  * Advertise in the store a change of the given driver to the given new_state.
  * Return 0 on success, or -errno on error.
  */
-static int vbus_switch_state(struct vbus_device *dev, enum vbus_state state)
+static int vbus_switch_state(struct vbus_device *vdev, enum vbus_state state)
 {
-	DBG("--> changing state of %s from %d to %d\n", dev->nodename, dev->state, state);
+	DBG("--> changing state of %s from %d to %d\n", vdev->nodename, vdev->state, state);
 
-	return __vbus_switch_state(dev, state, false);
+	return __vbus_switch_state(vdev, state, false);
 }
 
 /*
  * Remove the watch associated to remove device (especially useful for monitoring the state).
  */
-void free_otherend_watch(struct vbus_device *dev, bool with_vbus) {
+void free_otherend_watch(struct vbus_device *vdev, bool with_vbus) {
 
-	if (dev->otherend_watch.node) {
+	if (vdev->otherend_watch.node) {
 
 		if (with_vbus)
-			unregister_vbus_watch(&dev->otherend_watch);
+			unregister_vbus_watch(&vdev->otherend_watch);
 		else
-			unregister_vbus_watch_without_vbus(&dev->otherend_watch);
+			unregister_vbus_watch_without_vbus(&vdev->otherend_watch);
 
-		free(dev->otherend_watch.node);
-		dev->otherend_watch.node = NULL;
+		free(vdev->otherend_watch.node);
+		vdev->otherend_watch.node = NULL;
 
 		/* No watch on otherend, and no interactions anymoire. */
-		dev->otherend[0] = 0;
+		vdev->otherend[0] = 0;
 	}
 }
 
 /*
  * Specific watch register function to focus on the state of a device on the other side.
  */
-void watch_otherend(struct vbus_device *dev) {
-	vbus_watch_pathfmt(dev, &dev->otherend_watch, dev->bus->otherend_changed, "%s/%s", dev->otherend, "state");
+void watch_otherend(struct vbus_device *vdev) {
+	vbus_watch_pathfmt(vdev, &vdev->otherend_watch, vdev->vbus->otherend_changed, "%s/%s", vdev->otherend, "state");
 }
 
 /*
  * Announce ourself to the otherend managed device. We mainly prepare to set up a watch on the device state.
  */
-static void talk_to_otherend(struct vbus_device *dev) {
-	struct vbus_driver *drv = dev->drv;
+static void talk_to_otherend(struct vbus_device *vdev) {
+	struct vbus_driver *vdrv = vdev->vdrv;
 
-	BUG_ON(dev->otherend[0] != 0);
-	BUG_ON(dev->otherend_watch.node != NULL);
+	BUG_ON(vdev->otherend[0] != 0);
+	BUG_ON(vdev->otherend_watch.node != NULL);
 	
-	drv->read_otherend_details(dev);
+	vdrv->read_otherend_details(vdev);
 
 	/* Set up watch on state of otherend */
-	watch_otherend(dev);
+	watch_otherend(vdev);
 }
 
 void vbus_read_otherend_details(struct vbus_device *vdev, char *id_node, char *path_node) {
 	vbus_gather(VBT_NIL, vdev->nodename, id_node, "%i", &vdev->otherend_id, path_node, "%s", vdev->otherend, NULL);
 }
-
-/* If something in array of ids matches this device, return it. */
-static const struct vbus_device_id *match_device(const struct vbus_device_id *arr, struct vbus_device *dev) {
-	for (; *arr->devicetype != '\0'; arr++) {
-		if (!strcmp(arr->devicetype, dev->devicetype))
-			return arr;
-	}
-	return NULL;
-}
-
 /*
  * The following function is called either in the backend OR the frontend.
  * On the backend side, it may run on CPU #0 (non-RT) or CPU #1 if the backend is configured as realtime.
  */
 void vbus_otherend_changed(struct vbus_watch *watch) {
-	struct vbus_device *dev = container_of(watch, struct vbus_device, otherend_watch);
-	struct vbus_driver *drv = dev->drv;
-	const struct vbus_device_id *id;
+	struct vbus_device *vdev = container_of(watch, struct vbus_device, otherend_watch);
+	struct vbus_driver *vdrv = vdev->vdrv;
 
 	enum vbus_state state;
 
-	state = vbus_read_driver_state(dev->otherend);
+	state = vbus_read_driver_state(vdev->otherend);
 
-        DBG("On domID: %d, otherend changed / device: %s  state: %d, CPU %d\n", ME_domID(), dev->nodename, state, smp_processor_id());
+        DBG("On domID: %d, otherend changed / device: %s  state: %d, CPU %d\n", ME_domID(), vdev->nodename, state, smp_processor_id());
 	
 	/* We do not want to call a callback in a frontend on InitWait. This is
 	 * a state issued from the backend to tell the frontend it can be probed.
 	 */
-	if ((drv->otherend_changed) && (state != VbusStateInitWait))
-		drv->otherend_changed(dev, state);
+	if ((vdrv->otherend_changed) && (state != VbusStateInitWait))
+		vdrv->otherend_changed(vdev, state);
 
 	BUG_ON(local_irq_is_disabled());
 
@@ -204,27 +193,23 @@ void vbus_otherend_changed(struct vbus_watch *watch) {
 		/* Check if we are suspended (before migration). In this case, we do nothing since the backend will
 		 * set its state in resuming later on.
 		 */
-		if (dev->state != VbusStateSuspended) {
+		if (vdev->state != VbusStateSuspended) {
 			/*
 			 * We set up the watch on the state at this time since the frontend probe will lead to
 			 * state Initialised, which will trigger rather quickly a Connected state event from the backend.
 			 * We have to be ready to process it.
 			 */
-			DBG("%s: Backend probed device: %s, now the frontend will be probing on its side.\n", __func__, dev->nodename);
+			DBG("%s: Backend probed device: %s, now the frontend will be probing on its side.\n", __func__, vdev->nodename);
 
-			id = match_device(drv->ids, dev);
-			if (!id)
-				BUG();
+			vdrv->probe(vdev);
 
-			drv->probe(dev, id);
-
-			vbus_switch_state(dev, VbusStateInitialised);
+			vbus_switch_state(vdev, VbusStateInitialised);
 		}
 		break;
 
 
 	case VbusStateSuspending:
-		vbus_switch_state(dev, VbusStateSuspended);
+		vbus_switch_state(vdev, VbusStateSuspended);
 		break;
 
 		/*
@@ -235,22 +220,22 @@ void vbus_otherend_changed(struct vbus_watch *watch) {
 		 */
 	case VbusStateClosed:
 		/* In the frontend, we are completing the closing. */
-		complete(&dev->down);
+		complete(&vdev->down);
 		break;
 
 	case VbusStateReconfiguring:
-		vbus_switch_state(dev, VbusStateReconfigured);
+		vbus_switch_state(vdev, VbusStateReconfigured);
 		break;
 
 	case VbusStateResuming:
-		vbus_switch_state(dev, VbusStateConnected);
+		vbus_switch_state(vdev, VbusStateConnected);
 		break;
 
 	case VbusStateConnected:
 
-		if (dev->state != VbusStateConnected)
+		if (vdev->state != VbusStateConnected)
 			/* The frontend is in VbusStateReconfigured after been migrated. */
-			vbus_switch_state(dev, VbusStateConnected);
+			vbus_switch_state(vdev, VbusStateConnected);
 
 		break;
 
@@ -263,33 +248,28 @@ void vbus_otherend_changed(struct vbus_watch *watch) {
 /*
  * vbus_dev_probe() is called by the Linux device subsystem when probing a device
  */
-int vbus_dev_probe(struct vbus_device *dev)
+int vbus_dev_probe(struct vbus_device *vdev)
 {
-	struct vbus_driver *drv = dev->drv;
-	const struct vbus_device_id *id;
+	struct vbus_driver *vdrv = vdev->vdrv;
 
-	DBG("%s\n", dev->nodename);
+	DBG("%s\n", vdev->nodename);
 
-	if (!drv->probe)
+	if (!vdrv->probe)
 		BUG();
 
-	id = match_device(drv->ids, dev);
-	if (!id)
-		BUG();
+	init_completion(&vdev->down);
+	init_completion(&vdev->sync_backfront);
 
-	init_completion(&dev->down);
-	init_completion(&dev->sync_backfront);
+	DBG("ME #%d  talk_to_otherend: %s\n", ME_domID(), vdev->nodename);
 
-	DBG("ME #%d  talk_to_otherend: %s\n", ME_domID(), dev->nodename);
-
-	talk_to_otherend(dev);
+	talk_to_otherend(vdev);
 
 	/* On frontend side, the probe will be executed as soon as the backend reaches the state InitWait */
 
 	return 0;
 }
 
-int vbus_dev_remove(struct vbus_device *dev)
+int vbus_dev_remove(struct vbus_device *vdev)
 {
 	unsigned int dir_exists;
 
@@ -298,15 +278,15 @@ int vbus_dev_remove(struct vbus_device *dev)
 	 * some frontend related entries may not have been created. We must check here if the entry matching the dev
 	 * to remove exists.
 	 */
-	dir_exists = vbus_directory_exists(VBT_NIL, dev->otherend_watch.node, "");
+	dir_exists = vbus_directory_exists(VBT_NIL, vdev->otherend_watch.node, "");
 	if (dir_exists) {
 		DBG("%s", dev->nodename);
 
 		/* Remove the watch on the remote device. */
-		free_otherend_watch(dev, true);
+		free_otherend_watch(vdev, true);
 
 		/* Definitively remove everything about this device */
-		free(dev);
+		free(vdev);
 	}
 
 	return 0;
@@ -315,40 +295,40 @@ int vbus_dev_remove(struct vbus_device *dev)
 /*
  * Shutdown a device.
  */
-void vbus_dev_shutdown(struct vbus_device *dev)
+void vbus_dev_shutdown(struct vbus_device *vdev)
 {
-	struct vbus_driver *drv = dev->drv;
+	struct vbus_driver *vdrv = vdev->vdrv;
 	unsigned int dir_exists;
 
-	DBG("%s", dev->nodename);
+	DBG("%s", vdev->nodename);
 
-	dir_exists = vbus_directory_exists(VBT_NIL, dev->otherend_watch.node, "");
+	dir_exists = vbus_directory_exists(VBT_NIL, vdev->otherend_watch.node, "");
 	if (dir_exists) {
-		if (dev->state != VbusStateConnected) {
-			printk("%s: %s: %s != Connected, skipping\n", __func__, dev->nodename, vbus_strstate(dev->state));
-			return ;
+		if (vdev->state != VbusStateConnected) {
+			printk("%s: %s: %s != Connected, skipping\n", __func__, vdev->nodename, vbus_strstate(vdev->state));
+			BUG();
 		}
 
-		if (drv->shutdown != NULL)
-			drv->shutdown(dev);
+		if (vdrv->shutdown != NULL)
+			vdrv->shutdown(vdev);
 
-		vbus_switch_state(dev, VbusStateClosing);
+		vbus_switch_state(vdev, VbusStateClosing);
 
-		wait_for_completion(&dev->down);
+		wait_for_completion(&vdev->down);
 	}
 }
 
 struct vb_find_info {
-	struct vbus_device *dev;
+	struct vbus_device *vdev;
 	const char *nodename;
 };
 
-static int cmp_dev(struct vbus_device *dev, void *data)
+static int cmp_dev(struct vbus_device *vdev, void *data)
 {
 	struct vb_find_info *info = data;
 
-	if (!strcmp(dev->nodename, info->nodename)) {
-		info->dev = dev;
+	if (!strcmp(vdev->nodename, info->nodename)) {
+		info->vdev = vdev;
 		return 1;
 	}
 	return 0;
@@ -356,24 +336,21 @@ static int cmp_dev(struct vbus_device *dev, void *data)
 
 struct vbus_device *vbus_device_find(const char *nodename)
 {
-	struct vb_find_info info = { .dev = NULL, .nodename = nodename };
+	struct vb_find_info info = { .vdev = NULL, .nodename = nodename };
 
 	frontend_for_each(&info, cmp_dev);
 
-	return info.dev;
+	return info.vdev;
 }
 
 /* Driver management */
 
-int vbus_match(struct vbus_driver *drv, void *data) {
-	struct vbus_device *dev = (struct vbus_device *) data;
+int vbus_match(struct vbus_driver *vdrv, void *data) {
+	struct vbus_device *vdev = (struct vbus_device *) data;
 
-	if (!drv->ids)
-		return 0;
-
-	if (match_device(drv->ids, dev) != NULL) {
-		dev->drv = drv;
-		vbus_dev_probe(dev);
+	if (!strcmp(vdrv->devicetype, vdev->devicetype)) {
+		vdev->vdrv = vdrv;
+		vbus_dev_probe(vdev);
 		return 1;
 	}
 
@@ -383,7 +360,7 @@ int vbus_match(struct vbus_driver *drv, void *data) {
 /*
  * Create a new node and initialize basic structure (vdev)
  */
-static struct vbus_device *vbus_probe_node(struct vbus_type *bus, const char *type, const char *nodename)
+static struct vbus_device *vbus_probe_node(struct vbus_type *bus, const char *type, const char *nodename, char const *compat)
 {
 	char devname[VBUS_ID_SIZE];
 	int err;
@@ -413,8 +390,11 @@ static struct vbus_device *vbus_probe_node(struct vbus_type *bus, const char *ty
 	vdev->resuming = 0;
 	vdev->realtime = realtime;
 
-	vdev->drv = NULL;
-	vdev->bus = bus;
+	vdev->vdrv = NULL;
+	vdev->vbus = bus;
+
+	vdev->dev = find_device(compat);
+	BUG_ON(!vdev->dev);
 
 	strcpy(vdev->nodename, nodename);
 	strcpy(vdev->devicetype, type);
@@ -434,20 +414,20 @@ static struct vbus_device *vbus_probe_node(struct vbus_type *bus, const char *ty
 }
 
 
-int vbus_register_driver_common(struct vbus_driver *drv)
+int vbus_register_driver_common(struct vbus_driver *vdrv)
 {
-	DBG("Registering driver name: %s\n", drv->name);
+	DBG("Registering driver name: %s\n", vdrv->name);
 
 	/* Add the new driver to the main list */
-	list_add_tail(&drv->list, &vbus_drivers);
+	list_add_tail(&vdrv->list, &vbus_drivers);
 
 	return 0;
 }
 
 /******************/
 
-void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus) {
-	struct vbus_device *dev;
+void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus, const char *compat) {
+	struct vbus_device *vdev;
 
 	/*
 	 * Either the device does not exist (backend or frontend) and the dev must be allocated, initialized
@@ -456,12 +436,12 @@ void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus) {
 	 * set up the watch on its state (and retrieve the otherend id and name).
 	 */
 
-	dev = vbus_device_find(node);
-	if (!dev) {
-		dev = vbus_probe_node(bus, type, node);
+	vdev = vbus_device_find(node);
+	if (!vdev) {
+		vdev = vbus_probe_node(bus, type, node, compat);
 
 		/* Add the new device to the main list */
-		add_new_dev(dev);
+		add_new_dev(vdev);
 
 	} else {
 
@@ -469,10 +449,10 @@ void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus) {
 
 		/* Update the our state in vbstore. */
 		/* We force the update, this will not trigger a watch since the watch is set right afterwards */
-		 __vbus_switch_state(dev, dev->state, true);
+		 __vbus_switch_state(vdev, vdev->state, true);
 
 		/* Setting the watch on the state */
-		talk_to_otherend(dev);
+		talk_to_otherend(vdev);
 	}
 }
 

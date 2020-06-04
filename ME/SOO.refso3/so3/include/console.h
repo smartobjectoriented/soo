@@ -1,5 +1,6 @@
+
 /*
- * Copyright (C) 2016-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2020 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,29 +17,5 @@
  *
  */
 
-#ifndef _IO_VBUS_H
-#define _IO_VBUS_H
 
-/*
- * The following states are used to synchronize backend and frontend activities.
- * Detailed description is given in the SOO Framework technical reference.
- */
-
-enum vbus_state
-{
-	VbusStateUnknown      = 0,
-	VbusStateInitialising = 1,
-	VbusStateInitWait     = 2,
-	VbusStateInitialised  = 3,
-	VbusStateConnected    = 4,
-	VbusStateClosing      = 5,
-	VbusStateClosed       = 6,
-	VbusStateReconfiguring = 7,
-	VbusStateReconfigured  = 8,
-	VbusStateSuspending    = 9,
-	VbusStateSuspended     = 10,
-	VbusStateResuming      = 11
-
-};
-
-#endif /* _IO_VBUS_H */
+extern struct file_operations console_fops;

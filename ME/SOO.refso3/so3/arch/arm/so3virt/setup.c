@@ -86,6 +86,13 @@ int do_postsetup_adjust_variables(void *arg)
 	/* Updating pfns where used. */
 	readjust_io_map(args->pfn_offset);
 
+	/* We need to add handling of swi/svc software interrupt instruction for syscall processing.
+	 * Such an exception is fully processed by the SO3 domain.
+	 */
+	inject_syscall_vector();
+
+	flush_icache_range(VECTOR_VADDR, VECTOR_VADDR + PAGE_SIZE);
+
 	return 0;
 }
 

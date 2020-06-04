@@ -79,5 +79,13 @@ install_file_root build/core/agency
 # ASF test program
 install_file_directory build/apps/asf_ta_tst/asf_ta_tst asf_ta_tst
 
+# Other apps
+install_file_root build/apps/injector
+install_file_root build/apps/saveme
+install_file_root build/apps/restoreme
+install_file_root build/apps/shutdownme
+
+
+
 
 

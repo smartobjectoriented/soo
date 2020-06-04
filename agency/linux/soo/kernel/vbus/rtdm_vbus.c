@@ -513,6 +513,11 @@ static int rtdm_dc_isr(rtdm_irq_t *unused) {
 
 	dc_event = atomic_read((const atomic_t *) &avz_shared_info->dc_event);
 
+	/* We should not receive twice a same dc_event, before it has been fully processed. */
+	BUG_ON(atomic_read(&rtdm_dc_incoming_domID[dc_event]) != -1);
+
+	atomic_set(&rtdm_dc_incoming_domID[dc_event], DOMID_AGENCY);
+
 	/* Work to be done in ME */
 
 	switch (dc_event) {
@@ -554,9 +559,6 @@ static int rtdm_dc_isr(rtdm_irq_t *unused) {
 		if (atomic_read(&rtdm_dc_outgoing_domID[dc_event]) != -1)
 			dc_stable(dc_event);
 		else {
-			/* We should not receive twice a same dc_event, before it has been fully processed. */
-			BUG_ON(atomic_read(&rtdm_dc_incoming_domID[dc_event]) != -1);
-			atomic_set(&rtdm_dc_incoming_domID[dc_event], DOMID_AGENCY);
 
 			/* Perform deferred processing for these events */
 			rtdm_event_signal(&dc_isr_event);

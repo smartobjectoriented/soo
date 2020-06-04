@@ -229,7 +229,6 @@ static struct vbus_type vbus_backend = {
 		.uevent		= vbus_uevent_backend,
 		.probe		= vbus_dev_probe,
 		.remove		= vbus_dev_remove,
-		.shutdown	= vbus_dev_shutdown,
 		.dev_groups	= vbus_backend_dev_groups,
 		.bus_groups 	= vbus_backend_bus_groups,
 	},

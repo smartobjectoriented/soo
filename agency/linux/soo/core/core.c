@@ -21,6 +21,8 @@
 #define DEBUG
 #endif
 
+//#define VERBOSE
+
 #if 0
 #define ENABLE_LOGBOOL
 #endif
@@ -107,9 +109,10 @@ static struct device soo_dev;
 ME_state_t force_terminate(unsigned int ME_slotID) {
 	int rc;
 
-	do_sync_dom(ME_slotID, DC_FORCE_TERMINATE);
+	if (get_ME_state(ME_slotID) == ME_state_living)
+		do_sync_dom(ME_slotID, DC_FORCE_TERMINATE);
 
-	if (get_ME_state(ME_slotID) == ME_state_terminated) {
+	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated)) {
 
 		rc = soo_hypercall(AVZ_KILL_ME, NULL, NULL, &ME_slotID, NULL);
 		if (rc != 0) {
@@ -215,6 +218,7 @@ static int ioctl_initialize_migration(unsigned long arg) {
 	}
 
 	if (pers == SOO_PERSONALITY_INITIATOR) {
+
 		if ((rc = soo_hypercall(AVZ_MIG_PRE_PROPAGATE, NULL, NULL, &args.ME_slotID, &propagate)) != 0) {
 			lprintk("Agency: %s:%d Failed to trigger pre-propagate callback (%d)\n", __func__, __LINE__, rc);
 			BUG();
@@ -231,6 +235,10 @@ static int ioctl_initialize_migration(unsigned long arg) {
 			args.value = -1;
 			goto out;
 		}
+
+#ifdef VERBOSE
+		lprintk("%s: returned propagate value = %d\n", __func__, propagate);
+#endif
 
 		if (!propagate) {
 			args.value = -1;
@@ -322,10 +330,7 @@ static int ioctl_get_ME_desc(unsigned int arg) {
 
 	DBG("ME_slotID=%d\n", args.ME_slotID);
 
-	if (get_ME_desc(args.ME_slotID, &ME_desc) != 0) {
-		lprintk("Agency: %s:%d Failed to get ME desc from hypervisor (%d)\n", __func__, __LINE__, rc);
-		BUG();
-	}
+	get_ME_desc(args.ME_slotID, &ME_desc);
 
 	if ((rc = copy_to_user(args.buffer, &ME_desc, sizeof(ME_desc_t))) != 0) {
 		lprintk("Agency: %s:%d Failed to set args into userspace\n", __func__, __LINE__);
@@ -383,10 +388,7 @@ static int ioctl_write_snapshot(unsigned long arg) {
 	}
 
 	/* Get the ME descriptor corresponding to this slotID. */
-	if (get_ME_desc(args.ME_slotID, &ME_desc) != 0) {
-		lprintk("Agency: %s:%d Failed to get ME desc from hypervisor.\n", __func__, __LINE__);
-		BUG();
-	}
+	get_ME_desc(args.ME_slotID, &ME_desc);
 
 	/* Beginning of the ME_buffer */
 	ME_info_transfer = (ME_info_transfer_t *) args.buffer;
@@ -418,6 +420,40 @@ static int ioctl_write_snapshot(unsigned long arg) {
 	return 0;
 }
 
+/*
+ * Retrieve a valid (user space) address to the ME snapshot which has been previously
+ * read with the READ_SNAPSOT ioctl.
+ *
+ * In tx_args_t <args>, the following fields are used as follows:
+ *
+ * @buffer:	pointer to the vmalloc'd memory (not be used in the user space, but will be used in following calls
+ * @ME_slotID: 	the *size* of the contents to be copied.
+ * @value: 	the target user space address the ME has to be copied to
+ */
+static void ioctl_get_ME_snapshot(unsigned long arg) {
+	agency_tx_args_t args;
+
+	if ((copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
+		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
+		BUG();
+	}
+
+	/* Awful usage of these fields, the name will have to evolve... */
+	memcpy((void *) args.value, args.buffer, args.ME_slotID);
+}
+
+/*
+ * Read a ME snapshot for migration or saving.
+ * Currently, the ME is read and stored in a vmalloc'd memory area.
+ * It will be preferable in the future to have a memory allocated and handled by
+ * the user space application (avoiding restriction access and so on).
+ *
+ * In tx_args_t <args>, the following fields are used as follows:
+ *
+ * @buffer:	pointer to the vmalloc'd memory (not be used in the user space, but will be used in following calls
+ * @ME_slotID: 	the slotID which leads to retrieving the ME descriptor
+ * @value: 	the size including ME size + additional transfer information
+ */
 static int ioctl_read_snapshot(unsigned long arg) {
 	ME_desc_t ME_desc;
 	agency_tx_args_t args;
@@ -431,10 +467,7 @@ static int ioctl_read_snapshot(unsigned long arg) {
 	}
 
 	/* Get the ME descriptor corresponding to this slotID. */
-	if (get_ME_desc(args.ME_slotID, &ME_desc) != 0) {
-		lprintk("Agency: %s:%d Failed to get ME desc from hypervisor.\n", __func__, __LINE__);
-		BUG();
-	}
+	get_ME_desc(args.ME_slotID, &ME_desc);
 
 	/*
 	 * Prepare a buffer to store the ME and additional header information like migration structure and transfer information.
@@ -623,26 +656,6 @@ static int ioctl_store_versions(unsigned long arg) {
 	vbus_printf(VBT_NIL, "/soo", "itb-version", "%u", version_args.itb);
 	vbus_printf(VBT_NIL, "/soo", "uboot-version", "%u", version_args.uboot);
 	vbus_printf(VBT_NIL, "/soo", "rootfs-version", "%u", version_args.rootfs);
-
-	return 0;
-}
-
-static int ioctl_reboot(unsigned long arg) {
-	int ME_slot;
-	ME_desc_t desc;
-
-	printk("%s: now terminating all MEs...\n", __func__);
-	for (ME_slot = 0; ME_slot < MAX_ME_DOMAINS; ++ME_slot) {
-		/* Check if the ME slot is use dor not in order to not 
-		   call force_terminate on an empty slot, which would cause an error. */
-		get_ME_desc(ME_slot+2, &desc);
-		if (desc.size != 0) {
-			force_terminate(ME_slot+2);
-		}
-	}
-
-	printk("All MEs terminated, now rebooting the Agency...\n");
-	orderly_reboot();
 
 	return 0;
 }
@@ -900,14 +913,14 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		rc = ioctl_get_upgrade_image(arg);
 		break;
 
-	case AGENCY_IOCTL_REBOOT:
-		rc = ioctl_reboot(arg);
-		break;
-
 	case AGENCY_IOCTL_STORE_VERSIONS:
 		rc = ioctl_store_versions(arg);
 		break;
-		
+	
+	case AGENCY_IOCTL_GET_ME_SNAPSHOT:
+		ioctl_get_ME_snapshot(arg);
+		break;
+	
 	case INJECTOR_IOCTL_CLEAN_ME:
 		injector_clean_ME();
 		break;
@@ -918,7 +931,7 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	
 	default:
 		lprintk("%s: Unrecognized IOCTL: 0x%x\n", __func__, cmd);
-		rc = -EINVAL;
+		BUG();
 		break;
 	}
 
@@ -1103,6 +1116,34 @@ irqreturn_t dummy_interrupt(int irq, void *dev_id) {
 	return IRQ_HANDLED;
 };
 
+static int agency_reboot_notify(struct notifier_block *nb, unsigned long code, void *unused)
+{
+	int slotID;
+	ME_desc_t desc;
+
+	lprintk("%s: !! Now terminating all Mobile Entities of this smart object...\n", __func__);
+
+	for (slotID = 2; slotID < MAX_DOMAINS; slotID++) {
+
+		/* Check if the ME slot is use dor not in order to not
+		   call force_terminate on an empty slot, which would cause an error. */
+
+		get_ME_desc(slotID, &desc);
+
+		if (desc.size > 0) {
+			lprintk("%s: terminating ME %d...\n", __func__, slotID);
+			force_terminate(slotID);
+		}
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block agency_reboot_nb = {
+	.notifier_call = agency_reboot_notify,
+};
+
+
 int agency_init(void) {
 #ifdef CONFIG_ARM
 	int rc;
@@ -1144,7 +1185,11 @@ int agency_init(void) {
 
 	/* Initialize the dbgvar facility */
 	dbgvar_init();
+
+	register_reboot_notifier(&agency_reboot_nb);
+
 #endif
+
 	return 0;
 }
 

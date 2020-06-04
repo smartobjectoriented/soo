@@ -49,7 +49,7 @@ static void vbs_me_write(const char *dir, const char *node, const char *string) 
  *
  * <realtime> tells if the device is realtime.
  */
-static void vbstore_dev_init(unsigned int domID, const char *devname, bool realtime) {
+static void vbstore_dev_init(unsigned int domID, const char *devname, bool realtime, const char *compat) {
 
 	char rootname[VBS_KEY_LENGTH];  /* Root name depending on domID */
 	char propname[VBS_KEY_LENGTH];  /* Property name depending on domID */
@@ -159,7 +159,7 @@ static void vbstore_dev_init(unsigned int domID, const char *devname, bool realt
 	sprintf(propname, devrootname, domID);
 
 	/* Create device structure and gets ready to begin interactions with the backend */
-	vdev_probe(propname);
+	vdev_probe(propname, compat);
 }
 
 static void vbstore_dev_remove(unsigned int domID, const char *devname) {
@@ -257,37 +257,37 @@ void vbstore_devices_populate(void) {
 	fdt_node = fdt_find_compatible_node("vdummy,frontend");
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: init vdummy...\n", __func__);
-		vbstore_dev_init(ME_domID(), "vdummy", false);
+		vbstore_dev_init(ME_domID(), "vdummy", false, "vdummy,frontend");
 	}
 
 	fdt_node = fdt_find_compatible_node("vleds,frontend");
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: Init vLEDS...\n", __func__);
-		vbstore_dev_init(ME_domID(), "vleds", false);
+		vbstore_dev_init(ME_domID(), "vleds", false, "vleds,frontend");
 	}
 
 	fdt_node = fdt_find_compatible_node("vuihandler,frontend");
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: Init vUIHandler...\n", __func__);
-		vbstore_dev_init(ME_domID(), "vuihandler", false);
+		vbstore_dev_init(ME_domID(), "vuihandler", false, "vuihandler,frontend");
 	}
 
 	fdt_node = fdt_find_compatible_node("vuart,frontend");
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: init vuart...\n", __func__);
-		vbstore_dev_init(ME_domID(), "vuart", false);
+		vbstore_dev_init(ME_domID(), "vuart", false, "vuart,frontend");
 	}
 
 	fdt_node = fdt_find_compatible_node("vweather,frontend");
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: init vweather...\n", __func__);
-		vbstore_dev_init(ME_domID(), "vweather", false);
+		vbstore_dev_init(ME_domID(), "vweather", false, "vweather,frontend");
 	}
 
 	fdt_node = fdt_find_compatible_node("vdoga12v6nm,frontend");
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: init vdoga12v6nm...\n", __func__);
-		vbstore_dev_init(ME_domID(), "vdoga12v6nm", false);
+		vbstore_dev_init(ME_domID(), "vdoga12v6nm", false, "vdoga12v6nm,frontend");
 	}
 
 }

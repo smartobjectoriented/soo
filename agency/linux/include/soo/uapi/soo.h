@@ -135,24 +135,24 @@ extern soo_personality_t soo_get_personality(void);
 /*
  * IOCTL codes
  */
-#define AGENCY_IOCTL_SET_PERSONALITY		_IOW(0x05000000, 0, char)
-#define AGENCY_IOCTL_INIT_MIGRATION		_IOW(0x05000000, 1, char)
-#define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOR(0x05000000, 2, char)
-#define AGENCY_IOCTL_READ_SNAPSHOT		_IOW(0x05000000, 3, char)
-#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW(0x05000000, 4, char)
-#define AGENCY_IOCTL_FINAL_MIGRATION    	_IOW(0x05000000, 5, char)
-#define AGENCY_IOCTL_FORCE_TERMINATE		_IOW(0x05000000, 6, char)
-#define AGENCY_IOCTL_LOCALINFO_UPDATE		_IOW(0x05000000, 7, char)
-#define AGENCY_IOCTL_INJECT_ME			_IOW(0x05000000, 8, char)
-#define AGENCY_IOCTL_DUMP			_IOR(0x05000000, 9, char)
-#define AGENCY_IOCTL_PICK_NEXT_UEVENT		_IOW(0x05000000, 10, char)
-#define AGENCY_IOCTL_READY			_IOW(0x05000000, 11, char)
-#define AGENCY_IOCTL_RESET_BOARD		_IOW(0x05000000, 12, char)
-#define AGENCY_IOCTL_GET_ME_DESC		_IOR(0x05000000, 13, char)
-#define AGENCY_IOCTL_GET_PERSONALITY		_IOW(0x05000000, 14, char)
-#define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOW(0x05000000, 15, char)
-#define AGENCY_IOCTL_REBOOT		        _IOW(0x05000000, 16, char)
-#define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW(0x05000000, 17, char)
+#define AGENCY_IOCTL_SET_PERSONALITY		_IOWR(0x05000000, 0, char)
+#define AGENCY_IOCTL_INIT_MIGRATION		_IOWR(0x05000000, 1, char)
+#define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR(0x05000000, 2, char)
+#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR(0x05000000, 3, char)
+#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOWR(0x05000000, 4, char)
+#define AGENCY_IOCTL_FINAL_MIGRATION    	_IOWR(0x05000000, 5, char)
+#define AGENCY_IOCTL_FORCE_TERMINATE		_IOWR(0x05000000, 6, char)
+#define AGENCY_IOCTL_LOCALINFO_UPDATE		_IOWR(0x05000000, 7, char)
+#define AGENCY_IOCTL_INJECT_ME			_IOWR(0x05000000, 8, char)
+#define AGENCY_IOCTL_DUMP			_IOWR(0x05000000, 9, char)
+#define AGENCY_IOCTL_PICK_NEXT_UEVENT		_IOWR(0x05000000, 10, char)
+#define AGENCY_IOCTL_READY			_IOWR(0x05000000, 11, char)
+#define AGENCY_IOCTL_RESET_BOARD		_IOWR(0x05000000, 12, char)
+#define AGENCY_IOCTL_GET_ME_DESC		_IOWR(0x05000000, 13, char)
+#define AGENCY_IOCTL_GET_PERSONALITY		_IOWR(0x05000000, 14, char)
+#define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOWR(0x05000000, 15, char)
+#define AGENCY_IOCTL_STORE_VERSIONS	 	_IOWR(0x05000000, 16, char)
+#define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR(0x05000000, 17, char)
 
 
 #define ME_IOCTL_FORCE_TERMINATE		100
@@ -174,7 +174,7 @@ typedef enum {
  * - ME_state_living:		ME is full-functional and activated (all frontend devices are consistent)
  * - ME_state_suspended:	ME is suspended before migrating. This state is maintained for the resident ME instance
  * - ME_state_migrating:	ME just arrived in SOO
- * - ME_state_dormant:		ME is resident, but not living (running)
+ * - ME_state_dormant:		ME is resident, but not living (running) - all frontends are closed/shutdown
  * - ME_state_killed:		ME has been killed before to be resumed
  * - ME_state_terminated:	ME has been terminated (by a force_terminate)
  * - ME_state_dead:		ME does not exist

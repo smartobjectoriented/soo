@@ -19,10 +19,9 @@
 #ifndef VDUMMY_H
 #define VDUMMY_H
 
-#include <device/irq.h>
-
 #include <soo/ring.h>
 #include <soo/grant_table.h>
+#include <soo/vdevfront.h>
 
 #define VDUMMY_PACKET_SIZE	32
 
@@ -38,41 +37,29 @@ typedef struct  {
 } vdummy_response_t;
 
 /*
- * Generate blkif ring structures and types.
+ * Generate ring structures and types.
  */
 DEFINE_RING_TYPES(vdummy, vdummy_request_t, vdummy_response_t);
 
-typedef struct {
+/*
+ * General structure for this virtual device (backend side)
+ */
 
-	struct vbus_device  *dev;
+typedef struct {
+	vdevfront_t vdevfront;
 
 	vdummy_front_ring_t ring;
+	unsigned int irq;
+
 	grant_ref_t ring_ref;
 	grant_handle_t handle;
 	uint32_t evtchn;
-	uint32_t irq;
 
 } vdummy_t;
 
-extern vdummy_t vdummy;
-
-/* ISR associated to the ring */
-irq_return_t vdummy_interrupt(int irq, void *data);
-
-/* State management */
-void vdummy_probe(void);
-void vdummy_closed(void);
-void vdummy_suspend(void);
-void vdummy_resume(void);
-void vdummy_connected(void);
-void vdummy_reconfiguring(void);
-void vdummy_shutdown(void);
-
-void vdummy_vbus_init(void);
-
-/* Processing and connected state management */
-void vdummy_start(void);
-void vdummy_end(void);
-bool vdummy_is_connected(void);
+static inline vdummy_t *to_vdummy(struct vbus_device *vdev) {
+	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
+	return container_of(vdevback, vdummy_t, vdevfront);
+}
 
 #endif /* VDUMMY_H */

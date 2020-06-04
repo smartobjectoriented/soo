@@ -2985,13 +2985,9 @@ void device_shutdown(void)
 			dev->class->shutdown_pre(dev);
 		}
 		if (dev->bus && dev->bus->shutdown) {
-			/* SOO.tech */
-			/* bypass vbus_dev_shutdown */
-			if (dev->bus->shutdown != vbus_dev_shutdown) {
-				if (initcall_debug)
-					dev_info(dev, "shutdown\n");
-				dev->bus->shutdown(dev);
-			}
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->bus->shutdown(dev);
 		} else if (dev->driver && dev->driver->shutdown) {
 			if (initcall_debug)
 				dev_info(dev, "shutdown\n");

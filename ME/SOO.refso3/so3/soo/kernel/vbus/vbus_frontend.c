@@ -44,19 +44,19 @@ struct list_head frontends;
  */
 void frontend_for_each(void *data, int (*fn)(struct vbus_device *, void *)) {
 	struct list_head *pos, *q;
-	struct vbus_device *dev;
+	struct vbus_device *vdev;
 
 	list_for_each_safe(pos, q, &frontends)
 	{
-		dev = list_entry(pos, struct vbus_device, list);
+		vdev = list_entry(pos, struct vbus_device, list);
 
-		if (fn(dev, data) == 1)
+		if (fn(vdev, data) == 1)
 			return ;
 	}
 }
 
-void add_new_dev(struct vbus_device *dev) {
-	list_add_tail(&dev->list, &frontends);
+void add_new_dev(struct vbus_device *vdev) {
+	list_add_tail(&vdev->list, &frontends);
 }
 
 /* device/domID/<type>/<id> => <type>-<id> */
@@ -97,18 +97,18 @@ static struct vbus_type vbus_frontend = {
 };
 
 
-static int remove_dev(struct vbus_device *dev, void *data)
+static int remove_dev(struct vbus_device *vdev, void *data)
 {
-	if (dev->drv == NULL) {
+	if (vdev->vdrv == NULL) {
 		/* Skip if driver is NULL, i.e. probe failed */
 		return 0;
 	}
 
 	/* Remove it from the main list */
-	list_del(&dev->list);
+	list_del(&vdev->list);
 
 	/* Removal from vbus namespace */
-	vbus_dev_remove(dev);
+	vbus_dev_remove(vdev);
 
 	return 0;
 }
@@ -121,10 +121,10 @@ void remove_devices(void)
 	frontend_for_each(NULL, remove_dev);
 }
 
-static int __device_shutdown(struct vbus_device *dev, void *data)
+static int __device_shutdown(struct vbus_device *vdev, void *data)
 {
 	/* Removal from vbus namespace */
-	vbus_dev_shutdown(dev);
+	vbus_dev_shutdown(vdev);
 
 	return 0;
 }
@@ -144,14 +144,14 @@ static void read_backend_details(struct vbus_device *vdev)
 /*
  * The drivers/vbus_fron have to be registered *before* any registered frontend devices.
  */
-void vbus_register_frontend(struct vbus_driver *drv)
+void vbus_register_frontend(struct vbus_driver *vdrv)
 {
-	DBG("Registering driver %s\n", drv->name);
+	DBG("Registering driver %s\n", vdrv->name);
 
-	drv->read_otherend_details = read_backend_details;
+	vdrv->read_otherend_details = read_backend_details;
 	DBG("__vbus_register_frontend\n");
 
-	vbus_register_driver_common(drv);
+	vbus_register_driver_common(vdrv);
 }
 
 /*
@@ -244,7 +244,7 @@ void postmig_setup(void) {
  * Probe a new device on the frontend bus.
  * Typically called by vbstore_dev_init()
  */
-int vdev_probe(char *node) {
+int vdev_probe(char *node, const char *compat) {
 	char *type, *pos;
 	char target[VBS_KEY_LENGTH];
 
@@ -256,7 +256,7 @@ int vdev_probe(char *node) {
 	type = strsep(&pos, "/");    /* "device/<domid>/" */
 	type = strsep(&pos, "/");    /* "/device/<domid>/<type>" */
 
-	vbus_dev_changed(node, type, &vbus_frontend);
+	vbus_dev_changed(node, type, &vbus_frontend, compat);
 
 	return 0;
 }
