@@ -70,6 +70,8 @@ void dc_stable(int dc_event)
 	 */
 
 	complete(&dc_stable_lock[dc_event]);
+
+	atomic_set(&dc_incoming_domID[dc_event], -1);
 }
 
 

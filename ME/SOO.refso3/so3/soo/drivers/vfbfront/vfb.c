@@ -47,7 +47,7 @@ irq_return_t vfb_interrupt(int irq, void *dev_id)
 
 	DBG("%s, %d\n", __func__, ME_domID());
 
-	vfb_response = vfb_ring_response_next(&vfb.ring);
+	vfb_response = vfb_ring_response(&vfb.ring);
 
 	/* Do something... */
 
@@ -68,7 +68,7 @@ void vfb_generate_request(char *buffer)
 	 * Try to generate a new request to the backend
 	 */
 
-	ring_req = vfb_ring_request_next(&vfb.ring);
+	ring_req = vfb_ring_request(&vfb.ring);
 	if (ring_req) {
 		memcpy(ring_req->buffer, buffer, VFB_PACKET_SIZE);
 

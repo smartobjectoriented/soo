@@ -1,5 +1,6 @@
+
 /*
- * Copyright (C) 2016-2018 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2020 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,28 +17,12 @@
  *
  */
 
-#ifndef VDUMMYRT_H
-#define VDUMMYRT_H
+#ifndef CONSOLE_H
+#define CONSOLE_H
 
-#include <soo/ring.h>
-#include <soo/grant_table.h>
+#include <vfs.h>
 
-#define VDUMMYRT_PACKET_SIZE	32
+extern struct file_operations console_fops;
 
-#define VDUMMYRT_NAME		"vdummyrt"
-#define VDUMMYRT_PREFIX		"[" VDUMMYRT_NAME "] "
 
-typedef struct {
-	char buffer[VDUMMYRT_PACKET_SIZE];
-} vdummyrt_request_t;
-
-typedef struct  {
-	char buffer[VDUMMYRT_PACKET_SIZE];
-} vdummyrt_response_t;
-
-/*
- * Generate vdummy ring structures and types.
- */
-DEFINE_RING_TYPES(vdummyrt, vdummyrt_request_t, vdummyrt_response_t);
-
-#endif /* VDUMMYRT_H */
+#endif /* CONSOLE_H */

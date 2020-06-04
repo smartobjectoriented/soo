@@ -1,3 +1,2 @@
-obj-$(CONFIG_VDUMMY_FRONTEND) := vdummyfront.o
+obj-y := vdummy.o
 
-vdummyfront-y := vdummy.o vbus.o test.o

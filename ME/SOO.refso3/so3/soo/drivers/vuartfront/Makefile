@@ -1,3 +1,2 @@
-obj-$(CONFIG_VUART_FRONTEND) := vuartfront.o
+obj-y := vuart.o
 
-vuartfront-y := vuart.o vbus.o 

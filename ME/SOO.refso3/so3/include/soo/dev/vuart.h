@@ -20,70 +20,45 @@
 #ifndef VUART_H
 #define VUART_H
 
-#include <device/irq.h>
-
 #include <soo/ring.h>
 #include <soo/grant_table.h>
+#include <soo/vdevfront.h>
 
 #define VUART_NAME	"vuart"
 #define VUART_PREFIX	"[" VUART_NAME "] "
 
-#define INPUT_TRANSMIT_DESTINATION_VTTY (1 << 0)
-#define INPUT_TRANSMIT_DESTINATION_TTY (1 << 1)
-
 typedef struct {
 	char c;
-	uint8_t	pad[1];
 } vuart_request_t;
 
 typedef struct {
 	char c;
-	uint8_t	pad[1];
 } vuart_response_t;
 
 DEFINE_RING_TYPES(vuart, vuart_request_t, vuart_response_t);
 
-bool vuart_ready(void);
-
-extern struct vc_data *__vc;
-
-void vuart_write(char *buffer, int count);
-void send_to_console(char ch);
-char vuart_read_char(void);
-
 typedef struct {
-
-	struct vbus_device  *dev;
+	vdevfront_t vdevfront;
 
 	vuart_front_ring_t ring;
+	unsigned int irq;
+
 	grant_ref_t ring_ref;
 	grant_handle_t handle;
 	uint32_t evtchn;
-	uint32_t irq;
 
+	completion_t reader_wait;
 
 } vuart_t;
 
-/* ISR associated to the ring */
-extern vuart_t vuart;
+bool vuart_ready(void);
 
-irq_return_t vuart_interrupt(int irq, void *data);
+void vuart_write(char *buffer, int count);
+char vuart_read_char(void);
 
-/* State management */
-void vuart_probe(void);
-void vuart_closed(void);
-void vuart_suspend(void);
-void vuart_resume(void);
-void vuart_connected(void);
-void vuart_reconfiguring(void);
-void vuart_shutdown(void);
-
-void vuart_vbus_init(void);
-
-/* Processing and connected state management */
-void vuart_start(void);
-void vuart_end(void);
-bool vuart_is_connected(void);
-
+static inline vuart_t *to_vuart(struct vbus_device *vdev) {
+	vdevfront_t *vdevfront = dev_get_drvdata(vdev->dev);
+	return container_of(vdevfront, vuart_t, vdevfront);
+}
 
 #endif /* VUART_H */
