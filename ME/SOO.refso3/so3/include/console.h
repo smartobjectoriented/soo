@@ -17,5 +17,12 @@
  *
  */
 
+#ifndef CONSOLE_H
+#define CONSOLE_H
+
+#include <vfs.h>
 
 extern struct file_operations console_fops;
+
+
+#endif /* CONSOLE_H */
