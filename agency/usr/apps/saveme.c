@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
 
 	buffer = get_ME_snapshot_user(buffer, buffer_size);
 
-	printf("  * Got a ME buffer of %d MB.\n", buffer_size);
+	printf("  * Got a ME buffer of %d bytes.\n", buffer_size);
 
 	finalize_migration(2);
 
