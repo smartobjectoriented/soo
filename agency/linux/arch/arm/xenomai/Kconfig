@@ -1,0 +1,17 @@
+source "kernel/xenomai/Kconfig"
+
+config IPIPE_WANT_ACTIVE_MM
+       def_bool y
+
+config XENO_ARCH_WANT_TIP
+       def_bool y
+
+config XENO_ARCH_FPU
+	def_bool VFP
+
+config XENO_ARCH_SYS3264
+        def_bool n
+
+config XENO_ARCH_OUTOFLINE_XNLOCK
+       bool
+       default y
