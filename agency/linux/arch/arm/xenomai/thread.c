@@ -256,7 +256,7 @@ int xnarch_handle_fpu_fault(struct xnthread *from,
 struct thread_info *xnthread_current_ti(void) {
 	return xnthread_archtcb(xnthread_current())->ti;
 }
-EXPORT_SYMBOL(xnthread_current_ti);
+EXPORT_SYMBOL_GPL(xnthread_current_ti);
 
 /* To be completed later on */
 void xnarch_init_thread(struct xnthread *thread) {
@@ -269,8 +269,7 @@ void xnarch_init_thread(struct xnthread *thread) {
 	 * current xnthread.
 	 */
 	thread->tcb.ti = kmalloc(sizeof(struct thread_info), GFP_ATOMIC);
-	BUG_ON(!thread->tcb.ti);
-	memset(thread->tcb.ti, 0, sizeof(struct thread_info));
+	BUG_ON(!thread->tcb.ti);f
 
 	/* Underlying Linux task struct for various purposes like current() in stack_strace function */
 	thread->tcb.task = kmalloc(sizeof(struct task_struct), GFP_ATOMIC);
