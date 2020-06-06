@@ -135,9 +135,10 @@ static void my_rt_task1_fn(void *args) {
 #if 1
 	while (1) {
 
-		rtdm_event_wait(&rt_event);
-		lprintk("## Got %d\n", i++);
+		//rtdm_event_wait(&rt_event);
+		//lprintk("## Got %d\n", i++);
 
+		lprintk("## thread task1\n");
 #if 0
 		if (!toggle) {
 
@@ -149,7 +150,7 @@ static void my_rt_task1_fn(void *args) {
 		}
 #endif
 
-		//rtdm_task_wait_period(NULL);
+		rtdm_task_wait_period(NULL);
 
 	}
 #endif
@@ -158,8 +159,17 @@ static void my_rt_task1_fn(void *args) {
 
 static void rt_task2_fn(void *args) {
 
+	while (1) {
+
+		lprintk("## thread task 2\n");
+
+		rtdm_task_wait_period(NULL);
+
+	}
+#if 0
 	rtdm_event_signal(&rt_event);
 	rtdm_event_signal(&rt_event);
+#endif
 
 }
 
@@ -358,7 +368,7 @@ int rtapp_main(void *args) {
 	rtdm_event_init(&rt_event, 0);
 
 	rtdm_task_init(&rt_task1, "rt_task_1", my_rt_task1_fn, NULL, 50, 1000000000);
-	rtdm_task_init(&rt_task2, "rt_task_2", rt_task2_fn, NULL, 50, 0); //500000000);
+	rtdm_task_init(&rt_task2, "rt_task_2", rt_task2_fn, NULL, 50, 300000000);
 
 	//rtdm_task_init(&rt_task3, "rt_task_3", my_rt_task_sub, NULL, 50, 1000000000);
 

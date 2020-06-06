@@ -380,7 +380,7 @@ ssize_t asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t 
 	if (res_buf_sz < 0)
 		return -1;
 
-	/* 3. 'Slicing' the buffer in bloc of ASF_MAX_BUFF_SIZE size */
+	/* 3. 'Slicing' the buffer in block of ASF_MAX_BUFF_SIZE size */
 	ret = asf_send_slice_buffer(asf_ctx, asf_sess_id, ASF_TA_CMD_DECODE, key, enc_buf, res_buf, block_nr, rest);
 
 	*plain_buf = res_buf;
