@@ -16,30 +16,24 @@
  *
  */
 
-/*
- * Driver for the PL111 CLCD controller.
- *
- * Documentation:
- *   http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0293c/index.html
- */
-
 #if 1
 #define DEBUG
 #endif
 
+#include <heap.h>
 #include <vfs.h>
 #include <common.h>
 #include <process.h>
 #include <asm/io.h>
 #include <asm/mmu.h>
 #include <device/driver.h>
-#include <soo/dev/vfb.h>
-
-
-#define LCDUPBASE 0x18000000 /* VRAM */
+#include <device/fb/so3virt_fb.h>
 
 
 void *mmap(int fd, uint32_t virt_addr, uint32_t page_count);
+
+/* Framebuffer's physical address */
+static uint32_t fb_base;
 
 struct file_operations vfb_fops = {
 	.mmap = mmap
@@ -58,13 +52,14 @@ struct devclass vfb_cdev = {
  */
 int fb_init(dev_t *dev)
 {
-	//pcb_t *pcb = current()->pcb;
-	//uint32_t virt_addr = pcb->stack_top - (pcb->page_count + 1) * PAGE_SIZE;
-	//create_mapping(pcb->pgtable, virt_addr, LCDUPBASE, PAGE_SIZE, false);
-	//*(uint32_t *)virt_addr = 0xffffffff;
+	uint32_t fb;
 
-	//write_vbstore();
-	DBG("so3virt fb ok\n");
+	/* Allocate contiguous memory for the framebuffer and get the physical address. */
+	fb = get_contig_free_vpages(1024 * 768 * 4 / PAGE_SIZE);
+	fb_base = virt_to_phys_pt(fb);
+
+	*(uint32_t*)fb = 0x12345678; // test: set value of first pixel
+	DBG("so3virt_fb, virt 0x%08x, phys 0x%08x\n", fb, fb_base);
 
 	/* Register the framebuffer so it can be accessed from user space. */
 	devclass_register(dev, &vfb_cdev);
@@ -79,12 +74,18 @@ void *mmap(int fd, uint32_t virt_addr, uint32_t page_count)
 
 	for (i = 0; i < page_count; i++) {
 		/* Map a process' virtual page to the physical one (here the VRAM). */
-		page = LCDUPBASE + i * PAGE_SIZE;
+		page = fb_base + i * PAGE_SIZE;
 		create_mapping(pcb->pgtable, virt_addr + (i * PAGE_SIZE), page, PAGE_SIZE, false);
 		add_page_to_proc(pcb, phys_to_page(page));
 	}
 
 	return (void *) virt_addr;
+}
+
+/* Return the physical address of the framebuffer. */
+uint32_t get_fb_base(void)
+{
+	return fb_base;
 }
 
 REGISTER_DRIVER_POSTCORE("fb,so3virt", fb_init);
