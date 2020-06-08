@@ -41,7 +41,8 @@ static void response_callback(struct mbox_client *cl, void *msg)
  * Sends a request to the firmware through the BCM2835 mailbox driver,
  * and synchronously waits for the reply.
  */
-static int
+/* SOO.tech */
+/* static */ int
 rpi_firmware_transaction(struct rpi_firmware *fw, u32 chan, u32 data)
 {
 	u32 message = MBOX_MSG(chan, data);

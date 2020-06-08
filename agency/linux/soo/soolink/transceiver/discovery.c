@@ -37,6 +37,8 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
 
+#undef CONFIG_ARM_PSCI
+
 static rtdm_task_t rt_watch_loop_task;
 
 static bool discovery_enabled = false;

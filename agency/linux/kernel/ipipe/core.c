@@ -115,8 +115,7 @@ static const struct file_operations __ipipe_info_proc_ops = {
 void __ipipe_init_proc(void)
 {
 	ipipe_proc_root = proc_mkdir("ipipe", NULL);
-	proc_create("version", 0444, ipipe_proc_root,
-		    &__ipipe_version_proc_ops);
+	proc_create("version", 0444, ipipe_proc_root, &__ipipe_version_proc_ops);
 
 	__ipipe_init_tracer();
 }
@@ -134,6 +133,7 @@ void  __ipipe_init_early(void)
 
 	for (i = 16; i < NR_PIRQS + NR_VIRQS; i++) {
 		irqdescs[i].irq = i;
+
 		ipipe_assign_chip(&irqdescs[i]);
 	}
 }

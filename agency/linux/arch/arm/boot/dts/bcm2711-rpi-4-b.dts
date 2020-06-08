@@ -362,7 +362,7 @@
 		status = "okay";
 	};
 
-	lsm9ds1-accel6a {
+	lsm9ds1-accel@6a {
 		compatible = "st,lsm9ds1-accel";
 		reg = <0x6a>;
 		status = "okay";

@@ -41,6 +41,8 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
+#undef CONFIG_ARM_PSCI
+
 /* The main requester descriptor managed by Soolink */
 static sl_desc_t *datacomm_sl_desc = NULL;
 
