@@ -21,6 +21,7 @@
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
+#include <soo/vdevback.h>
 
 #define VFB_PACKET_SIZE	32
 
@@ -36,45 +37,25 @@ typedef struct  {
 } vfb_response_t;
 
 /*
- * Generate blkif ring structures and types.
+ * Generate ring structures and types.
  */
 DEFINE_RING_TYPES(vfb, vfb_request_t, vfb_response_t);
-
-typedef struct {
-
-	vfb_back_ring_t ring;
-	unsigned int irq;
-
-} vfb_ring_t;
 
 /*
  * General structure for this virtual device (backend side)
  */
+
 typedef struct {
+	vdevback_t vdevback;
 
-	vfb_ring_t rings[MAX_DOMAINS];
-	struct vbus_device *vdev[MAX_DOMAINS];
+	vfb_back_ring_t ring;
+	unsigned int irq;
 
-#warning only for one ME...
-	struct vbus_watch watch;
 } vfb_t;
 
-extern vfb_t vfb;
-
-irqreturn_t vfb_interrupt(int irq, void *dev_id);
-
-void vfb_probe(struct vbus_device *dev);
-void vfb_close(struct vbus_device *dev);
-void vfb_suspend(struct vbus_device *dev);
-void vfb_resume(struct vbus_device *dev);
-void vfb_connected(struct vbus_device *dev);
-void vfb_reconfigured(struct vbus_device *dev);
-void vfb_shutdown(struct vbus_device *dev);
-
-extern void vfb_vbus_init(void);
-
-bool vfb_start(domid_t domid);
-void vfb_end(domid_t domid);
-bool vfb_is_connected(domid_t domid);
+static inline vfb_t *to_vfb(struct vbus_device *vdev) {
+	vdevback_t *vdevback = dev_get_drvdata(&vdev->dev);
+	return container_of(vdevback, vfb_t, vdevback);
+}
 
 #endif /* VFB_H */
