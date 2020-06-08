@@ -38,91 +38,131 @@
 #include <stdarg.h>
 #include <linux/kthread.h>
 
+#include <soo/vdevback.h>
+
 #include <soo/dev/vdummy.h>
 
-vdummy_t vdummy;
-
-void vdummy_notify(domid_t domid)
+void vdummy_notify(struct vbus_device *vdev)
 {
-	vdummy_ring_t *p_vdummy_ring = &vdummy.rings[domid];
+	vdummy_t *vdummy = to_vdummy(vdev);
 
-	RING_PUSH_RESPONSES(&p_vdummy_ring->ring);
+	RING_PUSH_RESPONSES(&vdummy->ring);
 
 	/* Send a notification to the frontend only if connected.
 	 * Otherwise, the data remain present in the ring. */
 
-	notify_remote_via_virq(p_vdummy_ring->irq);
+	notify_remote_via_virq(vdummy->irq);
 
 }
 
+
 irqreturn_t vdummy_interrupt(int irq, void *dev_id)
 {
-	struct vbus_device *dev = (struct vbus_device *) dev_id;
-	RING_IDX i, rp;
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	vdummy_t *vdummy = to_vdummy(vdev);
 	vdummy_request_t *ring_req;
 	vdummy_response_t *ring_rsp;
 
-	if (!vdummy_is_connected(dev->otherend_id))
-		return IRQ_HANDLED;
-
 	DBG("%d\n", dev->otherend_id);
 
-	rp = vdummy.rings[dev->otherend_id].ring.sring->req_prod;
-	dmb();
+	while ((ring_req = vdummy_ring_request(&vdummy->ring)) != NULL) {
 
-	for (i = vdummy.rings[dev->otherend_id].ring.sring->req_cons; i != rp; i++) {
-
-		ring_req = RING_GET_REQUEST(&vdummy.rings[dev->otherend_id].ring, i);
-
-		ring_rsp = RING_GET_RESPONSE(&vdummy.rings[dev->otherend_id].ring, vdummy.rings[dev->otherend_id].ring.rsp_prod_pvt);
-
-		DBG("%s, cons=%d, prod=%d\n", __func__, i, vdummy.rings[dev->otherend_id].ring.rsp_prod_pvt);
+		ring_rsp = vdummy_ring_response(&vdummy->ring);
 
 		memcpy(ring_rsp->buffer, ring_req->buffer, VDUMMY_PACKET_SIZE);
 
-		dmb();
-		vdummy.rings[dev->otherend_id].ring.rsp_prod_pvt++;
+		vdummy_ring_response_ready(&vdummy->ring);
 
-		RING_PUSH_RESPONSES(&vdummy.rings[dev->otherend_id].ring);
-
-		notify_remote_via_virq(vdummy.rings[dev->otherend_id].irq);
+		notify_remote_via_virq(vdummy->irq);
 	}
-
-	vdummy.rings[dev->otherend_id].ring.sring->req_cons = i;
 
 	return IRQ_HANDLED;
 }
 
-void vdummy_probe(struct vbus_device *dev) {
+void vdummy_probe(struct vbus_device *vdev) {
+	vdummy_t *vdummy;
 
-	DBG(VDUMMY_PREFIX "Backend probe: %d\n", dev->otherend_id);
+	vdummy = kzalloc(sizeof(vdummy_t), GFP_ATOMIC);
+	BUG_ON(!vdummy);
+
+	dev_set_drvdata(&vdev->dev, &vdummy->vdevback);
+
+	DBG(VDUMMY_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
 
-void vdummy_close(struct vbus_device *dev) {
+void vdummy_remove(struct vbus_device *vdev) {
+	vdummy_t *vdummy = to_vdummy(vdev);
 
-	DBG(VDUMMY_PREFIX "Backend close: %d\n", dev->otherend_id);
+	DBG("%s: freeing the vdummy structure for %s\n", __func__,vdev->nodename);
+	kfree(vdummy);
 }
 
-void vdummy_suspend(struct vbus_device *dev) {
 
-	DBG(VDUMMY_PREFIX "Backend suspend: %d\n", dev->otherend_id);
+void vdummy_close(struct vbus_device *vdev) {
+	vdummy_t *vdummy = to_vdummy(vdev);
+
+	DBG(VDUMMY_PREFIX "Backend close: %d\n", vdev->otherend_id);
+
+	/*
+	 * Free the ring and unbind evtchn.
+	 */
+
+	BACK_RING_INIT(&vdummy->ring, (&vdummy->ring)->sring, PAGE_SIZE);
+	unbind_from_virqhandler(vdummy->irq, vdev);
+
+	vbus_unmap_ring_vfree(vdev, vdummy->ring.sring);
+	vdummy->ring.sring = NULL;
 }
 
-void vdummy_resume(struct vbus_device *dev) {
+void vdummy_suspend(struct vbus_device *vdev) {
 
-	DBG(VDUMMY_PREFIX "Backend resume: %d\n", dev->otherend_id);
+	DBG(VDUMMY_PREFIX "Backend suspend: %d\n", vdev->otherend_id);
 }
 
-void vdummy_reconfigured(struct vbus_device *dev) {
+void vdummy_resume(struct vbus_device *vdev) {
 
-	DBG(VDUMMY_PREFIX "Backend reconfigured: %d\n", dev->otherend_id);
+	DBG(VDUMMY_PREFIX "Backend resume: %d\n", vdev->otherend_id);
 }
 
-void vdummy_connected(struct vbus_device *dev) {
+void vdummy_reconfigured(struct vbus_device *vdev) {
+	int res;
+	unsigned long ring_ref;
+	unsigned int evtchn;
+	vdummy_sring_t *sring;
+	vdummy_t *vdummy = to_vdummy(vdev);
 
-	DBG(VDUMMY_PREFIX "Backend connected: %d\n", dev->otherend_id);
+	DBG(VDUMMY_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
+
+	/*
+	 * Set up a ring (shared page & event channel) between the agency and the ME.
+	 */
+
+	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
+
+	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
+
+	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
+	BUG_ON(res < 0);
+
+	SHARED_RING_INIT(sring);
+	BACK_RING_INIT(&vdummy->ring, sring, PAGE_SIZE);
+
+	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vdummy_interrupt, NULL, 0, VDUMMY_NAME "-backend", vdev);
+
+	BUG_ON(res < 0);
+
+	vdummy->irq = res;
 }
 
+void vdummy_connected(struct vbus_device *vdev) {
+
+	DBG(VDUMMY_PREFIX "Backend connected: %d\n",vdev->otherend_id);
+}
+
+#if 0
+/*
+ * Testing code to analyze the behaviour of the ME during pre-suspend operations.
+ */
 int generator_fn(void *arg) {
 	uint32_t i;
 
@@ -134,6 +174,7 @@ int generator_fn(void *arg) {
 			if (!vdummy_start(i))
 				continue;
 
+			vdummy_ring_response_ready()
 			vdummy_notify(i);
 
 			vdummy_end(i);
@@ -142,6 +183,17 @@ int generator_fn(void *arg) {
 
 	return 0;
 }
+#endif
+
+vdrvback_t vdummydrv = {
+	.probe = vdummy_probe,
+	.remove = vdummy_remove,
+	.close = vdummy_close,
+	.connected = vdummy_connected,
+	.reconfigured = vdummy_reconfigured,
+	.resume = vdummy_resume,
+	.suspend = vdummy_suspend
+};
 
 int vdummy_init(void) {
 	struct device_node *np;
@@ -156,9 +208,9 @@ int vdummy_init(void) {
 	kthread_run(generator_fn, NULL, "vDummy-gen");
 #endif
 
-	vdummy_vbus_init();
+	vdevback_init(VDUMMY_NAME, &vdummydrv);
 
 	return 0;
 }
 
-module_init(vdummy_init);
+device_initcall(vdummy_init);

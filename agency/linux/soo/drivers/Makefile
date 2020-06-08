@@ -2,6 +2,8 @@
 # Makefile for SOO general drivers.
 #
 
+obj-y += vdevback.o
+
 obj-$(CONFIG_VDUMMY_BACKEND) += vdummyback/ 
 obj-$(CONFIG_VDOGA12V6NM_BACKEND) += vdoga12v6nmback/
 obj-$(CONFIG_VWEATHER_BACKEND)	+= vweatherback/

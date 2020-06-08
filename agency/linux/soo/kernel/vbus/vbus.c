@@ -79,16 +79,13 @@ extern void propagate_interrupt_from_rt(void);
 /* Event channels used for directcomm channel between agency and agency-RT or ME */
 unsigned int dc_evtchn[MAX_DOMAINS];
 
-/* Unique ID assigned to a backend node instance. */
-static uint32_t backend_node_signature = 0;
-
 spinlock_t dc_lock;
 
 void register_dc_event_callback(dc_event_t dc_event, dc_event_fn_t *callback) {
 	dc_event_callback[dc_event] = callback;
 }
 
-static int __vbus_switch_state(struct vbus_device *dev, enum vbus_state state, bool force)
+static int __vbus_switch_state(struct vbus_device *vdev, enum vbus_state state, bool force)
 {
 	/*
 	 * We check whether the state is currently set to the given value, and if not, then the state is set.  We don't want to unconditionally
@@ -99,7 +96,7 @@ static int __vbus_switch_state(struct vbus_device *dev, enum vbus_state state, b
 
 	struct vbus_transaction vbt;
 
-	if (!force && (state == dev->state))
+	if (!force && (state == vdev->state))
 		return 0;
 
 	/* Make visible the new state to the rest of world NOW...
@@ -110,12 +107,12 @@ static int __vbus_switch_state(struct vbus_device *dev, enum vbus_state state, b
 	 * and simultaneous changes should simply NEVER happen.
 	 */
 
-	dev->state = state;
+	vdev->state = state;
 
 	mb();
 
 	vbus_transaction_start(&vbt);
-	vbus_printf(vbt, dev->nodename, "state", "%d", state);
+	vbus_printf(vbt, vdev->nodename, "state", "%d", state);
 	vbus_transaction_end(vbt);
 
 	return 0;
@@ -123,73 +120,64 @@ static int __vbus_switch_state(struct vbus_device *dev, enum vbus_state state, b
 
 /**
  * vbus_switch_state
- * @dev: vbus device
+ * @vdev: vbus device
  * @state: new state
  *
  * Advertise in the store a change of the given driver to the given new_state.
  * Return 0 on success, or -errno on error.
  */
-static int vbus_switch_state(struct vbus_device *dev, enum vbus_state state)
+static int vbus_switch_state(struct vbus_device *vdev, enum vbus_state state)
 {
-	DBG("--> changing state of %s from %d to %d\n", dev->nodename, dev->state, state);
+	DBG("--> changing state of %s from %d to %d\n", vdev->nodename, vdev->state, state);
 
-	return __vbus_switch_state(dev, state, false);
+	return __vbus_switch_state(vdev, state, false);
 }
 
-void vbus_set_backend_suspended(struct vbus_device *dev)
+void vbus_set_backend_suspended(struct vbus_device *vdev)
 {
 	char key[VBS_KEY_LENGTH];
 	char val[10];
 
-	sprintf(key, "%s/state", dev->nodename);
+	sprintf(key, "%s/state", vdev->nodename);
 	sprintf(val, "%d", VbusStateSuspended);
 
-	dev->state = VbusStateSuspended;
+	vdev->state = VbusStateSuspended;
 	vbs_store_write(key, val);
 
 	mb();
 
-	complete(&dev->sync_backfront);
+	complete(&vdev->sync_backfront);
 }
 
-/* If something in array of ids matches this device, return it. */
-static const struct vbus_device_id *match_device(const struct vbus_device_id *arr, struct vbus_device *dev) {
-	for (; *arr->devicetype != '\0'; arr++) {
-		if (!strcmp(arr->devicetype, dev->devicetype))
-			return arr;
-	}
-	return NULL;
-}
+int vbus_match(struct device *dev, struct device_driver *drv) {
+	struct vbus_driver *vdrv = to_vbus_driver(drv);
+	struct vbus_device *vdev = to_vbus_device(dev);
 
-int vbus_match(struct device *_dev, struct device_driver *_drv) {
-	struct vbus_driver *drv = to_vbus_driver(_drv);
+	/* Matching is positive if both strings are identical */
+	return (strcmp(vdrv->devicetype, vdev->devicetype) == 0);
 
-	if (!drv->ids)
-		return 0;
-
-	return match_device(drv->ids, to_vbus_device(_dev)) != NULL;
 }
 EXPORT_SYMBOL_GPL(vbus_match);
 
 /*
  * Remove the watch associated to remove device (especially useful for monitoring the state).
  */
-void free_otherend_watch(struct vbus_device *dev, bool with_vbus) {
+void free_otherend_watch(struct vbus_device *vdev, bool with_vbus) {
 
-	if (dev->otherend_watch.node) {
+	if (vdev->otherend_watch.node) {
 
 		if (with_vbus)
-			unregister_vbus_watch(&dev->otherend_watch);
+			unregister_vbus_watch(&vdev->otherend_watch);
 		else
-			unregister_vbus_watch_without_vbus(&dev->otherend_watch);
+			unregister_vbus_watch_without_vbus(&vdev->otherend_watch);
 
-		kfree(dev->otherend_watch.node);
+		kfree(vdev->otherend_watch.node);
 
-		dev->otherend_watch.node = NULL;
+		vdev->otherend_watch.node = NULL;
 	}
 
-	if (dev->otherend != NULL)
-		dev->otherend[0] = 0;
+	if (vdev->otherend != NULL)
+		vdev->otherend[0] = 0;
 }
 
 /* Callback used by the RT agency to react to events issued from non-RT agency. */
@@ -197,14 +185,14 @@ static void event_from_nonrt_callback(struct vbus_watch *watch)
 {
 	unsigned int val;
 	struct vbus_device *vdev = container_of(watch, struct vbus_device, event_from_nonrt);
-	struct vbus_driver *drv = to_vbus_driver(vdev->dev.driver);
+	struct vbus_driver *vdrv = to_vbus_driver(vdev->dev.driver);
 
 	rtdm_vbus_gather(VBT_NIL, vdev->nodename, "sync_backfront_rt", "%d", &val, NULL);
 
 	switch (val) {
 	case SYNC_BACKFRONT_SUSPEND:
 
-		drv->suspend(vdev);
+		vdrv->suspend(vdev);
 
 		/* Now propagate the suspending event to the frontend */
 
@@ -214,7 +202,7 @@ static void event_from_nonrt_callback(struct vbus_watch *watch)
 	case SYNC_BACKFRONT_RESUME:
 
 		/* The backend is now either in VbusStateSuspended OR VbusStateInitWait */
-		drv->resume(vdev);
+		vdrv->resume(vdev);
 
 		vdev->resuming = 1;
 
@@ -255,22 +243,22 @@ static void event_from_rt_callback(struct vbus_watch *watch)
 /*
  * Specific watch register function to focus on the state of a device on the other side.
  */
-void watch_otherend(struct vbus_device *dev) {
-	struct vbus_type *bus = container_of(dev->dev.bus, struct vbus_type, bus);
+void watch_otherend(struct vbus_device *vdev) {
+	struct vbus_type *bus = container_of(vdev->dev.bus, struct vbus_type, bus);
 
-	vbus_watch_pathfmt(dev, &dev->otherend_watch, bus->otherend_changed, "%s/%s", dev->otherend, "state");
+	vbus_watch_pathfmt(vdev, &vdev->otherend_watch, bus->otherend_changed, "%s/%s", vdev->otherend, "state");
 
-	if (dev->realtime) {
+	if (vdev->realtime) {
 
 		/* The following watch is set on the <sync_backfront> property that may be changed by the non-RT side */
-		dev->event_from_nonrt.node = kzalloc(VBS_KEY_LENGTH, GFP_ATOMIC);
+		vdev->event_from_nonrt.node = kzalloc(VBS_KEY_LENGTH, GFP_ATOMIC);
 
-		strcpy(dev->event_from_nonrt.node, dev->nodename);
-		strcat(dev->event_from_nonrt.node, "/sync_backfront_rt");
+		strcpy(vdev->event_from_nonrt.node, vdev->nodename);
+		strcat(vdev->event_from_nonrt.node, "/sync_backfront_rt");
 
-		dev->event_from_nonrt.callback = event_from_nonrt_callback;
+		vdev->event_from_nonrt.callback = event_from_nonrt_callback;
 
-		register_vbus_watch(&dev->event_from_nonrt);
+		register_vbus_watch(&vdev->event_from_nonrt);
 	}
 
 }
@@ -278,16 +266,16 @@ void watch_otherend(struct vbus_device *dev) {
 /*
  * Announce ourself to the otherend managed device. We mainly prepare to set up a watch on the device state.
  */
-static void talk_to_otherend(struct vbus_device *dev) {
-	struct vbus_driver *drv = to_vbus_driver(dev->dev.driver);
+static void talk_to_otherend(struct vbus_device *vdev) {
+	struct vbus_driver *vdrv = to_vbus_driver(vdev->dev.driver);
 
-	BUG_ON(dev->otherend[0] != 0);
-	BUG_ON(dev->otherend_watch.node != NULL);
+	BUG_ON(vdev->otherend[0] != 0);
+	BUG_ON(vdev->otherend_watch.node != NULL);
 	
-	drv->read_otherend_details(dev);
+	vdrv->read_otherend_details(vdev);
 
 	/* Set up watch on state of otherend */
-	watch_otherend(dev);
+	watch_otherend(vdev);
 
 }
 
@@ -299,34 +287,37 @@ void vbus_read_otherend_details(struct vbus_device *vdev, char *id_node, char *p
 		vbus_gather(VBT_NIL, vdev->nodename, id_node, "%i", &vdev->otherend_id, path_node, "%s", vdev->otherend, NULL);
 }
 
-
+extern void checkaddr(struct vbus_device *vdev);
 /*
  * The following function is called either in the backend OR the frontend.
  * On the backend side, it may run on CPU #0 (non-RT) or CPU #1 if the backend is configured as realtime.
  */
 void vbus_otherend_changed(struct vbus_watch *watch) {
-	struct vbus_device *dev = container_of(watch, struct vbus_device, otherend_watch);
-	struct vbus_driver *drv = to_vbus_driver(dev->dev.driver);
+	struct vbus_device *vdev = container_of(watch, struct vbus_device, otherend_watch);
+	struct vbus_driver *vdrv = to_vbus_driver(vdev->dev.driver);
 	struct vbus_transaction vbt;
 	char sync_backfront_prop[2];
 
 	enum vbus_state state;
 
-	state = vbus_read_driver_state(dev->otherend);
+	state = vbus_read_driver_state(vdev->otherend);
 
-        DBG("On domID: %d, otherend changed / device: %s  state: %d, CPU %d\n", ME_domID(), dev->nodename, state, smp_processor_id());
+	/* Update the FE state */
+	vdev->fe_state = state;
+
+        DBG("On domID: %d, otherend changed / device: %s  state: %d, CPU %d\n", ME_domID(), vdev->nodename, state, smp_processor_id());
 	
 	/* We do not want to call a callback in a frontend on InitWait. This is
 	 * a state issued from the backend to tell the frontend it can be probed.
 	 */
-	if ((drv->otherend_changed) && (state != VbusStateInitWait))
-		drv->otherend_changed(dev, state);
+	if ((vdrv->otherend_changed) && (state != VbusStateInitWait))
+		vdrv->otherend_changed(vdev, state);
 
 	switch (state) {
 	case VbusStateInitialised:
 	case VbusStateReconfigured:
 
-		vbus_switch_state(dev, VbusStateConnected);
+		vbus_switch_state(vdev, VbusStateConnected);
 		break;
 
 		/*
@@ -336,8 +327,10 @@ void vbus_otherend_changed(struct vbus_watch *watch) {
 		 * we remove the underlying device.
 		 */
 	case VbusStateClosing:
-		DBG("Got closing from frontend: %s\n", dev->nodename);
-		remove_device(dev->nodename);
+		DBG("Got closing from frontend: %s\n", vdev->nodename);
+
+		remove_device(vdev->nodename);
+
 		break;
 
 	case VbusStateSuspended:
@@ -346,22 +339,22 @@ void vbus_otherend_changed(struct vbus_watch *watch) {
 		 * resetting the sync_backfront property in VBstore.
 		 */
 
-		if (dev->realtime) {
+		if (vdev->realtime) {
 			vbus_transaction_start(&vbt);
 
 			/* Set the sync_backfront in backend_suspended state */
 			sprintf(sync_backfront_prop, "%d", SYNC_BACKFRONT_SUSPENDED);
-			vbus_write(vbt, dev->nodename, "sync_backfront", sync_backfront_prop);
+			vbus_write(vbt, vdev->nodename, "sync_backfront", sync_backfront_prop);
 
 			vbus_transaction_end(vbt);
 
 		} else
-			vbus_set_backend_suspended(dev);
+			vbus_set_backend_suspended(vdev);
 		break;
 
 	case VbusStateConnected:
 
-		if (dev->resuming) {
+		if (vdev->resuming) {
 
 			/*
 			 * It happens after migration & resume
@@ -372,26 +365,26 @@ void vbus_otherend_changed(struct vbus_watch *watch) {
 			 */
 
 			/* Resume Step 3 */
-			DBG("%s: now is %s ...\n", __func__, dev->nodename);
+			DBG("%s: now is %s ...\n", __func__, vdev->nodename);
 
-			if (dev->state != VbusStateConnected)
+			if (vdev->state != VbusStateConnected)
 				/* Only in the case we are locally resuming, the backend is in state Suspended */
-				vbus_switch_state(dev, VbusStateConnected);
+				vbus_switch_state(vdev, VbusStateConnected);
 
-			dev->resuming = 0;
+			vdev->resuming = 0;
 		}
 
-		if (dev->realtime) {
+		if (vdev->realtime) {
 			vbus_transaction_start(&vbt);
 
 			sprintf(sync_backfront_prop, "%d", SYNC_BACKFRONT_COMPLETE);
 
-			vbus_write(vbt, dev->nodename, "sync_backfront", sync_backfront_prop);
+			vbus_write(vbt, vdev->nodename, "sync_backfront", sync_backfront_prop);
 
 			vbus_transaction_end(vbt);
 
 		} else
-			complete(&dev->sync_backfront);
+			complete(&vdev->sync_backfront);
 
 		break;
 
@@ -408,27 +401,24 @@ EXPORT_SYMBOL_GPL(vbus_otherend_changed);
  */
 static void vbus_rt_task(void *args) {
 	struct device *_dev = (struct device *) args;
-	struct vbus_device *dev = to_vbus_device(_dev);
-	struct vbus_driver *drv = to_vbus_driver(_dev->driver);
-	const struct vbus_device_id *id;
+	struct vbus_device *vdev = to_vbus_device(_dev);
+	struct vbus_driver *vdrv = to_vbus_driver(_dev->driver);
 	struct vbus_transaction vbt;
 	char sync_backfront_prop[2];
 	enum vbus_state otherend_state;
 
-	talk_to_otherend(dev);
+	talk_to_otherend(vdev);
 
 	/* Retrieve the id again (avoiding more args passing) */
-	id = match_device(drv->ids, dev);
-	if (!id)
-		BUG();
+	BUG_ON(!vbus_match(_dev, _dev->driver));
 
-	drv->probe(dev, id);
+	vdrv->probe(vdev);
 
 	/* Announce that the backend is ready to interact with the frontend. */
-	vbus_switch_state(dev, VbusStateInitWait);
+	vbus_switch_state(vdev, VbusStateInitWait);
 
 	/* Get the state from the otherend to see if we are in a post-migration situation. */
-	otherend_state = vbus_read_driver_state(dev->otherend);
+	otherend_state = vbus_read_driver_state(vdev->otherend);
 
 	/* If the node is probed after a migration, it means that the frontend will be reconfigured.
 	 * In this case, the synchronization will be achieved at the end of the resuming operation.
@@ -444,7 +434,7 @@ static void vbus_rt_task(void *args) {
 		vbus_transaction_start(&vbt);
 
 		sprintf(sync_backfront_prop, "%d", SYNC_BACKFRONT_COMPLETE);
-		vbus_write(vbt, dev->nodename, "sync_backfront", sync_backfront_prop);
+		vbus_write(vbt, vdev->nodename, "sync_backfront", sync_backfront_prop);
 
 		vbus_transaction_end(vbt);
 	}
@@ -464,60 +454,57 @@ static int __rt_task_prologue(void *args) {
 /*
  * vbus_dev_probe() is called by the Linux device subsystem when probing a device
  */
-int vbus_dev_probe(struct device *_dev)
+int vbus_dev_probe(struct device *dev)
 {
-	struct vbus_device *dev = to_vbus_device(_dev);
-	struct vbus_driver *drv = to_vbus_driver(_dev->driver);
-	const struct vbus_device_id *id;
+	struct vbus_device *vdev = to_vbus_device(dev);
+	struct vbus_driver *vdrv = to_vbus_driver(dev->driver);
 	enum vbus_state otherend_state;
 
-	DBG("%s\n", dev->nodename);
+	DBG("%s\n", vdev->nodename);
 
-	if (!drv->probe)
+	if (!vdrv->probe)
 		BUG();
 
-	id = match_device(drv->ids, dev);
-	if (!id)
-		BUG();
+	BUG_ON(!vbus_match(dev, dev->driver));
 
-	init_completion(&dev->down);
-	init_completion(&dev->sync_backfront);
+	init_completion(&vdev->down);
+	init_completion(&vdev->sync_backfront);
 
 	/* If the device is a realtime backend, we spawn a thread to initiate Cobalt (realtime) activities */
 #warning need to review the init/reconfiguring sequence in the RT be/fe; to be aligned with the non-RT...
-	if (dev->realtime) {
+	if (vdev->realtime) {
 
 		/* Set a watch callback on the special properties like sync_backfront. */
 
-		dev->event_from_rt.node = kzalloc(VBS_KEY_LENGTH, GFP_ATOMIC);
-		strcpy(dev->event_from_rt.node, dev->nodename);
-		strcat(dev->event_from_rt.node, "/sync_backfront");
+		vdev->event_from_rt.node = kzalloc(VBS_KEY_LENGTH, GFP_ATOMIC);
+		strcpy(vdev->event_from_rt.node, vdev->nodename);
+		strcat(vdev->event_from_rt.node, "/sync_backfront");
 
-		dev->event_from_rt.callback = event_from_rt_callback;
+		vdev->event_from_rt.callback = event_from_rt_callback;
 
-		register_vbus_watch(&dev->event_from_rt);
+		register_vbus_watch(&vdev->event_from_rt);
 
-		kernel_thread(__rt_task_prologue, _dev, 0);
+		kernel_thread(__rt_task_prologue, dev, 0);
 
 		/* We wait until the RT thread finished to probe the realtime device
 		 * and the device gets connected (or we proceed with a resuming operation).
 		 */
 
-		wait_for_completion(&dev->sync_backfront);
+		wait_for_completion(&vdev->sync_backfront);
 
 		return 0;
 	}
 
-	DBG("CPU %d  talk_to_otherend: %s\n", ME_domID(), dev->nodename);
+	DBG("CPU %d  talk_to_otherend: %s\n", ME_domID(), vdev->nodename);
 
-	talk_to_otherend(dev);
+	talk_to_otherend(vdev);
 
 	/* On frontend side, the probe will be executed as soon as the backend reaches the state InitWait */
 
-	drv->probe(dev, id);
+	vdrv->probe(vdev);
 
 	/* Get the state from the otherend to see if we are in a post-migration situation. */
-	otherend_state = vbus_read_driver_state(dev->otherend);
+	otherend_state = vbus_read_driver_state(vdev->otherend);
 
 	/* If the node is probed after a migration, it means that the frontend will be reconfigured.
 	 * In this case, the resuming operation can go ahead.
@@ -529,10 +516,10 @@ int vbus_dev_probe(struct device *_dev)
 		/* This state will allow to wait until the frontend has performed the probe of its device, therefore
 		 * until we get the state Initialised.
 		 */
-		vbus_switch_state(dev, VbusStateInitWait);
+		vbus_switch_state(vdev, VbusStateInitWait);
 
 		/* For both RT and non-RT initialization, we wait that the device gets connected */
-		wait_for_completion(&dev->sync_backfront);
+		wait_for_completion(&vdev->sync_backfront);
 	}
 
 	return 0;
@@ -541,87 +528,92 @@ int vbus_dev_probe(struct device *_dev)
 
 int vbus_dev_remove(struct device *_dev)
 {
-	struct vbus_device *dev = to_vbus_device(_dev);
+	struct vbus_device *vdev = to_vbus_device(_dev);
+	struct vbus_driver *vdrv = to_vbus_driver(_dev->driver);
 	unsigned int dir_exists;
 
-	DBG("%s", dev->nodename);
+	DBG("%s", vdev->nodename);
 
 	/*
 	 * If the ME is running on a Smart Object which does not offer all the backends matching the ME's frontends,
 	 * some frontend related entries may not have been created. We must check here if the entry matching the dev
 	 * to remove exists.
 	 */
-	dir_exists = vbus_directory_exists(VBT_NIL, dev->otherend_watch.node, "");
-	if (dir_exists)
-		/* Remove the watch on the remote device. */
-		free_otherend_watch(dev, true);
+	dir_exists = vbus_directory_exists(VBT_NIL, vdev->otherend_watch.node, "");
+	if (dir_exists) {
 
-	if (dev->realtime) {
-		kfree(dev->event_from_rt.node);
-		kfree(dev->event_from_nonrt.node);
+		if (vdrv->remove)
+			vdrv->remove(vdev);
+
+		/* Remove the watch on the remote device. */
+		free_otherend_watch(vdev, true);
+
 	}
 
-	vbus_switch_state(dev, VbusStateClosed);
+	if (vdev->realtime) {
+		kfree(vdev->event_from_rt.node);
+		kfree(vdev->event_from_nonrt.node);
+	}
 
+	vbus_switch_state(vdev, VbusStateClosed);
+
+	/* We perform a complete on this down in case of the agency initiated a shutdown (see vbus_dev_shutdown below).
+	 * If it is not the case, the vdev will be removed anyway and the completion has no effect anymore.
+	 */
 	return 0;
 }
 
 /*
- * Shutdown a device. The function is called from the Linux subsystem
+ * Shutdown a device. This function can be called externally, but *not* by the Linux subsystem
+ * during a reboot operation for instance (because of IRQs off). In this case, force_terminate DC events
+ * will be sent to each running ME during the reboot process.
  */
-void vbus_dev_shutdown(struct device *_dev)
+void vbus_dev_shutdown(struct device *dev)
 {
-	struct vbus_device *dev = to_vbus_device(_dev);
-	struct vbus_driver *drv = to_vbus_driver(_dev->driver);
+	struct vbus_device *vdev = to_vbus_device(dev);
 	unsigned int dir_exists;
 
-	DBG("%s", dev->nodename);
+	DBG("%s", vdev->nodename);
 
-	get_device(&dev->dev);
+	dir_exists = vbus_directory_exists(VBT_NIL, vdev->otherend_watch.node, "");
 
-	dir_exists = vbus_directory_exists(VBT_NIL, dev->otherend_watch.node, "");
+	/*
+	 * If the ME is running on a Smart Object which does not offer all the backends matching the ME's frontends,
+	 * some frontend related entries may not have been created. We must check here if the entry matching the dev
+	 * to shutdown exists.
+	 */
 	if (dir_exists) {
-		/*
-		 * If the ME is running on a Smart Object which does not offer all the backends matching the ME's frontends,
-		 * some frontend related entries may not have been created. We must check here if the entry matching the dev
-		 * to shutdown exists.
-		 */
 
-		if (drv->shutdown != NULL)
-			drv->shutdown(dev);
+		vbus_switch_state(vdev, VbusStateClosing);
 
-		vbus_switch_state(dev, VbusStateClosing);
-
-		wait_for_completion(&dev->down);
+		/* Wait that the frontend get closed. */
+		wait_for_completion(&vdev->down);
 	}
-
-	put_device(&dev->dev);
-
 }
 
-void vbus_register_driver_common(struct vbus_driver *drv, struct vbus_type *bus, struct module *owner, const char *mod_name)
+void vbus_register_driver_common(struct vbus_driver *vdrv, struct vbus_type *bus, struct module *owner, const char *mod_name)
 {
 	int ret;
 
-	DBG("Registering driver name: %s\n", drv->name);
+	DBG("Registering driver name: %s\n", vdrv->name);
 
-	drv->driver.name = drv->name;
-	drv->driver.bus = &bus->bus;
-	drv->driver.owner = owner;
-	drv->driver.mod_name = mod_name;
+	vdrv->driver.name = vdrv->name;
+	vdrv->driver.bus = &bus->bus;
+	vdrv->driver.owner = owner;
+	vdrv->driver.mod_name = mod_name;
 
-	ret = driver_register(&drv->driver);
+	ret = driver_register(&vdrv->driver);
 	if (ret)
 		BUG();
 }
 
-void vbus_unregister_driver(struct vbus_driver *drv)
+void vbus_unregister_driver(struct vbus_driver *vdrv)
 {
-	driver_unregister(&drv->driver);
+	driver_unregister(&vdrv->driver);
 }
 
 struct vb_find_info {
-	struct vbus_device *dev;
+	struct vbus_device *vdev;
 	const char *nodename;
 };
 
@@ -631,7 +623,7 @@ static int cmp_dev(struct device *dev, void *data)
 	struct vb_find_info *info = data;
 
 	if (!strcmp(vdev->nodename, info->nodename)) {
-		info->dev = vdev;
+		info->vdev = vdev;
 		get_device(dev);
 		return 1;
 	}
@@ -640,10 +632,10 @@ static int cmp_dev(struct device *dev, void *data)
 
 struct vbus_device *vbus_device_find(const char *nodename, struct bus_type *bus)
 {
-	struct vb_find_info info = { .dev = NULL, .nodename = nodename };
+	struct vb_find_info info = { .vdev = NULL, .nodename = nodename };
 
 	bus_for_each_dev(bus, NULL, &info, cmp_dev);
-	return info.dev;
+	return info.vdev;
 }
 
 static int cleanup_dev(struct device *dev, void *data)
@@ -652,7 +644,7 @@ static int cleanup_dev(struct device *dev, void *data)
 	struct vb_find_info *info = data;
 
 	if (!strcmp(vdev->nodename, info->nodename)) {
-		info->dev = vdev;
+		info->vdev = vdev;
 		get_device(dev);
 
 		return 1; /* found */
@@ -668,20 +660,20 @@ void vbus_cleanup_device(const char *path, struct bus_type *bus)
 {
 	struct vb_find_info info = { .nodename = path };
 
-	info.dev = NULL;
+	info.vdev = NULL;
 
 	bus_for_each_dev(bus, NULL, &info, cleanup_dev);
 
-	if (info.dev) {
-		device_unregister(&info.dev->dev);
-		put_device(&info.dev->dev);
+	if (info.vdev) {
+		device_unregister(&info.vdev->dev);
+		put_device(&info.vdev->dev);
 	}
 
 }
 
-static void vbus_dev_release(struct device *dev) {
-	if (dev)
-		kfree(to_vbus_device(dev));
+static void vbus_dev_release(struct device *vdev) {
+	if (vdev)
+		kfree(to_vbus_device(vdev));
 }
 
 static ssize_t nodename_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -755,9 +747,7 @@ static int vbus_probe_node(struct vbus_type *bus, const char *type, const char *
 	memset(vdev, 0, sizeof(struct vbus_device));
 
 	vdev->state = VbusStateInitialising;
-
-	/* Put a unique signature to this instance */
-	vdev->id = backend_node_signature++;
+	vdev->state = VbusStateUnknown;
 
 	vdev->resuming = 0;
 	vdev->realtime = realtime;
@@ -791,7 +781,7 @@ static int vbus_probe_node(struct vbus_type *bus, const char *type, const char *
 /* Suspend devices which eventually match with a certain root name (specific ME) */
 static int suspend_dev(struct device *dev, void *data)
 {
-	struct vbus_driver *vbdrv;
+	struct vbus_driver *vdrv;
 	struct vbus_device *vdev;
 	unsigned int domID = *((unsigned int *) data);
 	unsigned int curDomID;
@@ -805,7 +795,7 @@ static int suspend_dev(struct device *dev, void *data)
 		return 0;
 	}
 
-	vbdrv = to_vbus_driver(dev->driver);
+	vdrv = to_vbus_driver(dev->driver);
 	vdev = to_vbus_device(dev);
 
 	if (data != NULL) {
@@ -840,7 +830,7 @@ static int suspend_dev(struct device *dev, void *data)
 
 	} else {
 
-		vbdrv->suspend(vdev);
+		vdrv->suspend(vdev);
 
 		/* Now propagate the suspending event to the frontend */
 
@@ -866,7 +856,7 @@ int vbus_suspend_dev(struct bus_type *bus, unsigned int domID)
 
 static int resume_dev(struct device *dev, void *data)
 {
-	struct vbus_driver *vbdrv;
+	struct vbus_driver *vdrv;
 	struct vbus_device *vdev;
 	unsigned int domID = *((unsigned int *) data);
 	unsigned int curDomID;
@@ -875,7 +865,7 @@ static int resume_dev(struct device *dev, void *data)
 	struct vbus_transaction vbt;
 	char sync_backfront_prop[2];
 
-	vbdrv = to_vbus_driver(dev->driver);
+	vdrv = to_vbus_driver(dev->driver);
 	vdev = to_vbus_device(dev);
 
 	if (dev->driver == NULL) {
@@ -917,7 +907,7 @@ static int resume_dev(struct device *dev, void *data)
 	} else {
 
 		/* The backend is now either in VbusStateSuspended OR VbusStateInitWait */
-		vbdrv->resume(vdev);
+		vdrv->resume(vdev);
 
 		vdev->resuming = 1;
 
@@ -954,7 +944,7 @@ int vbus_resume_dev(struct bus_type *bus, unsigned int domID)
 
 
 void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus) {
-	struct vbus_device *dev;
+	struct vbus_device *vdev;
 
 	/*
 	 * Either the device does not exist (backend or frontend) and the dev must be allocated, initialized
@@ -963,22 +953,19 @@ void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus) {
 	 * set up the watch on its state (and retrieve the otherend id and name).
 	 */
 
-	dev = vbus_device_find(node, &bus->bus);
-	if (!dev)
+	vdev = vbus_device_find(node, &bus->bus);
+	if (!vdev)
 		vbus_probe_node(bus, type, node);
 	else {
-#warning temporary fix until vbstore entries are removed when a ME is dead....
 
-		//BUG_ON(ME_domID() == DOMID_AGENCY);
-		if (ME_domID() == DOMID_AGENCY)
-			return ;
+		BUG_ON(ME_domID() == DOMID_AGENCY);
 
 		/* Update the state in vbstore. */
 		/* We force the update, this will not trigger a watch since the watch is set right afterwards */
-		 __vbus_switch_state(dev, dev->state, true);
+		 __vbus_switch_state(vdev, vdev->state, true);
 
 		/* Setting the watch on the state */
-		talk_to_otherend(dev);
+		talk_to_otherend(vdev);
 	}
 
 }
@@ -1013,6 +1000,11 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	dc_event = atomic_read((const atomic_t *) &avz_shared_info->dc_event);
 
 	DBG("Received directcomm interrupt for event: %d\n", avz_shared_info->dc_event);
+
+	/* We should not receive twice a same dc_event, before it has been fully processed. */
+	BUG_ON(atomic_read(&dc_incoming_domID[dc_event]) != -1);
+
+	atomic_set(&dc_incoming_domID[dc_event], domID);
 
 	switch (dc_event) {
 
@@ -1062,10 +1054,6 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 			dc_stable(dc_event);
 			break; /* Out of the switch */
 		}
-
-		/* We should not receive twice a same dc_event, before it has been fully processed. */
-		BUG_ON(atomic_read(&dc_incoming_domID[dc_event]) != -1);
-		atomic_set(&dc_incoming_domID[dc_event], domID);
 
 		/* Start the deferred thread */
 		return IRQ_WAKE_THREAD;

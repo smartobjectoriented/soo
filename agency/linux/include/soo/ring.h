@@ -81,17 +81,17 @@ typedef unsigned int RING_IDX;
 #define DEFINE_RING_TYPES(__name, __req_t, __rsp_t)                     \
                                                                         \
 /* Shared ring entry */                                                 \
-union __name##_sring_entry {                                            \
+struct __name##_sring_entry {                                            \
     __req_t req;                                                        \
     __rsp_t rsp;                                                        \
 };                                                                      \
                                                                         \
 /* Shared ring page */                                                  \
 struct __name##_sring {                                                 \
-    RING_IDX req_prod, req_cons, req_event; 							\
-    RING_IDX rsp_prod, rsp_cons, rsp_event;                             \
+    RING_IDX req_prod, req_cons; 										\
+    RING_IDX rsp_prod, rsp_cons;                            			 \
     uint8_t  pad[40];                                                   \
-    union __name##_sring_entry ring[1]; /* variable-length */           \
+    struct __name##_sring_entry ring[1]; /* variable-length */           \
 };                                                                      \
                                                                         \
 /* "Front" end's private variables */                                   \
@@ -113,7 +113,22 @@ struct __name##_back_ring {                                             \
 /* Syntactic sugar */                                                   \
 typedef struct __name##_sring __name##_sring_t;                         \
 typedef struct __name##_front_ring __name##_front_ring_t;               \
-typedef struct __name##_back_ring __name##_back_ring_t
+typedef struct __name##_back_ring __name##_back_ring_t;			\
+									\
+static inline __rsp_t *__name##_ring_response(__name##_back_ring_t *__name##_back_ring) { 	\
+ 	return RING_GET_RESPONSE(__name##_back_ring, __name##_back_ring->rsp_prod_pvt++);		\
+}													\
+ 	 	 	 	 	 	 	 	 	 	 	 	 	\
+static inline void __name##_ring_response_ready(__name##_back_ring_t *__name##_back_ring) {			\
+ 	RING_PUSH_RESPONSES(__name##_back_ring);							\
+}													\
+													\
+static inline __req_t *__name##_ring_request(__name##_back_ring_t *__name##_back_ring) {		\
+ 	if (__name##_back_ring->sring->req_cons == __name##_back_ring->sring->req_prod)			\
+ 		return NULL;										\
+ 	else												\
+ 		return RING_GET_REQUEST(__name##_back_ring, __name##_back_ring->sring->req_cons++);	\
+}
 
 /*
  * Macros for manipulating rings.
@@ -124,17 +139,12 @@ typedef struct __name##_back_ring __name##_back_ring_t
  * BACK_RING_whatever works on the "back end" of a ring: here 
  * requests are taken off the ring and responses put on.
  * 
- * N.B. these macros do NO INTERLOCKS OR FLOW CONTROL. 
- * This is OK in 1-for-1 request-response situations where the 
- * requestor (front end) never has more than RING_SIZE()-1
- * outstanding requests.
  */
 
 /* Initialising empty rings */
 #define SHARED_RING_INIT(_s) do {                                       \
 	(_s)->req_prod  = (_s)->rsp_prod  = 0;                              \
 	(_s)->req_cons  = (_s)->rsp_cons  = 0;                              \
-    (_s)->req_event = (_s)->rsp_event = 1;                              \
     (void)memset((_s)->pad, 0, sizeof((_s)->pad));                      \
 } while(0)
 
@@ -198,71 +208,5 @@ typedef struct __name##_back_ring __name##_back_ring_t
 
 #define RING_RESP_FULL(_r)                                                   \
     (RING_FREE_RESPONSES(_r) == 0)
-
-/*
- * Notification hold-off (req_event and rsp_event):
- * 
- * When queueing requests or responses on a shared ring, it may not always be
- * necessary to notify the remote end. For example, if requests are in flight
- * in a backend, the front may be able to queue further requests without
- * notifying the back (if the back checks for new requests when it queues
- * responses).
- * 
- * When enqueuing requests or responses:
- * 
- *  Use RING_PUSH_{REQUESTS,RESPONSES}_AND_CHECK_NOTIFY(). The second argument
- *  is a boolean return value. True indicates that the receiver requires an
- *  asynchronous notification.
- * 
- * After dequeuing requests or responses (before sleeping the connection):
- * 
- *  Use RING_FINAL_CHECK_FOR_REQUESTS() or RING_FINAL_CHECK_FOR_RESPONSES().
- *  The second argument is a boolean return value. True indicates that there
- *  are pending messages on the ring (i.e., the connection should not be put
- *  to sleep).
- * 
- *  These macros will set the req_event/rsp_event field to trigger a
- *  notification on the very next message that is enqueued. If you want to
- *  create batches of work (i.e., only receive a notification after several
- *  messages have been enqueued) then you will need to create a customised
- *  version of the FINAL_CHECK macro in your own code, which sets the event
- *  field appropriately.
- */
-
-#define RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(_r, _notify) do {           \
-    RING_IDX __old = (_r)->sring->req_prod;                             \
-    RING_IDX __new = (_r)->req_prod_pvt;                                \
-    dmb(); /* back sees requests /before/ updated producer index */     \
-    (_r)->sring->req_prod = __new;                                      \
-    dmb(); /* back sees new requests /before/ we check req_event */      \
-    (_notify) = ((RING_IDX)(__new - (_r)->sring->req_event) <           \
-                 (RING_IDX)(__new - __old));                            \
-} while (0)
-
-#define RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(_r, _notify) do {          \
-    RING_IDX __old = (_r)->sring->rsp_prod;                             \
-    RING_IDX __new = (_r)->rsp_prod_pvt;                                \
-    dmb(); /* front sees responses /before/ updated producer index */   \
-    (_r)->sring->rsp_prod = __new;                                      \
-    dmb(); /* front sees new responses /before/ we check rsp_event */    \
-    (_notify) = ((RING_IDX)(__new - (_r)->sring->rsp_event) <           \
-                 (RING_IDX)(__new - __old));                            \
-} while (0)
-
-#define RING_FINAL_CHECK_FOR_REQUESTS(_r, _work_to_do) do {             \
-    (_work_to_do) = RING_HAS_UNCONSUMED_REQUESTS(_r);                   \
-    if (_work_to_do) break;                                             \
-    (_r)->sring->req_event = (_r)->sring->req_cons + 1;                        \
-    dmb();                                                               \
-    (_work_to_do) = RING_HAS_UNCONSUMED_REQUESTS(_r);                   \
-} while (0)
-
-#define RING_FINAL_CHECK_FOR_RESPONSES(_r, _work_to_do) do {            \
-    (_work_to_do) = RING_HAS_UNCONSUMED_RESPONSES(_r);                  \
-    if (_work_to_do) break;                                             \
-    (_r)->sring->rsp_event = (_r)->sring->rsp_cons + 1;                        \
-    dmb();                                                               \
-    (_work_to_do) = RING_HAS_UNCONSUMED_RESPONSES(_r);                  \
-} while (0)
 
 #endif /* __RING_H__ */

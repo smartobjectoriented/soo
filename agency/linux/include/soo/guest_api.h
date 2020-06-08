@@ -61,8 +61,8 @@ int get_ME_state(unsigned int ME_slotID);
 int set_ME_state(unsigned int ME_slotID, ME_state_t state);
 
 int get_agency_desc(agency_desc_t *SOO_desc);
-int get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc);
-int get_ME_spid(unsigned int slotID, unsigned char *spid);
+void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc);
+void get_ME_spid(unsigned int slotID, unsigned char *spid);
 
 void vunmap_page_range(unsigned long addr, unsigned long end);
 

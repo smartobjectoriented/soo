@@ -21,6 +21,8 @@
 #define DEBUG
 #endif
 
+//#define VERBOSE_PENDING_UEVENT
+
 #include <linux/version.h>
 #include <linux/device.h>
 #include <linux/semaphore.h>
@@ -94,11 +96,13 @@ void dc_stable(int dc_event)
 	/* It may happen that the thread which performs the down did not have time to perform the call and is not suspended.
 	 * In this case, complete() will increment the count and wait_for_completion() will go straightforward.
 	 */
-	if (smp_processor_id() == AGENCY_RT_CPU)
+	if (smp_processor_id() == AGENCY_RT_CPU) {
 		rtdm_event_signal(&rtdm_dc_stable_event[dc_event]);
-	else
+		atomic_set(&rtdm_dc_incoming_domID[dc_event], -1);
+	} else {
 		complete(&dc_stable_lock[dc_event]);
-
+		atomic_set(&dc_incoming_domID[dc_event], -1);
+	}
 }
 
 /*
@@ -347,7 +351,9 @@ int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
 		goto out;
 
 	/* Complete possible pending uevent request done during the work performed at the hypervisor level. */
-	DBG("current_pending_uevent=%d\n", current_pending_uevent);
+#ifdef VERBOSE_PENDING_UEVENT
+	lprintk("current_pending_uevent=%d\n", current_pending_uevent);
+#endif
 	for (i = 0; i < current_pending_uevent; i++)
 		if (pending_uevent_req[i].pending) {
 			add_soo_uevent(pending_uevent_req[i].uevent_type, pending_uevent_req[i].slotID);
@@ -686,19 +692,17 @@ int get_agency_desc(agency_desc_t *agency_desc)
 /**
  * Retrieve the ME descriptor including the SPID, the state and the SPAD.
  */
-int get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc) {
+void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc) {
 	int rc;
 	dom_desc_t dom_desc;
 
 	rc = soo_hypercall(AVZ_GET_DOM_DESC, NULL, NULL, &slotID, &dom_desc);
 	if (rc != 0) {
 		printk("%s: failed to retrieve the SOO descriptor for slot ID %d.\n", __func__, rc);
-		return rc;
+		BUG();
 	}
 
 	memcpy(ME_desc, &dom_desc.u.ME, sizeof(ME_desc_t));
-
-	return 0;
 }
 
 /*
@@ -706,17 +710,11 @@ int get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc) {
  *
  * Return 0 if success.
  */
-int get_ME_spid(unsigned int slotID, unsigned char *spid) {
-	int rc;
+void get_ME_spid(unsigned int slotID, unsigned char *spid) {
 	ME_desc_t ME_desc;
 
-	rc = get_ME_desc(slotID, &ME_desc);
-	if (rc)
-		return rc;
-
+	get_ME_desc(slotID, &ME_desc);
 	memcpy(spid, ME_desc.spid, SPID_SIZE);
-
-	return 0;
 }
 
 void cache_flush_all(void)

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016-2018 Daniel Rossier <daniel.rossier@soo.tech>
- * Copyright (C) 2019 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2016 Baptiste Delporte <bonel@bonel.net>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -26,28 +26,74 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/spinlock.h>
-#include <linux/kthread.h>
+#include <linux/delay.h>
 #include <linux/of.h>
-
-#include <soo/core/device_access.h>
 
 #include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
 #include <soo/uapi/console.h>
-#include <soo/uapi/debug.h>
+
+#include <stdarg.h>
+#include <linux/kthread.h>
+
+#include <soo/vdevback.h>
 
 #include <soo/dev/vuart.h>
 
-/*  This is a reserved char code we use to query (patched) Qemu to retrieve the window size. */
-#define SERIAL_GWINSZ   '\254'
+/*
+ * We maintain a list of vdev_console
+ */
 
-vuart_t vuart;
+struct vdev_console {
+	struct list_head list;
+	struct vbus_device *vdev_console;
+};
 
-/* Ring protection */
-static spinlock_t sendc_lock;
+struct list_head vdev_consoles;
+
+/*
+ * Add a new console for a new ME.
+ */
+void add_console(struct vbus_device *vdev_console) {
+	struct vdev_console *console;
+
+	console = kzalloc(sizeof(vdev_console), GFP_ATOMIC);
+	BUG_ON(!console);
+
+	console->vdev_console = vdev_console;
+
+	list_add(&console->list, &vdev_consoles);
+}
+
+/*
+ * Search for a console related to a specific ME according to its domid.
+ */
+struct vbus_device *get_console(uint32_t domid) {
+	struct vdev_console *entry;
+
+	list_for_each_entry(entry, &vdev_consoles, list)
+		if (entry->vdev_console->otherend_id == domid)
+			return entry->vdev_console;
+	return NULL;
+}
+
+/*
+ * Remove a console attached to a specific ME
+ */
+void del_console(struct vbus_device *vdev_console) {
+	struct vdev_console *entry;
+
+	list_for_each_entry(entry, &vdev_consoles, list)
+		if (entry->vdev_console == vdev_console) {
+			list_del(&entry->list);
+			kfree(entry);
+			return ;
+		}
+	BUG();
+}
+
 
 static void print_guest(char ch) {
 
@@ -55,34 +101,13 @@ static void print_guest(char ch) {
 	lprintch(ch);
 }
 
-static void push_response(domid_t domid, uint8_t ch) {
-	vuart_response_t *ring_rsp = RING_GET_RESPONSE(&vuart.rings[domid].ring, vuart.rings[domid].ring.sring->rsp_prod);
-
-	ring_rsp->c = ch;
-
-	dmb();
-
-	vuart.rings[domid].ring.rsp_prod_pvt++;
-
-	RING_PUSH_RESPONSES(&vuart.rings[domid].ring);
-
-	notify_remote_via_virq(vuart.rings[domid].irq);
-}
-
-irqreturn_t vuart_interrupt(int irq, void *dev_id) {
-	struct vbus_device *dev = (struct vbus_device *) dev_id;
-	RING_IDX i, rp;
+void process_response(struct vbus_device *vdev) {
+	vuart_t *vuart = to_vuart(vdev);
 	vuart_request_t *ring_req;
+	vuart_response_t *ring_rsp;
 	struct winsize wsz;
 
-	if (!vuart_is_connected(dev->otherend_id))
-		return IRQ_HANDLED;
-
-	rp = vuart.rings[dev->otherend_id].ring.sring->req_prod;
-	dmb();
-
-	for (i = vuart.rings[dev->otherend_id].ring.sring->req_cons; i != rp; i++) {
-		ring_req = RING_GET_REQUEST(&vuart.rings[dev->otherend_id].ring, i);
+	while ((ring_req = vuart_ring_request(&vuart->ring)) != NULL) {
 
 		if (ring_req->c == SERIAL_GWINSZ) {
 			/* Process the window size info */
@@ -91,24 +116,26 @@ irqreturn_t vuart_interrupt(int irq, void *dev_id) {
 			wsz.ws_col = 80;
 			wsz.ws_row = 25;
 
-			push_response(dev->otherend_id, wsz.ws_row);
-			push_response(dev->otherend_id, wsz.ws_col);
+			ring_rsp = vuart_ring_response(&vuart->ring);
+			ring_rsp->c = wsz.ws_row;
+			ring_rsp = vuart_ring_response(&vuart->ring);
+			ring_rsp->c = wsz.ws_col;
+			vuart_ring_response_ready(&vuart->ring);
+
+			notify_remote_via_virq(vuart->irq);
 
 		} else
 			print_guest(ring_req->c);
 	}
-
-	vuart.rings[dev->otherend_id].ring.sring->req_cons = i;
-
-	return IRQ_HANDLED;
 }
 
-/**
- * Bufferize a char while the backend is not in Connected state.
- */
-static void add_buf_char(domid_t domid, char c) {
-	vuart.buf_chars[domid][vuart.buf_chars_prod[domid] % MAX_BUF_CHARS] = c;
-	vuart.buf_chars_prod[domid]++;
+irqreturn_t vuart_interrupt(int irq, void *dev_id)
+{
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+
+	process_response(vdev);
+
+	return IRQ_HANDLED;
 }
 
 /**
@@ -118,80 +145,142 @@ static void add_buf_char(domid_t domid, char c) {
  *   will be flushed at the next call to the Connected callback.
  */
 void me_cons_sendc(domid_t domid, uint8_t ch) {
+	struct vbus_device *console;
+	vuart_t *vuart;
+	vuart_response_t *vuart_rsp;
 
-	if (!vuart_is_connected(domid)) {
-
-		spin_lock(&sendc_lock);
-		add_buf_char(domid, ch);
-		spin_unlock(&sendc_lock);
-
+	console = get_console(domid);
+	if (!console)
 		return ;
-	}
 
-	push_response(domid, ch);
-}
+	vuart = to_vuart(console);
 
-void vuart_probe(struct vbus_device *dev) {
-	DBG(VUART_PREFIX " Backend probe: %d\n", dev->otherend_id);
-}
+	spin_lock(&vuart->ring_lock);
+	vuart_rsp = vuart_ring_response(&vuart->ring);
 
-void vuart_close(struct vbus_device *dev) {
-	DBG(VUART_PREFIX " Backend close: %d\n", dev->otherend_id);
+	vuart_rsp->c = ch;
 
-}
+	spin_unlock(&vuart->ring_lock);
 
-void vuart_suspend(struct vbus_device *dev) {
-	DBG(VUART_PREFIX " Backend suspend: %d\n", dev->otherend_id);
-}
+	vuart_ring_response_ready(&vuart->ring);
 
-void vuart_resume(struct vbus_device *dev) {
-	DBG(VUART_PREFIX " Backend resume: %d\n", dev->otherend_id);
+	if (console->state == VbusStateConnected)
+		notify_remote_via_virq(vuart->irq);
 
 }
 
-void vuart_reconfigured(struct vbus_device *dev) {
-	DBG(VUART_PREFIX " Backend reconfigured: %d\n", dev->otherend_id);
+void vuart_probe(struct vbus_device *vdev) {
+	vuart_t *vuart;
+
+	vuart = kzalloc(sizeof(vuart_t), GFP_ATOMIC);
+	BUG_ON(!vuart);
+
+	spin_lock_init(&vuart->ring_lock);
+
+	dev_set_drvdata(&vdev->dev, &vuart->vdevback);
+
+	add_console(vdev);
+
+	DBG(vuart_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
 
-void vuart_connected(struct vbus_device *dev) {
-	int i;
+void vuart_remove(struct vbus_device *vdev) {
+	vuart_t *vuart = to_vuart(vdev);
 
-	DBG(VUART_PREFIX " Backend connected: %d\n", dev->otherend_id);
+	del_console(vdev);
 
-	spin_lock(&sendc_lock);
-
-	for (i = vuart.buf_chars_cons[dev->otherend_id]; i < vuart.buf_chars_prod[dev->otherend_id]; i++) 
-		push_response(dev->otherend_id, vuart.buf_chars[dev->otherend_id][i % MAX_BUF_CHARS]);
-
-	vuart.buf_chars_cons[dev->otherend_id] = vuart.buf_chars_prod[dev->otherend_id];
-
-	spin_unlock(&sendc_lock);
-
-	notify_remote_via_virq(vuart.rings[dev->otherend_id].irq);
+	DBG("%s: freeing the vuart structure for %s\n", __func__,vdev->nodename);
+	kfree(vuart);
 }
+
+void vuart_close(struct vbus_device *vdev) {
+	vuart_t *vuart = to_vuart(vdev);
+
+	DBG("(vuart) Backend close: %d\n", vdev->otherend_id);
+
+	/*
+	 * Free the ring and unbind evtchn.
+	 */
+
+	BACK_RING_INIT(&vuart->ring, (&vuart->ring)->sring, PAGE_SIZE);
+	unbind_from_virqhandler(vuart->irq, vdev);
+
+	vbus_unmap_ring_vfree(vdev, vuart->ring.sring);
+	vuart->ring.sring = NULL;
+}
+
+void vuart_suspend(struct vbus_device *vdev) {
+
+	DBG("(vuart) Backend suspend: %d\n", vdev->otherend_id);
+}
+
+void vuart_resume(struct vbus_device *vdev) {
+
+	DBG("(vuart) Backend resume: %d\n", vdev->otherend_id);
+}
+
+void vuart_reconfigured(struct vbus_device *vdev) {
+	int res;
+	unsigned long ring_ref;
+	unsigned int evtchn;
+	vuart_sring_t *sring;
+	vuart_t *vuart = to_vuart(vdev);
+
+	DBG(vuart_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
+
+	/*
+	 * Set up a ring (shared page & event channel) between the agency and the ME.
+	 */
+
+	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
+
+	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
+
+	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
+	BUG_ON(res < 0);
+
+	SHARED_RING_INIT(sring);
+	BACK_RING_INIT(&vuart->ring, sring, PAGE_SIZE);
+
+	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vuart_interrupt, NULL, 0, VUART_NAME "-backend", vdev);
+
+	BUG_ON(res < 0);
+
+	vuart->irq = res;
+}
+
+void vuart_connected(struct vbus_device *vdev) {
+
+	DBG(vuart_PREFIX "Backend connected: %d\n",vdev->otherend_id);
+
+	process_response(vdev);
+}
+
+
+vdrvback_t vuartdrv = {
+	.probe = vuart_probe,
+	.remove = vuart_remove,
+	.close = vuart_close,
+	.connected = vuart_connected,
+	.reconfigured = vuart_reconfigured,
+	.resume = vuart_resume,
+	.suspend = vuart_suspend
+};
 
 int vuart_init(void) {
-	unsigned int i;
 	struct device_node *np;
 
 	np = of_find_compatible_node(NULL, NULL, "vuart,backend");
 
-	/* Check if DTS has vuart enabled */
+	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))
 		return 0;
 
-	spin_lock_init(&sendc_lock);
+	INIT_LIST_HEAD(&vdev_consoles);
 
-	for (i = 0; i < MAX_DOMAINS; i++) {
-
-		memset(vuart.buf_chars[i], 0, MAX_BUF_CHARS);
-		vuart.buf_chars_prod[i] = 0;
-		vuart.buf_chars_cons[i] = 0;
-	}
-
-	vuart_vbus_init();
+	vdevback_init(VUART_NAME, &vuartdrv);
 
 	return 0;
 }
 
-module_init(vuart_init);
+device_initcall(vuart_init);
