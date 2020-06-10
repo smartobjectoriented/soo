@@ -814,6 +814,9 @@ void discovery_listener_register(discovery_listener_t *listener) {
 	spin_unlock(&discovery_listener_lock);
 }
 
+void neighbours_read(char *str) {
+	sprintf(str, "%d", discovery_neighbour_count());
+}
 
 #if 0 /* Debugging purposes */
 
@@ -835,10 +838,6 @@ static unsigned char buffer[BUFFER_SIZE];
 
 void stream_count_read(char *str) {
 	sprintf(str, "%d", count);
-}
-
-void neighbours_read(char *str) {
-	sprintf(str, "%d", discovery_neighbour_count());
 }
 
 /*
@@ -896,6 +895,9 @@ void discovery_init(void) {
 	INIT_LIST_HEAD(&discovery_pending_update_list);
 
 	INIT_LIST_HEAD(&neigh_blacklist);
+
+	/* Create an entry in sysfs to export the number of neighbours to the user space */
+	soo_sysfs_register(neighbours, neighbours_read, NULL);
 
 	/* Register a new requester in Soolink for Discovery. */
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
