@@ -153,6 +153,7 @@ extern soo_personality_t soo_get_personality(void);
 #define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOW(0x05000000, 15, char)
 #define AGENCY_IOCTL_REBOOT		        _IOW(0x05000000, 16, char)
 #define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW(0x05000000, 17, char)
+#define AGENCY_IOCTL_WAIT_BT_SESSION_DONE	 	_IOW(0x05000000, 18, char)
 
 
 #define ME_IOCTL_FORCE_TERMINATE		100
