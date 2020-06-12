@@ -6794,7 +6794,7 @@ woal_create_custom_regdomain(moal_private *priv)
 	memset(&misc->param.custom_reg_domain, 0,
 	       sizeof(misc->param.custom_reg_domain));
 	/* Passing maximum buffer length to mlan */
-	misc->param.custom_reg_domain.cfg_len = REGULATORY_CFG_LEN;
+	misc->param.custom_reg_domain.cfg_len = (t_u8) REGULATORY_CFG_LEN;
 	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
 	if (status != MLAN_STATUS_SUCCESS) {
 		goto done;

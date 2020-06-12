@@ -886,6 +886,9 @@ static void soo_stream_task_fn(void *args) {
  * Main initialization function of the Discovery functional block
  */
 void discovery_init(void) {
+
+	lprintk("Soolink Discovery init...\n");
+
 	INIT_LIST_HEAD(&neighbour_list);
 
 	INIT_LIST_HEAD(&discovery_listener_list);
@@ -907,8 +910,6 @@ void discovery_init(void) {
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
 
 	DBG_BUFFER(&discovery_sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
-
-	lprintk("Soolink Discovery init...\n");
 }
 
 void discovery_enable(void) {

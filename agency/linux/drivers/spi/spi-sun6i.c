@@ -513,6 +513,7 @@ static int sun6i_spi_probe(struct platform_device *pdev)
 
 #if 0 /* SOO.tech */
 	sspi->fifo_depth = (unsigned long)of_device_get_match_data(&pdev->dev);
+#endif
 
 	master->max_speed_hz = 100 * 1000 * 1000;
 	master->min_speed_hz = 3 * 1000;
@@ -585,12 +586,14 @@ static int sun6i_spi_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#if 0 /* SOO.tech */
 static const struct of_device_id sun6i_spi_match[] = {
 	{ .compatible = "allwinner,sun6i-a31-spi", .data = (void *)SUN6I_FIFO_DEPTH },
 	{ .compatible = "allwinner,sun8i-h3-spi",  .data = (void *)SUN8I_FIFO_DEPTH },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sun6i_spi_match);
+#endif /* 0 */
 
 static const struct dev_pm_ops sun6i_spi_pm_ops = {
 	.runtime_resume		= sun6i_spi_runtime_resume,

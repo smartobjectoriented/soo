@@ -470,7 +470,7 @@ void woal_tx_timeout(struct net_device *dev);
 struct net_device_stats *woal_get_stats(struct net_device *dev);
 
 u16 woal_select_queue(struct net_device *dev, struct sk_buff *skb,
-		      struct net_device *sb_dev, select_queue_fallback_t fallback);
+		      struct net_device *sb_dev);
 
 
 void woal_sdio_reg_dbg(moal_handle *phandle);
@@ -4897,11 +4897,10 @@ woal_get_stats(struct net_device *dev)
  *
  *  @return        tx_queue index (0-3)
  */
+
 u16
 woal_select_queue(struct net_device *dev, struct sk_buff *skb,
-		  struct net_device *sb_dev,
-		  select_queue_fallback_t fallback
-	)
+		  struct net_device *sb_dev)
 {
 	moal_private *priv = (moal_private *)netdev_priv(dev);
 	struct ethhdr *eth = NULL;

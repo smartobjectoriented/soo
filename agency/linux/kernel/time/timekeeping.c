@@ -31,6 +31,9 @@
 #define TK_MIRROR		(1 << 1)
 #define TK_CLOCK_WAS_SET	(1 << 2)
 
+/* SOO.tech */
+#define getnstimeofday64(ts)		ktime_get_real_ts64(ts)
+
 enum timekeeping_adv_mode {
 	/* Update timekeeper when a tick has passed */
 	TK_ADV_TICK,
@@ -1214,6 +1217,23 @@ int get_device_system_crosststamp(int (*get_time_fn)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(get_device_system_crosststamp);
+
+/* SOO.tech */
+/**
+ * do_gettimeofday - Returns the time of day in a timeval
+ * @tv:		pointer to the timeval to be set
+ *
+ * NOTE: Users should be converted to using getnstimeofday()
+ */
+void do_gettimeofday(struct timeval *tv)
+{
+	struct timespec64 now;
+
+	getnstimeofday64(&now);
+	tv->tv_sec = now.tv_sec;
+	tv->tv_usec = now.tv_nsec/1000;
+}
+EXPORT_SYMBOL(do_gettimeofday);
 
 /**
  * do_settimeofday64 - Sets the time of day.

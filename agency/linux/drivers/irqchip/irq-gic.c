@@ -1266,6 +1266,12 @@ static int __init __gic_init_bases(struct gic_chip_data *gic,
 		cpuhp_setup_state_nocalls(CPUHP_AP_IRQ_GIC_STARTING,
 					  "irqchip/arm/gic:starting",
 					  gic_starting_cpu, NULL);
+
+		/* SOO.tech */
+		/* Proceed with registration of this handler on RT CPU */
+		cpurthp_setup_state(CPUHP_AP_IRQ_GIC_STARTING, "irqchip/arm/gic:starting", gic_starting_cpu, NULL);
+
+
 		set_handle_irq(gic_handle_irq);
 		if (static_branch_likely(&supports_deactivate_key))
 			pr_info("GIC: Using split EOI/Deactivate mode\n");

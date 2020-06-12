@@ -42,10 +42,6 @@
 #include <soo/debug/gpio.h>
 
 #if defined(CONFIG_MARVELL_MWIFIEX_MLAN)
-#include <rtdm/sdio_ops.h>
-#include <rtdm/sdio.h>
-#include <rtdm/sunxi-mmc.h>
-
 extern int woal_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
 #endif /* CONFIG_MARVELL_MWIFIEX_MLAN */
 
