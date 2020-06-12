@@ -14,8 +14,6 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 
-#include <soo/uapi/console.h>
-
 #include "8250.h"
 
 struct bcm2835aux_data {
@@ -49,8 +47,6 @@ static int bcm2835aux_serial_probe(struct platform_device *pdev)
 				UPF_SKIP_TEST;
 
 	/* get the clock - this also enables the HW */
-	lprintk("## clk: %s\n", dev_name(&pdev->dev));
-
 	data->clk = devm_clk_get(&pdev->dev, NULL);
 	ret = PTR_ERR_OR_ZERO(data->clk);
 	if (ret) {
@@ -60,10 +56,8 @@ static int bcm2835aux_serial_probe(struct platform_device *pdev)
 
 	/* get the interrupt */
 	ret = platform_get_irq(pdev, 0);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "irq not found - %i", ret);
+	if (ret < 0)
 		return ret;
-	}
 	data->uart.port.irq = ret;
 
 	/* map the main registers */
@@ -119,7 +113,7 @@ static int bcm2835aux_serial_remove(struct platform_device *pdev)
 {
 	struct bcm2835aux_data *data = platform_get_drvdata(pdev);
 
-	serial8250_unregister_port(data->uart.port.line);
+	serial8250_unregister_port(data->line);
 	clk_disable_unprepare(data->clk);
 
 	return 0;

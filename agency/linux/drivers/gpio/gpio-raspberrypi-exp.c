@@ -149,8 +149,11 @@ static int rpi_exp_gpio_get_direction(struct gpio_chip *gc, unsigned int off)
 	}
 	if (get.direction)
 		return GPIO_LINE_DIRECTION_OUT;
-
+	
 	return GPIO_LINE_DIRECTION_IN;
+#if 0 /* SOO.tech */
+	return !get.direction;
+#endif
 }
 
 static int rpi_exp_gpio_get(struct gpio_chip *gc, unsigned int off)

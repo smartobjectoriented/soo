@@ -21,6 +21,7 @@
 #define PLUGIN_WLAN_H
 
 #include <linux/skbuff.h>
+#include <linux/netdevice.h>
 
 #include <soo/soolink/soolink.h>
 
@@ -30,6 +31,7 @@
 
 #ifdef CONFIG_BRCMFMAC_SDIO
 #define WLAN_NET_DEV_NAME 	"wlan0"
+netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb, struct net_device *ndev);
 #endif
 
 #ifndef WLAN_NET_DEV_NAME

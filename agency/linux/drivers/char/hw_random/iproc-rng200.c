@@ -29,6 +29,8 @@
 #define RNG_CTRL_RNG_RBGEN_MASK				0x00001FFF
 #define RNG_CTRL_RNG_RBGEN_ENABLE			0x00000001
 #define RNG_CTRL_RNG_RBGEN_DISABLE			0x00000000
+
+/* SOO.tech */
 #define RNG_CTRL_RNG_DIV_CTRL_SHIFT			13
 
 #define RNG_SOFT_RESET_OFFSET				0x04
@@ -37,8 +39,8 @@
 #define RBG_SOFT_RESET_OFFSET				0x08
 #define RBG_SOFT_RESET					0x00000001
 
+/* SOO.tech */
 #define RNG_TOTAL_BIT_COUNT_OFFSET			0x0C
-
 #define RNG_TOTAL_BIT_COUNT_THRESHOLD_OFFSET		0x10
 
 #define RNG_INT_STATUS_OFFSET				0x18
@@ -47,12 +49,15 @@
 #define RNG_INT_STATUS_NIST_FAIL_IRQ_MASK		0x00000020
 #define RNG_INT_STATUS_TOTAL_BITS_COUNT_IRQ_MASK	0x00000001
 
+/* SOO.tech */
 #define RNG_INT_ENABLE_OFFSET				0x1C
 
 #define RNG_FIFO_DATA_OFFSET				0x20
 
 #define RNG_FIFO_COUNT_OFFSET				0x24
 #define RNG_FIFO_COUNT_RNG_FIFO_COUNT_MASK		0x000000FF
+
+/* SOO.tech */
 #define RNG_FIFO_COUNT_RNG_FIFO_THRESHOLD_SHIFT		8
 
 struct iproc_rng200_dev {
@@ -160,6 +165,7 @@ static int iproc_rng200_read(struct hwrng *rng, void *buf, size_t max,
 	return max - num_remaining;
 }
 
+#if 0 /* SOO.tech */
 static int iproc_rng200_init(struct hwrng *rng)
 {
 	struct iproc_rng200_dev *priv = to_rng_priv(rng);
@@ -173,6 +179,7 @@ static int iproc_rng200_init(struct hwrng *rng)
 
 	return 0;
 }
+#endif /* 0 */
 
 static int bcm2838_rng200_read(struct hwrng *rng, void *buf, size_t max,
 			       bool wait)
@@ -268,6 +275,13 @@ static int iproc_rng200_probe(struct platform_device *pdev)
 		return PTR_ERR(priv->base);
 	}
 
+#if 0 /* SOO.tech */
+	priv->rng.name = "iproc-rng200",
+	priv->rng.read = iproc_rng200_read,
+	priv->rng.init = iproc_rng200_init,
+	priv->rng.cleanup = iproc_rng200_cleanup,
+#endif /* 0 */
+
 	priv->rng.name = pdev->name;
 	priv->rng.cleanup = iproc_rng200_cleanup;
 
@@ -292,9 +306,9 @@ static int iproc_rng200_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id iproc_rng200_of_match[] = {
+	{ .compatible = "brcm,bcm7211-rng200", },
 	{ .compatible = "brcm,bcm7278-rng200", },
 	{ .compatible = "brcm,iproc-rng200", },
-	{ .compatible = "brcm,bcm2838-rng200"},
 	{},
 };
 MODULE_DEVICE_TABLE(of, iproc_rng200_of_match);

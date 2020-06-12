@@ -24,7 +24,6 @@
 #include <linux/socket.h>
 #include <linux/file.h>
 #include <cobalt/kernel/tree.h>
-#include <asm-generic/xenomai/syscall.h>
 
 struct vm_area_struct;
 struct rtdm_fd;

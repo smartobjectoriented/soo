@@ -263,7 +263,7 @@
 					       0x1a0100 0xf00>;
 					reg-shift = <2>;
 				};
- 
+
 				clcd@1f0000 {
 					compatible = "arm,pl111", "arm,primecell";
 					reg = <0x1f0000 0x1000>;
@@ -303,9 +303,7 @@
 							vsync-len = <2>;
 						};
 					};
-					
 				};
-		
 			};
 
 			v2m_fixed_3v3: fixed-regulator-0 {

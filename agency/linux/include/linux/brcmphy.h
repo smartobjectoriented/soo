@@ -20,7 +20,10 @@
 #define PHY_ID_BCM5411			0x00206070
 #define PHY_ID_BCM5421			0x002060e0
 #define PHY_ID_BCM54210E		0x600d84a0
+
+/* SOO.tech */
 #define PHY_ID_BCM54213PE		0x600d84a2
+
 #define PHY_ID_BCM5464			0x002060b0
 #define PHY_ID_BCM5461			0x002060c0
 #define PHY_ID_BCM54612E		0x03625e60
@@ -29,6 +32,7 @@
 #define PHY_ID_BCM89610			0x03625cd0
 
 #define PHY_ID_BCM7250			0xae025280
+#define PHY_ID_BCM7255			0xae025120
 #define PHY_ID_BCM7260			0xae025190
 #define PHY_ID_BCM7268			0xae025090
 #define PHY_ID_BCM7271			0xae0253b0
@@ -148,6 +152,22 @@
 #define BCM_LED_SRC_OFF		0xe	/* Tied high */
 #define BCM_LED_SRC_ON		0xf	/* Tied low */
 
+/*
+ * Broadcom Multicolor LED configurations (expansion register 4)
+ */
+#define BCM_EXP_MULTICOLOR		(MII_BCM54XX_EXP_SEL_ER + 0x04)
+#define BCM_LED_MULTICOLOR_IN_PHASE	BIT(8)
+#define BCM_LED_MULTICOLOR_LINK_ACT	0x0
+#define BCM_LED_MULTICOLOR_SPEED	0x1
+#define BCM_LED_MULTICOLOR_ACT_FLASH	0x2
+#define BCM_LED_MULTICOLOR_FDX		0x3
+#define BCM_LED_MULTICOLOR_OFF		0x4
+#define BCM_LED_MULTICOLOR_ON		0x5
+#define BCM_LED_MULTICOLOR_ALT		0x6
+#define BCM_LED_MULTICOLOR_FLASH	0x7
+#define BCM_LED_MULTICOLOR_LINK		0x8
+#define BCM_LED_MULTICOLOR_ACT		0x9
+#define BCM_LED_MULTICOLOR_PROGRAM	0xa
 
 /*
  * BCM5482: Shadow registers
@@ -168,6 +188,7 @@
 #define  BCM54XX_SHD_SCR3_DLLAPD_DIS	0x0002
 #define  BCM54XX_SHD_SCR3_TRDDAPD	0x0004
 
+/* SOO.tech */
 /* 01001: Additional LED trigger options */
 #define BCM54XX_SHD_LEDCTL		0x09
 #define  BCM54XX_SHD_LEDCTL_ACTLINK_EN	0x0010

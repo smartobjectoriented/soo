@@ -80,18 +80,18 @@
 			compatible = "arm,soo";
 
 			vdummy {
-				compatible = "soo,vdummy";
+				compatible = "vdummy,backend";
 				status = "ok";
 			};
 	
 			vuart {
-				compatible = "soo,vuart";
+				compatible = "vuart,backend";
 				status = "ok";
 			};
 		
 			vuihandler {
-				compatible = "soo,vuihandler";
-				status = "ok";
+				compatible = "vuihandler,backend";
+				status = "disabled";
 			};
 		
 		};
@@ -362,7 +362,7 @@
 		status = "okay";
 	};
 
-	lsm9ds1-accel6a {
+	lsm9ds1-accel@6a {
 		compatible = "st,lsm9ds1-accel";
 		reg = <0x6a>;
 		status = "okay";

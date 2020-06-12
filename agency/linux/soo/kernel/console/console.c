@@ -32,7 +32,6 @@
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/console.h>
-#include <linux/bootmem.h>
 #include <linux/sysrq.h>
 #include <linux/serial_core.h>
 #include <asm/io.h>

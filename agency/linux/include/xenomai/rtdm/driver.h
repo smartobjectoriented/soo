@@ -53,11 +53,6 @@
 #include <trace/events/cobalt-rtdm.h>
 #endif /* 0 */
 
-#ifdef CONFIG_PCI
-#include <asm-generic/xenomai/pci_ids.h>
-#endif /* CONFIG_PCI */
-#include <asm/xenomai/syscall.h>
-
 struct class;
 typedef struct xnselector rtdm_selector_t;
 enum rtdm_selecttype;
@@ -1213,84 +1208,6 @@ static inline void *rtdm_malloc(size_t size)
 static inline void rtdm_free(void *ptr)
 {
 	xnfree(ptr);
-}
-
-int rtdm_mmap_to_user(struct rtdm_fd *fd,
-		      void *src_addr, size_t len,
-		      int prot, void **pptr,
-		      struct vm_operations_struct *vm_ops,
-		      void *vm_private_data);
-
-int rtdm_iomap_to_user(struct rtdm_fd *fd,
-		       phys_addr_t src_addr, size_t len,
-		       int prot, void **pptr,
-		       struct vm_operations_struct *vm_ops,
-		       void *vm_private_data);
-
-int rtdm_mmap_kmem(struct vm_area_struct *vma, void *va);
-
-int rtdm_mmap_vmem(struct vm_area_struct *vma, void *va);
-
-int rtdm_mmap_iomem(struct vm_area_struct *vma, phys_addr_t pa);
-
-int rtdm_munmap(void *ptr, size_t len);
-
-static inline int rtdm_read_user_ok(struct rtdm_fd *fd,
-				    const void __user *ptr, size_t size)
-{
-	return access_rok(ptr, size);
-}
-
-static inline int rtdm_rw_user_ok(struct rtdm_fd *fd,
-				  const void __user *ptr, size_t size)
-{
-	return access_wok(ptr, size);
-}
-
-static inline int rtdm_copy_from_user(struct rtdm_fd *fd,
-				      void *dst, const void __user *src,
-				      size_t size)
-{
-	return __xn_copy_from_user(dst, src, size) ? -EFAULT : 0;
-}
-
-static inline int rtdm_safe_copy_from_user(struct rtdm_fd *fd,
-					   void *dst, const void __user *src,
-					   size_t size)
-{
-	return cobalt_copy_from_user(dst, src, size);
-}
-
-static inline int rtdm_copy_to_user(struct rtdm_fd *fd,
-				    void __user *dst, const void *src,
-				    size_t size)
-{
-	return __xn_copy_to_user(dst, src, size) ? -EFAULT : 0;
-}
-
-static inline int rtdm_safe_copy_to_user(struct rtdm_fd *fd,
-					 void __user *dst, const void *src,
-					 size_t size)
-{
-	return cobalt_copy_to_user(dst, src, size);
-}
-
-static inline int rtdm_strncpy_from_user(struct rtdm_fd *fd,
-					 char *dst,
-					 const char __user *src, size_t count)
-{
-	return cobalt_strncpy_from_user(dst, src, count);
-}
-
-static inline int rtdm_rt_capable(struct rtdm_fd *fd)
-{
-	if (!XENO_ASSERT(COBALT, !xnsched_interrupt_p()))
-		return 0;
-
-	if (!rtdm_fd_is_user(fd))
-		return !xnsched_root_p();
-
-	return xnthread_current() != NULL;
 }
 
 #endif /* !DOXYGEN_CPP */

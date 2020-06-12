@@ -66,15 +66,7 @@ static s64 periods[N_DELAYS][N_DELAY_SAMPLES];
 static uint32_t periods_count[N_DELAYS] = { 0 };
 
 s64 ll_time_get(void) {
-#if defined(CONFIG_SOO_AGENCY)
 	return ktime_to_ns(ktime_get());
-#endif /* CONFIG_SOO_AGENCY */
-
-#if defined(CONFIG_SOO_ME)
-	return get_s_time();
-#endif /* CONFIG_SOO_ME */
-
-	return 0;
 }
 
 static s64 compute_delay(s64 t1, s64 t2) {

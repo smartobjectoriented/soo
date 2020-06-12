@@ -36,11 +36,10 @@
 #include <linux/mutex.h>
 #include <linux/vmacache.h>
 
-#ifdef CONFIG_SOO_AGENCY
-#include <linux/ipipe_base.h>
-#endif
+#include <uapi/linux/sched/types.h>
 
 #include <asm/cacheflush.h>
+
 #include <soo/vbstore.h>
 #include <soo/hypervisor.h>
 #include <soo/uapi/console.h>
@@ -52,8 +51,6 @@
 #include <soo/uapi/avz.h>
 
 #include <soo/uapi/soo.h>
-
-#include <linux/sched/types.h>
 
 #define IRQF_DISABLED	0
 

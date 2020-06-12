@@ -16,8 +16,6 @@
  *
  */
 
-#if defined(CONFIG_SOO_AGENCY)
-
 #include <asm/neon.h>
 
 #include <linux/types.h>
@@ -119,4 +117,3 @@ void ll_bandwidth_init(void) {
 	}
 }
 
-#endif /* CONFIG_SOO_AGENCY */

@@ -6,18 +6,13 @@
  * over time so we can remove the file here.
  */
 
-extern void do_gettimeofday(struct timeval *tv);
-unsigned long get_seconds(void);
-
-static inline struct timespec current_kernel_time(void)
+static inline unsigned long get_seconds(void)
 {
-	struct timespec64 ts64;
-
-	ktime_get_coarse_real_ts64(&ts64);
-
-	return timespec64_to_timespec(ts64);
+	return ktime_get_real_seconds();
 }
 
+/* SOO.tech */
+extern void do_gettimeofday(struct timeval *tv);
 /**
  * Deprecated. Use do_settimeofday64().
  */
@@ -45,29 +40,12 @@ static inline void ktime_get_ts(struct timespec *ts)
 	*ts = timespec64_to_timespec(ts64);
 }
 
-static inline void ktime_get_real_ts(struct timespec *ts)
-{
-	struct timespec64 ts64;
-
-	ktime_get_real_ts64(&ts64);
-	*ts = timespec64_to_timespec(ts64);
-}
-
 static inline void getrawmonotonic(struct timespec *ts)
 {
 	struct timespec64 ts64;
 
 	ktime_get_raw_ts64(&ts64);
 	*ts = timespec64_to_timespec(ts64);
-}
-
-static inline struct timespec get_monotonic_coarse(void)
-{
-	struct timespec64 ts64;
-
-	ktime_get_coarse_ts64(&ts64);
-
-	return timespec64_to_timespec(ts64);
 }
 
 static inline void getboottime(struct timespec *ts)
@@ -78,6 +56,7 @@ static inline void getboottime(struct timespec *ts)
 	*ts = timespec64_to_timespec(ts64);
 }
 
+/* SOO.tech */
 /*
  * Timespec interfaces utilizing the ktime based ones
  */

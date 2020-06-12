@@ -146,7 +146,7 @@ void propagate_plugin_ethernet_send(void) {
 		return;
 	}
 
-	txq = netdev_pick_tx(net_dev, skb, NULL);
+	txq = netdev_core_pick_tx(net_dev, skb, NULL);
 
 	netdev_start_xmit(skb, net_dev, txq, false);
 }

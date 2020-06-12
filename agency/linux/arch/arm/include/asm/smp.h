@@ -1,11 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  *  arch/arm/include/asm/smp.h
  *
  *  Copyright (C) 2004-2005 ARM Ltd.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 #ifndef __ASM_ARM_SMP_H
 #define __ASM_ARM_SMP_H
@@ -24,7 +21,7 @@
 #endif
 
 /* SOO.tech */
-static inline int __smp_processor_id(void) {
+static inline int ____smp_processor_id(void) {
         int cpu;
 
         /* Read Multiprocessor ID register */
@@ -34,7 +31,7 @@ static inline int __smp_processor_id(void) {
         return (cpu & 0x3);
 }
 
-#define raw_smp_processor_id() __smp_processor_id()
+#define raw_smp_processor_id() ____smp_processor_id()
 
 
 struct seq_file;
@@ -90,7 +87,6 @@ struct secondary_data {
 	void *stack;
 };
 extern struct secondary_data secondary_data;
-extern volatile int pen_release;
 extern void secondary_startup(void);
 extern void secondary_startup_arm(void);
 

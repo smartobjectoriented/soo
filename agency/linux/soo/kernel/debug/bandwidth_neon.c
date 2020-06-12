@@ -16,8 +16,6 @@
  *
  */
 
-#if defined(CONFIG_SOO_AGENCY)
-
 #include <linux/types.h>
 #include <linux/ktime.h>
 #include <linux/slab.h>
@@ -47,4 +45,3 @@ void ll_bandwidth_compute(s64 *delays, size_t size, uint32_t *div, uint32_t *res
 	*result = (uint32_t) result_f;
 }
 
-#endif /* CONFIG_SOO_AGENCY */

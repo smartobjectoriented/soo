@@ -72,19 +72,16 @@
 			flash@0 {
 				reg = < 0 >;
 				compatible = "jedec,spi-nor";
-				spi-max-frequency = <50000000>;
 				status = "disabled";
 			};
 			flash@1 {
 				reg = < 1 >;
 				compatible = "jedec,spi-nor";
-				spi-max-frequency = <50000000>;
 				status = "disabled";
 			};
 			flash@2 {
 				reg = < 2 >;
 				compatible = "jedec,spi-nor";
-				spi-max-frequency = <50000000>;
 				status = "disabled";
 			};
 		};
@@ -100,13 +97,11 @@
 			flash@0 {
 				reg = < 0 >;
 				compatible = "jedec,spi-nor";
-				spi-max-frequency = <50000000>;
 				status = "disabled";
 			};
 			flash@1 {
 				reg = < 1 >;
 				compatible = "jedec,spi-nor";
-				spi-max-frequency = <50000000>;
 				status = "disabled";
 			};
 		};
@@ -122,13 +117,11 @@
 			flash@0 {
 				reg = < 0 >;
 				compatible = "jedec,spi-nor";
-				spi-max-frequency = <50000000>;
 				status = "disabled";
 			};
 			flash@1 {
 				reg = < 1 >;
 				compatible = "jedec,spi-nor";
-				spi-max-frequency = <50000000>;
 				status = "disabled";
 			};
 		};
@@ -222,7 +215,7 @@
 				#reset-cells = <1>;
 
 				pinctrl: pinctrl {
-					compatible = "aspeed,ast2500-pinctrl";
+					compatible = "aspeed,g5-pinctrl";
 					aspeed,external-nodes = <&gfx &lhc>;
 
 				};
@@ -306,27 +299,12 @@
 				#gpio-cells = <2>;
 				gpio-controller;
 				compatible = "aspeed,ast2500-gpio";
-				reg = <0x1e780000 0x200>;
+				reg = <0x1e780000 0x1000>;
 				interrupts = <20>;
 				gpio-ranges = <&pinctrl 0 0 232>;
 				clocks = <&syscon ASPEED_CLK_APB>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
-			};
-
-			sgpio: sgpio@1e780200 {
-				#gpio-cells = <2>;
-				compatible = "aspeed,ast2500-sgpio";
-				gpio-controller;
-				interrupts = <40>;
-				reg = <0x1e780200 0x0100>;
-				clocks = <&syscon ASPEED_CLK_APB>;
-				interrupt-controller;
-				ngpios = <8>;
-				bus-frequency = <12000000>;
-				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl_sgpm_default>;
-				status = "disabled";
 			};
 
 			rtc: rtc@1e781000 {
@@ -401,7 +379,6 @@
 				interrupts = <8>;
 				clocks = <&syscon ASPEED_CLK_APB>;
 				no-loopback-test;
-				aspeed,sirq-polarity-sense = <&syscon 0x70 25>;
 				status = "disabled";
 			};
 

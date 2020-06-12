@@ -1,12 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  *  arch/arm/include/asm/memory.h
  *
  *  Copyright (C) 2000-2002 Russell King
  *  modification for nommu, Hyok S. Choi, 2004
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  *
  *  Note: this file should not be included by non-asm/.h files
  */
@@ -162,7 +159,6 @@ extern unsigned long vectors_base;
 
 #ifndef __ASSEMBLY__
 
-
 /*
  * Physical vs virtual RAM address space conversion.  These are
  * private definitions which should NOT be used outside memory.h
@@ -186,7 +182,8 @@ extern unsigned long vectors_base;
 
 extern unsigned long __pv_phys_pfn_offset;
 extern u64 __pv_offset;
-extern void fixup_pv_table(const void *, uv_table_end;
+extern void fixup_pv_table(const void *, unsigned long);
+extern const void *__pv_table_begin, *__pv_table_end;
 
 #define PHYS_OFFSET	((phys_addr_t)__pv_phys_pfn_offset << PAGE_SHIFT)
 #define PHYS_PFN_OFFSET	(__pv_phys_pfn_offset)

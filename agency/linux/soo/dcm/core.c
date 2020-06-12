@@ -48,6 +48,9 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
+#undef CONFIG_ARM_PSCI
+
+
 /* Protection of the buffers */
 static struct mutex recv_lock;
 

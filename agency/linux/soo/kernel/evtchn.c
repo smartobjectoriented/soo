@@ -33,7 +33,6 @@
 #include <linux/sched.h>
 #include <linux/kernel_stat.h>
 #include <linux/random.h>
-#include <linux/bootmem.h>
 #include <linux/kthread.h>
 #include <linux/ipipe_base.h>
 

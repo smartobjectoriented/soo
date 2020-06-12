@@ -19,8 +19,6 @@
 #ifndef BANDWITDH_H
 #define BANDWITDH_H
 
-#if defined(CONFIG_SOO_AGENCY)
-
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
@@ -40,7 +38,5 @@ void ll_bandwidth_init(void);
 /* NEON function */
 
 void ll_bandwidth_compute(s64 *delays, size_t size, uint32_t *div, uint32_t *result);
-
-#endif /* CONFIG_SOO_AGENCY */
 
 #endif /* BANDWITDH_H */

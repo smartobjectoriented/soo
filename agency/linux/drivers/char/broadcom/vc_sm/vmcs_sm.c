@@ -1173,7 +1173,7 @@ static void vcsm_vma_close(struct vm_area_struct *vma)
 		vmcs_sm_remove_map(sm_state, map->resource, map);
 }
 
-static int vcsm_vma_fault(struct vm_fault *vmf)
+static vm_fault_t vcsm_vma_fault(struct vm_fault *vmf)
 {
 	struct sm_mmap *map = (struct sm_mmap *)vmf->vma->vm_private_data;
 	struct sm_resource_t *resource = map->resource;
@@ -1227,7 +1227,7 @@ static int vcsm_vma_fault(struct vm_fault *vmf)
 	pfn >>= PAGE_SHIFT;
 
 	/* Finally, remap it */
-	ret = vm_insert_pfn(vmf->vma, (unsigned long)vmf->address, pfn);
+	ret = vmf_insert_pfn(vmf->vma, (unsigned long)vmf->address, pfn);
 
 	switch (ret) {
 	case 0:
@@ -1561,7 +1561,7 @@ static int vc_sm_mmap(struct file *file, struct vm_area_struct *vma)
 			pfn += mm_vc_mem_phys_addr;
 			pfn += addr - vma->vm_start;
 			pfn >>= PAGE_SHIFT;
-			ret = vm_insert_pfn(vma, addr, pfn);
+			ret = vmf_insert_pfn(vma, addr, pfn);
 		}
 	}
 

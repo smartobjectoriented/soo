@@ -48,7 +48,6 @@
 #include <soo/evtchn.h>
 #include <soo/uapi/avz.h>
 
-#include <rtdm/sdio_ops.h>
 #include <soo/uapi/soo.h>
 
 #include <linux/sched/task.h>

@@ -441,8 +441,8 @@ void woal_cfg80211_setup_vht_cap(moal_private *priv,
 #endif
 int woal_cfg80211_assoc(moal_private *priv, void *sme, t_u8 wait_option);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 #define REGULATORY_CFG_LEN  (NL80211_MAX_SUPP_REG_RULES << 1)
+
 enum marvell_channel_flags {
 	MARVELL_CHANNEL_PASSIVE = BIT(0),
 	MARVELL_CHANNEL_DFS = BIT(1),
@@ -450,6 +450,5 @@ enum marvell_channel_flags {
 	MARVELL_CHANNEL_NOHT80 = BIT(3),
 	MARVELL_CHANNEL_DISABLED = BIT(7),
 };
-#endif
 
 #endif /* _MOAL_CFG80211_H_ */

@@ -35,12 +35,6 @@
 #define FBIOPUT_MODEINFO        0x4617
 #define FBIOGET_DISPINFO        0x4618
 #define FBIO_WAITFORVSYNC	_IOW('F', 0x20, __u32)
-/*
- * HACK: use 'z' in order not to clash with any other ioctl numbers which might
- * be concurrently added to the mainline kernel
- */
-#define FBIOCOPYAREA		_IOW('z', 0x21, struct fb_copyarea)
-#define FBIODMACOPY 		_IOW('z', 0x22, struct fb_dmacopy)
 
 #define FB_TYPE_PACKED_PIXELS		0	/* Packed Pixels	*/
 #define FB_TYPE_PLANES			1	/* Non interleaved planes */
@@ -353,12 +347,6 @@ struct fb_copyarea {
 	__u32 sy;
 };
 
-struct fb_dmacopy {
-	void *dst;
-	__u32 src;
-	__u32 length;
-};
-
 struct fb_fillrect {
 	__u32 dx;	/* screen-relative */
 	__u32 dy;
@@ -405,11 +393,9 @@ struct fb_cursor {
 	struct fb_image	image;	/* Cursor image */
 };
 
-#ifdef CONFIG_FB_BACKLIGHT
 /* Settings for the generic backlight code */
 #define FB_BACKLIGHT_LEVELS	128
 #define FB_BACKLIGHT_MAX	0xFF
-#endif
 
 
 #endif /* _UAPI_LINUX_FB_H */

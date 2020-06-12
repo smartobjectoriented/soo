@@ -1,16 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2010 Broadcom
  * Copyright 2012 Simon Arlott, Chris Boot, Stephen Warren
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  *
  * Quirk 1: Shortcut interrupts don't set the bank 1/2 register pending bits
  *
@@ -230,13 +221,13 @@ static int __init armctrl_of_init(struct device_node *node,
 static int __init bcm2835_armctrl_of_init(struct device_node *node,
 					  struct device_node *parent)
 {
-
 	return armctrl_of_init(node, parent, false);
 }
 
 static int __init bcm2836_armctrl_of_init(struct device_node *node,
 					  struct device_node *parent)
 {
+	/* SOO.tech */
 	if (ipipe_assign_chip) {
 		lprintk("%s: failure, it seems another intc controller already defined.\n", __func__);
 		BUG();
@@ -306,7 +297,7 @@ static void bcm2836_chained_handle_irq(struct irq_desc *desc)
 	u32 hwirq;
 
 	while ((hwirq = get_next_armctrl_hwirq()) != ~0) {
-
+		/* SOO.tech */
 		if (cpumask_test_cpu(AGENCY_RT_CPU, (const struct cpumask *) (&irqdescs[hwirq].common_data.affinity))) {
 			__irq_in_process = hwirq;
 

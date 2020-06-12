@@ -52,16 +52,10 @@
  * based on a set of generic RTOS building blocks.
  */
 
-#ifdef CONFIG_SMP
-static unsigned long supported_cpus_arg = -1;
-module_param_named(supported_cpus, supported_cpus_arg, ulong, 0444);
-#endif /* CONFIG_SMP */
 
 static unsigned long sysheap_size_arg;
-module_param_named(sysheap_size, sysheap_size_arg, ulong, 0444);
 
 static char init_state_arg[16] = "enabled";
-module_param_string(state, init_state_arg, sizeof(init_state_arg), 0444);
 
 static BLOCKING_NOTIFIER_HEAD(state_notifier_list);
 
@@ -70,28 +64,10 @@ volatile bool __cobalt_ready = false;
 atomic_t cobalt_runstate = ATOMIC_INIT(COBALT_STATE_WARMUP);
 EXPORT_SYMBOL_GPL(cobalt_runstate);
 
-struct cobalt_ppd cobalt_kernel_ppd = {
-	.exe_path = "vmlinux",
-};
-EXPORT_SYMBOL_GPL(cobalt_kernel_ppd);
 
-#ifdef CONFIG_XENO_OPT_DEBUG
-#define boot_debug_notice "[DEBUG]"
-#else
 #define boot_debug_notice ""
-#endif
-
-#ifdef CONFIG_IPIPE_TRACE
-#define boot_lat_trace_notice "[LTRACE]"
-#else
 #define boot_lat_trace_notice ""
-#endif
-
-#ifdef CONFIG_ENABLE_DEFAULT_TRACERS
-#define boot_evt_trace_notice "[ETRACE]"
-#else
 #define boot_evt_trace_notice ""
-#endif
 
 #define boot_state_notice						\
 	({								\
@@ -117,7 +93,7 @@ void cobalt_call_state_chain(enum cobalt_run_states newstate)
 }
 EXPORT_SYMBOL_GPL(cobalt_call_state_chain);
 
-static int __init mach_setup(void)
+static int mach_setup(void)
 {
 	int ret;
 
@@ -142,7 +118,7 @@ static int __init mach_setup(void)
 	return 0;
 }
 
-static inline int __init mach_late_setup(void)
+static inline int mach_late_setup(void)
 {
 	if (cobalt_machine.late_init)
 		return cobalt_machine.late_init();
@@ -153,13 +129,13 @@ static inline int __init mach_late_setup(void)
 static struct {
 	const char *label;
 	enum cobalt_run_states state;
-} init_states[] __initdata = {
+} init_states[] = {
 	{ "disabled", COBALT_STATE_DISABLED },
 	{ "stopped", COBALT_STATE_STOPPED },
 	{ "enabled", COBALT_STATE_WARMUP },
 };
 
-static void __init setup_init_state(void)
+static void setup_init_state(void)
 {
 	static char warn_bad_state[] __initdata =
 		XENO_WARNING "invalid init state '%s'\n";
@@ -174,7 +150,7 @@ static void __init setup_init_state(void)
 	lprintk(warn_bad_state, init_state_arg);
 }
 
-static __init int sys_init(void)
+static int sys_init(void)
 {
 	struct xnsched *sched;
 	void *heapaddr;
@@ -254,7 +230,7 @@ void xenomai_init(void)
 	       boot_state_notice);
 }
 
-static int __init xenomai_pre_init(void) {
+static int xenomai_pre_init(void) {
 
 	lprintk("%s: waiting on CPU %d for Xenomai/Cobalt fully initialized...\n", __func__, smp_processor_id());
 

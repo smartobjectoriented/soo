@@ -60,6 +60,13 @@ case $width in
 4) type=4byte ;;
 esac
 
+if [ -z "$ARCH" ]; then
+    case `uname -m` in
+	aarch64*) ARCH=arm64 ;;
+	arm*) ARCH=arm ;;
+    esac
+fi
+
 disas() {
 	${CROSS_COMPILE}as $AFLAGS -o $1.o $1.s > /dev/null 2>&1
 
@@ -119,7 +126,7 @@ faultlinenum=$(( $(wc -l $T.oo  | cut -d" " -f1) - \
 faultline=`cat $T.dis | head -1 | cut -d":" -f2-`
 faultline=`echo "$faultline" | sed -e 's/\[/\\\[/g; s/\]/\\\]/g'`
 
-cat $T.oo | sed -e "${faultlinenum}s/^\(.*:\)\(.*\)/\1\*\2\t\t<-- trapping instruction/"
+cat $T.oo | sed -e "${faultlinenum}s/^\([^:]*:\)\(.*\)/\1\*\2\t\t<-- trapping instruction/"
 echo
 cat $T.aa
 cleanup

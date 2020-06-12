@@ -1,11 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  *  linux/arch/arm/mm/cache-v6.S
  *
  *  Copyright (C) 2001 Deep Blue Solutions Ltd.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  *
  *  This is the "shell" of the ARMv6 processor support.
  */
@@ -201,6 +198,7 @@ ENTRY(v6_flush_kern_dcache_area)
  *	- start   - virtual start address of region
  *	- end     - virtual end address of region
  */
+/* SOO.tech (make it global) */
 ENTRY(v6_dma_inv_range)
 #ifdef CONFIG_DMA_CACHE_RWFO
 	ldrb	r2, [r0]			@ read for ownership
@@ -215,8 +213,8 @@ ENTRY(v6_dma_inv_range)
 #endif
 	tst	r1, #D_CACHE_LINE_SIZE - 1
 #ifdef CONFIG_DMA_CACHE_RWFO
-	ldrneb	r2, [r1, #-1]			@ read for ownership
-	strneb	r2, [r1, #-1]			@ write for ownership
+	ldrbne	r2, [r1, #-1]			@ read for ownership
+	strbne	r2, [r1, #-1]			@ write for ownership
 #endif
 	bic	r1, r1, #D_CACHE_LINE_SIZE - 1
 #ifdef HARVARD_CACHE
@@ -246,6 +244,7 @@ ENTRY(v6_dma_inv_range)
  *	- start   - virtual start address of region
  *	- end     - virtual end address of region
  */
+/* SOO.tech (make it global) */
 ENTRY(v6_dma_clean_range)
 	bic	r0, r0, #D_CACHE_LINE_SIZE - 1
 1:
@@ -284,8 +283,8 @@ ENTRY(v6_dma_flush_range)
 	add	r0, r0, #D_CACHE_LINE_SIZE
 	cmp	r0, r1
 #ifdef CONFIG_DMA_CACHE_RWFO
-	ldrlob	r2, [r0]			@ read for ownership
-	strlob	r2, [r0]			@ write for ownership
+	ldrblo	r2, [r0]			@ read for ownership
+	strblo	r2, [r0]			@ write for ownership
 #endif
 	blo	1b
 	mov	r0, #0

@@ -2192,12 +2192,12 @@ static int bcm2835_clk_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct clk_hw **hws;
 	struct bcm2835_cprman *cprman;
+	struct resource *res;
 	const struct bcm2835_clk_desc *desc;
 	const size_t asize = ARRAY_SIZE(clk_desc_array);
 	const struct cprman_plat_data *pdata;
 	size_t i;
 	int ret;
-        struct resource *res;
 
 	pdata = of_device_get_match_data(&pdev->dev);
 	if (!pdata)
@@ -2211,10 +2211,8 @@ static int bcm2835_clk_probe(struct platform_device *pdev)
 
 	spin_lock_init(&cprman->regs_lock);
 	cprman->dev = dev;
-        res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-        
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	cprman->regs = devm_ioremap_resource(dev, res);
-        
 	if (IS_ERR(cprman->regs))
 		return PTR_ERR(cprman->regs);
 

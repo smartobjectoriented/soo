@@ -90,39 +90,11 @@ static const struct file_operations __ipipe_version_proc_ops = {
 
 static int __ipipe_common_info_show(struct seq_file *p, void *data)
 {
-#if 0 /* To be adapted accordingly */
-	char handling, lockbit;
-	unsigned long ctlbits;
-	unsigned int irq;
-#endif
-
 	seq_printf(p, "        +--- Handled\n");
 	seq_printf(p, "        |+-- Locked\n");
 	seq_printf(p, "        ||+- Virtual\n");
 	seq_printf(p, " [IRQ]  |||  Handler\n");
-#if 0
-	for (irq = 0; irq < NR_PIRQS + NR_VIRQS; irq++) {
-		ctlbits = ipd->irqs[irq].control;
 
-		if (ctlbits & IPIPE_HANDLE_MASK)
-			handling = 'H';
-		else
-			handling = '.';
-
-		if (ctlbits & IPIPE_LOCK_MASK)
-			lockbit = 'L';
-		else
-			lockbit = '.';
-
-		if (ctlbits & IPIPE_HANDLE_MASK)
-			seq_printf(p, " %4u:  %c%c  %pf\n",
-				   irq, handling, lockbit,
-				   ipd->irqs[irq].handler);
-		else
-			seq_printf(p, " %4u:  %c%c\n",
-				   irq, handling, lockbit);
-	}
-#endif
 	return 0;
 }
 
@@ -140,17 +112,16 @@ static const struct file_operations __ipipe_info_proc_ops = {
 };
 
 
-void __init __ipipe_init_proc(void)
+void __ipipe_init_proc(void)
 {
 	ipipe_proc_root = proc_mkdir("ipipe", NULL);
-	proc_create("version", 0444, ipipe_proc_root,
-		    &__ipipe_version_proc_ops);
+	proc_create("version", 0444, ipipe_proc_root, &__ipipe_version_proc_ops);
 
 	__ipipe_init_tracer();
 }
 
 
-void __init __ipipe_init_early(void)
+void  __ipipe_init_early(void)
 {
 	int i;
 
@@ -162,6 +133,7 @@ void __init __ipipe_init_early(void)
 
 	for (i = 16; i < NR_PIRQS + NR_VIRQS; i++) {
 		irqdescs[i].irq = i;
+
 		ipipe_assign_chip(&irqdescs[i]);
 	}
 }
@@ -170,7 +142,7 @@ void __init __ipipe_init_early(void)
  * Since the ARM timer IRQ number is found out from the device tree quite later
  * in the boot process during device initcalls, we have to postpone this initialization.
  */
-void __init __ipipe_init_post(void) {
+void __ipipe_init_post(void) {
 #ifdef CONFIG_ARM
 	irqdescs[__xntimer_rt->irq].irq = __xntimer_rt->irq;
 	ipipe_assign_chip(&irqdescs[__xntimer_rt->irq]);

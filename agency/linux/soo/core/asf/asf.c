@@ -126,7 +126,7 @@ static struct tee_shm *asf_shm_alloc(struct tee_context *ctx)
 	struct tee_shm *shm = NULL;
 	size_t shm_sz = ASF_MAX_BUFF_SIZE + ASF_TAG_SIZE + ASF_IV_SIZE;
 
-	shm = tee_shm_alloc(ctx, shm_sz, TEE_SHM_MAPPED | TEE_SHM_DMA_BUF);
+	shm = tee_shm_alloc(ctx, shm_sz, TEE_SHM_MAPPED);
 	if (IS_ERR(shm)) {
 		lprintk("ASF ERROR - share buffer allocation failed\n");
 		return NULL;
@@ -196,7 +196,7 @@ static int asf_invoke_cypto(struct tee_context *ctx, int session_id, int mode, s
 
 	ret = tee_client_invoke_func(ctx, &arg, param);
 	if ((ret) || (arg.ret)) {
-		lprintk("ASF ERROR - cryptographic action, in asf PTA, failed\n");
+		lprintk("ASF ERROR - cryptographic action, in asf PTA, failed with ret = %d\n", ret);
 		return -1;
 	}
 
@@ -237,7 +237,7 @@ static ssize_t asf_res_buf_alloc(size_t slice_nr, size_t rest, int mode, uint8_t
 	res_buf_sz  = slice_nr * slice_sz;
 	res_buf_sz += rest_sz;
 
-	*res_buf = (uint8_t *)kmalloc(res_buf_sz, GFP_KERNEL);
+	*res_buf = (uint8_t *)kmalloc(res_buf_sz, GFP_ATOMIC);
 	if (!*res_buf) {
 		lprintk("ASF ERROR - Buffer allocation failed\n");
 		return -1;
@@ -306,7 +306,7 @@ static int asf_send_slice_buffer(struct tee_context *ctx, uint32_t session_id, i
 
 		ret = asf_invoke_cypto(ctx, session_id, mode, shm, key, in, out, cur_buf_sz, iv, tag);
 		if (ret) {
-			lprintk("ASF ERROR - asf_invoke_cypto failed\n");
+			lprintk("ASF ERROR - asf_invoke_cypto failed with ret = %d\n", ret);
 			return -1;
 		}
 
@@ -380,7 +380,7 @@ ssize_t asf_decrypt(sym_key_t key, uint8_t *enc_buf, size_t enc_buf_sz, uint8_t 
 	if (res_buf_sz < 0)
 		return -1;
 
-	/* 3. 'Slicing' the buffer in bloc of ASF_MAX_BUFF_SIZE size */
+	/* 3. 'Slicing' the buffer in block of ASF_MAX_BUFF_SIZE size */
 	ret = asf_send_slice_buffer(asf_ctx, asf_sess_id, ASF_TA_CMD_DECODE, key, enc_buf, res_buf, block_nr, rest);
 
 	*plain_buf = res_buf;

@@ -257,7 +257,7 @@ struct xnclock nkclock = {
 EXPORT_SYMBOL_GPL(nkclock);
 
 
-int __init xnclock_init(void)
+int xnclock_init(void)
 {
 
 	xnarch_init_u32frac(&bln_frac, 1, 1000000000);

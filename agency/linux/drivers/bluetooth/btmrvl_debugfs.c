@@ -210,10 +210,6 @@ void btmrvl_debugfs_init(struct hci_dev *hdev)
 	debugfs_create_file("hscfgcmd", 0644, dbg->config_dir,
 			    priv, &btmrvl_hscfgcmd_fops);
 
-	/* SOO.tech */
-	debugfs_create_file("fw_dump", 0200, dbg->config_dir,
-			    priv, &btmrvl_fwdump_fops);
-
 	dbg->status_dir = debugfs_create_dir("status", hdev->debugfs);
 	debugfs_create_u8("curpsmode", 0444, dbg->status_dir,
 			  &priv->adapter->psmode);

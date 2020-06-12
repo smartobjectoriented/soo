@@ -24,7 +24,6 @@
 
 #include <linux/init.h>
 #include <linux/if_ether.h>
-#include <linux/netdevice.h>
 #include <linux/kthread.h>
 
 #include <soo/soolink/soolink.h>
@@ -43,16 +42,8 @@
 #include <soo/debug/gpio.h>
 
 #if defined(CONFIG_MARVELL_MWIFIEX_MLAN)
-#include <rtdm/sdio_ops.h>
-#include <rtdm/sdio.h>
-#include <rtdm/sunxi-mmc.h>
-
 extern int woal_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
 #endif /* CONFIG_MARVELL_MWIFIEX_MLAN */
-
-#if defined(CONFIG_ARCH_BCM)
-#include <rtdm/sdhci.h>
-#endif /* CONFIG_ARCH_BCM */
 
 static struct net_device *net_dev = NULL;
 
@@ -131,7 +122,7 @@ void propagate_plugin_wlan_send(void) {
 	woal_hard_start_xmit(skb, net_dev);
 #endif /* CONFIG_MARVELL_MWIFIEX_MLAN */
 
-#if defined(CONFIG_ARCH_BCM2835)
+#if defined(CONFIG_ARCH_BCM)
 	brcmf_netdev_start_xmit(skb, net_dev);
 #endif /* CONFIG_ARCH_BCM */
 

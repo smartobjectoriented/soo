@@ -39,19 +39,10 @@ hciconfig hci0 piscan
 hciconfig hci0 class 001101
 hciconfig hci0 name ${HCI_NAME}
 # Serial Port
-sdptool add SP
+sdptool add --channel=1 SP
 
 bt-agent -c NoInputNoOutput -d
 
+killall -9 rfcomm > /dev/null 2>&1
+rfcomm release all
 
-# Launch a dumy hciconfig pinger to detect Bluetooth freezes
-/root/hciping.sh &
-
-while true
-do
-    # Kill RFCOMM instance if any
-    killall -9 rfcomm > /dev/null 2>&1
-    rfcomm release all
-    # Watch for RFCOMM connections
-    rfcomm -r watch hci0
-done

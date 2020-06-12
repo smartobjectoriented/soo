@@ -1,17 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Root interrupt controller for the BCM2836 (Raspberry Pi 2).
  *
  * Copyright 2015 Broadcom
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #include <linux/cpu.h>
@@ -148,7 +139,6 @@ __exception_irq_entry bcm2836_arm_irqchip_handle_irq(struct pt_regs *regs)
 	u32 stat;
 
 	stat = readl_relaxed(intc.base + LOCAL_IRQ_PENDING0 + 4 * cpu);
-
 	if (stat & BIT(LOCAL_IRQ_MAILBOX0)) {
 #ifdef CONFIG_SMP
 		void __iomem *mailbox0 = (intc.base +
@@ -162,6 +152,7 @@ __exception_irq_entry bcm2836_arm_irqchip_handle_irq(struct pt_regs *regs)
 	} else if (stat) {
 		u32 hwirq = ffs(stat) - 1;
 
+		/* SOO.tech */
 		if (smp_processor_id() == AGENCY_RT_CPU)
 			__ipipe_grab_irq(hwirq, false);
 		else
@@ -191,6 +182,7 @@ static void bcm2836_arm_irqchip_send_ipi(const struct cpumask *mask,
 	}
 }
 
+/* SOO.tech */
 /* static */ int bcm2836_cpu_starting(unsigned int cpu)
 {
 	bcm2836_arm_irqchip_unmask_per_cpu_irq(LOCAL_MAILBOX_INT_CONTROL0, 0,
@@ -267,7 +259,6 @@ static int __init bcm2836_arm_irqchip_l1_intc_of_init(struct device_node *node,
 	bcm2836_arm_irqchip_smp_init();
 
 	set_handle_irq(bcm2836_arm_irqchip_handle_irq);
-
 	return 0;
 }
 

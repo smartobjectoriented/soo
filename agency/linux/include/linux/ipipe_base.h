@@ -87,7 +87,7 @@ struct ipipe_vm_notifier {
 };
 
 void __ipipe_init_early(void);
-void __init __ipipe_init_post(void);
+void __ipipe_init_post(void);
 
 void __ipipe_init(void);
 

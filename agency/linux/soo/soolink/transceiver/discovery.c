@@ -37,6 +37,8 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
 
+#undef CONFIG_ARM_PSCI
+
 static rtdm_task_t rt_watch_loop_task;
 
 static bool discovery_enabled = false;
@@ -812,6 +814,9 @@ void discovery_listener_register(discovery_listener_t *listener) {
 	spin_unlock(&discovery_listener_lock);
 }
 
+void neighbours_read(char *str) {
+	sprintf(str, "%d", discovery_neighbour_count());
+}
 
 #if 0 /* Debugging purposes */
 
@@ -833,10 +838,6 @@ static unsigned char buffer[BUFFER_SIZE];
 
 void stream_count_read(char *str) {
 	sprintf(str, "%d", count);
-}
-
-void neighbours_read(char *str) {
-	sprintf(str, "%d", discovery_neighbour_count());
 }
 
 /*
@@ -885,6 +886,9 @@ static void soo_stream_task_fn(void *args) {
  * Main initialization function of the Discovery functional block
  */
 void discovery_init(void) {
+
+	lprintk("Soolink Discovery init...\n");
+
 	INIT_LIST_HEAD(&neighbour_list);
 
 	INIT_LIST_HEAD(&discovery_listener_list);
@@ -895,6 +899,9 @@ void discovery_init(void) {
 
 	INIT_LIST_HEAD(&neigh_blacklist);
 
+	/* Create an entry in sysfs to export the number of neighbours to the user space */
+	soo_sysfs_register(neighbours, neighbours_read, NULL);
+
 	/* Register a new requester in Soolink for Discovery. */
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
 	discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_WLAN, SL_MODE_BROADCAST);
@@ -903,8 +910,6 @@ void discovery_init(void) {
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
 
 	DBG_BUFFER(&discovery_sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
-
-	lprintk("Soolink Discovery init...\n");
 }
 
 void discovery_enable(void) {
