@@ -1421,7 +1421,7 @@ static void __queue_work(int cpu, struct workqueue_struct *wq,
 
 	/* SOO.tech */
 	/* Enfore the work to go on CPU #0 */
-	cpu = 0;
+	cpu = AGENCY_CPU;
 
 	debug_work_activate(work);
 
