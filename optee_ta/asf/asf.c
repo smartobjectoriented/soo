@@ -9,9 +9,6 @@
 #include <string.h>
 #include <asf_ta.h>
 
-#include "asf_communication_key.h"
-#include "asf_injection_key.h"
-
 #define ASF_KEY_SIZE		32 /* AES 256 */
 #define ASF_TAG_SIZE		16
 #define ASF_IV_SZ			12
@@ -25,6 +22,9 @@ static uint8_t asf_iv[] = {
 	0x01, 0x00, 0x00, 0x00, 0x00, 0x0,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x0
 };
+
+static uint8_t aes_com_key[ASF_KEY_SIZE];
+static uint8_t aes_inject_key[ASF_KEY_SIZE];
 
 static void asf_iv_inc(void)
 {
@@ -76,9 +76,9 @@ static TEE_Result asf_enc_dec(uint32_t type, TEE_Param params[TEE_NUM_PARAMS], T
 
 	/* get the key to use */
 	if (params[1].value.a == ASF_KEY_COM) {
-		key = (uint8_t *)ASF_COM_KEY;
+		key = aes_com_key;
 	} else if (params[1].value.a == ASF_KEY_INJECT) {
-		key = (uint8_t *)ASF_INJECT_KEY;
+		key = aes_inject_key;
 	} else {
 		EMSG("ASF - Unsupported key (%d)\n", params[1].value.a);
 		return TEE_ERROR_BAD_PARAMETERS;
@@ -164,6 +164,8 @@ TEE_Result TA_CreateEntryPoint(void)
 {
 	/* Nothing to do */
 
+	IMSG("== Hello from ASF TA :-) ==");
+
 	return TEE_SUCCESS;
 }
 
@@ -177,6 +179,9 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_types,
 		TEE_Param __maybe_unused params[4],
 		void __maybe_unused **sess_ctx)
 {
+	uint32_t key_size = ASF_KEY_SIZE;
+	TEE_Result res;
+
 	uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_NONE,
 						   TEE_PARAM_TYPE_NONE,
 						   TEE_PARAM_TYPE_NONE,
@@ -188,6 +193,18 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_types,
 	/* Unused parameters */
 	(void)&params;
 	(void)&sess_ctx;
+
+	res = TEE_GetPropertyAsBinaryBlock(TEE_PROPSET_CURRENT_TA, "gp.ta.com_key", aes_com_key, &key_size);
+	if ((res != TEE_SUCCESS) || (key_size != ASF_KEY_SIZE)) {
+		EMSG("ASF - Retrieve of asf communication key failed");
+		TEE_Panic(res);
+	}
+
+	res = TEE_GetPropertyAsBinaryBlock(TEE_PROPSET_CURRENT_TA, "gp.ta.inject_key", aes_inject_key, &key_size);
+	if ((res != TEE_SUCCESS) || (key_size != ASF_KEY_SIZE)) {
+		EMSG("ASF - Retrieve of asf injection key failed");
+		TEE_Panic(res);
+	}
 
 	return TEE_SUCCESS;
 }
