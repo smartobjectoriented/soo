@@ -1373,6 +1373,10 @@ static int wq_select_unbound_cpu(int cpu)
 	static bool printed_dbg_warning;
 	int new_cpu;
 
+	/* SOO.tech */
+	__this_cpu_write(wq_rr_cpu_last, AGENCY_CPU);
+	return AGENCY_CPU;
+
 	if (likely(!wq_debug_force_rr_cpu)) {
 		if (cpumask_test_cpu(cpu, wq_unbound_cpumask))
 			return cpu;
@@ -1438,7 +1442,10 @@ retry:
 		pwq = unbound_pwq_by_node(wq, cpu_to_node(cpu));
 	} else {
 		if (req_cpu == WORK_CPU_UNBOUND)
+			cpu = AGENCY_CPU;
+#if 0 /* SOO.tech */
 			cpu = raw_smp_processor_id();
+#endif
 		pwq = per_cpu_ptr(wq->cpu_pwqs, cpu);
 	}
 
@@ -1528,6 +1535,9 @@ bool queue_work_on(int cpu, struct workqueue_struct *wq,
 {
 	bool ret = false;
 	unsigned long flags;
+
+	/* SOO.tech */
+	cpu = AGENCY_CPU;
 
 	local_irq_save(flags);
 
@@ -3324,26 +3334,33 @@ EXPORT_SYMBOL(cancel_delayed_work_sync);
  */
 int schedule_on_each_cpu(work_func_t func)
 {
+#if 0 /* SOO.tech */
 	int cpu;
+#endif
+
 	struct work_struct __percpu *works;
 
 	works = alloc_percpu(struct work_struct);
 	if (!works)
 		return -ENOMEM;
-
+#if 0 /* SOO.tech */
 	get_online_cpus();
-
-	for_each_online_cpu(cpu) {
-		struct work_struct *work = per_cpu_ptr(works, cpu);
+#endif
+	{
+		struct work_struct *work = per_cpu_ptr(works, AGENCY_CPU);
 
 		INIT_WORK(work, func);
-		schedule_work_on(cpu, work);
+		schedule_work_on(AGENCY_CPU, work);
 	}
-
+#if 0 /* SOO.tech */
 	for_each_online_cpu(cpu)
-		flush_work(per_cpu_ptr(works, cpu));
+#endif
+		flush_work(per_cpu_ptr(works, AGENCY_CPU));
 
+#if 0 /* SOO.tech */
 	put_online_cpus();
+#endif
+
 	free_percpu(works);
 	return 0;
 }
@@ -4210,24 +4227,14 @@ static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 		if (!wq->cpu_pwqs)
 			return -ENOMEM;
 
-		/* SOO.tech */
-		{
-			struct pool_workqueue *pwq = per_cpu_ptr(wq->cpu_pwqs, AGENCY_CPU);
-			struct worker_pool *cpu_pools = per_cpu(cpu_worker_pools, AGENCY_CPU);
-
-			init_pwq(pwq, wq, &cpu_pools[highpri]);
-
-			mutex_lock(&wq->mutex);
-			link_pwq(pwq);
-			mutex_unlock(&wq->mutex);
-		}
-
-#if 0
+#if 0 /* SOO.tech */
 		for_each_possible_cpu(cpu) {
+#endif
+			{
 			struct pool_workqueue *pwq =
-				per_cpu_ptr(wq->cpu_pwqs, cpu);
+				per_cpu_ptr(wq->cpu_pwqs, AGENCY_CPU);
 			struct worker_pool *cpu_pools =
-				per_cpu(cpu_worker_pools, cpu);
+				per_cpu(cpu_worker_pools, AGENCY_CPU);
 
 			init_pwq(pwq, wq, &cpu_pools[highpri]);
 
@@ -4235,11 +4242,13 @@ static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 			link_pwq(pwq);
 			mutex_unlock(&wq->mutex);
 		}
-#endif
+
 		return 0;
 	}
-
+#if 0 /* SOO.tech */
 	get_online_cpus();
+#endif
+
 	if (wq->flags & __WQ_ORDERED) {
 		ret = apply_workqueue_attrs(wq, ordered_wq_attrs[highpri]);
 		/* there should only be single pwq for ordering guarantee */
@@ -4249,7 +4258,9 @@ static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 	} else {
 		ret = apply_workqueue_attrs(wq, unbound_std_wq_attrs[highpri]);
 	}
+#if 0 /* SOO.tech */
 	put_online_cpus();
+#endif
 
 	return ret;
 }
@@ -4587,7 +4598,10 @@ bool workqueue_congested(int cpu, struct workqueue_struct *wq)
 	preempt_disable();
 
 	if (cpu == WORK_CPU_UNBOUND)
+#if 0 /* SOO.tech */
 		cpu = smp_processor_id();
+#endif
+		cpu = AGENCY_CPU;
 
 	if (!(wq->flags & WQ_UNBOUND))
 		pwq = per_cpu_ptr(wq->cpu_pwqs, cpu);
@@ -5080,7 +5094,12 @@ static void restore_unbound_workers_cpumask(struct worker_pool *pool, int cpu)
 	if (!cpumask_test_cpu(cpu, pool->attrs->cpumask))
 		return;
 
+#if 0 /* SOO.tech */
 	cpumask_and(&cpumask, pool->attrs->cpumask, cpu_online_mask);
+#endif
+	cpumask_empty(pool->attrs->cpumask);
+	cpumask_set_cpu(AGENCY_CPU, pool->attrs->cpumask);
+
 
 	/* as we're called from CPU_ONLINE, the following shouldn't fail */
 	for_each_pool_worker(worker, pool)
@@ -5090,6 +5109,10 @@ static void restore_unbound_workers_cpumask(struct worker_pool *pool, int cpu)
 int workqueue_prepare_cpu(unsigned int cpu)
 {
 	struct worker_pool *pool;
+
+	/* SOO.tech */
+	if (cpu != AGENCY_CPU)
+		return 0;
 
 	for_each_cpu_worker_pool(pool, cpu) {
 		if (pool->nr_workers)
@@ -5480,7 +5503,10 @@ static ssize_t wq_pool_ids_show(struct device *dev,
 	const char *delim = "";
 	int node, written = 0;
 
+#if 0 /* SOO.tech */
 	get_online_cpus();
+#endif
+
 	rcu_read_lock();
 	for_each_node(node) {
 		written += scnprintf(buf + written, PAGE_SIZE - written,
@@ -5490,7 +5516,9 @@ static ssize_t wq_pool_ids_show(struct device *dev,
 	}
 	written += scnprintf(buf + written, PAGE_SIZE - written, "\n");
 	rcu_read_unlock();
+#if 0 /* SOO.tech */
 	put_online_cpus();
+#endif
 
 	return written;
 }
@@ -5991,7 +6019,7 @@ int __init workqueue_init_early(void)
 
 #if 0 /* SOO.tech */
 	int hk_flags = HK_FLAG_DOMAIN | HK_FLAG_WQ;
-	int cpu;
+	int i, cpu;
 
 	WARN_ON(__alignof__(struct pool_workqueue) < __alignof__(long long));
 
@@ -6104,7 +6132,10 @@ int __init workqueue_init(void)
 #endif
 
 	list_for_each_entry(wq, &workqueues, list) {
+#if 0 /* SOO.tech */
 		wq_update_unbound_numa(wq, smp_processor_id(), true);
+#endif
+		wq_update_unbound_numa(wq, AGENCY_CPU, true);
 		WARN(init_rescuer(wq),
 		     "workqueue: failed to create early rescuer for %s",
 		     wq->name);
