@@ -1,0 +1,9 @@
+menu "Display Manager"
+
+config LOCAL_INTERFACES
+	bool "Display test"
+	help
+		To be modified
+	default N
+
+endmenu
