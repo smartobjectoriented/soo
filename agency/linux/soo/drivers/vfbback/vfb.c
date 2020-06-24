@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/of.h>
+#include <linux/fb.h>
 
 #include <soo/evtchn.h>
 #include <soo/gnttab.h>
@@ -88,6 +89,9 @@ void fb_ph_addr(struct vbus_watch *watch) {
 	grant_ref_t fb_ref;
 	uint32_t *fb_space;
 	struct vbus_transaction vbt;
+	struct gnttab_map_grant_ref op;
+	struct vm_struct *area;
+	struct fb_info *fbinfo;
 
 	vbus_transaction_start(&vbt);
 	vbus_scanf(vbt, "backend/vfb/fb-ph-addr", "value", "%u", &fb_ref);
@@ -95,9 +99,41 @@ void fb_ph_addr(struct vbus_watch *watch) {
 
 	DBG(VFB_PREFIX "New value for %s: 0x%08x\n", watch->node, fb_ref);
 
-	// Test
-	res = vbus_map_ring_valloc(watch->dev, fb_ref, (void **) &fb_space);
-	DBG(VFB_PREFIX "First pixel: 0x%08x\n", *fb_space);
+	/* Test */
+
+	op.flags = GNTMAP_host_map;
+	op.ref = fb_ref;
+	op.dom = watch->dev->otherend_id;
+
+	area = alloc_vm_area(1024 * 768 * 4, NULL);
+	op.host_addr = (unsigned long) area->addr;
+	if (!area) {
+		BUG();
+	}
+
+	if (grant_table_op(GNTTABOP_map_grant_ref, &op, 1)) { /* TODO use gnttab_map directly */
+		BUG();
+	}
+
+	if (op.status != GNTST_okay) {
+		free_vm_area(area);
+		DBG(VFB_PREFIX "mapping in shared page %d from domain %d failed for device %s\n", fb_ref, watch->dev->otherend_id, watch->dev->nodename);
+		BUG();
+	}
+
+	area->phys_addr = (unsigned long) op.handle;
+
+	fb_space = area->addr;
+	DBG(VFB_PREFIX "First pixel: 0x%08x, addr: 0x%08x, area: 0x%08x", *fb_space, fb_space, area->addr);
+
+	/* Reconfigure the framebuffer. */
+	DBG(VFB_PREFIX "reg fb: %d, 0x%08x\n", num_registered_fb, registered_fb[0]->screen_base);
+	fbinfo = registered_fb[0];
+	fbinfo->screen_base = (char *) fb_space;
+	fbinfo->fix.smem_start = op.dev_bus_addr << 12;
+	fbinfo->var.bits_per_pixel = 32;
+	res = fbinfo->fbops->fb_set_par(fbinfo);
+	DBG(VFB_PREFIX "res: %d, dev bus addr: 0x%08llx\n", res, op.dev_bus_addr << 12);
 }
 
 void vfb_probe(struct vbus_device *vdev) {
@@ -119,6 +155,10 @@ void vfb_probe(struct vbus_device *vdev) {
 	vbus_watch_path(vdev, "backend/vfb/fb-ph-addr/value", &me_watch, fb_ph_addr);
 
 	DBG(VFB_PREFIX "Backend probe: %d\n", vdev->otherend_id);
+
+	/* Unlink the framebuffer console from the framebuffer driver. */
+	unlink_framebuffer(registered_fb[0]);
+	DBG(VFB_PREFIX "Unlinked framebuffer.\n");
 }
 
 void vfb_remove(struct vbus_device *vdev) {

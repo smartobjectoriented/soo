@@ -29,8 +29,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <syscall.h>
+#include <sys/mman.h>
 #include <bits/ioctl_fix.h>
+#include <pthread.h>
 
 #include "lvgl/lvgl.h"
 
@@ -103,10 +104,11 @@ struct ps2_key {
 /* Main code. */
 int main(int argc, char **argv)
 {
+	printf("start...\n");
 	/* Initialisation of lvgl. */
 	lv_init();
 	fs_init();
-
+	printf("init fb...\n");
 	/* Initialisation of the framebuffer. */
 	if (fb_init()) {
 		return -1;
@@ -128,10 +130,10 @@ int main(int argc, char **argv)
 	disp_drv.flush_cb = my_fb_cb;
 	lv_disp_drv_register(&disp_drv);
 
-	/* Initialisation of the mouse and keyboard. */
+	/* Initialisation of the mouse and keyboard.
 	if (mouse_init() || keyboard_init()) {
 		return -1;
-	}
+	}*/
 
 	/* Creating the UI. */
 	create_ui();
@@ -256,9 +258,10 @@ int fb_init(void)
 		printf("Couldn't open framebuffer.\n");
 		return -1;
 	}
-
+	printf("opened...\n");
 	/* Map the fb into process memory. */
-	fbp = sys_mmap(FB_SIZE, 0, fd, 0);
+	fbp = mmap(NULL, FB_SIZE, 0, 0, fd, 0);
+	printf("mmaped...\n");
 	if (!fbp) {
 		printf("Couldn't map framebuffer.\n");
 		return -1;
