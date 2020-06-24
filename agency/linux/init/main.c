@@ -1017,10 +1017,7 @@ extern initcall_entry_t __initcall_end[];
 /* SOO.tech */
 extern initcall_entry_t __initcall8_start[]; /* SOOlink-related initcalls */
 
-
-extern initcall_t __initcall_end[];
-
-static initcall_t *initcall_levels[] __initdata = {
+static initcall_entry_t *initcall_levels[] __initdata = {
 	__initcall0_start,
 	__initcall1_start,
 	__initcall2_start,
