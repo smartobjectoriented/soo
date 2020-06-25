@@ -137,8 +137,7 @@ static struct {
 
 static void setup_init_state(void)
 {
-	static char warn_bad_state[] __initdata =
-		XENO_WARNING "invalid init state '%s'\n";
+	static char warn_bad_state[] = XENO_WARNING "invalid init state '%s'\n";
 	int n;
 
 	for (n = 0; n < ARRAY_SIZE(init_states); n++)

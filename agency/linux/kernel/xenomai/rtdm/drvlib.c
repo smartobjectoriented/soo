@@ -23,15 +23,19 @@
 #include <linux/bitops.h>
 #include <linux/delay.h>
 #include <linux/mman.h>
-#include <asm/page.h>
-#include <asm/io.h>
-#include <asm/pgtable.h>
 #include <linux/highmem.h>
 #include <linux/err.h>
 #include <linux/anon_inodes.h>
+
 #include <rtdm/driver.h>
 #include "internal.h"
+
 #include <trace/events/cobalt-rtdm.h>
+
+#include <asm/page.h>
+#include <asm/io.h>
+#include <asm/pgtable.h>
+#include <asm/smp.h>
 
 #include <soo/uapi/soo.h>
 
@@ -118,8 +122,8 @@ int rtdm_task_init(rtdm_task_t *task, const char *name,
 
 
 	/* Now we take care where is the task created from (non-RT agency or RT agency) */
-	if (smp_processor_id() == AGENCY_CPU) {
-		
+	if (smp_processor_id() != AGENCY_RT_CPU) {
+
 		spin_lock(&nonrt_task_create_lock);
 
 		args_task_create.task = task;
@@ -152,8 +156,6 @@ int rtdm_task_init(rtdm_task_t *task, const char *name,
 		BUG();
 
 	return 0;
-
-
 }
 
 EXPORT_SYMBOL_GPL(rtdm_task_init);
