@@ -150,8 +150,8 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 	DBG("Size: %d\n", size);
 
-	/* Bypass the Decoder if the requester is of Bluetooth or TCP type */
-	if ((sl_desc->if_type == SL_IF_BT) || (sl_desc->if_type == SL_IF_TCP)) {
+	/* Bypass the Decoder if the requester is of  TCP type */
+	if (sl_desc->if_type == SL_IF_TCP) {
 		pkt = (transcoder_packet_t *) data;
 
 		/* Allocate the memory for this new (simple) block */

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2018-2019 Baptiste Delporte <bonel@bonel.net>
  * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2020 David Truan <david.truan@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -56,6 +57,8 @@
 #include <soo/uapi/soo.h>
 #include <soo/guest_api.h>
 #include <soo/uapi/debug.h>
+#include <soo/uapi/injector.h>
+
 
 #include <soo/soolink/soolink.h>
 
@@ -362,8 +365,36 @@ static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, si
 }
 
 void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
-	size_t size;
+	size_t size, ME_size;
 	int me_id;
+	uint8_t *ME_pkt_payload;
+
+	/* This is the ME size (1B type + 4B size) */
+	if (vuihandler_pkt->type == VUIHANDLER_ME_SIZE) {
+		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
+
+		DBG("ME size: %u\n", *((uint32_t *)(ME_pkt_payload+1)));
+		ME_size = *((uint32_t *)(ME_pkt_payload+1));
+		
+#warning This may not be needed anymore but keep it for now as we may fallback to the non-block ME reception		
+		/* Forward the size to the injector so it knows the ME size. */
+		injector_prepare(ME_size);
+		vfree((void *) ME_pkt_payload);
+		return;
+	}
+	/* This is the ME data which needs to be forwarded to the Injector */
+	if (vuihandler_pkt->type == VUIHANDLER_ME_INJECT) {
+		/* As we bypass the full vuiHandler protocol, we first use a uint8_t array to
+		easily access the data instead of the vuihandler_pkt */
+		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
+
+		injector_receive_ME((void *)(ME_pkt_payload+1), vuihandler_pkt_size-1);
+
+		/* We don't free the received buffer here as it the Core needs to read it 
+		first. The free is done in the Injector once the userspace finished reading it. */
+		return ;
+	}
+
 
 	if (vuihandler_pkt->type == VUIHANDLER_BEACON) {
 		/* This is a vUIHandler beacon */
@@ -522,7 +553,7 @@ send_ping:
 		DBG0("PING\n");
 
 		if ((ret = wait_for_completion_interruptible_timeout(&keepalive_completion, msecs_to_jiffies(VUIHANDLER_APP_RSP_TIMEOUT))) <= 0) {
-			DBG0(VUIHANDLER_PREFIX "No keepalive beacon received, count = %d\n", failed_ping_count);
+			//DBG0(VUIHANDLER_PREFIX "No keepalive beacon received, count = %d\n", failed_ping_count);
 
 			/* Send the ping again */
 			if (failed_ping_count < MAX_FAILED_PING_COUNT) {
@@ -657,6 +688,8 @@ int vuihandler_init(void) {
 
 	/* Set the associated dev capability */
 	devaccess_set_devcaps(DEVCAPS_CLASS_COMM, DEVCAP_COMM_UIHANDLER, true);
+
+	DBG("VUIHANDLER INITIALIZED!\n");
 
 	return 0;
 }
