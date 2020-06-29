@@ -29,6 +29,7 @@
 #include <device/driver.h>
 #include <device/fb/so3virt_fb.h>
 
+#define FB_SIZE (1024 * 768 * 4)
 
 void *mmap(int fd, uint32_t virt_addr, uint32_t page_count);
 
@@ -55,11 +56,10 @@ int fb_init(dev_t *dev)
 	uint32_t fb;
 
 	/* Allocate contiguous memory for the framebuffer and get the physical address. */
-	fb = get_contig_free_vpages(1024 * 768 * 4 / PAGE_SIZE);
+	fb = get_contig_free_vpages(FB_SIZE / PAGE_SIZE);
 	fb_base = virt_to_phys_pt(fb);
 
-	*(uint32_t*)fb = 0x12345678; // test: set value of first pixel
-	DBG("so3virt_fb, virt 0x%08x, phys 0x%08x\n", fb, fb_base);
+	DBG("so3virt_fb: allocated %d [virt 0x%08x, phys 0x%08x]\n", FB_SIZE, fb, fb_base);
 
 	/* Register the framebuffer so it can be accessed from user space. */
 	devclass_register(dev, &vfb_cdev);
@@ -67,16 +67,19 @@ int fb_init(dev_t *dev)
 	return 0;
 }
 
+/* TODO map on virtual mem? */
 void *mmap(int fd, uint32_t virt_addr, uint32_t page_count)
 {
-	uint32_t i, page;
+	uint32_t i, page_phys_base;
 	pcb_t *pcb = current()->pcb;
 
+	DBG("so3virt_fb > virt: 0x%08x phys: 0x%08x, count: %u\n", virt_addr, fb_base, page_count);
+
 	for (i = 0; i < page_count; i++) {
-		/* Map a process' virtual page to the physical one (here the VRAM). */
-		page = fb_base + i * PAGE_SIZE;
-		create_mapping(pcb->pgtable, virt_addr + (i * PAGE_SIZE), page, PAGE_SIZE, false);
-		add_page_to_proc(pcb, phys_to_page(page));
+		/* Map a process' virtual page to the physical one. */
+		page_phys_base = fb_base + i * PAGE_SIZE;
+		create_mapping(pcb->pgtable, virt_addr + (i * PAGE_SIZE), page_phys_base, PAGE_SIZE, false);
+		add_page_to_proc(pcb, phys_to_page(page_phys_base));
 	}
 
 	return (void *) virt_addr;

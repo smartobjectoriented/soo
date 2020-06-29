@@ -3,13 +3,11 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #define H_RES 1024
 #define V_RES 768
 #define FB_SIZE (H_RES * V_RES * 4)
-
-#define MASK5 0x1f
-#define MASK6 0x3f
 
 uint32_t create_px(uint8_t r, uint8_t g, uint8_t b);
 
@@ -31,12 +29,14 @@ int main(int argc, char **argv)
 
 	/* Display some pixels. */
 
+	printf("Displaying red pixels\n");
 	for (i = 0; i < V_RES / 3; i++) {
 		for (j = 0; j < H_RES; j++) {
 			fbp[j + i * H_RES] = create_px(0xff, 0, 0);
 		}
 	}
 
+	printf("Displaying green pixels\n");
 	fbp += V_RES / 3 * H_RES;
 	for (i = 0; i < V_RES / 3; i++) {
 		for (j = 0; j < H_RES; j++) {
@@ -44,6 +44,7 @@ int main(int argc, char **argv)
 		}
 	}
 
+	printf("Displaying blue pixels\n");
 	fbp += V_RES / 3 * H_RES;
 	for (i = 0; i < V_RES / 3; i++) {
 		for (j = 0; j < H_RES; j++) {
@@ -51,14 +52,11 @@ int main(int argc, char **argv)
 		}
 	}
 
+	close(fd);
 	return 0;
 }
 
 uint32_t create_px(uint8_t r, uint8_t g, uint8_t b)
 {
-	uint32_t px = 0;
-	px |= b;
-	px |= g << 8;
-	px |= r << 16;
-	return px;
+	return (b << 16) | (g << 8) | r; /* 24bpp BGR mode */
 }
