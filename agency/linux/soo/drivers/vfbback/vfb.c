@@ -29,19 +29,19 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/fb.h>
+#include <linux/kthread.h>
 
 #include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
 #include <soo/uapi/console.h>
-
-#include <stdarg.h>
-#include <linux/kthread.h>
-
+#include <soo/dev/vfb.h>
 #include <soo/vdevback.h>
 
-#include <soo/dev/vfb.h>
+#include <stdarg.h>
+
+#define FB_SIZE (1024 * 768 * 4)
 
 
 static struct vbus_watch me_watch;
@@ -82,58 +82,64 @@ irqreturn_t vfb_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+void vfb_reconfig_fb(uint32_t virt_addr, uint32_t phys_base, size_t fb_size) {
+
+	struct fb_info *fb;
+
+	/* Currently, take the first registered framebuffer. */
+	fb = registered_fb[0];
+
+	DBG(VFB_PREFIX "bpp %u\nres %u %u\nsmem 0x%08lx %u\nmmio 0x%08lx %u\nbase & size 0x%08x %lu\n",
+			fb->var.bits_per_pixel,
+			fb->var.xres, fb->var.yres,
+			fb->fix.smem_start, fb->fix.smem_len,
+			fb->fix.mmio_start, fb->fix.mmio_len,
+			fb->screen_base, fb->screen_size);
+
+	fb->fix.smem_start = phys_base;
+	fb->fix.smem_len = fb_size;
+	fb->screen_base = (char *) virt_addr;
+
+	fb->var.bits_per_pixel = 32; /* TODO put this somewhere else */
+
+	/* Call fb_set_par op that will write values to the controller's registers. */
+	if (fb->fbops->fb_set_par(fb)) {
+		DBG("fb_set_par call failed\n");
+	}
+}
+
 /* Call back when value of fb-ph-addr changes. */
 void fb_ph_addr(struct vbus_watch *watch) {
 
-	int res;
 	grant_ref_t fb_ref;
-	uint32_t *fb_space;
 	struct vbus_transaction vbt;
 	struct gnttab_map_grant_ref op;
 	struct vm_struct *area;
-	struct fb_info *fbinfo;
 
+	/* Retrieve grantref from vbstore. */
 	vbus_transaction_start(&vbt);
 	vbus_scanf(vbt, "backend/vfb/fb-ph-addr", "value", "%u", &fb_ref);
+	DBG(VFB_PREFIX "New value for %s: 0x%08x\n", watch->node, fb_ref);
 	vbus_transaction_end(vbt);
 
-	DBG(VFB_PREFIX "New value for %s: 0x%08x\n", watch->node, fb_ref);
+	/* Allocate memory to map the ME framebuffer. */
+	area = alloc_vm_area(FB_SIZE, NULL);
+	DBG(VFB_PREFIX "Allocated area in vfb\n");
 
-	/* Test */
-
-	op.flags = GNTMAP_host_map;
-	op.ref = fb_ref;
-	op.dom = watch->dev->otherend_id;
-
-	area = alloc_vm_area(1024 * 768 * 4, NULL);
-	op.host_addr = (unsigned long) area->addr;
-	if (!area) {
-		BUG();
-	}
-
-	if (grant_table_op(GNTTABOP_map_grant_ref, &op, 1)) { /* TODO use gnttab_map directly */
-		BUG();
-	}
-
-	if (op.status != GNTST_okay) {
+	/* Map the grantref area. */
+	gnttab_set_map_op(&op, area->addr, GNTMAP_host_map | GNTMAP_readonly, fb_ref, watch->dev->otherend_id, 0, FB_SIZE);
+	if (gnttab_map(&op) || op.status != GNTST_okay) {
 		free_vm_area(area);
 		DBG(VFB_PREFIX "mapping in shared page %d from domain %d failed for device %s\n", fb_ref, watch->dev->otherend_id, watch->dev->nodename);
 		BUG();
 	}
 
-	area->phys_addr = (unsigned long) op.handle;
-
-	fb_space = area->addr;
-	DBG(VFB_PREFIX "First pixel: 0x%08x, addr: 0x%08x, area: 0x%08x", *fb_space, fb_space, area->addr);
-
 	/* Reconfigure the framebuffer. */
-	DBG(VFB_PREFIX "reg fb: %d, 0x%08x\n", num_registered_fb, registered_fb[0]->screen_base);
-	fbinfo = registered_fb[0];
-	fbinfo->screen_base = (char *) fb_space;
-	fbinfo->fix.smem_start = op.dev_bus_addr << 12;
-	fbinfo->var.bits_per_pixel = 32;
-	res = fbinfo->fbops->fb_set_par(fbinfo);
-	DBG(VFB_PREFIX "res: %d, dev bus addr: 0x%08llx\n", res, op.dev_bus_addr << 12);
+	vfb_reconfig_fb(area->addr, op.dev_bus_addr << 12, FB_SIZE);
+
+	/*gnttab_set_unmap_op(&unmap_op, area->addr, GNTMAP_host_map, map_op.handle); // TODO correct flag?
+	res = gnttab_unmap(&unmap_op);
+	DBG(VFB_PREFIX "unmap res: %d\n", res);*/
 }
 
 void vfb_probe(struct vbus_device *vdev) {
