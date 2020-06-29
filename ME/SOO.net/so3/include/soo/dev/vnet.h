@@ -21,7 +21,7 @@
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
-#include <soo/vdevback.h>
+#include <soo/vdevfront.h>
 
 #define VNET_PACKET_SIZE	32
 
@@ -46,16 +46,20 @@ DEFINE_RING_TYPES(vnet, vnet_request_t, vnet_response_t);
  */
 
 typedef struct {
-	vdevback_t vdevback;
+	vdevfront_t vdevfront;
 
-	vnet_back_ring_t ring;
+	vnet_front_ring_t ring;
 	unsigned int irq;
+
+	grant_ref_t ring_ref;
+	grant_handle_t handle;
+	uint32_t evtchn;
 
 } vnet_t;
 
 static inline vnet_t *to_vnet(struct vbus_device *vdev) {
-	vdevback_t *vdevback = dev_get_drvdata(&vdev->dev);
-	return container_of(vdevback, vnet_t, vdevback);
+	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
+	return container_of(vdevback, vnet_t, vdevfront);
 }
 
 #endif /* VNET_H */

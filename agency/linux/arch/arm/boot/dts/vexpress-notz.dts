@@ -372,6 +372,11 @@
 				compatible = "vdummy,backend";
 				status = "ok";
 			};
+
+			vnet {
+				compatible = "vnet,backend";
+				status = "ok";
+			};
 	
 			vuart {
 				compatible = "vuart,backend";

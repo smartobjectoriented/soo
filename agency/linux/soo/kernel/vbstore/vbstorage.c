@@ -476,4 +476,9 @@ void vbstorage_agency_init(void) {
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vdoga12v6nm");
 
+	/* Agency backend side of virtual network device */
+	np = of_find_compatible_node(NULL, NULL, "vnet,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vnet");
+
 }
