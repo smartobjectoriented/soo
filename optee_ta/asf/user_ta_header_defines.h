@@ -35,7 +35,6 @@
 /* To get the TA UUID definition */
 #include <asf_ta.h>
 
-/* Include the key files */
 #include "asf_communication_key.h"
 #include "asf_injection_key.h"
 
@@ -45,7 +44,7 @@
  * TA properties: multi-instance TA, no specific attribute
  * TA_FLAG_EXEC_DDR is meaningless but mandated.
  */
-#define TA_FLAGS			TA_FLAG_EXEC_DDR
+#define TA_FLAGS	(TA_FLAG_EXEC_DDR | TA_FLAG_SINGLE_INSTANCE )
 
 /* Provisioned stack size */
 #define TA_STACK_SIZE			(2 * 1024)
