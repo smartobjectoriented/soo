@@ -6,6 +6,4 @@
 #
 #
 
-obj-$(CONFIG_VFB_BACKEND) := vfbback.o
-
-vfbback-y := vfb.o vbus.o 
+obj-$(CONFIG_VFB_BACKEND) := vfb.o

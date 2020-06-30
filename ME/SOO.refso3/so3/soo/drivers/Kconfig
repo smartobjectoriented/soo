@@ -10,6 +10,9 @@ config VDUMMY_FRONTEND
 config VUART_FRONTEND
 	bool "vuart serial driver"
 
+config VFB_FRONTEND
+	bool "virtual framebuffer frontend driver"
+
 config VDOGA12V6NM_FRONTEND
 	bool "vDoga12v6nm frontend for the DOGA 12V 6Nm blind motor"
 

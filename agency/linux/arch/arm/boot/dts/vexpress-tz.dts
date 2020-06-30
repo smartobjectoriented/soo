@@ -381,7 +381,11 @@
 				compatible = "vuihandler,backend";
 				status = "disabled";
 			};
-		
+			
+			vfb {
+				compatible = "vfb,backend";
+				status = "ok";
+			};
 		};
 	};
 

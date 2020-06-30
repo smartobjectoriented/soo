@@ -461,6 +461,11 @@ void vbstorage_agency_init(void) {
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vuart");
 
+	/* Agency backend side of virtual framebuffer device */
+	np = of_find_compatible_node(NULL, NULL, "vfb,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vfb");
+
 	/* Agency backend side of virtual dummy device (reference backend) */
 	np = of_find_compatible_node(NULL, NULL, "vdummy,backend");
 	if (of_device_is_available(np))

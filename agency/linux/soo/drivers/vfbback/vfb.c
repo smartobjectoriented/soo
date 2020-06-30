@@ -1,6 +1,6 @@
-
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2016-2018 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2016 Baptiste Delporte <bonel@bonel.net>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,186 +17,260 @@
  *
  */
 
+#if 1
+#define DEBUG
+#endif
+
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/fb.h>
+#include <linux/kthread.h>
 
-
+#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
 #include <soo/uapi/console.h>
+#include <soo/dev/vfb.h>
+#include <soo/vdevback.h>
 
 #include <stdarg.h>
-#include <linux/kthread.h>
 
-#include <soo/dev/vfb.h>
+#define FB_SIZE (1024 * 768 * 4)
 
-vfb_t vfb;
 
-/*
- * Interrupt routine called when a notification from the frontend is received.
- * All processing within this function is performed with IRQs disabled (top half processing).
- */
+static struct vbus_watch me_watch;
+
+void vfb_notify(struct vbus_device *vdev)
+{
+	vfb_t *vfb = to_vfb(vdev);
+
+	RING_PUSH_RESPONSES(&vfb->ring);
+
+	/* Send a notification to the frontend only if connected.
+	 * Otherwise, the data remain present in the ring. */
+
+	notify_remote_via_virq(vfb->irq);
+}
+
+
 irqreturn_t vfb_interrupt(int irq, void *dev_id)
 {
-	/* Not used ... */
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	vfb_t *vfb = to_vfb(vdev);
+	vfb_request_t *ring_req;
+	vfb_response_t *ring_rsp;
+
+	DBG("%d\n", vdev->otherend_id);
+
+	while ((ring_req = vfb_ring_request(&vfb->ring)) != NULL) {
+
+		ring_rsp = vfb_ring_response(&vfb->ring);
+
+		memcpy(ring_rsp->buffer, ring_req->buffer, VFB_PACKET_SIZE);
+
+		vfb_ring_response_ready(&vfb->ring);
+
+		notify_remote_via_virq(vfb->irq);
+	}
 
 	return IRQ_HANDLED;
 }
 
+void vfb_reconfig_fb(uint32_t virt_addr, uint32_t phys_base, size_t fb_size) {
+
+	struct fb_info *fb;
+
+	/* Currently, take the first registered framebuffer. */
+	fb = registered_fb[0];
+
+	DBG(VFB_PREFIX "bpp %u\nres %u %u\nsmem 0x%08lx %u\nmmio 0x%08lx %u\nbase & size 0x%08x %lu\n",
+			fb->var.bits_per_pixel,
+			fb->var.xres, fb->var.yres,
+			fb->fix.smem_start, fb->fix.smem_len,
+			fb->fix.mmio_start, fb->fix.mmio_len,
+			fb->screen_base, fb->screen_size);
+
+	fb->fix.smem_start = phys_base;
+	fb->fix.smem_len = fb_size;
+	fb->screen_base = (char *) virt_addr;
+
+	fb->var.bits_per_pixel = 32; /* TODO put this somewhere else */
+
+	/* Call fb_set_par op that will write values to the controller's registers. */
+	if (fb->fbops->fb_set_par(fb)) {
+		DBG("fb_set_par call failed\n");
+	}
+}
+
+/* Call back when value of fb-ph-addr changes. */
+void fb_ph_addr(struct vbus_watch *watch) {
+
+	grant_ref_t fb_ref;
+	struct vbus_transaction vbt;
+	struct gnttab_map_grant_ref op;
+	struct vm_struct *area;
+
+	/* Retrieve grantref from vbstore. */
+	vbus_transaction_start(&vbt);
+	vbus_scanf(vbt, "backend/vfb/fb-ph-addr", "value", "%u", &fb_ref);
+	DBG(VFB_PREFIX "New value for %s: 0x%08x\n", watch->node, fb_ref);
+	vbus_transaction_end(vbt);
+
+	/* Allocate memory to map the ME framebuffer. */
+	area = alloc_vm_area(FB_SIZE, NULL);
+	DBG(VFB_PREFIX "Allocated area in vfb\n");
+
+	/* Map the grantref area. */
+	gnttab_set_map_op(&op, area->addr, GNTMAP_host_map | GNTMAP_readonly, fb_ref, watch->dev->otherend_id, 0, FB_SIZE);
+	if (gnttab_map(&op) || op.status != GNTST_okay) {
+		free_vm_area(area);
+		DBG(VFB_PREFIX "mapping in shared page %d from domain %d failed for device %s\n", fb_ref, watch->dev->otherend_id, watch->dev->nodename);
+		BUG();
+	}
+
+	/* Reconfigure the framebuffer. */
+	vfb_reconfig_fb(area->addr, op.dev_bus_addr << 12, FB_SIZE);
+
+	/*gnttab_set_unmap_op(&unmap_op, area->addr, GNTMAP_host_map, map_op.handle); // TODO correct flag?
+	res = gnttab_unmap(&unmap_op);
+	DBG(VFB_PREFIX "unmap res: %d\n", res);*/
+}
+
+void vfb_probe(struct vbus_device *vdev) {
+	vfb_t *vfb;
+	struct vbus_transaction vbt;
+
+	vfb = kzalloc(sizeof(vfb_t), GFP_ATOMIC);
+	BUG_ON(!vfb);
+
+	dev_set_drvdata(&vdev->dev, &vfb->vdevback);
+
+	/* Create property in vbstore. */
+	vbus_transaction_start(&vbt);
+	vbus_mkdir(vbt, "backend/vfb", "fb-ph-addr");
+	vbus_write(vbt, "backend/vfb/fb-ph-addr", "value", "try");
+	vbus_transaction_end(vbt);
+
+	/* Set a watch on fb-ph-addr. */
+	vbus_watch_path(vdev, "backend/vfb/fb-ph-addr/value", &me_watch, fb_ph_addr);
+
+	DBG(VFB_PREFIX "Backend probe: %d\n", vdev->otherend_id);
+
+	/* Unlink the framebuffer console from the framebuffer driver. */
+	unlink_framebuffer(registered_fb[0]);
+	DBG(VFB_PREFIX "Unlinked framebuffer.\n");
+}
+
+void vfb_remove(struct vbus_device *vdev) {
+	vfb_t *vfb = to_vfb(vdev);
+
+	DBG("%s: freeing the vfb structure for %s\n", __func__,vdev->nodename);
+	kfree(vfb);
+}
+
+
+void vfb_close(struct vbus_device *vdev) {
+	vfb_t *vfb = to_vfb(vdev);
+
+	DBG(VFB_PREFIX "Backend close: %d\n", vdev->otherend_id);
+
+	/*
+	 * Free the ring and unbind evtchn.
+	 */
+
+	BACK_RING_INIT(&vfb->ring, (&vfb->ring)->sring, PAGE_SIZE);
+	unbind_from_virqhandler(vfb->irq, vdev);
+
+	vbus_unmap_ring_vfree(vdev, vfb->ring.sring);
+	vfb->ring.sring = NULL;
+}
+
+void vfb_suspend(struct vbus_device *vdev) {
+
+	DBG(VFB_PREFIX "Backend suspend: %d\n", vdev->otherend_id);
+}
+
+void vfb_resume(struct vbus_device *vdev) {
+
+	DBG(VFB_PREFIX "Backend resume: %d\n", vdev->otherend_id);
+}
+
+void vfb_reconfigured(struct vbus_device *vdev) {
+	int res;
+	unsigned long ring_ref;
+	unsigned int evtchn;
+	vfb_sring_t *sring;
+	vfb_t *vfb = to_vfb(vdev);
+
+	DBG(VFB_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
+
+	/*
+	 * Set up a ring (shared page & event channel) between the agency and the ME.
+	 */
+
+	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
+
+	DBG("BE: ring-ref=%lu, event-channel=%u\n", ring_ref, evtchn);
+
+	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
+	BUG_ON(res < 0);
+
+	SHARED_RING_INIT(sring);
+	BACK_RING_INIT(&vfb->ring, sring, PAGE_SIZE);
+
+	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vfb_interrupt, NULL, 0, VFB_NAME "-backend", vdev);
+
+	BUG_ON(res < 0);
+
+	vfb->irq = res;
+}
+
+void vfb_connected(struct vbus_device *vdev) {
+
+	DBG(VFB_PREFIX "Backend connected: %d\n",vdev->otherend_id);
+}
+
+#if 0
 /*
- * Set a framebuffer property in vbstore for MEs.
+ * Testing code to analyze the behaviour of the ME during pre-suspend operations.
  */
-int set_fb_property(unsigned int domid, struct vbus_transaction vbt, char *prop, unsigned int val)
-{
-	char node[50];
+int generator_fn(void *arg) {
+	uint32_t i;
 
-	sprintf(node, "/backend/vfb/%d/0", domid);
+	while (1) {
+		msleep(50);
 
-	vbus_printf(vbt, node, prop, "%u", val);
+		for (i = 0; i < MAX_DOMAINS; i++) {
+
+			if (!vfb_start(i))
+				continue;
+
+			vfb_ring_response_ready()
+			vfb_notify(i);
+
+			vfb_end(i);
+		}
+	}
 
 	return 0;
 }
+#endif
 
-
-void vfb_probe(struct vbus_device *dev) {
-	struct vbus_transaction vbt;
-	int ret = 0;
-
-	DBG(VFB_PREFIX "Backend probe: %d\n", dev->otherend_id);
-
-	vfb.domfocus = dev->otherend_id;
-
-	ret = vfb_get_params(&vfb.data[1].fb_hw);
-	if (ret)
-		BUG();
-
-	vbus_transaction_start(&vbt);
-
-	ret = set_fb_property(1, vbt, "width", vfb.data[1].fb_hw.width);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "height", vfb.data[1].fb_hw.height);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "depth", vfb.data[1].fb_hw.depth);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "red_length", vfb.data[1].fb_hw.red.length);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "red_offset", vfb.data[1].fb_hw.red.offset);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "red_msb_right", vfb.data[1].fb_hw.red.msb_right);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "green_length", vfb.data[1].fb_hw.green.length);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "green_offset", vfb.data[1].fb_hw.green.offset);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "green_msb_right", vfb.data[1].fb_hw.green.msb_right);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "blue_length", vfb.data[1].fb_hw.blue.length);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "blue_offset", vfb.data[1].fb_hw.blue.offset);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "blue_msb_right", vfb.data[1].fb_hw.blue.msb_right);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "transp_length", vfb.data[1].fb_hw.transp.length);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "transp_offset", vfb.data[1].fb_hw.transp.offset);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "transp_msb_right", vfb.data[1].fb_hw.transp.msb_right);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "line_length", vfb.data[1].fb_hw.line_length);
-	if (ret)
-		BUG();
-
-	ret = set_fb_property(1, vbt, "fb_mem_len", vfb.data[1].fb_hw.fb_mem_len);
-	if (ret)
-		BUG();
-
-	vbus_transaction_end(vbt);
-
-}
-
-void vfb_close(struct vbus_device *dev) {
-
-	DBG(VFB_PREFIX "Backend close: %d\n", dev->otherend_id);
-
-	/* Unmap reviously mapped fb */
-	vunmap(vfb.data[dev->otherend_id].fb);
-}
-
-void vfb_suspend(struct vbus_device *dev) {
-
-	DBG(VFB_PREFIX "Backend suspend: %d\n", dev->otherend_id);
-}
-
-void vfb_resume(struct vbus_device *dev) {
-
-	DBG(VFB_PREFIX "Backend resume: %d\n", dev->otherend_id);
-}
-
-void vfb_reconfigured(struct vbus_device *dev) {
-
-	vbus_gather(VBT_NIL, dev->otherend, "vfb_fb_pfn", "%u", &vfb.data[dev->otherend_id].fb_pfn, NULL);
-
-	DBG(VFB_PREFIX "Backend reconfigured: %d\n", dev->otherend_id);
-}
-
-void vfb_connected(struct vbus_device *dev) {
-	int  nr_pages, i;
-	struct page **phys_pages;
-	vfb_info_t dom_info;
-	struct fb_event event;
-
-	DBG(VFB_PREFIX "Backend connected: %d\n", dev->otherend_id);
-
-	/* Map the virtual framebuffer pixel array */
-
-	/*
-	 * Allocate an array of struct page pointers. map_vm_area() wants
-	 * this, rather than just an array of pages.
-	 */
-
-	/* Propagate the register event to the framebuffer driver */
-	dom_info.domid = dev->otherend_id;
-	dom_info.paddr = vfb.data[dev->otherend_id].fb_pfn << PAGE_SHIFT;
-	dom_info.len = vfb.data[dev->otherend_id].fb_hw.fb_mem_len;
-	event.data = &dom_info;
-
-	fb_notifier_call_chain(VFB_EVENT_DOM_REGISTER, &event);
-
-}
+vdrvback_t vfbdrv = {
+	.probe = vfb_probe,
+	.remove = vfb_remove,
+	.close = vfb_close,
+	.connected = vfb_connected,
+	.reconfigured = vfb_reconfigured,
+	.resume = vfb_resume,
+	.suspend = vfb_suspend
+};
 
 int vfb_init(void) {
 	struct device_node *np;
@@ -207,12 +281,13 @@ int vfb_init(void) {
 	if (!of_device_is_available(np))
 		return 0;
 
-	vfb_vbus_init();
+#if 0
+	kthread_run(generator_fn, NULL, "vfb-gen");
+#endif
+
+	vdevback_init(VFB_NAME, &vfbdrv);
 
 	return 0;
 }
 
 device_initcall(vfb_init);
-
-
-
