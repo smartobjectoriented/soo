@@ -69,6 +69,9 @@ struct vbus_watch
 {
 	struct list_head list;
 
+	/* Device which created the watch. */
+	struct vbus_device *dev;
+
 	/* Path being watched. */
 	char *node;
 
