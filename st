@@ -23,7 +23,7 @@ launch_qemu() {
 	-semihosting-config enable,target=native \
 	-sd agency/filesystem/sdcard.img.vexpress \
 	-net tap,script=scripts/qemu-ifup.sh,downscript=scripts/qemu-ifdown.sh -net nic,macaddr=${QEMU_MAC_ADDR} \
-	-nographic \
+	-display gtk \
 	-gdb tcp::${GDB_PORT}
         
     QEMU_RESULT=$?
