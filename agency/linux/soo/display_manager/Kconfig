@@ -1,0 +1,2 @@
+source "soo/display_manager/local_interfaces/Kconfig"
+source "soo/display_manager/ME_interactions/Kconfig"  

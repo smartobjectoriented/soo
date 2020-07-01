@@ -3,5 +3,6 @@ menu "SOO Framework and subsystems"
 source "soo/dcm/Kconfig"
 source "soo/soolink/Kconfig"
 source "soo/drivers/Kconfig"
+source "soo/display_manager/Kconfig"
 
 endmenu # SOO
