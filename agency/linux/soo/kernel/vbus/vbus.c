@@ -305,7 +305,7 @@ void vbus_otherend_changed(struct vbus_watch *watch) {
 	/* Update the FE state */
 	vdev->fe_state = state;
 
-        DBG("On domID: %d, otherend changed / device: %s  state: %d, CPU %d\n", ME_domID(), vdev->nodename, state, smp_processor_id());
+        DBG("On CPU %d otherend changed / device: %s  state: %d\n", smp_processor_id(), vdev->nodename, state);
 	
 	/* We do not want to call a callback in a frontend on InitWait. This is
 	 * a state issued from the backend to tell the frontend it can be probed.
@@ -495,7 +495,7 @@ int vbus_dev_probe(struct device *dev)
 		return 0;
 	}
 
-	DBG("CPU %d  talk_to_otherend: %s\n", ME_domID(), vdev->nodename);
+	DBG("CPU %d  talk_to_otherend: %s\n", smp_processor_id(), vdev->nodename);
 
 	talk_to_otherend(vdev);
 
@@ -957,8 +957,6 @@ void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus) {
 	if (!vdev)
 		vbus_probe_node(bus, type, node);
 	else {
-
-		BUG_ON(ME_domID() == DOMID_AGENCY);
 
 		/* Update the state in vbstore. */
 		/* We force the update, this will not trigger a watch since the watch is set right afterwards */

@@ -232,8 +232,6 @@ struct DOMCALL_sync_domain_interactions_args {
 	shared_info_t *shared_info_page; /* IN */
 };
 
-#define ME_domID() (avz_start_info->domID)
-
 void postmig_adjust_timer(unsigned int clocksource_vaddr);
 
 #endif /* __AVZ_H__ */
