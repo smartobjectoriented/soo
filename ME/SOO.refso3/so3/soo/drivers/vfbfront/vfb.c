@@ -158,6 +158,8 @@ void vfb_probe(struct vbus_device *vdev) {
 
 	// write something to the vbstore
 	//vbus_write(vbt, "backend/vfb/fb-ph-addr", "value", "value from front-end");
+	BUG_ON(!get_fb_base());
+
 	fb_ref = vbus_grant_ring(vdev, phys_to_pfn(get_fb_base()));
 	DBG("fb_phys: 0x%08x, fb_ref: 0x%08x\n", get_fb_base(), fb_ref);
 	vbus_printf(vbt, "backend/vfb/fb-ph-addr", "value", "%u", fb_ref);

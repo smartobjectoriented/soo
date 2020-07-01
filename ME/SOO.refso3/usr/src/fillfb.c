@@ -19,10 +19,10 @@ int main(int argc, char **argv)
 {
 	int fd;
 	uint32_t i, j;
-	uint32_t* fbp;
+	uint32_t *fbp;
 
 	/* Get file descriptor for /dev/fb0, i.e. the first fb device registered. */
-	fd = open("/dev/fb0", 0);
+	fd = open("/dev/fb0", O_WRONLY);
 
 	/* Map the framebuffer memory to a process virtual address. */
 	fbp = mmap(NULL, FB_SIZE, 0, 0, fd, 0);
@@ -30,6 +30,7 @@ int main(int argc, char **argv)
 	/* Display some pixels. */
 
 	printf("Displaying red pixels\n");
+
 	for (i = 0; i < V_RES / 3; i++) {
 		for (j = 0; j < H_RES; j++) {
 			fbp[j + i * H_RES] = create_px(0xff, 0, 0);
@@ -46,6 +47,7 @@ int main(int argc, char **argv)
 
 	printf("Displaying blue pixels\n");
 	fbp += V_RES / 3 * H_RES;
+
 	for (i = 0; i < V_RES / 3; i++) {
 		for (j = 0; j < H_RES; j++) {
 			fbp[j + i * H_RES] = create_px(0, 0, 0xff);

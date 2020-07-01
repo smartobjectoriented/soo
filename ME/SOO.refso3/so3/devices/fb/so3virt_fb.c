@@ -33,9 +33,6 @@
 
 void *mmap(int fd, uint32_t virt_addr, uint32_t page_count);
 
-/* Framebuffer's physical address */
-static uint32_t fb_base;
-
 struct file_operations vfb_fops = {
 	.mmap = mmap
 };
@@ -46,6 +43,8 @@ struct devclass vfb_cdev = {
 	.fops = &vfb_fops,
 };
 
+/* Framebuffer's physical address */
+static uint32_t fb_base;
 
 /*
  * Initialisation of the PL111 CLCD Controller.
@@ -53,13 +52,13 @@ struct devclass vfb_cdev = {
  */
 int fb_init(dev_t *dev)
 {
-	uint32_t fb;
+	/*
+	 * Allocate contiguous memory for the framebuffer and get the physical address.
+	 * The pages will be never released. They do not belong to any process.
+	 */
 
-	/* Allocate contiguous memory for the framebuffer and get the physical address. */
-	fb = get_contig_free_vpages(FB_SIZE / PAGE_SIZE);
-	fb_base = virt_to_phys_pt(fb);
-
-	DBG("so3virt_fb: allocated %d [virt 0x%08x, phys 0x%08x]\n", FB_SIZE, fb, fb_base);
+	fb_base = get_contig_free_pages(FB_SIZE / PAGE_SIZE);
+	DBG("so3virt_fb: allocated %d [phys 0x%08x]\n", FB_SIZE, fb_base);
 
 	/* Register the framebuffer so it can be accessed from user space. */
 	devclass_register(dev, &vfb_cdev);
@@ -76,10 +75,11 @@ void *mmap(int fd, uint32_t virt_addr, uint32_t page_count)
 	DBG("so3virt_fb > virt: 0x%08x phys: 0x%08x, count: %u\n", virt_addr, fb_base, page_count);
 
 	for (i = 0; i < page_count; i++) {
+
 		/* Map a process' virtual page to the physical one. */
 		page_phys_base = fb_base + i * PAGE_SIZE;
+
 		create_mapping(pcb->pgtable, virt_addr + (i * PAGE_SIZE), page_phys_base, PAGE_SIZE, false);
-		add_page_to_proc(pcb, phys_to_page(page_phys_base));
 	}
 
 	return (void *) virt_addr;
