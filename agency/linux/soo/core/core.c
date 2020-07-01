@@ -580,59 +580,60 @@ static int ioctl_finalize_migration(unsigned long arg) {
 		if ((get_ME_state(ME_slotID) == ME_state_dead) || (get_ME_state(ME_slotID) == ME_state_dormant))
 			return 0;
 
-		DBG("Unpause the ME and waiting boot completion...\n");
+		if ((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, &pers)) < 0) {
+			lprintk("Agency: %s:%d Failed to finalize migration (%d)\n", __func__, __LINE__, rc);
+			BUG();
+		}
 
-		/* Unpause the ME */
-		avz_ME_unpause(ME_slotID, virt_to_pfn((unsigned int) __vbstore_vaddr[ME_slotID]));
+		ME_state = get_ME_state(args.ME_slotID);
 
-		/* Tell the ME that it can go further */
-		set_ME_state(ME_slotID, ME_state_booting);
+		if ((ME_state != ME_state_dead) && (ME_state != ME_state_dormant)) {
 
-		/* Wait for all backend/frontend initialized. */
-		wait_for_completion(&backend_initialized);
+			/* Tell the ME that it can go further */
+			set_ME_state(ME_slotID, ME_state_booting);
 
-		DBG("The ME is now living, continuing the injection...\n");
+			DBG("Unpause the ME and waiting boot completion...\n");
 
-		/* Set the ME in suspended state */
-		set_ME_state(ME_slotID, ME_state_suspended);
+			/* Unpause the ME */
+			avz_ME_unpause(ME_slotID, virt_to_pfn((unsigned int) __vbstore_vaddr[ME_slotID]));
 
-		do_sync_dom(ME_slotID, DC_PRE_SUSPEND);
+			/* Wait for all backend/frontend initialized. */
+			wait_for_completion(&backend_initialized);
 
-		/* Ask vbus drivers to suspend */
-		vbus_suspend_devices(ME_slotID);
+			DBG("The ME is now living, continuing the injection...\n");
 
-		/* Send an event to the ME to tell we want him hang up... */
-		DBG("Agency: Migration 1-stage initialization done\n");
+			ME_state = get_ME_state(args.ME_slotID);
 
-		do_sync_dom(ME_slotID, DC_SUSPEND);
+			DBG("Putting ME domid %d in state living...\n", args.ME_slotID);
+			set_ME_state(args.ME_slotID, ME_state_living);
+		}
 
-		flush_cache_all();
-		flush_tlb_all();
-	}
+	} else {
 
-	DBG0("SOO migration subsys: Entering post migration tasks...\n");
+		DBG0("SOO migration subsys: Entering post migration tasks...\n");
 
-	if ((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, &pers)) < 0) {
-		lprintk("Agency: %s:%d Failed to finalize migration (%d)\n", __func__, __LINE__, rc);
-		return rc;
-	}
+		if ((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, &pers)) < 0) {
+			lprintk("Agency: %s:%d Failed to finalize migration (%d)\n", __func__, __LINE__, rc);
+			BUG();
+		}
 
-	DBG0("Call to AVZ_MIG_FINAL terminated\n");
+		DBG0("Call to AVZ_MIG_FINAL terminated\n");
 
-	ME_state = get_ME_state(args.ME_slotID);
+		ME_state = get_ME_state(args.ME_slotID);
 
-	if ((ME_state != ME_state_dead) && (ME_state != ME_state_dormant)) {
-		DBG0("Pinging ME for DC_RESUME...\n");
-		do_sync_dom(args.ME_slotID, DC_RESUME);
+		if ((ME_state != ME_state_dead) && (ME_state != ME_state_dormant)) {
+			DBG0("Pinging ME for DC_RESUME...\n");
+			do_sync_dom(args.ME_slotID, DC_RESUME);
 
-		DBG("Resuming all devices (resuming from backend devices) on domain %d...\n", args.ME_slotID);
-		vbus_resume_devices(args.ME_slotID);
+			DBG("Resuming all devices (resuming from backend devices) on domain %d...\n", args.ME_slotID);
+			vbus_resume_devices(args.ME_slotID);
 
-		DBG("Pinging ME %d for DC_POST_ACTIVATE...\n", args.ME_slotID);
-		do_sync_dom(args.ME_slotID, DC_POST_ACTIVATE);
+			DBG("Pinging ME %d for DC_POST_ACTIVATE...\n", args.ME_slotID);
+			do_sync_dom(args.ME_slotID, DC_POST_ACTIVATE);
 
-		DBG("Putting ME domid %d in state living...\n", args.ME_slotID);
-		set_ME_state(args.ME_slotID, ME_state_living);
+			DBG("Putting ME domid %d in state living...\n", args.ME_slotID);
+			set_ME_state(args.ME_slotID, ME_state_living);
+		}
 	}
 
 	return 0;
