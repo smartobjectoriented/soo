@@ -114,7 +114,7 @@ void dump_evtchn_pending(void) {
 	volatile shared_info_t *s = avz_shared_info;
 
 #if 0
-	lprintk("   Evtchn info in Agency/ME domain %d\n\n", ME_domID());
+	lprintk("   Evtchn info in Agency CPU %d\n\n", smp_processor_id());
 	for (i = 0; i < NR_EVTCHN; i++) {
 
 		lprintk("e:%d m:%d p:%d  ", i, test_bit(i, per_cpu(evtchn_info, smp_processor_id()).evtchn_mask),
@@ -206,8 +206,8 @@ retry:
 			loopmax++;
 
 			if (loopmax > 500)   /* Probably something wrong ;-) */
-				lprintk("%s: Warning trying to process evtchn: %d IRQ: %d for quite a long time (dom ID: %d) on CPU %d / masked: %d...\n",
-						__func__, evtchn, per_cpu(evtchn_info, smp_processor_id()).evtchn_to_virq[evtchn], ME_domID(), smp_processor_id(), evtchn_is_masked(evtchn));
+				lprintk("%s: Warning trying to process evtchn: %d IRQ: %d for quite a long time on CPU %d / masked: %d...\n",
+						__func__, evtchn, per_cpu(evtchn_info, smp_processor_id()).evtchn_to_virq[evtchn], smp_processor_id(), evtchn_is_masked(evtchn));
 
 			if (!evtchn_is_masked(evtchn)) {
 

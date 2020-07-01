@@ -508,7 +508,7 @@ void rtdm_dc_plugin_fn(dc_event_t dc_event) {
 static int rtdm_dc_isr(rtdm_irq_t *unused) {
 	dc_event_t dc_event;
 
-	DBG("(ME domid %d): Received directcomm interrupt for event: %d\n", ME_domID(), avz_shared_info->dc_event);
+	DBG("(ME domid %d): Received directcomm interrupt for event: %d\n", smp_processor_id(), avz_shared_info->dc_event);
 
 	dc_event = atomic_read((const atomic_t *) &avz_shared_info->dc_event);
 

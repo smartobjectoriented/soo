@@ -242,7 +242,7 @@ void vbs_notify_watchers(vbus_msg_t msg, struct vbs_node *node) {
 
 		vbs_s_read(intf, msg, sizeof(vbus_msg_t));
 
-		DBG("CPU: %d got msg: %d\n", ME_domID(), msg->id);
+		DBG("CPU: %d got msg: %d\n", smp_processor_id(), msg->id);
 
 		payload = NULL;
 		if (msg->len > 0) {
