@@ -426,19 +426,34 @@ int vbus_register_driver_common(struct vbus_driver *vdrv)
 
 /******************/
 
-/*
- * Called at each backend creation when a frontend is initializing.
- */
 void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus, const char *compat) {
 	struct vbus_device *vdev;
 
+	/*
+	 * Either the device does not exist (backend or frontend) and the dev must be allocated, initialized
+	 * and probed via the dev subsystem of Linux, OR the device exists (after migration)
+	 * and in this case, the device exists on the frontend side only, and we only have to "talk_to_otherend" to
+	 * set up the watch on its state (and retrieve the otherend id and name).
+	 */
+
 	vdev = vbus_device_find(node);
-	BUG_ON(vdev);
+	if (!vdev) {
+		vdev = vbus_probe_node(bus, type, node, compat);
 
-	vdev = vbus_probe_node(bus, type, node, compat);
+		/* Add the new device to the main list */
+		add_new_dev(vdev);
 
-	/* Add the new device to the main list */
-	add_new_dev(vdev);
+	} else {
+
+		BUG_ON(ME_domID() == DOMID_AGENCY);
+
+		/* Update the our state in vbstore. */
+		/* We force the update, this will not trigger a watch since the watch is set right afterwards */
+		 __vbus_switch_state(vdev, vdev->state, true);
+
+		/* Setting the watch on the state */
+		talk_to_otherend(vdev);
+	}
 }
 
 /*
