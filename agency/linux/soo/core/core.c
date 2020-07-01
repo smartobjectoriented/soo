@@ -45,6 +45,7 @@
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
+#include <linux/completion.h>
 
 #include <soo/soolink/discovery.h>
 
@@ -100,7 +101,6 @@ static struct device soo_dev;
 /* Wait queue used to synchronize the read from the injector */
 DECLARE_WAIT_QUEUE_HEAD(wq_prod);
 DECLARE_WAIT_QUEUE_HEAD(wq_cons);
-
 /* Completion used to wait for the end of the BT session opened 
 by the BT server in the userspace. Completed by the Injector once a BT session is
 over. */
@@ -1005,6 +1005,7 @@ static ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *p
 
 	/* Notify the Injector we read the buffer */
 	injector_set_full(false);
+	wake_up_interruptible(&wq_prod);
 
         return bytes_to_read;
 }
@@ -1198,7 +1199,7 @@ int agency_init(void) {
 	devaccess_init();
 
 	/* Initialize the injector subsystem */
-	injector_init(&wq_prod, &wq_cons);
+	injector_init(&wq_prod, &wq_cons, &bt_done);
 
 	/* Initialize the dbgvar facility */
 	dbgvar_init();

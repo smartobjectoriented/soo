@@ -110,6 +110,9 @@ int injector_init(wait_queue_head_t *_wq_prod, wait_queue_head_t *_wq_cons, stru
 
 void *injector_get_ME(void);
 size_t injector_get_ME_size(void);
+
+void *injector_get_tmp_buf(void);
+size_t injector_get_tmp_size(void);
 bool injector_is_full(void);
 void injector_set_full(bool _full);
 

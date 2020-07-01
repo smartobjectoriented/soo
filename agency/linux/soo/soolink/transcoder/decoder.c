@@ -156,7 +156,6 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 		/* Allocate the memory for this new (simple) block */
 		sl_desc->incoming_block = xnheap_vmalloc(size - sizeof(transcoder_packet_format_t));
-
 		/* Transfer the block frame */
 		memcpy(sl_desc->incoming_block, pkt->payload, size - sizeof(transcoder_packet_format_t));
 		sl_desc->incoming_block_size = size - sizeof(transcoder_packet_format_t);
