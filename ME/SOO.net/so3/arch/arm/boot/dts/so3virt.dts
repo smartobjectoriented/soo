@@ -60,7 +60,7 @@
 	
 	
 	ME {
-		domain-size = <0x400000>; /* 4 MB */
+		domain-size = <0x4000000>; /* 64 MB */
 		
 		frontends {
 		

@@ -46,7 +46,7 @@ void vnet_notify(struct vbus_device *vdev)
 {
 	vnet_t *vnet = to_vnet(vdev);
 
-	RING_PUSH_RESPONSES(&vnet->ring);
+	RING_PUSH_RESPONSES(&vnet->ring_rx);
 
 	/* Send a notification to the frontend only if connected.
 	 * Otherwise, the data remain present in the ring. */
@@ -65,13 +65,15 @@ irqreturn_t vnet_interrupt(int irq, void *dev_id)
 
 	//DBG("%d\n", dev->otherend_id);
 
-	while ((ring_req = vnet_ring_request(&vnet->ring)) != NULL) {
+	while ((ring_req = vnet_tx_ring_request(&vnet->ring_tx)) != NULL) {
 
-		ring_rsp = vnet_ring_response(&vnet->ring);
+		printk("\n\n PKT %d\n\n", irq);
+
+		ring_rsp = vnet_tx_ring_response(&vnet->ring_tx);
 
 		memcpy(ring_rsp->buffer, ring_req->buffer, VNET_PACKET_SIZE);
 
-		vnet_ring_response_ready(&vnet->ring);
+		vnet_tx_ring_response_ready(&vnet->ring_tx);
 
 		notify_remote_via_virq(vnet->irq);
 	}
@@ -107,11 +109,17 @@ void vnet_close(struct vbus_device *vdev) {
 	 * Free the ring and unbind evtchn.
 	 */
 
-	BACK_RING_INIT(&vnet->ring, (&vnet->ring)->sring, PAGE_SIZE);
+	BACK_RING_INIT(&vnet->ring_tx, (&vnet->ring_tx)->sring, PAGE_SIZE);
+	BACK_RING_INIT(&vnet->ring_rx, (&vnet->ring_rx)->sring, PAGE_SIZE);
+	BACK_RING_INIT(&vnet->ring_ctrl, (&vnet->ring_ctrl)->sring, PAGE_SIZE);
 	unbind_from_virqhandler(vnet->irq, vdev);
 
-	vbus_unmap_ring_vfree(vdev, vnet->ring.sring);
-	vnet->ring.sring = NULL;
+	vbus_unmap_ring_vfree(vdev, vnet->ring_tx.sring);
+	vbus_unmap_ring_vfree(vdev, vnet->ring_rx.sring);
+	vbus_unmap_ring_vfree(vdev, vnet->ring_ctrl.sring);
+	vnet->ring_tx.sring = NULL;
+	vnet->ring_rx.sring = NULL;
+	vnet->ring_ctrl.sring = NULL;
 }
 
 void vnet_suspend(struct vbus_device *vdev) {
@@ -126,9 +134,11 @@ void vnet_resume(struct vbus_device *vdev) {
 
 void vnet_reconfigured(struct vbus_device *vdev) {
 	int res;
-	unsigned long ring_ref;
+	unsigned long ring_tx_ref, ring_rx_ref, ring_ctrl_ref;
 	unsigned int evtchn;
-	vnet_sring_t *sring;
+	vnet_tx_sring_t *sring_tx;
+	vnet_rx_sring_t *sring_rx;
+	vnet_ctrl_sring_t *sring_ctrl;
 	vnet_t *vnet = to_vnet(vdev);
 
 	DBG(VNET_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
@@ -137,15 +147,34 @@ void vnet_reconfigured(struct vbus_device *vdev) {
 	 * Set up a ring (shared page & event channel) between the agency and the ME.
 	 */
 
-	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
+	vbus_gather(VBT_NIL, vdev->otherend, "ring-tx-ref", "%lu", &ring_tx_ref,
+		    "ring-rx-ref", "%lu", &ring_rx_ref,
+		    "ring-ctrl-ref", "%lu", &ring_ctrl_ref,
+		    "ring-evtchn", "%u", &evtchn, NULL);
 
 	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
 
-	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
+	res = vbus_map_ring_valloc(vdev, ring_tx_ref, (void **) &sring_tx);
 	BUG_ON(res < 0);
 
-	SHARED_RING_INIT(sring);
-	BACK_RING_INIT(&vnet->ring, sring, PAGE_SIZE);
+	SHARED_RING_INIT(sring_tx);
+	BACK_RING_INIT(&vnet->ring_tx, sring_tx, PAGE_SIZE);
+
+
+	res = vbus_map_ring_valloc(vdev, ring_rx_ref, (void **) &sring_rx);
+	BUG_ON(res < 0);
+
+	SHARED_RING_INIT(sring_rx);
+	BACK_RING_INIT(&vnet->ring_rx, sring_rx, PAGE_SIZE);
+
+
+	res = vbus_map_ring_valloc(vdev, ring_ctrl_ref, (void **) &sring_ctrl);
+	BUG_ON(res < 0);
+
+	SHARED_RING_INIT(sring_ctrl);
+	BACK_RING_INIT(&vnet->ring_ctrl, sring_ctrl, PAGE_SIZE);
+
+
 
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vnet_interrupt, NULL, 0, VNET_NAME "-backend", vdev);
 
@@ -159,31 +188,6 @@ void vnet_connected(struct vbus_device *vdev) {
 	DBG(VNET_PREFIX "Backend connected: %d\n",vdev->otherend_id);
 }
 
-#if 0
-/*
- * Testing code to analyze the behaviour of the ME during pre-suspend operations.
- */
-int generator_fn(void *arg) {
-	uint32_t i;
-
-	while (1) {
-		msleep(50);
-
-		for (i = 0; i < MAX_DOMAINS; i++) {
-
-			if (!vnet_start(i))
-				continue;
-
-			vnet_ring_response_ready()
-			vnet_notify(i);
-
-			vnet_end(i);
-		}
-	}
-
-	return 0;
-}
-#endif
 
 vdrvback_t vnetdrv = {
 	.probe = vnet_probe,

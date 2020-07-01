@@ -1,2 +1,2 @@
-obj-y := vnet.o
+obj-y := vnet.o vnetbuff.o
 

@@ -40,6 +40,7 @@
 #include <network.h>
 
 #include <soo/dev/vnet.h>
+#include <soo/dev/vnetbuff.h>
 
 #include "lwip/def.h"
 #include "lwip/mem.h"
@@ -68,7 +69,7 @@ irq_return_t vnet_interrupt(int irq, void *dev_id) {
 
 	DBG("%s, %d\n", __func__, ME_domID());
 
-	while ((ring_rsp = vnet_ring_response(&vnet->ring)) != NULL) {
+	while ((ring_rsp = vnet_tx_ring_response(&vnet->ring_tx)) != NULL) {
 
 		DBG("%s, rsp=%p\n", __func__, ring_rsp);
 
@@ -83,110 +84,62 @@ char vnet_buff[1514];
 err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
         vnet_t *vnet;
         char *data;
-        char *buff;
+        void *buff = NULL;
         vnet_request_t *ring_req;
         printk("PKT1\n");
 
         if (!vdev_net){
                 printk("ERR\n");
-                return ERR_CONN;
+                goto send_failed;
         }
+
+        vdevfront_processing_begin(vdev_net);
 
         vnet = to_vnet(vdev_net);
 
+        if((ring_req = vnet_tx_ring_request(&vnet->ring_tx)) == NULL) {
+                goto send_failed;
+        }
 
+        vbuff_put(vbuff_tx, &ring_req->buff, &buff, p->tot_len);
 
-        printk("PKT\n");
+        if(buff == NULL){
+                goto send_failed;
+        }
 
-        // TODO check null
-        buff = malloc(p->tot_len);
-        printk("1\n");
         data = (char *)pbuf_get_contiguous(p, buff, p->tot_len, p->tot_len, 0);
-        printk("2\n");
+
         /*
          * If only one pbuf is used get contiguous returns the pbuf pointer and don't use buff
          * We want to have the frame in buff in any case
          */
-        /*if(data != buff){
+        if(data != buff){
                 memcpy(buff, data, p->tot_len);
-        }*/
-
-        // tmplen = (p->tot_len + VNET_PACKET_SIZE - 1) / VNET_PACKET_SIZE;
-
-        while ((ring_req = vnet_ring_request(&vnet->ring)) == NULL){
-                msleep(10);
-                printk("NO RING\n");
         }
-        printk("3\n");
-        printk("%p\n", ring_req);
 
 
-        //VBUFF_TX_PUT(ring_req, data, p->tot_len);
-
-        /* Create a readonly grant */
-        //ring_req->data_handle = gnttab_grant_foreign_access(ME_domID(), buff, 0);
-
-        //ring_req->size = p->tot_len;
-
-
-        /*while (tmplen--) {
-                while ((ring_req = vnet_ring_request_next(&vnet.ring)) == NULL){
-                        msleep(10);
-                        printk("NO RING 2\n");
-                }
-                ring_req = vnet_ring_request_next(&vnet.ring);
-                memcpy(&ring_req->data, data++, VNET_PACKET_SIZE);
-        }*/
-
-        vnet_ring_request_ready(&vnet->ring);
+        vnet_tx_ring_request_ready(&vnet->ring_tx);
         notify_remote_via_irq(vnet->irq);
 
         printk("PKT END\n");
 
         //vnet_end();
-
+        vdevfront_processing_end(vdev_net);
         return ERR_OK;
+
+        send_failed:
+        vdevfront_processing_end(vdev_net);
+        return ERR_MEM;
 }
 
 
-/*
- * The following function is given as an example.
- *
- */
-#if 0
-void vnet_generate_request(char *buffer) {
-	vnet_request_t *ring_req;
-
-	vdevfront_processing_start();
-
-	/*
-	 * Try to generate a new request to the backend
-	 */
-	if (!RING_FULL(&vnet.ring)) {
-		ring_req = RING_GET_REQUEST(&vnet.ring, vnet.ring.req_prod_pvt);
-
-		memcpy(ring_req->buffer, buffer, VNET_PACKET_SIZE);
-
-		/* Fill in the ring_req structure */
-
-		/* Make sure the other end "sees" the request when updating the index */
-		dmb();
-
-		vnet.ring.req_prod_pvt++;
-
-		RING_PUSH_REQUESTS(&vnet.ring);
-
-		notify_remote_via_irq(vnet.irq);
-	}
-
-	vdevfront_processing_end();
-}
-#endif
 
 void vnet_probe(struct vbus_device *vdev) {
 	int res;
 	unsigned int evtchn;
-	vnet_sring_t *sring;
+	vnet_tx_sring_t *sring_tx;
+	vnet_rx_sring_t *sring_rx;
+	vnet_ctrl_sring_t *sring_ctrl;
 	struct vbus_transaction vbt;
 	vnet_t *vnet;
 
@@ -209,7 +162,9 @@ void vnet_probe(struct vbus_device *vdev) {
 
 	/* Prepare to set up the ring. */
 
-	vnet->ring_ref = GRANT_INVALID_REF;
+	vnet->ring_tx_ref = GRANT_INVALID_REF;
+	vnet->ring_rx_ref = GRANT_INVALID_REF;
+	vnet->ring_ctrl_ref = GRANT_INVALID_REF;
 
 	/* Allocate an event channel associated to the ring */
 	res = vbus_alloc_evtchn(vdev, &evtchn);
@@ -225,26 +180,49 @@ void vnet_probe(struct vbus_device *vdev) {
 	vnet->irq = res;
 
 	/* Allocate a shared page for the ring */
-	sring = (vnet_sring_t *) get_free_vpage();
-	if (!sring) {
+        sring_tx = (vnet_tx_sring_t *) get_free_vpage();
+        sring_rx = (vnet_rx_sring_t *) get_free_vpage();
+        sring_ctrl = (vnet_ctrl_sring_t *) get_free_vpage();
+	if (!sring_tx || !sring_rx || !sring_ctrl) {
 		lprintk("%s - line %d: Allocating shared ring failed for device %s\n", __func__, __LINE__, vdev->nodename);
 		BUG();
 	}
 
-	SHARED_RING_INIT(sring);
-	FRONT_RING_INIT(&vnet->ring, sring, PAGE_SIZE);
+	SHARED_RING_INIT(sring_tx);
+	SHARED_RING_INIT(sring_rx);
+	SHARED_RING_INIT(sring_ctrl);
+	FRONT_RING_INIT(&vnet->ring_tx, sring_tx, PAGE_SIZE);
+	FRONT_RING_INIT(&vnet->ring_rx, sring_rx, PAGE_SIZE);
+	FRONT_RING_INIT(&vnet->ring_ctrl, sring_ctrl, PAGE_SIZE);
+
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vnet->ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vnet->ring_tx.sring)));
 	if (res < 0)
 		BUG();
 
-	vnet->ring_ref = res;
+	vnet->ring_tx_ref = res;
+
+
+        res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vnet->ring_rx.sring)));
+        if (res < 0)
+                BUG();
+
+        vnet->ring_rx_ref = res;
+
+
+        res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vnet->ring_ctrl.sring)));
+        if (res < 0)
+                BUG();
+
+        vnet->ring_ctrl_ref = res;
 
 	vbus_transaction_start(&vbt);
 
-	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vnet->ring_ref);
+	vbus_printf(vbt, vdev->nodename, "ring-rx-ref", "%u", vnet->ring_rx_ref);
+	vbus_printf(vbt, vdev->nodename, "ring-tx-ref", "%u", vnet->ring_tx_ref);
+	vbus_printf(vbt, vdev->nodename, "ring-ctrl-ref", "%u", vnet->ring_ctrl_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vnet->evtchn);
 
 	vbus_transaction_end(vbt);
@@ -261,28 +239,53 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
 	/* The shared page already exists */
 	/* Re-init */
 
-	gnttab_end_foreign_access_ref(vnet->ring_ref);
+	gnttab_end_foreign_access_ref(vnet->ring_tx_ref);
+	gnttab_end_foreign_access_ref(vnet->ring_rx_ref);
+	gnttab_end_foreign_access_ref(vnet->ring_ctrl_ref);
 
 	DBG("Frontend: Setup ring\n");
 
 	/* Prepare to set up the ring. */
 
-	vnet->ring_ref = GRANT_INVALID_REF;
+	vnet->ring_tx_ref = GRANT_INVALID_REF;
+	vnet->ring_rx_ref = GRANT_INVALID_REF;
+	vnet->ring_ctrl_ref = GRANT_INVALID_REF;
 
-	SHARED_RING_INIT(vnet->ring.sring);
-	FRONT_RING_INIT(&vnet->ring, (&vnet->ring)->sring, PAGE_SIZE);
+	SHARED_RING_INIT(vnet->ring_tx.sring);
+	SHARED_RING_INIT(vnet->ring_rx.sring);
+	SHARED_RING_INIT(vnet->ring_ctrl.sring);
+	FRONT_RING_INIT(&vnet->ring_tx, (&vnet->ring_tx)->sring, PAGE_SIZE);
+	FRONT_RING_INIT(&vnet->ring_rx, (&vnet->ring_rx)->sring, PAGE_SIZE);
+	FRONT_RING_INIT(&vnet->ring_ctrl, (&vnet->ring_ctrl)->sring, PAGE_SIZE);
+
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vnet->ring.sring)));
-	if (res < 0)
-		BUG();
+        res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vnet->ring_tx.sring)));
+        if (res < 0)
+                BUG();
 
-	vnet->ring_ref = res;
+        vnet->ring_tx_ref = res;
 
-	vbus_transaction_start(&vbt);
 
-	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vnet->ring_ref);
+        res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vnet->ring_rx.sring)));
+        if (res < 0)
+                BUG();
+
+        vnet->ring_rx_ref = res;
+
+
+        res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vnet->ring_ctrl.sring)));
+        if (res < 0)
+                BUG();
+
+        vnet->ring_ctrl_ref = res;
+
+        vbus_transaction_start(&vbt);
+
+        vbus_printf(vbt, vdev->nodename, "ring-rx-ref", "%u", vnet->ring_rx_ref);
+        vbus_printf(vbt, vdev->nodename, "ring-tx-ref", "%u", vnet->ring_tx_ref);
+        vbus_printf(vbt, vdev->nodename, "ring-ctrl-ref", "%u", vnet->ring_ctrl_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vnet->evtchn);
 
 	vbus_transaction_end(vbt);
@@ -298,18 +301,38 @@ void vnet_closed(struct vbus_device *vdev) {
 
 	DBG0("[" VNET_NAME "] Frontend close\n");
 
+	/* Free packet buffers */
+        vbuff_free(vbuff_tx);
+        vbuff_free(vbuff_rx);
+
 	/**
 	 * Free the ring and deallocate the proper data.
 	 */
 
 	/* Free resources associated with old device channel. */
-	if (vnet->ring_ref != GRANT_INVALID_REF) {
-		gnttab_end_foreign_access(vnet->ring_ref);
-		free_vpage((uint32_t) vnet->ring.sring);
+	if (vnet->ring_tx_ref != GRANT_INVALID_REF) {
+		gnttab_end_foreign_access(vnet->ring_tx_ref);
+		free_vpage((uint32_t) vnet->ring_tx.sring);
 
-		vnet->ring_ref = GRANT_INVALID_REF;
-		vnet->ring.sring = NULL;
+		vnet->ring_tx_ref = GRANT_INVALID_REF;
+		vnet->ring_tx.sring = NULL;
 	}
+
+        if (vnet->ring_rx_ref != GRANT_INVALID_REF) {
+                gnttab_end_foreign_access(vnet->ring_rx_ref);
+                free_vpage((uint32_t) vnet->ring_rx.sring);
+
+                vnet->ring_rx_ref = GRANT_INVALID_REF;
+                vnet->ring_rx.sring = NULL;
+        }
+
+        if (vnet->ring_ctrl_ref != GRANT_INVALID_REF) {
+                gnttab_end_foreign_access(vnet->ring_ctrl_ref);
+                free_vpage((uint32_t) vnet->ring_ctrl.sring);
+
+                vnet->ring_ctrl_ref = GRANT_INVALID_REF;
+                vnet->ring_ctrl.sring = NULL;
+        }
 
 	if (vnet->irq)
 		unbind_from_irqhandler(vnet->irq);
@@ -403,8 +426,6 @@ static int vnet_register(dev_t *dev) {
 
         vdevfront_init(VNET_NAME, &vnetdrv);
 
-        //vnet_vbus_init();
-
         eth_dev->dev = dev;
 
         eth_dev->init = vnet_init;
@@ -413,7 +434,9 @@ static int vnet_register(dev_t *dev) {
         printk("_____________________________________ vnet_register\n");
 
 
-        //VBUFF_TX_INIT();
+        /* init packet buffers */
+        vbuff_init(vbuff_tx);
+        vbuff_init(vbuff_rx);
 
         return 0;
 }

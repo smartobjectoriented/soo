@@ -39,7 +39,9 @@ typedef struct  {
 /*
  * Generate ring structures and types.
  */
-DEFINE_RING_TYPES(vnet, vnet_request_t, vnet_response_t);
+DEFINE_RING_TYPES(vnet_tx, vnet_request_t, vnet_response_t);
+DEFINE_RING_TYPES(vnet_rx, vnet_request_t, vnet_response_t);
+DEFINE_RING_TYPES(vnet_ctrl, vnet_request_t, vnet_response_t);
 
 /*
  * General structure for this virtual device (backend side)
@@ -48,7 +50,9 @@ DEFINE_RING_TYPES(vnet, vnet_request_t, vnet_response_t);
 typedef struct {
 	vdevback_t vdevback;
 
-	vnet_back_ring_t ring;
+	vnet_tx_back_ring_t ring_tx;
+	vnet_rx_back_ring_t ring_rx;
+	vnet_ctrl_back_ring_t ring_ctrl;
 	unsigned int irq;
 
 } vnet_t;
