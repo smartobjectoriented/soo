@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2016-2019 Daniel Rossier <daniel.rossier@soo.tech>
  * Copyright (C) January 2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2020 David Truan <david.truan@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -44,6 +45,7 @@
 #include <uapi/dcm.h>
 
 #include <injector/core.h>
+#include <injector/server.h>
 
 /**
  * Inject a ME.
@@ -174,30 +176,15 @@ void inject_MEs_from_filesystem(void) {
 	closedir(directory);
 }
 
-
-void save_itb(void *ME_buffer, size_t size) {
-	FILE *f;
-
-	int i;
-	
-	f = fopen("/root/test_ME.itb", "wb");
-
-	for (i = 0; i < size; ++i) {
-		fwrite(ME_buffer+i, sizeof(char), 1, f);
-	}
-
-	fclose(f);
-}
-
-
+/**
+ * Thread function which periodically checks if a ME is present in the kernel side Injector.
+ * If a ME is present, read the core fd to retrieve the ME data and inject it.
+ */
 void *ME_retrieve_fn(void *dummy) {
-
 	injector_ioctl_recv_args_t args;
 
 	void *ME;
 	int br = 0;
-	int current_size = 0;
-	int chunk = 2000;
 
 	memset(&args, 0, sizeof(injector_ioctl_recv_args_t));
 
@@ -206,41 +193,49 @@ void *ME_retrieve_fn(void *dummy) {
 
 		usleep(500 * 1000);
 
+		/* If a ME is present in the Injector, the args.size is > 0 */
 		if ((ioctl(fd_core, INJECTOR_IOCTL_RETRIEVE_ME, &args)) < 0) {
 			DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
 			BUG();
 		}
-		
+#if 1		
 		if (args.size != 0) {
-
 			printf("Injector: An ME is ready to be retrieved (%d B)\n", args.size);
+			/* Allocate the ME buffer in the userspace */ 
 			ME = malloc(args.size);
 			if (!ME) {
-				printf("%s: failure during malloc...\n", __func__);
+				printf("%s: failure during malloc of the ME...\n", __func__);
 				BUG();
 			}
+			/* Read the ME from the Agency Core */
+			br = read(fd_core, ME, args.size);
 
-			while (current_size != args.size) {
-				br = read(fd_core, ME+current_size, chunk);
-				current_size += br;
-
+			if (br != args.size) {
+				printf("The ME couldn't be retrieved from the Core...\n");
 			}
 
+			printf("ME retrieved, now injecting it!\n");
 			ME_inject(ME);
 
+			/* Clean the ME buffer in the kernel Injector. This frees the buffer
+			allocated in the kernel. */
 			if ((ioctl(fd_core, INJECTOR_IOCTL_CLEAN_ME, NULL)) < 0) {
 				DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
 				BUG();
 			}
-			
-			return NULL;
 
+			free(ME);
 		}
+#endif
 	}
 	
 	return NULL;
 }
 
+
+/**
+ * Opens the core fd
+ */ 
 void injector_dev_init(void) {
 	if ((fd_core = open(SOO_CORE_DEVICE, O_RDWR)) < 0) {
 		printf("Failed to open device: " INJECTOR_DEV_NAME " (%d)\n", fd_core);
@@ -252,9 +247,13 @@ void injector_dev_init(void) {
 
 void injector_init(void) {
 
+	printf("INJECTOR INIT!\n");
+
 	pthread_t injection_thread;
 
 	injector_dev_init();
 
 	pthread_create(&injection_thread, NULL, ME_retrieve_fn, NULL);
+
+	start_BT_server();
 }

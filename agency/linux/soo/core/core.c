@@ -45,6 +45,7 @@
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
+#include <linux/completion.h>
 
 #include <soo/soolink/discovery.h>
 
@@ -95,6 +96,17 @@ static struct soo_driver soo_core_driver;
 struct bus_type soo_subsys;
 
 static struct device soo_dev;
+
+/* Synchronization with the Injector structs */
+/* Wait queue used to synchronize the read from the injector */
+DECLARE_WAIT_QUEUE_HEAD(wq_prod);
+DECLARE_WAIT_QUEUE_HEAD(wq_cons);
+/* Completion used to wait for the end of the BT session opened 
+by the BT server in the userspace. Completed by the Injector once a BT session is
+over. */
+DECLARE_COMPLETION(bt_done);
+DECLARE_COMPLETION(cons_done);
+DECLARE_COMPLETION(prod_done);
 
 /* Agency callback implementation */
 
@@ -660,6 +672,26 @@ static int ioctl_store_versions(unsigned long arg) {
 	return 0;
 }
 
+static int ioctl_reboot(unsigned long arg) {
+	int ME_slot;
+	ME_desc_t desc;
+
+	printk("%s: now terminating all MEs...\n", __func__);
+	for (ME_slot = 0; ME_slot < MAX_ME_DOMAINS; ++ME_slot) {
+		/* Check if the ME slot is use dor not in order to not 
+		   call force_terminate on an empty slot, which would cause an error. */
+		get_ME_desc(ME_slot+2, &desc);
+		if (desc.size != 0) {
+			force_terminate(ME_slot+2);
+		}
+	}
+
+	printk("All MEs terminated, now rebooting the Agency...\n");
+	orderly_reboot();
+
+	return 0;
+}
+
 /*
  * Force terminate the execution of a specific ME
  *
@@ -863,6 +895,12 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		/* Suspend this thread until a SOO event (via uevent) is fired */
 		rc = pick_next_uevent();
 		break;
+		
+	case AGENCY_IOCTL_WAIT_BT_SESSION_DONE:
+		/* Suspend this thread until the Injector wakes it up at the end
+		of a BT session. */
+		wait_for_completion(&bt_done);
+		break;
 
 	case AGENCY_IOCTL_READY:
 		up(&usr_feedback);
@@ -913,6 +951,10 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		rc = ioctl_get_upgrade_image(arg);
 		break;
 
+	case AGENCY_IOCTL_REBOOT:
+		rc = ioctl_reboot(arg);
+		break;
+
 	case AGENCY_IOCTL_STORE_VERSIONS:
 		rc = ioctl_store_versions(arg);
 		break;
@@ -931,7 +973,7 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	
 	default:
 		lprintk("%s: Unrecognized IOCTL: 0x%x\n", __func__, cmd);
-		BUG();
+		rc = -EINVAL;
 		break;
 	}
 
@@ -959,37 +1001,37 @@ static int agency_upgrade_mmap(struct file *filp, struct vm_area_struct *vma) {
 	return 0;
 }
 
-DECLARE_WAIT_QUEUE_HEAD(wq_prod);
-DECLARE_WAIT_QUEUE_HEAD(wq_cons);
-
+/**
+ * Return the ME received by the Injector when an injection using BT is done.
+ *
+ */
 static ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
 	int maxbytes;
         int bytes_to_read;
-        int bytes_read;
+        int bytes_not_read;
 	void *ME;
 
 	/* Wait for the Injector to produce data */
 	wait_event_interruptible(wq_cons, injector_is_full() == true);
-#if 0
-	void *ME = injector_get_ME_buffer();
-        maxbytes = injector_get_ME_size() - *ppos;
-#else
-	ME = injector_get_tmp_buf();
-        maxbytes = injector_get_tmp_size();
-#endif
+
+	ME = injector_get_ME();
+        maxbytes = injector_get_ME_size();
 
         if (maxbytes > length)
                 bytes_to_read = length;
         else
                 bytes_to_read = maxbytes;
 		
-        bytes_read = copy_to_user(buff, ME, bytes_to_read);
+        bytes_not_read = copy_to_user(buff, ME, bytes_to_read);
+	if (bytes_not_read) {
+		printk("Error during core read!\n");
+	}
 
 	/* Notify the Injector we read the buffer */
 	injector_set_full(false);
 	wake_up_interruptible(&wq_prod);
 
-        return bytes_read;
+        return bytes_to_read;
 }
 
 struct file_operations agency_fops = {
@@ -1181,7 +1223,7 @@ int agency_init(void) {
 	devaccess_init();
 
 	/* Initialize the injector subsystem */
-	injector_init(&wq_prod, &wq_cons);
+	injector_init(&wq_prod, &wq_cons, &bt_done);
 
 	/* Initialize the dbgvar facility */
 	dbgvar_init();

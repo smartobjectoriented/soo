@@ -46,19 +46,22 @@
 #include <soo/uapi/soo.h>
 #include <soo/uapi/injector.h>
 
+/* ME total size set before receiving it */ 
 size_t ME_size;
-
-void *ME_buffer;
-
+/* Track the current size of the ME (sum of the chunks size) */
 size_t current_size = 0;
-
-void *tmp_buf;
+/* Buffer and size which correspond to the current chunk being received */
+void *ME_buf;
 size_t tmp_size;
-
+/* Indicate if data have been received */
 bool full = false;
 
+/* Wait queues for synchronization with the SOO Core. The SOO Core initialize them
+   and we set them in the init */
 static wait_queue_head_t *wq_cons;
 static wait_queue_head_t *wq_prod;
+/* Completion used to stop  */
+static struct completion *bt_done;
 
 /**
  * Initiate the injection of a ME.
@@ -89,37 +92,39 @@ int ioctl_inject_ME(unsigned long arg) {
 
 
 /**
- * injector_receive_ME() - Receive the ME into the injector buffer
+ * injector_receive_ME() - Receive chunks of ME comming from the vuiHandler.
  *
- * @ME: pointer to the ME chunk received from the vUIHandler 
+ * Once a chunk is received, signal the SOO Core that it can be read.
+ * Synchronization between producer (Injector) and consumer (SOO Core) 
+ * is done using wait queues.
+ *
+ * @ME: pointer to the ME chunk received from the vuiHandler 
  * @size: Size of the ME chunk
  * @return 0 
  */
-int injector_receive_ME(void *ME, size_t size) {
-
-#if 0
-	printk("%d\n", size);
-	return;
-#endif	
-	wait_event_interruptible(*wq_prod, full == false);
+void injector_receive_ME(void *ME, size_t size) {
+	/* Wait for the consumer to consume the buffer */
+	//wait_event_interruptible(*wq_prod, full == false);
 
 	current_size += size;
+	/* If we fully retrieved the ME, end the BT session */
+	if (current_size == ME_size)
+		end_bt_session();
 
-	tmp_buf = ME;
+	/* These are the data (ME chunk) which will be read by the consumer */
+	ME_buf = ME;
 	tmp_size = size;
 
+	/* Signal to the consumer that the buffer is full and wake it ip */
 	full = true;
-
 	wake_up_interruptible(wq_cons);
-
-	return 0;
 }
 
-void *injector_get_tmp_buf(void) {
-	return tmp_buf;
+void *injector_get_ME(void) {
+	return ME_buf;
 }
 
-size_t injector_get_tmp_size(void) {
+size_t injector_get_ME_size(void) {
 	return tmp_size;
 }
 
@@ -131,30 +136,25 @@ void injector_set_full(bool _full) {
 	full = _full;
 }
 
-void *injector_get_ME_buffer(void) {
-	return ME_buffer;
-}
-
-size_t injector_get_ME_size(void) {
-	return ME_size;
-}
-
+/* Set the total ME size before receiving it */
 void injector_prepare(uint32_t size) {
 	ME_size = size;
 }
 
 
+/* Reset the sizes */
 void injector_clean_ME(void) {
-	vfree((void *)ME_buffer);
 	ME_size = 0;
 	current_size = 0;
+	/* The -1 commes from the fact that we pass the received buffer offseted by one
+	to the Injector to skip the vuiHandler type. */
+	vfree((void *) (ME_buf-1));
 }
 
-
+/* Implementation of an ioctl to retrieve the ME size if a ME is being received */
 void injector_retrieve_ME(unsigned long arg) {
 	injector_ioctl_recv_args_t args;
 
-	args.ME_data = ME_buffer;
 	args.size = ME_size;
 
 	if ((copy_to_user((void *) arg, &args, sizeof(injector_ioctl_recv_args_t))) != 0) {
@@ -163,15 +163,24 @@ void injector_retrieve_ME(unsigned long arg) {
 	}
 }
 
+/**
+ * End the BT session. It complete the completion on which the Core is waiting
+ * in the AGENCY_IOCTL_WAIT_BT_SESSION_DONE ioctl.
+ * Once it is completed, the core 
+ */
+void end_bt_session(void) {
+	complete(bt_done);
+}
 
 /**
  * Injector initialization function.
+ * It receives the wait queues and the BT completion from the SOO core, which initialize them .
  */
-int injector_init(wait_queue_head_t *_wq_prod, wait_queue_head_t *_wq_cons) {
-
+int injector_init(wait_queue_head_t *_wq_prod, wait_queue_head_t *_wq_cons, struct completion *_bt_done) {
 	DBG("Injector subsys initializing ...\n");
 	wq_cons = _wq_cons;
 	wq_prod = _wq_prod;
+	bt_done = _bt_done;
 
 	return 0;
 }

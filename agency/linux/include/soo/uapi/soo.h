@@ -153,6 +153,8 @@ extern soo_personality_t soo_get_personality(void);
 #define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOWR(0x05000000, 15, char)
 #define AGENCY_IOCTL_STORE_VERSIONS	 	_IOWR(0x05000000, 16, char)
 #define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR(0x05000000, 17, char)
+#define AGENCY_IOCTL_WAIT_BT_SESSION_DONE	 	_IOWR(0x05000000, 18, char)
+#define AGENCY_IOCTL_REBOOT		        _IOWR(0x05000000, 19, char)
 
 
 #define ME_IOCTL_FORCE_TERMINATE		100
@@ -174,7 +176,7 @@ typedef enum {
  * - ME_state_living:		ME is full-functional and activated (all frontend devices are consistent)
  * - ME_state_suspended:	ME is suspended before migrating. This state is maintained for the resident ME instance
  * - ME_state_migrating:	ME just arrived in SOO
- * - ME_state_dormant:		ME is resident, but not living (running) - all frontends are closed/shutdown
+ * - ME_state_dormant:		ME is resident, but not living (running)
  * - ME_state_killed:		ME has been killed before to be resumed
  * - ME_state_terminated:	ME has been terminated (by a force_terminate)
  * - ME_state_dead:		ME does not exist

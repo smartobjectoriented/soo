@@ -103,11 +103,12 @@ typedef struct {
 void injector_prepare(uint32_t size);
 void injector_retrieve_ME(unsigned long arg);
 void injector_clean_ME(void);
-int injector_receive_ME(void *ME, size_t size);
+void injector_receive_ME(void *ME, size_t size);
 
-int injector_init(wait_queue_head_t *_wq_prod, wait_queue_head_t *_wq_cons);
+int injector_init(wait_queue_head_t *_wq_prod, wait_queue_head_t *_wq_cons, struct completion *_bt_done);
 
-void *injector_get_ME_buffer(void);
+
+void *injector_get_ME(void);
 size_t injector_get_ME_size(void);
 
 void *injector_get_tmp_buf(void);
@@ -116,6 +117,8 @@ bool injector_is_full(void);
 void injector_set_full(bool _full);
 
 int ioctl_inject_ME(unsigned long arg);
+
+void end_bt_session(void);
 
 #endif /* __KERNEL__ */
 

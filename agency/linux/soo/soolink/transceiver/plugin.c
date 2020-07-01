@@ -17,8 +17,9 @@
  *
  */
 
-
-//#define VERBOSE
+#if 0
+#define VERBOSE
+#endif
 
 #include <linux/spinlock.h>
 #include <linux/list.h>
@@ -246,7 +247,9 @@ void plugin_rx(plugin_desc_t *plugin_desc, req_type_t req_type, void *data, size
 		return ;
 	}
 
-	if (mac_src) {
+	/* As the SL_REQ_BT requester is not from another Smart Object, we bypass the MAC address
+	   check in that case */
+	if (mac_src && req_type != SL_REQ_BT) {
 		/* If we receive a packet from a neighbour which is not known yet, we simply ignore the packet. */
 		found = identify_remote_soo(req_type, data, mac_src, &agencyUID_from);
 
