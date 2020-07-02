@@ -1,9 +1,7 @@
 #ifndef ME_INTERACTIONS_H
 #define ME_INTERACTIONS_H
 
-#include <soo/display_manager/local_interfaces/local_interfaces.h>
-
-#define MAX_MES 9
+#define MAX_MES 20
 
 /* Struct containing variable parameters of an ME */
 struct me_display_param{
@@ -20,16 +18,17 @@ struct me_data{
   /* display parameters of this ME */
   struct me_display_param* display_params;
   /* Info about ME's framebuffer */
-  struct fb_info* f_inf;
+  uint32_t* fb;
 };
 
 struct me_interactions_data{
   uint8_t nb_MEs;
-  struct me_data** me_datas;
+  struct me_data* me_datas[MAX_MES];
 };
 
-struct me_interactions_data me_inter_data;
 
 int me_interactions_init(void);
+/* For future use as callback in vfb (when a new ME appears for example) */
+/*void cb(struct vfb_fb *fb);*/
 
 #endif /* ME_INTERACTIONS_H */

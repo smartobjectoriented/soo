@@ -34,9 +34,6 @@ struct screen_partitioning{
   uint32_t* base_addr;
 };
 
-/* Global struct containing the data for screen partition */
-struct screen_partitioning screen_part;
-
 int local_interfaces_init(void);
 
 #endif /* LOCAL_INTERFACES_H */

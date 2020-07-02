@@ -1,4 +1,4 @@
-menu "Display Manager"
+menu "Local Interfaces"
 
 config LOCAL_INTERFACES
 	bool "Display test"
@@ -6,4 +6,4 @@ config LOCAL_INTERFACES
 		To be modified
 	default N
 
-endmenu
+endmenu # Local Interfaces

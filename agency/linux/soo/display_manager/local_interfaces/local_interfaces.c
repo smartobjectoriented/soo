@@ -6,11 +6,11 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/fb.h>
-#include <linux/workqueue.h>
 
 #include <soo/vbstore.h>
 
 #include <soo/display_manager/local_interfaces/local_interfaces.h>
+#include <soo/display_manager/me_interactions/me_interactions.h>
 
 #define NB_MES  9
 
@@ -24,6 +24,16 @@ static int update_partition_adresses(void);
 #define DEBUG
 #endif
 
+/* TO DO */
+/* Find a way to check when a framebuffer becomes available for initialisation
+ * if there are none during init
+ * Prevent crashes that could occur when screen is unplugged (to be tested
+ * still)
+ */
+
+ /* Global struct containing the data for screen partition */
+ struct screen_partitioning screen_part;
+
 /*
  * Init function getting the driver created framebuffer and working with it.
  * It will setup the screen_partitioning structure and the offsets going with it
@@ -31,12 +41,6 @@ static int update_partition_adresses(void);
  * It is required to have a framebuffer created before we get in this function
  */
 int local_interfaces_init(void){
-  int32_t* test_ptr;
-  int32_t color;
-  int i, j, rc;
-
-  struct workqueue_struct *wq_key0;
-  struct work_struct key0_job; /* struct for key0 related tasks */
 
   printk("Hello from %s\n", __func__);
 
@@ -49,7 +53,9 @@ int local_interfaces_init(void){
 
   /* Going for 32 bits per pixel depth */
   registered_fb[0]->var.bits_per_pixel = 32;
-  registered_fb[0]->fbops->fb_set_par(registered_fb[0]);
+  if(registered_fb[0]->fbops->fb_set_par){
+    registered_fb[0]->fbops->fb_set_par(registered_fb[0]);
+  }
 
   /* Framebuffer is unlinked to avoid other devices using it */
   unlink_framebuffer(registered_fb[0]);
@@ -59,14 +65,6 @@ int local_interfaces_init(void){
    * screen_partitioning
    */
   init_screen_part();
-
-  /* We start with one display and set the relevant data */
-  screen_part.nb_displays = 1;
-  screen_part.x_total = registered_fb[0]->var.xres;
-  screen_part.y_total = registered_fb[0]->var.yres;
-  screen_part.line_size = registered_fb[0]->fix.line_length;
-  screen_part.size_total = registered_fb[0]->var.yres * screen_part.line_size;
-  screen_part.base_addr = (uint32_t*) registered_fb[0]->screen_base;
 
   /* Setting the number of displays needed for testing */
   screen_part.nb_displays = NB_MES;
@@ -138,6 +136,7 @@ static int repartition_screen(void){
       screen_part.vertical_part = 1;
       break;
     case 1 :
+    case 0 :
       screen_part.horizontal_part = 1;
       screen_part.vertical_part = 1;
       break;
@@ -173,7 +172,7 @@ static int update_partition_adresses(void){
   return 0;
 }
 
-/* Colors part n of the screen with given color */
+/* Colors part n of the screen with given color (testing purpose function) */
 static int color_part(uint8_t n, uint32_t color){
   int i, j;
   uint32_t* address;
