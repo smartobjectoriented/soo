@@ -3,16 +3,9 @@
 
 #define MAX_FBS 9
 
-/* Partition for screen, containing base adress and x and y size for writing */
-struct partition{
-  uint32_t* base;
-  uint32_t x;
-  uint32_t y;
-};
-
 struct screen_partitioning{
   /* Total nuber of displays */
-  uint32_t nb_displays;
+  uint8_t nb_displays;
   /* Array containing all the potential base addresses for screen parts */
   uint32_t* mem_spaces[MAX_FBS];
   /* XxY total screen size */
@@ -34,6 +27,13 @@ struct screen_partitioning{
   uint32_t* base_addr;
 };
 
+struct screen_management{
+  uint8_t nb_displays;
+  uint8_t occupation[MAX_FBS];
+  struct screen_partitioning* screen_part;
+};
+
 int local_interfaces_init(void);
+int update_nb_displays(uint8_t n);
 
 #endif /* LOCAL_INTERFACES_H */
