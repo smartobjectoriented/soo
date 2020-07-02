@@ -23,23 +23,6 @@ static struct dentry *uhci_debugfs_root;
 
 #ifdef CONFIG_DYNAMIC_DEBUG
 
-/* Handle REALLY large printks so we don't overflow buffers */
-static void lprintk(char *buf)
-{
-	char *p;
-
-	/* Just write one line at a time */
-	while (buf) {
-		p = strchr(buf, '\n');
-		if (p)
-			*p = 0;
-		printk(KERN_DEBUG "%s\n", buf);
-		buf = p;
-		if (buf)
-			buf++;
-	}
-}
-
 static int uhci_show_td(struct uhci_hcd *uhci, struct uhci_td *td, char *buf,
 			int len, int space)
 {
@@ -618,9 +601,6 @@ static const struct file_operations uhci_debug_operations = {
 #endif	/* CONFIG_DEBUG_FS */
 
 #else	/* CONFIG_DYNAMIC_DEBUG*/
-
-static inline void lprintk(char *buf)
-{}
 
 static inline int uhci_show_qh(struct uhci_hcd *uhci,
 		struct uhci_qh *qh, char *buf, int len, int space)
