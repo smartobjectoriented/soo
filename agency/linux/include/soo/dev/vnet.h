@@ -22,19 +22,55 @@
 #include <soo/ring.h>
 #include <soo/grant_table.h>
 #include <soo/vdevback.h>
+#include <soo/dev/vnetbuff.h>
+
 
 #define VNET_PACKET_SIZE	32
 
 #define VNET_NAME		"vnet"
 #define VNET_PREFIX		"[" VNET_NAME "] "
 
+
+enum vnet_type{
+	SET_IP = 0,
+	GET_IP,
+	ENABLE,
+	DISABLE,
+};
+
+struct vbuff_buff *vbuff_tx;
+struct vbuff_buff *vbuff_rx;
+
+unsigned long grant_buff = 0;
+
+struct ip_conf {
+	uint32_t ip;
+	uint32_t mask;
+	uint32_t gw;
+};
+
 typedef struct {
-	char buffer[VNET_PACKET_SIZE];
+	uint16_t type;
+	union {
+		struct vbuff_data buff;
+		struct ip_conf ip;
+		grant_handle_t grant;
+	};
+	char buffer[2];
 } vnet_request_t;
 
 typedef struct  {
 	char buffer[VNET_PACKET_SIZE];
 } vnet_response_t;
+
+
+typedef struct {
+	uint16_t type;
+} vnet_ctrl_request_t;
+
+typedef struct  {
+	uint16_t type;
+} vnet_ctrl_response_t;
 
 /*
  * Generate ring structures and types.

@@ -30,8 +30,18 @@
 #define VNET_NAME		"vnet"
 #define VNET_PREFIX		"[" VNET_NAME "] "
 
-struct vbuff_buff vbuff_tx[PAGE_COUNT];
-struct vbuff_buff vbuff_rx[PAGE_COUNT];
+struct vbuff_buff *vbuff_tx;
+struct vbuff_buff *vbuff_rx;
+
+grant_ref_t grant_buff = 0;
+
+enum vnet_type{
+        TX_BUFF,
+        TX_GRANTS,
+        RX_BUFF,
+        RX_GRANTS,
+};
+
 
 struct ip_conf {
         uint32_t ip;
@@ -44,7 +54,7 @@ typedef struct {
         union {
                 struct vbuff_data buff;
                 struct ip_conf ip;
-                grant_handle_t grants[7];
+                grant_handle_t grant;
         };
 	char buffer[2];
 } vnet_request_t;

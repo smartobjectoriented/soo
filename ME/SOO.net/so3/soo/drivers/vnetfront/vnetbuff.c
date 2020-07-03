@@ -4,8 +4,11 @@
 
 
 
-#include <memory.h>
 #include <heap.h>
+#include <mutex.h>
+#include <delay.h>
+#include <memory.h>
+#include <asm/mmu.h>
 #include <soo/gnttab.h>
 #include <soo/grant_table.h>
 
@@ -18,7 +21,7 @@ void vbuff_init(struct vbuff_buff* buffs){
         while(i < PAGE_COUNT){
                 buffs[i].data = (uint8_t*)get_free_vpage();
                 buffs[i].spots[0] = CHUNK_COUNT;
-                buffs[i].grant = gnttab_grant_foreign_access(ME_domID(), (unsigned long)buffs[i].data, READ_ONLY);
+                buffs[i].grant = 0;/*gnttab_grant_foreign_access(ME_domID(), (unsigned long)buffs[i].data, READ_ONLY);*/
                 i++;
         }
 }
@@ -82,10 +85,7 @@ int inline _vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, voi
                 memcpy(chunk_ptr, *data, size);
 
         /* Details allowing the other domain to retrieve data */
-        buff_data->grant = buff->grant;
-
         buff_data->offset = best_spot * CHUNK_SIZE;
-
         buff_data->size = size;
 
 
@@ -104,9 +104,28 @@ int vbuff_put(struct vbuff_buff* buffs, struct vbuff_data *buff_data, void** dat
 
         while(i < PAGE_COUNT){
                 printk("%d\n", i);
-                if(_vbuff_put(buffs + i++, buff_data, data, size) == 0)
+                if(_vbuff_put(buffs + i, buff_data, data, size) == 0){
+                        buff_data->index = i;
                         return 0;
+                }
+                i++;
         }
 
         return -1;
+}
+
+
+/*
+ * Update grants for a specific device
+ */
+void vbuff_update_grants(struct vbuff_buff* buff, struct vbus_device *dev){
+        int i = 0;
+
+        while(i < PAGE_COUNT){
+                if(buff[i].grant != 0)
+                        gnttab_end_foreign_access_ref(buff[i].grant);
+
+                buff[i].grant = gnttab_grant_foreign_access(dev->otherend_id, phys_to_pfn(virt_to_phys_pt((uint32_t)buff[i].data)), !READ_ONLY);
+                i++;
+        }
 }

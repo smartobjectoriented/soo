@@ -21,6 +21,8 @@
 #define VNETBUFF_H
 
 #include <memory.h>
+#include <soo/vbus.h>
+
 
 
 #define PAGE_COUNT 10
@@ -31,21 +33,25 @@
 
 
 struct vbuff_buff {
-        uint8_t *data;
+        char *data;
+        char *back_data;
         uint8_t spots[CHUNK_COUNT];
         grant_handle_t grant;
 };
 
 struct vbuff_data{
-        grant_handle_t grant;
+        int index;
         uint32_t offset;
         uint32_t size;
 };
 
 void vbuff_init(struct vbuff_buff* buffs);
-void vbuff_free(struct vbuff_buff* buff);
+void vbuff_free(struct vbuff_buff* buffs);
 
 int vbuff_put(struct vbuff_buff* buffs, struct vbuff_data *buff_data, void** data, size_t size);
+
+
+void vbuff_update_grants(struct vbuff_buff* buff, struct vbus_device *dev);
 
 
 // TODO fix

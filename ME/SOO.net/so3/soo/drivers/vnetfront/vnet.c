@@ -79,13 +79,13 @@ irq_return_t vnet_interrupt(int irq, void *dev_id) {
 	return IRQ_COMPLETED;
 }
 
-
 char vnet_buff[1514];
 err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
         vnet_t *vnet;
         char *data;
         void *buff = NULL;
         vnet_request_t *ring_req;
+        struct vbuff_data vbuff_data;
         printk("PKT1\n");
 
         if (!vdev_net){
@@ -97,11 +97,7 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
 
         vnet = to_vnet(vdev_net);
 
-        if((ring_req = vnet_tx_ring_request(&vnet->ring_tx)) == NULL) {
-                goto send_failed;
-        }
-
-        vbuff_put(vbuff_tx, &ring_req->buff, &buff, p->tot_len);
+        vbuff_put(vbuff_tx, &vbuff_data, &buff, p->tot_len);
 
         if(buff == NULL){
                 goto send_failed;
@@ -116,9 +112,17 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
         if(data != buff){
                 memcpy(buff, data, p->tot_len);
         }
+        printk("F1 cons %d, prod %d \n\n", vnet->ring_tx.sring->req_cons, vnet->ring_tx.sring->req_prod);
 
+        if((ring_req = vnet_tx_ring_request(&vnet->ring_tx)) == NULL) {
+                goto send_failed;
+        }
+        ring_req->type = 0xefef;
+        ring_req->buff = vbuff_data;
 
         vnet_tx_ring_request_ready(&vnet->ring_tx);
+        printk("F2 cons %d, prod %d \n\n", vnet->ring_tx.sring->req_cons, vnet->ring_tx.sring->req_prod);
+
         notify_remote_via_irq(vnet->irq);
 
         printk("PKT END\n");
@@ -135,7 +139,7 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
 
 
 void vnet_probe(struct vbus_device *vdev) {
-	int res;
+	int res,i = 0;
 	unsigned int evtchn;
 	vnet_tx_sring_t *sring_tx;
 	vnet_rx_sring_t *sring_rx;
@@ -218,12 +222,24 @@ void vnet_probe(struct vbus_device *vdev) {
 
         vnet->ring_ctrl_ref = res;
 
-	vbus_transaction_start(&vbt);
 
-	vbus_printf(vbt, vdev->nodename, "ring-rx-ref", "%u", vnet->ring_rx_ref);
+        /* Share a page containing infos about packet buffers */
+        res = gnttab_grant_foreign_access(vdev->otherend_id, (unsigned long)phys_to_pfn(virt_to_phys_pt((uint32_t)vbuff_tx)), !READ_ONLY);
+        if (res < 0)
+                BUG();
+
+        grant_buff = res;
+        vbuff_update_grants(vbuff_tx, vdev);
+        vbuff_update_grants(vbuff_rx, vdev);
+
+
+        vbus_transaction_start(&vbt);
+
+        vbus_printf(vbt, vdev->nodename, "ring-rx-ref", "%u", vnet->ring_rx_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-tx-ref", "%u", vnet->ring_tx_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-ctrl-ref", "%u", vnet->ring_ctrl_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vnet->evtchn);
+	vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", grant_buff);
 
 	vbus_transaction_end(vbt);
 
@@ -281,14 +297,27 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
 
         vnet->ring_ctrl_ref = res;
 
+
+
+        /* Share a page containing infos about packet buffers */
+        res = gnttab_grant_foreign_access(vdev->otherend_id, (unsigned long)phys_to_pfn(virt_to_phys_pt((uint32_t)vbuff_tx)), !READ_ONLY);
+        if (res < 0)
+                BUG();
+
+        grant_buff = res;
+        vbuff_update_grants(vbuff_tx, vdev);
+        vbuff_update_grants(vbuff_rx, vdev);
+
+
         vbus_transaction_start(&vbt);
 
         vbus_printf(vbt, vdev->nodename, "ring-rx-ref", "%u", vnet->ring_rx_ref);
         vbus_printf(vbt, vdev->nodename, "ring-tx-ref", "%u", vnet->ring_tx_ref);
         vbus_printf(vbt, vdev->nodename, "ring-ctrl-ref", "%u", vnet->ring_ctrl_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vnet->evtchn);
+        vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", grant_buff);
 
-	vbus_transaction_end(vbt);
+        vbus_transaction_end(vbt);
 }
 
 void vnet_shutdown(struct vbus_device *vdev) {
@@ -432,6 +461,12 @@ static int vnet_register(dev_t *dev) {
         network_devices_register(eth_dev);
 
         printk("_____________________________________ vnet_register\n");
+
+
+
+        vbuff_tx = (struct vbuff_buff *)get_free_vpage();
+        vbuff_rx = vbuff_tx + PAGE_COUNT;
+
 
 
         /* init packet buffers */
