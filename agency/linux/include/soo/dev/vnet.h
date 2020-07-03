@@ -23,6 +23,7 @@
 #include <soo/grant_table.h>
 #include <soo/vdevback.h>
 #include <soo/dev/vnetbuff.h>
+#include <linux/if_ether.h>
 
 
 #define VNET_PACKET_SIZE	32
@@ -36,12 +37,9 @@ enum vnet_type{
 	GET_IP,
 	ENABLE,
 	DISABLE,
+	ETHADDR,
 };
 
-struct vbuff_buff *vbuff_tx;
-struct vbuff_buff *vbuff_rx;
-
-unsigned long grant_buff = 0;
 
 struct ip_conf {
 	uint32_t ip;
@@ -55,14 +53,24 @@ typedef struct {
 		struct vbuff_data buff;
 		struct ip_conf ip;
 		grant_handle_t grant;
+		u8 ethaddr[ETH_ALEN];
 	};
 	char buffer[2];
 } vnet_request_t;
 
 typedef struct  {
-	char buffer[VNET_PACKET_SIZE];
+	uint16_t type;
+	union {
+		struct vbuff_data buff;
+		struct ip_conf ip;
+		grant_handle_t grant;
+		u8 ethaddr[ETH_ALEN];
+	};
+	char buffer[2];
 } vnet_response_t;
 
+#warning sizeof vnet_request_t
+#warning sizeof vnet_response_t
 
 typedef struct {
 	uint16_t type;
@@ -89,6 +97,18 @@ typedef struct {
 	vnet_tx_back_ring_t ring_tx;
 	vnet_rx_back_ring_t ring_rx;
 	vnet_ctrl_back_ring_t ring_ctrl;
+
+	/* pointer to arrays of size PAGE_COUNT
+	 * Those arrays are shared between the frontend and the backend
+	 * They track the status of the packet buffers */
+	struct vbuff_buff *vbuff_tx;
+	struct vbuff_buff *vbuff_rx;
+	u8 *vbuff_ethaddr;
+
+	unsigned long grant_buff;
+
+	struct vnetif *vif;
+
 	unsigned int irq;
 
 } vnet_t;

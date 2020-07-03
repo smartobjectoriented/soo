@@ -19,6 +19,7 @@
 #ifndef VNET_H
 #define VNET_H
 
+#include <device/network.h>
 #include <soo/ring.h>
 #include <soo/grant_table.h>
 #include <soo/vdevfront.h>
@@ -32,14 +33,16 @@
 
 struct vbuff_buff *vbuff_tx;
 struct vbuff_buff *vbuff_rx;
+unsigned char *vbuff_ethaddr;
 
 grant_ref_t grant_buff = 0;
 
 enum vnet_type{
-        TX_BUFF,
-        TX_GRANTS,
-        RX_BUFF,
-        RX_GRANTS,
+        SET_IP = 0,
+        GET_IP,
+        ENABLE,
+        DISABLE,
+        ETHADDR,
 };
 
 
@@ -55,12 +58,20 @@ typedef struct {
                 struct vbuff_data buff;
                 struct ip_conf ip;
                 grant_handle_t grant;
+                unsigned char ethaddr[ARP_HLEN];
         };
 	char buffer[2];
 } vnet_request_t;
 
 typedef struct  {
-	char buffer[VNET_PACKET_SIZE];
+        uint16_t type;
+        union {
+                struct vbuff_data buff;
+                struct ip_conf ip;
+                grant_handle_t grant;
+                unsigned char ethaddr[ARP_HLEN];
+        };
+        char buffer[2];
 } vnet_response_t;
 
 typedef struct {

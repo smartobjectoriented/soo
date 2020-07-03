@@ -26,6 +26,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+#include <linux/if_ether.h>
 
 #include <stdarg.h>
 #include <linux/kthread.h>
@@ -36,46 +37,9 @@
 #include <linux/if_vlan.h>
 #include <linux/vmalloc.h>
 
-struct vnetif {
-	/* Unique identifier for this interface. */
-	domid_t          domid;
-	unsigned int     handle;
+#include <soo/dev/vnetif.h>
 
-	u8               fe_dev_addr[6];
-	struct list_head fe_mcast_addr;
-	unsigned int     fe_mcast_count;
-
-	/* Frontend feature information. */
-	int gso_mask;
-
-	u8 can_sg:1;
-	u8 ip_csum:1;
-	u8 ipv6_csum:1;
-	u8 multicast_control:1;
-
-	/* Is this interface disabled? True when backend discovers
-	 * frontend is rogue.
-	 */
-	bool disabled;
-	unsigned long status;
-	unsigned long drain_timeout;
-	unsigned long stall_timeout;
-
-	/* Queues */
-	struct xenvif_queue *queues;
-	unsigned int num_queues; /* active queues, resource allocated */
-	unsigned int stalled_queues;
-
-	spinlock_t lock;
-
-#ifdef CONFIG_DEBUG_FS
-	struct dentry *xenvif_dbg_root;
-#endif
-	unsigned int ctrl_irq;
-
-	/* Miscellaneous private stuff. */
-	struct net_device *dev;
-};
+#include <linux/syscalls.h>
 
 
 static struct net_device_stats *vnetif_get_stats(struct net_device *dev)
@@ -111,6 +75,54 @@ static struct net_device_stats *vnetif_get_stats(struct net_device *dev)
 	return &vif->dev->stats;
 }
 
+void netif_rx_packet(struct net_device *dev, void* data, size_t len)
+{
+	struct nfeth_private *priv = netdev_priv(dev);
+	unsigned short pktlen;
+	struct sk_buff *skb;
+
+	/* read packet length (excluding 32 bit crc) */
+	pktlen = len;
+
+	if (!pktlen) {
+		dev->stats.rx_errors++;
+		return;
+	}
+
+	skb = dev_alloc_skb(pktlen + 2);
+	if (!skb) {
+		netdev_dbg(dev, "%s: out of mem (buf_alloc failed)\n",
+			   __func__);
+		dev->stats.rx_dropped++;
+		return;
+	}
+
+	skb->dev = dev;
+	skb_reserve(skb, 2);		/* 16 Byte align  */
+	skb_put(skb, pktlen);		/* make room */
+	memcpy(skb->data, data, pktlen);
+
+	skb->protocol = eth_type_trans(skb, dev);
+	netif_rx(skb);
+	dev->stats.rx_packets++;
+	dev->stats.rx_bytes += pktlen;
+
+	/* and enqueue packet */
+	return;
+}
+
+static netdev_tx_t
+vnetif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+	printk("XMIT\n");
+}
+
+static int vnetif_open(struct net_device *dev)
+{
+
+	return 0;
+}
+
 
 static int vnetif_change_mtu(struct net_device *dev, int mtu)
 {
@@ -135,9 +147,9 @@ static const struct ethtool_ops vnetif_ethtool_ops = {
 
 static const struct net_device_ops vnetif_netdev_ops = {
 	.ndo_select_queue = NULL,
-	.ndo_start_xmit	= NULL,
+	.ndo_start_xmit	= vnetif_start_xmit,
 	.ndo_get_stats	= vnetif_get_stats,
-	.ndo_open	= NULL,
+	.ndo_open	= vnetif_open,
 	.ndo_stop	= NULL,
 	.ndo_change_mtu	= vnetif_change_mtu,
 	.ndo_fix_features = NULL,
@@ -145,13 +157,65 @@ static const struct net_device_ops vnetif_netdev_ops = {
 	.ndo_validate_addr   = eth_validate_addr,
 };
 
-int vnetif_init(void) {
+
+void _br_add_if(const char* brname, const char* ifname){
+	int fd = -1;
+	int err;
+
+	struct ifreq ifr;
+	int ifindex;
+
+
+	if((fd = sys_socket(AF_LOCAL, SOCK_STREAM, 0)) < 0){
+		printk("SOCKET");
+		return;
+	}
+
+	memset(&ifr, 0, sizeof(struct ifreq));
+	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+	ifr.ifr_name[IFNAMSIZ - 1] = 0;
+
+	if (sys_ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
+		printk("NODEV");
+		return;
+	}
+
+	ifindex = ifr.ifr_ifindex;
+
+	strncpy(ifr.ifr_name, brname, strlen(brname));
+	ifr.ifr_name[strlen(brname)] = 0;
+
+
+	ifr.ifr_ifindex = ifindex;
+	err = sys_ioctl(fd, SIOCBRADDIF, &ifr);
+
+	sys_close(fd);
+}
+
+void bridge(const char* brname){
+	int fd = -1;
+	struct ifreq ifr;
+	int err, ret;
+
+
+	if((fd = sys_socket(AF_LOCAL, SOCK_STREAM, 0)) < 0){
+		printk("SOCKET");
+		return;
+	}
+
+	ret = sys_ioctl(fd, SIOCBRADDBR, brname);
+
+
+
+	sys_close(fd);
+}
+
+struct vnetif * vnetif_init(int domid, u8 *ethaddr) {
 	int ret;
 	struct device_node *np;
 
 	unsigned int vnetif_max_queues = num_online_cpus();
 
-	domid_t domid = 10;
 	int err;
 	struct net_device *dev;
 	struct vnetif *vif;
@@ -175,7 +239,7 @@ int vnetif_init(void) {
 	vif = netdev_priv(dev);
 
 	vif->domid  = domid;
-	vif->handle = handle;
+	vif->handle = 0;
 	vif->can_sg = 1;
 	vif->ip_csum = 1;
 	vif->dev = dev;
@@ -202,14 +266,8 @@ int vnetif_init(void) {
 	dev->min_mtu = ETH_MIN_MTU;
 	dev->max_mtu = ETH_MAX_MTU - VLAN_ETH_HLEN;
 
-	/*
-	 * Initialise a dummy MAC address. We choose the numerically
-	 * largest non-broadcast address to prevent the address getting
-	 * stolen by an Ethernet bridge for STP purposes.
-	 * (FE:FF:FF:FF:FF:FF)
-	 */
-	eth_broadcast_addr(dev->dev_addr);
-	dev->dev_addr[0] &= ~0x01;
+	/* use the same mac as the connected ME */
+	memcpy(dev->dev_addr, ethaddr, ETH_ALEN);
 
 	netif_carrier_off(dev);
 
@@ -217,12 +275,27 @@ int vnetif_init(void) {
 	if (err) {
 		netdev_warn(dev, "Could not register device: err=%d\n", err);
 		free_netdev(dev);
-		return ERR_PTR(err);
+		return NULL;
 	}
 
+	bridge("br0");
+	_br_add_if("br0", "eth0");
+	_br_add_if("br0", name);
 
-
-	printk("-----------------------------------INIT----------------------------------\n");
-
-	return ret;
+	return vif;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

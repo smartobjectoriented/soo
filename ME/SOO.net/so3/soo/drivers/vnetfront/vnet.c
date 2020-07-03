@@ -79,6 +79,21 @@ irq_return_t vnet_interrupt(int irq, void *dev_id) {
 	return IRQ_COMPLETED;
 }
 
+/*void vnet_send_ethaddr(vnet_t *vnet){
+        vnet_request_t *ring_req;
+        vdevfront_processing_begin(vdev_net);
+
+        if ((ring_req = vnet_ctrl_ring_request(&vnet->ring_ctrl)) != NULL) {
+                ring_req->type = ETHADDR;
+                memcpy(ring_req->ethaddr, ethaddr, ARP_HLEN);
+                vnet_ctrl_ring_request_ready(&vnet->ring_ctrl);
+                notify_remote_via_irq(vnet->irq);
+        }
+
+
+        vdevfront_processing_end(vdev_net);
+}*/
+
 char vnet_buff[1514];
 err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
         vnet_t *vnet;
@@ -86,10 +101,8 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
         void *buff = NULL;
         vnet_request_t *ring_req;
         struct vbuff_data vbuff_data;
-        printk("PKT1\n");
 
         if (!vdev_net){
-                printk("ERR\n");
                 goto send_failed;
         }
 
@@ -112,7 +125,6 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
         if(data != buff){
                 memcpy(buff, data, p->tot_len);
         }
-        printk("F1 cons %d, prod %d \n\n", vnet->ring_tx.sring->req_cons, vnet->ring_tx.sring->req_prod);
 
         if((ring_req = vnet_tx_ring_request(&vnet->ring_tx)) == NULL) {
                 goto send_failed;
@@ -121,13 +133,10 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
         ring_req->buff = vbuff_data;
 
         vnet_tx_ring_request_ready(&vnet->ring_tx);
-        printk("F2 cons %d, prod %d \n\n", vnet->ring_tx.sring->req_cons, vnet->ring_tx.sring->req_prod);
 
         notify_remote_via_irq(vnet->irq);
 
-        printk("PKT END\n");
 
-        //vnet_end();
         vdevfront_processing_end(vdev_net);
         return ERR_OK;
 
@@ -242,7 +251,6 @@ void vnet_probe(struct vbus_device *vdev) {
 	vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", grant_buff);
 
 	vbus_transaction_end(vbt);
-
 }
 
 /* At this point, the FE is not connected. */
@@ -318,6 +326,8 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
         vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", grant_buff);
 
         vbus_transaction_end(vbt);
+
+        //vnet_send_ethaddr(vnet);
 }
 
 void vnet_shutdown(struct vbus_device *vdev) {
@@ -424,13 +434,8 @@ err_t vnet_lwip_init(struct netif *netif) {
 int vnet_init(eth_dev_t *eth_dev) {
         struct netif *netif;
         printk("vnet_init\n");
-        // Fake mac address
-        eth_dev->enetaddr[0] = 0x12;
-        eth_dev->enetaddr[1] = 0x12;
-        eth_dev->enetaddr[2] = 0x12;
-        eth_dev->enetaddr[3] = 0x12;
-        eth_dev->enetaddr[4] = 0x12;
-        eth_dev->enetaddr[5] = 0x12;
+
+        memcpy(eth_dev->enetaddr, vbuff_ethaddr, ARP_HLEN);
 
         netif = malloc(sizeof(struct netif));
         netif_add(netif, NULL, NULL, NULL, eth_dev, vnet_lwip_init, tcpip_input);
@@ -449,6 +454,19 @@ vdrvfront_t vnetdrv = {
 };
 
 
+static void vnet_generate_mac(void){
+        ME_desc_t *desc = get_ME_desc();
+        unsigned int crc32 = desc->crc32;
+
+        vbuff_ethaddr[0] = 0xde;
+        vbuff_ethaddr[1] = 0xad;
+        vbuff_ethaddr[2] = 0xbe;
+        vbuff_ethaddr[3] = (crc32 ^ (crc32 >> 8)) & 0xFF;
+        vbuff_ethaddr[4] = (crc32 >> 16) & 0xFF;
+        vbuff_ethaddr[5] = (crc32 >> 24) & 0xFF;
+}
+
+
 static int vnet_register(dev_t *dev) {
         eth_dev_t *eth_dev = malloc(sizeof(eth_dev_t));
         memset(eth_dev, 0, sizeof(*eth_dev));
@@ -460,18 +478,16 @@ static int vnet_register(dev_t *dev) {
         eth_dev->init = vnet_init;
         network_devices_register(eth_dev);
 
-        printk("_____________________________________ vnet_register\n");
-
-
-
+        /* alloc page for buffer status */
         vbuff_tx = (struct vbuff_buff *)get_free_vpage();
         vbuff_rx = vbuff_tx + PAGE_COUNT;
-
-
+        vbuff_ethaddr = (unsigned char*)vbuff_rx + PAGE_COUNT;
 
         /* init packet buffers */
         vbuff_init(vbuff_tx);
         vbuff_init(vbuff_rx);
+
+        vnet_generate_mac();
 
         return 0;
 }
