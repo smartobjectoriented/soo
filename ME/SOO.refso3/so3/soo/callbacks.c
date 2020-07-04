@@ -284,7 +284,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		target_char = *((char *) localinfo_data);
 		initiator_char = *((char *) recv_data);
 
-#if 1 /* Alphabet - Increment the alphabet in this case. */
+#if 0 /* Alphabet - Increment the alphabet in this case. */
 		if (get_ME_state() != ME_state_dormant)  {
 			lprintk("## Not dormant: ");
 			if (initiator_found)

@@ -18,7 +18,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -101,12 +101,12 @@ void vfb_probe(struct vbus_device *vdev) {
 	struct vbus_transaction vbt;
 	vfb_t *vfb;
 	grant_ref_t fb_ref;
+	char dir[40];
 
 	DBG0("[" VFB_NAME "] Frontend probe\n");
 
 	if (vdev->state == VbusStateConnected)
 		return ;
-
 
 	vfb = malloc(sizeof(vfb_t));
 	BUG_ON(!vfb);
@@ -156,13 +156,14 @@ void vfb_probe(struct vbus_device *vdev) {
 	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vfb->ring_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vfb->evtchn);
 
-	// write something to the vbstore
-	//vbus_write(vbt, "backend/vfb/fb-ph-addr", "value", "value from front-end");
-	BUG_ON(!get_fb_base());
+	/* Get grantref from the fb's physical address and write it to vbstore. */
 
+	BUG_ON(!get_fb_base());
 	fb_ref = vbus_grant_ring(vdev, phys_to_pfn(get_fb_base()));
-	DBG("fb_phys: 0x%08x, fb_ref: 0x%08x\n", get_fb_base(), fb_ref);
-	vbus_printf(vbt, "backend/vfb/fb-ph-addr", "value", "%u", fb_ref);
+
+	sprintf(dir, "device/%01d/vfb/0/fe-fb", ME_domID());
+	vbus_printf(vbt, dir, "value", "%u", fb_ref);
+	DBG("dir: %s, fb_phys: 0x%08x, fb_ref: 0x%08x\n", dir, get_fb_base(), fb_ref);
 
 	vbus_transaction_end(vbt);
 }

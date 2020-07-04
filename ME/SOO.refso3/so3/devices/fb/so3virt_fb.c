@@ -56,7 +56,6 @@ int fb_init(dev_t *dev)
 	 * Allocate contiguous memory for the framebuffer and get the physical address.
 	 * The pages will be never released. They do not belong to any process.
 	 */
-
 	fb_base = get_contig_free_pages(FB_SIZE / PAGE_SIZE);
 	DBG("so3virt_fb: allocated %d [phys 0x%08x]\n", FB_SIZE, fb_base);
 
@@ -66,20 +65,14 @@ int fb_init(dev_t *dev)
 	return 0;
 }
 
-/* TODO map on virtual mem? */
 void *mmap(int fd, uint32_t virt_addr, uint32_t page_count)
 {
 	uint32_t i, page_phys_base;
 	pcb_t *pcb = current()->pcb;
 
-	DBG("so3virt_fb > virt: 0x%08x phys: 0x%08x, count: %u\n", virt_addr, fb_base, page_count);
-
 	for (i = 0; i < page_count; i++) {
-
-		/* Map a process' virtual page to the physical one. */
-		page_phys_base = fb_base + i * PAGE_SIZE;
-
-		create_mapping(pcb->pgtable, virt_addr + (i * PAGE_SIZE), page_phys_base, PAGE_SIZE, false);
+		/* Map the process' pages to physical ones. */
+		create_mapping(pcb->pgtable, virt_addr + (i * PAGE_SIZE), fb_base + i * PAGE_SIZE, PAGE_SIZE, false);
 	}
 
 	return (void *) virt_addr;

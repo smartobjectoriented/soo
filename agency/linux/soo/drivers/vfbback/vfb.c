@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2020 Nikolaos Garanis <nikolaos.garanis@heig-vd.ch>
  * Copyright (C) 2016-2018 Daniel Rossier <daniel.rossier@soo.tech>
  * Copyright (C) 2016 Baptiste Delporte <bonel@bonel.net>
  *
@@ -17,7 +18,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -41,10 +42,214 @@
 
 #include <stdarg.h>
 
-#define FB_SIZE (1024 * 768 * 4)
+#define FB_SIZE  (1024 * 768 * 4)
+#define FB_COUNT 8
 
 
-static struct vbus_watch me_watch;
+/* Array of registered front-end framebuffers. */
+static struct vfb_fb *registered_fefb[FB_COUNT];
+static domid_t current_fefb = 0;
+
+/*
+ * Callback called when a framebuffer is registered. Set value with
+ * vfb_register_callback.
+ */
+static void (*callback)(struct vfb_fb *fb);
+
+void vfb_register_callback(void (*cb)(struct vfb_fb *fb))
+{
+	callback = cb;
+}
+
+void vfb_register_fefb(struct vfb_fb *fb)
+{
+	DBG(VFB_PREFIX "Registered front-end framebuffer for domain id %d", fb->domid);
+	registered_fefb[fb->domid] = fb;
+}
+
+struct vfb_fb *vfb_get_fefb(domid_t id)
+{
+	return registered_fefb[id];
+}
+
+domid_t vfb_current_fefb(void)
+{
+	return current_fefb;
+}
+
+/*
+ * Reconfigure the framebuffer controller to display the front-end framebuffer
+ * of the given domain id.
+ */
+void vfb_reconfig(domid_t id)
+{
+	struct fb_info *info;
+	struct vfb_fb *fb;
+
+	DBG(VFB_PREFIX "Showing framebuffer of domain id %d\n", id);
+
+	fb = registered_fefb[id];
+	if (!fb) {
+		return;
+	}
+
+	/* Currently, take the first registered framebuffer device. */
+	info = registered_fb[0];
+	DBG(VFB_PREFIX "bpp %u\nres %u %u\nsmem 0x%08lx %u\nmmio 0x%08lx %u\nbase & size 0x%08x %lu\n",
+			info->var.bits_per_pixel,
+			info->var.xres, info->var.yres,
+			info->fix.smem_start, info->fix.smem_len,
+			info->fix.mmio_start, info->fix.mmio_len,
+			info->screen_base, info->screen_size);
+
+	info->fix.smem_start = fb->paddr; // fb->op->dev_bus_addr << 12;
+	info->fix.smem_len = fb->size; //FB_SIZE;
+	info->screen_base = (char *) fb->vaddr; // fb->area->addr;
+
+	/* Call fb_set_par op that will write values to the controller's registers. */
+	if (info->fbops->fb_set_par(info)) {
+		DBG("fb_set_par call failed\n");
+	}
+
+	current_fefb = id;
+}
+
+/* Callback when a new front-end framebuffer is added. */
+void fefb_callback(struct vbus_watch *watch)
+{
+	grant_ref_t fb_ref;
+	struct vbus_transaction vbt;
+	struct gnttab_map_grant_ref *op;
+	struct vm_struct *area;
+	struct vfb_fb *fb;
+	char dir[21];
+	unsigned long domid;
+	char *node;
+
+	/* Get domain id. */
+
+	node = watch->node;
+	while (*node && !isdigit(*node)) {
+		node++;
+	}
+
+	domid = strtoul(node, NULL, 10);
+	DBG(VFB_PREFIX "Domain id is %lu\n", domid);
+
+	/* Retrieve grantref from vbstore. */
+
+	vbus_transaction_start(&vbt);
+	sprintf(dir, "device/%01lu/vfb/0/fe-fb", domid);
+	vbus_scanf(vbt, dir, "value", "%u", &fb_ref);
+	DBG(VFB_PREFIX "New value for %s: 0x%08x\n", watch->node, fb_ref);
+	vbus_transaction_end(vbt);
+
+	/* Allocate memory to map the ME framebuffer. */
+
+	area = alloc_vm_area(FB_SIZE, NULL);
+	DBG(VFB_PREFIX "Allocated area in vfb\n");
+
+	/* Map the grantref area. */
+
+	op = kzalloc(sizeof(struct gnttab_map_grant_ref), GFP_ATOMIC);
+	BUG_ON(!op);
+
+	gnttab_set_map_op(op, (phys_addr_t) area->addr, GNTMAP_host_map | GNTMAP_readonly, fb_ref, domid, 0, FB_SIZE);
+	if (gnttab_map(op) || op->status != GNTST_okay) {
+		free_vm_area(area);
+		DBG(VFB_PREFIX "Mapping in shared page %d from domain %d failed\n", fb_ref, domid);
+		BUG();
+	}
+
+	/* Create the vfb_fb struct and register it. */
+
+	fb = kzalloc(sizeof(struct vfb_fb), GFP_ATOMIC);
+	fb->domid = (domid_t) domid;
+	fb->paddr = op->dev_bus_addr << 12;
+	fb->size = FB_SIZE;
+	fb->vaddr = (uint32_t) area->addr;
+	fb->area = area;
+	fb->op = op;
+
+	vfb_register_fefb(fb);
+
+	/* If a callback has been registered, execute it. */
+
+	if (callback) {
+		callback(fb);
+	}
+}
+
+void vfb_probe(struct vbus_device *vdev)
+{
+	vfb_t *vfb;
+	struct vbus_transaction vbt;
+	struct vbus_watch *watch;
+	struct vfb_fb *fb;
+	char dir[35];
+	char *path;
+
+	vfb = kzalloc(sizeof(vfb_t), GFP_ATOMIC);
+	BUG_ON(!vfb);
+
+	dev_set_drvdata(&vdev->dev, &vfb->vdevback);
+
+	/* Create property in vbstore. */
+
+	vbus_transaction_start(&vbt);
+
+	sprintf(dir, "device/%01d/vfb/0", vdev->otherend_id);
+	vbus_mkdir(vbt, dir, "fe-fb");
+
+	sprintf(dir, "device/%01d/vfb/0/fe-fb", vdev->otherend_id);
+	vbus_write(vbt, dir, "value", "try");
+
+	vbus_transaction_end(vbt);
+
+	/* Set a watch on fe-fb. */
+
+	watch = kzalloc(sizeof(struct vbus_watch), GFP_ATOMIC);
+	path = kzalloc(27 * sizeof(char), GFP_ATOMIC);
+	BUG_ON(!watch || !path);
+
+	sprintf(path, "device/%01d/vfb/0/fe-fb/value", vdev->otherend_id);
+	vbus_watch_path(vdev, path, watch, fefb_callback);
+	DBG(VFB_PREFIX "Watching %s\n", path);
+
+	/*
+	 * As is the case with most framebuffer drivers (according to the Linux
+	 * documentation, see fbcons), the fb driver will initialize the
+	 * related structure of the fb but will not actually write these values
+	 * to the device registers if the Linux framebuffer console is
+	 * deactivated.
+	 *
+	 * Here we assume the framebuffer console is inactive and so we must
+	 * initialized the driver manually using the fb_set_par function. If
+	 * framebuffer console is activated, it is necessary to unlink the
+	 * framebuffer before using the vfb_reconfig (using the
+	 * unlink_framebuffer function). This is necessary because fbcons sets
+	 * up a thread to blink the console cursor and if the fb address
+	 * changes this thread will crash.
+	 *
+	 * As we can switch between front-end framebuffers, we want to be able
+	 * to return to the agency's framebuffer, thus we create a
+	 * corresponding vfb_fb struct and register it (only once).
+	 */
+
+	if (!registered_fefb[0]) {
+
+		fb = kzalloc(sizeof(struct vfb_fb), GFP_ATOMIC);
+		fb->domid = 0;
+		fb->paddr = registered_fb[0]->fix.smem_start;
+		fb->size = registered_fb[0]->fix.smem_len;
+		fb->vaddr = (uint32_t) registered_fb[0]->screen_base;
+
+		vfb_register_fefb(fb);
+
+		/* Activate it. */
+		registered_fb[0]->fbops->fb_set_par(registered_fb[0]);
+	}
+}
 
 void vfb_notify(struct vbus_device *vdev)
 {
@@ -82,98 +287,12 @@ irqreturn_t vfb_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-void vfb_reconfig_fb(uint32_t virt_addr, uint32_t phys_base, size_t fb_size) {
-
-	struct fb_info *fb;
-
-	/* Currently, take the first registered framebuffer. */
-	fb = registered_fb[0];
-
-	DBG(VFB_PREFIX "bpp %u\nres %u %u\nsmem 0x%08lx %u\nmmio 0x%08lx %u\nbase & size 0x%08x %lu\n",
-			fb->var.bits_per_pixel,
-			fb->var.xres, fb->var.yres,
-			fb->fix.smem_start, fb->fix.smem_len,
-			fb->fix.mmio_start, fb->fix.mmio_len,
-			fb->screen_base, fb->screen_size);
-
-	fb->fix.smem_start = phys_base;
-	fb->fix.smem_len = fb_size;
-	fb->screen_base = (char *) virt_addr;
-
-	fb->var.bits_per_pixel = 32; /* TODO put this somewhere else */
-
-	/* Call fb_set_par op that will write values to the controller's registers. */
-	if (fb->fbops->fb_set_par(fb)) {
-		DBG("fb_set_par call failed\n");
-	}
-}
-
-/* Call back when value of fb-ph-addr changes. */
-void fb_ph_addr(struct vbus_watch *watch) {
-
-	grant_ref_t fb_ref;
-	struct vbus_transaction vbt;
-	struct gnttab_map_grant_ref op;
-	struct vm_struct *area;
-
-	/* Retrieve grantref from vbstore. */
-	vbus_transaction_start(&vbt);
-	vbus_scanf(vbt, "backend/vfb/fb-ph-addr", "value", "%u", &fb_ref);
-	DBG(VFB_PREFIX "New value for %s: 0x%08x\n", watch->node, fb_ref);
-	vbus_transaction_end(vbt);
-
-	/* Allocate memory to map the ME framebuffer. */
-	area = alloc_vm_area(FB_SIZE, NULL);
-	DBG(VFB_PREFIX "Allocated area in vfb\n");
-
-	/* Map the grantref area. */
-	gnttab_set_map_op(&op, area->addr, GNTMAP_host_map | GNTMAP_readonly, fb_ref, watch->dev->otherend_id, 0, FB_SIZE);
-	if (gnttab_map(&op) || op.status != GNTST_okay) {
-		free_vm_area(area);
-		DBG(VFB_PREFIX "mapping in shared page %d from domain %d failed for device %s\n", fb_ref, watch->dev->otherend_id, watch->dev->nodename);
-		BUG();
-	}
-
-	/* Reconfigure the framebuffer. */
-	vfb_reconfig_fb(area->addr, op.dev_bus_addr << 12, FB_SIZE);
-
-	/*gnttab_set_unmap_op(&unmap_op, area->addr, GNTMAP_host_map, map_op.handle); // TODO correct flag?
-	res = gnttab_unmap(&unmap_op);
-	DBG(VFB_PREFIX "unmap res: %d\n", res);*/
-}
-
-void vfb_probe(struct vbus_device *vdev) {
-	vfb_t *vfb;
-	struct vbus_transaction vbt;
-
-	vfb = kzalloc(sizeof(vfb_t), GFP_ATOMIC);
-	BUG_ON(!vfb);
-
-	dev_set_drvdata(&vdev->dev, &vfb->vdevback);
-
-	/* Create property in vbstore. */
-	vbus_transaction_start(&vbt);
-	vbus_mkdir(vbt, "backend/vfb", "fb-ph-addr");
-	vbus_write(vbt, "backend/vfb/fb-ph-addr", "value", "try");
-	vbus_transaction_end(vbt);
-
-	/* Set a watch on fb-ph-addr. */
-	vbus_watch_path(vdev, "backend/vfb/fb-ph-addr/value", &me_watch, fb_ph_addr);
-
-	DBG(VFB_PREFIX "Backend probe: %d\n", vdev->otherend_id);
-
-	/* Unlink the framebuffer console from the framebuffer driver. */
-	unlink_framebuffer(registered_fb[0]);
-	DBG(VFB_PREFIX "Unlinked framebuffer.\n");
-}
-
 void vfb_remove(struct vbus_device *vdev) {
 	vfb_t *vfb = to_vfb(vdev);
 
 	DBG("%s: freeing the vfb structure for %s\n", __func__,vdev->nodename);
 	kfree(vfb);
 }
-
 
 void vfb_close(struct vbus_device *vdev) {
 	vfb_t *vfb = to_vfb(vdev);
@@ -286,7 +405,6 @@ int vfb_init(void) {
 #endif
 
 	vdevback_init(VFB_NAME, &vfbdrv);
-
 	return 0;
 }
 

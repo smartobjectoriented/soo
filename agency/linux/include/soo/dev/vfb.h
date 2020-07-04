@@ -53,9 +53,37 @@ typedef struct {
 
 } vfb_t;
 
+/* Represent a front-end framebuffer. */
+struct vfb_fb {
+
+	/* Domain id associated with the framebuffer. */
+	domid_t domid;
+
+	/* Physical address of the framebuffer. */
+	uint64_t paddr;
+
+	/* Virtual address of the framebuffer. */
+	uint32_t vaddr;
+
+	/* Size of the framebuffer. */
+	uint32_t size;
+
+	/* Optional members, can be used to deallocate or unmap. */
+
+	/* Memory area allocated for the framebuffer (mapped to ME memory). */
+	struct vm_struct *area;
+
+	/* Data used to do the grantref mapping. */
+	struct gnttab_map_grant_ref *op;
+};
+
 static inline vfb_t *to_vfb(struct vbus_device *vdev) {
 	vdevback_t *vdevback = dev_get_drvdata(&vdev->dev);
 	return container_of(vdevback, vfb_t, vdevback);
 }
+
+void vfb_reconfig(domid_t);
+struct vfb_fb *vfb_get_fefb(domid_t);
+domid_t vfb_current_fefb(void);
 
 #endif /* VFB_H */

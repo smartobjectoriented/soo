@@ -75,7 +75,6 @@ void vbus_watch_path(struct vbus_device *dev, char *path, struct vbus_watch *wat
 {
 	watch->node = path;
 	watch->callback = callback;
-	watch->dev = dev;
 
 	register_vbus_watch(watch);
 }

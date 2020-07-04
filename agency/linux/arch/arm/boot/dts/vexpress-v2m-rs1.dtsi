@@ -271,7 +271,6 @@
 					interrupts = <14>;
 					clocks = <&v2m_oscclk1>, <&smbclk>;
 					clock-names = "clcdclk", "apb_pclk";
-					max-memory-bandwidth = <95000000>;
 					memory-region = <&vram>;
 
 					port { 
