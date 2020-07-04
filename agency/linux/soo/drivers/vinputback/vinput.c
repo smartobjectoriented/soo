@@ -1,5 +1,7 @@
 /*
- * Copyright (C) 2015 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2020 Nikolaos Garanis <nikolaos.garanis@heig-vd.ch>
+ * Copyright (C) 2016-2018 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2016 Baptiste Delporte <bonel@bonel.net>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,189 +18,199 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
+
+#include <stdarg.h>
 
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/hid.h>
+#include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/kthread.h>
 
+#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
 #include <soo/uapi/console.h>
-#include <soo/uapi/debug.h>
-
-#include <stdarg.h>
-#include <linux/kthread.h>
-
+#include <soo/vdevback.h>
 #include <soo/dev/vinput.h>
 
-#if 0
-vinput_t vinput;
 
-struct mutex sending;
-struct spinlock sending_lock;
-
-static void vinput_notify(struct vbus_device *dev)
+void vinput_notify(struct vbus_device *vdev)
 {
-	vinput_ring_t *p_vinput_ring = &vinput.rings[dev->otherend_id];
+	vinput_t *vinput = to_vinput(vdev);
 
-	RING_PUSH_RESPONSES(&p_vinput_ring->ring);
+	RING_PUSH_RESPONSES(&vinput->ring);
 
 	/* Send a notification to the frontend only if connected.
 	 * Otherwise, the data remain present in the ring. */
 
-	if (dev->state == VbusStateConnected)
-		notify_remote_via_irq(p_vinput_ring->irq);
+	notify_remote_via_virq(vinput->irq);
 }
+
 
 irqreturn_t vinput_interrupt(int irq, void *dev_id)
 {
-	struct vbus_device *dev;
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	vinput_t *vinput = to_vinput(vdev);
+	vinput_request_t *ring_req;
+	vinput_response_t *ring_rsp;
 
-	dev = (struct vbus_device *) dev_id;
+	DBG("%d\n", vdev->otherend_id);
 
-	DBG("Interrupt from domain: %d\n", dev->otherend_id);
+	while ((ring_req = vinput_ring_request(&vinput->ring)) != NULL) {
+		ring_rsp = vinput_ring_response(&vinput->ring);
+		memcpy(ring_rsp->buffer, ring_req->buffer, VINPUT_PACKET_SIZE);
+		vinput_ring_response_ready(&vinput->ring);
+		notify_remote_via_virq(vinput->irq);
+	}
 
 	return IRQ_HANDLED;
 }
 
-/*
- * Input event comes from the Linux subsystem.
- */
-int vinput_pass_event(struct input_dev *dev, unsigned int type, unsigned int code, int value)
+void vinput_probe(struct vbus_device *vdev)
 {
-	struct vinput_response *rsp;
-	vinput_ring_t *p_vinput_ring;
+	vinput_t *vinput;
 
-	if (vinput.domfocus == -1)
-		return 0;
+	vinput = kzalloc(sizeof(vinput_t), GFP_ATOMIC);
+	BUG_ON(!vinput);
 
-	/* Currently we forward the event to domain owning the focus. */
-	p_vinput_ring = &vinput.rings[vinput.domfocus];
+	dev_set_drvdata(&vdev->dev, &vinput->vdevback);
 
-	/* Fill in the ring... */
+	DBG(VINPUT_PREFIX "Backend probe: %d\n", vdev->otherend_id);
+}
 
-	/* If the frontend is disconnected for a while, we ensure the ring does not overflow. */
-	if (RING_FREE_RESPONSES(&p_vinput_ring->ring)) {
+void vinput_remove(struct vbus_device *vdev)
+{
+	vinput_t *vinput = to_vinput(vdev);
 
-		rsp = RING_GET_RESPONSE(&p_vinput_ring->ring, p_vinput_ring->ring.rsp_prod_pvt);
+	DBG("%s: freeing the vinput structure for %s\n", __func__,vdev->nodename);
+	kfree(vinput);
+}
 
-		rsp->type = type;
-		rsp->code = code;
-		rsp->value = value;
 
-		dmb();
+void vinput_close(struct vbus_device *vdev)
+{
+	vinput_t *vinput = to_vinput(vdev);
 
-		p_vinput_ring->ring.rsp_prod_pvt++;
+	DBG(VINPUT_PREFIX "Backend close: %d\n", vdev->otherend_id);
 
-		vinput_notify(p_vinput_ring->dev);
+	/*
+	 * Free the ring and unbind evtchn.
+	 */
+
+	BACK_RING_INIT(&vinput->ring, (&vinput->ring)->sring, PAGE_SIZE);
+	unbind_from_virqhandler(vinput->irq, vdev);
+
+	vbus_unmap_ring_vfree(vdev, vinput->ring.sring);
+	vinput->ring.sring = NULL;
+}
+
+void vinput_suspend(struct vbus_device *vdev)
+{
+	DBG(VINPUT_PREFIX "Backend suspend: %d\n", vdev->otherend_id);
+}
+
+void vinput_resume(struct vbus_device *vdev)
+{
+	DBG(VINPUT_PREFIX "Backend resume: %d\n", vdev->otherend_id);
+}
+
+void vinput_reconfigured(struct vbus_device *vdev)
+{
+	int res;
+	unsigned long ring_ref;
+	unsigned int evtchn;
+	vinput_sring_t *sring;
+	vinput_t *vinput = to_vinput(vdev);
+
+	DBG(VINPUT_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
+
+	/*
+	 * Set up a ring (shared page & event channel) between the agency and the ME.
+	 */
+
+	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
+
+	DBG("BE: ring-ref=%lu, event-channel=%u\n", ring_ref, evtchn);
+
+	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
+	BUG_ON(res < 0);
+
+	SHARED_RING_INIT(sring);
+	BACK_RING_INIT(&vinput->ring, sring, PAGE_SIZE);
+
+	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vinput_interrupt, NULL, 0, VINPUT_NAME "-backend", vdev);
+
+	BUG_ON(res < 0);
+
+	vinput->irq = res;
+}
+
+void vinput_connected(struct vbus_device *vdev)
+{
+	DBG(VINPUT_PREFIX "Backend connected: %d\n",vdev->otherend_id);
+}
+
+#if 0
+/*
+ * Testing code to analyze the behaviour of the ME during pre-suspend operations.
+ */
+int generator_fn(void *arg)
+{
+	uint32_t i;
+
+	while (1) {
+		msleep(50);
+
+		for (i = 0; i < MAX_DOMAINS; i++) {
+
+			if (!vinput_start(i))
+				continue;
+
+			vinput_ring_response_ready()
+			vinput_notify(i);
+
+			vinput_end(i);
+		}
 	}
 
 	return 0;
 }
+#endif
 
-int set_input_property(unsigned int domid, struct vbus_transaction xbt, char *prop, unsigned int val) {
-	int ret;
-	char node[50];
+vdrvback_t vinputdrv = {
+	.probe = vinput_probe,
+	.remove = vinput_remove,
+	.close = vinput_close,
+	.connected = vinput_connected,
+	.reconfigured = vinput_reconfigured,
+	.resume = vinput_resume,
+	.suspend = vinput_suspend
+};
 
-	sprintf(node, "/backend/vinput/%d/0", domid);
-
-	ret = vbus_printf(xbt, node, prop, "%u", val);
-
-	return ret;
-}
-
-void vinput_connect(void) {
-
-	if (vinput.domfocus != -1)
-		set_input_property(vinput.domfocus, VBT_NIL, "kbd-present", 1);
-}
-
-void vinput_disconnect(void) {
-
-	if (vinput.domfocus != -1)
-		set_input_property(vinput.domfocus, VBT_NIL, "kbd-present", 0);
-}
-
-int vinput_subsys_enable(struct vbus_device *dev) {
-	return 0;
-}
-
-void vinput_subsys_disable(struct vbus_device *dev) {
-
-}
-
-/*
- * Store device properties available in the local SOO.
- */
-int vinput_subsys_init(struct vbus_device *dev) {
-	int ret;
-	struct vbus_transaction xbt;
-
-	/* Keep a reference to the corresponding vbus dev */
-	vinput.rings[dev->otherend_id].dev = dev;
-
-	vbus_transaction_start(&xbt);
-
-	if (vinput.domfocus == -1)
-		vinput.domfocus = dev->otherend_id;
-
-	DBG0("Writing input hw properties now...\n");
-
-	/* The keyboard (__hiddev) might be plugged on before that. */
-	ret = set_input_property(dev->otherend_id, xbt, "kbd-present", ((__hiddev == NULL) ? 0 : 1));
-
-	if (ret)
-		goto err_vbus;
-
-	ret = set_input_property(dev->otherend_id, xbt, "bus_type", BUS_USB);
-	if (ret)
-		goto err_vbus;
-
-	ret = set_input_property(dev->otherend_id, xbt, "vendorID", OLIMEX_KBD_VENDOR_ID);
-
-	if (ret)
-		goto err_vbus;
-
-	ret = set_input_property(dev->otherend_id, xbt, "productID", OLIMEX_KBD_PRODUCT_ID);
-
-	if (ret)
-		goto err_vbus;
-
-	vbus_transaction_end(xbt);
-
-	return 0;
-
-err_vbus:
-	printk("%s:%d vbus_printf failed\n", __FUNCTION__, __LINE__);
-
-	return ret;
-}
-
-void vkbd_subsys_remove(struct vbus_device *dev) {
-
-	vinput.domfocus = -1;
-}
-
-/*
- * Initializing the vinput backend driver.
- * This driver interacts with the input Linux subsystem.
- */
 int vinput_init(void)
 {
-	vinput.domfocus = -1;
+	struct device_node *np;
 
-	mutex_init(&sending);
+	np = of_find_compatible_node(NULL, NULL, "vinput,backend");
 
-	return vinput_vbus_init();
+	/* Check if DTS has vuihandler enabled */
+	if (!of_device_is_available(np))
+		return 0;
+
+#if 0
+	kthread_run(generator_fn, NULL, "vinput-gen");
+#endif
+
+	vdevback_init(VINPUT_NAME, &vinputdrv);
+	return 0;
 }
 
-
-module_init(vinput_init);
-#endif
+device_initcall(vinput_init);

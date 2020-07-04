@@ -66,19 +66,19 @@
 	
 	ME {
 		domain-size = <0x1400000>; /* 20 MB */
-		
+
 		frontends {
-		
+
 			vdummy {
 				compatible = "vdummy,frontend";
 				status = "ok";
 			};
-	
+
 			vuihandler {
 				compatible = "vuihandler,frontend";
 				status = "disabled";
 			};
-    
+
 			vuart {
 				compatible = "vuart,frontend";
 				status = "ok";
@@ -86,6 +86,11 @@
 
 			vfb {
 				compatible = "vfb,frontend";
+				status = "ok";
+			};
+
+			vinput {
+				compatible = "vinput,frontend";
 				status = "ok";
 			};
 		};

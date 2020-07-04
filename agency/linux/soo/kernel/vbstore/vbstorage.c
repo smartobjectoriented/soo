@@ -466,6 +466,11 @@ void vbstorage_agency_init(void) {
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vfb");
 
+	/* Agency backend side of virtual input device */
+	np = of_find_compatible_node(NULL, NULL, "vinput,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vinput");
+
 	/* Agency backend side of virtual dummy device (reference backend) */
 	np = of_find_compatible_node(NULL, NULL, "vdummy,backend");
 	if (of_device_is_available(np))

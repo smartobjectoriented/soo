@@ -12,12 +12,6 @@ config VUART_BACKEND
 	bool "vuart UART Backend support for SOO Mobile Entity consoles"
 	select SERIAL_CORE_CONSOLE
 
-config VINPUT_BACKEND
-	tristate "vinput input (keyboard/mouse) backend on SOO device"
-	default y
-	help
-	  This driver implements the backend of the input (keyboard/mouse) driver of the SOO environment.
-
 config VDOGA12V6NM_BACKEND
 	bool "vDOGA12V6NM backend"
 	depends on TTY
@@ -49,5 +43,11 @@ config VFB_BACKEND
 	help
 	  This driver enabled to deal with a virtualized interface for a framebuffer
 	  in the Mobile Entity.
+
+config VINPUT_BACKEND
+	bool "vinput input backend driver"
+	default N
+	help
+	  This driver implements the backend of the input (keyboard, mouse, touchscreen, etc.) driver of the SOO environment.
 
 endmenu
