@@ -34,13 +34,13 @@
 #define WNET_LAST_PACKET		(1 << 24)
 
 /* Number of bufferized packets in a frame for the n pkt / 1 ACK strategy */
-#define WNET_N_PACKETS_IN_FRAME 8
+#define WNET_N_PACKETS_IN_FRAME 64
 
 /* Express in microsecs */
 #define WNET_MIN_DRAND		1000
 #define WNET_MAX_DRAND		2000
 
-#define WNET_TSPEAKER_ACK	MILLISECS(300)
+#define WNET_TSPEAKER_ACK_MS	300
 
 /*
  * Winenet states FSM
@@ -105,7 +105,8 @@ typedef struct {
 	uint32_t transID;
 	bool completed;
 	int ret;
-	rtdm_event_t xmit_event;
+	//rtdm_event_t xmit_event;
+	struct completion xmit_event;
 
 } wnet_tx_t;
 
@@ -140,8 +141,9 @@ typedef void (*wnet_state_fn_t)(wnet_state_t old_state);
 
 typedef struct {
 	wnet_state_fn_t	*funcs;
-	rtdm_task_t	task;
-	rtdm_event_t	event;
+
+	//rtdm_event_t	event;
+	struct completion event;
 	wnet_state_t	old_state;
 	wnet_state_t	state;
 } wnet_fsm_handle_t;

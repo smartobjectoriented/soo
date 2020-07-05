@@ -46,22 +46,6 @@
 
 #include <soo/guest_api.h>
 
-#if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
-#include <soo/soolink/plugin/wlan.h>
-#endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_LOOPBACK
-#include <soo/soolink/plugin/loopback.h>
-#endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-#include <soo/soolink/plugin/ethernet.h>
-#endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-#include <soo/soolink/plugin/bluetooth.h>
-#endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
-
 #include <soo/core/device_access.h>
 
 #define MAX_PENDING_UEVENT		10
@@ -447,132 +431,9 @@ int set_ME_state(unsigned int ME_slotID, ME_state_t state)
 	return rc;
 }
 
-#ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-
-/*
- * Spawn a separate thread for processing wlan send() outside the directcomm bottom half context.
- */
-static int sl_plugin_wlan_send_fn(void *args) {
-
-	propagate_plugin_wlan_send();
-
-	tell_dc_stable(DC_PLUGIN_WLAN_SEND);
-
-	return 0;
-}
-
-#endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_LOOPBACK
-
-/*
- * Spawn a separate thread for processing loopback send() outside the directcomm bottom half context.
- */
-static int sl_plugin_loopback_send_fn(void *args) {
-	propagate_plugin_loopback_send();
-	tell_dc_stable(DC_PLUGIN_LOOPBACK_SEND);
-
-	return 0;
-}
-
-#endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-
-/*
- * Spawn a separate thread for processing Ethernet send() outside the directcomm bottom half context.
- */
-static int sl_plugin_ethernet_send_fn(void *args) {
-	propagate_plugin_ethernet_send();
-	tell_dc_stable(DC_PLUGIN_ETHERNET_SEND);
-
-	return 0;
-}
-
-/*
- * Spawn a separate thread for processing TCP send() outside the directcomm bottom half context.
- */
-static int sl_plugin_tcp_send_fn(void *args) {
-	propagate_plugin_tcp_send();
-	tell_dc_stable(DC_PLUGIN_TCP_SEND);
-
-	return 0;
-}
-
-#endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-
-/*
- * Spawn a separate thread for processing Bluetooth send() outside the directcomm bottom half context.
- */
-static int sl_plugin_bluetooth_send_fn(void *args) {
-	propagate_plugin_bluetooth_send();
-	tell_dc_stable(DC_PLUGIN_BLUETOOTH_SEND);
-
-	return 0;
-}
-
-#endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
-
-
 void dc_trigger_dev_probe_fn(dc_event_t dc_event) {
 	vbus_probe_backend(atomic_read(&dc_incoming_domID[dc_event]));
 	tell_dc_stable(dc_event);
-}
-
-void dc_plugin_fn(dc_event_t dc_event) {
-
-	switch (dc_event) {
-
-#ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-
-	case DC_PLUGIN_WLAN_SEND:
-
-		/* Detach the processing for this dc_event */
-		kthread_run(sl_plugin_wlan_send_fn, NULL, "sl_plugin_wlan_send_event");
-		break;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_LOOPBACK
-
-	case DC_PLUGIN_LOOPBACK_SEND:
-
-		/* Detach the processing for this dc_event */
-		kthread_run(sl_plugin_loopback_send_fn, NULL, "sl_plugin_loopback_send_event");
-		break;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-
-	case DC_PLUGIN_ETHERNET_SEND:
-		/* Detach the processing for this dc_event */
-		kthread_run(sl_plugin_ethernet_send_fn, NULL, "sl_plugin_ethernet_send_event");
-		break;
-
-	case DC_PLUGIN_TCP_SEND:
-		/* Detach the processing for this dc_event */
-		kthread_run(sl_plugin_tcp_send_fn, NULL, "sl_plugin_tcp_send_event");
-		break;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-
-	case DC_PLUGIN_BLUETOOTH_SEND:
-		/* Detach the processing for this dc_event */
-		kthread_run(sl_plugin_bluetooth_send_fn, NULL, "sl_plugin_bluetooth_send_event");
-		break;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
-
-	default:
-		lprintk("%s: failure on dc_event %d\n", __func__, dc_event);
-		BUG();
-	}
-
 }
 
 /*
@@ -742,12 +603,6 @@ void soo_guest_activity_init(void)
 		pending_uevent_req[i].pending = false;
 
 	register_dc_event_callback(DC_TRIGGER_DEV_PROBE, dc_trigger_dev_probe_fn);
-
-	register_dc_event_callback(DC_PLUGIN_WLAN_SEND, dc_plugin_fn);
-	register_dc_event_callback(DC_PLUGIN_LOOPBACK_SEND, dc_plugin_fn);
-	register_dc_event_callback(DC_PLUGIN_ETHERNET_SEND, dc_plugin_fn);
-	register_dc_event_callback(DC_PLUGIN_TCP_SEND, dc_plugin_fn);
-	register_dc_event_callback(DC_PLUGIN_BLUETOOTH_SEND, dc_plugin_fn);
 
 	INIT_LIST_HEAD(&uevents);
 

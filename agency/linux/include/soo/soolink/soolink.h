@@ -21,8 +21,7 @@
 #define SOOLINK_H
 
 #include <linux/types.h>
-
-#include <xenomai/rtdm/driver.h>
+#include <linux/completion.h>
 
 #include <soo/uapi/soo.h>
 
@@ -70,14 +69,14 @@ typedef enum {
 typedef enum {
 	SL_DL_PROTO_DISABLED = 0,
 	SL_DL_PROTO_WINENET,
-    SL_DL_PROTO_BT,
+	SL_DL_PROTO_BT,
 	SL_DL_PROTO_N
 } datalink_proto_t;
 
 struct sl_desc;
 typedef struct sl_desc sl_desc_t;
 
-typedef void (*rtdm_recv_callback_t)(sl_desc_t *sl_desc, void *data, size_t size);
+typedef void (*recv_callback_t)(sl_desc_t *sl_desc, void *data, size_t size);
 
 /* SOOlink descriptor */
 typedef struct sl_desc {
@@ -101,10 +100,11 @@ typedef struct sl_desc {
 	agencyUID_t	agencyUID_to;
 
 	/* (optional) Receive callback function */
-	rtdm_recv_callback_t rtdm_recv_callback;
+	recv_callback_t recv_callback;
 
 	/* Event and parameters to perform synchronous call to the Decoder receive function */
-	rtdm_event_t recv_event;
+	struct completion recv_event;
+
 	void *incoming_block;
 
 	/*
@@ -132,39 +132,21 @@ typedef struct {
 	size_t		*size_p;
 } sl_recv_args_t;
 
-void rtdm_propagate_sl_tx_request(void);
-void rtdm_propagate_sl_send(void);
-void rtdm_propagate_sl_recv(void);
-
 void sl_set_exclusive(sl_desc_t *sl_desc, bool active);
 
 bool is_exclusive(sl_desc_t *sl_desc);
 
-void rtdm_sl_set_recv_callback(sl_desc_t *sl_desc, rtdm_recv_callback_t rtdm_recv_fn);
+void sl_set_recv_callback(sl_desc_t *sl_desc, recv_callback_t recv_fn);
 
 sl_desc_t *sl_register(req_type_t req_type, if_type_t if_type, trans_mode_t trans_mode);
 void sl_unregister(sl_desc_t *sl_desc);
 sl_desc_t *find_sl_desc_by_req_type(req_type_t req_type);
-
-void sl_tx_request(sl_desc_t *sl_desc);
-void rtdm_sl_tx_request(sl_desc_t *sl_desc);
-
-bool sl_try_update_tx(void);
-void sl_release_update_tx(void);
 
 uint32_t sl_neighbour_count(void);
 
 /* prio can be 0 to 99 (the greater the higher priority) */
 void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio);
 int sl_recv(sl_desc_t *sl_desc, void **data);
-void rtdm_sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio);
-void rtdm_sl_recv(sl_desc_t *sl_desc, void **data, size_t *size_p);
-
-/* Helpers for streams */
-void rtdm_sl_stream_init(sl_desc_t *sl_desc, void *data, size_t packet_size);
-void rtdm_sl_stream_send(sl_desc_t *sl_desc, void *data);
-int rtdm_sl_stream_recv(sl_desc_t *sl_desc, void **data);
-void rtdm_sl_stream_terminate(sl_desc_t *sl_desc);
 
 void sl_discovery_start(void);
 

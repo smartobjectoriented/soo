@@ -22,6 +22,7 @@
 #endif
 
 #include <linux/bug.h>
+#include <linux/mutex.h>
 
 #include <soo/soolink/sender.h>
 #include <soo/soolink/datalink.h>
@@ -35,7 +36,7 @@
 
 #include <soo/soolink/receiver.h>
 
-static rtdm_mutex_t sender_lock;
+static struct mutex sender_lock;
 
 /**
  * This function requests to send a packet. Datalink will forward the packet
@@ -80,15 +81,15 @@ void __sender_tx(sl_desc_t *sl_desc, void *packet, size_t size, unsigned long fl
 	/* Add the transceiver's packet header size to the total size */
 	packet_size = size + sizeof(transceiver_packet_t);
 	
-	rtdm_mutex_lock(&sender_lock);
+	mutex_lock(&sender_lock);
 	
 	plugin_tx(sl_desc, packet, packet_size, flags);
 
-	rtdm_mutex_unlock(&sender_lock);
+	mutex_unlock(&sender_lock);
 }
 
 void sender_init(void) {
 	
-	rtdm_mutex_init(&sender_lock);
+	mutex_init(&sender_lock);
 
 }

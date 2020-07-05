@@ -23,6 +23,7 @@
 
 #include <linux/types.h>
 #include <linux/spinlock.h>
+#include <linux/kthread.h>
 
 #include <soo/soolink/discovery.h>
 #include <soo/soolink/sender.h>
@@ -36,6 +37,8 @@
 #include <soo/uapi/debug.h>
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
+
+#include <soo/debug/bandwidth.h>
 
 #undef CONFIG_ARM_PSCI
 
@@ -52,6 +55,7 @@ static bool __neighbour_list_protected;
 /* Used to maintain new discovered neighbours if the main list is protected. */
 static struct list_head discovery_pending_add_list;
 
+static volatile uint32_t neighbor_count = 0;
 
 typedef struct {
 	neighbour_desc_t *neighbour;
@@ -78,6 +82,9 @@ static void callbacks_add_neighbour(neighbour_desc_t *neighbour) {
 	struct list_head *cur;
 	discovery_listener_t *cur_listener;
 
+	if (neighbour->plugin)
+		neighbor_count++;
+
 	list_for_each(cur, &discovery_listener_list) {
 		cur_listener = list_entry(cur, discovery_listener_t, list);
 
@@ -93,6 +100,9 @@ static void callbacks_add_neighbour(neighbour_desc_t *neighbour) {
 static void callbacks_remove_neighbour(neighbour_desc_t *neighbour) {
 	struct list_head *cur;
 	discovery_listener_t *cur_neighbour;
+
+	if (neighbour->plugin)
+		neighbor_count--;
 
 	list_for_each(cur, &discovery_listener_list) {
 		cur_neighbour = list_entry(cur, discovery_listener_t, list);
@@ -555,7 +565,7 @@ static void send_beacon(void) {
 /**
  * Infinite loop that checks if the neighbours are alive.
  */
-static void iamasoo_task_fn(void *args) {
+static int iamasoo_task_fn(void *args) {
 	struct list_head *cur, *tmp;
 	neighbour_desc_t *neighbour;
 	uint8_t soo_name[SOO_NAME_SIZE];
@@ -588,8 +598,8 @@ static void iamasoo_task_fn(void *args) {
 	discovery_enable();
 
 	while (1) {
-		rtdm_task_wait_period(NULL);
-
+		//rtdm_task_wait_period(NULL);
+		schedule_timeout(msecs_to_jiffies(DISCOVERY_TASK_PERIOD_MS));
 		if (!discovery_enabled)
 			continue;
 
@@ -643,6 +653,8 @@ static void iamasoo_task_fn(void *args) {
 
 		spin_unlock(&discovery_listener_lock);
 	}
+
+	return 0;
 }
 
 /**
@@ -785,23 +797,7 @@ void discovery_dump_neighbours(void) {
  * Return the number of neighbours currently known.
  */
 uint32_t discovery_neighbour_count(void) {
-	struct list_head *cur;
-	neighbour_desc_t *neighbour;
-	uint32_t count = 0;
-
-	spin_lock(&discovery_listener_lock);
-
-	list_for_each(cur, &neighbour_list) {
-		neighbour = list_entry(cur, neighbour_desc_t, list);
-
-		/* Check the entry is not ourself. */
-		if (neighbour->plugin)
-			count++;
-	}
-
-	spin_unlock(&discovery_listener_lock);
-
-	return count;
+	return neighbor_count;
 }
 
 /**
@@ -818,21 +814,22 @@ void neighbours_read(char *str) {
 	sprintf(str, "%d", discovery_neighbour_count());
 }
 
-#if 0 /* Debugging purposes */
+#if 1 /* Debugging purposes */
 
 static int count = 0;
-static rtdm_task_t rt_soo_stream_task;
 
 static void (soo_stream_recv)(sl_desc_t *sl_desc, void *data, size_t size) {
 
 	count++;
 	lprintk("## ******************** Got a buffer (count %d got %d bytes)\n", count, size);
 
+	ll_bandwidth_show(0, size);
+
 	/* Must release the allocated buffer */
 	vfree(data);
 }
 
-#define BUFFER_SIZE 20*1024
+#define BUFFER_SIZE 2*1024*1024
 
 static unsigned char buffer[BUFFER_SIZE];
 
@@ -844,13 +841,13 @@ void stream_count_read(char *str) {
  * Testing RT task to send a stream to a specific smart object.
  * This is mainly used for debugging purposes and performance assessment.
  */
-static void soo_stream_task_fn(void *args) {
+static int soo_stream_task_fn(void *args) {
 
 	sl_desc_t *sl_desc;
 	int i;
 
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
-	sl_desc = sl_register(SL_REQ_PEER, SL_IF_WLAN, SL_MODE_UNIBROAD);
+	sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
 #else /* CONFIG_SOOLINK_PLUGIN_WLAN */
 	sl_desc = sl_register(SL_REQ_PEER, SL_IF_ETH, SL_MODE_UNIBROAD);
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
@@ -858,29 +855,31 @@ static void soo_stream_task_fn(void *args) {
 	for (i = 0; i < BUFFER_SIZE; i++)
 		buffer[i] = i;
 
-	rtdm_sl_set_recv_callback(sl_desc, soo_stream_recv);
+	sl_set_recv_callback(sl_desc, soo_stream_recv);
 
 	soo_sysfs_register(stream_count, stream_count_read, NULL);
 	soo_sysfs_register(neighbours, neighbours_read, NULL);
-
-	while (true) {
 #if 1
+	while (true) {
+
 		if (discovery_neighbour_count() > 0) {
 			lprintk("*** sending buffer ****\n");
-			rtdm_sl_send(sl_desc, buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+			sl_send(sl_desc, buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
 
 			lprintk("*** sending COMPLETE ***\n");
-			rtdm_sl_send(sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			sl_send(sl_desc, NULL, 0, get_null_agencyUID(), 10);
 
 			lprintk("*** End. ***\n");
 		}
-#endif
-		rtdm_task_wait_period(NULL);
-	}
 
+		/* rtdm_task_wait_period(NULL); */
+	}
+#endif
+	return 0;
 }
 
 #endif /* 0 */
+
 
 /*
  * Main initialization function of the Discovery functional block
@@ -931,11 +930,12 @@ void discovery_start(void) {
 
 	discovery_enable();
 
-	rtdm_task_init(&rt_watch_loop_task, "Discovery", iamasoo_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
-
+	//rtdm_task_init(&rt_watch_loop_task, "Discovery", iamasoo_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
+	kthread_run(iamasoo_task_fn, NULL, "iamasoo_task");
 	/* Activated if necessary for debugging purposes and performance assessment. */
-#if 0
-	rtdm_task_init(&rt_soo_stream_task, "SOO-streaming", soo_stream_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
+#if 1
+	//rtdm_task_init(&rt_soo_stream_task, "SOO-streaming", soo_stream_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
+	kthread_run(soo_stream_task_fn, NULL, "rt_soo_stream_task");
 #endif
 
 }

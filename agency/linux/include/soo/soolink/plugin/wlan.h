@@ -38,10 +38,7 @@ netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb, struct net_device *ndev
 #define WLAN_NET_DEV_NAME	"wlandummy"
 #endif
 
-void sl_plugin_wlan_rx_skb(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
-
-void propagate_plugin_wlan_send(void);
-void rtdm_propagate_sl_plugin_wlan_rx(void);
+void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
 
 void plugin_wlan_delete_remote(agencyUID_t *agencyUID);
 bool is_rtdm_wifi_enabled(void);

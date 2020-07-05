@@ -22,15 +22,15 @@
 
 #include <linux/vmalloc.h>
 #include <linux/errno.h>
+#include <linux/gfp.h>
 
+#include <asm/pgtable.h>
 #include <asm/string.h>
 
 #include <soo/uapi/dcm.h>
 
 #include <soo/dcm/datacomm.h>
 #include <soo/dcm/compressor.h>
-
-#include <xenomai/rtdm/driver.h>
 
 #include <soo/uapi/debug.h>
 #include <soo/uapi/console.h>

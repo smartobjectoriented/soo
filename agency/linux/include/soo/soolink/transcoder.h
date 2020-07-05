@@ -24,7 +24,7 @@
 
 #include <soo/soolink/soolink.h>
 
-#define SL_CODER_PACKET_MAX_SIZE 	1024
+#define SL_CODER_PACKET_MAX_SIZE 	1472
 
 #define CODER_CONSISTENCY_SIMPLE	0x00
 #define CODER_CONSISTENCY_EXT		0x01

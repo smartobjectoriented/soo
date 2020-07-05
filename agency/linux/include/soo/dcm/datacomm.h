@@ -22,7 +22,7 @@
 
 #include <linux/types.h>
 
-long datacomm_init(void);
+void datacomm_init(void);
 
 bool datacomm_ready_to_send(void);
 

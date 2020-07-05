@@ -448,7 +448,7 @@ typedef struct {
 /* Discovery */
 
 #define DISCOVERY_TASK_PRIO		50
-#define DISCOVERY_TASK_PERIOD		MILLISECS(1000)
+#define DISCOVERY_TASK_PERIOD_MS	1000
 
 /* Soolink Coder */
 
@@ -457,7 +457,7 @@ typedef struct {
 /* Soolink Decoder */
 
 #define DECODER_WATCHDOG_TASK_PRIO	50
-#define DECODER_WATCHDOG_TASK_PERIOD	MILLISECS(1000)
+#define DECODER_WATCHDOG_TASK_PERIOD_MS 1000
 
 /* Soolink Winenet Datalink */
 

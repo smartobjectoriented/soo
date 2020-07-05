@@ -39,6 +39,8 @@
 #include <linux/types.h>
 #include <linux/spinlock.h>
 #include <linux/time.h>
+#include <linux/mutex.h>
+#include <linux/kthread.h>
 
 #include <soo/soolink/soolink.h>
 
@@ -80,12 +82,17 @@ static bool transmission_over = false;
 /* Handle used in the FSM */
 static wnet_fsm_handle_t fsm_handle;
 
-static rtdm_mutex_t wnet_xmit_lock;
+static struct mutex wnet_xmit_lock;
 
 /* Event used to track the receival of a Winenet beacon or a TX request */
-static rtdm_event_t wnet_event;
-static rtdm_event_t beacon_event;
-static rtdm_event_t data_event;
+//static rtdm_event_t wnet_event;
+//static rtdm_event_t beacon_event;
+//static rtdm_event_t data_event;
+
+static struct completion wnet_event;
+static struct completion beacon_event;
+static struct completion data_event;
+
 
 /* Internal SOOlink descriptor for handling beacons such as ping req/rsp/go_speaker/etc. */
 static sl_desc_t *__sl_desc;
@@ -95,7 +102,8 @@ static wnet_rx_t wnet_rx;
 
 /* Management of the neighbourhood of SOOs. Used in the retry packet management. */
 static struct list_head wnet_neighbours;
-static rtdm_mutex_t neighbour_list_lock;
+//static rtdm_mutex_t neighbour_list_lock;
+static struct mutex neighbour_list_lock;
 
 /* Each call to winenet_tx will increment the transID counter */
 static uint32_t sent_packet_transID = 0;
@@ -195,7 +203,9 @@ void winenet_xmit_data_processed(int ret) {
 		wnet_tx.completed = true;
 
 	/* Allow the producer to go further */
-	rtdm_event_signal(&wnet_tx.xmit_event);
+	//rtdm_event_signal(&wnet_tx.xmit_event);
+	complete(&wnet_tx.xmit_event);
+
 }
 
 /**
@@ -247,7 +257,7 @@ static bool packet_already_received(transceiver_packet_t *packet, agencyUID_t *a
 	struct list_head *cur;
 	wnet_neighbour_t *neighbour_cur;
 
-	rtdm_mutex_lock(&neighbour_list_lock);
+	mutex_lock(&neighbour_list_lock);
 
 	/* Look for the remote SOO in the list */
 	list_for_each(cur, &wnet_neighbours) {
@@ -260,7 +270,7 @@ static bool packet_already_received(transceiver_packet_t *packet, agencyUID_t *a
 				((packet->transID & WNET_MAX_PACKET_TRANSID) == 0)) {
 				neighbour_cur->last_transID = packet->transID & WNET_MAX_PACKET_TRANSID;
 
-				rtdm_mutex_unlock(&neighbour_list_lock);
+				mutex_unlock(&neighbour_list_lock);
 				return false;
 			}
 			else {
@@ -268,7 +278,7 @@ static bool packet_already_received(transceiver_packet_t *packet, agencyUID_t *a
 				DBG("Agency UID found: ");
 				DBG_BUFFER(&neighbour_cur->neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
-				rtdm_mutex_unlock(&neighbour_list_lock);
+				mutex_unlock(&neighbour_list_lock);
 				return true;
 			}
 		}
@@ -276,7 +286,7 @@ static bool packet_already_received(transceiver_packet_t *packet, agencyUID_t *a
 
 	/* This is an unknown agency UID. Will be integrated in the neighbour list very soon. */
 
-	rtdm_mutex_unlock(&neighbour_list_lock);
+	mutex_unlock(&neighbour_list_lock);
 
 	return false;
 }
@@ -292,13 +302,13 @@ static wnet_neighbour_t *ourself(void) {
 	if (wnet_neighbour)
 		return wnet_neighbour;
 
-	rtdm_mutex_lock(&neighbour_list_lock);
+	mutex_lock(&neighbour_list_lock);
 
 	list_for_each(cur, &wnet_neighbours) {
 		wnet_neighbour = list_entry(cur, wnet_neighbour_t, list);
 
 		if (!wnet_neighbour->neighbour->plugin) {
-			rtdm_mutex_unlock(&neighbour_list_lock);
+			mutex_unlock(&neighbour_list_lock);
 			return wnet_neighbour;
 		}
 	}
@@ -375,17 +385,17 @@ wnet_neighbour_t *find_neighbour(agencyUID_t *agencyUID) {
 	struct list_head *cur;
 	static wnet_neighbour_t *wnet_neighbour = NULL;
 
-	rtdm_mutex_lock(&neighbour_list_lock);
+	mutex_lock(&neighbour_list_lock);
 
 	list_for_each(cur, &wnet_neighbours) {
 		wnet_neighbour = list_entry(cur, wnet_neighbour_t, list);
 
 		if (!cmpUID(&wnet_neighbour->neighbour->agencyUID, agencyUID)) {
-			rtdm_mutex_unlock(&neighbour_list_lock);
+			mutex_unlock(&neighbour_list_lock);
 			return wnet_neighbour;
 		}
 	}
-	rtdm_mutex_unlock(&neighbour_list_lock);
+	mutex_unlock(&neighbour_list_lock);
 
 	return NULL;
 }
@@ -411,7 +421,7 @@ static void winenet_add_neighbour(neighbour_desc_t *neighbour) {
 	 * At the moment, we do not perform other keep-alive event.
 	 */
 
-	rtdm_mutex_lock(&neighbour_list_lock);
+	mutex_lock(&neighbour_list_lock);
 
 	wnet_neighbour = kzalloc(sizeof(wnet_neighbour_t), GFP_ATOMIC);
 	BUG_ON(!wnet_neighbour);
@@ -434,9 +444,10 @@ static void winenet_add_neighbour(neighbour_desc_t *neighbour) {
 		list_add_tail(&wnet_neighbour->list, &wnet_neighbours);
 
 		change_state(WNET_STATE_IDLE);
-		rtdm_event_signal(&wnet_event);
+		//rtdm_event_signal(&wnet_event);
+		complete(&wnet_event);
 
-		rtdm_mutex_unlock(&neighbour_list_lock);
+		mutex_unlock(&neighbour_list_lock);
 
 		return ;
 
@@ -460,7 +471,7 @@ static void winenet_add_neighbour(neighbour_desc_t *neighbour) {
 			list_add_tail(&wnet_neighbour->list, &wnet_neighbours);
 	}
 
-	rtdm_mutex_unlock(&neighbour_list_lock);
+	mutex_unlock(&neighbour_list_lock);
 
 	/* If we have the smaller agencyUID, we initiate the ping procedure. */
 	if (cmpUID(&ourself()->neighbour->agencyUID, &neighbour->agencyUID) < 0)
@@ -495,7 +506,7 @@ static void winenet_remove_neighbour(neighbour_desc_t *neighbour) {
 #endif
 
 	if (smp_processor_id() == AGENCY_RT_CPU)
-		rtdm_mutex_lock(&neighbour_list_lock);
+		mutex_lock(&neighbour_list_lock);
 
 	list_for_each_safe(cur, tmp, &wnet_neighbours) {
 		wnet_neighbour = list_entry(cur, wnet_neighbour_t, list);
@@ -520,16 +531,18 @@ static void winenet_remove_neighbour(neighbour_desc_t *neighbour) {
 				ourself()->neighbour->priv = &ourself()->neighbour->agencyUID;
 
 				change_state(WNET_STATE_SPEAKER);
-				rtdm_event_signal(&wnet_event); /* Get out of listener state */
+				//rtdm_event_signal(&wnet_event); /* Get out of listener state */
+				complete(&wnet_event);
 			}
 
 		} else
-			rtdm_event_signal(&wnet_event); /* Get out of listener state */
+			//rtdm_event_signal(&wnet_event); /* Get out of listener state */
+			complete(&wnet_event);
 
 	}
 
 	if (smp_processor_id() == AGENCY_RT_CPU)
-		rtdm_mutex_unlock(&neighbour_list_lock);
+		mutex_unlock(&neighbour_list_lock);
 
 #ifdef VERBOSE_DISCOVERY
 	winenet_dump_neighbours();
@@ -612,7 +625,7 @@ void winenet_dump_neighbours(void) {
 	wnet_neighbour_t *neighbour;
 	uint32_t count = 0;
 
-	rtdm_mutex_lock(&neighbour_list_lock);
+	mutex_lock(&neighbour_list_lock);
 
 	lprintk("***** List of neighbours:\n");
 
@@ -620,7 +633,7 @@ void winenet_dump_neighbours(void) {
 	if (list_empty(&wnet_neighbours)) {
 		lprintk("No neighbour\n");
 
-		rtdm_mutex_unlock(&neighbour_list_lock);
+		mutex_unlock(&neighbour_list_lock);
 		return;
 	}
 
@@ -633,7 +646,7 @@ void winenet_dump_neighbours(void) {
 		count++;
 	}
 
-	rtdm_mutex_unlock(&neighbour_list_lock);
+	mutex_unlock(&neighbour_list_lock);
 }
 
 /**
@@ -661,7 +674,8 @@ void beacon_clear(void) {
 	wnet_rx.last_beacon.id = WNET_BEACON_N;
 	memcpy(&wnet_rx.sl_desc->agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
 
-	rtdm_event_signal(&beacon_event);
+	//rtdm_event_signal(&beacon_event);
+	complete(&beacon_event);
 }
 
 /**
@@ -809,12 +823,12 @@ bool process_ping_is_speaker(void) {
 static int wait_for_ack(wnet_beacon_t *beacon) {
 	int ret;
 	int ret_ack = -1;
-	nanosecs_rel_t tspeaker_ack = WNET_TSPEAKER_ACK;
 
 	/* Timeout of Tspeaker us */
-	ret = rtdm_event_timedwait(&wnet_event, tspeaker_ack, NULL);
+	//ret = rtdm_event_timedwait(&wnet_event, tspeaker_ack, NULL);
+	ret = wait_for_completion_timeout(&wnet_event, msecs_to_jiffies(WNET_TSPEAKER_ACK_MS));
 
-	if (ret == 0) {
+	if (ret > 0) {
 		ret_ack = 1;
 
 		if (wnet_rx.last_beacon.id == WNET_BEACON_ACKNOWLEDGMENT) {
@@ -832,7 +846,7 @@ static int wait_for_ack(wnet_beacon_t *beacon) {
 			beacon_clear();
 		}
 
-	} else if (ret == -ETIMEDOUT) {
+	} else {
 
 		/* The timeout has expired */;
 //#ifdef VERBOSE
@@ -1038,7 +1052,8 @@ static void winenet_state_init(wnet_state_t old_state) {
 	DBG("Init\n");
 
 	/* Wait that Discovery inserted us into the list of neighbour. */
-	rtdm_event_wait(&wnet_event);
+	//rtdm_event_wait(&wnet_event);
+	wait_for_completion(&wnet_event);
 }
 
 /**************************** WNET_STATE_IDLE *****************************/
@@ -1068,7 +1083,8 @@ static void winenet_state_idle(wnet_state_t old_state) {
 
 retry:
 	/* Waiting on a first neighbor at least. */
-	rtdm_event_wait(&wnet_event);
+	//rtdm_event_wait(&wnet_event);
+	wait_for_completion(&wnet_event);
 
 	if (clear_spurious_ack())
 		goto retry;
@@ -1092,7 +1108,8 @@ retry:
 
 					ourself()->neighbour->priv = &ourself()->neighbour->agencyUID;
 					change_state(WNET_STATE_SPEAKER);
-					rtdm_event_signal(&wnet_event); /* Proceed immediately */
+					//rtdm_event_signal(&wnet_event); /* Proceed immediately */
+					complete(&wnet_event);
 
 				} else {
 
@@ -1123,7 +1140,8 @@ retry:
 
 					ourself()->neighbour->priv = &ourself()->neighbour->agencyUID;
 					change_state(WNET_STATE_SPEAKER);
-					rtdm_event_signal(&wnet_event); /* Proceed immediately */
+					//rtdm_event_signal(&wnet_event); /* Proceed immediately */
+					complete(&wnet_event);
 
 				} else {
 					ourself()->neighbour->priv = &wnet_neighbour->neighbour->agencyUID;
@@ -1182,7 +1200,8 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 
 		/* We keep synchronized with our producer or be ready to process beacons. */
 
-		rtdm_event_wait(&wnet_event);
+		//rtdm_event_wait(&wnet_event);
+		wait_for_completion(&wnet_event);
 
 		if (clear_spurious_ack())
 			continue;
@@ -1224,7 +1243,8 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 				transmission_over = false;
 
 				/* Synchronize with the producer. */
-				rtdm_event_signal(&wnet_tx.xmit_event);
+				//rtdm_event_signal(&wnet_tx.xmit_event);
+				complete(&wnet_tx.xmit_event);
 			}
 
 			/* Send a go_speaker beacon to the next speaker. */
@@ -1492,14 +1512,16 @@ static void winenet_state_listener(wnet_state_t old_state) {
 #endif
 
 	while (1) {
-		rtdm_event_wait(&wnet_event);
+		//rtdm_event_wait(&wnet_event);
+		wait_for_completion(&wnet_event);
 
 		if (clear_spurious_ack())
 			continue;
 
 		/* It may happen if the current speaker disappeared and we are now speaker. */
 		if (get_state() == WNET_STATE_SPEAKER) {
-			rtdm_event_signal(&wnet_event); /* Go ahead in speaker state for active processing */
+			//rtdm_event_signal(&wnet_event); /* Go ahead in speaker state for active processing */
+			complete(&wnet_event);
 			return ;
 		}
 
@@ -1523,7 +1545,8 @@ static void winenet_state_listener(wnet_state_t old_state) {
 			/* Our turn... */
 			ourself()->neighbour->priv = &ourself()->neighbour->agencyUID;
 			change_state(WNET_STATE_SPEAKER);
-			rtdm_event_signal(&wnet_event); /* Proceed immediately */
+			//rtdm_event_signal(&wnet_event); /* Proceed immediately */
+			complete(&wnet_event);
 
 			/* We can respond to our promoter :-) */
 			winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, &wnet_rx.sl_desc->agencyUID_from, NULL);
@@ -1561,7 +1584,8 @@ static void winenet_state_listener(wnet_state_t old_state) {
 
 			winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, &wnet_rx.sl_desc->agencyUID_from, (void *) (wnet_rx.transID & WNET_MAX_PACKET_TRANSID));
 
-			rtdm_event_signal(&data_event);
+			//rtdm_event_signal(&data_event);
+			complete(&data_event);
 		}
 
 	}
@@ -1594,7 +1618,8 @@ void winenet_change_state(wnet_fsm_handle_t *handle, wnet_state_t new_state) {
 	handle->old_state = handle->state;
 	handle->state = new_state;
 
-	rtdm_event_signal(&handle->event);
+	//rtdm_event_signal(&handle->event);
+	complete(&handle->event);
 }
 
 /**
@@ -1622,10 +1647,11 @@ static wnet_state_t get_state(void) {
  * Main Winenet routine that implements the FSM.
  * At the beginning, we are in the IDLE state.
  */
-static void fsm_task_fn(void *args) {
+static int fsm_task_fn(void *args) {
 	wnet_fsm_handle_t *handle = (wnet_fsm_handle_t *) args;
 	wnet_state_fn_t *functions = handle->funcs;
-	rtdm_event_t *event = &handle->event;
+	//rtdm_event_t *event = &handle->event;
+	struct completion *event = &handle->event;
 
 	DBG("Entering Winenet FSM task...\n");
 
@@ -1635,8 +1661,11 @@ static void fsm_task_fn(void *args) {
 		/* Call the proper state function */
 		(*functions[handle->state])(handle->old_state);
 
-		rtdm_event_wait(event);
+		//rtdm_event_wait(event);
+		wait_for_completion(event);
 	}
+
+	return 0;
 }
 
 /**
@@ -1649,7 +1678,8 @@ void winenet_start_fsm_task(char *name, wnet_fsm_handle_t *handle) {
 	handle->old_state = WNET_STATE_INIT;
 	handle->state = WNET_STATE_INIT;
 
-	rtdm_task_init(&handle->task, name, fsm_task_fn, (void *) handle, WINENET_TASK_PRIO, 0);
+	//rtdm_task_init(&handle->task, name, fsm_task_fn, (void *) handle, WINENET_TASK_PRIO, 0);
+	kthread_run(fsm_task_fn, (void *) handle, "fsm_task");
 }
 
 /**
@@ -1673,10 +1703,12 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
 
 			transmission_over = true;
 
-			rtdm_event_signal(&wnet_event);
+			//rtdm_event_signal(&wnet_event);
+			complete(&wnet_event);
 
 			/* Wait until the FSM has processed the data. */
-			rtdm_event_wait(&wnet_tx.xmit_event);
+			//rtdm_event_wait(&wnet_tx.xmit_event);
+			wait_for_completion(&wnet_tx.xmit_event);
 		}
 
 		return 0;
@@ -1695,7 +1727,7 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
 	}
 
 	/* Only one producer can call winenet_tx at a time */
-	rtdm_mutex_lock(&wnet_xmit_lock);
+	mutex_lock(&wnet_xmit_lock);
 
 	packet->transID = sent_packet_transID;
 
@@ -1729,10 +1761,12 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
 		sent_packet_transID = 0;
 
 	if (wnet_tx.transID > 0)
-		rtdm_event_signal(&wnet_event);
+		//rtdm_event_signal(&wnet_event);
+		complete(&wnet_event);
 
 	/* Wait until the packed has been sent out. */
-	rtdm_event_wait(&wnet_tx.xmit_event);
+	//rtdm_event_wait(&wnet_tx.xmit_event);
+	wait_for_completion(&wnet_tx.xmit_event);
 
 	/* completed ? */
 	if (wnet_tx.completed)
@@ -1741,7 +1775,7 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
 
 	ret = wnet_tx.ret;
 
-	rtdm_mutex_unlock(&wnet_xmit_lock);
+	mutex_unlock(&wnet_xmit_lock);
 
 	return ret;
 }
@@ -1782,10 +1816,12 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 #endif
 
 		/* Processed within the FSM directly */
-		rtdm_event_signal(&wnet_event);
+		//rtdm_event_signal(&wnet_event);
+		complete(&wnet_event);
 
 		/* Wait until the beacon has been processed by the FSM */
-		rtdm_event_wait(&beacon_event);
+		//rtdm_event_wait(&beacon_event);
+		wait_for_completion(&beacon_event);
 	}
 
 	if (packet->packet_type == TRANSCEIVER_PKT_DATA) {
@@ -1877,10 +1913,12 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 
 				got_data = false;
 
-				rtdm_event_signal(&wnet_event);
+				//rtdm_event_signal(&wnet_event);
+				complete(&wnet_event);
 
 				/* Wait until the beacon has been processed by the FSM */
-				rtdm_event_wait(&data_event);
+				//rtdm_event_wait(&data_event);
+				complete(&data_event);
 			}
 		}
 	}
@@ -1904,19 +1942,24 @@ void winenet_init(void) {
 
 	INIT_LIST_HEAD(&wnet_neighbours);
 
-	rtdm_event_init(&wnet_event, 0);
-	rtdm_event_init(&wnet_tx.xmit_event, 0);
-	rtdm_event_init(&beacon_event, 0);
-	rtdm_event_init(&data_event, 0);
+	//rtdm_event_init(&wnet_event, 0);
+	//rtdm_event_init(&wnet_tx.xmit_event, 0);
+	//rtdm_event_init(&beacon_event, 0);
+	//rtdm_event_init(&data_event, 0);
+	init_completion(&wnet_event);
+	init_completion(&wnet_tx.xmit_event);
+	init_completion(&beacon_event);
+	init_completion(&beacon_event);
 
 	wnet_tx.pending = false;
 	wnet_rx.data_received = false;
 	wnet_rx.last_beacon.id = WNET_BEACON_N;
 
-	rtdm_mutex_init(&wnet_xmit_lock);
-	rtdm_mutex_init(&neighbour_list_lock);
+	mutex_init(&wnet_xmit_lock);
+	mutex_init(&neighbour_list_lock);
 
-	rtdm_event_init(&fsm_handle.event, 0);
+	//rtdm_event_init(&fsm_handle.event, 0);
+	init_completion(&fsm_handle.event);
 	fsm_handle.funcs = fsm_functions;
 
 	/* Internal SOOlink descriptor */

@@ -43,8 +43,6 @@
 #include <soo/soolink/datalink.h>
 #include <soo/soolink/discovery.h>
 
-#include <xenomai/rtdm/driver.h>
-
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
@@ -284,7 +282,8 @@ static long dcm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
 	switch (cmd) {
 	case DCM_IOCTL_INIT:
-		return datacomm_init();
+		datacomm_init();
+		return 0;
 
 	case DCM_IOCTL_NEIGHBOUR_COUNT:
 		return sl_neighbour_count();

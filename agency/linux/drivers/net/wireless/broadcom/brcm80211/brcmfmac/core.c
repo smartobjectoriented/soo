@@ -433,7 +433,7 @@ void brcmf_netif_rx(struct brcmf_if *ifp, struct sk_buff *skb)
 	skb_protocol = ntohs(skb->protocol) & 0x10ff;
 
 	if ((skb_protocol > ETH_P_SL_MIN) && (skb_protocol < ETH_P_SL_MAX))
-		sl_plugin_wlan_rx_skb(skb, ifp->ndev, mac_src);
+		plugin_wlan_rx(skb, ifp->ndev, mac_src);
 	else {	
 
 		if (in_interrupt())
