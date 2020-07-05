@@ -1,3 +1,7 @@
 config PL050_KMI
 	bool "PL050 Keyboard/Mouse Interface"
 	depends on VEXPRESS
+
+config SO3VIRT_INPUT
+	bool "Virtual input driver"
+	depends on SO3VIRT

@@ -3,5 +3,5 @@ config PL111_CLCD
 	depends on VEXPRESS
 
 config SO3VIRT_FB
-	bool "so3virt framebuffer driver"
+	bool "Virtual framebuffer driver"
 	depends on SO3VIRT

@@ -29,6 +29,8 @@
 #include <asm/mmu.h>
 
 #include <device/driver.h>
+#include <device/input/so3virt_mse.h>
+#include <device/input/so3virt_kbd.h>
 
 #include <soo/evtchn.h>
 #include <soo/gnttab.h>
@@ -36,60 +38,38 @@
 #include <soo/vbus.h>
 #include <soo/console.h>
 #include <soo/debug.h>
-
 #include <soo/dev/vinput.h>
-
-
-static bool thread_created = false;
+#include <uapi/linux/input-event-codes.h>
 
 irq_return_t vinput_interrupt(int irq, void *dev_id)
 {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vinput_t *vinput = to_vinput(vdev);
 	vinput_response_t *ring_rsp;
-
-	DBG("%s, %d\n", __func__, ME_domID());
+	unsigned int type, code;
+	int value;
 
 	while ((ring_rsp = vinput_ring_response(&vinput->ring)) != NULL) {
-		DBG("%s, cons=?\n", __func__);
-		/* Do something with the response */
+
+		type = ring_rsp->type;
+		code = ring_rsp->code;
+		value = ring_rsp->value;
+
+		if (type == EV_REL || /* is mouse movement */
+		   (type == EV_KEY && /* is mouse button click */
+			(code == BTN_LEFT || code == BTN_MIDDLE || code == BTN_RIGHT))) {
+
+			so3virt_mse_event(type, code, value);
+		}
+		else if (type == EV_KEY) {
+			so3virt_kbd_event(type, code, value);
+		}
+
+		/* Skip unhandled events. */
 	}
 
 	return IRQ_COMPLETED;
 }
-
-#if 0
-/*
- * The following function is given as an example.
- *
- */
-void vinput_generate_request(char *buffer)
-{
-	vinput_request_t *ring_req;
-
-	vdevfront_processing_start();
-
-	/*
-	 * Try to generate a new request to the backend
-	 */
-	if (!RING_FULL(&vinput.ring)) {
-		ring_req = RING_GET_REQUEST(&vinput.ring, vinput.ring.req_prod_pvt);
-
-		memcpy(ring_req->buffer, buffer, VINPUT_PACKET_SIZE);
-
-		/* Fill in the ring_req structure */
-
-		/* Make sure the other end "sees" the request when updating the index */
-		dmb();
-
-		vinput.ring.req_prod_pvt++;
-		RING_PUSH_REQUESTS(&vinput.ring);
-		notify_remote_via_irq(vinput.irq);
-	}
-
-	vdevfront_processing_end();
-}
-#endif
 
 void vinput_probe(struct vbus_device *vdev)
 {
@@ -103,7 +83,6 @@ void vinput_probe(struct vbus_device *vdev)
 
 	if (vdev->state == VbusStateConnected)
 		return ;
-
 
 	vinput = malloc(sizeof(vinput_t));
 	BUG_ON(!vinput);
@@ -149,10 +128,8 @@ void vinput_probe(struct vbus_device *vdev)
 	vinput->ring_ref = res;
 
 	vbus_transaction_start(&vbt);
-
 	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vinput->ring_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vinput->evtchn);
-
 	vbus_transaction_end(vbt);
 }
 
@@ -181,16 +158,13 @@ void vinput_reconfiguring(struct vbus_device *vdev)
 	/* Prepare the shared to page to be visible on the other end */
 
 	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vinput->ring.sring)));
-	if (res < 0)
-		BUG();
+	BUG_ON(res < 0);
 
 	vinput->ring_ref = res;
 
 	vbus_transaction_start(&vbt);
-
 	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vinput->ring_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vinput->evtchn);
-
 	vbus_transaction_end(vbt);
 }
 
@@ -205,9 +179,7 @@ void vinput_closed(struct vbus_device *vdev)
 
 	DBG0("[" VINPUT_NAME "] Frontend close\n");
 
-	/**
-	 * Free the ring and deallocate the proper data.
-	 */
+	/* Free the ring and deallocate the proper data. */
 
 	/* Free resources associated with old device channel. */
 	if (vinput->ring_ref != GRANT_INVALID_REF) {
@@ -234,24 +206,6 @@ void vinput_resume(struct vbus_device *vdev)
 	DBG0("[" VINPUT_NAME "] Frontend resume\n");
 }
 
-#if 0
-int notify_fn(void *arg) {
-
-	while (1) {
-		msleep(50);
-
-		vinput_start();
-
-		/* Make sure the backend is connected and ready for interactions. */
-
-		notify_remote_via_irq(vinput.irq);
-		vinput_end();
-	}
-
-	return 0;
-}
-#endif
-
 void vinput_connected(struct vbus_device *vdev)
 {
 	vinput_t *vinput = to_vinput(vdev);
@@ -260,13 +214,6 @@ void vinput_connected(struct vbus_device *vdev)
 
 	/* Force the processing of pending requests, if any */
 	notify_remote_via_irq(vinput->irq);
-
-	if (!thread_created) {
-		thread_created = true;
-#if 0
-		kernel_thread(notify_fn, "notify_th", NULL, 0);
-#endif
-	}
 }
 
 vdrvfront_t vinputdrv = {

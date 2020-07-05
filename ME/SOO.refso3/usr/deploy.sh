@@ -6,4 +6,5 @@ cd ../rootfs
 ./mount_rootfs.sh
 sudo rm -rf fs/*
 sudo cp -r ../usr/out/* fs/
+sudo cp -r ../usr/resources/* fs/
 sudo ./umount_rootfs.sh

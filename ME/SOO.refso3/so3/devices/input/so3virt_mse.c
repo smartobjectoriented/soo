@@ -17,15 +17,20 @@
  */
 
 /*
- * Driver for the mouse (see pl050.c).
+ * Virtual driver for the mouse.
  */
 
+#if 0
+#define DEBUG
+#endif
+
 #include <vfs.h>
+#include <common.h>
 #include <asm/io.h>
 #include <device/driver.h>
+#include <device/input/so3virt_mse.h>
 #include <device/input/ps2.h>
-#include <device/input/pl050.h>
-
+#include <uapi/linux/input-event-codes.h>
 
 /*
  * Maximal horizontal and vertical resolution of the display.
@@ -45,73 +50,57 @@ struct ps2_mouse state = {
 };
 
 /* ioctl commands. */
+
 #define GET_STATE 0
 #define SET_SIZE  1
 
 int ioctl_mouse(int fd, unsigned long cmd, unsigned long args);
 
-struct file_operations pl050_mouse_fops = {
+/* Device info. */
+
+struct file_operations vmse_fops = {
 	.ioctl = ioctl_mouse
 };
 
-/* Device info. */
-dev_t pl050_mouse;
-struct devclass pl050_mouse_cdev = {
+struct devclass vmse_cdev = {
 	.class = DEV_CLASS_MOUSE,
 	.type = VFS_TYPE_DEV_INPUT,
-	.fops = &pl050_mouse_fops,
+	.fops = &vmse_fops,
 };
 
-/*
- * Mouse interrupt service routine.
- *
- * Called each time the mouse sends a packet. We use the packet to compute the
- * mouse coordinates and retrieve its button states.
- */
-irq_return_t pl050_int_mouse(int irq, void *dummy)
+void so3virt_mse_event(unsigned int type, unsigned int code, int value)
 {
-	uint8_t status, packet[3], i, tmp;
+	DBG("Input event: %u %u %d\n", type, code, value);
 
-	/* Read the interrupt status register. */
-	status = ioread8(pl050_mouse.base + KMI_IR);
-
-	/* As long as a receiver interrupt has been asserted… */
-	i = 0;
-	while (status & KMIIR_RXINTR) {
-
-		/*
-		 * Read from the data register. We care only about the first 3
-		 * bytes, but we must continue reading until there are none
-		 * (otherwise the status value will not change).
-		 */
-		tmp = ioread8(pl050_mouse.base + KMI_DATA);
-		if (i < 3) {
-			packet[i++] = tmp;
+	if (type == EV_REL) {
+		if (code == REL_X) {
+			state.x = CLAMP(state.x + value, 0, res.h);
 		}
-
-		/* Update status. */
-		status = ioread8(pl050_mouse.base + KMI_IR);
+		else if (code == REL_Y) {
+			state.y = CLAMP(state.y + value, 0, res.v);
+		}
+	}
+	else if (type == EV_KEY) {
+		/*
+		 * Here we only set the button states to "pressed". Their state
+		 * will be changed to "released" once the state has been read,
+		 * e.g. in the ioctl. So the client has the time to read the
+		 * button states.
+		 */
+		if (code == BTN_LEFT && value) {
+			state.left = value;
+		}
+		else if (code == BTN_MIDDLE && value) {
+			state.middle = value;
+		}
+		else if (code == BTN_RIGHT && value) {
+			state.right = value;
+		}
 	}
 
-	/* Set mouse coordinates and button states. */
-	if (i == 3) {
-		get_mouse_state(packet, &state, res.h, res.v);
-	}
-
-	return IRQ_COMPLETED;
-}
-
-int pl050_init_mouse(dev_t *dev)
-{
-	int res = pl050_init(dev, &pl050_mouse, &pl050_mouse_cdev, pl050_int_mouse);
-	if (0 != res) {
-		return res;
-	}
-
-	/* Tell the mouse to send PS/2 packets when moving. */
-	pl050_write(&pl050_mouse, EN_PKT_STREAM);
-
-	return 0;
+	DBG("xy[%04d, %04d]; %03s %03s %03s\n",
+		state.x, state.y,
+		state.left ? "LFT" : "", state.middle ? "MID" : "", state.right ? "RGT" : "");
 }
 
 int ioctl_mouse(int fd, unsigned long cmd, unsigned long args)
@@ -141,4 +130,11 @@ int ioctl_mouse(int fd, unsigned long cmd, unsigned long args)
 	return 0;
 }
 
-REGISTER_DRIVER_POSTCORE("arm,pl050,mouse", pl050_init_mouse);
+int init_mouse(dev_t *dev)
+{
+	/* Register the input device so it can be accessed from user space. */
+	devclass_register(dev, &vmse_cdev);
+	return 0;
+}
+
+REGISTER_DRIVER_POSTCORE("mouse,so3virt", init_mouse);

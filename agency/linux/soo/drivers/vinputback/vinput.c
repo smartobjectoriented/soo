@@ -18,7 +18,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -40,37 +40,48 @@
 #include <soo/uapi/console.h>
 #include <soo/vdevback.h>
 #include <soo/dev/vinput.h>
+#include <soo/dev/vinput-linux.h>
 
+#define VINPUT_COUNT 8
 
-void vinput_notify(struct vbus_device *vdev)
+static vinput_t *vinputs[VINPUT_COUNT];
+static domid_t current_vinput;
+
+void vinput_set_current(domid_t id)
 {
-	vinput_t *vinput = to_vinput(vdev);
+	current_vinput = id;
+}
 
-	RING_PUSH_RESPONSES(&vinput->ring);
+void vinput_pass_event(unsigned int type, unsigned int code, int value)
+{
+	vinput_response_t *ring_rsp;
+	vinput_t *vinput = vinputs[current_vinput];
 
-	/* Send a notification to the frontend only if connected.
-	 * Otherwise, the data remain present in the ring. */
+	/* If front-end is not connected, skip. */
+	if (!vinput) {
+		return;
+	}
 
+	if (type == 0 && code == 0 && value == 0) {
+		DBG(VINPUT_PREFIX "--- end\n");
+	}
+	else {
+		DBG(VINPUT_PREFIX "%u %u %d\n", type, code, value);
+	}
+
+	/* Send event to front-end. */
+	ring_rsp = vinput_ring_response(&vinput->ring);
+	ring_rsp->type = type;
+	ring_rsp->code = code;
+	ring_rsp->value = value;
+
+	vinput_ring_response_ready(&vinput->ring);
 	notify_remote_via_virq(vinput->irq);
 }
 
-
 irqreturn_t vinput_interrupt(int irq, void *dev_id)
 {
-	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	vinput_t *vinput = to_vinput(vdev);
-	vinput_request_t *ring_req;
-	vinput_response_t *ring_rsp;
-
-	DBG("%d\n", vdev->otherend_id);
-
-	while ((ring_req = vinput_ring_request(&vinput->ring)) != NULL) {
-		ring_rsp = vinput_ring_response(&vinput->ring);
-		memcpy(ring_rsp->buffer, ring_req->buffer, VINPUT_PACKET_SIZE);
-		vinput_ring_response_ready(&vinput->ring);
-		notify_remote_via_virq(vinput->irq);
-	}
-
+	/* Ignore interrupts from the front-end. */
 	return IRQ_HANDLED;
 }
 
@@ -82,7 +93,6 @@ void vinput_probe(struct vbus_device *vdev)
 	BUG_ON(!vinput);
 
 	dev_set_drvdata(&vdev->dev, &vinput->vdevback);
-
 	DBG(VINPUT_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
 
@@ -94,17 +104,13 @@ void vinput_remove(struct vbus_device *vdev)
 	kfree(vinput);
 }
 
-
 void vinput_close(struct vbus_device *vdev)
 {
 	vinput_t *vinput = to_vinput(vdev);
 
 	DBG(VINPUT_PREFIX "Backend close: %d\n", vdev->otherend_id);
 
-	/*
-	 * Free the ring and unbind evtchn.
-	 */
-
+	/* Free the ring and unbind evtchn. */
 	BACK_RING_INIT(&vinput->ring, (&vinput->ring)->sring, PAGE_SIZE);
 	unbind_from_virqhandler(vinput->irq, vdev);
 
@@ -147,7 +153,6 @@ void vinput_reconfigured(struct vbus_device *vdev)
 	BACK_RING_INIT(&vinput->ring, sring, PAGE_SIZE);
 
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vinput_interrupt, NULL, 0, VINPUT_NAME "-backend", vdev);
-
 	BUG_ON(res < 0);
 
 	vinput->irq = res;
@@ -156,34 +161,8 @@ void vinput_reconfigured(struct vbus_device *vdev)
 void vinput_connected(struct vbus_device *vdev)
 {
 	DBG(VINPUT_PREFIX "Backend connected: %d\n",vdev->otherend_id);
+	vinputs[vdev->otherend_id] = to_vinput(vdev);
 }
-
-#if 0
-/*
- * Testing code to analyze the behaviour of the ME during pre-suspend operations.
- */
-int generator_fn(void *arg)
-{
-	uint32_t i;
-
-	while (1) {
-		msleep(50);
-
-		for (i = 0; i < MAX_DOMAINS; i++) {
-
-			if (!vinput_start(i))
-				continue;
-
-			vinput_ring_response_ready()
-			vinput_notify(i);
-
-			vinput_end(i);
-		}
-	}
-
-	return 0;
-}
-#endif
 
 vdrvback_t vinputdrv = {
 	.probe = vinput_probe,
@@ -200,14 +179,8 @@ int vinput_init(void)
 	struct device_node *np;
 
 	np = of_find_compatible_node(NULL, NULL, "vinput,backend");
-
-	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))
 		return 0;
-
-#if 0
-	kthread_run(generator_fn, NULL, "vinput-gen");
-#endif
 
 	vdevback_init(VINPUT_NAME, &vinputdrv);
 	return 0;

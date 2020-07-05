@@ -21,7 +21,7 @@
  *
  * A more complete LittlevGL demo.
  *
- * Base on:
+ * Based on:
  *  - https://github.com/littlevgl/lv_examples/blob/master/lv_tests/lv_test_theme/lv_test_theme_1.c
  */
 
@@ -46,9 +46,9 @@ static uint32_t *fbp;
 static int mfd;
 static int kfd;
 
-/* Group for the keyboard. */
-static lv_group_t *keyboard_group;
+/* lvgl group for the keyboard. */
 
+static lv_group_t *keyboard_group;
 
 /* Function prototypes. */
 
@@ -66,6 +66,7 @@ void create_ui(void);
 void *tick_routine (void *args);
 
 /* File system driver functions. */
+
 bool fs_ready_cb(struct _lv_fs_drv_t *drv);
 lv_fs_res_t fs_open_cb(struct _lv_fs_drv_t *drv, void *file_p, const char *path, lv_fs_mode_t mode);
 lv_fs_res_t fs_close_cb(struct _lv_fs_drv_t *drv, void *file_p);
@@ -74,6 +75,7 @@ lv_fs_res_t fs_seek_cb(struct _lv_fs_drv_t *drv, void *file_p, uint32_t pos);
 lv_fs_res_t fs_tell_cb(struct _lv_fs_drv_t *drv, void *file_p, uint32_t *pos_p);
 
 /* Mouse driver-related structures. */
+
 #define GET_STATE 0
 #define SET_SIZE  1
 
@@ -87,6 +89,7 @@ struct display_res {
 };
 
 /* Keyboard driver-related structures. */
+
 #define GET_KEY 0
 
 struct ps2_key {
@@ -102,13 +105,13 @@ struct ps2_key {
 };
 
 /* Main code. */
+
 int main(int argc, char **argv)
 {
-	printf("start...\n");
 	/* Initialisation of lvgl. */
 	lv_init();
 	fs_init();
-	printf("init fb...\n");
+
 	/* Initialisation of the framebuffer. */
 	if (fb_init()) {
 		return -1;
@@ -126,14 +129,16 @@ int main(int argc, char **argv)
 	 */
 	lv_disp_drv_t disp_drv;
 	lv_disp_drv_init(&disp_drv);
+	disp_drv.hor_res = LV_HOR_RES_MAX;
+	disp_drv.ver_res = LV_VER_RES_MAX;
 	disp_drv.buffer = &disp_buf;
 	disp_drv.flush_cb = my_fb_cb;
 	lv_disp_drv_register(&disp_drv);
 
-	/* Initialisation of the mouse and keyboard.
+	/* Initialisation of the mouse and keyboard. */
 	if (mouse_init() || keyboard_init()) {
 		return -1;
-	}*/
+	}
 
 	/* Creating the UI. */
 	create_ui();
@@ -258,10 +263,9 @@ int fb_init(void)
 		printf("Couldn't open framebuffer.\n");
 		return -1;
 	}
-	printf("opened...\n");
+
 	/* Map the fb into process memory. */
 	fbp = mmap(NULL, FB_SIZE, 0, 0, fd, 0);
-	printf("mmaped...\n");
 	if (!fbp) {
 		printf("Couldn't map framebuffer.\n");
 		return -1;
@@ -289,7 +293,7 @@ void my_fb_cb(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
  */
 int mouse_init(void)
 {
-	mfd = open("/dev/input0", 0);
+	mfd = open("/dev/mouse0", 0);
 	if (-1 == mfd) {
 		printf("Couldn't open input device.\n");
 		return -1;
@@ -359,7 +363,7 @@ bool my_mouse_cb(lv_indev_drv_t *indev, lv_indev_data_t *data)
  */
 int keyboard_init(void)
 {
-	kfd = open("/dev/input1", 0);
+	kfd = open("/dev/keyboard0", 0);
 	if (-1 == kfd) {
 		printf("Couldn't open input device.\n");
 		return -1;

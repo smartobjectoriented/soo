@@ -43,6 +43,7 @@
 #include <soo/hypervisor.h>
 #include <soo/avzcons.h>
 #include <soo/dev/vfb.h>
+#include <soo/dev/vinput.h>
 #include <soo/guest_api.h>
 
 /* 1 is the code for CTRL-A */
@@ -77,6 +78,7 @@ int vfb_set_focus(int next_domain)
 {
 	vfb_active = next_domain;
 	vfb_reconfig(vfb_active);
+	vinput_set_current(next_domain);
 	return vfb_active;
 }
 

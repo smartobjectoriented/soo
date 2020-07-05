@@ -33,7 +33,9 @@ typedef struct {
 } vinput_request_t;
 
 typedef struct  {
-	char buffer[VINPUT_PACKET_SIZE];
+	unsigned int type;
+	unsigned int code;
+	int value;
 } vinput_response_t;
 
 /*
@@ -44,7 +46,6 @@ DEFINE_RING_TYPES(vinput, vinput_request_t, vinput_response_t);
 /*
  * General structure for this virtual device (backend side)
  */
-
 typedef struct {
 	vdevfront_t vdevfront;
 

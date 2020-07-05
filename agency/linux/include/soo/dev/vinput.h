@@ -33,7 +33,9 @@ typedef struct {
 } vinput_request_t;
 
 typedef struct  {
-	char buffer[VINPUT_PACKET_SIZE];
+	unsigned int type;
+	unsigned int code;
+	int value;
 } vinput_response_t;
 
 /*
@@ -57,5 +59,7 @@ static inline vinput_t *to_vinput(struct vbus_device *vdev) {
 	vdevback_t *vdevback = dev_get_drvdata(&vdev->dev);
 	return container_of(vdevback, vinput_t, vdevback);
 }
+
+void vinput_set_current(domid_t id);
 
 #endif /* VINPUT_H */

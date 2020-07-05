@@ -25,6 +25,7 @@
 #include <linux/rcupdate.h>
 #include "input-compat.h"
 #include "input-poller.h"
+#include <soo/dev/vinput-linux.h>
 
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
 MODULE_DESCRIPTION("Input core");
@@ -434,6 +435,10 @@ void input_event(struct input_dev *dev,
 		 unsigned int type, unsigned int code, int value)
 {
 	unsigned long flags;
+
+	/* SOO: pass events to the vinput driver. */
+	vinput_pass_event(type, code, value);
+	/* SOO: end */
 
 	if (is_event_supported(type, dev->evbit, EV_MAX)) {
 
