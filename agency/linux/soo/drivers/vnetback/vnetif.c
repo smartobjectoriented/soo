@@ -67,10 +67,10 @@ static struct net_device_stats *vnetif_get_stats(struct net_device *dev)
 
 	rcu_read_unlock();
 
-	vif->dev->stats.rx_bytes = rx_bytes;
+	/*vif->dev->stats.rx_bytes = rx_bytes;
 	vif->dev->stats.rx_packets = rx_packets;
 	vif->dev->stats.tx_bytes = tx_bytes;
-	vif->dev->stats.tx_packets = tx_packets;
+	vif->dev->stats.tx_packets = tx_packets;*/
 
 	return &vif->dev->stats;
 }
@@ -98,12 +98,16 @@ void netif_rx_packet(struct net_device *dev, void* data, size_t len)
 	}
 
 	skb->dev = dev;
-	skb_reserve(skb, 2);		/* 16 Byte align  */
 	skb_put(skb, pktlen);		/* make room */
 	memcpy(skb->data, data, pktlen);
 
 	skb->protocol = eth_type_trans(skb, dev);
-	netif_rx(skb);
+
+	if (likely(netif_rx(skb) == NET_RX_SUCCESS))
+		printk("RX OK");
+	else
+		printk("RX ERROR");
+
 	dev->stats.rx_packets++;
 	dev->stats.rx_bytes += pktlen;
 
@@ -205,6 +209,11 @@ void bridge(const char* brname){
 
 	ret = sys_ioctl(fd, SIOCBRADDBR, brname);
 
+	memset(&ifr, 0, sizeof ifr);
+	strncpy(ifr.ifr_name, brname, strlen(brname));
+
+	ifr.ifr_flags |= IFF_UP;
+	sys_ioctl(fd, SIOCSIFFLAGS, &ifr);
 
 
 	sys_close(fd);
@@ -281,6 +290,8 @@ struct vnetif * vnetif_init(int domid, u8 *ethaddr) {
 	bridge("br0");
 	_br_add_if("br0", "eth0");
 	_br_add_if("br0", name);
+
+	netif_carrier_on(dev);
 
 	return vif;
 }
