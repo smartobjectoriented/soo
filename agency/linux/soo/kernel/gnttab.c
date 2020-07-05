@@ -844,7 +844,7 @@ int gnttab_remove(bool with_vbus) {
 	free_pages((unsigned long) gnttab, get_order_from_pages(NR_GRANT_FRAMES));
 
 	if (with_vbus) {
-		sprintf(path, "domain/gnttab/%i", ME_domID());
+		sprintf(path, "domain/gnttab/%i", smp_processor_id());
 		vbus_rm(VBT_NIL, path, "pfn");
 	}
 

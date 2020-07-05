@@ -10,7 +10,6 @@ obj-y	+= hypervisor.o
 obj-y	+= evtchn.o
 obj-y	+= gnttab.o
 obj-y 	+= soo_guest_activity.o
-obj-y	+= imec.o
 obj-y 	+= soo_profile.o
 
 # dependencies on generated files need to be listed explicitly
