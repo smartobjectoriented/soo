@@ -1835,7 +1835,10 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 #endif
 
 		/* Skip the data which are not for us. */
-
+		/* We can logically NOT receive a PKT_DATA from a smart object which would not have
+		 * been paired (via PING) with us. Hence, ourself()->neighbour->priv can't be NULL.
+		 */
+		
 		if (cmpUID(&wnet_rx.sl_desc->agencyUID_from, ourself()->neighbour->priv)) {
 			lprintk("### SKIPPED ");
 			printUID(&wnet_rx.sl_desc->agencyUID_from);
@@ -1949,7 +1952,7 @@ void winenet_init(void) {
 	init_completion(&wnet_event);
 	init_completion(&wnet_tx.xmit_event);
 	init_completion(&beacon_event);
-	init_completion(&beacon_event);
+	init_completion(&data_event);
 
 	wnet_tx.pending = false;
 	wnet_rx.data_received = false;

@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/kthread.h>
+#include <linux/delay.h>
 
 #include <soo/soolink/transcoder.h>
 #include <soo/soolink/decoder.h>
@@ -124,13 +125,13 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	 * The buffer will be freed by the consumer after use.
 	 */
 	if (likely(size)) {
-		*data = xnheap_vmalloc(size);
+		*data = vmalloc(size);
 		memcpy(*data, sl_desc->incoming_block, size);
 
 		mutex_lock(&decoder_lock);
 
 		/* Free the buffer by the Decoder's side */
-		xnheap_vfree(sl_desc->incoming_block);
+		vfree(sl_desc->incoming_block);
 
 	}
 	else {
@@ -156,7 +157,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		pkt = (transcoder_packet_t *) data;
 
 		/* Allocate the memory for this new (simple) block */
-		sl_desc->incoming_block = xnheap_vmalloc(size - sizeof(transcoder_packet_format_t));
+		sl_desc->incoming_block = vmalloc(size - sizeof(transcoder_packet_format_t));
 
 		/* Transfer the block frame */
 		memcpy(sl_desc->incoming_block, pkt->payload, size - sizeof(transcoder_packet_format_t));
@@ -192,7 +193,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 	if (pkt->u.simple.consistency_type == CODER_CONSISTENCY_SIMPLE) {
 
 		/* Allocate the memory for this new (simple) block */
-		block->incoming_block = xnheap_vmalloc(size - sizeof(transcoder_packet_format_t));
+		block->incoming_block = vmalloc(size - sizeof(transcoder_packet_format_t));
 
 		/* Transfer the block frame */
 		memcpy(block->incoming_block, pkt->payload, size - sizeof(transcoder_packet_format_t));
@@ -203,7 +204,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 		/* If a complete block has been received with no request coming from the requester, free it */
 		if (!decoder_recv_requested && !sl_desc->recv_callback) {
-			xnheap_vfree(block->incoming_block);
+			vfree(block->incoming_block);
 			block->incoming_block = NULL;
 
 			/* Release the lock on the block processing */
@@ -265,7 +266,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 			block->discarded_block = true;
 			if (block->incoming_block) {
-				xnheap_vfree(block->incoming_block);
+				vfree(block->incoming_block);
 				block->incoming_block = NULL;
 			}
 
@@ -303,7 +304,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			block->n_recv_packets = 0;
 			block->cur_packetID = -1;
 
-			block->incoming_block = xnheap_vmalloc(block->total_size);
+			block->incoming_block = vmalloc(block->total_size);
 			BUG_ON(block->incoming_block == NULL);
 
 			block->cur_pos = block->incoming_block;
@@ -328,7 +329,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 			/* If a complete block has been received with no request coming from the requester, free it */
 			if (!decoder_recv_requested && !sl_desc->recv_callback) {
-				xnheap_vfree(block->incoming_block);
+				vfree(block->incoming_block);
 				block->incoming_block = NULL;
 
 				/* Release the lock on the block processing */
@@ -414,7 +415,7 @@ static int decoder_watchdog_task_fn(void *arg)  {
 
 	while (1) {
 		//rtdm_task_wait_period(NULL);
-		schedule_timeout(msecs_to_jiffies(DECODER_WATCHDOG_TASK_PERIOD_MS));
+		msleep(DECODER_WATCHDOG_TASK_PERIOD_MS);
 
 		current_time = ktime_to_ms(ktime_get());
 
@@ -442,7 +443,7 @@ static int decoder_watchdog_task_fn(void *arg)  {
 				 * The buffer should not be freed if the packet has been discarded and it has already been freed.
 				 */
 				if (block->incoming_block) {
-					xnheap_vfree(block->incoming_block);
+					vfree(block->incoming_block);
 					block->incoming_block = NULL;
 				}
 

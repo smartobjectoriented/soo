@@ -24,6 +24,7 @@
 #include <linux/types.h>
 #include <linux/spinlock.h>
 #include <linux/kthread.h>
+#include <linux/delay.h>
 
 #include <soo/soolink/discovery.h>
 #include <soo/soolink/sender.h>
@@ -591,7 +592,7 @@ static int iamasoo_task_fn(void *args) {
 	DBG("Adding ourself (%s) - ", neighbour->name);
 	DBG_BUFFER(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
-	add_neighbour(neighbour);
+	__add_neighbour(neighbour);
 
 	spin_unlock(&discovery_listener_lock);
 
@@ -599,7 +600,9 @@ static int iamasoo_task_fn(void *args) {
 
 	while (1) {
 		//rtdm_task_wait_period(NULL);
-		schedule_timeout(msecs_to_jiffies(DISCOVERY_TASK_PERIOD_MS));
+		//schedule_timeout(msecs_to_jiffies(DISCOVERY_TASK_PERIOD_MS));
+		msleep(DISCOVERY_TASK_PERIOD_MS);
+		
 		if (!discovery_enabled)
 			continue;
 
@@ -849,7 +852,7 @@ static int soo_stream_task_fn(void *args) {
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
 	sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
 #else /* CONFIG_SOOLINK_PLUGIN_WLAN */
-	sl_desc = sl_register(SL_REQ_PEER, SL_IF_ETH, SL_MODE_UNIBROAD);
+	sl_desc = sl_register(SL_REQ_DCM, SL_IF_ETH, SL_MODE_UNIBROAD);
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
 
 	for (i = 0; i < BUFFER_SIZE; i++)
@@ -861,7 +864,7 @@ static int soo_stream_task_fn(void *args) {
 	soo_sysfs_register(neighbours, neighbours_read, NULL);
 #if 1
 	while (true) {
-
+		schedule();
 		if (discovery_neighbour_count() > 0) {
 			lprintk("*** sending buffer ****\n");
 			sl_send(sl_desc, buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
@@ -927,8 +930,6 @@ void discovery_start(void) {
 	/* Already enabled? */
 	if (discovery_enabled)
 		return ;
-
-	discovery_enable();
 
 	//rtdm_task_init(&rt_watch_loop_task, "Discovery", iamasoo_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
 	kthread_run(iamasoo_task_fn, NULL, "iamasoo_task");

@@ -61,61 +61,6 @@ static rtdm_irq_t vbus_vbstore_irq_handle, dc_irq_handle;
 static rtdm_task_t rtdm_dc_isr_task;
 static rtdm_task_t rtdm_vbus_task;
 
-#ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-
-static rtdm_event_t rtdm_sl_wlan_send_event;
-static rtdm_event_t rtdm_sl_wlan_recv_event;
-static rtdm_event_t rtdm_sl_plugin_wlan_rx_event;
-
-static rtdm_task_t rtdm_sl_wlan_send_task;
-static rtdm_task_t rtdm_sl_wlan_recv_task;
-static rtdm_task_t rtdm_sl_plugin_wlan_rx_task;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-
-static rtdm_event_t rtdm_sl_eth_send_event;
-static rtdm_event_t rtdm_sl_eth_recv_event;
-static rtdm_event_t rtdm_sl_plugin_ethernet_rx_event;
-static rtdm_event_t rtdm_sl_plugin_tcp_rx_event;
-
-static rtdm_task_t rtdm_sl_eth_send_task;
-static rtdm_task_t rtdm_sl_eth_recv_task;
-static rtdm_task_t rtdm_sl_plugin_eth_rx_task;
-
-static rtdm_event_t rtdm_sl_tcp_send_event;
-static rtdm_event_t rtdm_sl_tcp_recv_event;
-static rtdm_task_t rtdm_sl_tcp_send_task;
-static rtdm_task_t rtdm_sl_tcp_recv_task;
-static rtdm_task_t rtdm_sl_plugin_tcp_rx_task;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-
-static rtdm_event_t rtdm_sl_bt_send_event;
-static rtdm_event_t rtdm_sl_bt_recv_event;
-static rtdm_event_t rtdm_sl_plugin_bluetooth_rx_event;
-
-static rtdm_task_t rtdm_sl_bt_send_task;
-static rtdm_task_t rtdm_sl_bt_recv_task;
-static rtdm_task_t rtdm_sl_plugin_bt_rx_task;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_LOOPBACK
-
-static rtdm_event_t rtdm_sl_lo_send_event;
-static rtdm_event_t rtdm_sl_lo_recv_event;
-static rtdm_event_t rtdm_sl_plugin_loopback_rx_event;
-
-static rtdm_task_t rtdm_sl_lo_send_task;
-static rtdm_task_t rtdm_sl_lo_recv_task;
-static rtdm_task_t rtdm_sl_plugin_loopback_rx_task;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
-
 /*
  * Used to keep track of the target domain for a certain (outgoing) dc_event.
  * Value -1 means no dc_event in progress.
@@ -176,57 +121,6 @@ void rtdm_dc_sl_fn(dc_event_t dc_event) {
 
 	switch (dc_event) {
 
-#ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-
-	case DC_SL_WLAN_SEND:
-		rtdm_event_signal(&rtdm_sl_wlan_send_event);
-		break;
-
-	case DC_SL_WLAN_RECV:
-		rtdm_event_signal(&rtdm_sl_wlan_recv_event);
-		break;
-#endif
-
-#ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-
-	case DC_SL_ETH_SEND:
-		rtdm_event_signal(&rtdm_sl_eth_send_event);
-		break;
-
-	case DC_SL_ETH_RECV:
-		rtdm_event_signal(&rtdm_sl_eth_recv_event);
-		break;
-
-	case DC_SL_TCP_SEND:
-		rtdm_event_signal(&rtdm_sl_tcp_send_event);
-		break;
-
-	case DC_SL_TCP_RECV:
-		rtdm_event_signal(&rtdm_sl_tcp_recv_event);
-		break;
-#endif
-
-#ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-
-	case DC_SL_BT_SEND:
-		rtdm_event_signal(&rtdm_sl_bt_send_event);
-		break;
-
-	case DC_SL_BT_RECV:
-		rtdm_event_signal(&rtdm_sl_bt_recv_event);
-		break;
-#endif
-
-#ifdef CONFIG_SOOLINK_PLUGIN_LOOPBACK
-
-	case DC_SL_LOOP_SEND:
-		rtdm_event_signal(&rtdm_sl_lo_send_event);
-		break;
-
-	case DC_SL_LOOP_RECV:
-		rtdm_event_signal(&rtdm_sl_lo_recv_event);
-		break;
-#endif
 
 	default:
 		lprintk("%s: failure on dc_event %d\n", __func__, dc_event);
@@ -234,54 +128,6 @@ void rtdm_dc_sl_fn(dc_event_t dc_event) {
 
 	}
 
-}
-
-/*
- * Proceed with the dc_event family dedicated to the plugin management.
- */
-void rtdm_dc_plugin_fn(dc_event_t dc_event) {
-
-	switch(dc_event) {
-
-#ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-
-	case DC_PLUGIN_WLAN_RECV:
-		rtdm_event_signal(&rtdm_sl_plugin_wlan_rx_event);
-		break;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-	case DC_PLUGIN_ETHERNET_RECV:
-		rtdm_event_signal(&rtdm_sl_plugin_ethernet_rx_event);
-		break;
-
-	case DC_PLUGIN_TCP_RECV:
-		rtdm_event_signal(&rtdm_sl_plugin_tcp_rx_event);
-		break;
-#endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-
-	case DC_PLUGIN_BLUETOOTH_RECV:
-		rtdm_event_signal(&rtdm_sl_plugin_bluetooth_rx_event);
-		break;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_LOOPBACK
-
-	case DC_PLUGIN_LOOPBACK_RECV:
-		rtdm_event_signal(&rtdm_sl_plugin_loopback_rx_event);
-		break;
-
-#endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
-
-	default:
-		lprintk("%s: failure on dc_event %d\n", __func__, dc_event);
-		BUG();
-
-	}
 }
 
 /*
@@ -300,43 +146,10 @@ static int rtdm_dc_isr(rtdm_irq_t *unused) {
 	atomic_set(&rtdm_dc_incoming_domID[dc_event], DOMID_AGENCY);
 
 	/* Work to be done in ME */
-
+#if 0
 	switch (dc_event) {
 
-#ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-	case DC_SL_WLAN_SEND:
-	case DC_SL_WLAN_RECV:
-	case DC_PLUGIN_WLAN_RECV:
-#endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-	case DC_SL_ETH_SEND:
-	case DC_SL_ETH_RECV:
-	case DC_SL_TCP_SEND:
-	case DC_SL_TCP_RECV:
-	case DC_PLUGIN_ETHERNET_RECV:
-	case DC_PLUGIN_TCP_RECV:
-#endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-	case DC_SL_BT_SEND:
-	case DC_SL_BT_RECV:
-	case DC_PLUGIN_BLUETOOTH_RECV:
-#endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_LOOPBACK
-	case DC_SL_LOOP_SEND:
-	case DC_SL_LOOP_RECV:
-	case DC_PLUGIN_LOOPBACK_RECV:
-#endif /* CONFIG_SOOLINK_PLUGIN_LOOPBACK */
-
-	/* These events are necessary a reply to a sync_dom from the non-RT agency. */
-	case DC_PLUGIN_LOOPBACK_SEND:
-	case DC_PLUGIN_ETHERNET_SEND:
-	case DC_PLUGIN_TCP_SEND:
-	case DC_PLUGIN_BLUETOOTH_SEND:
-	case DC_PLUGIN_WLAN_SEND:
-
+	case ...
 		if (atomic_read(&rtdm_dc_outgoing_domID[dc_event]) != -1)
 			dc_stable(dc_event);
 		else {
@@ -352,7 +165,7 @@ static int rtdm_dc_isr(rtdm_irq_t *unused) {
 		lprintk("%s: something weird happened on CPU %d, RT directcomm interrupt was triggered, but no DC event (%d) was configured !\n", __func__, smp_processor_id(), avz_shared_info->dc_event);
 		break;
 	}
-
+#endif
 	/* Reset the dc_event now so that the domain can send another dc_event */
 	atomic_set((atomic_t *) &avz_shared_info->dc_event, DC_NO_EVENT);
 
@@ -417,22 +230,6 @@ void rtdm_vbus_task_fn(void *unused) {
 
 	/* Initialize deferred processing outside the directcomm ISR bottom half */
 
-	rtdm_register_dc_event_callback(DC_PLUGIN_WLAN_RECV, rtdm_dc_plugin_fn);
-	rtdm_register_dc_event_callback(DC_PLUGIN_ETHERNET_RECV, rtdm_dc_plugin_fn);
-	rtdm_register_dc_event_callback(DC_PLUGIN_TCP_RECV, rtdm_dc_plugin_fn);
-	rtdm_register_dc_event_callback(DC_PLUGIN_BLUETOOTH_RECV, rtdm_dc_plugin_fn);
-	rtdm_register_dc_event_callback(DC_PLUGIN_LOOPBACK_RECV, rtdm_dc_plugin_fn);
-
-	rtdm_register_dc_event_callback(DC_SL_WLAN_SEND, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_WLAN_RECV, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_ETH_SEND, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_ETH_RECV, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_TCP_SEND, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_TCP_RECV, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_BT_SEND, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_BT_RECV, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_LOOP_SEND, rtdm_dc_sl_fn);
-	rtdm_register_dc_event_callback(DC_SL_LOOP_RECV, rtdm_dc_sl_fn);
 
 	/* Binding the irqhandler to the eventchannel */
 	DBG("%s: setting up the directcomm event channel (%d) ...\n", __func__, nort_dc_evtchn);

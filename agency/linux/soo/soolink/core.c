@@ -134,7 +134,7 @@ uint32_t sl_neighbour_count(void) {
  * This function runs in the RT agency domain.
  */
 void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio) {
-	DBG("sl_send: now sending to the coder / size: %d\n", *size);
+	DBG("sl_send: now sending to the coder / size: %d\n", size);
 
 	/* Configure the sl_desc with the various attributes */
 
