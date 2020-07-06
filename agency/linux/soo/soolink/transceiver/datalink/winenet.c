@@ -44,6 +44,8 @@
 
 #include <soo/soolink/soolink.h>
 
+#include <soo/debug/bandwidth.h>
+
 #define WNET_CONFIG_UNIBROAD 	1
 
 #include <soo/soolink/datalink/winenet.h>
@@ -1348,8 +1350,11 @@ retry_ack1:
 				retry_count = 0;
 				do {
 
-					for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i] != NULL)); i++)
+					for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i] != NULL)); i++) {
 						__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], buf_tx_pkt[i]->size, 0);
+
+
+
 retry_ack2:
 					ack = wait_for_ack(&beacon);
 

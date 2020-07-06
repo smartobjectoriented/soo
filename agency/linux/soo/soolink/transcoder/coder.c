@@ -32,6 +32,8 @@
 #include <soo/soolink/sender.h>
 #include <soo/soolink/datalink.h>
 
+#include <soo/debug/bandwidth.h>
+
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 #include <soo/uapi/soo.h>
@@ -104,13 +106,15 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 		DBG("Extended packet, nr_packets=%d\n", nr_packets);
 
 		/* Need to iterate over multiple packets */
+		pkt = kmalloc(sizeof(transcoder_packet_format_t) + SL_CODER_PACKET_MAX_SIZE, GFP_ATOMIC);
+		BUG_ON(!pkt);
+
 		for (packetID = 1; packetID < nr_packets + 1; packetID++) {
 
 			/* Tell Datalink that this is the last packet in the block */
 			completed = (packetID == nr_packets);
 
 			/* Create an extended packet */
-			pkt = kmalloc(sizeof(transcoder_packet_format_t) + SL_CODER_PACKET_MAX_SIZE, GFP_ATOMIC);
 
 			pkt->u.ext.consistency_type = CODER_CONSISTENCY_EXT;
 			pkt->u.ext.nr_packets = nr_packets;
@@ -129,13 +133,11 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 
 			if (sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + pkt->u.ext.payload_length, completed) < 0) {
 				/* There has been something wrong with Datalink. Abort the transmission of the block. */
-
-				kfree(pkt);
 				break;
 			}
-
-			kfree(pkt);
 		}
+
+		kfree(pkt);
 	}
 
 	/* Finally ... */

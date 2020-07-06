@@ -34,7 +34,7 @@
 #define WNET_LAST_PACKET		(1 << 24)
 
 /* Number of bufferized packets in a frame for the n pkt / 1 ACK strategy */
-#define WNET_N_PACKETS_IN_FRAME 64
+#define WNET_N_PACKETS_IN_FRAME 2048
 
 /* Express in microsecs */
 #define WNET_MIN_DRAND		1000
