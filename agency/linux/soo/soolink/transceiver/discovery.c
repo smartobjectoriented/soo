@@ -826,8 +826,6 @@ static void (soo_stream_recv)(sl_desc_t *sl_desc, void *data, size_t size) {
 	count++;
 	lprintk("## ******************** Got a buffer (count %d got %d bytes)\n", count, size);
 
-	ll_bandwidth_show(0, size);
-
 	/* Must release the allocated buffer */
 	vfree(data);
 }

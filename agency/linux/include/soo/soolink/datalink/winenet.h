@@ -25,7 +25,7 @@
 #include <soo/soolink/discovery.h>
 
 /* Maximal number of retries */
-#define WNET_RETRIES_MAX 3
+#define WNET_RETRIES_MAX 5
 
 /* Conversion from us to ns */
 #define WNET_TIME_US_TO_NS(x) ((x) * 1000ull)
@@ -40,7 +40,7 @@
 #define WNET_MIN_DRAND		1000
 #define WNET_MAX_DRAND		2000
 
-#define WNET_TSPEAKER_ACK_MS	2000
+#define WNET_TSPEAKER_ACK_MS	1000
 
 /*
  * Winenet states FSM

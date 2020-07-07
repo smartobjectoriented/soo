@@ -36,7 +36,6 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
-#include <soo/debug/bandwidth.h>
 /*
  * The decoder is currently able to manage only one block at a time, i.e. it can deserve one call to decoder_recv() on a specific incoming block,
  * but not more at the moment.
@@ -115,7 +114,6 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	mutex_unlock(&decoder_lock);
 
 	/* We still need to manage a timeout according to the specification */
-	//rtdm_event_wait(&sl_desc->recv_event);
 	wait_for_completion(&sl_desc->recv_event);
 
 	size = sl_desc->incoming_block_size;
@@ -163,7 +161,6 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		memcpy(sl_desc->incoming_block, pkt->payload, size - sizeof(transcoder_packet_format_t));
 		sl_desc->incoming_block_size = size - sizeof(transcoder_packet_format_t);
 
-		//rtdm_event_signal(&sl_desc->recv_event);
 		complete(&sl_desc->recv_event);
 
 		return 0;
@@ -177,8 +174,6 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 	if (!(block = get_block_by_sl_desc(sl_desc))) {
 		/* If the block does not exist, create it */
 		block = create_block(sl_desc);
-
-		ll_bandwidth_collect_delay(0);
 	}
 
 	if (!block)
@@ -229,7 +224,6 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		if (sl_desc->recv_callback)
 			sl_desc->recv_callback(sl_desc, block->incoming_block, block->size);
 		else
-			//rtdm_event_signal(&sl_desc->recv_event);
 			complete(&sl_desc->recv_event);
 
 	} else {
@@ -274,7 +268,6 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			sl_desc->incoming_block_size = 0;
 
 			/* Wake up potential requester which performs a synchronous call */
-			//rtdm_event_signal(&sl_desc->recv_event);
 			complete(&sl_desc->recv_event);
 
 			/*
@@ -320,6 +313,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		block->cur_packetID = pkt->u.ext.packetID;
 
 		if (block->cur_packetID == pkt->u.ext.nr_packets) {
+
 			block->size = block->real_size;
 
 			sl_desc->incoming_block_size = block->real_size;
@@ -351,13 +345,11 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			 * The RT callback is executed before the non RT part. The non RT part will free
 			 * the buffer.
 			 */
-			ll_bandwidth_collect_delay(0);
 
 			if (sl_desc->recv_callback)
 				sl_desc->recv_callback(sl_desc, block->incoming_block, block->size);
 			else
 				/* Inform the synchronous waiter about available data */
-				//rtdm_event_signal(&sl_desc->recv_event);
 				complete(&sl_desc->recv_event);
 
 			block->block_ext_in_progress = false;

@@ -44,8 +44,6 @@
 
 #include <soo/soolink/soolink.h>
 
-#include <soo/debug/bandwidth.h>
-
 #define WNET_CONFIG_UNIBROAD 	1
 
 #include <soo/soolink/datalink/winenet.h>
@@ -60,7 +58,6 @@
 #include <xenomai/rtdm/driver.h>
 
 #include <soo/uapi/soo.h>
-
 #include <soo/uapi/debug.h>
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
@@ -224,55 +221,6 @@ static void clear_buf_rx_pkt(void) {
 
 	for (i = 0; i < WNET_N_PACKETS_IN_FRAME; i++)
 		buf_rx_pkt[i]->packet_type = TRANSCEIVER_PKT_NONE;
-}
-
-/**
- * Check if the incoming packet has a trans ID which is greater than the last detected trans ID from
- * this particular agency UID. This function is used to detect the duplicate packets in case of retry.
- * There are three cases:
- * - A packet with the trans ID given as parameter has already been received. We return true.
- *   The packet is discarded and not transmitted to the upper layer (sender requester).
- * - The incoming packet trans ID is greater than the last seen trans ID. We return false.
- *   The packet is transmitted to the upper layer (sender requester).
- * - The particular case of a packet whose trans ID is 0 indicates that a new block is being processed.
- *   A trans ID equal to 0 will forward the packet to the upper layer.
- */
-static bool packet_already_received(transceiver_packet_t *packet, agencyUID_t *agencyUID_from) {
-	struct list_head *cur;
-	wnet_neighbour_t *neighbour_cur;
-
-	mutex_lock(&neighbour_list_lock);
-
-	/* Look for the remote SOO in the list */
-	list_for_each(cur, &wnet_neighbours) {
-
-		/* The agency UID is already known */
-		neighbour_cur = list_entry(cur, wnet_neighbour_t, list);
-		if (!cmpUID(&neighbour_cur->neighbour->agencyUID, agencyUID_from)) {
-
-			if (((packet->transID & WNET_MAX_PACKET_TRANSID) > neighbour_cur->last_transID) ||
-				((packet->transID & WNET_MAX_PACKET_TRANSID) == 0)) {
-				neighbour_cur->last_transID = packet->transID & WNET_MAX_PACKET_TRANSID;
-
-				mutex_unlock(&neighbour_list_lock);
-				return false;
-			}
-			else {
-				/* The packet has already been received */
-				DBG("Agency UID found: ");
-				DBG_BUFFER(&neighbour_cur->neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
-
-				mutex_unlock(&neighbour_list_lock);
-				return true;
-			}
-		}
-	}
-
-	/* This is an unknown agency UID. Will be integrated in the neighbour list very soon. */
-
-	mutex_unlock(&neighbour_list_lock);
-
-	return false;
 }
 
 /*
@@ -1280,6 +1228,7 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 
 		/* We have to transmit over all smart objects */
 		/* Sending the frame for the first time (first listener) */
+
 		for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
 			__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], buf_tx_pkt[i]->size, 0);
 
@@ -1531,21 +1480,6 @@ static void winenet_state_listener(wnet_state_t old_state) {
 			/* Event processed */
 			beacon_clear();
 		}
-
-		if (wnet_rx.data_received) {
-			/* Data has been received. Reset the proper flag. */
-
-			wnet_rx.data_received = false;
-
-			/*
-			 * Send an ACKNOWLEDGMENT beacon.
-			 */
-
-			winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, &wnet_rx.sl_desc->agencyUID_from, (void *) (wnet_rx.transID & WNET_MAX_PACKET_TRANSID));
-
-			complete(&data_event);
-		}
-
 	}
 }
 
@@ -1744,6 +1678,7 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 	static uint32_t last_transID;
 	uint32_t i;
 	static bool got_data = false;
+	wnet_beacon_t beacon;
 
 	packet = (transceiver_packet_t *) packet_ptr;
 
@@ -1809,34 +1744,18 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 			 * the boolean is set to false, meaning that the frame is invalid.
 			 */
 			all_packets_received = true;
-			last_transID = (packet->transID & 0xffffff);
-
 			clear_buf_rx_pkt();
-		}
 
-		if ((packet->transID & WNET_MAX_PACKET_TRANSID) - last_transID > 1) {
-			/* We missed a packet. This frame is discarded. */
-			DBG("Pkt missed: %d/%d\n", last_transID, packet->transID & WNET_MAX_PACKET_TRANSID);
+		} else 	if ((packet->transID & WNET_MAX_PACKET_TRANSID) != ((last_transID + 1) % WNET_MAX_PACKET_TRANSID)) {
+
+			/* Packet chain broken. This frame is discarded. */
+			lprintk("Pkt chain broken: (last_transID=%d)/(packet->transID=%d)\n", last_transID, packet->transID & WNET_MAX_PACKET_TRANSID);
 			all_packets_received = false;
 
 			clear_buf_rx_pkt();
 		}
 
 		/* Copy the packet into the bufferized packet array */
-		if (buf_rx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME]->packet_type != TRANSCEIVER_PKT_NONE) {
-			/*
-			 * An incoming packet has to be placed in a buffer which is already populated.
-			 * This means that some packets at the beginning of the frame have been missed. The whole
-			 * frame has to be discarded.
-			 */
-
-			DBG("RX buffer already populated: %d, %d\n", packet->transID, (packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME);
-
-			all_packets_received = false;
-
-			clear_buf_rx_pkt();
-		}
-
 		memcpy(buf_rx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME], packet, packet->size + sizeof(transceiver_packet_t));
 
 		/* Save the last ID of the last received packet */
@@ -1847,9 +1766,8 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 
 			if (all_packets_received) {
 
-				for (i = 0; i < WNET_N_PACKETS_IN_FRAME; i++)
-					if ((buf_rx_pkt[i]->packet_type == TRANSCEIVER_PKT_DATA) && !packet_already_received(buf_rx_pkt[i], &sl_desc->agencyUID_from))
-						receiver_rx(sl_desc, plugin_desc, buf_rx_pkt[i], buf_rx_pkt[i]->size);
+				for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_rx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
+					receiver_rx(sl_desc, plugin_desc, buf_rx_pkt[i], buf_rx_pkt[i]->size);
 
 				clear_buf_rx_pkt();
 
@@ -1859,10 +1777,11 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 
 				got_data = false;
 
-				complete(&wnet_event);
+				/*
+				 * Send an ACKNOWLEDGMENT beacon.
+				 */
 
-				/* Wait until the beacon has been processed by the FSM */
-				wait_for_completion(&data_event);
+				winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, &wnet_rx.sl_desc->agencyUID_from, (void *) (wnet_rx.transID & WNET_MAX_PACKET_TRANSID));
 			}
 		}
 	}
