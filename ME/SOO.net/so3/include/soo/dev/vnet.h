@@ -31,11 +31,13 @@
 #define VNET_NAME		"vnet"
 #define VNET_PREFIX		"[" VNET_NAME "] "
 
-struct vbuff_buff *vbuff_tx;
-struct vbuff_buff *vbuff_rx;
-unsigned char *vbuff_ethaddr;
 
-grant_ref_t grant_buff = 0;
+
+struct vnet_shared_data {
+        unsigned char ethaddr[ARP_HLEN];
+};
+
+
 
 enum vnet_type{
         SET_IP = 0,

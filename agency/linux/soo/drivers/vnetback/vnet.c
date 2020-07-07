@@ -75,14 +75,15 @@ void vnet_process_ctrl(vnet_t *vnet){
 
 void vnet_process_tx(vnet_t *vnet){
 	vnet_request_t *ring_req = NULL;
-	void* data;
+	uint8_t* data;
 
 	while ((ring_req = vnet_tx_ring_request(&vnet->ring_tx)) != NULL) {
-		data = vbuff_get(vnet->vbuff_tx, &ring_req->buff);
-
+		data = vbuff_get(&vnet->vbuff_tx, &ring_req->buff);
+		vbuff_print(&vnet->vbuff_tx, &ring_req->buff);
 		netif_rx_packet(vnet->vif->dev, data, ring_req->buff.size);
 	}
 }
+
 
 irqreturn_t vnet_interrupt(int irq, void *dev_id)
 {
@@ -149,7 +150,7 @@ void vnet_resume(struct vbus_device *vdev) {
 
 void vnet_reconfigured(struct vbus_device *vdev) {
 	int res, i=0;
-	unsigned long ring_tx_ref, ring_rx_ref, ring_ctrl_ref;
+	unsigned long ring_tx_ref, ring_rx_ref, ring_ctrl_ref, vbuff_tx_ref, vbuff_rx_ref;
 	unsigned int evtchn;
 	vnet_tx_sring_t *sring_tx;
 	vnet_rx_sring_t *sring_rx;
@@ -168,7 +169,9 @@ void vnet_reconfigured(struct vbus_device *vdev) {
 		    "ring-ctrl-ref", "%lu", &ring_ctrl_ref,
 		    "ring-evtchn", "%u", &evtchn,
 		    "grant-buff", "%lu", &vnet->grant_buff,
-		    NULL);
+		    "vbuff-tx-ref", "%lu", &vbuff_tx_ref,
+		    "vbuff-rx-ref", "%lu", &vbuff_rx_ref,
+		    NULL );
 
 	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
 
@@ -193,17 +196,13 @@ void vnet_reconfigured(struct vbus_device *vdev) {
 	BACK_RING_INIT(&vnet->ring_ctrl, sring_ctrl, PAGE_SIZE);
 
 
-	res = vbus_map_ring_valloc(vdev, vnet->grant_buff, (void **) &vnet->vbuff_tx);
+	res = vbus_map_ring_valloc(vdev, vnet->grant_buff, (void **) &vnet->vbuff_ethaddr);
 	BUG_ON(res < 0);
-	vnet->vbuff_rx = vnet->vbuff_tx + PAGE_COUNT;
-	vnet->vbuff_ethaddr = (unsigned char*)vnet->vbuff_rx + PAGE_COUNT;
+	/*vnet->vbuff_rx = vnet->vbuff_tx + PAGE_COUNT;
+	vnet->vbuff_ethaddr = (unsigned char*)vnet->vbuff_rx + PAGE_COUNT;*/
 
-	/* Update the address mapping of shared memory (packet buffers) */
-	while(i < PAGE_COUNT){
-		vbus_map_ring_valloc(vdev, (int)vnet->vbuff_tx[i].grant, (void**)&vnet->vbuff_tx[i].data);
-		vbus_map_ring_valloc(vdev, (int)vnet->vbuff_rx[i].grant, (void**)&vnet->vbuff_rx[i].data);
-		i++;
-	}
+	vbuff_init(&vnet->vbuff_tx, vbuff_tx_ref, vdev);
+	vbuff_init(&vnet->vbuff_rx, vbuff_tx_ref, vdev);
 
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vnet_interrupt, NULL, 0, VNET_NAME "-backend", vdev);
 

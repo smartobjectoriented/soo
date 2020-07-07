@@ -14,82 +14,17 @@
 
 #include <soo/dev/vnetbuff.h>
 
-void vbuff_init(struct vbuff_buff* buffs){
-        int i = 0;
-
-        // Create a grant handle for each page in the buffer
-        while(i < PAGE_COUNT){
-                buffs[i].data = (uint8_t*)get_free_vpage();
-                buffs[i].spots[0] = CHUNK_COUNT;
-                buffs[i].grant = 0;/*gnttab_grant_foreign_access(ME_domID(), (unsigned long)buffs[i].data, READ_ONLY);*/
-                i++;
-        }
+void vbuff_init(struct vbuff_buff* buff){
+        buff->data_phys = (uint8_t*)get_contig_free_pages(PAGE_COUNT);
+        buff->data = io_map(buff->data_phys, PAGE_COUNT * PAGE_SIZE);
+        buff->size = PAGE_COUNT * PAGE_SIZE;
+        buff->grant = GRANT_INVALID_REF;
+        mutex_init(&buff->mutex);
 }
 
 void vbuff_free(struct vbuff_buff* buff){
-        int i = 0;
-        while(i < PAGE_COUNT){
-                gnttab_end_foreign_access_ref(buff[i++].grant);
-        }
-
-        free(buff->data);
-}
-
-
-/**
- * Try to fit data into the buffer. (Using best fit algorithm)
- *
- * Return The offset in bytes from the pointer of the buffer
- *      Return a negative value if the data can't be fitted.
- */
-int inline _vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data, size_t size){
-        uint16_t best_spot = -1;
-        uint16_t chunk_needed = (size + CHUNK_SIZE - 1) / ((uint32_t)CHUNK_SIZE);
-        uint16_t best_size = CHUNK_COUNT + 1;
-        uint16_t tot_chunk_seen = 0;
-        void* chunk_ptr = NULL;
-        int i = 0;
-
-        while(i < CHUNK_COUNT){
-                tot_chunk_seen += buff->spots[i];
-
-                /* Better spot found (closer to the need size)*/
-                if(buff->spots[i] < best_size && buff->spots[i] >= chunk_needed){
-                        best_size = buff->spots[i];
-                        best_spot = i;
-                }
-
-                i++;
-
-                /* best spot found no need to search more */
-                if(best_size == chunk_needed)
-                        break;
-
-                /* No more free chunks cluster left */
-                if(tot_chunk_seen == CHUNK_COUNT)
-                        break;
-        }
-
-        if(best_spot < 0 || best_spot >= CHUNK_COUNT)
-                return -1;
-
-        buff->spots[best_spot + chunk_needed] = (char)(best_size - chunk_needed);
-        buff->spots[best_spot] = 0;
-
-
-        chunk_ptr = buff->data + best_spot * CHUNK_SIZE;
-
-        if(*data == NULL)
-                *data = chunk_ptr;
-        else
-                memcpy(chunk_ptr, *data, size);
-
-        /* Details allowing the other domain to retrieve data */
-        buff_data->offset = best_spot * CHUNK_SIZE;
-        buff_data->size = size;
-
-
-        return 0;
+        free_contig_vpages(buff->data, PAGE_COUNT);
+        memset(buff, 0, sizeof(struct vbuff_buff));
 }
 
 /**
@@ -99,33 +34,52 @@ int inline _vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, voi
  *  If data value is NULL, data is set to a pointer to the best chunk.
  *  If data value is a pointer the value is copied inside the buffer
  */
-int vbuff_put(struct vbuff_buff* buffs, struct vbuff_data *buff_data, void** data, size_t size){
-        int i = 0;
+int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data, size_t size){
+        mutex_lock(&buff->mutex);
 
-        while(i < PAGE_COUNT){
-                printk("%d\n", i);
-                if(_vbuff_put(buffs + i, buff_data, data, size) == 0){
-                        buff_data->index = i;
-                        return 0;
-                }
-                i++;
+        /* not enough space in the circular buffer */
+        if(buff->size < size){
+                mutex_unlock(&buff->mutex);
+                return -1;
         }
 
-        return -1;
+
+        /* if putting data in the buffer offerflow, set the productor back at the begining */
+        if(buff->prod + size >= buff->size)
+                buff->prod = 0;
+
+        buff_data->offset = buff->prod;
+        buff_data->size = size;
+
+        if(*data == NULL)
+                *data = (void*)buff->data + buff_data->offset;
+        else
+                memcpy(buff->data + buff_data->offset, *data, size);
+
+        buff->prod += size;
+
+        mutex_unlock(&buff->mutex);
+
+        return 0;
 }
 
 
 /*
  * Update grants for a specific device
  */
-void vbuff_update_grants(struct vbuff_buff* buff, struct vbus_device *dev){
-        int i = 0;
+void vbuff_update_grant(struct vbuff_buff* buff, struct vbus_device *dev){
+        int res;
 
-        while(i < PAGE_COUNT){
-                if(buff[i].grant != 0)
-                        gnttab_end_foreign_access_ref(buff[i].grant);
+        mutex_lock(&buff->mutex);
 
-                buff[i].grant = gnttab_grant_foreign_access(dev->otherend_id, phys_to_pfn(virt_to_phys_pt((uint32_t)buff[i].data)), !READ_ONLY);
-                i++;
-        }
+        if(buff->grant != GRANT_INVALID_REF)
+                gnttab_end_foreign_access_ref(buff->grant);
+
+        res = gnttab_grant_foreign_access(dev->otherend_id, phys_to_pfn((uint32_t)buff->data_phys), 0);
+        if (res < 0)
+                BUG();
+
+        buff->grant = res;
+
+        mutex_unlock(&buff->mutex);
 }

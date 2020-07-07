@@ -62,6 +62,12 @@ static struct vbus_device *vdev_net = NULL;
 
 static bool thread_created = false;
 
+struct vbuff_buff vbuff_tx;
+struct vbuff_buff vbuff_rx;
+struct vnet_shared_data *vnet_shared_data;
+
+grant_ref_t shared_data_grant = 0;
+
 irq_return_t vnet_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vnet_t *vnet = to_vnet(vdev);
@@ -110,7 +116,7 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
 
         vnet = to_vnet(vdev_net);
 
-        vbuff_put(vbuff_tx, &vbuff_data, &buff, p->tot_len);
+        vbuff_put(&vbuff_tx, &vbuff_data, &buff, p->tot_len);
 
         if(buff == NULL){
                 goto send_failed;
@@ -233,13 +239,13 @@ void vnet_probe(struct vbus_device *vdev) {
 
 
         /* Share a page containing infos about packet buffers */
-        res = gnttab_grant_foreign_access(vdev->otherend_id, (unsigned long)phys_to_pfn(virt_to_phys_pt((uint32_t)vbuff_tx)), !READ_ONLY);
+        res = gnttab_grant_foreign_access(vdev->otherend_id, (uint32_t)phys_to_pfn(virt_to_phys_pt((uint32_t)vnet_shared_data)), !READ_ONLY);
         if (res < 0)
                 BUG();
 
-        grant_buff = res;
-        vbuff_update_grants(vbuff_tx, vdev);
-        vbuff_update_grants(vbuff_rx, vdev);
+        shared_data_grant = res;
+        vbuff_update_grant(&vbuff_tx, vdev);
+        vbuff_update_grant(&vbuff_rx, vdev);
 
 
         vbus_transaction_start(&vbt);
@@ -248,7 +254,9 @@ void vnet_probe(struct vbus_device *vdev) {
 	vbus_printf(vbt, vdev->nodename, "ring-tx-ref", "%u", vnet->ring_tx_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-ctrl-ref", "%u", vnet->ring_ctrl_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vnet->evtchn);
-	vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", grant_buff);
+	vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", shared_data_grant);
+	vbus_printf(vbt, vdev->nodename, "vbuff-tx-ref", "%u", vbuff_tx.grant);
+	vbus_printf(vbt, vdev->nodename, "vbuff-tr-ref", "%u", vbuff_rx.grant);
 
 	vbus_transaction_end(vbt);
 }
@@ -307,14 +315,14 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
 
 
 
-        /* Share a page containing infos about packet buffers */
-        res = gnttab_grant_foreign_access(vdev->otherend_id, (unsigned long)phys_to_pfn(virt_to_phys_pt((uint32_t)vbuff_tx)), !READ_ONLY);
+        /* Share a page containing shared data */
+        res = gnttab_grant_foreign_access(vdev->otherend_id, (unsigned long)phys_to_pfn(virt_to_phys_pt((uint32_t)vnet_shared_data)), !READ_ONLY);
         if (res < 0)
                 BUG();
 
-        grant_buff = res;
-        vbuff_update_grants(vbuff_tx, vdev);
-        vbuff_update_grants(vbuff_rx, vdev);
+        shared_data_grant = res;
+        vbuff_update_grant(&vbuff_tx, vdev);
+        vbuff_update_grant(&vbuff_rx, vdev);
 
 
         vbus_transaction_start(&vbt);
@@ -323,7 +331,10 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
         vbus_printf(vbt, vdev->nodename, "ring-tx-ref", "%u", vnet->ring_tx_ref);
         vbus_printf(vbt, vdev->nodename, "ring-ctrl-ref", "%u", vnet->ring_ctrl_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vnet->evtchn);
-        vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", grant_buff);
+        vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", shared_data_grant);
+        vbus_printf(vbt, vdev->nodename, "vbuff-tx-ref", "%u", vbuff_tx.grant);
+        vbus_printf(vbt, vdev->nodename, "vbuff-tr-ref", "%u", vbuff_rx.grant);
+
 
         vbus_transaction_end(vbt);
 
@@ -341,8 +352,8 @@ void vnet_closed(struct vbus_device *vdev) {
 	DBG0("[" VNET_NAME "] Frontend close\n");
 
 	/* Free packet buffers */
-        vbuff_free(vbuff_tx);
-        vbuff_free(vbuff_rx);
+        vbuff_free(&vbuff_tx);
+        vbuff_free(&vbuff_rx);
 
 	/**
 	 * Free the ring and deallocate the proper data.
@@ -435,7 +446,7 @@ int vnet_init(eth_dev_t *eth_dev) {
         struct netif *netif;
         printk("vnet_init\n");
 
-        memcpy(eth_dev->enetaddr, vbuff_ethaddr, ARP_HLEN);
+        memcpy(eth_dev->enetaddr, vnet_shared_data->ethaddr, ARP_HLEN);
 
         netif = malloc(sizeof(struct netif));
         netif_add(netif, NULL, NULL, NULL, eth_dev, vnet_lwip_init, tcpip_input);
@@ -458,12 +469,12 @@ static void vnet_generate_mac(void){
         ME_desc_t *desc = get_ME_desc();
         unsigned int crc32 = desc->crc32;
 
-        vbuff_ethaddr[0] = 0xde;
-        vbuff_ethaddr[1] = 0xad;
-        vbuff_ethaddr[2] = 0xbe;
-        vbuff_ethaddr[3] = (crc32 ^ (crc32 >> 8)) & 0xFF;
-        vbuff_ethaddr[4] = (crc32 >> 16) & 0xFF;
-        vbuff_ethaddr[5] = (crc32 >> 24) & 0xFF;
+        vnet_shared_data->ethaddr[0] = 0xde;
+        vnet_shared_data->ethaddr[1] = 0xad;
+        vnet_shared_data->ethaddr[2] = 0xbe;
+        vnet_shared_data->ethaddr[3] = (crc32 ^ (crc32 >> 8)) & 0xFF;
+        vnet_shared_data->ethaddr[4] = (crc32 >> 16) & 0xFF;
+        vnet_shared_data->ethaddr[5] = (crc32 >> 24) & 0xFF;
 }
 
 
@@ -479,13 +490,11 @@ static int vnet_register(dev_t *dev) {
         network_devices_register(eth_dev);
 
         /* alloc page for buffer status */
-        vbuff_tx = (struct vbuff_buff *)get_free_vpage();
-        vbuff_rx = vbuff_tx + PAGE_COUNT;
-        vbuff_ethaddr = (unsigned char*)vbuff_rx + PAGE_COUNT;
+        vnet_shared_data = (struct vnet_shared_data *)get_free_vpage();
 
         /* init packet buffers */
-        vbuff_init(vbuff_tx);
-        vbuff_init(vbuff_rx);
+        vbuff_init(&vbuff_tx);
+        vbuff_init(&vbuff_rx);
 
         vnet_generate_mac();
 

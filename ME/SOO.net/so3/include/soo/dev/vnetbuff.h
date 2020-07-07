@@ -33,25 +33,26 @@
 
 
 struct vbuff_buff {
-        char *data;
-        char *back_data;
-        uint8_t spots[CHUNK_COUNT];
+        uint8_t *data;
+        uint8_t *data_phys;
+        size_t size;
         grant_handle_t grant;
+        mutex_t mutex;
+        size_t prod;
 };
 
 struct vbuff_data{
-        int index;
         uint32_t offset;
         uint32_t size;
 };
 
-void vbuff_init(struct vbuff_buff* buffs);
-void vbuff_free(struct vbuff_buff* buffs);
+void vbuff_init(struct vbuff_buff* buff);
+void vbuff_free(struct vbuff_buff* buff);
 
-int vbuff_put(struct vbuff_buff* buffs, struct vbuff_data *buff_data, void** data, size_t size);
+int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data, size_t size);
 
 
-void vbuff_update_grants(struct vbuff_buff* buff, struct vbus_device *dev);
+void vbuff_update_grant(struct vbuff_buff* buff, struct vbus_device *dev);
 
 
 // TODO fix

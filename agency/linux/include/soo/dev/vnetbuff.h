@@ -27,6 +27,8 @@
 #include <soo/grant_table.h>
 #include <soo/vbstore.h>
 #include <linux/types.h>
+#include <linux/mutex.h>
+
 
 
 
@@ -36,22 +38,26 @@
 
 #define READ_ONLY 1
 
+
+
 struct vbuff_buff {
-	char *front_data;
-	char *data;
-	uint8_t spots[CHUNK_COUNT];
+	uint8_t *data;
+	size_t size;
 	grant_ref_t grant;
+	struct mutex mutex;
+	size_t prod;
 };
 
 struct vbuff_data{
-	int index;
 	unsigned int offset;
 	unsigned int size;
 };
 
-int vbuff_put(struct vbuff_data *buff_data, void* data, size_t size);
-void* vbuff_get(struct vbuff_buff* buffs, struct vbuff_data *buff_data);
-void vbuff_remove(struct vbuff_buff* buffs, struct vbuff_data *buff_data);
+void vbuff_init(struct vbuff_buff* buff, grant_ref_t grant, struct vbus_device *vdev);
+void vbuff_free(struct vbuff_buff* buff, struct vbus_device *vdev);
 
+int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, uint8_t** data, size_t size);
+uint8_t* vbuff_get(struct vbuff_buff* buffs, struct vbuff_data *buff_data);
+uint8_t* vbuff_print(struct vbuff_buff* buff, struct vbuff_data *buff_data);
 
 #endif //VNETBUFF_H

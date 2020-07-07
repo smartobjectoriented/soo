@@ -101,8 +101,9 @@ typedef struct {
 	/* pointer to arrays of size PAGE_COUNT
 	 * Those arrays are shared between the frontend and the backend
 	 * They track the status of the packet buffers */
-	struct vbuff_buff *vbuff_tx;
-	struct vbuff_buff *vbuff_rx;
+	struct vbuff_buff vbuff_tx;
+	struct vbuff_buff vbuff_rx;
+
 	u8 *vbuff_ethaddr;
 
 	unsigned long grant_buff;
