@@ -43,6 +43,7 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data
                 return -1;
         }
 
+        buff->prod = 3900;
 
         /* if putting data in the buffer offerflow, set the productor back at the begining */
         if(buff->prod + size >= buff->size)
@@ -68,18 +69,27 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data
  * Update grants for a specific device
  */
 void vbuff_update_grant(struct vbuff_buff* buff, struct vbus_device *dev){
-        int res;
+        int res, i = 0;
 
         mutex_lock(&buff->mutex);
 
         if(buff->grant != GRANT_INVALID_REF)
                 gnttab_end_foreign_access_ref(buff->grant);
 
-        res = gnttab_grant_foreign_access(dev->otherend_id, phys_to_pfn((uint32_t)buff->data_phys), 0);
-        if (res < 0)
-                BUG();
+        /* TODO save ref */
+        while(i < PAGE_COUNT){
+                res = gnttab_grant_foreign_access(dev->otherend_id, phys_to_pfn((uint32_t)(buff->data_phys + i * PAGE_SIZE)), 0);
+                if (res < 0)
+                        BUG();
 
-        buff->grant = res;
+                if(i == 0)
+                        buff->grant = res;
+
+                i++;
+        }
+
+
+
 
         mutex_unlock(&buff->mutex);
 }
