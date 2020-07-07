@@ -18,7 +18,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -41,8 +41,6 @@
 #include <soo/dev/vfb.h>
 
 
-static bool thread_created = false;
-
 irq_return_t vfb_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vfb_t *vfb = to_vfb(vdev);
@@ -59,40 +57,6 @@ irq_return_t vfb_interrupt(int irq, void *dev_id) {
 
 	return IRQ_COMPLETED;
 }
-
-/*
- * The following function is given as an example.
- *
- */
-#if 0
-void vfb_generate_request(char *buffer) {
-	vfb_request_t *ring_req;
-
-	vdevfront_processing_start();
-
-	/*
-	 * Try to generate a new request to the backend
-	 */
-	if (!RING_FULL(&vfb.ring)) {
-		ring_req = RING_GET_REQUEST(&vfb.ring, vfb.ring.req_prod_pvt);
-
-		memcpy(ring_req->buffer, buffer, VFB_PACKET_SIZE);
-
-		/* Fill in the ring_req structure */
-
-		/* Make sure the other end "sees" the request when updating the index */
-		dmb();
-
-		vfb.ring.req_prod_pvt++;
-
-		RING_PUSH_REQUESTS(&vfb.ring);
-
-		notify_remote_via_irq(vfb.irq);
-	}
-
-	vdevfront_processing_end();
-}
-#endif
 
 void vfb_probe(struct vbus_device *vdev) {
 	int res;
@@ -244,26 +208,6 @@ void vfb_resume(struct vbus_device *vdev) {
 	DBG0("[" VFB_NAME "] Frontend resume\n");
 }
 
-#if 0
-int notify_fn(void *arg) {
-
-	while (1) {
-		msleep(50);
-
-		vfb_start();
-
-		/* Make sure the backend is connected and ready for interactions. */
-
-		notify_remote_via_irq(vfb.irq);
-
-		vfb_end();
-
-	}
-
-	return 0;
-}
-#endif
-
 void vfb_connected(struct vbus_device *vdev) {
 	vfb_t *vfb = to_vfb(vdev);
 
@@ -271,13 +215,6 @@ void vfb_connected(struct vbus_device *vdev) {
 
 	/* Force the processing of pending requests, if any */
 	notify_remote_via_irq(vfb->irq);
-
-	if (!thread_created) {
-		thread_created = true;
-#if 0
-		kernel_thread(notify_fn, "notify_th", NULL, 0);
-#endif
-	}
 }
 
 vdrvfront_t vfbdrv = {
