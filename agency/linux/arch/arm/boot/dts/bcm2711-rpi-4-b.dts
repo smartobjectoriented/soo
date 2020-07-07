@@ -93,7 +93,16 @@
 				compatible = "vuihandler,backend";
 				status = "disabled";
 			};
-		
+
+			vfb {
+				compatible = "vfb,backend";
+				status = "ok";
+			};
+
+			vinput {
+				compatible = "vinput,backend";
+				status = "ok";
+			};
 		};
 	};
 
