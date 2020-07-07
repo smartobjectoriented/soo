@@ -53,6 +53,7 @@
 #include <soo/soolink/sender.h>
 #include <soo/soolink/receiver.h>
 #include <soo/soolink/discovery.h>
+#include <soo/soolink/transcoder.h>
 
 #include <soo/core/device_access.h>
 
@@ -87,14 +88,9 @@ static wnet_fsm_handle_t fsm_handle;
 static struct mutex wnet_xmit_lock;
 
 /* Event used to track the receival of a Winenet beacon or a TX request */
-//static rtdm_event_t wnet_event;
-//static rtdm_event_t beacon_event;
-//static rtdm_event_t data_event;
-
 static struct completion wnet_event;
 static struct completion beacon_event;
 static struct completion data_event;
-
 
 /* Internal SOOlink descriptor for handling beacons such as ping req/rsp/go_speaker/etc. */
 static sl_desc_t *__sl_desc;
@@ -104,7 +100,6 @@ static wnet_rx_t wnet_rx;
 
 /* Management of the neighbourhood of SOOs. Used in the retry packet management. */
 static struct list_head wnet_neighbours;
-//static rtdm_mutex_t neighbour_list_lock;
 static struct mutex neighbour_list_lock;
 
 /* Each call to winenet_tx will increment the transID counter */
@@ -177,9 +172,8 @@ char *beacon_str(wnet_beacon_t *beacon, agencyUID_t *uid) {
 	char uid_str[80];
 	int i;
 
-	sprintf(__beacon_str, " Beacon %s (type: %s) / UID: ",
-			winenet_get_beacon_id_str(beacon->id),
-			((beacon->id == WNET_BEACON_PING) ? ping_type_str[(int) beacon->priv] : "n/a" ));
+	sprintf(__beacon_str, " Beacon %s (type: %s) / UID: ", winenet_get_beacon_id_str(beacon->id),
+		((beacon->id == WNET_BEACON_PING) ? ping_type_str[(int) beacon->priv] : "n/a" ));
 
 	/* Display the agency UID with the fourth first bytes (enough) */
 	for (i = 0 ; i < 4 ; i++) {
@@ -201,11 +195,7 @@ void winenet_xmit_data_processed(int ret) {
 	wnet_tx.pending = false;
 	wnet_tx.ret = ret;
 
-	if (ret < 0)
-		wnet_tx.completed = true;
-
 	/* Allow the producer to go further */
-	//rtdm_event_signal(&wnet_tx.xmit_event);
 	complete(&wnet_tx.xmit_event);
 
 }
@@ -218,12 +208,8 @@ void winenet_xmit_data_processed(int ret) {
 static void clear_buf_tx_pkt(void) {
 	uint32_t i;
 
-	for (i = 0; i < WNET_N_PACKETS_IN_FRAME; i++) {
-		if (buf_tx_pkt[i] != NULL) {
-			kfree(buf_tx_pkt[i]);
-			buf_tx_pkt[i] = NULL;
-		}
-	}
+	for (i = 0; i < WNET_N_PACKETS_IN_FRAME; i++)
+		buf_tx_pkt[i]->packet_type = TRANSCEIVER_PKT_NONE;
 }
 
 /**
@@ -236,12 +222,8 @@ static void clear_buf_rx_pkt(void) {
 
 	/* We assume wnet_rx_request_lock is acquired. */
 
-	for (i = 0; i < WNET_N_PACKETS_IN_FRAME; i++) {
-		if (buf_rx_pkt[i] != NULL) {
-			kfree(buf_rx_pkt[i]);
-			buf_rx_pkt[i] = NULL;
-		}
-	}
+	for (i = 0; i < WNET_N_PACKETS_IN_FRAME; i++)
+		buf_rx_pkt[i]->packet_type = TRANSCEIVER_PKT_NONE;
 }
 
 /**
@@ -827,7 +809,6 @@ static int wait_for_ack(wnet_beacon_t *beacon) {
 	int ret_ack = -1;
 
 	/* Timeout of Tspeaker us */
-	//ret = rtdm_event_timedwait(&wnet_event, tspeaker_ack, NULL);
 	ret = wait_for_completion_timeout(&wnet_event, msecs_to_jiffies(WNET_TSPEAKER_ACK_MS));
 
 	if (ret > 0) {
@@ -1201,8 +1182,6 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 	while (true) {
 
 		/* We keep synchronized with our producer or be ready to process beacons. */
-
-		//rtdm_event_wait(&wnet_event);
 		wait_for_completion(&wnet_event);
 
 		if (clear_spurious_ack())
@@ -1245,7 +1224,6 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 				transmission_over = false;
 
 				/* Synchronize with the producer. */
-				//rtdm_event_signal(&wnet_tx.xmit_event);
 				complete(&wnet_tx.xmit_event);
 			}
 
@@ -1292,19 +1270,6 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 
 		listener->processed = true;
 
-		/* We have to transmit over all smart objects */
-		/* Sending packet of the frame for the first time (first listener) */
-
-		/* Copy the packet into the bufferized packet array */
-		if (buf_tx_pkt[(wnet_tx.packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME]) {
-			DBG("TX buffer already populated: %d, %d\n", wnet_tx.packet->transID, (wnet_tx.packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME);
-
-			clear_buf_tx_pkt();
-		}
-
-		buf_tx_pkt[(wnet_tx.packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME] = (transceiver_packet_t *) kmalloc(wnet_tx.packet->size + sizeof(transceiver_packet_t), GFP_ATOMIC);
-		memcpy(buf_tx_pkt[(wnet_tx.packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME], wnet_tx.packet, wnet_tx.packet->size + sizeof(transceiver_packet_t));
-
 		/* Set the destination */
 		memcpy(&wnet_tx.sl_desc->agencyUID_to, &listener->neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
@@ -1313,18 +1278,46 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 		printlnUID(&wnet_tx.sl_desc->agencyUID_to);
 #endif
 
-		/* Propagate the data packet to the lower layers */
-		__sender_tx(wnet_tx.sl_desc, wnet_tx.packet, wnet_tx.size, 0);
+		/* We have to transmit over all smart objects */
+		/* Sending the frame for the first time (first listener) */
+		for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
+			__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], buf_tx_pkt[i]->size, 0);
 
-		if (((wnet_tx.packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME == WNET_N_PACKETS_IN_FRAME-1) || (wnet_tx.packet->transID & WNET_LAST_PACKET))
-		{
-			memcpy(&beacon.agencyUID, &wnet_tx.sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
-
-			/* Now waiting for the ACK beacon */
+		/* Now waiting for the ACK beacon */
+		memcpy(&beacon.agencyUID, &wnet_tx.sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
 retry_ack1:
-			ack = wait_for_ack(&beacon);
+		ack = wait_for_ack(&beacon);
 
-			if (ack != 0) {
+		if (ack != 0) {
+
+			/* Delayed (spurious) beacon */
+			if (wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
+				winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, &wnet_rx.sl_desc->agencyUID_from, NULL);
+
+				beacon_clear();
+				continue;
+			}
+			if (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) {
+
+				beacon_clear();
+				goto retry_ack1;
+			}
+
+			if (process_ping_is_speaker()) {
+
+				discard_transmission();
+
+				neighbour_list_protection(false);
+				return ;
+			}
+
+			retry_count = 0;
+			do {
+				/* Re-send the whole frame */
+				for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
+					__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], buf_tx_pkt[i]->size, 0);
+retry_ack2:
+				ack = wait_for_ack(&beacon);
 
 				/* Delayed (spurious) beacon */
 				if (wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
@@ -1336,7 +1329,7 @@ retry_ack1:
 				if (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) {
 
 					beacon_clear();
-					goto retry_ack1;
+					goto retry_ack2;
 				}
 
 				if (process_ping_is_speaker()) {
@@ -1347,79 +1340,40 @@ retry_ack1:
 					return ;
 				}
 
-				retry_count = 0;
-				do {
+				if (ack == -1)
+					retry_count++;
 
-					for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i] != NULL)); i++) {
-						__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], buf_tx_pkt[i]->size, 0);
+			} while ((ack != 0) && (retry_count < WNET_RETRIES_MAX));
 
+			if (ack != 0) {
+				/*
+				 * Well, it seems we have a bad guy as neighbour :-(
+				 * Just remove it and proceed with the next listener, i.e. lets proceed
+				 * with the broadcast to other neighbours.
+				 */
 
+				tmp = listener;
+				listener = next_valid_neighbour(listener);
+				winenet_remove_neighbour(tmp->neighbour);
 
-retry_ack2:
-					ack = wait_for_ack(&beacon);
+				if (listener == NULL) {
 
-					/* Delayed (spurious) beacon */
-					if (wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
-						winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, &wnet_rx.sl_desc->agencyUID_from, NULL);
+					discard_transmission();
 
-						beacon_clear();
-						continue;
-					}
-					if (wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) {
+					ourself()->neighbour->priv = NULL;
 
-						beacon_clear();
-						goto retry_ack2;
-					}
+					neighbour_list_protection(false);
 
-					if (process_ping_is_speaker()) {
+					change_state(WNET_STATE_IDLE);
 
-						discard_transmission();
+					return ;
 
-						neighbour_list_protection(false);
-						return ;
-					}
-
-					if (ack == -1)
-						retry_count++;
-
-				} while ((ack != 0) && (retry_count < WNET_RETRIES_MAX));
-
-				if (ack != 0) {
-					/*
-					 * Well, it seems we have a bad guy as neighbour :-(
-					 * Just remove it and proceed with the next listener, i.e. lets proceed
-					 * with the broadcast to other neighbours.
-					 */
-
-					tmp = listener;
-					listener = next_valid_neighbour(listener);
-					winenet_remove_neighbour(tmp->neighbour);
-
-					if (listener == NULL) {
-
-						discard_transmission();
-
-						ourself()->neighbour->priv = NULL;
-
-						neighbour_list_protection(false);
-
-						change_state(WNET_STATE_IDLE);
-
-						return ;
-
-					}
 				}
 			}
-
-			/* Look for the next neighbour */
-			listener = next_valid_neighbour(listener);
-		} else {
-
-			/* Allow the producer to go further, as the frame is not complete yet */
-			winenet_xmit_data_processed(0);
-
-			continue;
 		}
+
+		/* Look for the next neighbour */
+		listener = next_valid_neighbour(listener);
 
 		while (listener && !listener->processed) {
 
@@ -1431,7 +1385,8 @@ retry_ack2:
 
 			retry_count = 0;
 			do {
-				for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i] != NULL)); i++)
+				/* Re-send the whole frame */
+				for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
 					__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], buf_tx_pkt[i]->size, 0);
 retry_ack3:
 				ack = wait_for_ack(&beacon);
@@ -1517,7 +1472,6 @@ static void winenet_state_listener(wnet_state_t old_state) {
 #endif
 
 	while (1) {
-		//rtdm_event_wait(&wnet_event);
 		wait_for_completion(&wnet_event);
 
 		if (clear_spurious_ack())
@@ -1525,7 +1479,7 @@ static void winenet_state_listener(wnet_state_t old_state) {
 
 		/* It may happen if the current speaker disappeared and we are now speaker. */
 		if (get_state() == WNET_STATE_SPEAKER) {
-			//rtdm_event_signal(&wnet_event); /* Go ahead in speaker state for active processing */
+			/* Go ahead in speaker state for active processing */
 			complete(&wnet_event);
 			return ;
 		}
@@ -1589,7 +1543,6 @@ static void winenet_state_listener(wnet_state_t old_state) {
 
 			winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, &wnet_rx.sl_desc->agencyUID_from, (void *) (wnet_rx.transID & WNET_MAX_PACKET_TRANSID));
 
-			//rtdm_event_signal(&data_event);
 			complete(&data_event);
 		}
 
@@ -1683,7 +1636,6 @@ void winenet_start_fsm_task(char *name, wnet_fsm_handle_t *handle) {
 	handle->old_state = WNET_STATE_INIT;
 	handle->state = WNET_STATE_INIT;
 
-	//rtdm_task_init(&handle->task, name, fsm_task_fn, (void *) handle, WINENET_TASK_PRIO, 0);
 	kthread_run(fsm_task_fn, (void *) handle, "fsm_task");
 }
 
@@ -1693,10 +1645,11 @@ void winenet_start_fsm_task(char *name, wnet_fsm_handle_t *handle) {
  */
 static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool completed) {
 	transceiver_packet_t *packet;
-	int ret;
+	int ret = 0;
 
 	/* End of transmission ? */
 	if (!packet_ptr) {
+
 		/* Ok, go ahead with the next speaker */
 
 		/* tx_pending will remain to false */
@@ -1708,11 +1661,9 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
 
 			transmission_over = true;
 
-			//rtdm_event_signal(&wnet_event);
 			complete(&wnet_event);
 
 			/* Wait until the FSM has processed the data. */
-			//rtdm_event_wait(&wnet_tx.xmit_event);
 			wait_for_completion(&wnet_tx.xmit_event);
 		}
 
@@ -1741,44 +1692,38 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
 	 * This is required to allow the receiver to identify the last packet of the
 	 * frame (if the modulo of its trans ID is not equal to WNET_N_PACKETS_IN_FRAME - 1)
 	 * and force it to send an ACK.
+	 * And prepare the next transID.
 	 */
-	if (completed)
+	if (completed) {
 		packet->transID |= WNET_LAST_PACKET;
-
-	/* Fill the TX request parameters */
-
-	wnet_tx.sl_desc = sl_desc;
-	wnet_tx.packet = packet;
-	wnet_tx.size = size;
-	wnet_tx.transID = packet->transID;
-	wnet_tx.completed = completed;
-
-	/* Now, setting tx_pending to true will allow the speaker to send out */
-	wnet_tx.pending = true;
-
-	/*
-	 * Prepare the next transID.
-	 * If the complete flag is set, the next value will be 0.
-	 */
-	if (!completed)
-		sent_packet_transID = (sent_packet_transID + 1) % WNET_MAX_PACKET_TRANSID;
-	else
 		sent_packet_transID = 0;
+	} else
+		sent_packet_transID = (sent_packet_transID + 1) % WNET_MAX_PACKET_TRANSID;
 
-	if (wnet_tx.transID > 0)
-		//rtdm_event_signal(&wnet_event);
+	/* Fill in the buffer */
+	memcpy(buf_tx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME], packet, size);
+
+	/* Look for a completed frame (max number of packets reached or completed) */
+	if (sent_packet_transID % WNET_N_PACKETS_IN_FRAME == 0) {
+
+		/* Fill the TX request parameters */
+		wnet_tx.sl_desc = sl_desc;
+		wnet_tx.transID = packet->transID;
+
+		/* Now, setting tx_pending to true will allow the speaker to send out */
+		wnet_tx.pending = true;
+
 		complete(&wnet_event);
 
-	/* Wait until the packed has been sent out. */
-	//rtdm_event_wait(&wnet_tx.xmit_event);
-	wait_for_completion(&wnet_tx.xmit_event);
+		/* Wait until the packed has been sent out. */
+		wait_for_completion(&wnet_tx.xmit_event);
 
-	/* completed ? */
-	if (wnet_tx.completed)
-		/* Reset the TX trans ID */
-		sent_packet_transID = 0;
+		ret = wnet_tx.ret;
 
-	ret = wnet_tx.ret;
+		/* In case of failure, we re-init the transID sequence. */
+		if (ret < 0)
+			sent_packet_transID = 0;
+	}
 
 	mutex_unlock(&wnet_xmit_lock);
 
@@ -1794,7 +1739,7 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
  * The size refers to the whole transceiver packet.
  */
 void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr, size_t size) {
-	transceiver_packet_t *packet, *new_packet;
+	transceiver_packet_t *packet;
 	static bool all_packets_received = false;
 	static uint32_t last_transID;
 	uint32_t i;
@@ -1821,11 +1766,9 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 #endif
 
 		/* Processed within the FSM directly */
-		//rtdm_event_signal(&wnet_event);
 		complete(&wnet_event);
 
 		/* Wait until the beacon has been processed by the FSM */
-		//rtdm_event_wait(&beacon_event);
 		wait_for_completion(&beacon_event);
 	}
 
@@ -1880,7 +1823,7 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 		}
 
 		/* Copy the packet into the bufferized packet array */
-		if (buf_rx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME]) {
+		if (buf_rx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME]->packet_type != TRANSCEIVER_PKT_NONE) {
 			/*
 			 * An incoming packet has to be placed in a buffer which is already populated.
 			 * This means that some packets at the beginning of the frame have been missed. The whole
@@ -1894,11 +1837,6 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 			clear_buf_rx_pkt();
 		}
 
-		new_packet = (transceiver_packet_t *) kmalloc(packet->size + sizeof(transceiver_packet_t), GFP_ATOMIC);
-		BUG_ON(!new_packet);
-
-		buf_rx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME] = new_packet;
-
 		memcpy(buf_rx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME], packet, packet->size + sizeof(transceiver_packet_t));
 
 		/* Save the last ID of the last received packet */
@@ -1909,7 +1847,7 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 
 			if (all_packets_received) {
 
-				for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_rx_pkt[i] != NULL)); i++)
+				for (i = 0; i < WNET_N_PACKETS_IN_FRAME; i++)
 					if ((buf_rx_pkt[i]->packet_type == TRANSCEIVER_PKT_DATA) && !packet_already_received(buf_rx_pkt[i], &sl_desc->agencyUID_from))
 						receiver_rx(sl_desc, plugin_desc, buf_rx_pkt[i], buf_rx_pkt[i]->size);
 
@@ -1921,12 +1859,10 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 
 				got_data = false;
 
-				//rtdm_event_signal(&wnet_event);
 				complete(&wnet_event);
 
 				/* Wait until the beacon has been processed by the FSM */
-				//rtdm_event_wait(&data_event);
-				complete(&data_event);
+				wait_for_completion(&data_event);
 			}
 		}
 	}
@@ -1944,16 +1880,14 @@ static datalink_proto_desc_t winenet_proto = {
  * Initialization of Winenet.
  */
 void winenet_init(void) {
+	int i;
+
 	DBG("Winenet initialization\n");
 
 	memcpy(&first_speakerUID, get_my_agencyUID(), sizeof(agencyUID_t));
 
 	INIT_LIST_HEAD(&wnet_neighbours);
 
-	//rtdm_event_init(&wnet_event, 0);
-	//rtdm_event_init(&wnet_tx.xmit_event, 0);
-	//rtdm_event_init(&beacon_event, 0);
-	//rtdm_event_init(&data_event, 0);
 	init_completion(&wnet_event);
 	init_completion(&wnet_tx.xmit_event);
 	init_completion(&beacon_event);
@@ -1966,9 +1900,23 @@ void winenet_init(void) {
 	mutex_init(&wnet_xmit_lock);
 	mutex_init(&neighbour_list_lock);
 
-	//rtdm_event_init(&fsm_handle.event, 0);
 	init_completion(&fsm_handle.event);
 	fsm_handle.funcs = fsm_functions;
+
+	/*
+	 * Allocate once all tx & rx buffers
+	 */
+	for (i = 0; i < WNET_N_PACKETS_IN_FRAME; i++) {
+		buf_tx_pkt[i] = (transceiver_packet_t *) kmalloc(SL_CODER_PACKET_MAX_SIZE + sizeof(transceiver_packet_t), GFP_ATOMIC);
+		BUG_ON(!buf_tx_pkt[i]);
+
+		buf_tx_pkt[i]->packet_type = TRANSCEIVER_PKT_NONE;
+
+		buf_rx_pkt[i] = (transceiver_packet_t *) kmalloc(SL_CODER_PACKET_MAX_SIZE + sizeof(transceiver_packet_t), GFP_ATOMIC);
+		BUG_ON(!buf_rx_pkt[i]);
+
+		buf_rx_pkt[i]->packet_type = TRANSCEIVER_PKT_NONE;
+	}
 
 	/* Internal SOOlink descriptor */
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)

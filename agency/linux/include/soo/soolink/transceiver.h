@@ -22,6 +22,9 @@
 
 #include <linux/types.h>
 
+/* Used to keep track of allocated buffer */
+#define TRANSCEIVER_PKT_NONE		0
+
 #define TRANSCEIVER_PKT_DATA	 	1
 #define TRANSCEIVER_PKT_DATALINK 	2
 

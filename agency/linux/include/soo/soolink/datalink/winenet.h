@@ -25,22 +25,22 @@
 #include <soo/soolink/discovery.h>
 
 /* Maximal number of retries */
-#define WNET_RETRIES_MAX 6
+#define WNET_RETRIES_MAX 3
 
 /* Conversion from us to ns */
 #define WNET_TIME_US_TO_NS(x) ((x) * 1000ull)
 
 #define WNET_MAX_PACKET_TRANSID 0xffffff
-#define WNET_LAST_PACKET		(1 << 24)
+#define WNET_LAST_PACKET	(1 << 24)
 
 /* Number of bufferized packets in a frame for the n pkt / 1 ACK strategy */
-#define WNET_N_PACKETS_IN_FRAME 2048
+#define WNET_N_PACKETS_IN_FRAME 1024
 
 /* Express in microsecs */
 #define WNET_MIN_DRAND		1000
 #define WNET_MAX_DRAND		2000
 
-#define WNET_TSPEAKER_ACK_MS	300
+#define WNET_TSPEAKER_ACK_MS	2000
 
 /*
  * Winenet states FSM
@@ -98,24 +98,21 @@ typedef struct {
 
 typedef struct {
 	sl_desc_t *sl_desc;
+	uint32_t transID;
 
 	bool pending;
-	transceiver_packet_t *packet;
-	size_t	size;
-	uint32_t transID;
-	bool completed;
+
 	int ret;
-	//rtdm_event_t xmit_event;
+
 	struct completion xmit_event;
 
 } wnet_tx_t;
 
 typedef struct {
 	sl_desc_t *sl_desc;
+	uint32_t transID;
 
 	bool data_received;
-	bool completed;
-	uint32_t transID;
 
 	/* Last received beacon */
 	wnet_beacon_t last_beacon;
