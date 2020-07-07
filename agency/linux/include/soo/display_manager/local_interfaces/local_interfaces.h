@@ -4,8 +4,6 @@
 #define MAX_FBS 9
 
 struct screen_partitioning{
-  /* Total nuber of displays */
-  uint8_t nb_displays;
   /* Array containing all the potential base addresses for screen parts */
   uint32_t* mem_spaces[MAX_FBS];
   /* XxY total screen size */
@@ -23,17 +21,23 @@ struct screen_partitioning{
   uint32_t x_offset;
   /* y size of a framebuffer line and offset used for access */
   uint32_t y_offset;
+};
+
+struct screen_management{
+  /* Total number of displays */
+  uint8_t nb_displays;
+  /* Which part of the screen is occupied or not by which ME (ID defined) */
+  int8_t occupation[MAX_FBS];
+  /* Addresses of the framebuffers to copy from */
+  uint32_t* vfb_addr[MAX_FBS];
+  /* Informations about screen partitioning */
+  struct screen_partitioning* screen_part;
   /* Screen base address to write to */
   uint32_t* base_addr;
 };
 
-struct screen_management{
-  uint8_t nb_displays;
-  uint8_t occupation[MAX_FBS];
-  struct screen_partitioning* screen_part;
-};
-
 int local_interfaces_init(void);
-int update_nb_displays(uint8_t n);
+int add_display(uint8_t id, uint32_t *fb_addr);
+int remove_display(uint8_t id);
 
 #endif /* LOCAL_INTERFACES_H */

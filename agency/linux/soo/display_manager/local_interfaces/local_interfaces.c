@@ -13,20 +13,39 @@
 #include <soo/display_manager/me_interactions/me_interactions.h>
 
 /* static functions prototypes */
+
+/* Initialises screen_management struct */
 static int init_screen_part(void);
+/* Colors a part of the screen in given color (testing purpose function) */
 static int color_part(uint8_t n, uint32_t color);
+/* Updates the screen_partitioning struct according to number of displays */
 static int repartition_screen(void);
-static int update_partition_addresses(void);
+/* Updates the starting adresses of each part of the screen */
+static int update_parts_addresses(void);
+/* Used to change the number of displays */
+static int update_nb_displays(uint8_t n);
+/* Updates the display of part n of the screen */
+static int update_part_display(uint8_t n);
+/* Checks if the displays will have to migrate afer addition or removal of a display */
+static int check_fb_mig(uint8_t new, uint8_t old);
+/* Function that redraws the content of framebuffer when migration is needed */
+static void migrate_data(void);
+/* Fill unused parts in black */
+void black_fill_part(uint8_t n);
 
 #if 0
 #define DEBUG
 #endif
 
+const uint8_t parts_map[MAX_FBS + 1] = {1, 1, 2, 4, 4, 6, 6, 9, 9, 9};
+const uint32_t colors_test[MAX_FBS] = {0xF800, 0xFFFF00FF, 0xFFFF0000, 0xABCD0022, 0x0, 0xFACF000A, 0xAAB0F81F, 0xBBC07FF, 0xBFF8A0};
+uint32_t* fake_buffers[MAX_FBS];
 /* TO DO */
 /* Find a way to check when a framebuffer becomes available for initialisation
  * if there are none during init
  * Prevent crashes that could occur when screen is unplugged (to be tested
  * still)
+ * Check for incoming framebuffers sizes (not to overread and cause crashes)
  */
 
  struct screen_management screen_man;
@@ -54,8 +73,8 @@ int local_interfaces_init(void){
     registered_fb[0]->fbops->fb_set_par(registered_fb[0]);
   }
 
-  /* Framebuffer is unlinked to avoid other devices using it */
-  unlink_framebuffer(registered_fb[0]);
+  /* Framebuffer is unlinked to avoid other devices using it (fbcon) */
+  /* unlink_framebuffer(registered_fb[0]); */
 
   /*
    * Framebuffer and video controller are all set, we can initialise screen
@@ -63,38 +82,131 @@ int local_interfaces_init(void){
    */
   init_screen_part();
 
-  /* Setting the number of displays needed for testing */
-  screen_man.nb_displays = MAX_FBS;
-  /* Screen will be partitioned according to the number of displays */
-  repartition_screen();
-  /* The different part are going to be colored here (example for 9)*/
-  color_part(0, 0x0);
-  color_part(1, 0xFFFFFFF);
-  color_part(2, 0x0);
-  color_part(3, 0xFFFFFFF);
-  color_part(4, 0x0);
-  color_part(5, 0xFFFFFFF);
-  color_part(6, 0x0);
-  color_part(7, 0xFFFFFFF);
-  color_part(8, 0x0);
-  color_part(0, 0xFFFFFFF);
+  /* Fake buffers for testing purpose */
+  /*int i, j;
+  for(i = 0; i < MAX_FBS; ++i){
+    fake_buffers[i] = kmalloc(screen_man.screen_part->size_total, GFP_KERNEL);
+    for(j = 0; j < screen_man.screen_part->size_total/4; ++j){
+      fake_buffers[i][j] = colors_test[i];
+    }
+  }*/
+  /* Tests adding and removing displays */
+  /*add_display(1, fake_buffers[0]);
+  msleep(3000);
+  add_display(2, fake_buffers[1]);
+  msleep(3000);
+  add_display(3, fake_buffers[2]);
+  msleep(3000);
+  add_display(4, fake_buffers[3]);
+  msleep(3000);
+  add_display(1, fake_buffers[8]);
+  msleep(3000);
+  add_display(5, fake_buffers[7]);
+  msleep(3000);
+  remove_display(5);
+  msleep(3000);
+  remove_display(1);
+  msleep(3000);
+  remove_display(2);
+  msleep(3000);
+  remove_display(21);
+  msleep(3000);
+  remove_display(4);
+  msleep(3000);
+  add_display(6, fake_buffers[5]);
+  msleep(3000);
+  add_display(7, fake_buffers[6]);
+  msleep(3000);
+  add_display(8, fake_buffers[7]);
+  msleep(3000);
+  add_display(9, fake_buffers[8]);
+  msleep(3000);
+  add_display(10, fake_buffers[1]);
+  msleep(3000);
+  add_display(11, fake_buffers[0]);*/
 
   printk("Bye from %s\n", __func__);
   return 0;
 }
 
-int update_nb_displays(uint8_t n){
-  if(n > MAX_FBS) return -1;
+int add_display(uint8_t id, uint32_t *fb_addr){
+  int i;
+
+  /* Is ME already being displayed ? */
+  for(i = 0; i < screen_man.nb_displays; ++i){
+    /* Check if this ME is already here */
+    if(screen_man.occupation[i] != id) continue;
+    /* If we already had it we get here */
+    /* In case it changed get (potential) new address */
+    screen_man.vfb_addr[i] = fb_addr;
+    /* We just update it and we can leave */
+    update_part_display(i);
+    return 0;
+  }
+
+  /* If full do nothing */
+  if(screen_man.nb_displays == MAX_FBS) return -1;
+
+  /* If there's a spot for the new ME, we fill it */
+  screen_man.occupation[screen_man.nb_displays] = id;
+  screen_man.vfb_addr[screen_man.nb_displays] = fb_addr;
+  update_nb_displays(screen_man.nb_displays + 1);
+  return 0;
+}
+
+int remove_display(uint8_t id){
+  int i;
+
+  /* If there are no displays there's nothing to remove */
+  if(screen_man.nb_displays == 0){
+    return -1;
+  }
+
+  /* Check it's position (by ID) */
+  for(i = 0; i < screen_man.nb_displays; ++i){
+    if(screen_man.occupation[i] == id) break;
+  }
+
+  /* Check if it's an ID we indeed have, nothing to remove otherwise */
+  if(i >= screen_man.nb_displays) return -1;
+
+  /* If it's not the last in the array */
+  if(i != screen_man.nb_displays - 1){
+    /* Left shift other datas */
+    for(; i < screen_man.nb_displays - 1; ++i){
+      screen_man.occupation[i] = screen_man.occupation[i + 1];
+      screen_man.vfb_addr[i] = screen_man.vfb_addr[i + 1];
+    }
+  }
+
+  screen_man.occupation[screen_man.nb_displays - 1] = -1;
+  screen_man.vfb_addr[screen_man.nb_displays - 1] = 0;
+
+  update_nb_displays(screen_man.nb_displays - 1);
+
+  return 0;
+}
+
+static int update_nb_displays(uint8_t n){
+  uint8_t mig, i;
+  /* Check if we'll need to transfer what's inside fb after repartitioning */
+  mig = check_fb_mig(n, screen_man.nb_displays);
   screen_man.nb_displays = n;
   repartition_screen();
+  if(mig){
+    migrate_data();
+  }else{
+    update_part_display(n - 1);
+  }
+  for(i = screen_man.nb_displays; i < screen_man.screen_part->horizontal_part * screen_man.screen_part->vertical_part; ++i){
+    black_fill_part(i);
+  }
   return 0;
 }
 
 /* Basic initialisation, taking the needed values from the framebuffer */
 static int init_screen_part(void){
   int i;
-
-  screen_man.nb_displays = 1;
 
   screen_man.screen_part = kzalloc(sizeof(struct screen_partitioning), GFP_KERNEL);
   if(screen_man.screen_part == NULL){
@@ -103,7 +215,8 @@ static int init_screen_part(void){
   }
 
   for(i = 0; i < MAX_FBS; ++i){
-    screen_man.occupation[i] = 0;
+    screen_man.occupation[i] = -1;
+    screen_man.vfb_addr[i] = 0;
     screen_man.screen_part->mem_spaces[i] = 0;
   }
 
@@ -112,12 +225,12 @@ static int init_screen_part(void){
   screen_man.screen_part->x_offset = 0;
   screen_man.screen_part->y_offset = 0;
 
-  screen_man.screen_part->nb_displays = 1;
+  screen_man.nb_displays = 0;
   screen_man.screen_part->x_total = registered_fb[0]->var.xres;
   screen_man.screen_part->y_total = registered_fb[0]->var.yres;
   screen_man.screen_part->line_size = registered_fb[0]->fix.line_length;
   screen_man.screen_part->size_total = registered_fb[0]->var.yres * screen_man.screen_part->line_size;
-  screen_man.screen_part->base_addr = (uint32_t*) registered_fb[0]->screen_base;
+  screen_man.base_addr = (uint32_t*) registered_fb[0]->screen_base;
 
   repartition_screen();
 
@@ -162,27 +275,78 @@ static int repartition_screen(void){
   screen_man.screen_part->x_offset = screen_man.screen_part->x_total / screen_man.screen_part->vertical_part;
   screen_man.screen_part->y_offset = screen_man.screen_part->y_total / screen_man.screen_part->horizontal_part;
 
-  update_partition_addresses();
+  update_parts_addresses();
 
   printk("Screen repartitioned for %d displays\n", nb);
   return 0;
 }
 
 /* Calculate the new base addresses of each part of the screen */
-static int update_partition_addresses(void){
+static int update_parts_addresses(void){
   int i, j, n;
 
   n = 0;
 
   for(i = 0; i < screen_man.screen_part->horizontal_part; ++i){
     for(j = 0; j < screen_man.screen_part->vertical_part; ++j){
-      screen_man.screen_part->mem_spaces[n++] = (uint32_t*)(screen_man.screen_part->base_addr +
+      screen_man.screen_part->mem_spaces[n++] = (uint32_t*)(screen_man.base_addr +
       ((j * screen_man.screen_part->x_offset) +
       (i * screen_man.screen_part->y_offset * (screen_man.screen_part->line_size/4))));
     }
   }
 
   return 0;
+}
+
+static int update_part_display(uint8_t n){
+  int i, j;
+  uint32_t *dest, *source;
+  uint32_t x, y, line_size;
+  uint32_t col[MAX_FBS] = {0xF800, 0xFFFF00FF, 0xFFFF0000, 0xFFFFFFFF, 0x0, 0xFACF000A, 0xAAB0F81F, 0xBBC07FF, 0xBA0FF800};
+
+  line_size = screen_man.screen_part->line_size;
+  dest = screen_man.screen_part->mem_spaces[n];
+  source = screen_man.vfb_addr[n];
+  x = screen_man.screen_part->x_offset;
+  y = screen_man.screen_part->y_offset;
+  printk("We gonna crash\n");
+  if(source){
+    for(i = 0; i < y; ++i){
+      for(j = 0; j < x; ++j){
+        dest[j + i * (screen_man.screen_part->line_size/4)] = source[j + i * (screen_man.screen_part->line_size/4)];
+      }
+    }
+  }else{
+    color_part(n, col[n]);
+  }
+
+  printk("whew\n");
+
+  return 0;
+}
+/* Return 0 if migration not needed, 1 if yes */
+static int check_fb_mig(uint8_t new, uint8_t old){
+
+  printk("New value : %d\nOld value : %d\n", new, old);
+  printk("Map value New : %d\nMap value Old : %d\n", parts_map[new], parts_map[old]);
+  /* If we add/remove a display, mig will be needed when screen parts change */
+  return parts_map[new] == parts_map[old] ? 0 : 1;
+
+  return 0;
+}
+
+static void migrate_data(void){
+  int i;
+  printk("Migrating Data\n");
+  for(i = 0; i < screen_man.nb_displays; ++i){
+    update_part_display(i);
+  }
+
+  return;
+}
+
+void black_fill_part(uint8_t n){
+  color_part(n, 0);
 }
 
 /* Colors part n of the screen with given color (testing purpose function) */
