@@ -95,8 +95,19 @@ static void plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size, unsi
 	cpu = smp_processor_id();
 	HARD_TX_LOCK(net_dev, txq, cpu);
 
+	/* Normally, this should never happen,
+	 * but in case of overspeed...
+	 */
 	while (netif_xmit_stopped(txq))
-		schedule();
+	{
+		HARD_TX_UNLOCK(net_dev, txq);
+		local_bh_enable();
+
+		msleep(100);
+
+		local_bh_disable();
+		HARD_TX_LOCK(net_dev, txq, cpu);
+	}
 
 	netdev_start_xmit(skb, net_dev, txq, 0);
 

@@ -25,7 +25,6 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/types.h>
-#include <linux/spinlock.h>
 #include <linux/vmalloc.h>
 
 #include <soo/uapi/soo.h>
@@ -47,13 +46,6 @@
 
 /* List of registered requesters */
 struct list_head sl_req_list;
-
-/* Preparation of args to be passed in the RT domain */
-static sl_send_args_t sl_send_args;
-static sl_recv_args_t sl_recv_args;
-
-static spinlock_t send_lock;
-static spinlock_t recv_lock;
 
 /*
  * Look for a specific descriptor according to the type of requester
@@ -89,7 +81,6 @@ sl_desc_t *sl_register(req_type_t req_type, if_type_t if_type, trans_mode_t tran
 	sl_desc->req_type = req_type;
 	sl_desc->if_type = if_type;
 	sl_desc->trans_mode = trans_mode;
-	sl_desc->recv_callback = NULL;
 
 	memcpy(&sl_desc->agencyUID_to, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
 	memcpy(&sl_desc->agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
@@ -172,13 +163,6 @@ bool is_exclusive(sl_desc_t *sl_desc) {
 	return sl_desc->exclusive;
 }
 
-/*
- * Configure a receive callback function for asynchronous receive from the transcoder functional block (decoder).
- */
-void sl_set_recv_callback(sl_desc_t *sl_desc, recv_callback_t recv_fn) {
-	sl_desc->recv_callback = recv_fn;
-}
-
 /* Forward the call to the Discovery block to enable the discovery process. */
 void sl_discovery_start(void) {
 	discovery_start();
@@ -188,9 +172,6 @@ static int soolink_init(void) {
 	lprintk("%s: Soolink subsys initializing ...\n", __func__);
 
 	INIT_LIST_HEAD(&sl_req_list);
-
-	spin_lock_init(&send_lock);
-	spin_lock_init(&recv_lock);
 
 	/* Initialize the Transcoder block */
 	transcoder_init();

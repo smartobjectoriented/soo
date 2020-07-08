@@ -76,8 +76,6 @@ typedef enum {
 struct sl_desc;
 typedef struct sl_desc sl_desc_t;
 
-typedef void (*recv_callback_t)(sl_desc_t *sl_desc, void *data, size_t size);
-
 /* SOOlink descriptor */
 typedef struct sl_desc {
 
@@ -98,9 +96,6 @@ typedef struct sl_desc {
 
 	/* (optional) Identification of the target, if any */
 	agencyUID_t	agencyUID_to;
-
-	/* (optional) Receive callback function */
-	recv_callback_t recv_callback;
 
 	/* Event and parameters to perform synchronous call to the Decoder receive function */
 	struct completion recv_event;
@@ -135,8 +130,6 @@ typedef struct {
 void sl_set_exclusive(sl_desc_t *sl_desc, bool active);
 
 bool is_exclusive(sl_desc_t *sl_desc);
-
-void sl_set_recv_callback(sl_desc_t *sl_desc, recv_callback_t recv_fn);
 
 sl_desc_t *sl_register(req_type_t req_type, if_type_t if_type, trans_mode_t trans_mode);
 void sl_unregister(sl_desc_t *sl_desc);

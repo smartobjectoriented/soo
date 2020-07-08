@@ -47,17 +47,10 @@ extern int woal_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
 
 static struct net_device *net_dev = NULL;
 
-static spinlock_t send_lock;
-static spinlock_t recv_lock;
-
-static volatile plugin_send_args_t plugin_send_args;
-static volatile plugin_recv_args_t plugin_recv_args;
-
 static bool plugin_ready = false;
 
 static uint8_t broadcast_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
-static s64 start, end;
 /*
  * Transmit on the WLAN interface from the RT domain.
  * At this point, we assume that the interface is up and available in the non-RT domain.
@@ -111,8 +104,19 @@ void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long f
 	cpu = smp_processor_id();
 	HARD_TX_LOCK(net_dev, txq, cpu);
 
+	/* Normally, this should never happen,
+	 * but in case of overspeed...
+	 */
 	while (netif_xmit_stopped(txq))
-		schedule();
+	{
+		HARD_TX_UNLOCK(net_dev, txq);
+		local_bh_enable();
+
+		msleep(100);
+
+		local_bh_disable();
+		HARD_TX_LOCK(net_dev, txq, cpu);
+	}
 
 	netdev_start_xmit(skb, net_dev, txq, 0);
 
@@ -132,42 +136,15 @@ static plugin_desc_t plugin_wlan_desc = {
  */
 void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src) {
 	req_type_t req_type;
-	static bool lock = false;
-	static int ii;
-	static int total;
-	static s64 start, end;
 
 	req_type = get_sl_req_type_from_protocol(ntohs(skb->protocol));
-
-#if 0
-	if (!lock && (req_type == SL_REQ_DCM)) {
-
-		lock = true;
-		start = ktime_to_ns(ktime_get());
-		ii = 0;
-		total = 0;
-	}
-
-	if (lock && (req_type == SL_REQ_DCM)) {
-		ii++;
-		total += skb->len;
-		if (ii == 1400) {
-			end = ktime_to_ns(ktime_get());
-			lprintk("## delta: %lld   total bytes: %d\n", end-start, total);
-			ii = 0;
-			lock = false;
-
-		}
-		kfree_skb(skb);
-		return ;
-	}
-#endif
 
 	plugin_rx(&plugin_wlan_desc, req_type, skb->data, skb->len, mac_src);
 
 	kfree_skb(skb);
 }
 
+#if 0 /* Debugging purpose for bandwidth assessment */
 char data[1500];
 
 static int streampacket(void *args) {
@@ -230,6 +207,8 @@ static int streampacket(void *args) {
 	return 0;
 }
 
+#endif
+
 /**
  * As the plugin is initialized before the net device, the plugin cannot be used until the net dev
  * is properly initialized. The net device detection thread loops until the interface is initialized.
@@ -242,7 +221,11 @@ static int net_dev_detect(void *args) {
 	}
 
 	plugin_ready = true;
-	//kthread_run(streampacket, NULL, "streampacket");
+
+#if 0 /* Debugging purpose */
+	kthread_run(streampacket, NULL, "streampacket");
+#endif
+
 	return 0;
 }
 
@@ -251,9 +234,6 @@ static int net_dev_detect(void *args) {
  */
 static int plugin_wlan_init(void) {
 	lprintk("SOOlink plugin Wlan initializing ...\n");
-
-	spin_lock_init(&send_lock);
-	spin_lock_init(&recv_lock);
 
 	transceiver_plugin_register(&plugin_wlan_desc);
 

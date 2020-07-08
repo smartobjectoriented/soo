@@ -198,7 +198,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		sl_desc->incoming_block = block->incoming_block;
 
 		/* If a complete block has been received with no request coming from the requester, free it */
-		if (!decoder_recv_requested && !sl_desc->recv_callback) {
+		if (!decoder_recv_requested) {
 			vfree(block->incoming_block);
 			block->incoming_block = NULL;
 
@@ -208,23 +208,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			return 0;
 		}
 
-		/*
-		 * So, we are ready to forward the block to the Soolink core.
-		 * Either we are in a blocking call (via decoder_recv()), or
-		 * the sl_desc descriptor has a receiver callback, and we can use it.
-		 */
-
-		/*
-		 * Just in case we also have a registered receiver callback in the soolink descriptor,
-		 * although it would be rather a special case.
-		 * At this point, we potentially lost the lock on the block.
-		 * The RT callback is executed before the non RT part. The non RT part will free
-		 * the buffer.
-		 */
-		if (sl_desc->recv_callback)
-			sl_desc->recv_callback(sl_desc, block->incoming_block, block->size);
-		else
-			complete(&sl_desc->recv_event);
+		complete(&sl_desc->recv_event);
 
 	} else {
 
@@ -322,7 +306,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			last_block = block;
 
 			/* If a complete block has been received with no request coming from the requester, free it */
-			if (!decoder_recv_requested && !sl_desc->recv_callback) {
+			if (!decoder_recv_requested) {
 				vfree(block->incoming_block);
 				block->incoming_block = NULL;
 
@@ -334,15 +318,10 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 			/*
 			 * So, we are ready to forward the block to the Soolink core.
-			 * Either we are in a blocking call (via decoder_recv()), or
-			 * the sl_desc descriptor has a receiver callback, and we can use it.
 			 */
 
-			if (sl_desc->recv_callback)
-				sl_desc->recv_callback(sl_desc, block->incoming_block, block->size);
-			else
-				/* Inform the synchronous waiter about available data */
-				complete(&sl_desc->recv_event);
+			/* Inform the synchronous waiter about available data */
+			complete(&sl_desc->recv_event);
 
 			block->block_ext_in_progress = false;
 		}
@@ -397,7 +376,6 @@ static int decoder_watchdog_task_fn(void *arg)  {
 	s64 current_time;
 
 	while (1) {
-		//rtdm_task_wait_period(NULL);
 		msleep(DECODER_WATCHDOG_TASK_PERIOD_MS);
 
 		current_time = ktime_to_ms(ktime_get());
@@ -448,11 +426,8 @@ void decoder_init(void) {
 
 	mutex_init(&decoder_lock);
 	mutex_init(&decoder_stream_lock);
-
-	//rtdm_event_init(&decoder_stream_event, 0);
 	init_completion(&decoder_stream_event);
 
 	/* Watchdog */
-	//rtdm_task_init(&decoder_watchdog, "Decoder_watchdog", decoder_watchdog_task_fn, NULL, DECODER_WATCHDOG_TASK_PRIO, DECODER_WATCHDOG_TASK_PERIOD);
 	kthread_run(decoder_watchdog_task_fn, NULL, "decoder_watchdog_task");
 }
