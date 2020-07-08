@@ -606,7 +606,6 @@ void beacon_clear(void) {
 	wnet_rx.last_beacon.id = WNET_BEACON_N;
 	memcpy(&wnet_rx.sl_desc->agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
 
-	//rtdm_event_signal(&beacon_event);
 	complete(&beacon_event);
 }
 
@@ -1453,7 +1452,8 @@ static void winenet_state_listener(wnet_state_t old_state) {
 			/* Our turn... */
 			ourself()->neighbour->priv = &ourself()->neighbour->agencyUID;
 			change_state(WNET_STATE_SPEAKER);
-			//rtdm_event_signal(&wnet_event); /* Proceed immediately */
+
+			/* Proceed immediately */
 			complete(&wnet_event);
 
 			/* We can respond to our promoter :-) */
@@ -1471,7 +1471,6 @@ static void winenet_state_listener(wnet_state_t old_state) {
 			BUG_ON(!wnet_neighbour);
 
 			/* Check if we this neighbour is known yet. */
-
 			ourself()->neighbour->priv = &wnet_neighbour->neighbour->agencyUID;
 
 			/* We are ready to listen to this speaker. */
@@ -1510,7 +1509,7 @@ void winenet_change_state(wnet_fsm_handle_t *handle, wnet_state_t new_state) {
 	handle->old_state = handle->state;
 	handle->state = new_state;
 
-	//rtdm_event_signal(&handle->event);
+
 	complete(&handle->event);
 }
 
@@ -1542,7 +1541,6 @@ static wnet_state_t get_state(void) {
 static int fsm_task_fn(void *args) {
 	wnet_fsm_handle_t *handle = (wnet_fsm_handle_t *) args;
 	wnet_state_fn_t *functions = handle->funcs;
-	//rtdm_event_t *event = &handle->event;
 	struct completion *event = &handle->event;
 
 	DBG("Entering Winenet FSM task...\n");
@@ -1553,7 +1551,6 @@ static int fsm_task_fn(void *args) {
 		/* Call the proper state function */
 		(*functions[handle->state])(handle->old_state);
 
-		//rtdm_event_wait(event);
 		wait_for_completion(event);
 	}
 
@@ -1773,7 +1770,6 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 
 				wnet_rx.sl_desc = sl_desc;
 				wnet_rx.transID = packet->transID;
-				wnet_rx.data_received = true;
 
 				got_data = false;
 
@@ -1813,7 +1809,6 @@ void winenet_init(void) {
 	init_completion(&data_event);
 
 	wnet_tx.pending = false;
-	wnet_rx.data_received = false;
 	wnet_rx.last_beacon.id = WNET_BEACON_N;
 
 	mutex_init(&wnet_xmit_lock);

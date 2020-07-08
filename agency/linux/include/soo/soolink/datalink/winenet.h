@@ -33,14 +33,27 @@
 #define WNET_MAX_PACKET_TRANSID 0xffffff
 #define WNET_LAST_PACKET	(1 << 24)
 
-/* Number of bufferized packets in a frame for the n pkt / 1 ACK strategy */
+/*
+ * Number of bufferized packets in a frame for the n pkt / 1 ACK strategy
+ *
+ * - On Ethernet: packet collision can lead to packet lost and therefore we cannot have
+ *   a big frame.
+ * - On Wifi: the physical layer handles receipt of packets correctly and we can reach
+ *   a max. bandwidth with biggest frame size.
+ *
+ */
+
+#ifdef CONFIG_SOOLINK_PLUGIN_WLAN
+
 #define WNET_N_PACKETS_IN_FRAME 1024
-
-/* Express in microsecs */
-#define WNET_MIN_DRAND		1000
-#define WNET_MAX_DRAND		2000
-
 #define WNET_TSPEAKER_ACK_MS	1000
+
+#else !CONFIG_SOOLINK_PLUGIN_WLAN
+
+#define WNET_N_PACKETS_IN_FRAME 8
+#define WNET_TSPEAKER_ACK_MS	300
+
+#endif
 
 /*
  * Winenet states FSM
@@ -78,7 +91,10 @@ typedef enum {
  *   the smart object which received this beacon binds itself to the speaker by using
  *   the private data of the neighbour_desc_t structure of Discovery.
  *
- * - PING: to establish the link within the neighborhood.
+ * - PING (REQUEST): to establish the link within the neighborhood. The smart object which receives
+ *   this beacon must check its agencyUID against the sender. The lowest agencyUID is
+ *   the new speaker. It responds with a PING (RESPONSE)
+ *
  */
 typedef enum {
 	WNET_BEACON_GO_SPEAKER = 0,
@@ -111,8 +127,6 @@ typedef struct {
 typedef struct {
 	sl_desc_t *sl_desc;
 	uint32_t transID;
-
-	bool data_received;
 
 	/* Last received beacon */
 	wnet_beacon_t last_beacon;
