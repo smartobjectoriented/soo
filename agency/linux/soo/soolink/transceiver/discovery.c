@@ -43,8 +43,6 @@
 
 #undef CONFIG_ARM_PSCI
 
-static rtdm_task_t rt_watch_loop_task;
-
 static bool discovery_enabled = false;
 
 static struct list_head neighbour_list;
@@ -599,10 +597,9 @@ static int iamasoo_task_fn(void *args) {
 	discovery_enable();
 
 	while (1) {
-		//rtdm_task_wait_period(NULL);
-		//schedule_timeout(msecs_to_jiffies(DISCOVERY_TASK_PERIOD_MS));
+
 		msleep(DISCOVERY_TASK_PERIOD_MS);
-		
+
 		if (!discovery_enabled)
 			continue;
 
@@ -820,14 +817,23 @@ void neighbours_read(char *str) {
 #if 1 /* Debugging purposes */
 
 static int count = 0;
+sl_desc_t *sl_desc;
 
-static void (soo_stream_recv)(sl_desc_t *sl_desc, void *data, size_t size) {
+static int soo_stream_task_rx_fn(void *args) {
+	uint32_t size;
+	void *data;
 
-	count++;
-	lprintk("## ******************** Got a buffer (count %d got %d bytes)\n", count, size);
+	while (true){
+		size = sl_recv(sl_desc, &data);
 
-	/* Must release the allocated buffer */
-	vfree(data);
+		count++;
+		lprintk("## ******************** Got a buffer (count %d got %d bytes)\n", count, size);
+
+		/* Must release the allocated buffer */
+		vfree(data);
+	}
+
+	return 0;
 }
 
 #define BUFFER_SIZE 2*1024*1024
@@ -842,9 +848,7 @@ void stream_count_read(char *str) {
  * Testing RT task to send a stream to a specific smart object.
  * This is mainly used for debugging purposes and performance assessment.
  */
-static int soo_stream_task_fn(void *args) {
-
-	sl_desc_t *sl_desc;
+static int soo_stream_task_tx_fn(void *args) {
 	int i;
 
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
@@ -856,13 +860,11 @@ static int soo_stream_task_fn(void *args) {
 	for (i = 0; i < BUFFER_SIZE; i++)
 		buffer[i] = i;
 
-	sl_set_recv_callback(sl_desc, soo_stream_recv);
-
 	soo_sysfs_register(stream_count, stream_count_read, NULL);
 	soo_sysfs_register(neighbours, neighbours_read, NULL);
 #if 1
 	while (true) {
-		schedule();
+
 		if (discovery_neighbour_count() > 0) {
 			lprintk("*** sending buffer ****\n");
 			sl_send(sl_desc, buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
@@ -871,7 +873,8 @@ static int soo_stream_task_fn(void *args) {
 			sl_send(sl_desc, NULL, 0, get_null_agencyUID(), 10);
 
 			lprintk("*** End. ***\n");
-		}
+		} else
+			schedule();
 
 		/* rtdm_task_wait_period(NULL); */
 	}
@@ -929,12 +932,11 @@ void discovery_start(void) {
 	if (discovery_enabled)
 		return ;
 
-	//rtdm_task_init(&rt_watch_loop_task, "Discovery", iamasoo_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
 	kthread_run(iamasoo_task_fn, NULL, "iamasoo_task");
 	/* Activated if necessary for debugging purposes and performance assessment. */
 #if 1
-	//rtdm_task_init(&rt_soo_stream_task, "SOO-streaming", soo_stream_task_fn, NULL, DISCOVERY_TASK_PRIO, DISCOVERY_TASK_PERIOD);
-	kthread_run(soo_stream_task_fn, NULL, "rt_soo_stream_task");
+	kthread_run(soo_stream_task_tx_fn, NULL, "rt_soo_stream_task_tx");
+	kthread_run(soo_stream_task_rx_fn, NULL, "rt_soo_stream_task_rx");
 #endif
 
 }

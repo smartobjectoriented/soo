@@ -48,7 +48,7 @@
 #define WNET_N_PACKETS_IN_FRAME 1024
 #define WNET_TSPEAKER_ACK_MS	1000
 
-#else !CONFIG_SOOLINK_PLUGIN_WLAN
+#else /* !CONFIG_SOOLINK_PLUGIN_WLAN */
 
 #define WNET_N_PACKETS_IN_FRAME 8
 #define WNET_TSPEAKER_ACK_MS	300
@@ -116,9 +116,9 @@ typedef struct {
 	sl_desc_t *sl_desc;
 	uint32_t transID;
 
-	bool pending;
+	volatile bool pending;
 
-	int ret;
+	volatile int ret;
 
 	struct completion xmit_event;
 

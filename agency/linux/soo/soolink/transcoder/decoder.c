@@ -267,8 +267,6 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			sl_desc->incoming_block = NULL;
 			sl_desc->incoming_block_size = 0;
 
-			/* Wake up potential requester which performs a synchronous call */
-			complete(&sl_desc->recv_event);
 
 			/*
 			 * Release the lock on the block processing.
@@ -282,6 +280,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 		if (!block->block_ext_in_progress) {
 			if (pkt->u.ext.packetID != 1) {
+				DBG("## Missed some packets\n");
 				/*
 				 * We have missed some packets of a new block when processing the current block.
 				 * Wait for the next packet ID = 1 to arrive.
@@ -312,6 +311,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		block->real_size += pkt->u.ext.payload_length;
 		block->cur_packetID = pkt->u.ext.packetID;
 
+
 		if (block->cur_packetID == pkt->u.ext.nr_packets) {
 
 			block->size = block->real_size;
@@ -338,14 +338,6 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			 * the sl_desc descriptor has a receiver callback, and we can use it.
 			 */
 
-			/*
-			 * Just in case we also have a registered receiver callback in the soolink descriptor,
-			 * although it would be rather a special case.
-			 * At this point, we potentially lost the lock on the block.
-			 * The RT callback is executed before the non RT part. The non RT part will free
-			 * the buffer.
-			 */
-
 			if (sl_desc->recv_callback)
 				sl_desc->recv_callback(sl_desc, block->incoming_block, block->size);
 			else
@@ -353,7 +345,6 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 				complete(&sl_desc->recv_event);
 
 			block->block_ext_in_progress = false;
-
 		}
 
 	}
