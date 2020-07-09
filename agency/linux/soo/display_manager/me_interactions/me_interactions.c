@@ -30,16 +30,44 @@ int me_interactions_init(void){
     return -1;
   }
 
+  /*vfb_register_callback(new_me_callback);*/
+
   printk("Bye from %s\n", __func__);
 
   return 0;
 }
+/*
+void new_me_callback(struct vfb_fb *fb){
+  int i;
 
+  if(me_inter_data.nb_MEs >= MAX_MES){
+    printk("Too much MEs in me_interactions\n");
+    return;
+  }
+
+  ++me_inter_data.nb_MEs;
+
+  for(i = 0; i < MAX_MES; ++i){
+
+    if(me_inter_data.me_datas[i]->occupied) continue;
+
+    me_inter_data.me_datas[i]->display_params->display_fb = 1;
+    me_inter_data.me_datas[i]->display_params->time_limit = BASE_TIME;
+
+    me_inter_data.me_datas[i]->id = fb->domid;
+
+    me_inter_data.me_datas[i]->occupied = 1;
+
+    add_display(me_inter_data.me_datas[i]->id, (uint32_t*) fb->vaddr);
+  }
+}
+*/
 static int init_me_interaction_data(void){
   int i;
 
   me_inter_data.nb_MEs = 0;
 
+  /* Allocates all structures with 0s */
   for(i = 0; i < MAX_MES; ++i){
     me_inter_data.me_datas[i] = kzalloc(sizeof(struct me_data), GFP_KERNEL);
     if(me_inter_data.me_datas[i] == NULL){

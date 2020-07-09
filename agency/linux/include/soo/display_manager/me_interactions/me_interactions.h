@@ -1,7 +1,10 @@
 #ifndef ME_INTERACTIONS_H
 #define ME_INTERACTIONS_H
 
+#include <soo/dev/vfb.h>
+
 #define MAX_MES 20
+#define BASE_TIME 10
 
 /* Struct containing variable parameters of an ME */
 struct me_display_param{
@@ -14,11 +17,13 @@ struct me_display_param{
 /* struct containing everything about an ME */
 struct me_data{
   /* ME id */
-  uint8_t id;
+  int32_t id;
   /* display parameters of this ME */
   struct me_display_param* display_params;
   /* Info about ME's framebuffer */
   uint32_t* fb;
+  /* Informations relevant ? */
+  uint8_t occupied;
 };
 
 struct me_interactions_data{
@@ -28,7 +33,8 @@ struct me_interactions_data{
 
 
 int me_interactions_init(void);
-/* For future use as callback in vfb (when a new ME appears for example) */
-/*void cb(struct vfb_fb *fb);*/
+
+/* Callback used when new MEs arrive */
+/*void new_me_callback(struct vfb_fb *fb);*/
 
 #endif /* ME_INTERACTIONS_H */

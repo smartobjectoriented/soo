@@ -27,7 +27,7 @@ struct screen_management{
   /* Total number of displays */
   uint8_t nb_displays;
   /* Which part of the screen is occupied or not by which ME (ID defined) */
-  int8_t occupation[MAX_FBS];
+  int32_t occupation[MAX_FBS];
   /* Addresses of the framebuffers to copy from */
   uint32_t* vfb_addr[MAX_FBS];
   /* Informations about screen partitioning */
