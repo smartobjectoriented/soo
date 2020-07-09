@@ -29,7 +29,10 @@
 #include <device/driver.h>
 #include <device/fb/so3virt_fb.h>
 
-#define FB_SIZE (1024 * 768 * 4)
+#define FB_SIZE_VEXPRESS (1024 * 768 * 4)
+#define FB_SIZE_52PI     (1024 * 600 * 4)
+#define FB_SIZE_RPI4     (800 * 480 * 4)
+#define FB_SIZE          FB_SIZE_52PI /* change this */
 
 void *mmap(int fd, uint32_t virt_addr, uint32_t page_count);
 
@@ -67,7 +70,7 @@ int fb_init(dev_t *dev)
 
 void *mmap(int fd, uint32_t virt_addr, uint32_t page_count)
 {
-	uint32_t i, page_phys_base;
+	uint32_t i;
 	pcb_t *pcb = current()->pcb;
 
 	for (i = 0; i < page_count; i++) {

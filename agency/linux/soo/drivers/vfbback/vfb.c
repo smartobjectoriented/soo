@@ -42,8 +42,11 @@
 
 #include <stdarg.h>
 
-#define FB_SIZE  (1024 * 768 * 4)
-#define FB_COUNT 8
+#define FB_SIZE_VEXPRESS (1024 * 768 * 4)
+#define FB_SIZE_52PI     (1024 * 600 * 4)
+#define FB_SIZE_RPI4     (800 * 480 * 4)
+#define FB_SIZE          FB_SIZE_52PI /* change this */
+#define FB_COUNT         8
 
 
 /* Array of registered front-end framebuffers. */
