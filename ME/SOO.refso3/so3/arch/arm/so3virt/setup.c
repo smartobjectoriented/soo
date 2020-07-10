@@ -115,12 +115,12 @@ void vectors_setup(void) {
  	/* Reset the L1 PTE used for the vector page. */
  	clear_l1pte(NULL, VECTOR_VADDR);
 
- 	create_mapping(NULL, VECTOR_VADDR, __pa((uint32_t) vectors), PAGE_SIZE, true);
+ 	create_mapping(NULL, VECTOR_VADDR, __pa((uint32_t) vectors), PAGE_SIZE, true, false);
 
  	memcpy((void *) VECTOR_VADDR, vectors_tmp, PAGE_SIZE);
 
 	/* Create the guest vector pages at 0xffff5000 in order to have a good mapping with all required privileges */
-	create_mapping(NULL, GUEST_VECTOR_VADDR, __pa((uint32_t) __guestvectors), PAGE_SIZE, true);
+	create_mapping(NULL, GUEST_VECTOR_VADDR, __pa((uint32_t) __guestvectors), PAGE_SIZE, true, false);
 
 	/* From now on... */
 	__guestvectors = (unsigned int *) GUEST_VECTOR_VADDR;
@@ -148,7 +148,7 @@ static void map_vbstore_page(unsigned long vbstore_pfn, bool clear)
 		clear_l1pte(NULL, HYPERVISOR_VBSTORE_VADDR);
 
 	/* Re-map the new vbstore page */
-	create_mapping(NULL, HYPERVISOR_VBSTORE_VADDR, pfn_to_phys(vbstore_pfn), PAGE_SIZE, true);
+	create_mapping(NULL, HYPERVISOR_VBSTORE_VADDR, pfn_to_phys(vbstore_pfn), PAGE_SIZE, true, false);
 }
 
 int do_sync_domain_interactions(void *arg)

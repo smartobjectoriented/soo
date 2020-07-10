@@ -75,7 +75,7 @@ void *mmap(int fd, uint32_t virt_addr, uint32_t page_count)
 
 	for (i = 0; i < page_count; i++) {
 		/* Map the process' pages to physical ones. */
-		create_mapping(pcb->pgtable, virt_addr + (i * PAGE_SIZE), fb_base + i * PAGE_SIZE, PAGE_SIZE, false);
+		create_mapping(pcb->pgtable, virt_addr + (i * PAGE_SIZE), fb_base + i * PAGE_SIZE, PAGE_SIZE, false, false);
 	}
 
 	return (void *) virt_addr;
