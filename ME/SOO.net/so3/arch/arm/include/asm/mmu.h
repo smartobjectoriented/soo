@@ -117,7 +117,7 @@ extern void __mmu_switch(uint32_t l1pgtable_phys);
 
 void pgtable_copy_kernel_area(uint32_t *l1pgtable);
 
-void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base, uint32_t size, bool nocache);
+void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base, uint32_t size, bool nocache, bool usr);
 void release_mapping(uint32_t *pgtable, uint32_t virt_base, uint32_t size);
 
 uint32_t *new_l1pgtable(void);
