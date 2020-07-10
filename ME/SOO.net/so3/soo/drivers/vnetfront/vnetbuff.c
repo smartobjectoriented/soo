@@ -43,7 +43,7 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data
                 return -1;
         }
 
-        buff->prod = 3900;
+        //buff->prod = 3900;
 
         /* if putting data in the buffer offerflow, set the productor back at the begining */
         if(buff->prod + size >= buff->size)
@@ -64,6 +64,11 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data
         return 0;
 }
 
+
+uint8_t* vbuff_get(struct vbuff_buff* buff, struct vbuff_data *buff_data){
+        printk("[Get Buff] offset: %d length: %d", buff_data->offset, buff_data->size);
+        return buff->data + buff_data->offset;
+}
 
 /*
  * Update grants for a specific device

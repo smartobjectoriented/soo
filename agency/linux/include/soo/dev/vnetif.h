@@ -27,6 +27,9 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 
+#include <soo/vbus.h>
+#include <soo/dev/vnet.h>
+
 
 struct vnetif {
 	/* Unique identifier for this interface. */
@@ -67,10 +70,14 @@ struct vnetif {
 
 	/* Miscellaneous private stuff. */
 	struct net_device *dev;
+
+	vnet_t *vnet;
 };
 
+void link_vnet(struct net_device *dev, vnet_t *vnet);
+void unlink_vnet(struct net_device *dev);
 
-struct vnetif * vnetif_init(int id, u8 *ethaddr);
+struct net_device * vnetif_init(int domid);
 
 void netif_rx_packet(struct net_device *dev, void* data, size_t len);
 

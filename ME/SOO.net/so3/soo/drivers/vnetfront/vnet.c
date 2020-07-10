@@ -68,16 +68,30 @@ struct vnet_shared_data *vnet_shared_data;
 
 grant_ref_t shared_data_grant = 0;
 
+struct netif *netifg;
+
 irq_return_t vnet_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vnet_t *vnet = to_vnet(vdev);
 	vnet_response_t *ring_rsp;
+        struct pbuf *buf;
+        unsigned char * data;
+        err_t err;
 
-	DBG("%s, %d\n", __func__, ME_domID());
+        DBG("%s, %d\n", __func__, ME_domID());
 
-	while ((ring_rsp = vnet_tx_ring_response(&vnet->ring_tx)) != NULL) {
+	while ((ring_rsp = vnet_rx_ring_response(&vnet->ring_rx)) != NULL) {
 
-		DBG("%s, rsp=%p\n", __func__, ring_rsp);
+                data = vbuff_get(&vbuff_rx, &ring_rsp->buff);
+
+                if((buf = pbuf_alloc(PBUF_RAW, ring_rsp->buff.size, PBUF_RAM)) != NULL){
+                        memcpy(buf->payload, data, ring_rsp->buff.size);
+
+                        err = netifg->input(buf, netifg);
+                        printk("[ERR: %d ]\n", err);
+                }
+
+
 
 		/* Do something with the response */
 	}
@@ -433,11 +447,21 @@ err_t vnet_lwip_init(struct netif *netif) {
 
         memcpy(netif->hwaddr, eth_dev->enetaddr, ARP_HLEN);
 
+        netifg = netif;
+
         netif_set_default(netif);
         netif_set_link_up(netif);
         netif_set_up(netif);
 
-        dhcp_start(netif);
+        ip4_addr_t
+                ip = {.addr = 0xc0a835c8u},
+                mask = {.addr = 0xffffff00u},
+                gw = {.addr = 0xc0a835c00u};
+
+        netif_set_addr(netif, &ip, &mask, &gw);
+        //printk("\n\n!!!!!!!!!!!!!ERRRR %d\n\n", err);
+
+        //dhcp_start(netif);
 
         return ERR_OK;
 }

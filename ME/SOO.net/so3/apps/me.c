@@ -114,8 +114,8 @@ static int alphabet_fn(void *arg) {
 		msleep(500);
 
 		/* Simply display the current letter which is incremented each time a ME comes back */
-		printk("00 (%d)",  ME_domID());
-		printk("%c ", *((char *) localinfo_data));
+		/*printk("00 (%d)",  ME_domID());
+		printk("%c ", *((char *) localinfo_data));*/
 	}
 
 	return 0;

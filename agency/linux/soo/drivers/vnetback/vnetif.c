@@ -27,19 +27,23 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/if_ether.h>
-
-#include <stdarg.h>
 #include <linux/kthread.h>
-
-
 #include <linux/ethtool.h>
 #include <linux/rtnetlink.h>
 #include <linux/if_vlan.h>
 #include <linux/vmalloc.h>
 
+#include <stdarg.h>
+
 #include <soo/dev/vnetif.h>
+#include <soo/vbus.h>
+#include <soo/dev/vnet.h>
 
 #include <linux/syscalls.h>
+#include <linux/inetdevice.h>
+
+#include "vnetbridge_priv.h"
+
 
 
 static struct net_device_stats *vnetif_get_stats(struct net_device *dev)
@@ -80,6 +84,7 @@ void netif_rx_packet(struct net_device *dev, void* data, size_t len)
 	struct nfeth_private *priv = netdev_priv(dev);
 	unsigned short pktlen;
 	struct sk_buff *skb;
+	int i = 0;
 
 	/* read packet length (excluding 32 bit crc) */
 	pktlen = len;
@@ -89,21 +94,40 @@ void netif_rx_packet(struct net_device *dev, void* data, size_t len)
 		return;
 	}
 
-	skb = dev_alloc_skb(pktlen + 2);
+	skb = alloc_skb(pktlen, GFP_ATOMIC);
+
 	if (!skb) {
 		netdev_dbg(dev, "%s: out of mem (buf_alloc failed)\n",
 			   __func__);
 		dev->stats.rx_dropped++;
 		return;
 	}
+	skb->pkt_type = PACKET_OUTGOING;
 
-	skb->dev = dev;
-	skb_put(skb, pktlen);		/* make room */
-	memcpy(skb->data, data, pktlen);
-
+	skb_reserve(skb, 0);	/* 16 byte IP header align */
+	//skb_copy_to_linear_data(skb, (unsigned char *)data, pktlen);
+	skb_put_data(skb, data, pktlen);
+	//memcpy(skb->mac_header, data, pktlen);
 	skb->protocol = eth_type_trans(skb, dev);
 
-	if (likely(netif_rx(skb) == NET_RX_SUCCESS))
+	//skb->dev = dev;
+	//skb_put(skb, pktlen);		/* make room */
+	//memcpy(skb->data, data, pktlen);
+
+	//skb->protocol = eth_type_trans(skb, dev);
+
+
+	//skb->data = skb->head;
+
+
+	/*printk("[SKB]");
+	while(i < skb->len){
+		printk(KERN_CONT "%02x ", skb->data[i]);
+		i++;
+	}*/
+
+
+	if (likely(netif_receive_skb(skb) == NET_RX_SUCCESS))
 		printk("RX OK");
 	else
 		printk("RX ERROR");
@@ -118,7 +142,67 @@ void netif_rx_packet(struct net_device *dev, void* data, size_t len)
 static netdev_tx_t
 vnetif_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
+	struct vnetif *vif = netdev_priv(dev);
+	vnet_response_t *ring_rsp;
+	int i = 0;
+	static u8 broadcast[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+	/*uint32_t addr_start = *(uint32_t*)(skb->head);
+	uint16_t addr_end = *(uint16_t*)(skb->head + 4);
+
+	uint32_t dev_addr_start = *(uint32_t*)(dev->dev_addr);
+	uint16_t dev_addr_end = *(uint16_t*)(dev->dev_addr + 4);
+
+	printk("%08x%04x", addr_start, addr_end);*/
+	printk("-");
+	while(i < 6){
+		printk(KERN_CONT "%02x ", skb->data[i]);
+		i++;
+	}
+	i = 0;
+	printk("-");
+	while(i < 6){
+		printk(KERN_CONT "%02x ", dev->dev_addr[i]);
+		i++;
+	}
+	i = 0;
+	printk("-");
+	while(i < 6){
+		printk(KERN_CONT "%02x ", broadcast[i]);
+		i++;
+	}
+	i = 0;
+	printk("-");
+
+	if(!memcmp(skb->data, broadcast, 6) || !memcmp(skb->data, dev->dev_addr, 6)){
+
+	/*if((addr_start == 0xffffffff && addr_end == 0xffff)
+	    || (addr_start == dev_addr_start && addr_end == dev_addr_end)){*/
+
+		if(vif->vnet == NULL || vif->vnet->send == NULL)
+			return NETDEV_TX_BUSY;
+
+		vif->vnet->send(vif->vnet, skb->data, skb->len);
+
+		dev->stats.tx_packets++;
+		dev->stats.tx_bytes += skb->len;
+
+		printk("MATCH");
+	} else {
+		printk("NO MATCH");
+	}
+
+
 	printk("XMIT\n");
+
+	printk("[Print rx] length: %d\n", skb->len);
+
+	while(i < skb->len){
+		printk(KERN_CONT "%02x ", skb->data[i]);
+		i++;
+	}
+
+	return NETDEV_TX_OK;
 }
 
 static int vnetif_open(struct net_device *dev)
@@ -160,66 +244,73 @@ static const struct net_device_ops vnetif_netdev_ops = {
 	.ndo_set_mac_address = eth_mac_addr,
 	.ndo_validate_addr   = eth_validate_addr,
 };
+#include <net/arp.h>
+#include <net/ip.h>
+#include <net/route.h>
+#include <net/ip_fib.h>
+#include <net/rtnetlink.h>
+#include <net/net_namespace.h>
+#include <net/addrconf.h>
+
+void link_vnet(struct net_device *dev, vnet_t *vnet){
+	struct sockaddr sockaddr;
+	struct vnetif *vif = netdev_priv(dev);
+	struct in_ifaddr *ifa;
+
+	vif->vnet = vnet;
+
+	rtnl_lock();
+
+	/* Set the mac address */
+	sockaddr.sa_family = dev->type;
+	memcpy(sockaddr.sa_data, vnet->shared_data->ethaddr, ETH_ALEN);
+	dev_set_mac_address(dev, &sockaddr, NULL);
+
+	//dev->flags |= IFF_UP | IFF_RUNNING;
 
 
-void _br_add_if(const char* brname, const char* ifname){
-	int fd = -1;
-	int err;
 
-	struct ifreq ifr;
-	int ifindex;
+	/*ifa = inet_alloc_ifa();
+	INIT_HLIST_NODE(&ifa->hash);
+	memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
+	ifa->ifa_address = ifa->ifa_local = 0xc0a835c8;
+	ifa->ifa_prefixlen = 24;
+	ifa->ifa_mask = 0xffffff;
 
+	ifa->ifa_broadcast = ifa->ifa_address | ~ifa->ifa_mask;
+	set_ifa_lifetime(ifa, INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
+	inet_set_ifa(dev, ifa);*/
 
-	if((fd = sys_socket(AF_LOCAL, SOCK_STREAM, 0)) < 0){
-		printk("SOCKET");
-		return;
-	}
-
-	memset(&ifr, 0, sizeof(struct ifreq));
-	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
-	ifr.ifr_name[IFNAMSIZ - 1] = 0;
-
-	if (sys_ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
-		printk("NODEV");
-		return;
-	}
-
-	ifindex = ifr.ifr_ifindex;
-
-	strncpy(ifr.ifr_name, brname, strlen(brname));
-	ifr.ifr_name[strlen(brname)] = 0;
+	rtnl_unlock();
 
 
-	ifr.ifr_ifindex = ifindex;
-	err = sys_ioctl(fd, SIOCBRADDIF, &ifr);
+	vnetbridge_if_set_ip(dev->name);
 
-	sys_close(fd);
+	vnetbridge_if_conf(dev->name, IFF_UP | IFF_RUNNING | IFF_BROADCAST, 1);
+
+	//vnetbridge_add_if(SOO_BRIDGE_NAME, dev->name);
+
+	/* Set the network card up */
+	netif_carrier_on(dev);
+
 }
 
-void bridge(const char* brname){
-	int fd = -1;
-	struct ifreq ifr;
-	int err, ret;
+void unlink_vnet(struct net_device *dev){
+	struct vnetif *vif = netdev_priv(dev);
+	vif->vnet = NULL;
 
+	rtnl_lock();
+	dev->flags &= ~IFF_UP & ~IFF_RUNNING;
+	rtnl_unlock();
 
-	if((fd = sys_socket(AF_LOCAL, SOCK_STREAM, 0)) < 0){
-		printk("SOCKET");
-		return;
-	}
+	vnetbridge_if_conf(dev->name, dev->flags | IFF_UP | IFF_RUNNING, 0);
 
-	ret = sys_ioctl(fd, SIOCBRADDBR, brname);
+	netif_carrier_off(dev);
 
-	memset(&ifr, 0, sizeof ifr);
-	strncpy(ifr.ifr_name, brname, strlen(brname));
-
-	ifr.ifr_flags |= IFF_UP;
-	sys_ioctl(fd, SIOCSIFFLAGS, &ifr);
-
-
-	sys_close(fd);
+	vnetbridge_remove_if(SOO_BRIDGE_NAME, dev->name);
 }
 
-struct vnetif * vnetif_init(int domid, u8 *ethaddr) {
+struct net_device * vnetif_init(int domid) {
 	int ret;
 	struct device_node *np;
 
@@ -264,10 +355,10 @@ struct vnetif * vnetif_init(int domid, u8 *ethaddr) {
 	INIT_LIST_HEAD(&vif->fe_mcast_addr);
 
 	dev->netdev_ops	= &vnetif_netdev_ops;
-	dev->hw_features = NETIF_F_SG |
+	/*dev->hw_features = NETIF_F_SG |
 			   NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-			   NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_FRAGLIST;
-	dev->features = dev->hw_features | NETIF_F_RXCSUM;
+			   NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_FRAGLIST;*/
+	//dev->features = dev->hw_features | NETIF_F_RXCSUM;
 	dev->ethtool_ops = &vnetif_ethtool_ops;
 
 	dev->tx_queue_len = 32;
@@ -276,7 +367,14 @@ struct vnetif * vnetif_init(int domid, u8 *ethaddr) {
 	dev->max_mtu = ETH_MAX_MTU - VLAN_ETH_HLEN;
 
 	/* use the same mac as the connected ME */
-	memcpy(dev->dev_addr, ethaddr, ETH_ALEN);
+	//memcpy(dev->dev_addr, ethaddr, ETH_ALEN);
+
+	dev->dev_addr[0] = 0xff;
+	dev->dev_addr[1] = 1;
+	dev->dev_addr[2] = 2;
+	dev->dev_addr[3] = 3;
+	dev->dev_addr[4] = 0xff;
+	dev->dev_addr[5] = (u8)domid;
 
 	netif_carrier_off(dev);
 
@@ -287,13 +385,7 @@ struct vnetif * vnetif_init(int domid, u8 *ethaddr) {
 		return NULL;
 	}
 
-	bridge("br0");
-	_br_add_if("br0", "eth0");
-	_br_add_if("br0", name);
-
-	netif_carrier_on(dev);
-
-	return vif;
+	return dev;
 }
 
 

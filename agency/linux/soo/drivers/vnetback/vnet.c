@@ -28,6 +28,9 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/of.h>
+#include <linux/ethtool.h>
+#include <linux/netdevice.h>
+
 
 #include <soo/evtchn.h>
 #include <soo/gnttab.h>
@@ -40,10 +43,31 @@
 
 #include <soo/vdevback.h>
 
+#include <soo/dev/vnetif.h>
 #include <soo/dev/vnet.h>
 #include <soo/dev/vnetbuff.h>
 #include <soo/dev/vnetif.h>
 
+#include "vnetbridge_priv.h"
+
+
+struct net_device *net_devs[MAX_ME_DOMAINS];
+bool net_devs_initialized = false;
+
+void initialize_net_devs(void){
+	int i = 0;
+	//vnetbridge_add(SOO_BRIDGE_NAME);
+	//vnetbridge_add_if(SOO_BRIDGE_NAME, "eth0");
+	vnetbridge_if_conf(SOO_BRIDGE_NAME, IFF_PROMISC, 1);
+	while(i < MAX_ME_DOMAINS){
+		net_devs[i] = vnetif_init(i);
+		i++;
+	}
+
+	//vnetbridge_add_if(SOO_BRIDGE_NAME, "vif0");
+
+	net_devs_initialized = true;
+}
 
 void vnet_notify(struct vbus_device *vdev)
 {
@@ -58,9 +82,11 @@ void vnet_notify(struct vbus_device *vdev)
 
 }
 
-void vnet_process_ctrl(vnet_t *vnet){
+void vnet_process_ctrl(struct vbus_device *vdev){
 	vnet_request_t *ring_req;
 	vnet_response_t *ring_rsp;
+	vnet_t *vnet = to_vnet(vdev);
+
 
 	while ((ring_req = vnet_ctrl_ring_request(&vnet->ring_ctrl)) != NULL) {
 		switch(ring_req->type){
@@ -73,14 +99,29 @@ void vnet_process_ctrl(vnet_t *vnet){
 	}
 }
 
-void vnet_process_tx(vnet_t *vnet){
+void vnet_process_tx(struct vbus_device *vdev){
 	vnet_request_t *ring_req = NULL;
 	uint8_t* data;
+	vnet_t *vnet = to_vnet(vdev);
 
 	while ((ring_req = vnet_tx_ring_request(&vnet->ring_tx)) != NULL) {
 		data = vbuff_get(&vnet->vbuff_tx, &ring_req->buff);
-		vbuff_print(&vnet->vbuff_tx, &ring_req->buff);
-		netif_rx_packet(vnet->vif->dev, data, ring_req->buff.size);
+		//vbuff_print(&vnet->vbuff_tx, &ring_req->buff);
+		netif_rx_packet(net_devs[vdev->otherend_id - 2], data, ring_req->buff.size);
+	}
+}
+
+void vnet_send_rx(void* void_vnet, u8* data, int length){
+	vnet_response_t *ring_rsp;
+	struct vbuff_data vbuff_data;
+	vnet_t* vnet = (vnet_t*)void_vnet;
+
+	vbuff_put(&vnet->vbuff_rx, &vbuff_data, &data, length);
+
+	if ((ring_rsp = vnet_rx_ring_response(&vnet->ring_rx)) != NULL) {
+		ring_rsp->buff = vbuff_data;
+		vnet_rx_ring_response_ready(&vnet->ring_rx);
+		notify_remote_via_virq(vnet->irq);
 	}
 }
 
@@ -88,11 +129,10 @@ void vnet_process_tx(vnet_t *vnet){
 irqreturn_t vnet_interrupt(int irq, void *dev_id)
 {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	vnet_t *vnet = to_vnet(vdev);
 
-	vnet_process_ctrl(vnet);
+	vnet_process_ctrl(vdev);
 
-	vnet_process_tx(vnet);
+	vnet_process_tx(vdev);
 
 	return IRQ_HANDLED;
 }
@@ -103,9 +143,15 @@ void vnet_probe(struct vbus_device *vdev) {
 	vnet = kzalloc(sizeof(vnet_t), GFP_ATOMIC);
 	BUG_ON(!vnet);
 
+	vnet->send = vnet_send_rx;
+
 	dev_set_drvdata(&vdev->dev, &vnet->vdevback);
 
 	DBG(VNET_PREFIX "Backend probe: %d\n", vdev->otherend_id);
+
+	if(!net_devs_initialized){
+		initialize_net_devs();
+	}
 }
 
 void vnet_remove(struct vbus_device *vdev) {
@@ -136,6 +182,8 @@ void vnet_close(struct vbus_device *vdev) {
 	vnet->ring_tx.sring = NULL;
 	vnet->ring_rx.sring = NULL;
 	vnet->ring_ctrl.sring = NULL;
+
+	unlink_vnet(net_devs[vdev->otherend_id - 2]);
 }
 
 void vnet_suspend(struct vbus_device *vdev) {
@@ -196,7 +244,7 @@ void vnet_reconfigured(struct vbus_device *vdev) {
 	BACK_RING_INIT(&vnet->ring_ctrl, sring_ctrl, PAGE_SIZE);
 
 
-	res = vbus_map_ring_valloc(vdev, vnet->grant_buff, (void **) &vnet->vbuff_ethaddr);
+	res = vbus_map_ring_valloc(vdev, vnet->grant_buff, (void **) &vnet->shared_data);
 	BUG_ON(res < 0);
 	/*vnet->vbuff_rx = vnet->vbuff_tx + PAGE_COUNT;
 	vnet->vbuff_ethaddr = (unsigned char*)vnet->vbuff_rx + PAGE_COUNT;*/
@@ -204,12 +252,11 @@ void vnet_reconfigured(struct vbus_device *vdev) {
 	vbuff_init(&vnet->vbuff_tx, vbuff_tx_ref, vdev);
 	vbuff_init(&vnet->vbuff_rx, vbuff_tx_ref, vdev);
 
+	struct net_device *net_dev = net_devs[vdev->otherend_id - 2];
+	link_vnet(net_dev, vnet);
+
+
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vnet_interrupt, NULL, 0, VNET_NAME "-backend", vdev);
-
-
-	if (vnet->vif == NULL)
-		vnet->vif = vnetif_init(0, vnet->vbuff_ethaddr);
-
 	BUG_ON(res < 0);
 
 	vnet->irq = res;
@@ -233,16 +280,13 @@ vdrvback_t vnetdrv = {
 
 int vnet_init(void) {
 	struct device_node *np;
+	int i = 0;
 
 	np = of_find_compatible_node(NULL, NULL, "vnet,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))
 		return 0;
-
-#if 0
-	kthread_run(generator_fn, NULL, "vDummy-gen");
-#endif
 
 	vdevback_init(VNET_NAME, &vnetdrv);
 

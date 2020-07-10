@@ -31,7 +31,6 @@
 #define VNET_NAME		"vnet"
 #define VNET_PREFIX		"[" VNET_NAME "] "
 
-
 enum vnet_type{
 	SET_IP = 0,
 	GET_IP,
@@ -40,6 +39,9 @@ enum vnet_type{
 	ETHADDR,
 };
 
+struct vnet_shared_data {
+	unsigned char ethaddr[ETH_ALEN];
+};
 
 struct ip_conf {
 	uint32_t ip;
@@ -104,13 +106,15 @@ typedef struct {
 	struct vbuff_buff vbuff_tx;
 	struct vbuff_buff vbuff_rx;
 
-	u8 *vbuff_ethaddr;
+	struct vnet_shared_data *shared_data;
 
 	unsigned long grant_buff;
 
 	struct vnetif *vif;
 
 	unsigned int irq;
+
+	void (*send)(void*, u8*, int);
 
 } vnet_t;
 
