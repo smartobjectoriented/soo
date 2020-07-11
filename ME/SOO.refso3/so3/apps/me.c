@@ -129,7 +129,7 @@ static int alphabet_fn(void *arg) {
 int main_kernel(void *args) {
 
 
-	#if 0
+#if 0
 	kernel_thread(thread1, "thread1", NULL, 0);
 #endif
 
