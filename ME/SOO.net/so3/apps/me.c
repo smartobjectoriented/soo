@@ -39,6 +39,8 @@
 
 #include <soo/dev/vnetstream.h>
 
+#include <lwip/sockets.h>
+
 /* Null agency UID to check if an agency UID is valid */
 agencyUID_t null_agencyUID = {
 	.id = { 0 }
@@ -97,6 +99,33 @@ void timer_fn(void *dummy) {
 	lprintk("### TIMER FIRED\n");
 }
 
+void send_pkt(void){
+        int sockfd;
+        char *hello = "Hello from client";
+        struct sockaddr_in     servaddr;
+
+        // Creating socket file descriptor
+        if ( (sockfd = lwip_socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
+                printk("[ME %d] socket error", ME_domID());
+        }
+
+        memset(&servaddr, 0, sizeof(servaddr));
+
+        // Filling server information
+        servaddr.sin_family = AF_INET;
+        servaddr.sin_port = 21;
+        //servaddr.sin_addr.s_addr = 0x01010101; // 192.168.131.137
+        servaddr.sin_addr.s_addr = 0x8983A8C0; // 192.168.131.137
+
+        int n, len;
+
+        lwip_sendto(sockfd, (const char *)hello, strlen(hello), 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
+        //printk("Hello message sent.\n");
+
+
+        close(sockfd);
+}
+
 #if 1
 /* Used to test a ME trip within a scalable network */
 
@@ -113,7 +142,9 @@ static int alphabet_fn(void *arg) {
 		/* printk("### heap size: %x\n", heap_size()); */
 		msleep(500);
 
-		/* Simply display the current letter which is incremented each time a ME comes back */
+                send_pkt();
+
+                /* Simply display the current letter which is incremented each time a ME comes back */
 		/*printk("00 (%d)",  ME_domID());
 		printk("%c ", *((char *) localinfo_data));*/
 	}

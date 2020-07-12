@@ -116,7 +116,7 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, uint8_t** d
 	buff_data->offset = buff->prod;
 	buff_data->size = size;
 
-	if(data == NULL)
+	if(*data == NULL)
 		*data = buff->data + buff_data->offset;
 	else
 		memcpy(buff->data + buff_data->offset, *data, size);
@@ -131,7 +131,7 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, uint8_t** d
 
 
 uint8_t* vbuff_get(struct vbuff_buff* buff, struct vbuff_data *buff_data){
-	printk("[Get Buff] offset: %d length: %d", buff_data->offset, buff_data->size);
+	DBG("[Get Buff] offset: %d length: %d", buff_data->offset, buff_data->size);
 	return buff->data + buff_data->offset;
 }
 

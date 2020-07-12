@@ -66,8 +66,21 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data
 
 
 uint8_t* vbuff_get(struct vbuff_buff* buff, struct vbuff_data *buff_data){
-        printk("[Get Buff] offset: %d length: %d", buff_data->offset, buff_data->size);
+        //printk("[Get Buff] offset: %d length: %d", buff_data->offset, buff_data->size);
         return buff->data + buff_data->offset;
+}
+
+uint8_t* vbuff_print(struct vbuff_buff* buff, struct vbuff_data *buff_data){
+        uint8_t *data = vbuff_get(buff, buff_data);
+        int i = 0;
+
+        printk("\n[Print Buff] offset: %d length: %d\n", buff_data->offset, buff_data->size);
+
+        while(i < buff_data->size){
+                printk("%02x ", data[i]);
+                i++;
+        }
+
 }
 
 /*

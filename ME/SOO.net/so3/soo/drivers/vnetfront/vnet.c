@@ -77,18 +77,30 @@ irq_return_t vnet_interrupt(int irq, void *dev_id) {
         struct pbuf *buf;
         unsigned char * data;
         err_t err;
+        int i = 0;
 
         DBG("%s, %d\n", __func__, ME_domID());
 
 	while ((ring_rsp = vnet_rx_ring_response(&vnet->ring_rx)) != NULL) {
-
-                data = vbuff_get(&vbuff_rx, &ring_rsp->buff);
-
                 if((buf = pbuf_alloc(PBUF_RAW, ring_rsp->buff.size, PBUF_RAM)) != NULL){
+                        data = vbuff_get(&vbuff_rx, &ring_rsp->buff);
+
+                        /*printk("!!! C [");
+                        while(i < ring_rsp->buff.size){
+                                printk("%02x ", ((unsigned char*)data)[i++]);
+                        }
+                        printk("] \n");*/
+
                         memcpy(buf->payload, data, ring_rsp->buff.size);
 
+                        /*printk("!!! D [");
+                        while(i < ring_rsp->buff.size){
+                                printk("%02x ", ((unsigned char*)buf->payload)[i++]);
+                        }
+                        printk("] \n");*/
+
                         err = netifg->input(buf, netifg);
-                        printk("[ERR: %d ]\n", err);
+                        //printk("[ERR: %d ]\n", err);
                 }
 
 
@@ -151,6 +163,8 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
         }
         ring_req->type = 0xefef;
         ring_req->buff = vbuff_data;
+
+        //vbuff_print(&vbuff_tx, &vbuff_data);
 
         vnet_tx_ring_request_ready(&vnet->ring_tx);
 
@@ -270,7 +284,7 @@ void vnet_probe(struct vbus_device *vdev) {
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vnet->evtchn);
 	vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", shared_data_grant);
 	vbus_printf(vbt, vdev->nodename, "vbuff-tx-ref", "%u", vbuff_tx.grant);
-	vbus_printf(vbt, vdev->nodename, "vbuff-tr-ref", "%u", vbuff_rx.grant);
+	vbus_printf(vbt, vdev->nodename, "vbuff-rx-ref", "%u", vbuff_rx.grant);
 
 	vbus_transaction_end(vbt);
 }
@@ -347,7 +361,7 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vnet->evtchn);
         vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", shared_data_grant);
         vbus_printf(vbt, vdev->nodename, "vbuff-tx-ref", "%u", vbuff_tx.grant);
-        vbus_printf(vbt, vdev->nodename, "vbuff-tr-ref", "%u", vbuff_rx.grant);
+        vbus_printf(vbt, vdev->nodename, "vbuff-rx-ref", "%u", vbuff_rx.grant);
 
 
         vbus_transaction_end(vbt);
@@ -449,16 +463,18 @@ err_t vnet_lwip_init(struct netif *netif) {
 
         netifg = netif;
 
+        ip4_addr_t
+                ip = {.addr = vnet_shared_data->network | 2u << 24},
+                mask = {.addr = vnet_shared_data->mask},
+                gw = {.addr = vnet_shared_data->network | 1u << 24};
+
+        netif_set_addr(netif, &ip, &mask, &gw);
+
+
         netif_set_default(netif);
         netif_set_link_up(netif);
         netif_set_up(netif);
 
-        ip4_addr_t
-                ip = {.addr = 0xc0a835c8u},
-                mask = {.addr = 0xffffff00u},
-                gw = {.addr = 0xc0a835c00u};
-
-        netif_set_addr(netif, &ip, &mask, &gw);
         //printk("\n\n!!!!!!!!!!!!!ERRRR %d\n\n", err);
 
         //dhcp_start(netif);
@@ -487,6 +503,19 @@ vdrvfront_t vnetdrv = {
 	.resume = vnet_resume,
 	.connected = vnet_connected
 };
+
+
+static void vnet_generate_network(void){
+        ME_desc_t *desc = get_ME_desc();
+        unsigned int crc32 = desc->crc32;
+        uint32_t mask = 0xfcffffffu;
+        uint32_t network = 0x00000cc0au; /* 10.204.x.x */
+
+        network |= (crc32 << 16) ^ (crc32 & 0xffff0000u);
+
+        vnet_shared_data->network = network & mask;
+        vnet_shared_data->mask = mask;
+}
 
 
 static void vnet_generate_mac(void){
@@ -521,6 +550,9 @@ static int vnet_register(dev_t *dev) {
         vbuff_init(&vbuff_rx);
 
         vnet_generate_mac();
+        vnet_generate_network();
+
+
 
         return 0;
 }

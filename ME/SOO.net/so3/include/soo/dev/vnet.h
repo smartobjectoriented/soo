@@ -35,8 +35,9 @@
 
 struct vnet_shared_data {
         unsigned char ethaddr[ARP_HLEN];
+        uint32_t network;
+        uint32_t mask;
 };
-
 
 
 enum vnet_type{

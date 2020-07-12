@@ -51,6 +51,7 @@ void vbuff_free(struct vbuff_buff* buff);
 
 int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data, size_t size);
 uint8_t* vbuff_get(struct vbuff_buff* buff, struct vbuff_data *buff_data);
+uint8_t* vbuff_print(struct vbuff_buff* buff, struct vbuff_data *buff_data);
 
 void vbuff_update_grant(struct vbuff_buff* buff, struct vbus_device *dev);
 

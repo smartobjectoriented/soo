@@ -110,6 +110,10 @@ void netif_rx_packet(struct net_device *dev, void* data, size_t len)
 	//memcpy(skb->mac_header, data, pktlen);
 	skb->protocol = eth_type_trans(skb, dev);
 
+
+	skb->ip_summed = CHECKSUM_NONE;
+	skb->pkt_type = PACKET_HOST;
+
 	//skb->dev = dev;
 	//skb_put(skb, pktlen);		/* make room */
 	//memcpy(skb->data, data, pktlen);
@@ -127,9 +131,7 @@ void netif_rx_packet(struct net_device *dev, void* data, size_t len)
 	}*/
 
 
-	if (likely(netif_receive_skb(skb) == NET_RX_SUCCESS))
-		printk("RX OK");
-	else
+	if (unlikely(netif_receive_skb(skb) != NET_RX_SUCCESS))
 		printk("RX ERROR");
 
 	dev->stats.rx_packets++;
@@ -154,7 +156,7 @@ vnetif_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	uint16_t dev_addr_end = *(uint16_t*)(dev->dev_addr + 4);
 
 	printk("%08x%04x", addr_start, addr_end);*/
-	printk("-");
+	/*printk("-");
 	while(i < 6){
 		printk(KERN_CONT "%02x ", skb->data[i]);
 		i++;
@@ -172,42 +174,48 @@ vnetif_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		i++;
 	}
 	i = 0;
-	printk("-");
+	printk("-");*/
 
-	if(!memcmp(skb->data, broadcast, 6) || !memcmp(skb->data, dev->dev_addr, 6)){
+	if(vif->vnet == NULL || vif->vnet->send == NULL)
+		return NETDEV_TX_BUSY;
+
+	vif->vnet->send(vif->vnet, skb->data, skb->len);
+
+	dev->stats.tx_packets++;
+	dev->stats.tx_bytes += skb->len;
+
+	/*while(i < skb->len){
+		printk(KERN_CONT "%02x ", skb->data[i]);
+		i++;
+	}*/
+
+	/*if(!memcmp(skb->data, broadcast, 6) || !memcmp(skb->data, dev->dev_addr, 6)){
 
 	/*if((addr_start == 0xffffffff && addr_end == 0xffff)
-	    || (addr_start == dev_addr_start && addr_end == dev_addr_end)){*/
+	    || (addr_start == dev_addr_start && addr_end == dev_addr_end)){*
 
-		if(vif->vnet == NULL || vif->vnet->send == NULL)
-			return NETDEV_TX_BUSY;
 
-		vif->vnet->send(vif->vnet, skb->data, skb->len);
-
-		dev->stats.tx_packets++;
-		dev->stats.tx_bytes += skb->len;
 
 		printk("MATCH");
 	} else {
 		printk("NO MATCH");
-	}
+	}*/
 
 
-	printk("XMIT\n");
+	//printk("XMIT\n");
 
-	printk("[Print rx] length: %d\n", skb->len);
+	//printk("[Print rx] length: %d\n", skb->len);
 
-	while(i < skb->len){
+	/*while(i < skb->len){
 		printk(KERN_CONT "%02x ", skb->data[i]);
 		i++;
-	}
+	}*/
 
 	return NETDEV_TX_OK;
 }
 
 static int vnetif_open(struct net_device *dev)
 {
-
 	return 0;
 }
 
@@ -262,9 +270,9 @@ void link_vnet(struct net_device *dev, vnet_t *vnet){
 	rtnl_lock();
 
 	/* Set the mac address */
-	sockaddr.sa_family = dev->type;
+	/*sockaddr.sa_family = dev->type;
 	memcpy(sockaddr.sa_data, vnet->shared_data->ethaddr, ETH_ALEN);
-	dev_set_mac_address(dev, &sockaddr, NULL);
+	dev_set_mac_address(dev, &sockaddr, NULL);*/
 
 	//dev->flags |= IFF_UP | IFF_RUNNING;
 
@@ -283,10 +291,10 @@ void link_vnet(struct net_device *dev, vnet_t *vnet){
 
 	rtnl_unlock();
 
-
-	vnetbridge_if_set_ip(dev->name);
+	vnetbridge_if_set_ip(dev->name, vnet->shared_data->network, vnet->shared_data->mask);
 
 	vnetbridge_if_conf(dev->name, IFF_UP | IFF_RUNNING | IFF_BROADCAST, 1);
+
 
 	//vnetbridge_add_if(SOO_BRIDGE_NAME, dev->name);
 
@@ -296,18 +304,21 @@ void link_vnet(struct net_device *dev, vnet_t *vnet){
 }
 
 void unlink_vnet(struct net_device *dev){
-	struct vnetif *vif = netdev_priv(dev);
+
+	//vnetbridge_if_conf(dev->name, dev->flags | IFF_UP | IFF_RUNNING, 0);
+	//netif_carrier_off(dev);
+
+	/*struct vnetif *vif = netdev_priv(dev);
 	vif->vnet = NULL;
 
 	rtnl_lock();
 	dev->flags &= ~IFF_UP & ~IFF_RUNNING;
 	rtnl_unlock();
 
-	vnetbridge_if_conf(dev->name, dev->flags | IFF_UP | IFF_RUNNING, 0);
 
 	netif_carrier_off(dev);
 
-	vnetbridge_remove_if(SOO_BRIDGE_NAME, dev->name);
+	vnetbridge_remove_if(SOO_BRIDGE_NAME, dev->name);*/
 }
 
 struct net_device * vnetif_init(int domid) {
@@ -369,11 +380,11 @@ struct net_device * vnetif_init(int domid) {
 	/* use the same mac as the connected ME */
 	//memcpy(dev->dev_addr, ethaddr, ETH_ALEN);
 
-	dev->dev_addr[0] = 0xff;
-	dev->dev_addr[1] = 1;
-	dev->dev_addr[2] = 2;
-	dev->dev_addr[3] = 3;
-	dev->dev_addr[4] = 0xff;
+	dev->dev_addr[0] = 0xde;
+	dev->dev_addr[1] = 0xad;
+	dev->dev_addr[2] = 0xbe;
+	dev->dev_addr[3] = 0xaf;
+	dev->dev_addr[4] = 0xaa;
 	dev->dev_addr[5] = (u8)domid;
 
 	netif_carrier_off(dev);

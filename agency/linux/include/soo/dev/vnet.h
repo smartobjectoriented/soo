@@ -41,6 +41,8 @@ enum vnet_type{
 
 struct vnet_shared_data {
 	unsigned char ethaddr[ETH_ALEN];
+	uint32_t network;
+	uint32_t mask;
 };
 
 struct ip_conf {

@@ -25,6 +25,6 @@ void vnetbridge_add_if(const char* brname, const char* ifname);
 void vnetbridge_remove_if(const char* brname, const char* ifname);
 void vnetbridge_add(const char* brname);
 void vnetbridge_if_conf(const char* name, short flags, bool set);
-void vnetbridge_if_set_ip(const char* name);
+void vnetbridge_if_set_ip(const char* name, uint32_t network, uint32_t mask);
 
 #endif //VNETBRIDGE_PRIV_H

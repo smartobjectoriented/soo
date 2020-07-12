@@ -200,38 +200,62 @@ uint32_t inet_addr(const char *cp)
 	return result;
 }
 
-void vnetbridge_if_set_ip(const char* name){
+void vnetbridge_if_set_ip(const char* name, uint32_t network, uint32_t mask){
 	struct ifreq ifr;
 	int ret;
 	struct sockaddr_in sai;
 	int sockfd;
 	int selector;
-	unsigned char mask;
+	uint32_t ip = (network & mask) | 0x01 << 24;
+	uint32_t ip_me = (network & mask) | 0x02 << 24;
 
-	char *p;
-
-//iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+	//iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 	/* Create a channel to the NET kernel. */
-	sockfd = sys_socket(AF_INET, SOCK_DGRAM, 0);
+	sockfd = sys_socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 
 	/* get interface name */
 	strncpy(ifr.ifr_name, name, IFNAMSIZ);
+
+
+	sys_ioctl(sockfd, SIOCGIFFLAGS, &ifr);
+	ifr.ifr_flags &= ~IFF_UP;
+	sys_ioctl(sockfd, SIOCSIFFLAGS, &ifr);
+
+
+
 
 	memset(&sai, 0, sizeof(struct sockaddr));
 	sai.sin_family = AF_INET;
 	sai.sin_port = 0;
 
-	sai.sin_addr.s_addr = inet_addr("192.168.40.200");//0xc835a8c0;// c0a835c8u;// inet_addr("192.168.40.200");
-	memcpy(&ifr.ifr_addr, &sai, sizeof(struct sockaddr_in));
+	sai.sin_addr.s_addr = ip;
+	memcpy(((char *)&ifr.ifr_addr), (char *)&sai, sizeof(struct sockaddr));
 	ret = sys_ioctl(sockfd, SIOCSIFADDR, &ifr);
+
+	sai.sin_addr.s_addr = ip_me;
+	memcpy(((char *)&ifr.ifr_addr), (char *)&sai, sizeof(struct sockaddr));
+	ret = sys_ioctl(sockfd, SIOCSIFDSTADDR, &ifr);
+
+	sai.sin_addr.s_addr = mask;
+	memcpy(((char *)&ifr.ifr_addr), (char *)&sai, sizeof(struct sockaddr));
+	ret = sys_ioctl(sockfd, SIOCSIFNETMASK, &ifr);
+
+	//inet_addr("10.10.1.1");//0xc835a8c0;// c0a835c8u;// inet_addr("192.168.40.200");
+	//memcpy(&ifr.ifr_addr, &sai, sizeof(struct sockaddr_in));
+	//ret = sys_ioctl(sockfd, SIOCSIFADDR, &ifr);
 	printk("\nSET IP %d\n", ret);
 
-	memset(&sai, 0, sizeof(struct sockaddr));
+
+	sys_ioctl(sockfd, SIOCGIFFLAGS, &ifr);
+	ifr.ifr_flags |= IFF_UP;
+	sys_ioctl(sockfd, SIOCSIFFLAGS, &ifr);
+
+	/*memset(&sai, 0, sizeof(struct sockaddr));
 	sai.sin_family = AF_INET;
 	sai.sin_port = 0;
 	sai.sin_addr.s_addr = inet_addr("255.255.255.0");
 	memcpy(&ifr.ifr_broadaddr, &sai, sizeof(struct sockaddr_in));
 	ret = sys_ioctl(sockfd, SIOCSIFNETMASK, &ifr);
-	printk("\nSET IP %d\n", ret);
+	printk("\nSET IP %d\n", ret);*/
 	sys_close(sockfd);
 }

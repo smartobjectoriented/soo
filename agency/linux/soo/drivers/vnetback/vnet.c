@@ -56,13 +56,17 @@ bool net_devs_initialized = false;
 
 void initialize_net_devs(void){
 	int i = 0;
+	struct vnetif *vif;
+
 	//vnetbridge_add(SOO_BRIDGE_NAME);
 	//vnetbridge_add_if(SOO_BRIDGE_NAME, "eth0");
-	vnetbridge_if_conf(SOO_BRIDGE_NAME, IFF_PROMISC, 1);
+	//vnetbridge_if_conf(SOO_BRIDGE_NAME, IFF_PROMISC, 1);
 	while(i < MAX_ME_DOMAINS){
 		net_devs[i] = vnetif_init(i);
+		vif = netdev_priv(net_devs[i]);
 		i++;
 	}
+
 
 	//vnetbridge_add_if(SOO_BRIDGE_NAME, "vif0");
 
@@ -103,20 +107,42 @@ void vnet_process_tx(struct vbus_device *vdev){
 	vnet_request_t *ring_req = NULL;
 	uint8_t* data;
 	vnet_t *vnet = to_vnet(vdev);
+	struct vnetif *vif;
 
 	while ((ring_req = vnet_tx_ring_request(&vnet->ring_tx)) != NULL) {
 		data = vbuff_get(&vnet->vbuff_tx, &ring_req->buff);
 		//vbuff_print(&vnet->vbuff_tx, &ring_req->buff);
 		netif_rx_packet(net_devs[vdev->otherend_id - 2], data, ring_req->buff.size);
 	}
+
+	//iptables -t nat -A POSTROUTING -o eth -j MASQUERADE
 }
+
+
 
 void vnet_send_rx(void* void_vnet, u8* data, int length){
 	vnet_response_t *ring_rsp;
 	struct vbuff_data vbuff_data;
 	vnet_t* vnet = (vnet_t*)void_vnet;
+	u8* buff_data = NULL;
+	int i = 0;
 
-	vbuff_put(&vnet->vbuff_rx, &vbuff_data, &data, length);
+	/*printk("!!! A");
+	while(i < length)
+		printk(KERN_CONT "%02x ", data[i++]);*/
+
+	vbuff_put(&vnet->vbuff_rx, &vbuff_data, &buff_data, length);
+	memcpy(buff_data, data, length);
+
+	/*i = 0;
+	printk("!!! B");
+	while(i < length)
+		printk(KERN_CONT "%02x ", data[i++]);*/
+
+	//vbuff_print(&vnet->vbuff_rx, &vbuff_data);
+	/*while(i < length)
+		printk(KERN_CONT "%02x ", ((u8*)vnet->vbuff_rx.data)[vbuff_data.offset + i++]);*/
+
 
 	if ((ring_rsp = vnet_rx_ring_response(&vnet->ring_rx)) != NULL) {
 		ring_rsp->buff = vbuff_data;
@@ -148,10 +174,6 @@ void vnet_probe(struct vbus_device *vdev) {
 	dev_set_drvdata(&vdev->dev, &vnet->vdevback);
 
 	DBG(VNET_PREFIX "Backend probe: %d\n", vdev->otherend_id);
-
-	if(!net_devs_initialized){
-		initialize_net_devs();
-	}
 }
 
 void vnet_remove(struct vbus_device *vdev) {
@@ -250,7 +272,7 @@ void vnet_reconfigured(struct vbus_device *vdev) {
 	vnet->vbuff_ethaddr = (unsigned char*)vnet->vbuff_rx + PAGE_COUNT;*/
 
 	vbuff_init(&vnet->vbuff_tx, vbuff_tx_ref, vdev);
-	vbuff_init(&vnet->vbuff_rx, vbuff_tx_ref, vdev);
+	vbuff_init(&vnet->vbuff_rx, vbuff_rx_ref, vdev);
 
 	struct net_device *net_dev = net_devs[vdev->otherend_id - 2];
 	link_vnet(net_dev, vnet);
@@ -289,6 +311,8 @@ int vnet_init(void) {
 		return 0;
 
 	vdevback_init(VNET_NAME, &vnetdrv);
+
+	initialize_net_devs();
 
 	return 0;
 }
