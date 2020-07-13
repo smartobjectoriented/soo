@@ -17,6 +17,12 @@ case "$1" in
         # Set the Smart Object environment
         source /root/soo_env.sh
         echo "OK"
+        
+        # Set up wifi
+        echo -n "Configuring network... "
+        /root/netmanager.sh
+        echo "OK"
+
 
         echo -n "Configuring Bluetooth... "
         /root/btmanager.sh
@@ -26,7 +32,7 @@ case "$1" in
         echo -n "Configuring wi-fi... "
         /root/wifimanager.sh
         echo "OK"
-
+        
         echo -n "Starting Agency Core... "
         /root/agency &
         echo "OK"

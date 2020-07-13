@@ -16,15 +16,14 @@
  *
  */
 
-#ifndef VNETBRIDGE_PRIV_H
-#define VNETBRIDGE_PRIV_H
+#ifndef VNETIFUTIL_PRIV_H
+#define VNETIFUTIL_PRIV_H
 
-#define SOO_BRIDGE_NAME "soo-br0"
+void vnetifutil_if_up(const char* name);
+void vnetifutil_if_down(const char* name);
 
-void vnetbridge_add_if(const char* brname, const char* ifname);
-void vnetbridge_remove_if(const char* brname, const char* ifname);
-void vnetbridge_add(const char* brname);
-void vnetbridge_if_conf(const char* name, short flags, bool set);
-void vnetbridge_if_set_ip(const char* name, uint32_t network, uint32_t mask);
+void vnetifutil_if_set_ips(const char* name, uint32_t network, uint32_t mask);
 
-#endif //VNETBRIDGE_PRIV_H
+
+
+#endif //VNETIFUTIL_PRIV_H

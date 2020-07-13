@@ -73,9 +73,6 @@ typedef struct  {
 	char buffer[2];
 } vnet_response_t;
 
-#warning sizeof vnet_request_t
-#warning sizeof vnet_response_t
-
 typedef struct {
 	uint16_t type;
 } vnet_ctrl_request_t;

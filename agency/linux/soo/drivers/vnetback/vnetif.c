@@ -42,52 +42,17 @@
 #include <linux/syscalls.h>
 #include <linux/inetdevice.h>
 
-#include "vnetbridge_priv.h"
-
-
+#include "vnetifutil_priv.h"
 
 static struct net_device_stats *vnetif_get_stats(struct net_device *dev)
 {
 	struct vnetif *vif = netdev_priv(dev);
-	struct xenvif_queue *queue = NULL;
-	unsigned int num_queues;
-	u64 rx_bytes = 0;
-	u64 rx_packets = 0;
-	u64 tx_bytes = 0;
-	u64 tx_packets = 0;
-	unsigned int index;
-
-	rcu_read_lock();
-	num_queues = READ_ONCE(vif->num_queues);
-
-	/* Aggregate tx and rx stats from each queue */
-	/*for (index = 0; index < num_queues; ++index) {
-		queue = &vif->queues[index];
-		rx_bytes += queue->stats.rx_bytes;
-		rx_packets += queue->stats.rx_packets;
-		tx_bytes += queue->stats.tx_bytes;
-		tx_packets += queue->stats.tx_packets;
-	}*/
-
-	rcu_read_unlock();
-
-	/*vif->dev->stats.rx_bytes = rx_bytes;
-	vif->dev->stats.rx_packets = rx_packets;
-	vif->dev->stats.tx_bytes = tx_bytes;
-	vif->dev->stats.tx_packets = tx_packets;*/
-
 	return &vif->dev->stats;
 }
 
-void netif_rx_packet(struct net_device *dev, void* data, size_t len)
+void netif_rx_packet(struct net_device *dev, void* data, size_t pktlen)
 {
-	struct nfeth_private *priv = netdev_priv(dev);
-	unsigned short pktlen;
 	struct sk_buff *skb;
-	int i = 0;
-
-	/* read packet length (excluding 32 bit crc) */
-	pktlen = len;
 
 	if (!pktlen) {
 		dev->stats.rx_errors++;
@@ -104,32 +69,11 @@ void netif_rx_packet(struct net_device *dev, void* data, size_t len)
 	}
 	skb->pkt_type = PACKET_OUTGOING;
 
-	skb_reserve(skb, 0);	/* 16 byte IP header align */
-	//skb_copy_to_linear_data(skb, (unsigned char *)data, pktlen);
 	skb_put_data(skb, data, pktlen);
-	//memcpy(skb->mac_header, data, pktlen);
 	skb->protocol = eth_type_trans(skb, dev);
-
 
 	skb->ip_summed = CHECKSUM_NONE;
 	skb->pkt_type = PACKET_HOST;
-
-	//skb->dev = dev;
-	//skb_put(skb, pktlen);		/* make room */
-	//memcpy(skb->data, data, pktlen);
-
-	//skb->protocol = eth_type_trans(skb, dev);
-
-
-	//skb->data = skb->head;
-
-
-	/*printk("[SKB]");
-	while(i < skb->len){
-		printk(KERN_CONT "%02x ", skb->data[i]);
-		i++;
-	}*/
-
 
 	if (unlikely(netif_receive_skb(skb) != NET_RX_SUCCESS))
 		printk("RX ERROR");
@@ -145,36 +89,6 @@ static netdev_tx_t
 vnetif_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct vnetif *vif = netdev_priv(dev);
-	vnet_response_t *ring_rsp;
-	int i = 0;
-	static u8 broadcast[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-
-	/*uint32_t addr_start = *(uint32_t*)(skb->head);
-	uint16_t addr_end = *(uint16_t*)(skb->head + 4);
-
-	uint32_t dev_addr_start = *(uint32_t*)(dev->dev_addr);
-	uint16_t dev_addr_end = *(uint16_t*)(dev->dev_addr + 4);
-
-	printk("%08x%04x", addr_start, addr_end);*/
-	/*printk("-");
-	while(i < 6){
-		printk(KERN_CONT "%02x ", skb->data[i]);
-		i++;
-	}
-	i = 0;
-	printk("-");
-	while(i < 6){
-		printk(KERN_CONT "%02x ", dev->dev_addr[i]);
-		i++;
-	}
-	i = 0;
-	printk("-");
-	while(i < 6){
-		printk(KERN_CONT "%02x ", broadcast[i]);
-		i++;
-	}
-	i = 0;
-	printk("-");*/
 
 	if(vif->vnet == NULL || vif->vnet->send == NULL)
 		return NETDEV_TX_BUSY;
@@ -183,33 +97,6 @@ vnetif_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	dev->stats.tx_packets++;
 	dev->stats.tx_bytes += skb->len;
-
-	/*while(i < skb->len){
-		printk(KERN_CONT "%02x ", skb->data[i]);
-		i++;
-	}*/
-
-	/*if(!memcmp(skb->data, broadcast, 6) || !memcmp(skb->data, dev->dev_addr, 6)){
-
-	/*if((addr_start == 0xffffffff && addr_end == 0xffff)
-	    || (addr_start == dev_addr_start && addr_end == dev_addr_end)){*
-
-
-
-		printk("MATCH");
-	} else {
-		printk("NO MATCH");
-	}*/
-
-
-	//printk("XMIT\n");
-
-	//printk("[Print rx] length: %d\n", skb->len);
-
-	/*while(i < skb->len){
-		printk(KERN_CONT "%02x ", skb->data[i]);
-		i++;
-	}*/
 
 	return NETDEV_TX_OK;
 }
@@ -261,42 +148,13 @@ static const struct net_device_ops vnetif_netdev_ops = {
 #include <net/addrconf.h>
 
 void link_vnet(struct net_device *dev, vnet_t *vnet){
-	struct sockaddr sockaddr;
 	struct vnetif *vif = netdev_priv(dev);
-	struct in_ifaddr *ifa;
 
 	vif->vnet = vnet;
 
-	rtnl_lock();
+	vnetifutil_if_set_ips(dev->name, vnet->shared_data->network, vnet->shared_data->mask);
 
-	/* Set the mac address */
-	/*sockaddr.sa_family = dev->type;
-	memcpy(sockaddr.sa_data, vnet->shared_data->ethaddr, ETH_ALEN);
-	dev_set_mac_address(dev, &sockaddr, NULL);*/
-
-	//dev->flags |= IFF_UP | IFF_RUNNING;
-
-
-
-	/*ifa = inet_alloc_ifa();
-	INIT_HLIST_NODE(&ifa->hash);
-	memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
-	ifa->ifa_address = ifa->ifa_local = 0xc0a835c8;
-	ifa->ifa_prefixlen = 24;
-	ifa->ifa_mask = 0xffffff;
-
-	ifa->ifa_broadcast = ifa->ifa_address | ~ifa->ifa_mask;
-	set_ifa_lifetime(ifa, INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
-	inet_set_ifa(dev, ifa);*/
-
-	rtnl_unlock();
-
-	vnetbridge_if_set_ip(dev->name, vnet->shared_data->network, vnet->shared_data->mask);
-
-	vnetbridge_if_conf(dev->name, IFF_UP | IFF_RUNNING | IFF_BROADCAST, 1);
-
-
-	//vnetbridge_add_if(SOO_BRIDGE_NAME, dev->name);
+	vnetifutil_if_up(dev->name);
 
 	/* Set the network card up */
 	netif_carrier_on(dev);
@@ -304,29 +162,15 @@ void link_vnet(struct net_device *dev, vnet_t *vnet){
 }
 
 void unlink_vnet(struct net_device *dev){
+	struct vnetif *vif = netdev_priv(dev);
 
-	//vnetbridge_if_conf(dev->name, dev->flags | IFF_UP | IFF_RUNNING, 0);
-	//netif_carrier_off(dev);
-
-	/*struct vnetif *vif = netdev_priv(dev);
-	vif->vnet = NULL;
-
-	rtnl_lock();
-	dev->flags &= ~IFF_UP & ~IFF_RUNNING;
-	rtnl_unlock();
-
-
+	vnetifutil_if_down(dev->name);
 	netif_carrier_off(dev);
 
-	vnetbridge_remove_if(SOO_BRIDGE_NAME, dev->name);*/
+	vif->vnet = NULL;
 }
 
 struct net_device * vnetif_init(int domid) {
-	int ret;
-	struct device_node *np;
-
-	unsigned int vnetif_max_queues = num_online_cpus();
-
 	int err;
 	struct net_device *dev;
 	struct vnetif *vif;
@@ -339,13 +183,11 @@ struct net_device * vnetif_init(int domid) {
 	 * via netif_set_real_num_*_queues().
 	 */
 	dev = alloc_netdev_mq(sizeof(struct vnetif), name, NET_NAME_UNKNOWN,
-			      ether_setup, vnetif_max_queues);
+			      ether_setup, 1);
 	if (dev == NULL) {
 		pr_warn("Could not allocate netdev for %s\n", name);
 		return ERR_PTR(-ENOMEM);
 	}
-
-	//SET_NETDEV_DEV(dev, parent);
 
 	vif = netdev_priv(dev);
 
@@ -377,9 +219,7 @@ struct net_device * vnetif_init(int domid) {
 	dev->min_mtu = ETH_MIN_MTU;
 	dev->max_mtu = ETH_MAX_MTU - VLAN_ETH_HLEN;
 
-	/* use the same mac as the connected ME */
-	//memcpy(dev->dev_addr, ethaddr, ETH_ALEN);
-
+	/* Attribute a MAC address. */
 	dev->dev_addr[0] = 0xde;
 	dev->dev_addr[1] = 0xad;
 	dev->dev_addr[2] = 0xbe;

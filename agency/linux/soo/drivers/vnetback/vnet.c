@@ -48,8 +48,7 @@
 #include <soo/dev/vnetbuff.h>
 #include <soo/dev/vnetif.h>
 
-#include "vnetbridge_priv.h"
-
+#include "vnetifutil_priv.h"
 
 struct net_device *net_devs[MAX_ME_DOMAINS];
 bool net_devs_initialized = false;
@@ -58,17 +57,11 @@ void initialize_net_devs(void){
 	int i = 0;
 	struct vnetif *vif;
 
-	//vnetbridge_add(SOO_BRIDGE_NAME);
-	//vnetbridge_add_if(SOO_BRIDGE_NAME, "eth0");
-	//vnetbridge_if_conf(SOO_BRIDGE_NAME, IFF_PROMISC, 1);
 	while(i < MAX_ME_DOMAINS){
 		net_devs[i] = vnetif_init(i);
 		vif = netdev_priv(net_devs[i]);
 		i++;
 	}
-
-
-	//vnetbridge_add_if(SOO_BRIDGE_NAME, "vif0");
 
 	net_devs_initialized = true;
 }
@@ -88,16 +81,12 @@ void vnet_notify(struct vbus_device *vdev)
 
 void vnet_process_ctrl(struct vbus_device *vdev){
 	vnet_request_t *ring_req;
-	vnet_response_t *ring_rsp;
 	vnet_t *vnet = to_vnet(vdev);
 
 
 	while ((ring_req = vnet_ctrl_ring_request(&vnet->ring_ctrl)) != NULL) {
 		switch(ring_req->type){
 		case ETHADDR:
-			/* TODo improve, store the vif in a list */
-			/*if (vnet->vif == NULL)
-				vnet->vif = vnetif_init(0, ring_rsp->ethaddr);*/
 			break;
 		}
 	}
@@ -107,15 +96,11 @@ void vnet_process_tx(struct vbus_device *vdev){
 	vnet_request_t *ring_req = NULL;
 	uint8_t* data;
 	vnet_t *vnet = to_vnet(vdev);
-	struct vnetif *vif;
 
 	while ((ring_req = vnet_tx_ring_request(&vnet->ring_tx)) != NULL) {
 		data = vbuff_get(&vnet->vbuff_tx, &ring_req->buff);
-		//vbuff_print(&vnet->vbuff_tx, &ring_req->buff);
 		netif_rx_packet(net_devs[vdev->otherend_id - 2], data, ring_req->buff.size);
 	}
-
-	//iptables -t nat -A POSTROUTING -o eth -j MASQUERADE
 }
 
 
@@ -125,24 +110,9 @@ void vnet_send_rx(void* void_vnet, u8* data, int length){
 	struct vbuff_data vbuff_data;
 	vnet_t* vnet = (vnet_t*)void_vnet;
 	u8* buff_data = NULL;
-	int i = 0;
-
-	/*printk("!!! A");
-	while(i < length)
-		printk(KERN_CONT "%02x ", data[i++]);*/
 
 	vbuff_put(&vnet->vbuff_rx, &vbuff_data, &buff_data, length);
 	memcpy(buff_data, data, length);
-
-	/*i = 0;
-	printk("!!! B");
-	while(i < length)
-		printk(KERN_CONT "%02x ", data[i++]);*/
-
-	//vbuff_print(&vnet->vbuff_rx, &vbuff_data);
-	/*while(i < length)
-		printk(KERN_CONT "%02x ", ((u8*)vnet->vbuff_rx.data)[vbuff_data.offset + i++]);*/
-
 
 	if ((ring_rsp = vnet_rx_ring_response(&vnet->ring_rx)) != NULL) {
 		ring_rsp->buff = vbuff_data;
@@ -219,14 +189,14 @@ void vnet_resume(struct vbus_device *vdev) {
 }
 
 void vnet_reconfigured(struct vbus_device *vdev) {
-	int res, i=0;
+	int res;
 	unsigned long ring_tx_ref, ring_rx_ref, ring_ctrl_ref, vbuff_tx_ref, vbuff_rx_ref;
 	unsigned int evtchn;
 	vnet_tx_sring_t *sring_tx;
 	vnet_rx_sring_t *sring_rx;
 	vnet_ctrl_sring_t *sring_ctrl;
 	vnet_t *vnet = to_vnet(vdev);
-	unsigned long grants_tx, grants_rx;
+	struct net_device *net_dev;
 
 	DBG(VNET_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
 
@@ -268,15 +238,15 @@ void vnet_reconfigured(struct vbus_device *vdev) {
 
 	res = vbus_map_ring_valloc(vdev, vnet->grant_buff, (void **) &vnet->shared_data);
 	BUG_ON(res < 0);
-	/*vnet->vbuff_rx = vnet->vbuff_tx + PAGE_COUNT;
-	vnet->vbuff_ethaddr = (unsigned char*)vnet->vbuff_rx + PAGE_COUNT;*/
 
+
+	/* init circualar buffers used for rx/tx frames */
 	vbuff_init(&vnet->vbuff_tx, vbuff_tx_ref, vdev);
 	vbuff_init(&vnet->vbuff_rx, vbuff_rx_ref, vdev);
 
-	struct net_device *net_dev = net_devs[vdev->otherend_id - 2];
+	/* Get the vif attributed to this domain */
+	net_dev = net_devs[vdev->otherend_id - 2];
 	link_vnet(net_dev, vnet);
-
 
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vnet_interrupt, NULL, 0, VNET_NAME "-backend", vdev);
 	BUG_ON(res < 0);
@@ -302,7 +272,6 @@ vdrvback_t vnetdrv = {
 
 int vnet_init(void) {
 	struct device_node *np;
-	int i = 0;
 
 	np = of_find_compatible_node(NULL, NULL, "vnet,backend");
 
