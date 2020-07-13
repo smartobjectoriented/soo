@@ -49,7 +49,7 @@ int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
 	transceiver_packet_t *packet;
 
 	if (!data) {
-		datalink_tx(sl_desc, NULL, 0, true);
+		datalink_tx(sl_desc, NULL, true);
 		return 0;
 	}
 
@@ -62,7 +62,7 @@ int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
 	/* Copy the data into the transceiver packet's payload */
 	memcpy(packet->payload, data, size);
 
-	ret = datalink_tx(sl_desc, packet, size, completed);
+	ret = datalink_tx(sl_desc, packet, completed);
 
 	/* Release the transceiver packet */
 	kfree(packet);
@@ -75,16 +75,10 @@ int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
  * forwarded to the plugin(s). It should not be called by anyone else.
  * The size parameter refers to the payload.
  */
-void __sender_tx(sl_desc_t *sl_desc, void *packet, size_t size, unsigned long flags) {
-	size_t packet_size = 0;
+void __sender_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, unsigned long flags) {
 
-	/* Add the transceiver's packet header size to the total size */
-	packet_size = size + sizeof(transceiver_packet_t);
-	
 	mutex_lock(&sender_lock);
-	
-	plugin_tx(sl_desc, packet, packet_size, flags);
-
+	plugin_tx(sl_desc, packet, packet->size + sizeof(transceiver_packet_t), flags);
 	mutex_unlock(&sender_lock);
 }
 

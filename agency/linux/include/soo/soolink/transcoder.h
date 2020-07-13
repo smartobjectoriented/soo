@@ -24,7 +24,12 @@
 
 #include <soo/soolink/soolink.h>
 
-#define SL_CODER_PACKET_MAX_SIZE 	1472
+/*
+ * On Rpi4, iperf3 shows skb len of 1'514 bytes.
+ * On our side, we can have packet payload of 1'472 bytes taking into
+ * account the various headers.
+ */
+#define SL_PACKET_PAYLOAD_MAX_SIZE 	1472
 
 #define CODER_CONSISTENCY_SIMPLE	0x00
 #define CODER_CONSISTENCY_EXT		0x01

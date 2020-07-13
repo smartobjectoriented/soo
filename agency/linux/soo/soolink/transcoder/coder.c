@@ -81,7 +81,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 	mutex_lock(&coder_tx_lock);
 
 	/* Check if the block has to be split into multiple packets */
-	if (size <= SL_CODER_PACKET_MAX_SIZE) {
+	if (size <= SL_PACKET_PAYLOAD_MAX_SIZE) {
 		DBG("Simple packet\n");
 
 		/* Create the simple packet */
@@ -101,12 +101,12 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 	} else {
 
 		/* Determine the number of packets required for this block */
-		nr_packets = DIV_ROUND_UP(size, SL_CODER_PACKET_MAX_SIZE);
+		nr_packets = DIV_ROUND_UP(size, SL_PACKET_PAYLOAD_MAX_SIZE);
 
 		DBG("Extended packet, nr_packets=%d\n", nr_packets);
 
 		/* Need to iterate over multiple packets */
-		pkt = kmalloc(sizeof(transcoder_packet_format_t) + SL_CODER_PACKET_MAX_SIZE, GFP_ATOMIC);
+		pkt = kmalloc(sizeof(transcoder_packet_format_t) + SL_PACKET_PAYLOAD_MAX_SIZE, GFP_ATOMIC);
 		BUG_ON(!pkt);
 
 		for (packetID = 1; packetID < nr_packets + 1; packetID++) {
@@ -120,7 +120,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 			pkt->u.ext.nr_packets = nr_packets;
 
 			pkt->u.ext.packetID = packetID;
-			pkt->u.ext.payload_length = ((size > SL_CODER_PACKET_MAX_SIZE) ? SL_CODER_PACKET_MAX_SIZE : size);
+			pkt->u.ext.payload_length = ((size > SL_PACKET_PAYLOAD_MAX_SIZE) ? SL_PACKET_PAYLOAD_MAX_SIZE : size);
 
 			memcpy(pkt->payload, data, pkt->u.ext.payload_length);
 			data += pkt->u.ext.payload_length;

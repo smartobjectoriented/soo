@@ -634,8 +634,9 @@ void winenet_send_beacon(wnet_beacon_t *outgoing_beacon, wnet_beacon_id_t beacon
 
 	transceiver_packet->packet_type = TRANSCEIVER_PKT_DATALINK;
 	transceiver_packet->transID = 0;
+	transceiver_packet->size = sizeof(wnet_beacon_t);
 
-	memcpy(transceiver_packet->payload, outgoing_beacon, sizeof(wnet_beacon_t));
+	memcpy(transceiver_packet->payload, outgoing_beacon, transceiver_packet->size);
 
 	outgoing_packet = (void *) transceiver_packet;
 
@@ -644,7 +645,7 @@ void winenet_send_beacon(wnet_beacon_t *outgoing_beacon, wnet_beacon_id_t beacon
 #ifdef VERBOSE
 	lprintk("### Sending beacon %s\n", beacon_str(outgoing_beacon, &__sl_desc->agencyUID_to));
 #endif
-	__sender_tx(__sl_desc, outgoing_packet, sizeof(wnet_beacon_t), 0);
+	__sender_tx(__sl_desc, outgoing_packet, 0);
 
 	/* Release the outgoing packet */
 	if (outgoing_packet)
@@ -1038,7 +1039,8 @@ retry:
 
 					ourself()->neighbour->priv = &ourself()->neighbour->agencyUID;
 					change_state(WNET_STATE_SPEAKER);
-					//rtdm_event_signal(&wnet_event); /* Proceed immediately */
+
+					/* Proceed immediately */
 					complete(&wnet_event);
 
 				} else {
@@ -1241,7 +1243,7 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 		/* Sending the frame for the first time (first listener) */
 
 		for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
-			__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], buf_tx_pkt[i]->size, 0);
+			__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], 0);
 
 		/* Now waiting for the ACK beacon */
 		memcpy(&beacon.agencyUID, &wnet_tx.sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
@@ -1277,7 +1279,7 @@ retry_ack1:
 			do {
 				/* Re-send the whole frame */
 				for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
-					__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], buf_tx_pkt[i]->size, 0);
+					__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], 0);
 retry_ack2:
 				ack = wait_for_ack(&beacon);
 
@@ -1349,7 +1351,7 @@ retry_ack2:
 			do {
 				/* Re-send the whole frame */
 				for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_tx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
-					__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], buf_tx_pkt[i]->size, 0);
+					__sender_tx(wnet_tx.sl_desc, buf_tx_pkt[i], 0);
 retry_ack3:
 				ack = wait_for_ack(&beacon);
 
@@ -1589,20 +1591,17 @@ void winenet_start_fsm_task(char *name, wnet_fsm_handle_t *handle) {
 	sched_setscheduler_nocheck(t, SCHED_FIFO, &param);
 
 	wake_up_process(t);
-
-	//kthread_run(fsm_task_fn, (void *) handle, "fsm_task");
 }
 
 /**
  * This function is called when a data packet or a Iamasoo beacon has to be sent.
  * The call is made by the Sender.
  */
-static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool completed) {
-	transceiver_packet_t *packet;
+static int winenet_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, bool completed) {
 	int ret = 0;
 
 	/* End of transmission ? */
-	if (!packet_ptr) {
+	if (!packet) {
 
 		/* Ok, go ahead with the next speaker */
 
@@ -1624,14 +1623,12 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
 		return 0;
 	}
 
-	packet = (transceiver_packet_t *) packet_ptr;
-
 	if (unlikely(sl_desc->req_type == SL_REQ_DISCOVERY)) {
 
 		/* Iamasoo beacons */
 		packet->transID = 0xffffffff;
 
-		__sender_tx(sl_desc, packet, size, 0);
+		__sender_tx(sl_desc, packet, 0);
 
 		return 0;
 	}
@@ -1655,7 +1652,7 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
 		sent_packet_transID = (sent_packet_transID + 1) % WNET_MAX_PACKET_TRANSID;
 
 	/* Fill in the buffer */
-	memcpy(buf_tx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME], packet, size);
+	memcpy(buf_tx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME], packet, packet->size + sizeof(transceiver_packet_t));
 
 	/* Look for a completed frame (max number of packets reached or completed) */
 	if (sent_packet_transID % WNET_N_PACKETS_IN_FRAME == 0) {
@@ -1692,14 +1689,11 @@ static int winenet_tx(sl_desc_t *sl_desc, void *packet_ptr, size_t size, bool co
  * The call is made by the Receiver.
  * The size refers to the whole transceiver packet.
  */
-void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr, size_t size) {
-	transceiver_packet_t *packet;
+void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 	static uint32_t last_transID;
 	uint32_t i;
 	static bool got_data = false;
 	wnet_beacon_t beacon;
-
-	packet = (transceiver_packet_t *) packet_ptr;
 
 #ifdef VERBOSE
 	lprintk("** receiving: agencyUID_to: ");
@@ -1800,7 +1794,7 @@ void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr
 		if (((packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME == WNET_N_PACKETS_IN_FRAME - 1) || (packet->transID & WNET_LAST_PACKET)) {
 
 			for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (buf_rx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
-				receiver_rx(sl_desc, plugin_desc, buf_rx_pkt[i], buf_rx_pkt[i]->size);
+				receiver_rx(sl_desc, buf_rx_pkt[i]);
 
 			clear_buf_rx_pkt();
 
@@ -1853,12 +1847,12 @@ void winenet_init(void) {
 	 * Allocate once all tx & rx buffers
 	 */
 	for (i = 0; i < WNET_N_PACKETS_IN_FRAME; i++) {
-		buf_tx_pkt[i] = (transceiver_packet_t *) kmalloc(SL_CODER_PACKET_MAX_SIZE + sizeof(transceiver_packet_t), GFP_ATOMIC);
+		buf_tx_pkt[i] = (transceiver_packet_t *) kmalloc(SL_PACKET_PAYLOAD_MAX_SIZE + sizeof(transcoder_packet_t) + sizeof(transceiver_packet_t), GFP_ATOMIC);
 		BUG_ON(!buf_tx_pkt[i]);
 
 		buf_tx_pkt[i]->packet_type = TRANSCEIVER_PKT_NONE;
 
-		buf_rx_pkt[i] = (transceiver_packet_t *) kmalloc(SL_CODER_PACKET_MAX_SIZE + sizeof(transceiver_packet_t), GFP_ATOMIC);
+		buf_rx_pkt[i] = (transceiver_packet_t *) kmalloc(SL_PACKET_PAYLOAD_MAX_SIZE + sizeof(transcoder_packet_t) + sizeof(transceiver_packet_t), GFP_ATOMIC);
 		BUG_ON(!buf_rx_pkt[i]);
 
 		buf_rx_pkt[i]->packet_type = TRANSCEIVER_PKT_NONE;

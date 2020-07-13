@@ -40,13 +40,13 @@ static struct mutex receiver_lock;
  * the packet has to be given back to the Receiver.
  * The size parameter refers to the whole transceiver packet.
  */
-void __receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size) {
+void __receiver_rx(sl_desc_t *sl_desc, void *packet, size_t size) {
 	transceiver_packet_t *transceiver_packet;
 
 	transceiver_packet = (transceiver_packet_t *) packet;
-	transceiver_packet->size = size;
+	transceiver_packet->size = size - sizeof(transceiver_packet_t);
 
-	datalink_rx(sl_desc, plugin_desc, packet, size);
+	datalink_rx(sl_desc, packet);
 }
 
 /**
@@ -54,17 +54,21 @@ void __receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet,
  * forwarded to the consumer(s).
  * The size parameter refers to the whole transceiver packet.
  */
-void receiver_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size) {
-	transceiver_packet_t *transceiver_packet;
-	size_t payload_size;
+void receiver_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 
 	mutex_lock(&receiver_lock);
 
-	transceiver_packet = (transceiver_packet_t *) packet;
+#if 0
+	{
+		int i;
 
-	/* Substract the transceiver's packet header size from the total size */
-	payload_size = size - sizeof(transceiver_packet_t);
-	decoder_rx(sl_desc, transceiver_packet->payload, payload_size);
+		for (i = 0; i < transceiver_packet->size; i++)
+			lprintk("%x ", transceiver_packet->payload[i]);
+		lprintk("\n");
+	}
+#endif
+
+	decoder_rx(sl_desc, packet->payload, packet->size);
 
 	mutex_unlock(&receiver_lock);
 }

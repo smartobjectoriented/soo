@@ -48,12 +48,6 @@ static decoder_block_t *last_block = NULL;
 
 uint32_t transcoder_discarded_packets = 0;
 
-static struct mutex decoder_stream_lock;
-static struct completion decoder_stream_event;
-
-/* Pointer to received data in netstream mode. Used for the sync between the requester and Datalink. */
-static void *decoder_stream_data;
-
 /*
  * Create a new block based on the received data.
  */
@@ -213,7 +207,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 	} else {
 
 		/* At the moment... */
-		BUG_ON(size > sizeof(transcoder_packet_format_t) + SL_CODER_PACKET_MAX_SIZE);
+		BUG_ON(size > sizeof(transcoder_packet_format_t) + SL_PACKET_PAYLOAD_MAX_SIZE);
 
 		/* If we missed a packet for this block, we simply discard all subsequent packets */
 		if (block->discarded_block) {
@@ -274,7 +268,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			}
 
 			block->discarded_block = false;
-			block->total_size = pkt->u.ext.nr_packets * SL_CODER_PACKET_MAX_SIZE;
+			block->total_size = pkt->u.ext.nr_packets * SL_PACKET_PAYLOAD_MAX_SIZE;
 			block->real_size = 0;
 			block->n_total_packets = pkt->u.ext.nr_packets;
 			block->n_recv_packets = 0;
@@ -330,37 +324,6 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 	/* Release the lock on the block processing */
 	mutex_unlock(&decoder_lock);
-
-	return 0;
-}
-
-/**
- * A recv request is being performed by the requester.
- * The pointer targeted by data points to the whole netstream transceiver packet.
- */
-int decoder_stream_recv(sl_desc_t *sl_desc, void **data) {
-	/* Only one RX request can be processed at a time */
-	mutex_lock(&decoder_stream_lock);
-
-	/* Wait for a packet to come */
-	wait_for_completion(&decoder_stream_event);
-
-	*data = decoder_stream_data;
-
-	mutex_unlock(&decoder_stream_lock);
-
-	return 0;
-}
-
-/**
- * A packet is incoming from the plugin.
- * data points to the whole netstream transceiver packet.
- */
-int decoder_stream_rx(sl_desc_t *sl_desc, void *data) {
-	decoder_stream_data = data;
-
-	/* Unblock the requester RX */
-	complete(&decoder_stream_event);
 
 	return 0;
 }
@@ -425,8 +388,6 @@ void decoder_init(void) {
 	INIT_LIST_HEAD(&block_list);
 
 	mutex_init(&decoder_lock);
-	mutex_init(&decoder_stream_lock);
-	init_completion(&decoder_stream_event);
 
 	/* Watchdog */
 	kthread_run(decoder_watchdog_task_fn, NULL, "decoder_watchdog_task");

@@ -24,7 +24,7 @@
 #include <soo/soolink/soolink.h>
 
 int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed);
-void __sender_tx(sl_desc_t *sl_desc, void *packet, size_t size, unsigned long flags);
+void __sender_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, unsigned long flags);
 
 void sender_init(void);
 

@@ -173,17 +173,11 @@ int winenet_get_my_index_and_listener(uint8_t *index, neighbour_desc_t *listener
 void winenet_dump_neighbours(void);
 void winenet_dump_state(void);
 
-void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
+void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet);
 
 void winenet_change_state(wnet_fsm_handle_t *fsm_handle, wnet_state_t new_state);
 wnet_state_t winenet_get_state(wnet_fsm_handle_t *fsm_handle);
 void winenet_start_fsm_task(char *name, wnet_fsm_handle_t *fsm_handle);
 void winenet_init(void);
-
-/* Winenet netstream */
-int winenet_netstream_request_xmit(sl_desc_t *sl_desc);
-int winenet_netstream_xmit(sl_desc_t *sl_desc, void *packet, size_t size, bool completed);
-void winenet_netstream_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
-void winenet_netstream_init(void);
 
 #endif /* WINENET_H */
