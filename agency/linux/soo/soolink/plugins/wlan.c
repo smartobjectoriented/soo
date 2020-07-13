@@ -139,6 +139,37 @@ void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *ma
 
 	req_type = get_sl_req_type_from_protocol(ntohs(skb->protocol));
 
+#if 0 /* Debugging purpose for measure bandwidth */
+	{
+		static bool lock = false;
+		static int ii;
+		static int total;
+		static s64 start, end;
+
+		if (!lock && (req_type == SL_REQ_DCM)) {
+
+			lock = true;
+			start = ktime_to_ns(ktime_get());
+			ii = 0;
+			total = 0;
+		}
+
+		if (lock && (req_type == SL_REQ_DCM)) {
+			ii++;
+			total += skb->len;
+			if (ii == 1400) {
+				end = ktime_to_ns(ktime_get());
+				lprintk("## delta: %lld   total bytes: %d\n", end-start, total);
+				ii = 0;
+				lock = false;
+
+			}
+			kfree_skb(skb);
+			return ;
+		}
+	}
+#endif
+
 	plugin_rx(&plugin_wlan_desc, req_type, skb->data, skb->len, mac_src);
 
 	kfree_skb(skb);
