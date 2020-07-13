@@ -84,9 +84,6 @@ int migration_final(soo_hyp_t *op) {
 
 		flush_all();
 
-		/* First, we pause the ME domain */
-		domain_pause_by_systemcontroller(domME);
-
 		DBG0("ME paused OK\n");
 
 		if ((rc = restore_injected_domain(slotID)) < 0) {
@@ -645,8 +642,6 @@ int restore_injected_domain(unsigned int ME_slotID) {
 	/* Are the ME still alive ? */
 	if (domains[ME_slotID] == NULL)
 		return 0;
-
-	domain_unpause_by_systemcontroller(me);
 
 	return 0;
 }

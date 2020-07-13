@@ -165,7 +165,7 @@ void datacomm_init(void) {
 	 * Ethernet otherwise. This behaviour might be changed later.
 	 */
 
-#if 0 /* Must be disabled for debugging purposes */
+#if 1 /* Must be disabled for debugging purposes */
 
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
 	datacomm_sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
