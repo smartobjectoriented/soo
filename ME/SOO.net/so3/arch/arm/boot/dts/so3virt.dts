@@ -60,7 +60,10 @@
 	
 	
 	ME {
-		domain-size = <0x4000000>; /* 64 MB */
+#if 0 /* If used without ramfs */
+		domain-size = <0x400000>; /* 4 MB */
+#endif			
+		domain-size = <0x1000000>; /* 16 MB */
 		
 		frontends {
 		
