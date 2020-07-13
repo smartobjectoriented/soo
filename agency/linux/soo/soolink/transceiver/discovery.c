@@ -814,7 +814,7 @@ void neighbours_read(char *str) {
 	sprintf(str, "%d", discovery_neighbour_count());
 }
 
-#if 1 /* Debugging purposes */
+#if 0 /* Debugging purposes */
 
 static int count = 0;
 sl_desc_t *sl_desc;
@@ -933,8 +933,9 @@ void discovery_start(void) {
 		return ;
 
 	kthread_run(iamasoo_task_fn, NULL, "iamasoo_task");
+
 	/* Activated if necessary for debugging purposes and performance assessment. */
-#if 1
+#if 0
 	kthread_run(soo_stream_task_tx_fn, NULL, "rt_soo_stream_task_tx");
 	kthread_run(soo_stream_task_rx_fn, NULL, "rt_soo_stream_task_rx");
 #endif
