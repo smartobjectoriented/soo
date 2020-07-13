@@ -19,7 +19,7 @@
 /dts-v1/;
 
 / {
-	description = "SO3 image containing so3 kernel and FDT blob";
+	description = "SO3 image containing so3 kernel and FDT blob (without rootfs)";
 	#address-cells = <0>;
 	#size-cells = <0>;
 	
@@ -60,7 +60,6 @@
 			description = "SO3 kernel image including device tree";
 			kernel = "kernel";
 			fdt = "fdt";
-		    ramdisk = "ramdisk";
 		};
 	};
 };

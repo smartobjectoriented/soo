@@ -7,12 +7,8 @@
 # General
 #
 CONFIG_CROSS_COMPILE="arm-linux-gnueabihf-"
-
-#
-# Platform
-#
-CONFIG_STANDALONE=y
 CONFIG_SO3VIRT=y
+# CONFIG_STANDALONE is not set
 CONFIG_THREAD_ENV=y
 # CONFIG_PROC_ENV is not set
 

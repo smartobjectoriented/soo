@@ -49,6 +49,7 @@
 .extern irq_handle
 .extern syscall_handle
 .extern dumpstack
+
 .extern __prefetch_abort
 .extern __data_abort
 .extern __undefined_instruction
@@ -131,7 +132,6 @@ inject_syscall_vector:
 @ exception handlers
 .align  5
 undefined_instruction:
-
 
     b  __undefined_instruction
 
