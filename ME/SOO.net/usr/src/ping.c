@@ -35,10 +35,12 @@
 
 #define PING_PKT_LEN 64
 
+#define RTT
+
 int count = 10;
 int ttl = 64;
 int timeout_s = 2;
-float interval_s = 1.0f;
+int interval_s = 1;
 char *destination = NULL;
 
 
@@ -88,7 +90,6 @@ int parse_arg(int argc, int arg, char **argv)
 {
         size_t len = strlen(argv[arg]);
         int tmp = 0;
-        float tmp_f = 0;
 
         if(len == 2){
                 if(argv[arg][0] != '-')
@@ -122,11 +123,11 @@ int parse_arg(int argc, int arg, char **argv)
                         if(argc < 2)
                                 goto parse_failed;
 
-                        tmp_f = atof(argv[arg + 1]);
-                        if(tmp_f <= 0.0f)
+                        tmp = atoi(argv[arg + 1]);
+                        if(tmp <= 0)
                                 goto parse_failed;
 
-                        interval_s = tmp_f;
+                        interval_s = tmp;
                         return 2;
                 case 'W':
                         if(argc < 2)
@@ -197,7 +198,7 @@ int main(int argc, char **argv)
 
 
         while (attempt++ < count) {
-                usleep((unsigned)(interval_s * 1000000u));
+                sleep(interval_s);
 
                 inet_pton(AF_INET, destination, &ping_addr.sin_addr);
 
