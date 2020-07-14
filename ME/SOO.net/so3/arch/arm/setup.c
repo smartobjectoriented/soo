@@ -131,9 +131,9 @@ void setup_arch(void) {
 	set_domain(0xfffffffd);
 #endif
 
-#ifndef CONFIG_SO3VIRT
+//#ifndef CONFIG_SO3VIRT
 	vfp_enable();
-#endif
+//#endif
 	/* A low-level UART should be initialized here so that subsystems initialization (like MMC) can already print out logs ... */
 
 }
