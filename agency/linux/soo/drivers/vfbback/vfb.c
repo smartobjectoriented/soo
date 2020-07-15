@@ -98,7 +98,7 @@ void vfb_reconfig(domid_t id)
 		return;
 	}
 
-#if 0 /* vexpress */
+#if 1 /* vexpress */
 	/* Currently, take the first registered framebuffer device. */
 	info = registered_fb[0];
 	lprintk(VFB_PREFIX "bpp %u\nres %u %u\nsmem 0x%08lx %u\nmmio 0x%08lx %u\nbase & size 0x%08x %lu\n",
