@@ -511,7 +511,10 @@ int gnttab_map(struct gnttab_map_grant_ref *op) {
 #endif
 
 #ifdef CONFIG_ARM
-	err = ioremap_page(addr, __pfn_to_phys(gnttab_ME[op->dom][op->ref].frame), get_mem_type(MT_MEMORY_RWX_NONCACHED));
+	if(op->size <= PAGE_SIZE)
+		err = ioremap_page(addr, __pfn_to_phys(gnttab_ME[op->dom][op->ref].frame), get_mem_type(MT_MEMORY_RWX_NONCACHED));
+	else
+		err = ioremap_size(addr, __pfn_to_phys(gnttab_ME[op->dom][op->ref].frame), get_mem_type(MT_MEMORY_RWX_NONCACHED), op->size);
 #else
 	err = ioremap_page_range((addr, addr + PAGE_SIZE - 1, __pfn_to_phys(gnttab_ME[op->dom][op->ref].frame), cachemode2pgprot(_PAGE_CACHE_MODE_UC));
 #endif

@@ -105,6 +105,15 @@ void __init add_static_vm_early(struct static_vm *svm)
 	list_add_tail(&svm->list, &curr_svm->list);
 }
 
+/* Allow to map a memory area of arbitrary size */
+int ioremap_size(unsigned long virt, unsigned long phys,
+		 const struct mem_type *mtype, size_t size)
+{
+	return ioremap_page_range(virt, virt + size, phys,
+				  __pgprot(mtype->prot_pte));
+}
+EXPORT_SYMBOL(ioremap_size);
+
 int ioremap_page(unsigned long virt, unsigned long phys,
 		 const struct mem_type *mtype)
 {

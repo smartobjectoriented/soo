@@ -59,7 +59,9 @@ irq_return_t vfb_interrupt(int irq, void *dev_id) {
 }
 
 void vfb_probe(struct vbus_device *vdev) {
-	int res;
+
+	int i, res;
+	uint32_t fb_base;
 	unsigned int evtchn;
 	vfb_sring_t *sring;
 	struct vbus_transaction vbt;
@@ -122,8 +124,19 @@ void vfb_probe(struct vbus_device *vdev) {
 
 	/* Get grantref from the fb's physical address and write it to vbstore. */
 
-	BUG_ON(!get_fb_base());
-	fb_ref = vbus_grant_ring(vdev, phys_to_pfn(get_fb_base()));
+	fb_base = get_fb_base();
+	BUG_ON(!fb_base);
+
+	/* Grant every page necessary page, but remember only the first one. */
+	for (i = 0; i < FB_SIZE / PAGE_SIZE; i++) {
+
+		res = gnttab_grant_foreign_access(vdev->otherend_id, phys_to_pfn(fb_base + i * PAGE_SIZE), 0);
+		BUG_ON(res < 0);
+
+		if (i == 0) {
+			fb_ref = res;
+		}
+	}
 
 	sprintf(dir, "device/%01d/vfb/0/fe-fb", ME_domID());
 	vbus_printf(vbt, dir, "value", "%u", fb_ref);
