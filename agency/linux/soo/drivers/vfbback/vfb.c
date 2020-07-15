@@ -45,7 +45,7 @@
 #define FB_SIZE_VEXPRESS (1024 * 768 * 4)
 #define FB_SIZE_52PI     (1024 * 600 * 4)
 #define FB_SIZE_RPI4     (800 * 480 * 4)
-#define FB_SIZE          FB_SIZE_52PI /* change this */
+#define FB_SIZE          FB_SIZE_VEXPRESS /* change this */
 #define FB_COUNT         8
 
 
@@ -165,7 +165,7 @@ void fefb_callback(struct vbus_watch *watch)
 	gnttab_set_map_op(op, (phys_addr_t) area->addr, GNTMAP_host_map | GNTMAP_readonly, fb_ref, domid, 0, FB_SIZE);
 	if (gnttab_map(op) || op->status != GNTST_okay) {
 		free_vm_area(area);
-		DBG(VFB_PREFIX "Mapping in shared page %d from domain %d failed\n", fb_ref, domid);
+		DBG(VFB_PREFIX "mapping in shared page %d from domain %ld failed\n", fb_ref, domid);
 		BUG();
 	}
 
@@ -243,7 +243,6 @@ void vfb_probe(struct vbus_device *vdev)
 	 * to return to the agency's framebuffer, thus we create a
 	 * corresponding vfb_fb struct and register it (only once).
 	 */
-
 	if (!registered_fefb[0]) {
 
 		fb = kzalloc(sizeof(struct vfb_fb), GFP_ATOMIC);

@@ -40,6 +40,11 @@
 
 #include <soo/dev/vfb.h>
 
+#define FB_SIZE_VEXPRESS (1024 * 768 * 4)
+#define FB_SIZE_52PI     (1024 * 600 * 4)
+#define FB_SIZE_RPI4     (800 * 480 * 4)
+#define FB_SIZE          FB_SIZE_VEXPRESS /* change this */
+
 
 irq_return_t vfb_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
