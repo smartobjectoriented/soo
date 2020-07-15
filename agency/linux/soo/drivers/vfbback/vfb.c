@@ -18,7 +18,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -83,36 +83,41 @@ domid_t vfb_current_fefb(void)
 /*
  * Reconfigure the framebuffer controller to display the front-end framebuffer
  * of the given domain id.
+ *
+ * Note: do not use DBG/printk, only lprintk (see avz_switch_console).
  */
 void vfb_reconfig(domid_t id)
 {
 	struct fb_info *info;
 	struct vfb_fb *fb;
 
-	DBG(VFB_PREFIX "Showing framebuffer of domain id %d\n", id);
+	lprintk(VFB_PREFIX "Showing framebuffer of domain id %d\n", id);
 
 	fb = registered_fefb[id];
 	if (!fb) {
 		return;
 	}
 
+#if 0 /* vexpress */
 	/* Currently, take the first registered framebuffer device. */
 	info = registered_fb[0];
-	DBG(VFB_PREFIX "bpp %u\nres %u %u\nsmem 0x%08lx %u\nmmio 0x%08lx %u\nbase & size 0x%08x %lu\n",
+	lprintk(VFB_PREFIX "bpp %u\nres %u %u\nsmem 0x%08lx %u\nmmio 0x%08lx %u\nbase & size 0x%08x %lu\n",
 			info->var.bits_per_pixel,
 			info->var.xres, info->var.yres,
 			info->fix.smem_start, info->fix.smem_len,
 			info->fix.mmio_start, info->fix.mmio_len,
 			info->screen_base, info->screen_size);
 
-	info->fix.smem_start = fb->paddr; // fb->op->dev_bus_addr << 12;
-	info->fix.smem_len = fb->size; //FB_SIZE;
-	info->screen_base = (char *) fb->vaddr; // fb->area->addr;
+	info->fix.smem_start = fb->paddr;
+	info->fix.smem_len = fb->size;
+	info->screen_base = (char *) fb->vaddr;
 
 	/* Call fb_set_par op that will write values to the controller's registers. */
-	if (info->fbops->fb_set_par(info)) {
-		DBG("fb_set_par call failed\n");
+	if (!info->fbops->fb_set_par || info->fbops->fb_set_par(info)) {
+		lprintk("fb_set_par not found or call failed\n");
+		return;
 	}
+#endif
 
 	current_fefb = id;
 }
