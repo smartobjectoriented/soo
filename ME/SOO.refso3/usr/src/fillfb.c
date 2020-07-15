@@ -5,9 +5,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#define H_RES 1024
-#define V_RES 768
-#define FB_SIZE (H_RES * V_RES * 4)
+#include "lvgl/lvgl.h" /* To get screen resolution. */
+
+#define FB_SIZE (LV_HOR_RES_MAX * LV_VER_RES_MAX * LV_COLOR_DEPTH / 8)
 
 uint32_t create_px(uint8_t r, uint8_t g, uint8_t b);
 void display_line(uint32_t *fbp, uint32_t start, uint32_t px);
@@ -35,9 +35,9 @@ int main(int argc, char **argv)
 	fbp = mmap(NULL, FB_SIZE, 0, 0, fd, 0);
 
 	/* Display lines of different colors. */
-	for (i = 0; i < V_RES; i++) {
+	for (i = 0; i < LV_VER_RES_MAX; i++) {
 		px = colors[(i / 12) % 3];
-		display_line(fbp, i * H_RES, px);
+		display_line(fbp, i * LV_HOR_RES_MAX, px);
 	}
 
 	close(fd);
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 void display_line(uint32_t *fbp, uint32_t start, uint32_t px)
 {
 	uint32_t i;
-	for (i = 0; i < H_RES; i++) {
+	for (i = 0; i < LV_HOR_RES_MAX; i++) {
 		fbp[start + i] = px;
 	}
 }
