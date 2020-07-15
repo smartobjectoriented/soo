@@ -18,7 +18,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -42,29 +42,12 @@
 
 #define FB_SIZE_VEXPRESS (1024 * 768 * 4)
 #define FB_SIZE_52PI     (1024 * 600 * 4)
-#define FB_SIZE_RPI4     (800 * 480 * 4)
+#define FB_SIZE_RPI4     ( 800 * 480 * 4)
 #define FB_SIZE          FB_SIZE_VEXPRESS /* change this */
 
 
-irq_return_t vfb_interrupt(int irq, void *dev_id) {
-	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	vfb_t *vfb = to_vfb(vdev);
-	vfb_response_t *ring_rsp;
-
-	DBG("%s, %d\n", __func__, ME_domID());
-
-	while ((ring_rsp = vfb_ring_response(&vfb->ring)) != NULL) {
-
-		DBG("%s, cons=?\n", __func__);
-
-		/* Do something with the response */
-	}
-
-	return IRQ_COMPLETED;
-}
-
-void vfb_probe(struct vbus_device *vdev) {
-
+void vfb_probe(struct vbus_device *vdev)
+{
 	int i, res;
 	uint32_t fb_base;
 	unsigned int evtchn;
@@ -95,14 +78,7 @@ void vfb_probe(struct vbus_device *vdev) {
 	res = vbus_alloc_evtchn(vdev, &evtchn);
 	BUG_ON(res);
 
-	res = bind_evtchn_to_irq_handler(evtchn, vfb_interrupt, NULL, vdev);
-	if (res <= 0) {
-		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
-		BUG();
-	}
-
 	vfb->evtchn = evtchn;
-	vfb->irq = res;
 
 	/* Allocate a shared page for the ring */
 	sring = (vfb_sring_t *) get_free_vpage();
@@ -127,14 +103,15 @@ void vfb_probe(struct vbus_device *vdev) {
 	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vfb->ring_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vfb->evtchn);
 
-	/* Get grantref from the fb's physical address and write it to vbstore. */
+	/*
+	 * Grant access to every necessary page of the framebuffer, write the
+	 * first grantref to vbstore.
+	 */
 
 	fb_base = get_fb_base();
 	BUG_ON(!fb_base);
 
-	/* Grant every page necessary page, but remember only the first one. */
 	for (i = 0; i < FB_SIZE / PAGE_SIZE; i++) {
-
 		res = gnttab_grant_foreign_access(vdev->otherend_id, phys_to_pfn(fb_base + i * PAGE_SIZE), 0);
 		BUG_ON(res < 0);
 
@@ -151,7 +128,8 @@ void vfb_probe(struct vbus_device *vdev) {
 }
 
 /* At this point, the FE is not connected. */
-void vfb_reconfiguring(struct vbus_device *vdev) {
+void vfb_reconfiguring(struct vbus_device *vdev)
+{
 	int res;
 	struct vbus_transaction vbt;
 	vfb_t *vfb = to_vfb(vdev);
@@ -171,35 +149,29 @@ void vfb_reconfiguring(struct vbus_device *vdev) {
 	SHARED_RING_INIT(vfb->ring.sring);
 	FRONT_RING_INIT(&vfb->ring, (&vfb->ring)->sring, PAGE_SIZE);
 
-	/* Prepare the shared to page to be visible on the other end */
+	/* Prepare the shared page to be visible on the other end. */
 
 	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vfb->ring.sring)));
-	if (res < 0)
-		BUG();
+	BUG_ON(res < 0);
 
 	vfb->ring_ref = res;
 
 	vbus_transaction_start(&vbt);
-
 	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vfb->ring_ref);
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vfb->evtchn);
-
 	vbus_transaction_end(vbt);
 }
 
-void vfb_shutdown(struct vbus_device *vdev) {
-
+void vfb_shutdown(struct vbus_device *vdev)
+{
 	DBG0("[" VFB_NAME "] Frontend shutdown\n");
 }
 
-void vfb_closed(struct vbus_device *vdev) {
+void vfb_closed(struct vbus_device *vdev)
+{
 	vfb_t *vfb = to_vfb(vdev);
 
 	DBG0("[" VFB_NAME "] Frontend close\n");
-
-	/**
-	 * Free the ring and deallocate the proper data.
-	 */
 
 	/* Free resources associated with old device channel. */
 	if (vfb->ring_ref != GRANT_INVALID_REF) {
@@ -209,30 +181,21 @@ void vfb_closed(struct vbus_device *vdev) {
 		vfb->ring_ref = GRANT_INVALID_REF;
 		vfb->ring.sring = NULL;
 	}
-
-	if (vfb->irq)
-		unbind_from_irqhandler(vfb->irq);
-
-	vfb->irq = 0;
 }
 
-void vfb_suspend(struct vbus_device *vdev) {
-
+void vfb_suspend(struct vbus_device *vdev)
+{
 	DBG0("[" VFB_NAME "] Frontend suspend\n");
 }
 
-void vfb_resume(struct vbus_device *vdev) {
-
+void vfb_resume(struct vbus_device *vdev)
+{
 	DBG0("[" VFB_NAME "] Frontend resume\n");
 }
 
-void vfb_connected(struct vbus_device *vdev) {
-	vfb_t *vfb = to_vfb(vdev);
-
+void vfb_connected(struct vbus_device *vdev)
+{
 	DBG0("[" VFB_NAME "] Frontend connected\n");
-
-	/* Force the processing of pending requests, if any */
-	notify_remote_via_irq(vfb->irq);
 }
 
 vdrvfront_t vfbdrv = {
@@ -245,10 +208,9 @@ vdrvfront_t vfbdrv = {
 	.connected = vfb_connected
 };
 
-static int vfb_init(dev_t *dev) {
-
+static int vfb_init(dev_t *dev)
+{
 	vdevfront_init(VFB_NAME, &vfbdrv);
-
 	return 0;
 }
 

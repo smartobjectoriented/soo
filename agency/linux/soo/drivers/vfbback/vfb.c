@@ -42,16 +42,51 @@
 
 #include <stdarg.h>
 
+#define VEXPRESS 1 /* 0: rpi4, 1: vexpress */
+
 #define FB_SIZE_VEXPRESS (1024 * 768 * 4)
 #define FB_SIZE_52PI     (1024 * 600 * 4)
-#define FB_SIZE_RPI4     (800 * 480 * 4)
+#define FB_SIZE_RPI4     ( 800 * 480 * 4)
 #define FB_SIZE          FB_SIZE_VEXPRESS /* change this */
+
 #define FB_COUNT         8
 
 
 /* Array of registered front-end framebuffers. */
 static struct vfb_fb *registered_fefb[FB_COUNT];
 static domid_t current_fefb = 0;
+
+#if !VEXPRESS /* Raspberry Pi 4 */
+
+/* Thread to copy the front-end framebuffer into the Pi 4 framebuffer. */
+static struct task_struct *ts1;
+
+static int kthread_cp_fb(void *arg)
+{
+	uint32_t i, *addr_vc, *addr_fefb;
+	struct fb_info *info;
+
+	info = registered_fb[0];
+	addr_vc = (uint32_t *) info->screen_base;
+	addr_fefb = (uint32_t *) registered_fefb[current_fefb]->vaddr;
+
+	DBG(VFB_PREFIX "starting framebuffer copy thread.\n");
+
+	while (true) {
+
+		/* Copy current framebuffer. TODO avoid copy if current_fefb is 0. */
+		for (i = 0; i < FB_SIZE / 4; i++) {
+			addr_vc[i] = addr_fefb[i];
+		}
+
+		/* Update the current framebuffer, maybe it has changed. */
+		addr_fefb = (uint32_t *) registered_fefb[current_fefb]->vaddr;
+		msleep(50);
+	}
+
+	return 0;
+}
+#endif
 
 /*
  * Callback called when a framebuffer is registered. Set value with
@@ -98,7 +133,7 @@ void vfb_reconfig(domid_t id)
 		return;
 	}
 
-#if 0 /* vexpress */
+#if VEXPRESS
 	/* Currently, take the first registered framebuffer device. */
 	info = registered_fb[0];
 	lprintk(VFB_PREFIX "bpp %u\nres %u %u\nsmem 0x%08lx %u\nmmio 0x%08lx %u\nbase & size 0x%08x %lu\n",
@@ -182,7 +217,6 @@ void fefb_callback(struct vbus_watch *watch)
 	vfb_register_fefb(fb);
 
 	/* If a callback has been registered, execute it. */
-
 	if (callback) {
 		callback(fb);
 	}
@@ -254,62 +288,31 @@ void vfb_probe(struct vbus_device *vdev)
 		vfb_register_fefb(fb);
 
 		/* Activate it. */
-		registered_fb[0]->fbops->fb_set_par(registered_fb[0]);
-	}
-}
-
-void vfb_notify(struct vbus_device *vdev)
-{
-	vfb_t *vfb = to_vfb(vdev);
-
-	RING_PUSH_RESPONSES(&vfb->ring);
-
-	/* Send a notification to the frontend only if connected.
-	 * Otherwise, the data remain present in the ring. */
-
-	notify_remote_via_virq(vfb->irq);
-}
-
-
-irqreturn_t vfb_interrupt(int irq, void *dev_id)
-{
-	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	vfb_t *vfb = to_vfb(vdev);
-	vfb_request_t *ring_req;
-	vfb_response_t *ring_rsp;
-
-	DBG("%d\n", vdev->otherend_id);
-
-	while ((ring_req = vfb_ring_request(&vfb->ring)) != NULL) {
-
-		ring_rsp = vfb_ring_response(&vfb->ring);
-
-		memcpy(ring_rsp->buffer, ring_req->buffer, VFB_PACKET_SIZE);
-
-		vfb_ring_response_ready(&vfb->ring);
-
-		notify_remote_via_virq(vfb->irq);
+		vfb_reconfig(0);
 	}
 
-	return IRQ_HANDLED;
+#if !VEXPRESS /* Raspberry Pi 4 */
+	ts1 = kthread_run(kthread_cp_fb, NULL, "thread-1");
+	if (IS_ERR(ts1)) {
+		DBG(VFB_PREFIX "cannot create thread ts1.\n");
+	}
+#endif
 }
 
-void vfb_remove(struct vbus_device *vdev) {
+void vfb_remove(struct vbus_device *vdev)
+{
 	vfb_t *vfb = to_vfb(vdev);
-
 	DBG("%s: freeing the vfb structure for %s\n", __func__,vdev->nodename);
 	kfree(vfb);
 }
 
-void vfb_close(struct vbus_device *vdev) {
+void vfb_close(struct vbus_device *vdev)
+{
 	vfb_t *vfb = to_vfb(vdev);
 
 	DBG(VFB_PREFIX "Backend close: %d\n", vdev->otherend_id);
 
-	/*
-	 * Free the ring and unbind evtchn.
-	 */
-
+	/* Free the ring and unbind evtchn. */
 	BACK_RING_INIT(&vfb->ring, (&vfb->ring)->sring, PAGE_SIZE);
 	unbind_from_virqhandler(vfb->irq, vdev);
 
@@ -317,17 +320,18 @@ void vfb_close(struct vbus_device *vdev) {
 	vfb->ring.sring = NULL;
 }
 
-void vfb_suspend(struct vbus_device *vdev) {
-
+void vfb_suspend(struct vbus_device *vdev)
+{
 	DBG(VFB_PREFIX "Backend suspend: %d\n", vdev->otherend_id);
 }
 
-void vfb_resume(struct vbus_device *vdev) {
-
+void vfb_resume(struct vbus_device *vdev)
+{
 	DBG(VFB_PREFIX "Backend resume: %d\n", vdev->otherend_id);
 }
 
-void vfb_reconfigured(struct vbus_device *vdev) {
+void vfb_reconfigured(struct vbus_device *vdev)
+{
 	int res;
 	unsigned long ring_ref;
 	unsigned int evtchn;
@@ -336,9 +340,7 @@ void vfb_reconfigured(struct vbus_device *vdev) {
 
 	DBG(VFB_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
 
-	/*
-	 * Set up a ring (shared page & event channel) between the agency and the ME.
-	 */
+	/* Set up a ring (shared page & event channel) between the agency and the ME. */
 
 	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
@@ -349,44 +351,12 @@ void vfb_reconfigured(struct vbus_device *vdev) {
 
 	SHARED_RING_INIT(sring);
 	BACK_RING_INIT(&vfb->ring, sring, PAGE_SIZE);
-
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vfb_interrupt, NULL, 0, VFB_NAME "-backend", vdev);
-
-	BUG_ON(res < 0);
-
-	vfb->irq = res;
 }
 
-void vfb_connected(struct vbus_device *vdev) {
-
-	DBG(VFB_PREFIX "Backend connected: %d\n",vdev->otherend_id);
+void vfb_connected(struct vbus_device *vdev)
+{
+	DBG(VFB_PREFIX "Backend connected: %d\n", vdev->otherend_id);
 }
-
-#if 0
-/*
- * Testing code to analyze the behaviour of the ME during pre-suspend operations.
- */
-int generator_fn(void *arg) {
-	uint32_t i;
-
-	while (1) {
-		msleep(50);
-
-		for (i = 0; i < MAX_DOMAINS; i++) {
-
-			if (!vfb_start(i))
-				continue;
-
-			vfb_ring_response_ready()
-			vfb_notify(i);
-
-			vfb_end(i);
-		}
-	}
-
-	return 0;
-}
-#endif
 
 vdrvback_t vfbdrv = {
 	.probe = vfb_probe,
@@ -398,18 +368,11 @@ vdrvback_t vfbdrv = {
 	.suspend = vfb_suspend
 };
 
-int vfb_init(void) {
-	struct device_node *np;
-
-	np = of_find_compatible_node(NULL, NULL, "vfb,backend");
-
-	/* Check if DTS has vuihandler enabled */
+int vfb_init(void)
+{
+	struct device_node *np = of_find_compatible_node(NULL, NULL, "vfb,backend");
 	if (!of_device_is_available(np))
 		return 0;
-
-#if 0
-	kthread_run(generator_fn, NULL, "vfb-gen");
-#endif
 
 	vdevback_init(VFB_NAME, &vfbdrv);
 	return 0;

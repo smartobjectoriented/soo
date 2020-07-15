@@ -47,6 +47,9 @@
 static vinput_t *vinputs[VINPUT_COUNT];
 static domid_t current_vinput;
 
+/*
+ * Note: do not use DBG/printk, only lprintk (see avz_switch_console).
+ */
 void vinput_set_current(domid_t id)
 {
 	current_vinput = id;
