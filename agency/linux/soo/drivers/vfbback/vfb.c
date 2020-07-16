@@ -32,7 +32,6 @@
 #include <linux/fb.h>
 #include <linux/kthread.h>
 
-#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
@@ -70,7 +69,7 @@ static int kthread_cp_fb(void *arg)
 	addr_vc = (uint32_t *) info->screen_base;
 	addr_fefb = (uint32_t *) registered_fefb[current_fefb]->vaddr;
 
-	DBG(VFB_PREFIX "starting framebuffer copy thread.\n");
+	DBG(VFB_PREFIX "Starting framebuffer copy thread.\n");
 
 	while (true) {
 
@@ -200,7 +199,7 @@ void fefb_callback(struct vbus_watch *watch)
 	gnttab_set_map_op(op, (phys_addr_t) area->addr, GNTMAP_host_map | GNTMAP_readonly, fb_ref, domid, 0, FB_SIZE);
 	if (gnttab_map(op) || op->status != GNTST_okay) {
 		free_vm_area(area);
-		DBG(VFB_PREFIX "mapping in shared page %d from domain %ld failed\n", fb_ref, domid);
+		DBG(VFB_PREFIX "Mapping in shared page %d from domain %ld failed\n", fb_ref, domid);
 		BUG();
 	}
 
@@ -233,7 +232,6 @@ void vfb_probe(struct vbus_device *vdev)
 
 	vfb = kzalloc(sizeof(vfb_t), GFP_ATOMIC);
 	BUG_ON(!vfb);
-
 	dev_set_drvdata(&vdev->dev, &vfb->vdevback);
 
 	/* Create property in vbstore. */
@@ -294,30 +292,19 @@ void vfb_probe(struct vbus_device *vdev)
 #if !VEXPRESS /* Raspberry Pi 4 */
 	ts1 = kthread_run(kthread_cp_fb, NULL, "thread-1");
 	if (IS_ERR(ts1)) {
-		DBG(VFB_PREFIX "cannot create thread ts1.\n");
+		DBG(VFB_PREFIX "Cannot create thread ts1.\n");
 	}
 #endif
 }
 
 void vfb_remove(struct vbus_device *vdev)
 {
-	vfb_t *vfb = to_vfb(vdev);
-	DBG("%s: freeing the vfb structure for %s\n", __func__,vdev->nodename);
-	kfree(vfb);
+	DBG(VFB_PREFIX "Backend remove: %d\n", vdev->otherend_id);
 }
 
 void vfb_close(struct vbus_device *vdev)
 {
-	vfb_t *vfb = to_vfb(vdev);
-
 	DBG(VFB_PREFIX "Backend close: %d\n", vdev->otherend_id);
-
-	/* Free the ring and unbind evtchn. */
-	BACK_RING_INIT(&vfb->ring, (&vfb->ring)->sring, PAGE_SIZE);
-	unbind_from_virqhandler(vfb->irq, vdev);
-
-	vbus_unmap_ring_vfree(vdev, vfb->ring.sring);
-	vfb->ring.sring = NULL;
 }
 
 void vfb_suspend(struct vbus_device *vdev)
@@ -332,25 +319,7 @@ void vfb_resume(struct vbus_device *vdev)
 
 void vfb_reconfigured(struct vbus_device *vdev)
 {
-	int res;
-	unsigned long ring_ref;
-	unsigned int evtchn;
-	vfb_sring_t *sring;
-	vfb_t *vfb = to_vfb(vdev);
-
 	DBG(VFB_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
-
-	/* Set up a ring (shared page & event channel) between the agency and the ME. */
-
-	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
-
-	DBG("BE: ring-ref=%lu, event-channel=%u\n", ring_ref, evtchn);
-
-	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
-	BUG_ON(res < 0);
-
-	SHARED_RING_INIT(sring);
-	BACK_RING_INIT(&vfb->ring, sring, PAGE_SIZE);
 }
 
 void vfb_connected(struct vbus_device *vdev)

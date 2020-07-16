@@ -31,13 +31,11 @@
 #include <device/driver.h>
 #include <device/fb/so3virt_fb.h>
 
-#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
 #include <soo/console.h>
 #include <soo/debug.h>
-
 #include <soo/dev/vfb.h>
 
 #define FB_SIZE_VEXPRESS (1024 * 768 * 4)
@@ -50,58 +48,19 @@ void vfb_probe(struct vbus_device *vdev)
 {
 	int i, res;
 	uint32_t fb_base;
-	unsigned int evtchn;
-	vfb_sring_t *sring;
 	struct vbus_transaction vbt;
 	vfb_t *vfb;
 	grant_ref_t fb_ref;
 	char dir[40];
 
-	DBG0("[" VFB_NAME "] Frontend probe\n");
-
+	DBG(VFB_PREFIX "Frontend probe\n");
 	if (vdev->state == VbusStateConnected)
-		return ;
+		return;
 
 	vfb = malloc(sizeof(vfb_t));
 	BUG_ON(!vfb);
 	memset(vfb, 0, sizeof(vfb_t));
-
 	dev_set_drvdata(vdev->dev, &vfb->vdevfront);
-
-	DBG("Frontend: Setup ring\n");
-
-	/* Prepare to set up the ring. */
-
-	vfb->ring_ref = GRANT_INVALID_REF;
-
-	/* Allocate an event channel associated to the ring */
-	res = vbus_alloc_evtchn(vdev, &evtchn);
-	BUG_ON(res);
-
-	vfb->evtchn = evtchn;
-
-	/* Allocate a shared page for the ring */
-	sring = (vfb_sring_t *) get_free_vpage();
-	if (!sring) {
-		lprintk("%s - line %d: Allocating shared ring failed for device %s\n", __func__, __LINE__, vdev->nodename);
-		BUG();
-	}
-
-	SHARED_RING_INIT(sring);
-	FRONT_RING_INIT(&vfb->ring, sring, PAGE_SIZE);
-
-	/* Prepare the shared to page to be visible on the other end */
-
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vfb->ring.sring)));
-	if (res < 0)
-		BUG();
-
-	vfb->ring_ref = res;
-
-	vbus_transaction_start(&vbt);
-
-	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vfb->ring_ref);
-	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vfb->evtchn);
 
 	/*
 	 * Grant access to every necessary page of the framebuffer, write the
@@ -121,81 +80,42 @@ void vfb_probe(struct vbus_device *vdev)
 	}
 
 	sprintf(dir, "device/%01d/vfb/0/fe-fb", ME_domID());
-	vbus_printf(vbt, dir, "value", "%u", fb_ref);
-	DBG("dir: %s, fb_phys: 0x%08x, fb_ref: 0x%08x\n", dir, get_fb_base(), fb_ref);
+	DBG(VFB_PREFIX "dir: %s, fb_phys: 0x%08x, fb_ref: 0x%08x\n", dir, fb_base, fb_ref);
 
+	vbus_transaction_start(&vbt);
+	vbus_printf(vbt, dir, "value", "%u", fb_ref);
 	vbus_transaction_end(vbt);
 }
 
 /* At this point, the FE is not connected. */
 void vfb_reconfiguring(struct vbus_device *vdev)
 {
-	int res;
-	struct vbus_transaction vbt;
-	vfb_t *vfb = to_vfb(vdev);
-
-	DBG0("[" VFB_NAME "] Frontend reconfiguring\n");
-	/* The shared page already exists */
-	/* Re-init */
-
-	gnttab_end_foreign_access_ref(vfb->ring_ref);
-
-	DBG("Frontend: Setup ring\n");
-
-	/* Prepare to set up the ring. */
-
-	vfb->ring_ref = GRANT_INVALID_REF;
-
-	SHARED_RING_INIT(vfb->ring.sring);
-	FRONT_RING_INIT(&vfb->ring, (&vfb->ring)->sring, PAGE_SIZE);
-
-	/* Prepare the shared page to be visible on the other end. */
-
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vfb->ring.sring)));
-	BUG_ON(res < 0);
-
-	vfb->ring_ref = res;
-
-	vbus_transaction_start(&vbt);
-	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vfb->ring_ref);
-	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vfb->evtchn);
-	vbus_transaction_end(vbt);
+	DBG(VFB_PREFIX "Frontend reconfiguring\n");
 }
 
 void vfb_shutdown(struct vbus_device *vdev)
 {
-	DBG0("[" VFB_NAME "] Frontend shutdown\n");
+	DBG(VFB_PREFIX "Frontend shutdown\n");
 }
 
 void vfb_closed(struct vbus_device *vdev)
 {
-	vfb_t *vfb = to_vfb(vdev);
-
-	DBG0("[" VFB_NAME "] Frontend close\n");
-
-	/* Free resources associated with old device channel. */
-	if (vfb->ring_ref != GRANT_INVALID_REF) {
-		gnttab_end_foreign_access(vfb->ring_ref);
-		free_vpage((uint32_t) vfb->ring.sring);
-
-		vfb->ring_ref = GRANT_INVALID_REF;
-		vfb->ring.sring = NULL;
-	}
+	DBG(VFB_PREFIX "Frontend close\n");
 }
 
 void vfb_suspend(struct vbus_device *vdev)
 {
-	DBG0("[" VFB_NAME "] Frontend suspend\n");
+	DBG(VFB_PREFIX "Frontend suspend\n");
 }
 
 void vfb_resume(struct vbus_device *vdev)
 {
-	DBG0("[" VFB_NAME "] Frontend resume\n");
+	DBG(VFB_PREFIX "Frontend resume\n");
 }
 
 void vfb_connected(struct vbus_device *vdev)
 {
-	DBG0("[" VFB_NAME "] Frontend connected\n");
+	DBG(VFB_PREFIX "Frontend connected\n");
 }
 
 vdrvfront_t vfbdrv = {

@@ -19,47 +19,14 @@
 #ifndef VFB_H
 #define VFB_H
 
-#include <soo/ring.h>
-#include <soo/grant_table.h>
 #include <soo/vdevfront.h>
 
-#define VFB_PACKET_SIZE	32
+#define VFB_NAME	"vfb"
+#define VFB_PREFIX	"[" VFB_NAME "-front] "
 
-#define VFB_NAME		"vfb"
-#define VFB_PREFIX		"[" VFB_NAME "] "
-
-typedef struct {
-	char buffer[VFB_PACKET_SIZE];
-} vfb_request_t;
-
-typedef struct  {
-	char buffer[VFB_PACKET_SIZE];
-} vfb_response_t;
-
-/*
- * Generate ring structures and types.
- */
-DEFINE_RING_TYPES(vfb, vfb_request_t, vfb_response_t);
-
-/*
- * General structure for this virtual device (backend side)
- */
-
+/* General structure for this virtual device (backend side). */
 typedef struct {
 	vdevfront_t vdevfront;
-
-	vfb_front_ring_t ring;
-	unsigned int irq;
-
-	grant_ref_t ring_ref;
-	grant_handle_t handle;
-	uint32_t evtchn;
-
 } vfb_t;
-
-static inline vfb_t *to_vfb(struct vbus_device *vdev) {
-	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
-	return container_of(vdevback, vfb_t, vdevfront);
-}
 
 #endif /* VFB_H */

@@ -19,38 +19,15 @@
 #ifndef VFB_H
 #define VFB_H
 
-#include <soo/ring.h>
 #include <soo/grant_table.h>
 #include <soo/vdevback.h>
 
-#define VFB_PACKET_SIZE	32
+#define VFB_NAME	"vfb"
+#define VFB_PREFIX	"[" VFB_NAME "-back] "
 
-#define VFB_NAME		"vfb"
-#define VFB_PREFIX		"[" VFB_NAME "] "
-
-typedef struct {
-	char buffer[VFB_PACKET_SIZE];
-} vfb_request_t;
-
-typedef struct  {
-	char buffer[VFB_PACKET_SIZE];
-} vfb_response_t;
-
-/*
- * Generate ring structures and types.
- */
-DEFINE_RING_TYPES(vfb, vfb_request_t, vfb_response_t);
-
-/*
- * General structure for this virtual device (backend side)
- */
-
+/* General structure for this virtual device (backend side). */
 typedef struct {
 	vdevback_t vdevback;
-
-	vfb_back_ring_t ring;
-	unsigned int irq;
-
 } vfb_t;
 
 /* Represent a front-end framebuffer. */
@@ -76,11 +53,6 @@ struct vfb_fb {
 	/* Data used to do the grantref mapping. */
 	struct gnttab_map_grant_ref *op;
 };
-
-static inline vfb_t *to_vfb(struct vbus_device *vdev) {
-	vdevback_t *vdevback = dev_get_drvdata(&vdev->dev);
-	return container_of(vdevback, vfb_t, vdevback);
-}
 
 void vfb_reconfig(domid_t);
 struct vfb_fb *vfb_get_fefb(domid_t);
