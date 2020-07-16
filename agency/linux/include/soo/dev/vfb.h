@@ -57,5 +57,6 @@ struct vfb_fb {
 void vfb_reconfig(domid_t);
 struct vfb_fb *vfb_get_fefb(domid_t);
 domid_t vfb_current_fefb(void);
+void vfb_register_callback(void (*cb)(struct vfb_fb *fb));
 
 #endif /* VFB_H */

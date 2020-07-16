@@ -23,7 +23,7 @@ static int init_me_interaction_data(void);
 /* Function to remove an ME */
 static int remove_me(int32_t id);
 /* Timer callback */
-enum hrtimer_restart timer_callback (struct hrtimer* timer);
+enum hrtimer_restart timer_callback_mi (struct hrtimer* timer);
 
 #if 0
 #define DEBUG
@@ -96,9 +96,9 @@ static int init_me_interaction_data(void){
   /* Timer initialization (monotonic -> jiffies style, mode relatif) */
   hrtimer_init(&me_inter_data.timer_me, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
   /* Set timer callback */
-  screen_man.timerCompt.function = &timer_callback;
+  me_inter_data.timer_me.function = &timer_callback_mi;
   /* Start the timer */
-  hrtimer_start(&me_inter_data.timer_me, screen_man.ktime, HRTIMER_MODE_REL);
+  hrtimer_start(&me_inter_data.timer_me, me_inter_data.ktime, HRTIMER_MODE_REL);
 
   return 0;
 }
@@ -120,7 +120,7 @@ static int remove_me(int32_t id){
   remove_display(id);
 
   /* If it's not the last in the array */
-  if(i != screen_man.nb_displays - 1){
+  if(i != me_inter_data.nb_MEs - 1){
     /* Left shift other datas */
     for(; i < me_inter_data.nb_MEs - 1; ++i){
       me_inter_data.me_datas[i]->occupied = me_inter_data.me_datas[i + 1]->occupied;
@@ -142,13 +142,13 @@ static int remove_me(int32_t id){
   return 0;
 }
 
-enum hrtimer_restart timer_callback (struct hrtimer* timer){
+enum hrtimer_restart timer_callback_mi (struct hrtimer* timer){
   int i;
 
   for(i = 0; i < me_inter_data.nb_MEs; ++i){
     if(me_inter_data.me_datas[i]->display_params->display_fb){
       if(me_inter_data.me_datas[i]->display_params->time_limit != -1){
-        if(me_inter_data.me_datas[i]->time_limit == 0){
+        if(me_inter_data.me_datas[i]->display_params->time_limit == 0){
           remove_display(me_inter_data.me_datas[i]->id);
           me_inter_data.me_datas[i]->display_params->time_limit = -1;
         }else{
@@ -158,7 +158,7 @@ enum hrtimer_restart timer_callback (struct hrtimer* timer){
     }
   }
   /* Restart the timer */
-  hrtimer_start(&me_inter_data.timer_me, screen_man.ktime, HRTIMER_MODE_REL);
+  hrtimer_start(&me_inter_data.timer_me, me_inter_data.ktime, HRTIMER_MODE_REL);
   return HRTIMER_RESTART;
 }
 

@@ -37,7 +37,7 @@ static void migrate_data(void);
 /* Fill unused parts in black */
 void black_fill_part(uint8_t n);
 /* Timer callback */
-enum hrtimer_restart timer_callback (struct hrtimer* timer);
+enum hrtimer_restart timer_callback_li (struct hrtimer* timer);
 
 /* 1 for display tests */
 #if 1
@@ -265,7 +265,7 @@ static int init_screen_part(void){
   hrtimer_init(&screen_man.timerCompt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 
   repartition_screen();
-  screen_man.timerCompt.function = &timer_callback;
+  screen_man.timerCompt.function = &timer_callback_li;
   /* Start the timer */
   hrtimer_start(&screen_man.timerCompt, screen_man.ktime, HRTIMER_MODE_REL);
 
@@ -403,7 +403,7 @@ static int color_part(uint8_t n, uint32_t color){
   return 0;
 }
 
-enum hrtimer_restart timer_callback (struct hrtimer* timer){
+enum hrtimer_restart timer_callback_li (struct hrtimer* timer){
   int i;
 
   for(i = 0; i < screen_man.nb_displays; ++i){

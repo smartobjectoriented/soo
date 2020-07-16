@@ -4,7 +4,7 @@
 #include <soo/dev/vfb.h>
 
 #define MAX_MES 20
-#define BASE_TIME 10
+#define BASE_TIME -1
 
 /* Struct containing variable parameters of an ME */
 struct me_display_param{
