@@ -43,6 +43,7 @@ libc_subdirs:
 	make -C unistd
 	make -C env
 	make -C malloc
+	make -C mman
 	make -C exit
 	make -C process
 	make -C signal
@@ -73,6 +74,7 @@ clean:
 	make -C unistd clean
 	make -C env clean
 	make -C malloc clean
+	make -C mman clean
 	make -C exit clean
 	make -C process clean
 	make -C signal clean
