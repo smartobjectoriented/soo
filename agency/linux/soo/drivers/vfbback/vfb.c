@@ -41,6 +41,7 @@
 
 #include <stdarg.h>
 
+
 /* Arbitrary values. On rpi4, the LEDs are considered as a 8x8 fb. */
 #define MIN_FB_HRES 640
 #define MIN_FB_VRES 480
@@ -51,8 +52,6 @@ static uint32_t vfb_vres = 0;
 
 #define FB_SIZE  (vfb_hres * vfb_vres * 4) /* assume 24bpp */
 #define FOUND_FB (FB_SIZE != 0)
-
-#define VEXPRESS 1 /* 0: rpi4, 1: vexpress */
 #define FB_COUNT 8
 
 
@@ -61,7 +60,7 @@ static struct vfb_fb *registered_fefb[FB_COUNT];
 static domid_t current_fefb = 0;
 
 
-#if !VEXPRESS /* Raspberry Pi 4 */
+#ifdef CONFIG_ARCH_BCM2835 /* Raspberry Pi 4 */
 
 /* Thread to copy the front-end framebuffer into the Pi 4 framebuffer. */
 static struct task_struct *ts1;
@@ -76,10 +75,9 @@ static int kthread_cp_fb(void *arg)
 	addr_fefb = (uint32_t *) registered_fefb[current_fefb]->vaddr;
 
 	DBG(VFB_PREFIX "Starting framebuffer copy thread.\n");
-
 	while (true) {
 
-		/* Copy current framebuffer. TODO avoid copy if current_fefb is 0. */
+		/* Copy current framebuffer. */
 		for (i = 0; i < FB_SIZE / 4; i++) {
 			addr_vc[i] = addr_fefb[i];
 		}
@@ -131,14 +129,14 @@ void vfb_reconfig(domid_t id)
 	struct fb_info *info;
 	struct vfb_fb *fb;
 
-	lprintk(VFB_PREFIX "Showing framebuffer of domain id %d\n", id);
-
 	fb = registered_fefb[id];
 	if (!fb) {
 		return;
 	}
 
-#if VEXPRESS
+	lprintk(VFB_PREFIX "Showing framebuffer of domain id %d\n", id);
+
+#ifdef CONFIG_ARCH_VEXPRESS
 	/* Currently, take the first registered framebuffer device. */
 	info = registered_fb[0];
 	lprintk(VFB_PREFIX "bpp %u\nres %u %u\nsmem 0x%08lx %u\nmmio 0x%08lx %u\nbase & size 0x%08x %lu\n",
@@ -304,7 +302,7 @@ void vfb_probe(struct vbus_device *vdev)
 		vfb_reconfig(0);
 	}
 
-#if !VEXPRESS /* Raspberry Pi 4 */
+#ifdef CONFIG_ARCH_BCM2835 /* Raspberry Pi 4 */
 	ts1 = kthread_run(kthread_cp_fb, NULL, "thread-1");
 	if (IS_ERR(ts1)) {
 		DBG(VFB_PREFIX "Cannot create thread ts1.\n");
