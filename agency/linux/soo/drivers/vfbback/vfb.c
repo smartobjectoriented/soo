@@ -41,13 +41,15 @@
 
 #include <stdarg.h>
 
-#define MIN_FB_HRES 800
+/* Arbitrary values. On rpi4, the LEDs are considered as a 8x8 fb. */
+#define MIN_FB_HRES 640
 #define MIN_FB_VRES 480
 
+/* Detected display resolution. */
 static uint32_t vfb_hres = 0;
 static uint32_t vfb_vres = 0;
 
-#define FB_SIZE  (vfb_hres * vfb_hres * 4) /* assume 24bpp */
+#define FB_SIZE  (vfb_hres * vfb_vres * 4) /* assume 24bpp */
 #define FOUND_FB (FB_SIZE != 0)
 
 #define VEXPRESS 1 /* 0: rpi4, 1: vexpress */
@@ -187,13 +189,12 @@ void fefb_callback(struct vbus_watch *watch)
 	vbus_transaction_start(&vbt);
 	sprintf(dir, "device/%01lu/vfb/0/fe-fb", domid);
 	vbus_scanf(vbt, dir, "value", "%u", &fb_ref);
-	DBG(VFB_PREFIX "New value for %s: 0x%08x\n", watch->node, fb_ref);
 	vbus_transaction_end(vbt);
 
 	/* Allocate memory to map the ME framebuffer. */
 
 	area = alloc_vm_area(FB_SIZE, NULL);
-	DBG(VFB_PREFIX "Allocated area in vfb\n");
+	DBG(VFB_PREFIX "Allocated %u bytes\n", FB_SIZE);
 
 	/* Map the grantref area. */
 
@@ -240,7 +241,7 @@ void vfb_probe(struct vbus_device *vdev)
 
 	if (!FOUND_FB) {
 		DBG(VFB_PREFIX "No framebuffer found!");
-		return;
+		BUG();
 	}
 
 	/* Create property in vbstore. */

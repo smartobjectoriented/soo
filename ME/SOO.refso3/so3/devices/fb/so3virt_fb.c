@@ -100,7 +100,10 @@ uint32_t get_fb_base(uint32_t hres, uint32_t vres)
 	 * Allocate contiguous memory for the framebuffer and get the physical address.
 	 * The pages will be never released. They do not belong to any process.
 	 */
-	return get_contig_free_pages(hres * vres * 4 / PAGE_SIZE); /* assume 24bpp */
+	fb_hres = hres;
+	fb_vres = vres;
+	fb_base = get_contig_free_pages(hres * vres * 4 / PAGE_SIZE); /* assume 24bpp */
+	return fb_base;
 }
 
 REGISTER_DRIVER_POSTCORE("fb,so3virt", fb_init);

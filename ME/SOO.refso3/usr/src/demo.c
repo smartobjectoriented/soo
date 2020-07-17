@@ -37,7 +37,7 @@
 #include "demo.h"
 
 /* Screen resolution. */
-static uint32_t scr_hres, scr_vres;
+static uint32_t scr_hres, scr_vres, *fbp;
 
 /* File descriptor of the mouse and keyboard input device. */
 static int mfd;
@@ -176,7 +176,7 @@ lv_fs_res_t fs_tell_cb(struct _lv_fs_drv_t *drv, void *file_p, uint32_t *pos_p)
 int fb_init(void)
 {
 	int fd;
-	uint32_t fb_size, *fbp;
+	uint32_t fb_size;
 
 	/* Get file descriptor. */
 	fd = open("/dev/fb0", 0);
@@ -201,17 +201,18 @@ int fb_init(void)
 		return -1;
 	}
 
-	/* lvgl will draw the screen into this buffer. */
-	//static lv_color_t buf[scr_hres * scr_vres];
+	/* LVGL will use this buffer to render the screen. See my_fb_cb. */
+	static lv_color_t buf1[LVGL_BUF_SIZE];
+	static lv_color_t buf2[LVGL_BUF_SIZE];
 	static lv_disp_buf_t disp_buf;
-	lv_disp_buf_init(&disp_buf, fbp, NULL, scr_hres * scr_vres);
+	lv_disp_buf_init(&disp_buf, buf1, buf2, LVGL_BUF_SIZE);
 
 	/*
 	 * Initialisation and registration of the display driver.
 	 * Also setting the flush callback function (flush_cb) which will write
 	 * the lvgl buffer (buf) into our real framebuffer.
 	 */
-	lv_disp_drv_t disp_drv;
+	static lv_disp_drv_t disp_drv;
 	lv_disp_drv_init(&disp_drv);
 	disp_drv.hor_res = scr_hres;
 	disp_drv.ver_res = scr_vres;
@@ -222,17 +223,27 @@ int fb_init(void)
 	return 0;
 }
 
-/* Framebuffer callback. TODO copy whole region? */
+/*
+ * Framebuffer callback. LVGL calls this function to redraw a screen area. If
+ * the buffer given to LVGL is smaller than the framebuffer, this function will
+ * be called multiple times until the whole screen has been redrawn. This is
+ * why we cannot use memcpy to redraw the whole region, we have to do it line
+ * by line.
+ *
+ * If the buffer is the size of the framebuffer, we could use memcpy for the
+ * whole region, but then SO3 would require more memory.
+ *
+ * https://docs.lvgl.io/latest/en/html/porting/display.html#display-buffer
+ */
 void my_fb_cb(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
 {
-	/*int32_t x, y;
+	lv_coord_t y, w = lv_area_get_width(area);
+
 	for(y = area->y1; y <= area->y2; y++) {
-		for(x = area->x1; x <= area->x2; x++) {
-			fbp[x + y * disp->hor_res] = color_p->full;
-			color_p++;
-		}
-	}*/
-	printf("Callback fb\n");
+		memcpy(&fbp[y * scr_hres + area->x1], color_p, w * sizeof(lv_color_t));
+		color_p += w;
+	}
+
 	lv_disp_flush_ready(disp);
 }
 

@@ -38,8 +38,6 @@
 #include <soo/debug.h>
 #include <soo/dev/vfb.h>
 
-#define FB_SIZE  (hres * hres * 4) /* assume 24bpp */
-
 
 void vfb_probe(struct vbus_device *vdev)
 {
@@ -59,11 +57,12 @@ void vfb_probe(struct vbus_device *vdev)
 	memset(vfb, 0, sizeof(vfb_t));
 	dev_set_drvdata(vdev->dev, &vfb->vdevfront);
 
-	sprintf(dir, "device/%01d/vfb/0/fe-fb", ME_domID());
-
+	/* Get display resolution. */
 	vbus_transaction_start(&vbt);
+	sprintf(dir, "device/%01d/vfb/0/res", ME_domID());
 	vbus_scanf(vbt, dir, "h", "%u", &hres);
 	vbus_scanf(vbt, dir, "v", "%u", &vres);
+	DBG(VFB_PREFIX "Resolution is %dx%d\n", hres, vres);
 
 	/* Grant access to every necessary page of the framebuffer. */
 
@@ -81,8 +80,9 @@ void vfb_probe(struct vbus_device *vdev)
 		}
 	}
 
-	DBG(VFB_PREFIX "dir: %s, fb_phys: 0x%08x, fb_ref: 0x%08x\n", dir, fb_base, fb_ref);
+	DBG(VFB_PREFIX "fb_phys: 0x%08x, fb_ref: 0x%08x\n", fb_base, fb_ref);
 
+	sprintf(dir, "device/%01d/vfb/0/fe-fb", ME_domID());
 	vbus_printf(vbt, dir, "value", "%u", fb_ref);
 	vbus_transaction_end(vbt);
 }
