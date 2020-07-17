@@ -26,6 +26,7 @@
 
 
 #define PAGE_COUNT 10
+#define VBUFF_SIZE PAGE_COUNT * PAGE_SIZE
 #define CHUNK_SIZE 128
 #define CHUNK_COUNT PAGE_SIZE / CHUNK_SIZE
 
@@ -44,6 +45,7 @@ struct vbuff_buff {
 struct vbuff_data{
         uint32_t offset;
         uint32_t size;
+        uint64_t timestamp;
 };
 
 void vbuff_init(struct vbuff_buff* buff);

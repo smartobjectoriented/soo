@@ -63,7 +63,7 @@ typedef struct {
                 grant_handle_t grant;
                 unsigned char ethaddr[ARP_HLEN];
         };
-	char buffer[2];
+        char buffer[2];
 } vnet_request_t;
 
 typedef struct  {
@@ -86,12 +86,8 @@ typedef struct {
 /*
  * Generate ring structures and types.
  */
-DEFINE_RING_TYPES(vnet_tx, vnet_request_t, vnet_response_t);
-DEFINE_RING_TYPES(vnet_rx, vnet_request_t, vnet_response_t);
+DEFINE_RING_TYPES(vnet_data, vnet_request_t, vnet_response_t);
 DEFINE_RING_TYPES(vnet_ctrl, vnet_request_t, vnet_response_t);
-
-
-
 
 
 /*
@@ -99,24 +95,26 @@ DEFINE_RING_TYPES(vnet_ctrl, vnet_request_t, vnet_response_t);
  */
 
 typedef struct {
-	vdevfront_t vdevfront;
+        vdevfront_t vdevfront;
 
-	vnet_tx_front_ring_t ring_tx;
-	vnet_rx_front_ring_t ring_rx;
-	vnet_ctrl_front_ring_t ring_ctrl;
-	unsigned int irq;
+        vnet_data_front_ring_t ring_data;
+        vnet_ctrl_front_ring_t ring_ctrl;
+        unsigned int irq;
 
-	grant_ref_t ring_tx_ref;
-	grant_ref_t ring_rx_ref;
-	grant_ref_t ring_ctrl_ref;
-	grant_handle_t handle;
-	uint32_t evtchn;
+        grant_ref_t ring_data_ref;
+        grant_ref_t ring_ctrl_ref;
+        grant_handle_t handle;
+        uint32_t evtchn;
 
 } vnet_t;
 
-static inline vnet_t *to_vnet(struct vbus_device *vdev) {
-	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
-	return container_of(vdevback, vnet_t, vdevfront);
-}
+inline vnet_t *vnet_get_vnet(void);
+inline struct vbuff_buff* vnet_get_vbuff_tx(void);
+inline struct vbuff_buff* vnet_get_vbuff_rx(void);
 
+
+static inline vnet_t *to_vnet(struct vbus_device *vdev) {
+        vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
+        return container_of(vdevback, vnet_t, vdevfront);
+}
 #endif /* VNET_H */

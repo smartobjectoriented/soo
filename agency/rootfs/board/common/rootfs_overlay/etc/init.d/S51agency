@@ -19,7 +19,7 @@ case "$1" in
         echo "OK"
         
         # Set up wifi
-        echo -n "Configuring network... "
+        echo -n "Configuring Network... "
         /root/netmanager.sh
         echo "OK"
 

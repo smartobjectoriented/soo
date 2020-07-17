@@ -84,8 +84,7 @@ typedef struct  {
 /*
  * Generate ring structures and types.
  */
-DEFINE_RING_TYPES(vnet_tx, vnet_request_t, vnet_response_t);
-DEFINE_RING_TYPES(vnet_rx, vnet_request_t, vnet_response_t);
+DEFINE_RING_TYPES(vnet_data, vnet_request_t, vnet_response_t);
 DEFINE_RING_TYPES(vnet_ctrl, vnet_request_t, vnet_response_t);
 
 /*
@@ -95,8 +94,7 @@ DEFINE_RING_TYPES(vnet_ctrl, vnet_request_t, vnet_response_t);
 typedef struct {
 	vdevback_t vdevback;
 
-	vnet_tx_back_ring_t ring_tx;
-	vnet_rx_back_ring_t ring_rx;
+	vnet_data_back_ring_t ring_data;
 	vnet_ctrl_back_ring_t ring_ctrl;
 
 	/* pointer to arrays of size PAGE_COUNT

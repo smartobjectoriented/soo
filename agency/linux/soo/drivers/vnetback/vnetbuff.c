@@ -115,6 +115,7 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, uint8_t** d
 
 	buff_data->offset = buff->prod;
 	buff_data->size = size;
+	buff_data->timestamp = 0 /* ktime_divns(ktime_get_ns(), 1000000ul)*/; /* time in ms */
 
 	if(*data == NULL)
 		*data = buff->data + buff_data->offset;

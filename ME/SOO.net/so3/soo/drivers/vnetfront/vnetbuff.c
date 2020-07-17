@@ -8,6 +8,7 @@
 #include <mutex.h>
 #include <delay.h>
 #include <memory.h>
+#include <timer.h>
 #include <asm/mmu.h>
 #include <soo/gnttab.h>
 #include <soo/grant_table.h>
@@ -51,6 +52,7 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data
 
         buff_data->offset = buff->prod;
         buff_data->size = size;
+        buff_data->timestamp = NOW() / 1000000ull; /* Timestamp in MS */
 
         if(*data == NULL)
                 *data = (void*)buff->data + buff_data->offset;

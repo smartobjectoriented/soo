@@ -49,8 +49,9 @@ struct vbuff_buff {
 };
 
 struct vbuff_data{
-	unsigned int offset;
-	unsigned int size;
+	uint32_t offset;
+	uint32_t size;
+	uint64_t timestamp;
 };
 
 void vbuff_init(struct vbuff_buff* buff, grant_ref_t grant, struct vbus_device *vdev);
