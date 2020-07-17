@@ -26,7 +26,7 @@
 #define VINPUT_PACKET_SIZE	32
 
 #define VINPUT_NAME		"vinput"
-#define VINPUT_PREFIX		"[" VINPUT_NAME "] "
+#define VINPUT_PREFIX		"[" VINPUT_NAME "-back] "
 
 typedef struct {
 	char buffer[VINPUT_PACKET_SIZE];

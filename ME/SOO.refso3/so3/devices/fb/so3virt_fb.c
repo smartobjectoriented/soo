@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -29,15 +29,13 @@
 #include <device/driver.h>
 #include <device/fb/so3virt_fb.h>
 
-#define FB_SIZE_VEXPRESS (1024 * 768 * 4)
-#define FB_SIZE_52PI     (1024 * 600 * 4)
-#define FB_SIZE_RPI4     (800 * 480 * 4)
-#define FB_SIZE          FB_SIZE_VEXPRESS /* change this */
 
-void *mmap(int fd, uint32_t virt_addr, uint32_t page_count);
+void *fb_mmap(int fd, uint32_t virt_addr, uint32_t page_count);
+int fb_ioctl(int fd, unsigned long cmd, unsigned long args);
 
 struct file_operations vfb_fops = {
-	.mmap = mmap
+	.mmap = fb_mmap,
+	.ioctl = fb_ioctl
 };
 
 struct devclass vfb_cdev = {
@@ -49,26 +47,18 @@ struct devclass vfb_cdev = {
 /* Framebuffer's physical address */
 static uint32_t fb_base;
 
-/*
- * Initialisation of the PL111 CLCD Controller.
- * Linux driver: video/fbdev/amba-clcd.c
- */
+/* Framebuffer's resolution */
+static uint32_t fb_hres;
+static uint32_t fb_vres;
+
 int fb_init(dev_t *dev)
 {
-	/*
-	 * Allocate contiguous memory for the framebuffer and get the physical address.
-	 * The pages will be never released. They do not belong to any process.
-	 */
-	fb_base = get_contig_free_pages(FB_SIZE / PAGE_SIZE);
-	DBG("so3virt_fb: allocated %d [phys 0x%08x]\n", FB_SIZE, fb_base);
-
 	/* Register the framebuffer so it can be accessed from user space. */
 	devclass_register(dev, &vfb_cdev);
-
 	return 0;
 }
 
-void *mmap(int fd, uint32_t virt_addr, uint32_t page_count)
+void *fb_mmap(int fd, uint32_t virt_addr, uint32_t page_count)
 {
 	uint32_t i;
 	pcb_t *pcb = current()->pcb;
@@ -81,10 +71,36 @@ void *mmap(int fd, uint32_t virt_addr, uint32_t page_count)
 	return (void *) virt_addr;
 }
 
-/* Return the physical address of the framebuffer. */
-uint32_t get_fb_base(void)
+int fb_ioctl(int fd, unsigned long cmd, unsigned long args)
 {
-	return fb_base;
+	switch (cmd) {
+
+	case IOCTL_HRES:
+		*((uint32_t *) args) = fb_hres;
+		return 0;
+
+	case IOCTL_VRES:
+		*((uint32_t *) args) = fb_vres;
+		return 0;
+
+	case IOCTL_SIZE:
+		*((uint32_t *) args) = fb_hres * fb_vres * 4; /* assume 24bpp */
+		return 0;
+
+	default:
+		/* Unknown command. */
+		return -1;
+	}
+}
+
+/* Return the physical address of the framebuffer. */
+uint32_t get_fb_base(uint32_t hres, uint32_t vres)
+{
+	/*
+	 * Allocate contiguous memory for the framebuffer and get the physical address.
+	 * The pages will be never released. They do not belong to any process.
+	 */
+	return get_contig_free_pages(hres * vres * 4 / PAGE_SIZE); /* assume 24bpp */
 }
 
 REGISTER_DRIVER_POSTCORE("fb,so3virt", fb_init);

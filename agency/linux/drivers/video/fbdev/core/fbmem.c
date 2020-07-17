@@ -1636,13 +1636,15 @@ static int do_register_framebuffer(struct fb_info *fb_info)
 	fb_add_videomode(&mode, &fb_info->modelist);
 	registered_fb[i] = fb_info;
 
-#ifdef CONFIG_GUMSTIX_AM200EPD
+/* SOO: enable for all platforms. */
+/* #ifdef CONFIG_GUMSTIX_AM200EPD */
 	{
 		struct fb_event event;
 		event.info = fb_info;
 		fb_notifier_call_chain(FB_EVENT_FB_REGISTERED, &event);
 	}
-#endif
+/* #endif */
+/* SOO:end */
 
 	if (!lockless_register_fb)
 		console_lock();
@@ -1704,13 +1706,17 @@ static void do_unregister_framebuffer(struct fb_info *fb_info)
 	registered_fb[fb_info->node] = NULL;
 	num_registered_fb--;
 	fb_cleanup_device(fb_info);
-#ifdef CONFIG_GUMSTIX_AM200EPD
+
+/* SOO: enable for all platforms. */
+/* #ifdef CONFIG_GUMSTIX_AM200EPD */
 	{
 		struct fb_event event;
 		event.info = fb_info;
 		fb_notifier_call_chain(FB_EVENT_FB_UNREGISTERED, &event);
 	}
-#endif
+/* #endif */
+/* SOO:end */
+
 	console_lock();
 	fbcon_fb_unregistered(fb_info);
 	console_unlock();

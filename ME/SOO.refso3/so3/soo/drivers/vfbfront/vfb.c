@@ -38,16 +38,13 @@
 #include <soo/debug.h>
 #include <soo/dev/vfb.h>
 
-#define FB_SIZE_VEXPRESS (1024 * 768 * 4)
-#define FB_SIZE_52PI     (1024 * 600 * 4)
-#define FB_SIZE_RPI4     ( 800 * 480 * 4)
-#define FB_SIZE          FB_SIZE_VEXPRESS /* change this */
+#define FB_SIZE  (hres * hres * 4) /* assume 24bpp */
 
 
 void vfb_probe(struct vbus_device *vdev)
 {
 	int i, res;
-	uint32_t fb_base;
+	uint32_t fb_base, hres, vres, page_count;
 	struct vbus_transaction vbt;
 	vfb_t *vfb;
 	grant_ref_t fb_ref;
@@ -62,27 +59,30 @@ void vfb_probe(struct vbus_device *vdev)
 	memset(vfb, 0, sizeof(vfb_t));
 	dev_set_drvdata(vdev->dev, &vfb->vdevfront);
 
-	/*
-	 * Grant access to every necessary page of the framebuffer, write the
-	 * first grantref to vbstore.
-	 */
+	sprintf(dir, "device/%01d/vfb/0/fe-fb", ME_domID());
 
-	fb_base = get_fb_base();
+	vbus_transaction_start(&vbt);
+	vbus_scanf(vbt, dir, "h", "%u", &hres);
+	vbus_scanf(vbt, dir, "v", "%u", &vres);
+
+	/* Grant access to every necessary page of the framebuffer. */
+
+	fb_base = get_fb_base(hres, vres);
 	BUG_ON(!fb_base);
 
-	for (i = 0; i < FB_SIZE / PAGE_SIZE; i++) {
+	page_count = hres * vres * 4 / PAGE_SIZE; /* assume 24bpp */
+	for (i = 0; i < page_count; i++) {
 		res = gnttab_grant_foreign_access(vdev->otherend_id, phys_to_pfn(fb_base + i * PAGE_SIZE), 0);
 		BUG_ON(res < 0);
 
 		if (i == 0) {
+			/* The back-end only needs the first grantref. */
 			fb_ref = res;
 		}
 	}
 
-	sprintf(dir, "device/%01d/vfb/0/fe-fb", ME_domID());
 	DBG(VFB_PREFIX "dir: %s, fb_phys: 0x%08x, fb_ref: 0x%08x\n", dir, fb_base, fb_ref);
 
-	vbus_transaction_start(&vbt);
 	vbus_printf(vbt, dir, "value", "%u", fb_ref);
 	vbus_transaction_end(vbt);
 }

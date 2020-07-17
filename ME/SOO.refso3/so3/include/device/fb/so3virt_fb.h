@@ -18,4 +18,8 @@
 
 #include <types.h>
 
-uint32_t get_fb_base(void);
+#define IOCTL_HRES 1
+#define IOCTL_VRES 2
+#define IOCTL_SIZE 3
+
+uint32_t get_fb_base(uint32_t hres, uint32_t vres);

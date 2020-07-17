@@ -41,19 +41,23 @@
 
 #include <stdarg.h>
 
+#define MIN_FB_HRES 800
+#define MIN_FB_VRES 480
+
+static uint32_t vfb_hres = 0;
+static uint32_t vfb_vres = 0;
+
+#define FB_SIZE  (vfb_hres * vfb_hres * 4) /* assume 24bpp */
+#define FOUND_FB (FB_SIZE != 0)
+
 #define VEXPRESS 1 /* 0: rpi4, 1: vexpress */
-
-#define FB_SIZE_VEXPRESS (1024 * 768 * 4)
-#define FB_SIZE_52PI     (1024 * 600 * 4)
-#define FB_SIZE_RPI4     ( 800 * 480 * 4)
-#define FB_SIZE          FB_SIZE_VEXPRESS /* change this */
-
-#define FB_COUNT         8
+#define FB_COUNT 8
 
 
 /* Array of registered front-end framebuffers. */
 static struct vfb_fb *registered_fefb[FB_COUNT];
 static domid_t current_fefb = 0;
+
 
 #if !VEXPRESS /* Raspberry Pi 4 */
 
@@ -234,15 +238,25 @@ void vfb_probe(struct vbus_device *vdev)
 	BUG_ON(!vfb);
 	dev_set_drvdata(&vdev->dev, &vfb->vdevback);
 
+	if (!FOUND_FB) {
+		DBG(VFB_PREFIX "No framebuffer found!");
+		return;
+	}
+
 	/* Create property in vbstore. */
 
 	vbus_transaction_start(&vbt);
 
 	sprintf(dir, "device/%01d/vfb/0", vdev->otherend_id);
 	vbus_mkdir(vbt, dir, "fe-fb");
+	vbus_mkdir(vbt, dir, "res");
 
 	sprintf(dir, "device/%01d/vfb/0/fe-fb", vdev->otherend_id);
 	vbus_write(vbt, dir, "value", "try");
+
+	sprintf(dir, "device/%01d/vfb/0/res", vdev->otherend_id);
+	vbus_printf(vbt, dir, "h", "%u", vfb_hres);
+	vbus_printf(vbt, dir, "v", "%u", vfb_vres);
 
 	vbus_transaction_end(vbt);
 
@@ -327,6 +341,33 @@ void vfb_connected(struct vbus_device *vdev)
 	DBG(VFB_PREFIX "Backend connected: %d\n", vdev->otherend_id);
 }
 
+static void vfb_register_fb(struct fb_info *info)
+{
+	if (vfb_hres || info->var.xres < MIN_FB_HRES || info->var.yres < MIN_FB_VRES) {
+		DBG(VFB_PREFIX "Framebuffer already registered or resolution too small.\n");
+		return;
+	}
+
+	vfb_hres = info->var.xres;
+	vfb_vres = info->var.yres;
+
+	DBG(VFB_PREFIX "Found framebuffer: %dx%d %dbpp\n",
+		/*info->dev->driver->name,*/ vfb_hres, vfb_vres, info->var.bits_per_pixel);
+}
+
+static int vfb_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
+{
+	if (event == FB_EVENT_FB_REGISTERED) {
+		vfb_register_fb(((struct fb_event *) data)->info);
+	}
+
+	return 0;
+}
+
+static struct notifier_block vfb_fb_notif = {
+	.notifier_call = vfb_fb_notifier_callback,
+};
+
 vdrvback_t vfbdrv = {
 	.probe = vfb_probe,
 	.remove = vfb_remove,
@@ -340,10 +381,25 @@ vdrvback_t vfbdrv = {
 int vfb_init(void)
 {
 	struct device_node *np = of_find_compatible_node(NULL, NULL, "vfb,backend");
-	if (!of_device_is_available(np))
+
+	if (!of_device_is_available(np)) {
 		return 0;
+	}
 
 	vdevback_init(VFB_NAME, &vfbdrv);
+
+	/* Try to find a proper framebuffer. */
+
+	if (registered_fb[0]) {
+		/* We check if there's already a registered framebuffer respecting an arbitrary minimal resolution. */
+		vfb_register_fb(registered_fb[0]);
+	}
+	else {
+		/* Otherwise, we register a client that will be notified when a framebuffer is registered. */
+		DBG(VFB_PREFIX "No framebuffer registered, registering framebuffer client.\n");
+		fb_register_client(&vfb_fb_notif);
+	}
+
 	return 0;
 }
 

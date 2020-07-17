@@ -45,7 +45,7 @@
 #define VINPUT_COUNT 8
 
 static vinput_t *vinputs[VINPUT_COUNT];
-static domid_t current_vinput;
+static domid_t current_vinput = 0;
 
 /*
  * Note: do not use DBG/printk, only lprintk (see avz_switch_console).
@@ -66,7 +66,7 @@ void vinput_pass_event(unsigned int type, unsigned int code, int value)
 	}
 
 	if (type == 0 && code == 0 && value == 0) {
-		DBG(VINPUT_PREFIX "--- end\n");
+		DBG(VINPUT_PREFIX "--- SYN report ---\n");
 	}
 	else {
 		DBG(VINPUT_PREFIX "%u %u %d\n", type, code, value);
