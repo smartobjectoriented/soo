@@ -42,11 +42,8 @@
 #include <stdarg.h>
 
 
-/* Arbitrary values. On rpi4, the LEDs are considered as a 8x8 fb. */
-#define MIN_FB_HRES 640
-#define MIN_FB_VRES 480
-
 /* Detected display resolution. */
+struct fb_info *vfb_info;
 static uint32_t vfb_hres = 0;
 static uint32_t vfb_vres = 0;
 
@@ -54,48 +51,14 @@ static uint32_t vfb_vres = 0;
 #define FOUND_FB (FB_SIZE != 0)
 #define FB_COUNT 8
 
-
-/* Array of registered front-end framebuffers. */
+/* Array of registered domain (ME or agency) framebuffers. */
 static struct vfb_fb *registered_fefb[FB_COUNT];
 static domid_t current_fefb = 0;
 
-
-#ifdef CONFIG_ARCH_BCM2835 /* Raspberry Pi 4 */
-
-/* Thread to copy the front-end framebuffer into the Pi 4 framebuffer. */
-static struct task_struct *ts1;
-
-static int kthread_cp_fb(void *arg)
-{
-	uint32_t i, *addr_vc, *addr_fefb;
-	struct fb_info *info;
-
-	info = registered_fb[0];
-	addr_vc = (uint32_t *) info->screen_base;
-	addr_fefb = (uint32_t *) registered_fefb[current_fefb]->vaddr;
-
-	DBG(VFB_PREFIX "Starting framebuffer copy thread.\n");
-	while (true) {
-
-		/* Copy current framebuffer. */
-		for (i = 0; i < FB_SIZE / 4; i++) {
-			addr_vc[i] = addr_fefb[i];
-		}
-
-		/* Update the current framebuffer, maybe it has changed. */
-		addr_fefb = (uint32_t *) registered_fefb[current_fefb]->vaddr;
-		msleep(50);
-	}
-
-	return 0;
-}
-#endif
-
-/*
- * Callback called when a framebuffer is registered. Set value with
- * vfb_register_callback.
- */
+/* Callback called when a framebuffer is registered. Set value with
+ * vfb_register_callback. */
 static void (*callback)(struct vfb_fb *fb);
+
 
 void vfb_register_callback(void (*cb)(struct vfb_fb *fb))
 {
@@ -126,34 +89,35 @@ domid_t vfb_current_fefb(void)
  */
 void vfb_reconfig(domid_t id)
 {
-	struct fb_info *info;
-	struct vfb_fb *fb;
-
-	fb = registered_fefb[id];
+	struct vfb_fb *fb = registered_fefb[id];
 	if (!fb) {
 		return;
 	}
 
-	lprintk(VFB_PREFIX "Showing framebuffer of domain id %d\n", id);
+	lprintk(VFB_PREFIX "Domain framebuffer, current: %d, next: %d\n", current_fefb, id);
 
 #ifdef CONFIG_ARCH_VEXPRESS
-	/* Currently, take the first registered framebuffer device. */
-	info = registered_fb[0];
-	lprintk(VFB_PREFIX "bpp %u\nres %u %u\nsmem 0x%08lx %u\nmmio 0x%08lx %u\nbase & size 0x%08x %lu\n",
-			info->var.bits_per_pixel,
-			info->var.xres, info->var.yres,
-			info->fix.smem_start, info->fix.smem_len,
-			info->fix.mmio_start, info->fix.mmio_len,
-			info->screen_base, info->screen_size);
+	/* TODO */
+	lprintk(VFB_PREFIX "%ux%u, %ubpp - smem 0x%08lx len %u - base 0x%08x size %lu\n",
+			vfbinfo->var.xres, vfbinfo->var.yres, vfbinfo->var.bits_per_pixel,
+			vfbinfo->fix.smem_start, vfbinfo->fix.smem_len,
+			vfbinfo->screen_base, vfbinfo->screen_size);
 
-	info->fix.smem_start = fb->paddr;
-	info->fix.smem_len = fb->size;
-	info->screen_base = (char *) fb->vaddr;
+	vfbinfo->fix.smem_start = fb->paddr;
+	vfbinfo->fix.smem_len = fb->size;
+	vfbinfo->screen_base = (char *) fb->vaddr;
 
 	/* Call fb_set_par op that will write values to the controller's registers. */
-	if (!info->fbops->fb_set_par || info->fbops->fb_set_par(info)) {
-		lprintk("fb_set_par not found or call failed\n");
+	if (!vfbinfo->fbops->fb_set_par || vfbinfo->fbops->fb_set_par(info)) {
+		lprintk(VFB_PREFIX "fb_set_par not found or call failed\n");
 		return;
+	}
+#endif
+
+#ifdef CONFIG_ARCH_BCM2835
+	/* When switching to a ME save the agency framebuffer. */
+	if (current_fefb == 0 && id != 0) {
+		memcpy((void *) registered_fefb[0]->vaddr, vfb_info->screen_base, FB_SIZE);
 	}
 #endif
 
@@ -229,7 +193,6 @@ void vfb_probe(struct vbus_device *vdev)
 	vfb_t *vfb;
 	struct vbus_transaction vbt;
 	struct vbus_watch *watch;
-	struct vfb_fb *fb;
 	char dir[35];
 	char *path;
 
@@ -242,7 +205,7 @@ void vfb_probe(struct vbus_device *vdev)
 		BUG();
 	}
 
-	/* Create property in vbstore. */
+	/* Create properties in vbstore. */
 
 	vbus_transaction_start(&vbt);
 
@@ -268,46 +231,6 @@ void vfb_probe(struct vbus_device *vdev)
 	sprintf(path, "device/%01d/vfb/0/fe-fb/value", vdev->otherend_id);
 	vbus_watch_path(vdev, path, watch, fefb_callback);
 	DBG(VFB_PREFIX "Watching %s\n", path);
-
-	/*
-	 * As is the case with most framebuffer drivers (according to the Linux
-	 * documentation, see fbcons), the fb driver will initialize the
-	 * related structure of the fb but will not actually write these values
-	 * to the device registers if the Linux framebuffer console is
-	 * deactivated.
-	 *
-	 * Here we assume the framebuffer console is inactive and so we must
-	 * initialized the driver manually using the fb_set_par function. If
-	 * framebuffer console is activated, it is necessary to unlink the
-	 * framebuffer before using the vfb_reconfig (using the
-	 * unlink_framebuffer function). This is necessary because fbcons sets
-	 * up a thread to blink the console cursor and if the fb address
-	 * changes this thread will crash.
-	 *
-	 * As we can switch between front-end framebuffers, we want to be able
-	 * to return to the agency's framebuffer, thus we create a
-	 * corresponding vfb_fb struct and register it (only once).
-	 */
-	if (!registered_fefb[0]) {
-
-		fb = kzalloc(sizeof(struct vfb_fb), GFP_ATOMIC);
-		fb->domid = 0;
-		fb->paddr = registered_fb[0]->fix.smem_start;
-		fb->size = registered_fb[0]->fix.smem_len;
-		fb->vaddr = (uint32_t) registered_fb[0]->screen_base;
-
-		vfb_register_fefb(fb);
-
-		/* Activate it. */
-		vfb_reconfig(0);
-	}
-
-#ifdef CONFIG_ARCH_BCM2835 /* Raspberry Pi 4 */
-	ts1 = kthread_run(kthread_cp_fb, NULL, "thread-1");
-	if (IS_ERR(ts1)) {
-		DBG(VFB_PREFIX "Cannot create thread ts1.\n");
-	}
-#endif
 }
 
 void vfb_remove(struct vbus_device *vdev)
@@ -340,18 +263,75 @@ void vfb_connected(struct vbus_device *vdev)
 	DBG(VFB_PREFIX "Backend connected: %d\n", vdev->otherend_id);
 }
 
+#ifdef CONFIG_ARCH_BCM2835 /* Raspberry Pi 4 */
+static int kthread_cp_fb(void *arg)
+{
+	uint32_t *addr_fefb, *addr_vc = (uint32_t *) vfb_info->screen_base;
+	uint32_t previous_fefb = 0;
+
+	DBG(VFB_PREFIX "Starting framebuffer copy thread.\n");
+	while (true) {
+		/* Don't copy the agency fb, unless we just switch from an ME. */
+		if (current_fefb != 0 || previous_fefb != 0) {
+			previous_fefb = current_fefb;
+			addr_fefb = (uint32_t *) registered_fefb[previous_fefb]->vaddr;
+			memcpy(addr_vc, addr_fefb, FB_SIZE);
+		}
+
+		msleep(50);
+	}
+
+	return 0;
+}
+#endif
+
 static void vfb_register_fb(struct fb_info *info)
 {
+	struct vfb_fb *fb;
+#ifdef CONFIG_ARCH_BCM2835
+	struct task_struct *thread;
+#endif
+
 	if (vfb_hres || info->var.xres < MIN_FB_HRES || info->var.yres < MIN_FB_VRES) {
 		DBG(VFB_PREFIX "Framebuffer already registered or resolution too small.\n");
 		return;
 	}
 
+	/* Set resolution. */
+	vfb_info = info;
 	vfb_hres = info->var.xres;
 	vfb_vres = info->var.yres;
 
-	DBG(VFB_PREFIX "Found framebuffer: %dx%d %dbpp\n",
-		/*info->dev->driver->name,*/ vfb_hres, vfb_vres, info->var.bits_per_pixel);
+	/* Set vfb_fb struct. */
+	fb = kzalloc(sizeof(struct vfb_fb), GFP_ATOMIC);
+	fb->domid = 0;
+
+#ifdef CONFIG_ARCH_VEXPRESS
+	/* TODO */
+	fb->paddr = info->fix.smem_start;
+	fb->size = rinfo->fix.smem_len;
+	fb->vaddr = (uint32_t) info->screen_base;
+
+	/* Register and set the current front-end fb. */
+	vfb_register_fefb(fb);
+	vfb_reconfig(fb->domid);
+#endif
+
+#ifdef CONFIG_ARCH_BCM2835
+	/* TODO */
+	fb->size = FB_SIZE;
+	fb->vaddr = (uint32_t) vmalloc(FB_SIZE);
+
+	/* Register and set the current front-end fb. */
+	vfb_register_fefb(fb);
+	vfb_reconfig(fb->domid);
+
+	/* Start the framebuffer copy thread. */
+	thread = kthread_run(kthread_cp_fb, NULL, "fb-copy-thread");
+	BUG_ON(!thread);
+#endif
+
+	DBG(VFB_PREFIX "Found framebuffer: %dx%d %dbpp\n", vfb_hres, vfb_vres, info->var.bits_per_pixel);
 }
 
 static int vfb_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
@@ -390,11 +370,13 @@ int vfb_init(void)
 	/* Try to find a proper framebuffer. */
 
 	if (registered_fb[0]) {
-		/* We check if there's already a registered framebuffer respecting an arbitrary minimal resolution. */
+		/* We check if there's already a registered framebuffer
+		 * respecting an arbitrary minimal resolution. */
 		vfb_register_fb(registered_fb[0]);
 	}
 	else {
-		/* Otherwise, we register a client that will be notified when a framebuffer is registered. */
+		/* Otherwise, we register a client that will be notified when a
+		 * framebuffer is registered. */
 		DBG(VFB_PREFIX "No framebuffer registered, registering framebuffer client.\n");
 		fb_register_client(&vfb_fb_notif);
 	}

@@ -22,30 +22,32 @@
 #include <soo/grant_table.h>
 #include <soo/vdevback.h>
 
-#define VFB_NAME	"vfb"
-#define VFB_PREFIX	"[" VFB_NAME "-back] "
+#define VFB_NAME   "vfb"
+#define VFB_PREFIX "[" VFB_NAME "-back] "
+
+/* Arbitrary values. On rpi4, the LEDs are considered as a 8x8 fb. */
+#define MIN_FB_HRES 640
+#define MIN_FB_VRES 480
 
 /* General structure for this virtual device (backend side). */
 typedef struct {
 	vdevback_t vdevback;
 } vfb_t;
 
-/* Represent a front-end framebuffer. */
+/* Represent a domain framebuffer. */
 struct vfb_fb {
 
 	/* Domain id associated with the framebuffer. */
 	domid_t domid;
+
+	/* Size of the framebuffer. */
+	uint32_t size;
 
 	/* Physical address of the framebuffer. */
 	uint64_t paddr;
 
 	/* Virtual address of the framebuffer. */
 	uint32_t vaddr;
-
-	/* Size of the framebuffer. */
-	uint32_t size;
-
-	/* Optional members, can be used to deallocate or unmap. */
 
 	/* Memory area allocated for the framebuffer (mapped to ME memory). */
 	struct vm_struct *area;
