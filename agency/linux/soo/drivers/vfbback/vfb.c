@@ -42,101 +42,100 @@
 #include <stdarg.h>
 
 
-/* Detected display resolution. */
-struct fb_info *vfb_info;
-static uint32_t vfb_hres = 0;
-static uint32_t vfb_vres = 0;
+/* Selected framebuffer device. */
+static struct fb_info *vfb_info;
 
-#define FB_SIZE  (vfb_hres * vfb_vres * 4) /* assume 24bpp */
+#define FB_HRES  (vfb_info->var.xres)
+#define FB_VRES  (vfb_info->var.yres)
+#define FB_SIZE  (FB_HRES * FB_VRES * 4) /* assume 24bpp */
 #define FOUND_FB (FB_SIZE != 0)
-#define FB_COUNT 8
 
-/* Array of registered domain (ME or agency) framebuffers. */
-static struct vfb_fb *registered_fefb[FB_COUNT];
-static domid_t current_fefb = 0;
+/* Array of domain (ME or agency) framebuffers. */
+static struct vfb_domfb *registered_domfb[DOMFB_COUNT];
+static domid_t active_domfb = 0;
 
-/* Callback called when a framebuffer is registered. Set value with
- * vfb_register_callback. */
-static void (*callback)(struct vfb_fb *fb);
+/* Callback to be called when a domain framebuffer is registered. Allows others
+ * to be notified of new domain framebuffers. */
+static void (*callback_new_domfb)(struct vfb_domfb *fb, struct fb_info *);
 
-
-void vfb_register_callback(void (*cb)(struct vfb_fb *fb))
+void vfb_set_callback_new_domfb(void (*cb)(struct vfb_domfb *, struct fb_info *))
 {
-	callback = cb;
+	callback_new_domfb = cb;
 }
 
-void vfb_register_fefb(struct vfb_fb *fb)
+struct vfb_domfb *vfb_get_domfb(domid_t id)
 {
-	DBG(VFB_PREFIX "Registered front-end framebuffer for domain id %d", fb->domid);
-	registered_fefb[fb->domid] = fb;
+	return registered_domfb[id];
 }
 
-struct vfb_fb *vfb_get_fefb(domid_t id)
+static void vfb_set_domfb(struct vfb_domfb *fb)
 {
-	return registered_fefb[id];
-}
-
-domid_t vfb_current_fefb(void)
-{
-	return current_fefb;
+	DBG(VFB_PREFIX "Added domain framebuffer with id %d", fb->id);
+	registered_domfb[fb->id] = fb;
 }
 
 /*
- * Reconfigure the framebuffer controller to display the front-end framebuffer
- * of the given domain id.
+ * Sets the active domain framebuffer, i.e. the one that is supposed to be
+ * displayed by the framebuffer device.
  *
- * Note: do not use DBG/printk, only lprintk (see avz_switch_console).
+ * Some controllers (e.g. PL111 in VExpress) allow for their framebuffer base
+ * address to be changed. If that's the case we can just modify the fb_info
+ * structure and call fb_set_par().
+ *
+ * Others (e.g. VideoCore in Raspberry) do not allow that, so we need to set up
+ * a thread that will continuously copy the active domain framebuffer in the
+ * memory controlled by the controller (see vfb_set_fbdev and kthread_cp_fb).
+ *
+ * Note: only use lprintk (see avz_switch_console).
  */
-void vfb_reconfig(domid_t id)
+void vfb_set_active_domfb(domid_t domid)
 {
-	struct vfb_fb *fb = registered_fefb[id];
-	if (!fb) {
+	struct vfb_domfb *domfb = registered_domfb[domid];
+	if (!domfb) {
 		return;
 	}
 
-	lprintk(VFB_PREFIX "Domain framebuffer, current: %d, next: %d\n", current_fefb, id);
+	lprintk(VFB_PREFIX "Domain framebuffer, current: %d, next: %d\n", active_domfb, domid);
 
 #ifdef CONFIG_ARCH_VEXPRESS
-	/* TODO */
-	lprintk(VFB_PREFIX "%ux%u, %ubpp - smem 0x%08lx len %u - base 0x%08x size %lu\n",
-			vfbinfo->var.xres, vfbinfo->var.yres, vfbinfo->var.bits_per_pixel,
-			vfbinfo->fix.smem_start, vfbinfo->fix.smem_len,
-			vfbinfo->screen_base, vfbinfo->screen_size);
+	/* Change the physical and virtual addresses. */
+	vfb_info->fix.smem_start = domfb->paddr;
+	vfb_info->screen_base = domfb->vaddr;
 
-	vfbinfo->fix.smem_start = fb->paddr;
-	vfbinfo->fix.smem_len = fb->size;
-	vfbinfo->screen_base = (char *) fb->vaddr;
-
-	/* Call fb_set_par op that will write values to the controller's registers. */
-	if (!vfbinfo->fbops->fb_set_par || vfbinfo->fbops->fb_set_par(info)) {
+	/* Updated the controller's registers. */
+	if (!vfb_info->fbops->fb_set_par || vfb_info->fbops->fb_set_par(vfb_info)) {
 		lprintk(VFB_PREFIX "fb_set_par not found or call failed\n");
 		return;
 	}
 #endif
 
 #ifdef CONFIG_ARCH_BCM2835
-	/* When switching to a ME save the agency framebuffer. */
-	if (current_fefb == 0 && id != 0) {
-		memcpy((void *) registered_fefb[0]->vaddr, vfb_info->screen_base, FB_SIZE);
+	/* At this point, the content of the VideoCore corresponds to the
+	 * framebuffer of the agency. If we are switching from the agency
+	 * and to an ME, we take a snapshot of the framebuffer so that it
+	 * can be restored when coming back to the agency.
+	 * See kthread_domfb_cpy */
+	if (current_domfb == 0 && domid != 0) {
+		memcpy(registered_domfb[0]->vaddr, vfb_info->screen_base, FB_SIZE);
 	}
 #endif
 
-	current_fefb = id;
+	active_domfb = domid;
 }
 
-/* Callback when a new front-end framebuffer is added. */
-void fefb_callback(struct vbus_watch *watch)
+/* Callback when an ME wants to add a domain framebuffer. */
+static void callback_me_domfb(struct vbus_watch *watch)
 {
 	grant_ref_t fb_ref;
 	struct vbus_transaction vbt;
 	struct gnttab_map_grant_ref *op;
 	struct vm_struct *area;
-	struct vfb_fb *fb;
-	char dir[21];
-	unsigned long domid;
+	struct vfb_domfb *fb;
+	char dir[40];
+	domid_t domid;
 	char *node;
 
-	/* Get domain id. */
+	/* Extract domain id from node. */
 
 	node = watch->node;
 	while (*node && !isdigit(*node)) {
@@ -144,12 +143,12 @@ void fefb_callback(struct vbus_watch *watch)
 	}
 
 	domid = strtoul(node, NULL, 10);
-	DBG(VFB_PREFIX "Domain id is %lu\n", domid);
+	DBG(VFB_PREFIX "Domain id is %u\n", domid);
 
 	/* Retrieve grantref from vbstore. */
 
 	vbus_transaction_start(&vbt);
-	sprintf(dir, "device/%01lu/vfb/0/fe-fb", domid);
+	sprintf(dir, "device/%01u/vfb/0/domfb-ref", domid);
 	vbus_scanf(vbt, dir, "value", "%u", &fb_ref);
 	vbus_transaction_end(vbt);
 
@@ -166,25 +165,22 @@ void fefb_callback(struct vbus_watch *watch)
 	gnttab_set_map_op(op, (phys_addr_t) area->addr, GNTMAP_host_map | GNTMAP_readonly, fb_ref, domid, 0, FB_SIZE);
 	if (gnttab_map(op) || op->status != GNTST_okay) {
 		free_vm_area(area);
-		DBG(VFB_PREFIX "Mapping in shared page %d from domain %ld failed\n", fb_ref, domid);
 		BUG();
 	}
 
-	/* Create the vfb_fb struct and register it. */
+	/* Create the vfb_domfb struct and register it. */
 
-	fb = kzalloc(sizeof(struct vfb_fb), GFP_ATOMIC);
-	fb->domid = (domid_t) domid;
+	fb = kzalloc(sizeof(struct vfb_domfb), GFP_ATOMIC);
+	fb->id = domid;
 	fb->paddr = op->dev_bus_addr << 12;
-	fb->size = FB_SIZE;
-	fb->vaddr = (uint32_t) area->addr;
+	fb->vaddr = area->addr;
 	fb->area = area;
 	fb->op = op;
-
-	vfb_register_fefb(fb);
+	vfb_set_domfb(fb);
 
 	/* If a callback has been registered, execute it. */
-	if (callback) {
-		callback(fb);
+	if (callback_new_domfb) {
+		callback_new_domfb(fb, vfb_info);
 	}
 }
 
@@ -201,7 +197,7 @@ void vfb_probe(struct vbus_device *vdev)
 	dev_set_drvdata(&vdev->dev, &vfb->vdevback);
 
 	if (!FOUND_FB) {
-		DBG(VFB_PREFIX "No framebuffer found!");
+		DBG(VFB_PREFIX "No framebuffer device found!");
 		BUG();
 	}
 
@@ -210,26 +206,26 @@ void vfb_probe(struct vbus_device *vdev)
 	vbus_transaction_start(&vbt);
 
 	sprintf(dir, "device/%01d/vfb/0", vdev->otherend_id);
-	vbus_mkdir(vbt, dir, "fe-fb");
-	vbus_mkdir(vbt, dir, "res");
+	vbus_mkdir(vbt, dir, "domfb-ref");
+	vbus_mkdir(vbt, dir, "resolution");
 
-	sprintf(dir, "device/%01d/vfb/0/fe-fb", vdev->otherend_id);
-	vbus_write(vbt, dir, "value", "try");
+	sprintf(dir, "device/%01d/vfb/0/domfb-ref", vdev->otherend_id);
+	vbus_write(vbt, dir, "value", "");
 
-	sprintf(dir, "device/%01d/vfb/0/res", vdev->otherend_id);
-	vbus_printf(vbt, dir, "h", "%u", vfb_hres);
-	vbus_printf(vbt, dir, "v", "%u", vfb_vres);
+	sprintf(dir, "device/%01d/vfb/0/resolution", vdev->otherend_id);
+	vbus_printf(vbt, dir, "hor", "%u", FB_HRES);
+	vbus_printf(vbt, dir, "ver", "%u", FB_VRES);
 
 	vbus_transaction_end(vbt);
 
-	/* Set a watch on fe-fb. */
+	/* Set a watch on domfb-ref. */
 
 	watch = kzalloc(sizeof(struct vbus_watch), GFP_ATOMIC);
 	path = kzalloc(27 * sizeof(char), GFP_ATOMIC);
 	BUG_ON(!watch || !path);
 
-	sprintf(path, "device/%01d/vfb/0/fe-fb/value", vdev->otherend_id);
-	vbus_watch_path(vdev, path, watch, fefb_callback);
+	sprintf(path, "device/%01d/vfb/0/domfb-ref/value", vdev->otherend_id);
+	vbus_watch_path(vdev, path, watch, callback_me_domfb);
 	DBG(VFB_PREFIX "Watching %s\n", path);
 }
 
@@ -264,18 +260,22 @@ void vfb_connected(struct vbus_device *vdev)
 }
 
 #ifdef CONFIG_ARCH_BCM2835 /* Raspberry Pi 4 */
-static int kthread_cp_fb(void *arg)
+static int kthread_domfb_cpy(void *arg)
 {
-	uint32_t *addr_fefb, *addr_vc = (uint32_t *) vfb_info->screen_base;
-	uint32_t previous_fefb = 0;
+	void *addr_domfb, *addr_vc = vfb_info->screen_base;
+	uint32_t previous_domfb = 0;
 
 	DBG(VFB_PREFIX "Starting framebuffer copy thread.\n");
 	while (true) {
-		/* Don't copy the agency fb, unless we just switch from an ME. */
-		if (current_fefb != 0 || previous_fefb != 0) {
-			previous_fefb = current_fefb;
-			addr_fefb = (uint32_t *) registered_fefb[previous_fefb]->vaddr;
-			memcpy(addr_vc, addr_fefb, FB_SIZE);
+		/* Due to the limitations of the VideoCore explained above, we
+		 * use this thread to copy the content of the active domain fb
+		 * into the memory of the VideoCore. We should not copy the
+		 * active domfb if it belongs to the agency. But only when we
+		 * are switching back to the agency. */
+		if (current_domfb != 0 || previous_domfb != 0) {
+			previous_domfb = current_domfb;
+			addr_domfb = registered_domfb[previous_domfb]->vaddr;
+			memcpy(addr_vc, addr_domfb, FB_SIZE);
 		}
 
 		msleep(50);
@@ -285,59 +285,61 @@ static int kthread_cp_fb(void *arg)
 }
 #endif
 
-static void vfb_register_fb(struct fb_info *info)
+static int vfb_set_agencyfb(struct fb_info *info)
 {
-	struct vfb_fb *fb;
-#ifdef CONFIG_ARCH_BCM2835
-	struct task_struct *thread;
-#endif
+	/* Domain framebuffer for the agency. */
+	struct vfb_domfb *fb;
 
-	if (vfb_hres || info->var.xres < MIN_FB_HRES || info->var.yres < MIN_FB_VRES) {
-		DBG(VFB_PREFIX "Framebuffer already registered or resolution too small.\n");
-		return;
+	if (vfb_info || !info || info->var.xres < MIN_FB_HRES || info->var.yres < MIN_FB_VRES) {
+		DBG(VFB_PREFIX "Framebuffer device already registered or resolution too small.\n");
+		return -1;
 	}
 
-	/* Set resolution. */
 	vfb_info = info;
-	vfb_hres = info->var.xres;
-	vfb_vres = info->var.yres;
 
-	/* Set vfb_fb struct. */
-	fb = kzalloc(sizeof(struct vfb_fb), GFP_ATOMIC);
-	fb->domid = 0;
+	/* Set vfb_domfb struct. */
+	fb = kzalloc(sizeof(struct vfb_domfb), GFP_ATOMIC);
+	fb->id = 0;
 
 #ifdef CONFIG_ARCH_VEXPRESS
-	/* TODO */
-	fb->paddr = info->fix.smem_start;
-	fb->size = rinfo->fix.smem_len;
-	fb->vaddr = (uint32_t) info->screen_base;
+	/* The size could be smaller if the bpp is less than 24. But it's
+	 * probably bigger because the whole VRAM is attribute to the fb. */
+	BUG_ON(info->fix.smem_len < FB_SIZE);
+	info->fix.smem_len = FB_SIZE;
 
-	/* Register and set the current front-end fb. */
-	vfb_register_fefb(fb);
-	vfb_reconfig(fb->domid);
+	/* The physical address will be used to reconfigure the fb device when
+	 * switching back to the agency. */
+	fb->paddr = info->fix.smem_start;
+	fb->vaddr = info->screen_base;
+
+	/* Register and set the current domain fb. */
+	vfb_set_domfb(fb);
+	vfb_set_active_domfb(fb->id);
 #endif
 
 #ifdef CONFIG_ARCH_BCM2835
-	/* TODO */
-	fb->size = FB_SIZE;
-	fb->vaddr = (uint32_t) vmalloc(FB_SIZE);
+	/* With the VideoCore of the Pi 4, we can't change its base address to
+	 * make it display another memory region. So, we need to allocate some
+	 * memory in which the content of the VideoCore will be copied when
+	 * switching to an ME and restored when coming back to the agency. */
+	fb->vaddr = vmalloc(FB_SIZE);
 
 	/* Register and set the current front-end fb. */
-	vfb_register_fefb(fb);
-	vfb_reconfig(fb->domid);
+	vfb_set_domfb(fb);
+	vfb_set_active_domfb(fb->id);
 
 	/* Start the framebuffer copy thread. */
-	thread = kthread_run(kthread_cp_fb, NULL, "fb-copy-thread");
-	BUG_ON(!thread);
+	BUG_ON(!kthread_run(kthread_domfb_cpy, NULL, "fb-copy-thread"));
 #endif
 
-	DBG(VFB_PREFIX "Found framebuffer: %dx%d %dbpp\n", vfb_hres, vfb_vres, info->var.bits_per_pixel);
+	DBG(VFB_PREFIX "Found framebuffer: %dx%d %dbpp\n", FB_HRES, FB_VRES, info->var.bits_per_pixel);
+	return 0;
 }
 
 static int vfb_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
 {
 	if (event == FB_EVENT_FB_REGISTERED) {
-		vfb_register_fb(((struct fb_event *) data)->info);
+		vfb_set_agencyfb(((struct fb_event *) data)->info);
 	}
 
 	return 0;
@@ -360,6 +362,7 @@ vdrvback_t vfbdrv = {
 int vfb_init(void)
 {
 	struct device_node *np = of_find_compatible_node(NULL, NULL, "vfb,backend");
+	int i;
 
 	if (!of_device_is_available(np)) {
 		return 0;
@@ -367,16 +370,14 @@ int vfb_init(void)
 
 	vdevback_init(VFB_NAME, &vfbdrv);
 
-	/* Try to find a proper framebuffer. */
-
-	if (registered_fb[0]) {
-		/* We check if there's already a registered framebuffer
-		 * respecting an arbitrary minimal resolution. */
-		vfb_register_fb(registered_fb[0]);
+	/* We check if there's already a registered framebuffer device. */
+	while (i < FB_MAX && vfb_set_agencyfb(registered_fb[i])) {
+		i++;
 	}
-	else {
-		/* Otherwise, we register a client that will be notified when a
-		 * framebuffer is registered. */
+
+	/* Otherwise, we register a client that will be notified when a
+	 * framebuffer is registered. */
+	if (i == FB_MAX) {
 		DBG(VFB_PREFIX "No framebuffer registered, registering framebuffer client.\n");
 		fb_register_client(&vfb_fb_notif);
 	}

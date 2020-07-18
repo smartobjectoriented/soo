@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2016-2019 Daniel Rossier <daniel.rossier@soo.tech>
  *
@@ -77,8 +78,8 @@ int vfb_get_focus(void)
 int vfb_set_focus(int next_domain)
 {
 	vfb_active = next_domain;
-	vfb_reconfig(vfb_active);
-	vinput_set_current(next_domain);
+	vfb_set_active_domfb(vfb_active);
+	vinput_set_current(vfb_active);
 	return vfb_active;
 }
 

@@ -25,7 +25,9 @@
 #define VFB_NAME   "vfb"
 #define VFB_PREFIX "[" VFB_NAME "-back] "
 
-/* Arbitrary values. On rpi4, the LEDs are considered as a 8x8 fb. */
+#define DOMFB_COUNT 8
+
+/* Arbitrary values. On rpi4, the LEDs are considered as an 8x8 fb. */
 #define MIN_FB_HRES 640
 #define MIN_FB_VRES 480
 
@@ -35,30 +37,16 @@ typedef struct {
 } vfb_t;
 
 /* Represent a domain framebuffer. */
-struct vfb_fb {
-
-	/* Domain id associated with the framebuffer. */
-	domid_t domid;
-
-	/* Size of the framebuffer. */
-	uint32_t size;
-
-	/* Physical address of the framebuffer. */
-	uint64_t paddr;
-
-	/* Virtual address of the framebuffer. */
-	uint32_t vaddr;
-
-	/* Memory area allocated for the framebuffer (mapped to ME memory). */
-	struct vm_struct *area;
-
-	/* Data used to do the grantref mapping. */
-	struct gnttab_map_grant_ref *op;
+struct vfb_domfb {
+	domid_t id;                      /* Domain id associated with the framebuffer. */
+	uint64_t paddr;                  /* Physical address of the framebuffer. */
+	char *vaddr;                     /* Virtual address of the framebuffer. */
+	struct vm_struct *area;          /* Memory area allocated for the framebuffer (mapped to ME memory). */
+	struct gnttab_map_grant_ref *op; /* Data used to do the grantref mapping. */
 };
 
-void vfb_reconfig(domid_t);
-struct vfb_fb *vfb_get_fefb(domid_t);
-domid_t vfb_current_fefb(void);
-void vfb_register_callback(void (*cb)(struct vfb_fb *fb));
+void vfb_set_active_domfb(domid_t);
+struct vfb_domfb *vfb_get_domfb(domid_t);
+void vfb_set_callback_new_domfb(void (*cb)(struct vfb_domfb *, struct fb_info *));
 
 #endif /* VFB_H */

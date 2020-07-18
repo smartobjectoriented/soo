@@ -59,9 +59,9 @@ void vfb_probe(struct vbus_device *vdev)
 
 	/* Get display resolution. */
 	vbus_transaction_start(&vbt);
-	sprintf(dir, "device/%01d/vfb/0/res", ME_domID());
-	vbus_scanf(vbt, dir, "h", "%u", &hres);
-	vbus_scanf(vbt, dir, "v", "%u", &vres);
+	sprintf(dir, "device/%01d/vfb/0/resolution", ME_domID());
+	vbus_scanf(vbt, dir, "hor", "%u", &hres);
+	vbus_scanf(vbt, dir, "ver", "%u", &vres);
 	DBG(VFB_PREFIX "Resolution is %dx%d\n", hres, vres);
 
 	/* Grant access to every necessary page of the framebuffer. */
@@ -82,12 +82,11 @@ void vfb_probe(struct vbus_device *vdev)
 
 	DBG(VFB_PREFIX "fb_phys: 0x%08x, fb_ref: 0x%08x\n", fb_base, fb_ref);
 
-	sprintf(dir, "device/%01d/vfb/0/fe-fb", ME_domID());
+	sprintf(dir, "device/%01d/vfb/0/domfb-ref", ME_domID());
 	vbus_printf(vbt, dir, "value", "%u", fb_ref);
 	vbus_transaction_end(vbt);
 }
 
-/* At this point, the FE is not connected. */
 void vfb_reconfiguring(struct vbus_device *vdev)
 {
 	DBG(VFB_PREFIX "Frontend reconfiguring\n");
