@@ -115,7 +115,7 @@ void vfb_set_active_domfb(domid_t domid)
 	 * and to an ME, we take a snapshot of the framebuffer so that it
 	 * can be restored when coming back to the agency.
 	 * See kthread_domfb_cpy */
-	if (current_domfb == 0 && domid != 0) {
+	if (active_domfb == 0 && domid != 0) {
 		memcpy(registered_domfb[0]->vaddr, vfb_info->screen_base, FB_SIZE);
 	}
 #endif
@@ -272,8 +272,8 @@ static int kthread_domfb_cpy(void *arg)
 		 * into the memory of the VideoCore. We should not copy the
 		 * active domfb if it belongs to the agency. But only when we
 		 * are switching back to the agency. */
-		if (current_domfb != 0 || previous_domfb != 0) {
-			previous_domfb = current_domfb;
+		if (active_domfb != 0 || previous_domfb != 0) {
+			previous_domfb = active_domfb;
 			addr_domfb = registered_domfb[previous_domfb]->vaddr;
 			memcpy(addr_vc, addr_domfb, FB_SIZE);
 		}
