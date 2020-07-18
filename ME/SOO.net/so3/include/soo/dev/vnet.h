@@ -106,6 +106,8 @@ typedef struct {
         grant_handle_t handle;
         uint32_t evtchn;
 
+        int connected;
+
 } vnet_t;
 
 inline vnet_t *vnet_get_vnet(void);

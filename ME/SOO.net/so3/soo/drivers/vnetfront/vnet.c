@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -59,6 +59,7 @@
 
 /* Our unique net instance. */
 static struct vbus_device *vdev_net = NULL;
+vnet_t *vnet = NULL;
 
 static bool thread_created = false;
 
@@ -66,16 +67,10 @@ struct vbuff_buff vbuff_tx;
 struct vbuff_buff vbuff_rx;
 struct vnet_shared_data *vnet_shared_data;
 
+
 grant_ref_t shared_data_grant = 0;
 
 struct netif *netifg;
-
-inline vnet_t *vnet_get_vnet(void){
-        if(vdev_net == NULL)
-                return NULL;
-
-        return to_vnet(vdev_net);
-}
 
 inline struct vbuff_buff* vnet_get_vbuff_tx(void){
         return &vbuff_tx;
@@ -163,24 +158,63 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
 }
 
 
+void inline vnet_init_vnet(void){
+        vnet_data_sring_t *sring_data;
+        vnet_ctrl_sring_t *sring_ctrl;
+
+        if(vnet != NULL)
+                return;
+
+        vnet = malloc(sizeof(vnet_t));
+        BUG_ON(!vnet);
+        memset(vnet, 0, sizeof(vnet_t));
+
+        /* Prepare to set up the ring. */
+        vnet->ring_data_ref = GRANT_INVALID_REF;
+        vnet->ring_ctrl_ref = GRANT_INVALID_REF;
+
+        /* Allocate a shared page for the ring */
+        sring_data = (vnet_data_sring_t *) get_free_vpage();
+        sring_ctrl = (vnet_ctrl_sring_t *) get_free_vpage();
+        if (!sring_data || !sring_ctrl) {
+                BUG();
+        }
+
+        SHARED_RING_INIT(sring_data);
+        SHARED_RING_INIT(sring_ctrl);
+        FRONT_RING_INIT(&vnet->ring_data, sring_data, PAGE_SIZE);
+        FRONT_RING_INIT(&vnet->ring_ctrl, sring_ctrl, PAGE_SIZE);
+}
+
+
+inline vnet_t *vnet_get_vnet(void){
+        vnet_init_vnet();
+
+        return vnet;
+}
+
 
 void vnet_probe(struct vbus_device *vdev) {
         int res,i = 0;
         unsigned int evtchn;
-        vnet_data_sring_t *sring_data;
-        vnet_ctrl_sring_t *sring_ctrl;
+
         struct vbus_transaction vbt;
-        vnet_t *vnet;
+        /*vnet_t *vnet;*/
 
         DBG0("[" VNET_NAME "] Frontend probe\n");
 
         if (vdev->state == VbusStateConnected)
                 return ;
 
+        /* Alloc a vnet struct if not already done */
+        vnet_init_vnet();
 
-        vnet = malloc(sizeof(vnet_t));
+        /*vnet = malloc(sizeof(vnet_t));
         BUG_ON(!vnet);
-        memset(vnet, 0, sizeof(vnet_t));
+        memset(vnet, 0, sizeof(vnet_t));*/
+
+        vnet->connected = 1;
+
 
         /* Local instance */
         vdev_net = vdev;
@@ -189,10 +223,7 @@ void vnet_probe(struct vbus_device *vdev) {
 
         DBG("Frontend: Setup ring\n");
 
-        /* Prepare to set up the ring. */
 
-        vnet->ring_data_ref = GRANT_INVALID_REF;
-        vnet->ring_ctrl_ref = GRANT_INVALID_REF;
 
         /* Allocate an event channel associated to the ring */
         res = vbus_alloc_evtchn(vdev, &evtchn);
@@ -207,22 +238,9 @@ void vnet_probe(struct vbus_device *vdev) {
         vnet->evtchn = evtchn;
         vnet->irq = res;
 
-        /* Allocate a shared page for the ring */
-        sring_data = (vnet_data_sring_t *) get_free_vpage();
-        sring_ctrl = (vnet_ctrl_sring_t *) get_free_vpage();
-        if (!sring_data || !sring_ctrl) {
-                lprintk("%s - line %d: Allocating shared ring failed for device %s\n", __func__, __LINE__, vdev->nodename);
-                BUG();
-        }
-
-        SHARED_RING_INIT(sring_data);
-        SHARED_RING_INIT(sring_ctrl);
-        FRONT_RING_INIT(&vnet->ring_data, sring_data, PAGE_SIZE);
-        FRONT_RING_INIT(&vnet->ring_ctrl, sring_ctrl, PAGE_SIZE);
 
 
         /* Prepare the shared to page to be visible on the other end */
-
         res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vnet->ring_data.sring)));
         if (res < 0)
                 BUG();
@@ -263,6 +281,8 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
         int res;
         struct vbus_transaction vbt;
         vnet_t *vnet = to_vnet(vdev);
+
+        vnet->connected = 1;
 
         DBG0("[" VNET_NAME "] Frontend reconfiguring\n");
         /* The shared page already exists */
@@ -327,7 +347,6 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
 }
 
 void vnet_shutdown(struct vbus_device *vdev) {
-
         DBG0("[" VNET_NAME "] Frontend shutdown\n");
 }
 

@@ -12,4 +12,4 @@ obj-$(CONFIG_VUIHANDLER_BACKEND) += vuihandlerback/
 obj-$(CONFIG_VINPUT_BACKEND)	+= vinputback/
 obj-$(CONFIG_VLEDS_BACKEND)		+= vledsback/
 obj-$(CONFIG_VFB_BACKEND)  += vfbback/
-obj-y  += vnetback/
+obj-$(CONFIG_VNET_BACKEND)  += vnetback/

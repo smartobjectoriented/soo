@@ -56,6 +56,10 @@ struct localinfo {
 
         uint64_t last_rx_timestamp;
         uint64_t last_tx_timestamp;
+
+        uint32_t rx_start, rx_end;
+        uint32_t tx_start, tx_end;
+
 };
 
 /* Localinfo buffer used during cooperation processing */
@@ -136,27 +140,37 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
  * The callback is executed in first stage to give a chance to a resident ME to stay or disappear, for example.
  */
 int cb_pre_propagate(soo_domcall_arg_t *args) {
-
+        vnet_t *vnet;
         pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
         DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-#if 0 /* dummy_activity */
-        pre_propagate_args->propagate_status = 1;
-#endif
+        vnet = vnet_get_vnet();
 
-#if 1 /* Alphabet */
+        if(vnet->connected) {
+                /* Connected so we don't need to transmit */
+                localinfo_data->tx_start = localinfo_data->tx_end = 0;
 
-        pre_propagate_args->propagate_status = 0;
+                localinfo_data->rx_start = localinfo_data->rx_end;
+                localinfo_data->rx_end = vnet->ring_data.sring->rsp_prod;
 
-        /* Enable migration - here, we migrate 3 times before being killed. */
-        if ((get_ME_state() != ME_state_dormant) || (migration_count != 3)) {
-                pre_propagate_args->propagate_status = 1;
-                migration_count++;
-        } else
-                set_ME_state(ME_state_killed);
+                printk("I'm connected share %d RX frames with other MEs\n", localinfo_data->rx_start - localinfo_data->rx_end );
 
-#endif
+        } else {
+                /* Not connected so we don't have any outside frame to share */
+                localinfo_data->rx_start = localinfo_data->rx_end = 0;
+
+                localinfo_data->tx_start = localinfo_data->tx_end;
+                localinfo_data->tx_end = vnet->ring_data.sring->req_prod;
+
+                printk("I'm NOT connected share %d TX frames with other MEs\n", localinfo_data->tx_start - localinfo_data->tx_end );
+        }
+
+        /* propagate only if we have something to share */
+        pre_propagate_args->propagate_status =
+                localinfo_data->rx_start < localinfo_data->rx_end
+                || localinfo_data->tx_start < localinfo_data->tx_end;
+
 
 #if 0
         live_count++;
@@ -225,8 +239,10 @@ int cb_cooperate(soo_domcall_arg_t *args) {
         case COOPERATE_INITIATOR:
                 printk("Cooperate: Initiator %d\n", ME_domID());
                 printk("Alone: %d\n", cooperate_args->alone);
-                if (cooperate_args->alone)
+                if (cooperate_args->alone){
+                        vnet->connected = 0;
                         return 0;
+                }
 
                 for (i = 0; i < MAX_ME_DOMAINS; i++) {
                         if (cooperate_args->u.target_coop_slot[i].spad.valid) {
@@ -250,12 +266,10 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
                                 /* Perform the cooperate in the target ME */
                                 args->__agency_ctl(&agency_ctl_args);
-
-
-                                set_ME_state(ME_state_killed);
                         }
                 }
 
+                set_ME_state(ME_state_killed);
 
                 break;
 
@@ -292,8 +306,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 
                 /* Responses contains incomming frames */
-                int i = data_ring.sring->rsp_prod - min(1000, data_ring.sring->rsp_prod);
-                while(i < data_ring.sring->rsp_prod){
+                int i = recv_localinfo->rx_start;
+                while(vnet->connected == 0 && i < recv_localinfo->rx_end){
                         ring_res_from = RING_GET_RESPONSE(&data_ring, i++);
                         /* Frame is too old */
                         if(ring_res_from->buff.timestamp <= recv_localinfo->last_rx_timestamp){
@@ -308,8 +322,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
                         vnet->ring_data.sring->rsp_prod++;
                 }
 
-                i = data_ring.sring->req_cons;
-                while(i < data_ring.sring->req_prod){
+                i = recv_localinfo->tx_start;
+                while(vnet->connected == 1 && i < recv_localinfo->tx_start){
                         ring_req_from = RING_GET_REQUEST(&data_ring, i++);
 
                         if((ring_req_to = vnet_data_ring_request(&vnet->ring_data)) == NULL)
@@ -480,6 +494,9 @@ void callbacks_init(void) {
         /* Set the SPAD capabilities */
         memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
 
+
+        localinfo_data->tx_start = localinfo_data->tx_end = 0;
+        localinfo_data->rx_start = localinfo_data->rx_end = 0;
 
         /* We only want to receive frames received after our first init */
         localinfo_data->last_rx_timestamp = NOW() / 1000000ull;
