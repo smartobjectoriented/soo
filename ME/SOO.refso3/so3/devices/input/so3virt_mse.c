@@ -80,6 +80,14 @@ void so3virt_mse_event(unsigned int type, unsigned int code, int value)
 			state.y = CLAMP(state.y + value, 0, res.v);
 		}
 	}
+	else if (type == EV_ABS) {
+		if (code == ABS_X) {
+			state.x = value * res.h / 10000;
+		}
+		else if (code == ABS_Y) {
+			state.y = value * res.v / 10000;
+		}
+	}
 	else if (type == EV_KEY) {
 		/*
 		 * Here we only set the button states to "pressed". Their state
@@ -87,7 +95,7 @@ void so3virt_mse_event(unsigned int type, unsigned int code, int value)
 		 * e.g. in the ioctl. So the client has the time to read the
 		 * button states.
 		 */
-		if (code == BTN_LEFT && value) {
+		if ((code == BTN_LEFT || code == BTN_TOUCH) && value) {
 			state.left = value;
 		}
 		else if (code == BTN_MIDDLE && value) {

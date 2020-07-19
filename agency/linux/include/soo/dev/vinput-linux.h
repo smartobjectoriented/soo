@@ -17,3 +17,4 @@
  */
 
 void vinput_pass_event(unsigned int type, unsigned int code, int value);
+void vinput_set_touch_bounds(struct input_absinfo *info);

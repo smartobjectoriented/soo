@@ -57,7 +57,9 @@ irq_return_t vinput_interrupt(int irq, void *dev_id)
 
 		if (type == EV_REL || /* is mouse movement */
 		   (type == EV_KEY && /* is mouse button click */
-			(code == BTN_LEFT || code == BTN_MIDDLE || code == BTN_RIGHT))) {
+			(code == BTN_LEFT || code == BTN_MIDDLE || code == BTN_RIGHT || code == BTN_TOUCH)) ||
+		   (type == EV_ABS && /* is touchscreen event */
+			(code == ABS_X || code == ABS_Y))) {
 
 			so3virt_mse_event(type, code, value);
 		}

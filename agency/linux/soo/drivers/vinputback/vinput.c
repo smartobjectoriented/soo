@@ -32,6 +32,8 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/kthread.h>
+#include <linux/input.h>
+#include <uapi/linux/input-event-codes.h>
 
 #include <soo/evtchn.h>
 #include <soo/gnttab.h>
@@ -46,6 +48,12 @@
 
 static vinput_t *vinputs[VINPUT_COUNT];
 static domid_t current_vinput = 0;
+
+/* When a touch event is received, each axis is bounded by min and max values
+ * which are not related to the display resolution. These values are
+ * communicated by the touchscreen device. */
+static int32_t min[] = {0, 0};
+static int32_t max[] = {1000, 1000}; /* TODO test values */
 
 /*
  * Note: do not use DBG/printk, only lprintk (see avz_switch_console).
@@ -72,6 +80,13 @@ void vinput_pass_event(unsigned int type, unsigned int code, int value)
 		DBG(VINPUT_PREFIX "%u %u %d\n", type, code, value);
 	}
 
+	/* Modify touch events. Value remains to be multiplied by the screen
+	 * resolution in the virtual driver. Doing this here avoids passing min
+	 * and max to the front-end. */
+	if (type == EV_ABS && (code == ABS_X || code == ABS_Y)) {
+		value = 10000 * (value - min[code]) / (max[code] - min[code]);
+	}
+
 	/* Send event to front-end. */
 	ring_rsp = vinput_ring_response(&vinput->ring);
 	ring_rsp->type = type;
@@ -82,6 +97,14 @@ void vinput_pass_event(unsigned int type, unsigned int code, int value)
 	notify_remote_via_virq(vinput->irq);
 }
 
+void vinput_set_touch_bounds(struct input_absinfo *info)
+{
+	min[0] = info[0].minimum; /* x */
+	max[0] = info[0].maximum;
+	min[1] = info[1].minimum; /* y */
+	max[1] = info[1].maximum;
+}
+
 irqreturn_t vinput_interrupt(int irq, void *dev_id)
 {
 	/* Ignore interrupts from the front-end. */
@@ -90,21 +113,16 @@ irqreturn_t vinput_interrupt(int irq, void *dev_id)
 
 void vinput_probe(struct vbus_device *vdev)
 {
-	vinput_t *vinput;
-
-	vinput = kzalloc(sizeof(vinput_t), GFP_ATOMIC);
+	vinput_t *vinput = kzalloc(sizeof(vinput_t), GFP_ATOMIC);
 	BUG_ON(!vinput);
-
 	dev_set_drvdata(&vdev->dev, &vinput->vdevback);
+
 	DBG(VINPUT_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
 
 void vinput_remove(struct vbus_device *vdev)
 {
-	vinput_t *vinput = to_vinput(vdev);
-
-	DBG("%s: freeing the vinput structure for %s\n", __func__,vdev->nodename);
-	kfree(vinput);
+	DBG(VINPUT_PREFIX "Backend remove: %d\n", vdev->otherend_id);
 }
 
 void vinput_close(struct vbus_device *vdev)
@@ -141,10 +159,7 @@ void vinput_reconfigured(struct vbus_device *vdev)
 
 	DBG(VINPUT_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
 
-	/*
-	 * Set up a ring (shared page & event channel) between the agency and the ME.
-	 */
-
+	/* Set up a ring (shared page & event channel) between the agency and the ME. */
 	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
 	DBG("BE: ring-ref=%lu, event-channel=%u\n", ring_ref, evtchn);
@@ -179,11 +194,10 @@ vdrvback_t vinputdrv = {
 
 int vinput_init(void)
 {
-	struct device_node *np;
-
-	np = of_find_compatible_node(NULL, NULL, "vinput,backend");
-	if (!of_device_is_available(np))
+	struct device_node *np = of_find_compatible_node(NULL, NULL, "vinput,backend");
+	if (!of_device_is_available(np)) {
 		return 0;
+	}
 
 	vdevback_init(VINPUT_NAME, &vinputdrv);
 	return 0;

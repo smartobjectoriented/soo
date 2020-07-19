@@ -2171,6 +2171,14 @@ int input_register_device(struct input_dev *dev)
 		return -EINVAL;
 	}
 
+	/* SOO: inform vinput of axis bounds for touchscreen devices. */
+	if (test_bit(EV_ABS, dev->evbit) && dev->absinfo) {
+		printk("*** touch dev, min x: %d, max x: %d\n", dev->absinfo[0].minimum, dev->absinfo[0].maximum);
+		printk("*** touch dev, min y: %d, max y: %d\n", dev->absinfo[1].minimum, dev->absinfo[1].maximum);
+		vinput_set_touch_bounds(dev->absinfo);
+	}
+	/* SOO: end. */
+
 	if (dev->devres_managed) {
 		devres = devres_alloc(devm_input_device_unregister,
 				      sizeof(*devres), GFP_KERNEL);
