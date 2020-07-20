@@ -59,9 +59,18 @@ static domid_t active_domfb = 0;
  * to be notified of new domain framebuffers. */
 static void (*callback_new_domfb)(struct vfb_domfb *fb, struct fb_info *);
 
+/* Callback to be called when a domain framebuffer is removed. Allows others to
+ * be notified when a domain framebuffer is removed */
+static void (*callback_rm_domfb)(uint16_t id);
+
 void vfb_set_callback_new_domfb(void (*cb)(struct vfb_domfb *, struct fb_info *))
 {
 	callback_new_domfb = cb;
+}
+
+void vfb_set_callback_rm_domfb(void (*cb)(uint16_t id))
+{
+	callback_rm_domfb = cb;
 }
 
 struct vfb_domfb *vfb_get_domfb(domid_t id)
@@ -235,6 +244,10 @@ void vfb_close(struct vbus_device *vdev)
 	unregister_vbus_watch(watches[vdev->otherend_id]);
 	kfree(watches[vdev->otherend_id]);
 	watches[vdev->otherend_id] = NULL;
+
+	if (callback_rm_domfb) {
+		callback_rm_domfb(vdev->otherend_id);
+	}
 
 	/* Unmap the grantref. */
 	gnttab_set_unmap_op(

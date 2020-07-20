@@ -39,6 +39,6 @@ struct me_interactions_data{
 int me_interactions_init(void);
 
 /* Callback used when new MEs arrive */
-void new_me_callback(struct vfb_fb *fb);
-
+void new_me_callback(struct vfb_domfb *fb, struct fb_info* fb_info);
+void remove_me_callback(uint16_t id);
 #endif /* ME_INTERACTIONS_H */

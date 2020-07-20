@@ -15,7 +15,11 @@
 #include <soo/display_manager/local_interfaces/local_interfaces.h>
 #include <soo/display_manager/me_interactions/me_interactions.h>
 
-#define TIMER_TICK      5000    /* 5000ms (5s)*/
+#define TIMER_TICK      10    /* 10ms (0.1s)*/
+/* For testing */
+#define VEXPRESS_X      1024
+#define VEXPRESS_Y      768
+#define VEXPRESS        1
 
 /* static functions prototypes */
 /* Initialises screen_management struct */
@@ -40,7 +44,7 @@ void black_fill_part(uint8_t n);
 enum hrtimer_restart timer_callback_li (struct hrtimer* timer);
 
 /* 1 for display tests */
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -143,7 +147,7 @@ int local_interfaces_init(void){
   return 0;
 }
 
-int add_display(uint8_t id, uint32_t *fb_addr, uint32_t fb_size){
+int add_display(uint8_t id, uint32_t *fb_addr, uint16_t x, uint16_t y){
   int i;
   hrtimer_cancel(&screen_man.timerCompt);
   /* Is ME already being displayed ? */
@@ -152,8 +156,9 @@ int add_display(uint8_t id, uint32_t *fb_addr, uint32_t fb_size){
     if(screen_man.occupation[i] != id) continue;
     /* If we already had it we get here */
     /* In case it changed get (potential) new address */
-    screen_man.vfb_addr[i] = fb_addr;
-    screen_man.vfb_size[i] = fb_size;
+    screen_man.vfbs[i]->vfb_addr = fb_addr;
+    screen_man.vfbs[i]->x = x;
+    screen_man.vfbs[i]->y = y;
     /* We just update it and we can leave */
     update_part_display(i);
     return 0;
@@ -164,8 +169,9 @@ int add_display(uint8_t id, uint32_t *fb_addr, uint32_t fb_size){
 
   /* If there's a spot for the new ME, we fill it */
   screen_man.occupation[screen_man.nb_displays] = id;
-  screen_man.vfb_addr[screen_man.nb_displays] = fb_addr;
-  screen_man.vfb_size[screen_man.nb_displays] = fb_size;
+  screen_man.vfbs[i]->vfb_addr = fb_addr;
+  screen_man.vfbs[i]->x = x;
+  screen_man.vfbs[i]->y = y;
   update_nb_displays(screen_man.nb_displays + 1);
   hrtimer_start(&screen_man.timerCompt, screen_man.ktime, HRTIMER_MODE_REL);
   return 0;
@@ -192,15 +198,16 @@ int remove_display(uint8_t id){
     /* Left shift other datas */
     for(; i < screen_man.nb_displays - 1; ++i){
       screen_man.occupation[i] = screen_man.occupation[i + 1];
-      screen_man.vfb_addr[i] = screen_man.vfb_addr[i + 1];
-      screen_man.vfb_size[i] = screen_man.vfb_size[i + 1];
+      screen_man.vfbs[i]->vfb_addr = screen_man.vfbs[i + 1]->vfb_addr;
+      screen_man.vfbs[i]->x = screen_man.vfbs[i + 1]->x;
+      screen_man.vfbs[i]->y = screen_man.vfbs[i + 1]->y;
     }
   }
 
   screen_man.occupation[screen_man.nb_displays - 1] = -1;
-  screen_man.vfb_addr[screen_man.nb_displays - 1] = 0;
-  screen_man.vfb_size[screen_man.nb_displays - 1] = 0;
-
+  screen_man.vfbs[screen_man.nb_displays - 1]->vfb_addr = NULL;
+  screen_man.vfbs[screen_man.nb_displays - 1]->x = 0;
+  screen_man.vfbs[screen_man.nb_displays - 1]->y = 0;
   update_nb_displays(screen_man.nb_displays - 1);
 
   return 0;
@@ -240,10 +247,13 @@ static int init_screen_part(void){
   }
 
   for(i = 0; i < MAX_FBS; ++i){
+    screen_man.vfbs[i] = kzalloc(sizeof(struct vfb_info), GFP_KERNEL);
+    if(screen_man.vfbs[i] == NULL){
+      printk("Allocation problem in %s l%d\n", __func__, __LINE__);
+      return -1;
+    }
     screen_man.occupation[i] = -1;
-    screen_man.vfb_addr[i] = 0;
-    screen_man.vfb_size[i] = 0;
-    screen_man.screen_part->mem_spaces[i] = 0;
+    screen_man.screen_part->mem_spaces[i] = NULL;
   }
 
   screen_man.screen_part->horizontal_part = 0;
@@ -312,7 +322,7 @@ static int repartition_screen(void){
 
   update_parts_addresses();
 
-  printk("Screen repartitioned for %d displays\n", nb);
+  printk("Screen repartitioned for %d displays of size %dx%d\n", nb, screen_man.screen_part->x_offset, screen_man.screen_part->y_offset);
   return 0;
 }
 
@@ -336,20 +346,25 @@ static int update_parts_addresses(void){
 static int update_part_display(uint8_t n){
   int i, j;
   uint32_t *dest, *source;
-  uint32_t x, y, line_size;
+  uint32_t x, y, line_size_dest, line_size_source, x_off, y_off;
   uint32_t col[MAX_FBS] = {0xF800, 0xFFFF00FF, 0xFFFF0000, 0xFFFFFFFF, 0x0, 0xFACF000A, 0xAAB0F81F, 0xBBC07FF, 0xBA0FF800};
 
   dest = screen_man.screen_part->mem_spaces[n];
-  source = screen_man.vfb_addr[n];
+  source = screen_man.vfbs[n]->vfb_addr;
 
-  line_size = screen_man.screen_part->line_size;
+  line_size_dest = screen_man.screen_part->line_size;
+  line_size_source = screen_man.vfbs[n]->x * 4;
   x = screen_man.screen_part->x_offset;
   y = screen_man.screen_part->y_offset;
+  x_off = (screen_man.vfbs[n]->x / x);
+  y_off = (screen_man.vfbs[n]->y / y);
+
+  //printk("x off : %u\ny off : %u\n", x_off, y_off);
 
   if(source){
     for(i = 0; i < y; ++i){
       for(j = 0; j < x; ++j){
-        dest[j + i * (line_size/4)] = source[j + i * (line_size/4)];
+        dest[j + i * (line_size_dest/4)] = source[(j * x_off) + (i * y_off) * (line_size_source/4)];
       }
     }
   }else{
@@ -361,8 +376,8 @@ static int update_part_display(uint8_t n){
 /* Return 0 if migration not needed, 1 if yes */
 static int check_fb_mig(uint8_t new, uint8_t old){
 
-  printk("New value : %d\nOld value : %d\n", new, old);
-  printk("Map value New : %d\nMap value Old : %d\n", parts_map[new], parts_map[old]);
+  /*printk("New value : %d\nOld value : %d\n", new, old);
+  printk("Map value New : %d\nMap value Old : %d\n", parts_map[new], parts_map[old]);*/
   /* If we add/remove a display, mig will be needed when screen parts change */
   return parts_map[new] == parts_map[old] ? 0 : 1;
 
@@ -371,7 +386,7 @@ static int check_fb_mig(uint8_t new, uint8_t old){
 
 static void migrate_data(void){
   int i;
-  printk("Migrating Data\n");
+  /*printk("Migrating Data\n");*/
   for(i = 0; i < screen_man.nb_displays; ++i){
     update_part_display(i);
   }

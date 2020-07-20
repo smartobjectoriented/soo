@@ -49,5 +49,6 @@ struct vfb_domfb {
 void vfb_set_active_domfb(domid_t);
 struct vfb_domfb *vfb_get_domfb(domid_t);
 void vfb_set_callback_new_domfb(void (*cb)(struct vfb_domfb *, struct fb_info *));
+void vfb_set_callback_rm_domfb(void (*cb)(uint16_t id));
 
 #endif /* VFB_H */

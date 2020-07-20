@@ -16,12 +16,15 @@
 #include <soo/display_manager/me_interactions/me_interactions.h>
 #include <soo/display_manager/local_interfaces/local_interfaces.h>
 
-#define TIMER_TICK  1000 /* 1000ms (1s) */
+
+#define TIMER_TICK 2000 /* 2000ms (2s) */
+#define VEXPRESS_X 1024
+#define VEXPRESS_Y 768
 
 /* Function to init ME Interarction structures */
 static int init_me_interaction_data(void);
-/* Function to remove an ME */
-static int remove_me(int32_t id);
+// /* Function to remove an ME */
+// static int remove_me(uint16_t id);
 /* Timer callback */
 enum hrtimer_restart timer_callback_mi (struct hrtimer* timer);
 
@@ -40,14 +43,15 @@ int me_interactions_init(void){
     return -1;
   }
 
-  vfb_register_callback(new_me_callback);
+  vfb_set_callback_new_domfb(new_me_callback);
+  vfb_set_callback_rm_domfb(remove_me_callback);
 
   printk("Bye from %s\n", __func__);
 
   return 0;
 }
 
-void new_me_callback(struct vfb_fb *fb){
+void new_me_callback(struct vfb_domfb *fb, struct fb_info* fb_info){ /* ajouter aux params : , vbus_device *vdev*/
   int i;
 
   if(me_inter_data.nb_MEs >= MAX_MES){
@@ -64,11 +68,21 @@ void new_me_callback(struct vfb_fb *fb){
     me_inter_data.me_datas[i]->display_params->display_fb = 1;
     me_inter_data.me_datas[i]->display_params->time_limit = BASE_TIME;
 
-    me_inter_data.me_datas[i]->id = fb->domid;
+    me_inter_data.me_datas[i]->id = fb->id;
 
     me_inter_data.me_datas[i]->occupied = 1;
 
-    add_display(me_inter_data.me_datas[i]->id, (uint32_t*) fb->vaddr, fb->size);
+    add_display(me_inter_data.me_datas[i]->id, (uint32_t*) fb->vaddr, fb_info->var.xres_virtual, fb_info->var.yres_virtual);
+
+    /*
+    struct vbus_watch *watch;
+    char dir[35];
+
+    watch = kzalloc(sizeof(struct vbus_watch), GFP_ATOMIC);
+    sprintf(dir, "device/%01d", vdev->otherend_id);
+    vbus_watch_path(vdev, dir, watch, me_leaving_callback);
+
+    */
     break;
   }
 }
@@ -103,11 +117,11 @@ static int init_me_interaction_data(void){
   return 0;
 }
 
-static int remove_me(int32_t id){
+void remove_me_callback(uint16_t id){
   int i;
 
   /* Nothing to do if there are no MEs */
-  if(me_inter_data.nb_MEs <= 0) return -1;
+  if(me_inter_data.nb_MEs <= 0) return /*-1*/;
 
   /* Check ME's index */
   for(i = 0; i < me_inter_data.nb_MEs; ++i){
@@ -115,7 +129,7 @@ static int remove_me(int32_t id){
   }
 
   /* If index is greater than number of MEs there is no ME with this ID */
-  if(i >= me_inter_data.nb_MEs) return -1;
+  if(i >= me_inter_data.nb_MEs) return /*-1*/;
 
   remove_display(id);
 
@@ -139,7 +153,7 @@ static int remove_me(int32_t id){
 
   --me_inter_data.nb_MEs;
 
-  return 0;
+  return /*0*/;
 }
 
 enum hrtimer_restart timer_callback_mi (struct hrtimer* timer){
