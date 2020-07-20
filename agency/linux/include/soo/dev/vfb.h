@@ -21,6 +21,7 @@
 
 #include <soo/grant_table.h>
 #include <soo/vdevback.h>
+#include <linux/fb.h>
 
 #define VFB_NAME   "vfb"
 #define VFB_PREFIX "[" VFB_NAME "-back] "
@@ -42,7 +43,7 @@ struct vfb_domfb {
 	uint64_t paddr;                  /* Physical address of the framebuffer. */
 	char *vaddr;                     /* Virtual address of the framebuffer. */
 	struct vm_struct *area;          /* Memory area allocated for the framebuffer (mapped to ME memory). */
-	struct gnttab_map_grant_ref *op; /* Data used to do the grantref mapping. */
+	grant_handle_t gnt_handle;       /* Grant handle to do the unmapping. */
 };
 
 void vfb_set_active_domfb(domid_t);

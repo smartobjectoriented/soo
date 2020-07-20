@@ -41,6 +41,7 @@
 
 #include <stdarg.h>
 
+static struct vbus_watch *watches[DOMFB_COUNT];
 
 /* Selected framebuffer device. */
 static struct fb_info *vfb_info;
@@ -128,7 +129,7 @@ static void callback_me_domfb(struct vbus_watch *watch)
 {
 	grant_ref_t fb_ref;
 	struct vbus_transaction vbt;
-	struct gnttab_map_grant_ref *op;
+	struct gnttab_map_grant_ref op;
 	struct vm_struct *area;
 	struct vfb_domfb *fb;
 	char dir[40];
@@ -159,11 +160,8 @@ static void callback_me_domfb(struct vbus_watch *watch)
 
 	/* Map the grantref area. */
 
-	op = kzalloc(sizeof(struct gnttab_map_grant_ref), GFP_ATOMIC);
-	BUG_ON(!op);
-
-	gnttab_set_map_op(op, (phys_addr_t) area->addr, GNTMAP_host_map | GNTMAP_readonly, fb_ref, domid, 0, FB_SIZE);
-	if (gnttab_map(op) || op->status != GNTST_okay) {
+	gnttab_set_map_op(&op, (phys_addr_t) area->addr, GNTMAP_host_map | GNTMAP_readonly, fb_ref, domid, 0, FB_SIZE);
+	if (gnttab_map(&op) || op.status != GNTST_okay) {
 		free_vm_area(area);
 		BUG();
 	}
@@ -172,10 +170,10 @@ static void callback_me_domfb(struct vbus_watch *watch)
 
 	fb = kzalloc(sizeof(struct vfb_domfb), GFP_ATOMIC);
 	fb->id = domid;
-	fb->paddr = op->dev_bus_addr << 12;
+	fb->paddr = op.dev_bus_addr << 12;
 	fb->vaddr = area->addr;
 	fb->area = area;
-	fb->op = op;
+	fb->gnt_handle = op.handle;
 	vfb_set_domfb(fb);
 
 	/* If a callback has been registered, execute it. */
@@ -188,9 +186,7 @@ void vfb_probe(struct vbus_device *vdev)
 {
 	vfb_t *vfb;
 	struct vbus_transaction vbt;
-	struct vbus_watch *watch;
 	char dir[35];
-	char *path;
 
 	vfb = kzalloc(sizeof(vfb_t), GFP_ATOMIC);
 	BUG_ON(!vfb);
@@ -220,12 +216,8 @@ void vfb_probe(struct vbus_device *vdev)
 
 	/* Set a watch on domfb-ref. */
 
-	watch = kzalloc(sizeof(struct vbus_watch), GFP_ATOMIC);
-	path = kzalloc(27 * sizeof(char), GFP_ATOMIC);
-	BUG_ON(!watch || !path);
-
-	sprintf(path, "device/%01d/vfb/0/domfb-ref/value", vdev->otherend_id);
-	vbus_watch_path(vdev, path, watch, callback_me_domfb);
+	watches[vdev->otherend_id] = kzalloc(sizeof(struct vbus_watch), GFP_ATOMIC);
+	vbus_watch_pathfmt(vdev, watches[vdev->otherend_id], callback_me_domfb, "device/%01d/vfb/0/domfb-ref/value", vdev->otherend_id)
 	DBG(VFB_PREFIX "Watching %s\n", path);
 }
 
@@ -236,7 +228,28 @@ void vfb_remove(struct vbus_device *vdev)
 
 void vfb_close(struct vbus_device *vdev)
 {
+	struct gnttab_unmap_grant_ref op;
 	DBG(VFB_PREFIX "Backend close: %d\n", vdev->otherend_id);
+
+	/* Unregister and free the watch. */
+	unregister_vbus_watch(watches[vdev->otherend_id]);
+	kfree(watches[vdev->otherend_id]);
+	watches[vdev->otherend_id] = NULL;
+
+	/* Unmap the grantref. */
+	gnttab_set_unmap_op(
+		&op,
+		(phys_addr_t) registered_domfb[vdev->otherend_id]->vaddr,
+		GNTMAP_host_map | GNTMAP_readonly,
+		registered_domfb[vdev->otherend_id]->gnt_handle);
+	gnttab_unmap(&op);
+
+	/* Free framebuffer area. */
+	free_vm_area(registered_domfb[vdev->otherend_id]->area);
+
+	/* Free vfb_domfb. */
+	kfree(registered_domfb[vdev->otherend_id]);
+	registered_domfb[vdev->otherend_id] = NULL;
 }
 
 void vfb_suspend(struct vbus_device *vdev)
