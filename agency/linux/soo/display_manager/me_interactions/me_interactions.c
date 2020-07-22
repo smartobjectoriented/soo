@@ -121,7 +121,7 @@ void remove_me_callback(uint16_t id){
   int i;
 
   /* Nothing to do if there are no MEs */
-  if(me_inter_data.nb_MEs <= 0) return /*-1*/;
+  if(me_inter_data.nb_MEs <= 0) return;
 
   /* Check ME's index */
   for(i = 0; i < me_inter_data.nb_MEs; ++i){
@@ -129,7 +129,7 @@ void remove_me_callback(uint16_t id){
   }
 
   /* If index is greater than number of MEs there is no ME with this ID */
-  if(i >= me_inter_data.nb_MEs) return /*-1*/;
+  if(i >= me_inter_data.nb_MEs) return;
 
   remove_display(id);
 
@@ -153,7 +153,7 @@ void remove_me_callback(uint16_t id){
 
   --me_inter_data.nb_MEs;
 
-  return /*0*/;
+  return;
 }
 
 enum hrtimer_restart timer_callback_mi (struct hrtimer* timer){

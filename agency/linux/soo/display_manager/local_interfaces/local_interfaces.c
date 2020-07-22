@@ -15,7 +15,7 @@
 #include <soo/display_manager/local_interfaces/local_interfaces.h>
 #include <soo/display_manager/me_interactions/me_interactions.h>
 
-#define TIMER_TICK      10    /* 10ms (0.1s)*/
+#define TIMER_TICK      5    /* 5ms (0.05s)*/
 /* For testing */
 #define VEXPRESS_X      1024
 #define VEXPRESS_Y      768
@@ -33,7 +33,7 @@ static int update_parts_addresses(void);
 /* Used to change the number of displays */
 static int update_nb_displays(uint8_t n);
 /* Updates the display of part n of the screen */
-static int update_part_display(uint8_t n);
+static int update_part_display(int8_t n);
 /* Checks if the displays will have to migrate afer addition or removal of a display */
 static int check_fb_mig(uint8_t new, uint8_t old);
 /* Function that redraws the content of framebuffer when migration is needed */
@@ -56,7 +56,8 @@ uint32_t* fake_buffers[MAX_FBS];
  * if there are none during init
  * Prevent crashes that could occur when screen is unplugged (to be tested
  * still)
- * Check for incoming framebuffers sizes (not to overread and cause crashes)
+ * Test with different rpi4 screens
+ * Change display management to permit having 3 displays taking the whole screen
  */
 
  struct screen_management screen_man;
@@ -180,6 +181,8 @@ int add_display(uint8_t id, uint32_t *fb_addr, uint16_t x, uint16_t y){
 int remove_display(uint8_t id){
   int i;
 
+  hrtimer_cancel(&screen_man.timerCompt);
+
   /* If there are no displays there's nothing to remove */
   if(screen_man.nb_displays == 0){
     return -1;
@@ -209,6 +212,8 @@ int remove_display(uint8_t id){
   screen_man.vfbs[screen_man.nb_displays - 1]->x = 0;
   screen_man.vfbs[screen_man.nb_displays - 1]->y = 0;
   update_nb_displays(screen_man.nb_displays - 1);
+
+  hrtimer_start(&screen_man.timerCompt, screen_man.ktime, HRTIMER_MODE_REL);
 
   return 0;
 }
@@ -343,11 +348,13 @@ static int update_parts_addresses(void){
   return 0;
 }
 
-static int update_part_display(uint8_t n){
+static int update_part_display(int8_t n){
   int i, j;
   uint32_t *dest, *source;
   uint32_t x, y, line_size_dest, line_size_source, x_off, y_off;
   uint32_t col[MAX_FBS] = {0xF800, 0xFFFF00FF, 0xFFFF0000, 0xFFFFFFFF, 0x0, 0xFACF000A, 0xAAB0F81F, 0xBBC07FF, 0xBA0FF800};
+
+  if(n < 0) return -1;
 
   dest = screen_man.screen_part->mem_spaces[n];
   source = screen_man.vfbs[n]->vfb_addr;
