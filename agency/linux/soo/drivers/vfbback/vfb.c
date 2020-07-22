@@ -49,26 +49,25 @@ static struct fb_info *vfb_info;
 #define FB_HRES  (vfb_info->var.xres)
 #define FB_VRES  (vfb_info->var.yres)
 #define FB_SIZE  (FB_HRES * FB_VRES * 4) /* assume 24bpp */
-#define FOUND_FB (FB_SIZE != 0)
 
 /* Array of domain (ME or agency) framebuffers. */
 static struct vfb_domfb *registered_domfb[DOMFB_COUNT];
 static domid_t active_domfb = 0;
 
-/* Callback to be called when a domain framebuffer is registered. Allows others
- * to be notified of new domain framebuffers. */
-static void (*callback_new_domfb)(struct vfb_domfb *fb, struct fb_info *);
+/* Callback to be called when a domain framebuffer is added. Allows others to
+ * be notified of new domain framebuffers. */
+static void (*callback_new_domfb)(struct vfb_domfb *, struct fb_info *);
 
 /* Callback to be called when a domain framebuffer is removed. Allows others to
  * be notified when a domain framebuffer is removed */
-static void (*callback_rm_domfb)(uint16_t id);
+static void (*callback_rm_domfb)(domid_t);
 
 void vfb_set_callback_new_domfb(void (*cb)(struct vfb_domfb *, struct fb_info *))
 {
 	callback_new_domfb = cb;
 }
 
-void vfb_set_callback_rm_domfb(void (*cb)(uint16_t id))
+void vfb_set_callback_rm_domfb(void (*cb)(domid_t id))
 {
 	callback_rm_domfb = cb;
 }
@@ -201,7 +200,7 @@ void vfb_probe(struct vbus_device *vdev)
 	BUG_ON(!vfb);
 	dev_set_drvdata(&vdev->dev, &vfb->vdevback);
 
-	if (!FOUND_FB) {
+	if (!vfb_info) {
 		DBG(VFB_PREFIX "No framebuffer device found!");
 		BUG();
 	}
@@ -226,8 +225,7 @@ void vfb_probe(struct vbus_device *vdev)
 	/* Set a watch on domfb-ref. */
 
 	watches[vdev->otherend_id] = kzalloc(sizeof(struct vbus_watch), GFP_ATOMIC);
-	vbus_watch_pathfmt(vdev, watches[vdev->otherend_id], callback_me_domfb, "device/%01d/vfb/0/domfb-ref/value", vdev->otherend_id)
-	DBG(VFB_PREFIX "Watching %s\n", path);
+	vbus_watch_pathfmt(vdev, watches[vdev->otherend_id], callback_me_domfb, "device/%01d/vfb/0/domfb-ref/value", vdev->otherend_id);
 }
 
 void vfb_remove(struct vbus_device *vdev)
@@ -235,6 +233,7 @@ void vfb_remove(struct vbus_device *vdev)
 	DBG(VFB_PREFIX "Backend remove: %d\n", vdev->otherend_id);
 }
 
+/* Cleaning-up resources when a ME has been shutdown. */
 void vfb_close(struct vbus_device *vdev)
 {
 	struct gnttab_unmap_grant_ref op;
@@ -244,10 +243,6 @@ void vfb_close(struct vbus_device *vdev)
 	unregister_vbus_watch(watches[vdev->otherend_id]);
 	kfree(watches[vdev->otherend_id]);
 	watches[vdev->otherend_id] = NULL;
-
-	if (callback_rm_domfb) {
-		callback_rm_domfb(vdev->otherend_id);
-	}
 
 	/* Unmap the grantref. */
 	gnttab_set_unmap_op(
@@ -263,6 +258,10 @@ void vfb_close(struct vbus_device *vdev)
 	/* Free vfb_domfb. */
 	kfree(registered_domfb[vdev->otherend_id]);
 	registered_domfb[vdev->otherend_id] = NULL;
+
+	if (callback_rm_domfb) {
+		callback_rm_domfb(vdev->otherend_id);
+	}
 }
 
 void vfb_suspend(struct vbus_device *vdev)
