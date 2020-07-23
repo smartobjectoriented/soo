@@ -22,5 +22,7 @@ config VUIHANDLER_FRONTEND
 config VNET_FRONTEND
     bool "Front end for network access"
 
+source "soo/drivers/vnetfront/Kconfig"
+
 endmenu
 

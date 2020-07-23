@@ -146,7 +146,8 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
 
         vnet_data_ring_request_ready(&vnet->ring_data);
 
-        notify_remote_via_irq(vnet->irq);
+        if(vnet->irq)
+                notify_remote_via_irq(vnet->irq);
 
 
         vdevfront_processing_end(vdev_net);
@@ -402,7 +403,8 @@ void vnet_connected(struct vbus_device *vdev) {
         DBG0("[" VNET_NAME "] Frontend connected\n");
 
         /* Force the processing of pending requests, if any */
-        notify_remote_via_irq(vnet->irq);
+        if(vnet->irq)
+                notify_remote_via_irq(vnet->irq);
 
         if (!thread_created) {
                 thread_created = true;
@@ -431,21 +433,20 @@ err_t vnet_lwip_init(struct netif *netif) {
 
         netifg = netif;
 
+#ifdef CONFIG_VNET_FRONT_DHCP
+        dhcp_start(netif);
+#else
         ip4_addr_t
-                ip = {.addr = vnet_shared_data->network | 2u << 24},
+                ip = {.addr = vnet_shared_data->me_ip},
                 mask = {.addr = vnet_shared_data->mask},
-                gw = {.addr = vnet_shared_data->network | 1u << 24};
+                gw = {.addr = vnet_shared_data->agency_ip};
 
         netif_set_addr(netif, &ip, &mask, &gw);
-
+#endif //CONFIG_VNET_FRONT_DHCP
 
         netif_set_default(netif);
         netif_set_link_up(netif);
         netif_set_up(netif);
-
-        //printk("\n\n!!!!!!!!!!!!!ERRRR %d\n\n", err);
-
-        //dhcp_start(netif);
 
         return ERR_OK;
 }
@@ -476,12 +477,32 @@ vdrvfront_t vnetdrv = {
 static void vnet_generate_network(void){
         ME_desc_t *desc = get_ME_desc();
         unsigned int crc32 = desc->crc32;
-        uint32_t mask = 0xfcffffffu;
-        uint32_t network = 0x00000cc0au; /* 10.204.x.x */
+        uint32_t network, me_ip, mask, tmp;
 
+        network = 0x00000cc0au; /* 10.204.x.x */
         network |= (crc32 << 16) ^ (crc32 & 0xffff0000u);
 
+#ifdef CONFIG_VNET_BACKEND_ARCH_NAT
+        /* Create a network with only two host addresses */
+        mask = 0xfcffffffu; /* 255.255.255.252 */
+        me_ip = network & mask | 2u << 24; /* the ME is always the second host IP */
+#else
+        /* a big shared network between all MEs */
+        mask = 0x0000ffffu; /* 255.255.0.0 */
+
+        tmp = (network & mask) ^ network;
+
+        /* check if the ip is not the network address nor the gateway address */
+        if(tmp != 0 && tmp != 0x01 << 24)
+                me_ip = network;
+        else
+                me_ip = network | 0x02 << 24;
+#endif
+
+
         vnet_shared_data->network = network & mask;
+        vnet_shared_data->me_ip = me_ip;
+        vnet_shared_data->agency_ip = vnet_shared_data->network | 1u << 24;
         vnet_shared_data->mask = mask;
 }
 

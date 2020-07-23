@@ -43,6 +43,8 @@ struct vnet_shared_data {
 	unsigned char ethaddr[ETH_ALEN];
 	uint32_t network;
 	uint32_t mask;
+	uint32_t me_ip;
+	uint32_t agency_ip;
 };
 
 struct ip_conf {

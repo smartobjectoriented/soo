@@ -166,6 +166,9 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
                 printk("I'm NOT connected share %d TX frames with other MEs\n", localinfo_data->tx_start - localinfo_data->tx_end );
         }
 
+        //pre_propagate_args->propagate_status = 0;
+        //return 0;
+
         /* propagate only if we have something to share */
         pre_propagate_args->propagate_status =
                 localinfo_data->rx_start < localinfo_data->rx_end
@@ -209,7 +212,7 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
         DBG(">> ME %d: cb_pre_suspend...\n", ME_domID());
 
         /* No propagation to the user space */
-        return 0;
+        return 1;
 }
 
 /**
@@ -335,7 +338,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
                         ring_req_to->type = 0xefef;
 
                         vnet_data_ring_request_ready(&vnet->ring_data);
-                        notify_remote_via_irq(vnet->irq);
+                        //notify_remote_via_irq(vnet->irq);
                 }
 
                 /* a request contains frames exiting the ME */
@@ -431,7 +434,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 int cb_pre_resume(soo_domcall_arg_t *args) {
         DBG(">> ME %d: cb_pre_resume...\n", ME_domID());
 
-        return 0;
+        return 1;
 }
 
 /**
@@ -457,7 +460,7 @@ int cb_post_activate(soo_domcall_arg_t *args) {
  */
 int cb_localinfo_update(void) {
 
-        return 0;
+        return 1;
 }
 
 /**
@@ -477,7 +480,7 @@ int cb_force_terminate(void) {
         lprintk("###################### FORCE terminate me %d\n", ME_domID());
         set_ME_state(ME_state_terminated);
 
-        return 0;
+        return 1;
 }
 
 void callbacks_init(void) {

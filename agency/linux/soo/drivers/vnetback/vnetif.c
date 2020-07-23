@@ -152,7 +152,10 @@ void link_vnet(struct net_device *dev, vnet_t *vnet){
 
 	vif->vnet = vnet;
 
+	/* Other network architectures use bridge ip address */
+#ifdef CONFIG_VNET_BACKEND_ARCH_NAT
 	vnetifutil_if_set_ips(dev->name, vnet->shared_data->network, vnet->shared_data->mask);
+#endif
 
 	vnetifutil_if_up(dev->name);
 

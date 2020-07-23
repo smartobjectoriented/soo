@@ -56,7 +56,7 @@ config VNET_BACKEND
     help
       This driver implements the backend of the network driver of the SOO environment.
 
-
+source "soo/drivers/vnetback/Kconfig"
 
 endmenu
 	
