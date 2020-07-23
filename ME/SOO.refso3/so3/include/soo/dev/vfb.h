@@ -19,36 +19,14 @@
 #ifndef VFB_H
 #define VFB_H
 
-#include <linux/fb.h> /* struct fb_bitfield */
+#include <soo/vdevfront.h>
 
+#define VFB_NAME	"vfb"
+#define VFB_PREFIX	"[" VFB_NAME "-front] "
+
+/* General structure for this virtual device (backend side). */
 typedef struct {
-	int32_t width;
-	int32_t height;
-	int32_t depth;    /* bits_per_pixel */
-
-	struct fb_bitfield red;		/* bitfield in fb mem if true color, */
-	struct fb_bitfield green;	/* else only length is significant */
-	struct fb_bitfield blue;
-	struct fb_bitfield transp;	/* transparency */
-
-	uint32_t line_length;
-
-	unsigned int fb_mem_len;
-
-} vfb_hw_params_t;
-
-/* Additional FB event types to be used by standard notifiers */
-/* MUST NOT OVERLAP WITH FB_EVENT_xxx from linux/fb.h */
-#define VFB_EVENT_DOM_REGISTER	0x20
-#define VFB_EVENT_DOM_SWITCH	0x21
-
-typedef struct {
-	uint16_t domid;
-	unsigned long addr;
-	unsigned long vaddr;
-	unsigned int len;
-} vfb_info_t;
-
-int vfb_get_params(vfb_hw_params_t *hw_params);
+	vdevfront_t vdevfront;
+} vfb_t;
 
 #endif /* VFB_H */

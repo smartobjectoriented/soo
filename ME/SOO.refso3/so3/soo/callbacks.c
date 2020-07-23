@@ -53,7 +53,9 @@ static int live_count = 0;
  * migrated_once allows the dormant ME to control its oneshot propagation, i.e.
  * the ME must be broadcast in the neighborhood, then disappear from the smart object.
  */
+#if 0
 static uint32_t migration_count = 0;
+#endif
 
 /**
  * PRE-ACTIVATE
@@ -61,13 +63,17 @@ static uint32_t migration_count = 0;
  * Should receive local information through args
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
-#if 1 /* alphabet */
+	DBG(">> ME %d: cb_pre_activate..\n", ME_domID());
+
+#if 0 /* alphabet */
 	agency_ctl_args_t agency_ctl_args;
 
 	agencyUID_t refUID = {
 		.id = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08}
 	};
 #endif /* 0 */
+
+	#if 0
 	char target_soo_name[SOO_NAME_SIZE];
 
 	DBG(">> ME %d: cb_pre_activate..\n", ME_domID());
@@ -76,6 +82,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	agency_ctl_args.cmd = AG_SOO_NAME;
 	args->__agency_ctl(&agency_ctl_args);
 	strcpy(target_soo_name, (const char *) agency_ctl_args.u.soo_name_args.soo_name);
+#endif
 
 #if 0 /* dummy_activity */
 	/* Kill MEs that are in slot 3 or beyond to keep only 2 MEs */
@@ -86,7 +93,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 #endif
 
 
-#if 1 /* alphabet */
+#if 0 /* alphabet */
 	lprintk("## (slotID: %d) bringing value %c (found: %d)\n", args->slotID, *((char *) localinfo_data), *((char *) localinfo_data+1));
 	if (get_ME_state() != ME_state_preparing) {
 
@@ -125,13 +132,13 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
+	pre_propagate_args->propagate_status = 0;
+
 #if 0 /* dummy_activity */
 	pre_propagate_args->propagate_status = 1;
 #endif
 
-#if 1 /* Alphabet */
-
-	pre_propagate_args->propagate_status = 0;
+#if 0 /* Alphabet */
 
 	/* Enable migration - here, we migrate 3 times before being killed. */
 	if ((get_ME_state() != ME_state_dormant) || (migration_count != 3)) {
@@ -277,7 +284,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		target_char = *((char *) localinfo_data);
 		initiator_char = *((char *) recv_data);
 
-#if 1 /* Alphabet - Increment the alphabet in this case. */
+#if 0 /* Alphabet - Increment the alphabet in this case. */
 		if (get_ME_state() != ME_state_dormant)  {
 			lprintk("## Not dormant: ");
 			if (initiator_found)

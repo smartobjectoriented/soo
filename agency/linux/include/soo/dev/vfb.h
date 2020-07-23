@@ -19,86 +19,36 @@
 #ifndef VFB_H
 #define VFB_H
 
-#include <soo/ring.h>
 #include <soo/grant_table.h>
+#include <soo/vdevback.h>
+#include <linux/fb.h>
 
-#include <linux/fb.h> /* struct fb_bitfield */
+#define VFB_NAME   "vfb"
+#define VFB_PREFIX "[" VFB_NAME "-back] "
 
-#define VFB_NAME		"vfb"
-#define VFB_PREFIX		"[" VFB_NAME "] "
+#define DOMFB_COUNT 8
 
+/* Arbitrary values. On rpi4, the LEDs are considered as an 8x8 fb. */
+#define MIN_FB_HRES 640
+#define MIN_FB_VRES 480
+
+/* General structure for this virtual device (backend side). */
 typedef struct {
-	int32_t width;
-	int32_t height;
-	int32_t depth;    /* bits_per_pixel */
-
-	struct fb_bitfield red;		/* bitfield in fb mem if true color, */
-	struct fb_bitfield green;	/* else only length is significant */
-	struct fb_bitfield blue;
-	struct fb_bitfield transp;	/* transparency */
-
-	uint32_t line_length;
-
-	unsigned int fb_mem_len;
-
-} vfb_hw_params_t;
-
-/* Additional FB event types to be used by standard notifiers */
-/* MUST NOT OVERLAP WITH FB_EVENT_xxx from linux/fb.h */
-#define VFB_EVENT_DOM_REGISTER	0x20
-#define VFB_EVENT_DOM_SWITCH	0x21
-
-typedef struct {
-	uint16_t domid;
-	unsigned long paddr;
-	unsigned int len;
-
-	struct fb_var_screeninfo var;
-} vfb_info_t;
-
-int vfb_get_params(vfb_hw_params_t *hw_params);
-
-int vfb_switch_domain(domid_t dom);
-
-typedef struct {
-	unsigned int fb_pfn;
-
-	unsigned irq;
-
-	vfb_hw_params_t fb_hw;
-	vfb_info_t *vfb_info;
-
-	unsigned char *fb;
-
-} fb_data_t;
-
-/*
- * General structure for this virtual device (backend side)
- */
-typedef struct {
-	struct vbus_device *vdev[MAX_DOMAINS];
-	fb_data_t data[MAX_DOMAINS];
-
-	int domfocus;  /* Specify which ME has the focus. -1 means there is no available ME */
-
+	vdevback_t vdevback;
 } vfb_t;
 
+/* Represent a domain framebuffer. */
+struct vfb_domfb {
+	domid_t id;                      /* Domain id associated with the framebuffer. */
+	uint64_t paddr;                  /* Physical address of the framebuffer. */
+	char *vaddr;                     /* Virtual address of the framebuffer. */
+	struct vm_struct *area;          /* Memory area allocated for the framebuffer (mapped to ME memory). */
+	grant_handle_t gnt_handle;       /* Grant handle to do the unmapping. */
+};
 
-extern vfb_t vfb;
-
-irqreturn_t vfb_interrupt(int irq, void *dev_id);
-
-void vfb_probe(struct vbus_device *dev);
-void vfb_close(struct vbus_device *dev);
-void vfb_connected(struct vbus_device *dev);
-void vfb_reconfigured(struct vbus_device *dev);
-void vfb_shutdown(struct vbus_device *dev);
-
-extern void vfb_vbus_init(void);
-
-bool vfb_start(domid_t domid);
-void vfb_end(domid_t domid);
-bool vfb_is_connected(domid_t domid);
-
+void vfb_set_active_domfb(domid_t);
+struct vfb_domfb *vfb_get_domfb(domid_t);
+void vfb_set_callback_new_domfb(void (*cb)(struct vfb_domfb *, struct fb_info *));
+void vfb_set_callback_rm_domfb(void (*cb)(domid_t));
 
 #endif /* VFB_H */

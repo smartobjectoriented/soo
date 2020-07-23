@@ -97,7 +97,7 @@ void timer_fn(void *dummy) {
 	lprintk("### TIMER FIRED\n");
 }
 
-#if 1
+#if 0
 /* Used to test a ME trip within a scalable network */
 
 static int alphabet_fn(void *arg) {
@@ -142,7 +142,7 @@ int main_kernel(void *args) {
 #endif
 
 	//init_timer(&timer, timer_fn, NULL);
-#if 1
+#if 0
 	*((char *) localinfo_data) = 'A';
 
 	kernel_thread(alphabet_fn, "alphabet", NULL, 0);

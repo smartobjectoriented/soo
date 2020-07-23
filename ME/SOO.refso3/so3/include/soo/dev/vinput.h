@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,30 +19,48 @@
 #ifndef VINPUT_H
 #define VINPUT_H
 
-#include <linux/input.h>
-
 #include <soo/ring.h>
 #include <soo/grant_table.h>
+#include <soo/vdevfront.h>
 
-struct vinput_request {
-  uint32_t cmd;  /* Not used right now */
+#define VINPUT_PACKET_SIZE	32
 
-};
+#define VINPUT_NAME		"vinput"
+#define VINPUT_PREFIX		"[" VINPUT_NAME "-front] "
 
-struct vinput_response {
+typedef struct {
+	char buffer[VINPUT_PACKET_SIZE];
+} vinput_request_t;
+
+typedef struct  {
 	unsigned int type;
 	unsigned int code;
 	int value;
-};
+} vinput_response_t;
 
 /*
- * Generate vinput ring structures and types.
+ * Generate ring structures and types.
  */
-DEFINE_RING_TYPES(vinput, struct vinput_request, struct vinput_response);
+DEFINE_RING_TYPES(vinput, vinput_request_t, vinput_response_t);
 
-/* Bridging with the Linux input subsystem */
+/*
+ * General structure for this virtual device (backend side)
+ */
+typedef struct {
+	vdevfront_t vdevfront;
 
-extern void input_event(struct input_dev *dev, unsigned int type, unsigned int code, int value);
-bool kbd_present(void);
+	vinput_front_ring_t ring;
+	unsigned int irq;
+
+	grant_ref_t ring_ref;
+	grant_handle_t handle;
+	uint32_t evtchn;
+
+} vinput_t;
+
+static inline vinput_t *to_vinput(struct vbus_device *vdev) {
+	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
+	return container_of(vdevback, vinput_t, vdevfront);
+}
 
 #endif /* VINPUT_H */

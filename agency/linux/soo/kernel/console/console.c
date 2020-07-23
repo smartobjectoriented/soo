@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2016-2019 Daniel Rossier <daniel.rossier@soo.tech>
  *
@@ -42,6 +43,9 @@
 #include <soo/evtchn.h>
 #include <soo/hypervisor.h>
 #include <soo/avzcons.h>
+#include <soo/dev/vfb.h>
+#include <soo/dev/vinput.h>
+#include <soo/guest_api.h>
 
 /* 1 is the code for CTRL-A */
 #define SWITCH_CODE 1
@@ -74,7 +78,34 @@ int vfb_get_focus(void)
 int vfb_set_focus(int next_domain)
 {
 	vfb_active = next_domain;
+	vfb_set_active_domfb(vfb_active);
+	vinput_set_current(vfb_active);
 	return vfb_active;
+}
+
+/* Given the active domain id, returns the next domain id that will be activated. */
+int get_next(int active)
+{
+	ME_desc_t me_desc;
+	int next = (active + 1) % N_SWITCH_FOCUS;
+
+	if (next == 0) {
+		/* Agency domain */
+		return next;
+	}
+	else if (next == 1) {
+		/* Agency-RT domain - skip for now */
+		return get_next(next);
+	}
+	else if (next < 7) {
+		/* ME - 2 to 6 */
+		get_ME_desc(next, &me_desc);
+		return me_desc.size == 0 ? get_next(next) : next;
+	}
+	else {
+		/* Agency AVZ Hypervisor - skip */
+		return get_next(next);
+	}
 }
 
 
@@ -90,11 +121,7 @@ int avz_switch_console(char ch)
 	static int switch_code_count = 0;
 	static char *input_str[N_SWITCH_FOCUS] = { "Agency domain", "Agency-RT domain", "ME-1(2)", "ME-2(3)", "ME-3(4)", "ME-4(5)", "ME-5(6)", "Agency AVZ Hypervisor" };
 
-	int active = 0;
-#if 0
-	int next = 1;
-#endif
-	int next = 2;
+	int active, next;
 
 /* Debugging purpose - enabled forces to forward to an ME */
 #if 0
@@ -105,28 +132,17 @@ int avz_switch_console(char ch)
 		/* We eat CTRL-<switch_char> in groups of 2 to switch console input. */
 		if (++switch_code_count == 1) {
 
-			if (avzcons_get_focus() == 0) {
+			active = get_next(avzcons_get_focus());
+			next = get_next(active);
 
-				active = 2;
-				next = 0;
-
-			} else {
-				active = 0;
-				next = 2;
-			}
 			avzcons_set_focus(active);
+			vfb_set_focus(active);
 
-#if 0
-			active = avzcons_set_focus((avzcons_get_focus() + 1) % N_SWITCH_FOCUS);
-			next = (avzcons_get_focus() + 1) % N_SWITCH_FOCUS;
-#endif
 			switch_code_count = 0;
 
 			lprintk("*** Serial input -> %s (type 'CTRL-%c' twice to switch input to %s).\n", input_str[active], 'a', input_str[next]);
-
 			return 1;
 		}
-
 	}
 	else {
 		switch_code_count = 0;
@@ -157,4 +173,3 @@ int avz_switch_console(char ch)
 	return 0;
 
 }
-

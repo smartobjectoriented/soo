@@ -394,8 +394,11 @@ static struct vbus_device *vbus_probe_node(struct vbus_type *bus, const char *ty
 	vdev->vbus = bus;
 
 	vdev->dev = find_device(compat);
-	BUG_ON(!vdev->dev);
-
+        if (!vdev->dev) {
+                lprintk("!! Looking for compatible %s but not found\n", compat);
+                BUG();
+        }
+	
 	strcpy(vdev->nodename, nodename);
 	strcpy(vdev->devicetype, type);
 
