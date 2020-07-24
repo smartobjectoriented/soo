@@ -1,6 +1,20 @@
-//
-// Created by julien on 6/30/20.
-//
+/*
+ * Copyright (C) 2020 Julien Quartier <julien.quartier@bluewin.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
 
 
 
@@ -44,8 +58,6 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data
                 return -1;
         }
 
-        //buff->prod = 3900;
-
         /* if putting data in the buffer offerflow, set the productor back at the begining */
         if(buff->prod + size >= buff->size)
                 buff->prod = 0;
@@ -68,7 +80,7 @@ int vbuff_put(struct vbuff_buff* buff, struct vbuff_data *buff_data, void** data
 
 
 uint8_t* vbuff_get(struct vbuff_buff* buff, struct vbuff_data *buff_data){
-        //printk("[Get Buff] offset: %d length: %d", buff_data->offset, buff_data->size);
+        DBG("[Get Buff] offset: %d length: %d", buff_data->offset, buff_data->size);
         return buff->data + buff_data->offset;
 }
 
@@ -76,7 +88,7 @@ uint8_t* vbuff_print(struct vbuff_buff* buff, struct vbuff_data *buff_data){
         uint8_t *data = vbuff_get(buff, buff_data);
         int i = 0;
 
-        printk("\n[Print Buff] offset: %d length: %d\n", buff_data->offset, buff_data->size);
+        DBG("\n[Print Buff] offset: %d length: %d\n", buff_data->offset, buff_data->size);
 
         while(i < buff_data->size){
                 printk("%02x ", data[i]);

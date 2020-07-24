@@ -142,8 +142,6 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
         ring_req->type = 0xefef;
         ring_req->buff = vbuff_data;
 
-        //vbuff_print(&vbuff_tx, &vbuff_data);
-
         vnet_data_ring_request_ready(&vnet->ring_data);
 
         if(vnet->irq)
@@ -343,8 +341,6 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
 
 
         vbus_transaction_end(vbt);
-
-        //vnet_send_ethaddr(vnet);
 }
 
 void vnet_shutdown(struct vbus_device *vdev) {
@@ -442,7 +438,7 @@ err_t vnet_lwip_init(struct netif *netif) {
                 gw = {.addr = vnet_shared_data->agency_ip};
 
         netif_set_addr(netif, &ip, &mask, &gw);
-#endif //CONFIG_VNET_FRONT_DHCP
+#endif /* CONFIG_VNET_FRONT_DHCP */
 
         netif_set_default(netif);
         netif_set_link_up(netif);

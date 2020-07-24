@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Julien Quartier <julien.quartier@heig-vd.ch>
+ * Copyright (C) 2020 Julien Quartier <julien.quartier@bluewin.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -106,9 +106,9 @@ int main(int argc, char **argv)
                 goto com_error;
         }
 
-        if ((read_len = read(s, buff, sizeof(buff) - 1)) > 0) {
-                buff[read_len] = 0;
-                //printf("The server said: %s", buff);
+        if ((read_len = read(s, buff, sizeof(buff) - 1)) <= 0) {
+                printf("No hello from server \n");
+                goto com_error;
         }
 
         if (read_len < 0) {

@@ -65,4 +65,4 @@ typedef struct _sys_thread sys_thread_t;
 
 
 
-#endif //SO3_SYS_ARCH_H
+#endif /* SO3_SYS_ARCH_H */

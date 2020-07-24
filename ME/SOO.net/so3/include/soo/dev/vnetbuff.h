@@ -57,27 +57,4 @@ uint8_t* vbuff_print(struct vbuff_buff* buff, struct vbuff_data *buff_data);
 
 void vbuff_update_grant(struct vbuff_buff* buff, struct vbus_device *dev);
 
-
-// TODO fix
-#define VBUFF_REGISTER(__name)                  \
-                                                \
-struct vbuff_buff vbuff_##__name[PAGE_COUNT];   \
-\
-void inline vbuff_##__name##_init();                                                \
-void inline vbuff_##__name##_init(){              \
-        vbuff_init(vbuff_##__name);             \
-}                                               \
-                                                \
-void inline vbuff_##__name##_free(){              \
-        vbuff_free(vbuff_##__name);             \
-}                                               \
-                                                \
-                                                \
-void inline vbuff_##__name##_put(struct vbuff_data *buff_data, void** data, size_t size){         \
-        vbuff_put(vbuff_##__name, buff_data, data, size);                                      \
-}                                                                                               \
-
-
-
-
-#endif //VNETBUFF_H
+#endif /* VNETBUFF_H */

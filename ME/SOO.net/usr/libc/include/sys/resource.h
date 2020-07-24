@@ -15,7 +15,6 @@ extern "C" {
 #endif
 
 #include <bits/alltypes.h>
-//#include <bits/resource.h>
 
 typedef unsigned long long rlim_t;
 

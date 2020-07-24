@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Julien Quartier <julien.quartier@heig-vd.ch>
+ * Copyright (C) 2020 Julien Quartier <julien.quartier@bluewin.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -172,7 +172,7 @@ int ioctl_sock(int fd, unsigned long cmd, unsigned long args)
         struct netif *netif = NULL;
         struct sockaddr_in *addr = NULL;
 
-        // LwIP handeled the ioctl cmd
+        /* LwIP handeled the ioctl cmd */
         if (!lwip_ioctl(lwip_fd, cmd, (void *) args)) {
                 return 0;
         }
@@ -187,14 +187,13 @@ int ioctl_sock(int fd, unsigned long cmd, unsigned long args)
                 ifreq = (struct ifreq2 *) args;
 
                 id = ifreq->ifr_ifru.ifru_ivalue;
-                netif = netif_get_by_index((u8_t) id + 1); // LWIP index start a 1
+                netif = netif_get_by_index((u8_t) id + 1); /* LWIP index start a 1 */
                 if (netif == NULL) {
                         set_errno(EINVAL); // TODO edit
                         return -1;
                 }
 
-
-                // Lwip netid name is always 2 chars followed by an id
+                /* Lwip netid name is always 2 chars followed by an id */
                 sprintf(ifreq->ifrn_name, "%c%c%d",
                         netif->name[0],
                         netif->name[1],
@@ -234,7 +233,7 @@ int ioctl_sock(int fd, unsigned long cmd, unsigned long args)
                 }
 
                 ifreq->ifr_ifru.ifru_addr.sa_family = AF_INET;
-                ifreq->ifr_ifru.ifru_addr.sa_len = 4; //IPV4
+                ifreq->ifr_ifru.ifru_addr.sa_len = 4; /* IPV4 */
 
                 hwaddr = ifreq->ifr_ifru.ifru_hwaddr.sa_data;
                 hwaddr[0] = netif->hwaddr[0];
@@ -260,7 +259,7 @@ int ioctl_sock(int fd, unsigned long cmd, unsigned long args)
                 }
 
                 ifreq->ifr_ifru.ifru_addr.sa_family = AF_INET;
-                ifreq->ifr_ifru.ifru_addr.sa_len = 4; //IPV4
+                ifreq->ifr_ifru.ifru_addr.sa_len = 4; /* IPV4 */
 
                 addr = (struct sockaddr_in *) &ifreq->ifr_ifru.ifru_addr;
                 memcpy(&addr->sin_addr.s_addr, &netif->ip_addr.addr, 4);
@@ -302,14 +301,14 @@ int ioctl_sock(int fd, unsigned long cmd, unsigned long args)
                 }
 
                 ifreq->ifr_ifru.ifru_addr.sa_family = AF_INET;
-                ifreq->ifr_ifru.ifru_addr.sa_len = 4; //IPV4
+                ifreq->ifr_ifru.ifru_addr.sa_len = 4; /* IPV4 */
 
                 addr = (struct sockaddr_in *) &ifreq->ifr_ifru.ifru_addr;
                 addr->sin_addr.s_addr = netif->ip_addr.addr | ~netif->netmask.addr;
 
                 return 0;
         case SIOCSIFBRDADDR:
-                // LwIP automaticaly compute broadcast address
+                /* LwIP automaticaly computes broadcast address */
                 return 0;
         case SIOCGIFNETMASK:
                 if (!args) {
@@ -583,26 +582,6 @@ int do_send(int sockfd, const void *dataptr, size_t size, int flags)
 
         return lwip_send(lwip_fd, dataptr, size, flags);
 }
-/*
-struct sockaddr_in {
-    u8_t            sin_len; //8
-    sa_family_t     sin_family; //8
-    in_port_t       sin_port; //16
-    struct in_addr  sin_addr; //32
-#define SIN_ZERO_LEN 8
-    char            sin_zero[SIN_ZERO_LEN];
-};*/
-
-/**
-struct sockaddr_in {
-	sa_family_t sin_family;
-	in_port_t sin_port;
-	struct in_addr sin_addr;
-	uint8_t sin_zero[8];
-};
- */
-
-
 
 int do_sendto(int sockfd, const void *dataptr, size_t size, int flags, const struct sockaddr *to, socklen_t tolen)
 {

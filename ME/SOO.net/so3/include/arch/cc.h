@@ -30,7 +30,7 @@
 #define LWIP_NO_STDINT_H 1
 #define LWIP_NO_INTTYPES_H 1
 
-// Required functions defined in compiler.c
+/* Required functions defined in compiler.c */
 #define LWIP_NO_STDDEF_H 1
 
 
@@ -56,4 +56,4 @@ typedef unsigned long int  mem_ptr_t;
 #include <timer.h>
 #define LWIP_TIMEVAL_PRIVATE 0
 
-#endif //SO3_CC_H
+#endif /* SO3_CC_H */

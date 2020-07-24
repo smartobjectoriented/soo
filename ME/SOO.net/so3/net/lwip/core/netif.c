@@ -51,7 +51,6 @@
 #include "lwip/opt.h"
 
 #include <string.h> /* memset */
-//#include <stdlib.h> /* atoi */
 
 int atoi(const char *s) {
     int result=0, sign=1;

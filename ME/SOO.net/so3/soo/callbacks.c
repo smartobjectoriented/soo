@@ -166,9 +166,6 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
                 printk("I'm NOT connected share %d TX frames with other MEs\n", localinfo_data->tx_start - localinfo_data->tx_end );
         }
 
-        //pre_propagate_args->propagate_status = 0;
-        //return 0;
-
         /* propagate only if we have something to share */
         pre_propagate_args->propagate_status =
                 localinfo_data->rx_start < localinfo_data->rx_end
@@ -264,6 +261,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
                                 agency_ctl_args.cmd = AG_COOPERATE;
                                 agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
+                                // TODO
                                 //memcpy(agency_ctl_args.u.target_cooperate_args.spid, get_ME_desc()->spid, SPID_SIZE);
                                 //memcpy(agency_ctl_args.u.target_cooperate_args.spad_caps, get_ME_desc()->spad.caps, SPAD_CAPS_SIZE);
 
@@ -288,8 +286,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
                 recv_localinfo = (struct localinfo*)io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
                 lprintk("## in-cooperate received : %c\n", *((char *) recv_localinfo));
-
-                // TODO READ TX
 
                 /* We keep a pointer the the original ring so we can edit prod indexes */
                 data_ring_initiator = (struct vnet_data_front_ring *)io_map(pfn_to_phys(recv_localinfo->data_ring_pfn), PAGE_SIZE);
@@ -338,13 +334,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
                         ring_req_to->type = 0xefef;
 
                         vnet_data_ring_request_ready(&vnet->ring_data);
-                        //notify_remote_via_irq(vnet->irq);
+                        // TODO notify_remote_via_irq(vnet->irq);
                 }
-
-                /* a request contains frames exiting the ME */
-                //RING_GET_REQUEST();
-
-
 
 #if 0 /* Alphabet - Increment the alphabet in this case. */
                 if (get_ME_state() != ME_state_dormant)  {

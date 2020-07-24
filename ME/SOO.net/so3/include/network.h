@@ -26,4 +26,4 @@ int do_send(int sockfd, const void *dataptr, size_t size, int flags);
 int do_sendto(int sockfd, const void *dataptr, size_t size, int flags, const struct sockaddr *to, socklen_t tolen);
 int do_setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
 
-#endif //SO3_NETWORK_H
+#endif /* SO3_NETWORK_H */

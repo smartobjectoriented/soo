@@ -24,8 +24,6 @@
 #include <time.h>
 #include <stdlib.h>
 
-//#define DEBUG
-
 enum {
 	SINGLE_VIEW, SPLIT_VIEW, FULL_VIEW
 };

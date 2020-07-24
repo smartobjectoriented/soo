@@ -104,23 +104,21 @@ void send_pkt(void){
         char *hello = "Hello from client";
         struct sockaddr_in     servaddr;
 
-        // Creating socket file descriptor
+        /* Creating socket file descriptor */
         if ( (sockfd = lwip_socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
                 printk("[ME %d] socket error", ME_domID());
         }
 
         memset(&servaddr, 0, sizeof(servaddr));
 
-        // Filling server information
+        /* Filling server information */
         servaddr.sin_family = AF_INET;
         servaddr.sin_port = 21;
-        //servaddr.sin_addr.s_addr = 0x01010101; // 192.168.131.137
-        servaddr.sin_addr.s_addr = 0x8983A8C0; // 192.168.131.137
+        servaddr.sin_addr.s_addr = 0x8983A8C0; /* 192.168.131.137 */
 
         int n, len;
 
         lwip_sendto(sockfd, (const char *)hello, strlen(hello), 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
-        //printk("Hello message sent.\n");
 
 
         close(sockfd);
@@ -172,7 +170,6 @@ int main_kernel(void *args) {
 	kernel_thread(audio_task_fn, "audio", NULL, 0);
 #endif
 
-	//init_timer(&timer, timer_fn, NULL);
 #if 1
 	*((char *) localinfo_data) = 'A';
 

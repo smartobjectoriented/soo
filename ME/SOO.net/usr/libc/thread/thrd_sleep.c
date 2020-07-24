@@ -1,11 +1,8 @@
-//#include <threads.h>
 #include <errno.h>
 #include <syscall.h>
 
 int thrd_sleep(const struct timespec *req, struct timespec *rem)
 {
-//	int ret = __syscall(SYS_nanosleep, req, rem);
-
 	int ret = sys_nanosleep(req, rem);
 
 	switch (ret) {

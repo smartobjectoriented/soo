@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Julien Quartier <julien.quartier@heig-vd.ch>
+ * Copyright (C) 2020 Julien Quartier <julien.quartier@bluewin.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -203,7 +203,7 @@ int main(int argc, char **argv)
                 inet_pton(AF_INET, destination, &ping_addr.sin_addr);
 
                 ping_addr.sin_family = AF_INET;
-                ping_addr.sin_port = 0; // ICMP -> no port
+                ping_addr.sin_port = 0; /* ICMP -> no port */
 
                 memset(&packet, 0, sizeof(struct ping_pkt));
 

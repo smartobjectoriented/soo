@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Daniel Rossier <daniel.rossier@soo.tech>
- * Copyright (C) 2016 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2020 Julien Quartier <julien.quartier@bluewin.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

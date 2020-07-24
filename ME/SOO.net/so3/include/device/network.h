@@ -43,4 +43,4 @@ void network_devices_init(void);
 
 void network_devices_register(eth_dev_t *eth_dev);
 
-#endif //SO3__DEVICE_NETWORK_H
+#endif /* SO3__DEVICE_NETWORK_H */
