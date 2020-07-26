@@ -191,10 +191,10 @@ int main(int argc, char **argv)
                 return 1;
         }
 
-        setsockopt(s, 0xfff, IP_TTL, (const char *) &ttl, sizeof(ttl));
+        setsockopt(s, SOL_SOCKET, IP_TTL, (const char *) &ttl, sizeof(ttl));
 
-        setsockopt(s, 0xfff, 0x1005, (const char *) &timeout, sizeof(struct timeval));
-        setsockopt(s, 0xfff, 0x1006, (const char *) &timeout, sizeof(struct timeval));
+        setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, (const char *) &timeout, sizeof(struct timeval));
+        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char *) &timeout, sizeof(struct timeval));
 
 
         while (attempt++ < count) {
