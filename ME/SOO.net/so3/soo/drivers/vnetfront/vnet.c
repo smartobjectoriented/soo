@@ -269,8 +269,8 @@ void vnet_probe(struct vbus_device *vdev) {
         vbus_printf(vbt, vdev->nodename, "ring-ctrl-ref", "%u", vnet->ring_ctrl_ref);
         vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vnet->evtchn);
         vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", shared_data_grant);
-        vbus_printf(vbt, vdev->nodename, "vbuff-tx-ref", "%u", vbuff_tx.grant);
-        vbus_printf(vbt, vdev->nodename, "vbuff-rx-ref", "%u", vbuff_rx.grant);
+        vbus_printf(vbt, vdev->nodename, "vbuff-tx-ref", "%u", vbuff_tx.grants[0]); // Only the first grant is needed to map memory
+        vbus_printf(vbt, vdev->nodename, "vbuff-rx-ref", "%u", vbuff_rx.grants[0]);
 
         vbus_transaction_end(vbt);
 }
@@ -336,8 +336,8 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
         vbus_printf(vbt, vdev->nodename, "ring-ctrl-ref", "%u", vnet->ring_ctrl_ref);
         vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vnet->evtchn);
         vbus_printf(vbt, vdev->nodename, "grant-buff", "%u", shared_data_grant);
-        vbus_printf(vbt, vdev->nodename, "vbuff-tx-ref", "%u", vbuff_tx.grant);
-        vbus_printf(vbt, vdev->nodename, "vbuff-rx-ref", "%u", vbuff_rx.grant);
+        vbus_printf(vbt, vdev->nodename, "vbuff-tx-ref", "%u", vbuff_tx.grants[0]); // Only the first grant is needed to map memory
+        vbus_printf(vbt, vdev->nodename, "vbuff-rx-ref", "%u", vbuff_rx.grants[0]);
 
 
         vbus_transaction_end(vbt);

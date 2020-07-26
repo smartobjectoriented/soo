@@ -30,10 +30,15 @@
 #include <soo/dev/vnetbuff.h>
 
 void vbuff_init(struct vbuff_buff* buff){
+        int i = 0;
+
         buff->data_phys = (uint8_t*)get_contig_free_pages(PAGE_COUNT);
         buff->data = io_map(buff->data_phys, PAGE_COUNT * PAGE_SIZE);
         buff->size = PAGE_COUNT * PAGE_SIZE;
-        buff->grant = GRANT_INVALID_REF;
+
+        while(i < PAGE_COUNT)
+                buff->grants[i++] = GRANT_INVALID_REF;
+
         mutex_init(&buff->mutex);
 }
 
@@ -105,23 +110,19 @@ void vbuff_update_grant(struct vbuff_buff* buff, struct vbus_device *dev){
 
         mutex_lock(&buff->mutex);
 
-        if(buff->grant != GRANT_INVALID_REF)
-                gnttab_end_foreign_access_ref(buff->grant);
-
-        /* TODO save ref */
         while(i < PAGE_COUNT){
+
+                if(buff->grants[i] != GRANT_INVALID_REF)
+                        gnttab_end_foreign_access_ref(buff->grants[i]);
+
                 res = gnttab_grant_foreign_access(dev->otherend_id, phys_to_pfn((uint32_t)(buff->data_phys + i * PAGE_SIZE)), 0);
                 if (res < 0)
                         BUG();
 
-                if(i == 0)
-                        buff->grant = res;
+                buff->grants[i] = res;
 
                 i++;
         }
-
-
-
 
         mutex_unlock(&buff->mutex);
 }

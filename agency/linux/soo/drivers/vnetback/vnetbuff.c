@@ -55,42 +55,15 @@ int vbuff_map_buffer_valloc(struct vbus_device *dev, int gnt_ref, void **vaddr)
 	if (!area)
 		BUG();
 
-	//op.host_addr = (unsigned long) area->addr;
-
-	/*if (grant_table_op(GNTTABOP_map_grant_ref, &op, 1))
-		BUG();*/
-
 	gnttab_set_map_op(&op, area->addr, GNTMAP_host_map | GNTMAP_readonly, gnt_ref, dev->otherend_id, 0, PAGE_SIZE * PAGE_COUNT);
 
-
 	if (gnttab_map(&op) || op.status != GNTST_okay) {
 		free_vm_area(area);
 		DBG(VFB_PREFIX "mapping in shared page %d from domain %d failed for device %s\n", fb_ref, watch->dev->otherend_id, watch->dev->nodename);
 		BUG();
 	}
-
-	/*if (op.status != GNTST_okay) {
-		free_vm_area(area);
-		lprintk("%s - line %d: Mapping in shared page %d from domain %d failed for device %s\n", __func__, __LINE__, gnt_ref, dev->otherend_id, dev->nodename);
-		BUG();
-	}*/
-
-	/* Stuff the handle in an unused field */
-	//area->phys_addr = (unsigned long) op.handle;
 
 	*vaddr = area->addr;
-
-
-	/*
-	 *
-	gnttab_set_map_op(&op, area->addr, GNTMAP_host_map | GNTMAP_readonly, fb_ref, watch->dev->otherend_id, 0, PAGE_SIZE * PAGE_COUNT);
-
-	if (gnttab_map(&op) || op.status != GNTST_okay) {
-		free_vm_area(area);
-		DBG(VFB_PREFIX "mapping in shared page %d from domain %d failed for device %s\n", fb_ref, watch->dev->otherend_id, watch->dev->nodename);
-		BUG();
-	}
-	 */
 
 	return 0;
 }

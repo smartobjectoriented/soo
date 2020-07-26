@@ -85,7 +85,10 @@ int recvmmsg (int, struct mmsghdr *, unsigned int, unsigned int, struct timespec
 #define SO_SECURITY_ENCRYPTION_TRANSPORT        23
 #define SO_SECURITY_ENCRYPTION_NETWORK          24
 
+#ifndef SO_BINDTODEVICE
 #define SO_BINDTODEVICE 25
+#endif
+
 
 #define SO_ATTACH_FILTER        26
 #define SO_DETACH_FILTER        27

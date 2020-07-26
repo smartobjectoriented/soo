@@ -37,7 +37,7 @@ struct vbuff_buff {
         uint8_t *data;
         uint8_t *data_phys;
         size_t size;
-        grant_handle_t grant;
+        grant_handle_t grants[PAGE_COUNT];
         mutex_t mutex;
         size_t prod;
 };
