@@ -43,11 +43,7 @@ struct vnet_shared_data {
 
 
 enum vnet_type{
-        SET_IP = 0,
-        GET_IP,
-        ENABLE,
-        DISABLE,
-        ETHADDR,
+        TOKEN = 0
 };
 
 
@@ -64,6 +60,7 @@ typedef struct {
                 struct ip_conf ip;
                 grant_handle_t grant;
                 unsigned char ethaddr[ARP_HLEN];
+                int val;
         };
         char buffer[2];
 } vnet_request_t;
@@ -75,6 +72,7 @@ typedef struct  {
                 struct ip_conf ip;
                 grant_handle_t grant;
                 unsigned char ethaddr[ARP_HLEN];
+                int val;
         };
         char buffer[2];
 } vnet_response_t;
@@ -108,6 +106,7 @@ typedef struct {
         grant_handle_t handle;
         uint32_t evtchn;
 
+        int broadcast_token;
         int connected;
 
 } vnet_t;

@@ -81,8 +81,9 @@ static uint32_t migration_count = 0;
  * Should receive local information through args
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
-#if 1 /* alphabet */
         agency_ctl_args_t agency_ctl_args;
+
+#if 0 /* alphabet */
 
         agencyUID_t refUID = {
                 .id = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08}
@@ -106,7 +107,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 #endif
 
 
-#if 1 /* alphabet */
+#if 0 /* alphabet */
         lprintk("## (slotID: %d) bringing value %c (found: %d)\n", args->slotID, *((char *) localinfo_data), *((char *) localinfo_data+1));
         if (get_ME_state() != ME_state_preparing) {
 
@@ -148,7 +149,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
         vnet = vnet_get_vnet();
 
         if(vnet->connected) {
-                /* Connected so we don't need to transmit */
+                /* Connected so we don't need to share packets to transmit */
                 localinfo_data->tx_start = localinfo_data->tx_end = 0;
 
                 localinfo_data->rx_start = localinfo_data->rx_end;
@@ -171,16 +172,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
                 localinfo_data->rx_start < localinfo_data->rx_end
                 || localinfo_data->tx_start < localinfo_data->tx_end;
 
-
-#if 0
-        live_count++;
-
-	if (live_count == 5) {
-		lprintk("##################### ME %d disappearing..\n", ME_domID());
-		set_ME_state(ME_state_killed);
-	}
-
-#endif
+        pre_propagate_args->propagate_status = 1;
 
         return 0;
 }
@@ -212,6 +204,16 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
         return 1;
 }
 
+static int printd(void *arg)
+{
+        printk(arg);
+        return 0;
+}
+
+#define int_printk(val) do {\
+	kernel_thread(printd, "printd", (void*)val, 0);\
+} while(0);
+
 /**
  * COOPERATE
  *
@@ -237,30 +239,41 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
         switch (cooperate_args->role) {
         case COOPERATE_INITIATOR:
-                printk("Cooperate: Initiator %d\n", ME_domID());
-                printk("Alone: %d\n", cooperate_args->alone);
+                //printk("Cooperate: Initiator %d\n", ME_domID());
+                //printk("Alone: %d\n", cooperate_args->alone);
                 if (cooperate_args->alone){
                         vnet->connected = 0;
                         return 0;
                 }
 
+                //printk("Start scanning MEs\n");
+
                 for (i = 0; i < MAX_ME_DOMAINS; i++) {
+                        int_printk("Domain");
+
                         if (cooperate_args->u.target_coop_slot[i].spad.valid) {
+                                //printk("We cooperate %i\n", i);
 
                                 memcpy(me_spad_caps, cooperate_args->u.target_coop_slot[i].spad.caps, SPAD_CAPS_SIZE);
+                                //printk("SPAD %i\n");
 
                                 localinfo_data->data_ring_pfn = phys_to_pfn(virt_to_phys_pt((uint32_t)&vnet->ring_data));
                                 localinfo_data->data_sring_pfn = phys_to_pfn(virt_to_phys_pt((uint32_t)vnet->ring_data.sring));
                                 localinfo_data->buff_tx_pfn = phys_to_pfn(vnet_get_vbuff_tx()->data_phys);
                                 localinfo_data->buff_rx_pfn = phys_to_pfn(vnet_get_vbuff_rx()->data_phys);
+                                //printk("BRR %i\n");
 
                                 /* Collaboration ... */
                                 agency_ctl_args.u.target_cooperate_args.pfns.content = phys_to_pfn(virt_to_phys_pt((uint32_t)localinfo_data));
                                 /* This pattern enables the cooperation with the target ME */
 
+                                //printk("all %i\n");
 
                                 agency_ctl_args.cmd = AG_COOPERATE;
                                 agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
+
+                                //printk("end %i\n");
+
                                 // TODO
                                 //memcpy(agency_ctl_args.u.target_cooperate_args.spid, get_ME_desc()->spid, SPID_SIZE);
                                 //memcpy(agency_ctl_args.u.target_cooperate_args.spad_caps, get_ME_desc()->spad.caps, SPAD_CAPS_SIZE);
@@ -275,11 +288,11 @@ int cb_cooperate(soo_domcall_arg_t *args) {
                 break;
 
         case COOPERATE_TARGET:
-                printk("Cooperate: Target %d\n", ME_domID());
+                //printk("Cooperate: Target %d\n", ME_domID());
 
-                DBG("SPID of the initiator: ");
+                //printk("SPID of the initiator: ");
                 DBG_BUFFER(cooperate_args->u.initiator_coop.spid, SPID_SIZE);
-                DBG("SPAD caps of the initiator: ");
+                //printk("SPAD caps of the initiator: ");
                 DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
                 pfn = cooperate_args->u.initiator_coop.pfns.content;
@@ -303,8 +316,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
                 vnet_request_t *ring_req_from;
                 vnet_request_t *ring_req_to;
 
+                //printk("Responses");
 
-                /* Responses contains incomming frames */
+                /* Responses contains incoming frames */
                 int i = recv_localinfo->rx_start;
                 while(vnet->connected == 0 && i < recv_localinfo->rx_end){
                         ring_res_from = RING_GET_RESPONSE(&data_ring, i++);

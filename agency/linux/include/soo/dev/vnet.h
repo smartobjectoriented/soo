@@ -31,12 +31,10 @@
 #define VNET_NAME		"vnet"
 #define VNET_PREFIX		"[" VNET_NAME "] "
 
+#define INVALID_DOM -1
+
 enum vnet_type{
-	SET_IP = 0,
-	GET_IP,
-	ENABLE,
-	DISABLE,
-	ETHADDR,
+	TOKEN = 0,
 };
 
 struct vnet_shared_data {
@@ -60,6 +58,7 @@ typedef struct {
 		struct ip_conf ip;
 		grant_handle_t grant;
 		u8 ethaddr[ETH_ALEN];
+		int val;
 	};
 	char buffer[2];
 } vnet_request_t;
@@ -71,6 +70,7 @@ typedef struct  {
 		struct ip_conf ip;
 		grant_handle_t grant;
 		u8 ethaddr[ETH_ALEN];
+		int val;
 	};
 	char buffer[2];
 } vnet_response_t;
@@ -112,6 +112,8 @@ typedef struct {
 	struct vnetif *vif;
 
 	unsigned int irq;
+
+	int has_connected_token;
 
 	void (*send)(void*, u8*, int);
 

@@ -52,6 +52,9 @@
 struct net_device *net_devs[MAX_ME_DOMAINS];
 bool net_devs_initialized = false;
 
+/* This store which dom can forward frames to all MEs */
+int connected_dom = INVALID_DOM;
+
 void initialize_net_devs(void){
 	int i = 0;
 	struct vnetif *vif;
@@ -67,12 +70,30 @@ void initialize_net_devs(void){
 
 void vnet_process_ctrl(struct vbus_device *vdev){
 	vnet_request_t *ring_req;
+	vnet_response_t *ring_rsp;
 	vnet_t *vnet = to_vnet(vdev);
+	int can_access = 0;
 
 
 	while ((ring_req = vnet_ctrl_ring_request(&vnet->ring_ctrl)) != NULL) {
 		switch(ring_req->type){
-		case ETHADDR:
+		case TOKEN:
+			/* The network access token if free or we already are the owner */
+			if(connected_dom == INVALID_DOM || connected_dom == vdev->otherend_id) {
+				/* Set the other end as token owner */
+				connected_dom = vdev->otherend_id;
+				can_access = 1;
+			}
+
+			vnet->has_connected_token = can_access;
+
+			if ((ring_rsp = vnet_ctrl_ring_response(&vnet->ring_ctrl)) != NULL) {
+				ring_rsp->type = TOKEN;
+				ring_rsp->val = can_access;
+				vnet_ctrl_ring_response_ready(&vnet->ring_ctrl);
+				notify_remote_via_virq(vnet->irq);
+			}
+
 			break;
 		}
 	}
@@ -89,7 +110,13 @@ void vnet_process_data(struct vbus_device *vdev){
 	}
 }
 
+inline static int vnet_is_eth_dest(vnet_t* vnet, u8* data){
+	/* Is ethernet multicast or broadcast */
+	if((data[0] & 0b1) == 0b1)
+		return 1;
 
+	return memcmp(vnet->shared_data->ethaddr, data, ETH_ALEN) == 0;
+}
 
 void vnet_send_data(void* void_vnet, u8* data, int length){
 	vnet_response_t *ring_rsp;
@@ -99,6 +126,9 @@ void vnet_send_data(void* void_vnet, u8* data, int length){
 
 	DBG(VNET_PREFIX "Send data length: %d\n", length);
 
+	/* The frame is not for us and we can't broadcast to other */
+	if(!vnet->has_connected_token && !vnet_is_eth_dest(vnet, data))
+		return;
 
 	vbuff_put(&vnet->vbuff_rx, &vbuff_data, &buff_data, length);
 	memcpy(buff_data, data, length);
@@ -151,10 +181,14 @@ void vnet_close(struct vbus_device *vdev) {
 
 	DBG(VNET_PREFIX "Backend close: %d\n", vdev->otherend_id);
 
+	if(connected_dom == vdev->otherend_id){
+		vnet->has_connected_token = 0;
+		connected_dom = INVALID_DOM;
+	}
+
 	/*
 	 * Free the ring and unbind evtchn.
 	 */
-
 	BACK_RING_INIT(&vnet->ring_data, (&vnet->ring_data)->sring, PAGE_SIZE);
 	BACK_RING_INIT(&vnet->ring_ctrl, (&vnet->ring_ctrl)->sring, PAGE_SIZE);
 	unbind_from_virqhandler(vnet->irq, vdev);

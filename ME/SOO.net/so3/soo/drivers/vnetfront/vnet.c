@@ -80,6 +80,21 @@ inline struct vbuff_buff* vnet_get_vbuff_rx(void){
         return &vbuff_rx;
 }
 
+void vnet_ask_token(void) {
+        vnet_request_t *ring_req;
+
+        vnet->connected = 0;
+
+        if((ring_req = vnet_ctrl_ring_request(&vnet->ring_ctrl)) != NULL) {
+                ring_req->type = TOKEN;
+                vnet_ctrl_ring_request_ready(&vnet->ring_ctrl);
+
+                if(vnet->irq)
+                        notify_remote_via_irq(vnet->irq);
+        }
+}
+
+
 irq_return_t vnet_interrupt(int irq, void *dev_id) {
         struct vbus_device *vdev = (struct vbus_device *) dev_id;
         vnet_t *vnet = to_vnet(vdev);
@@ -90,6 +105,16 @@ irq_return_t vnet_interrupt(int irq, void *dev_id) {
         int i = 0;
 
         DBG("%s, %d\n", __func__, ME_domID());
+
+        while ((ring_rsp = vnet_ctrl_ring_response(&vnet->ring_ctrl)) != NULL) {
+                switch(ring_rsp->type){
+                case TOKEN:
+                        vnet->broadcast_token = ring_rsp->val;
+                        vnet->connected = 1;
+                        printk("TOKEN %i \n\n", vnet->broadcast_token);
+                        break;
+                }
+        }
 
         while ((ring_rsp = vnet_data_ring_response(&vnet->ring_data)) != NULL) {
                 if((buf = pbuf_alloc(PBUF_RAW, ring_rsp->buff.size, PBUF_RAM)) != NULL){
@@ -198,7 +223,6 @@ void vnet_probe(struct vbus_device *vdev) {
         unsigned int evtchn;
 
         struct vbus_transaction vbt;
-        /*vnet_t *vnet;*/
 
         DBG0("[" VNET_NAME "] Frontend probe\n");
 
@@ -207,13 +231,6 @@ void vnet_probe(struct vbus_device *vdev) {
 
         /* Alloc a vnet struct if not already done */
         vnet_init_vnet();
-
-        /*vnet = malloc(sizeof(vnet_t));
-        BUG_ON(!vnet);
-        memset(vnet, 0, sizeof(vnet_t));*/
-
-        vnet->connected = 1;
-
 
         /* Local instance */
         vdev_net = vdev;
@@ -280,8 +297,6 @@ void vnet_reconfiguring(struct vbus_device *vdev) {
         int res;
         struct vbus_transaction vbt;
         vnet_t *vnet = to_vnet(vdev);
-
-        vnet->connected = 1;
 
         DBG0("[" VNET_NAME "] Frontend reconfiguring\n");
         /* The shared page already exists */
@@ -402,9 +417,7 @@ void vnet_connected(struct vbus_device *vdev) {
         if(vnet->irq)
                 notify_remote_via_irq(vnet->irq);
 
-        if (!thread_created) {
-                thread_created = true;
-        }
+        vnet_ask_token();
 }
 
 

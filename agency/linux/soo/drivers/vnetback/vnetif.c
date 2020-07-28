@@ -32,17 +32,23 @@
 #include <linux/rtnetlink.h>
 #include <linux/if_vlan.h>
 #include <linux/vmalloc.h>
-
-#include <stdarg.h>
+#include <linux/syscalls.h>
+#include <linux/inetdevice.h>
 
 #include <soo/dev/vnetif.h>
 #include <soo/vbus.h>
 #include <soo/dev/vnet.h>
 
-#include <linux/syscalls.h>
-#include <linux/inetdevice.h>
+#include <net/arp.h>
+#include <net/ip.h>
+#include <net/route.h>
+#include <net/ip_fib.h>
+#include <net/rtnetlink.h>
+#include <net/net_namespace.h>
+#include <net/addrconf.h>
 
 #include "vnetifutil_priv.h"
+#include <stdarg.h>
 
 static struct net_device_stats *vnetif_get_stats(struct net_device *dev)
 {
@@ -129,23 +135,13 @@ static const struct ethtool_ops vnetif_ethtool_ops = {
 };
 
 static const struct net_device_ops vnetif_netdev_ops = {
-	.ndo_select_queue = NULL,
 	.ndo_start_xmit	= vnetif_start_xmit,
 	.ndo_get_stats	= vnetif_get_stats,
 	.ndo_open	= vnetif_open,
-	.ndo_stop	= NULL,
 	.ndo_change_mtu	= vnetif_change_mtu,
-	.ndo_fix_features = NULL,
 	.ndo_set_mac_address = eth_mac_addr,
 	.ndo_validate_addr   = eth_validate_addr,
 };
-#include <net/arp.h>
-#include <net/ip.h>
-#include <net/route.h>
-#include <net/ip_fib.h>
-#include <net/rtnetlink.h>
-#include <net/net_namespace.h>
-#include <net/addrconf.h>
 
 void link_vnet(struct net_device *dev, vnet_t *vnet){
 	struct vnetif *vif = netdev_priv(dev);
@@ -200,8 +196,8 @@ struct net_device * vnetif_init(int domid) {
 	vif->ip_csum = 1;
 	vif->dev = dev;
 	vif->disabled = false;
-	vif->drain_timeout = msecs_to_jiffies(1000/*rx_drain_timeout_msecs*/);
-	vif->stall_timeout = msecs_to_jiffies(1000/*rx_stall_timeout_msecs*/);
+	vif->drain_timeout = msecs_to_jiffies(1000);
+	vif->stall_timeout = msecs_to_jiffies(1000);
 
 	/* Start out with no queues. */
 	vif->queues = NULL;
@@ -211,10 +207,6 @@ struct net_device * vnetif_init(int domid) {
 	INIT_LIST_HEAD(&vif->fe_mcast_addr);
 
 	dev->netdev_ops	= &vnetif_netdev_ops;
-	/*dev->hw_features = NETIF_F_SG |
-			   NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-			   NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_FRAGLIST;*/
-	//dev->features = dev->hw_features | NETIF_F_RXCSUM;
 	dev->ethtool_ops = &vnetif_ethtool_ops;
 
 	dev->tx_queue_len = 32;
