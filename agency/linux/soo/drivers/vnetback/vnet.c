@@ -55,6 +55,8 @@ bool net_devs_initialized = false;
 /* This store which dom can forward frames to all MEs */
 int connected_dom = INVALID_DOM;
 
+int if_running = 0;
+
 void initialize_net_devs(void){
 	int i = 0;
 	struct vnetif *vif;
@@ -74,10 +76,10 @@ void vnet_process_ctrl(struct vbus_device *vdev){
 	vnet_t *vnet = to_vnet(vdev);
 	int can_access = 0;
 
-
 	while ((ring_req = vnet_ctrl_ring_request(&vnet->ring_ctrl)) != NULL) {
 		switch(ring_req->type){
-		case TOKEN:
+		case NET_STATUS:
+
 			/* The network access token if free or we already are the owner */
 			if(connected_dom == INVALID_DOM || connected_dom == vdev->otherend_id) {
 				/* Set the other end as token owner */
@@ -85,11 +87,15 @@ void vnet_process_ctrl(struct vbus_device *vdev){
 				can_access = 1;
 			}
 
+			can_access &= if_running;
+
 			vnet->has_connected_token = can_access;
 
 			if ((ring_rsp = vnet_ctrl_ring_response(&vnet->ring_ctrl)) != NULL) {
-				ring_rsp->type = TOKEN;
-				ring_rsp->val = can_access;
+				ring_rsp->type = NET_STATUS;
+				ring_rsp->network.broadcast_token = can_access;
+				ring_rsp->network.connected = if_running;
+
 				vnet_ctrl_ring_response_ready(&vnet->ring_ctrl);
 				notify_remote_via_virq(vnet->irq);
 			}
@@ -285,6 +291,13 @@ vdrvback_t vnetdrv = {
 	.suspend = vnet_suspend
 };
 
+int vnet_beat_thread(void * args){
+	while(1){
+		if_running = vnetifutil_if_running(VNET_INTERFACE);
+		msleep(2000);
+	}
+}
+
 int vnet_init(void) {
 	struct device_node *np;
 
@@ -297,6 +310,10 @@ int vnet_init(void) {
 	vdevback_init(VNET_NAME, &vnetdrv);
 
 	initialize_net_devs();
+
+
+	kernel_thread(vnet_beat_thread, NULL, 0);
+
 
 	return 0;
 }

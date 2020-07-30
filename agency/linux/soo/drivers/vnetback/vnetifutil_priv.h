@@ -24,6 +24,6 @@ void vnetifutil_if_down(const char* name);
 
 void vnetifutil_if_set_ips(const char* name, uint32_t network, uint32_t mask);
 
-
+int vnetifutil_if_running(const char* name);
 
 #endif //VNETIFUTIL_PRIV_H

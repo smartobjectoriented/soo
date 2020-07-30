@@ -30,11 +30,12 @@
 
 #define VNET_NAME		"vnet"
 #define VNET_PREFIX		"[" VNET_NAME "] "
+#define VNET_INTERFACE		"eth0"
 
 #define INVALID_DOM -1
 
 enum vnet_type{
-	TOKEN = 0,
+	NET_STATUS = 0,
 };
 
 struct vnet_shared_data {
@@ -51,14 +52,17 @@ struct ip_conf {
 	uint32_t gw;
 };
 
+
+typedef struct {
+	int broadcast_token;
+	int connected;
+} vnet_net_status_t;
+
 typedef struct {
 	uint16_t type;
 	union {
 		struct vbuff_data buff;
-		struct ip_conf ip;
-		grant_handle_t grant;
-		u8 ethaddr[ETH_ALEN];
-		int val;
+		vnet_net_status_t network;
 	};
 	char buffer[2];
 } vnet_request_t;
@@ -67,21 +71,10 @@ typedef struct  {
 	uint16_t type;
 	union {
 		struct vbuff_data buff;
-		struct ip_conf ip;
-		grant_handle_t grant;
-		u8 ethaddr[ETH_ALEN];
-		int val;
+		vnet_net_status_t network;
 	};
 	char buffer[2];
 } vnet_response_t;
-
-typedef struct {
-	uint16_t type;
-} vnet_ctrl_request_t;
-
-typedef struct  {
-	uint16_t type;
-} vnet_ctrl_response_t;
 
 /*
  * Generate ring structures and types.

@@ -51,6 +51,20 @@ void _vnetifutil_down(int fd, const char * name){
 	sys_ioctl(fd, SIOCSIFFLAGS, (unsigned long)&ifr);
 }
 
+short _vnetifutil_get_flags(int fd, const char * name){
+	struct ifreq ifr;
+	int err = 0;
+	memset(&ifr, 0, sizeof(struct ifreq));
+	strncpy(ifr.ifr_name, name, IFNAMSIZ);
+
+	if ((err = sys_ioctl(fd, SIOCGIFFLAGS, (unsigned long)&ifr)) < 0){
+		return 0;
+	}
+
+	return ifr.ifr_flags;
+}
+
+
 void _vnetifutil_set_address(int fd, const char * name, uint32_t ip, unsigned int cmd){
 	struct ifreq ifr;
 	struct sockaddr_in addr;
@@ -70,6 +84,17 @@ void _vnetifutil_set_address(int fd, const char * name, uint32_t ip, unsigned in
 #define _vnetif_set_ip(__fd, __name, __ip) _vnetifutil_set_address(__fd, __name, __ip, SIOCSIFADDR)
 #define _vnetif_set_destip(__fd, __name, __ip) _vnetifutil_set_address(__fd, __name, __ip, SIOCSIFDSTADDR)
 
+
+int vnetifutil_if_running(const char* name) {
+	int fd, running;
+	fd = sys_socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+
+	running = !!(_vnetifutil_get_flags(fd, name) & IFF_RUNNING);
+
+	sys_close(fd);
+
+	return running;
+}
 
 void vnetifutil_if_up(const char* name){
 	int fd;

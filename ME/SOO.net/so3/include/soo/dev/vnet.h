@@ -43,7 +43,7 @@ struct vnet_shared_data {
 
 
 enum vnet_type{
-        TOKEN = 0
+        NET_STATUS = 0
 };
 
 
@@ -54,13 +54,15 @@ struct ip_conf {
 };
 
 typedef struct {
+        int broadcast_token;
+        int connected;
+} vnet_net_status_t;
+
+typedef struct {
         uint16_t type;
         union {
                 struct vbuff_data buff;
-                struct ip_conf ip;
-                grant_handle_t grant;
-                unsigned char ethaddr[ARP_HLEN];
-                int val;
+                vnet_net_status_t network;
         };
         char buffer[2];
 } vnet_request_t;
@@ -69,19 +71,10 @@ typedef struct  {
         uint16_t type;
         union {
                 struct vbuff_data buff;
-                struct ip_conf ip;
-                grant_handle_t grant;
-                unsigned char ethaddr[ARP_HLEN];
-                int val;
+                vnet_net_status_t network;
         };
         char buffer[2];
 } vnet_response_t;
-
-typedef struct {
-        uint16_t type;
-
-        char pad[VNET_PACKET_SIZE - sizeof(struct vbuff_data) -2];
-} vnet_request_tx_t;
 
 /*
  * Generate ring structures and types.

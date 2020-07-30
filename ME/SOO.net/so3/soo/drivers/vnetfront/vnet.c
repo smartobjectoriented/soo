@@ -61,12 +61,9 @@
 static struct vbus_device *vdev_net = NULL;
 vnet_t *vnet = NULL;
 
-static bool thread_created = false;
-
 struct vbuff_buff vbuff_tx;
 struct vbuff_buff vbuff_rx;
 struct vnet_shared_data *vnet_shared_data;
-
 
 grant_ref_t shared_data_grant = 0;
 
@@ -86,7 +83,7 @@ void vnet_ask_token(void) {
         vnet->connected = 0;
 
         if((ring_req = vnet_ctrl_ring_request(&vnet->ring_ctrl)) != NULL) {
-                ring_req->type = TOKEN;
+                ring_req->type = NET_STATUS;
                 vnet_ctrl_ring_request_ready(&vnet->ring_ctrl);
 
                 if(vnet->irq)
@@ -101,17 +98,15 @@ irq_return_t vnet_interrupt(int irq, void *dev_id) {
         vnet_response_t *ring_rsp;
         struct pbuf *buf;
         unsigned char * data;
-        err_t err;
-        int i = 0;
 
         DBG("%s, %d\n", __func__, ME_domID());
 
         while ((ring_rsp = vnet_ctrl_ring_response(&vnet->ring_ctrl)) != NULL) {
                 switch(ring_rsp->type){
-                case TOKEN:
-                        vnet->broadcast_token = ring_rsp->val;
-                        vnet->connected = 1;
-                        printk("TOKEN %i \n\n", vnet->broadcast_token);
+                case NET_STATUS:
+                        vnet->broadcast_token = ring_rsp->network.broadcast_token;
+                        vnet->connected = ring_rsp->network.connected;
+                        printk("TOKEN %i, connected %i\n\n", vnet->broadcast_token, vnet->connected);
                         break;
                 }
         }
@@ -219,7 +214,7 @@ inline vnet_t *vnet_get_vnet(void){
 
 
 void vnet_probe(struct vbus_device *vdev) {
-        int res,i = 0;
+        int res;
         unsigned int evtchn;
 
         struct vbus_transaction vbt;
@@ -422,6 +417,7 @@ void vnet_connected(struct vbus_device *vdev) {
 
 
 err_t vnet_lwip_init(struct netif *netif) {
+        ip4_addr_t ip, mask, gw;
         eth_dev_t *eth_dev = netif->state;
         LWIP_ASSERT("netif != NULL", (netif != NULL));
         netif->name[0] = 'v';
@@ -445,10 +441,9 @@ err_t vnet_lwip_init(struct netif *netif) {
 #ifdef CONFIG_VNET_FRONT_DHCP
         dhcp_start(netif);
 #else
-        ip4_addr_t
-                ip = {.addr = vnet_shared_data->me_ip},
-                mask = {.addr = vnet_shared_data->mask},
-                gw = {.addr = vnet_shared_data->agency_ip};
+        ip.addr = vnet_shared_data->me_ip;
+        mask.addr = vnet_shared_data->mask;
+        gw.addr = vnet_shared_data->agency_ip;
 
         netif_set_addr(netif, &ip, &mask, &gw);
 #endif /* CONFIG_VNET_FRONT_DHCP */
