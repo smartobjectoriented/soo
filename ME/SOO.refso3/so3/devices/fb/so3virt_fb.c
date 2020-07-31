@@ -20,7 +20,6 @@
 #define DEBUG
 #endif
 
-#include <heap.h>
 #include <vfs.h>
 #include <common.h>
 #include <process.h>
@@ -45,7 +44,7 @@ struct devclass vfb_cdev = {
 };
 
 /* Framebuffer's physical address */
-static uint32_t fb_base;
+static uint32_t fb_base = 0;
 
 /* Framebuffer's resolution */
 static uint32_t fb_hres;
@@ -62,6 +61,8 @@ void *fb_mmap(int fd, uint32_t virt_addr, uint32_t page_count)
 {
 	uint32_t i;
 	pcb_t *pcb = current()->pcb;
+
+	BUG_ON(!fb_base);
 
 	for (i = 0; i < page_count; i++) {
 		/* Map the process' pages to physical ones. */
@@ -93,17 +94,11 @@ int fb_ioctl(int fd, unsigned long cmd, unsigned long args)
 	}
 }
 
-/* Return the physical address of the framebuffer. */
-uint32_t get_fb_base(uint32_t hres, uint32_t vres)
+void so3virt_fb_set_info(uint32_t base, uint32_t hres, uint32_t vres)
 {
-	/*
-	 * Allocate contiguous memory for the framebuffer and get the physical address.
-	 * The pages will be never released. They do not belong to any process.
-	 */
+	fb_base = base;
 	fb_hres = hres;
 	fb_vres = vres;
-	fb_base = get_contig_free_pages(hres * vres * 4 / PAGE_SIZE); /* assume 24bpp */
-	return fb_base;
 }
 
 REGISTER_DRIVER_POSTCORE("fb,so3virt", fb_init);
