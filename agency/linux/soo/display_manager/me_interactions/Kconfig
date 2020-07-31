@@ -1,9 +1,0 @@
-menu "ME Interactions"
-
-config ME_INTERACTIONS
-	bool "Interaction Test"
-	help
-		To be modified
-	default N
-
-endmenu # ME Interactions

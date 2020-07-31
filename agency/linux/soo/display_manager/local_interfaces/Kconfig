@@ -1,9 +1,0 @@
-menu "Local Interfaces"
-
-config LOCAL_INTERFACES
-	bool "Display test"
-	help
-		To be modified
-	default N
-
-endmenu # Local Interfaces

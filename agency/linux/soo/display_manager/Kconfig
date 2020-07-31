@@ -1,6 +1,0 @@
-menu "Display Manager"
-
-source "soo/display_manager/local_interfaces/Kconfig"
-source "soo/display_manager/me_interactions/Kconfig"
-
-endmenu # Display Manager
