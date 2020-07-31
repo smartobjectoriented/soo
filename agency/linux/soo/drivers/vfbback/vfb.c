@@ -387,7 +387,7 @@ vdrvback_t vfbdrv = {
 int vfb_init(void)
 {
 	struct device_node *np = of_find_compatible_node(NULL, NULL, "vfb,backend");
-	int i;
+	int i = 0;
 
 	if (!of_device_is_available(np)) {
 		return 0;

@@ -64,14 +64,20 @@ void vfb_probe(struct vbus_device *vdev)
 	vbus_scanf(vbt, dir, "ver", "%u", &vres);
 	DBG(VFB_PREFIX "Resolution is %dx%d\n", hres, vres);
 
-	/* Grant access to every necessary page of the framebuffer. */
-
-	fb_base = get_fb_base(hres, vres);
-	BUG_ON(!fb_base);
+	/*
+	 * Allocate contiguous memory for the framebuffer and get the physical address.
+	 * The pages will be never released. They do not belong to any process.
+	 */
 
 	page_count = hres * vres * 4 / PAGE_SIZE; /* assume 24bpp */
+	fb_base = get_contig_free_pages(page_count);
+	BUG_ON(!fb_base);
+
+	so3virt_fb_set_info(fb_base, hres, vres);
+
+	/* Grant access to every necessary page of the framebuffer. */
 	for (i = 0; i < page_count; i++) {
-		res = gnttab_grant_foreign_access(vdev->otherend_id, phys_to_pfn(fb_base + i * PAGE_SIZE), 0);
+		res = gnttab_grant_foreign_access(vdev->otherend_id, phys_to_pfn(fb_base + i * PAGE_SIZE), 1);
 		BUG_ON(res < 0);
 
 		if (i == 0) {
