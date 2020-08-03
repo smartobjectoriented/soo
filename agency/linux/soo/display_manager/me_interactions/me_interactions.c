@@ -176,4 +176,4 @@ enum hrtimer_restart timer_callback_mi (struct hrtimer* timer){
   return HRTIMER_RESTART;
 }
 
-late_initcall(me_interactions_init);
+subsys_initcall(me_interactions_init);

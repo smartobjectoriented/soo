@@ -454,4 +454,4 @@ static int new_fb_notifier_callback(struct notifier_block *self, unsigned long e
 	return 0;
 }
 
-late_initcall(local_interfaces_init);
+subsys_initcall(local_interfaces_init);
