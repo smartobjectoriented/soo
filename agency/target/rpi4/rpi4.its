@@ -20,12 +20,8 @@
 
 / {
 	description = "SOO Agency components for Raspberry Pi 4 B environment";
-	#address-cells = <0>;
-	#size-cells = <0>;
 
 	images {
-                #address-cells = <0>;
-		#size-cells = <0>;
         
                 avz {
                         description = "AVZ Hypervisor (32-bit)";

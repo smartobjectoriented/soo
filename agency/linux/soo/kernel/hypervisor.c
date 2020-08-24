@@ -106,41 +106,6 @@ int avz_sched_yield(void)
 	return ret;
 }
 
-int avz_sched_deadline(u64 delta_ns)
-{
-	int ret;
-	deadline_args_t deadline_args;
-
-	deadline_args.delta_ns = delta_ns;
-
-	ret = hypercall_trampoline(__HYPERVISOR_sched_op, SCHEDOP_deadline, (long) &deadline_args, 0, 0);
-	BUG_ON(ret < 0);
-
-	return 0;
-}
-
-int avz_sched_sleep_ns(u64 delta_ns)
-{
-	deadline_args_t deadline_args;
-	int ret;
-
-	deadline_args.delta_ns = delta_ns;
-
-	ret = hypercall_trampoline(__HYPERVISOR_sched_op, SCHEDOP_sleep, (long) &deadline_args, 0, 0);
-	BUG_ON(ret < 0);
-
-	return 0;
-}
-
-int avz_sched_sleep_us(u64 delta_us)
-{
-	return avz_sched_sleep_ns((u64) (1000 * delta_us));
-}
-
-int avz_sched_sleep_ms(u64 delta_ms)
-{
-	return avz_sched_sleep_us((u64) (1000 * delta_ms));
-}
 
 int avz_printk(char *buffer)
 {
