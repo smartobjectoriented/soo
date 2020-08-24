@@ -166,15 +166,13 @@ void memory_init(void)
 	init_heap_pages(heap_phys_start, heap_phys_end);
 
 	/* Now clearing the pte entries related to I/O area */
-	printk("#a0 swapper_pg_dir: %x\n", swapper_pg_dir);
 	for (addr = io_map_current_base; addr < HYPERVISOR_VIRT_START+HYPERVISOR_SIZE; addr += L1_SECT_SIZE) {
-		printk("## addr: %x\n", addr);
 		l1pte = (uint32_t *) l1pte_offset(swapper_pg_dir, addr);
 		*l1pte = 0;
 
 		flush_pte_entry(l1pte);
 	}
-	printk("##a1\n");
+
 }
 
 /*

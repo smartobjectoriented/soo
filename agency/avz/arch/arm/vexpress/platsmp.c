@@ -24,6 +24,8 @@
 
 #include <asm/cacheflush.h>
 
+#include <mach/vexpress.h>
+
 #include <device/arch/gic.h>
 
 extern void secondary_startup(void);

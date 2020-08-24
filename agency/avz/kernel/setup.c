@@ -110,19 +110,19 @@ void kernel_start(void)
 	pagealloc_init();
 
 	memory_init();
-printk("##0\n");
+
 	softirq_init();
-	printk("##1\n");
+
 	/* allocate pages for per-cpu areas */
 	for (i = 0; i < NR_CPUS; i++)
 		init_percpu_area(i);
 
 	/* Initialization of the machine. */
 	setup_arch(&command_line);
-	printk("##2\n");
+
 	/* Prepare to adapt the serial virtual address at a better location in the I/O space. */
 	console_init_post();
-	printk("##3\n");
+
 	logbool_init();
 
 	printk("Init devices...\n");

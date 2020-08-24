@@ -76,14 +76,13 @@ long do_domctl(domctl_t *args)
 	case DOMCTL_pauseME:
 	{
 		struct domain *d = domains[op->domain];
-printk("### a0\n");
+
 		ret = -ESRCH;
 		if (d != NULL)
 		{
-			printk("### a1\n");
 			ret = -EINVAL;
 			if (d != current->domain)
-			{printk("### a2\n");
+			{
 				domain_pause_by_systemcontroller(d);
 				ret = 0;
 			}

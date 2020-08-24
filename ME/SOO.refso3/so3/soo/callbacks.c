@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -86,7 +86,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 #endif
 
 
-#if 1 /* alphabet */
+#if 0 /* alphabet */
 	lprintk("## (slotID: %d) bringing value %c (found: %d)\n", args->slotID, *((char *) localinfo_data), *((char *) localinfo_data+1));
 	if (get_ME_state() != ME_state_preparing) {
 
@@ -125,11 +125,11 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-#if 0 /* dummy_activity */
+#if 1 /* dummy_activity */
 	pre_propagate_args->propagate_status = 1;
 #endif
 
-#if 1 /* Alphabet */
+#if 0 /* Alphabet */
 
 	pre_propagate_args->propagate_status = 0;
 
@@ -277,7 +277,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		target_char = *((char *) localinfo_data);
 		initiator_char = *((char *) recv_data);
 
-#if 1 /* Alphabet - Increment the alphabet in this case. */
+#if 0 /* Alphabet - Increment the alphabet in this case. */
 		if (get_ME_state() != ME_state_dormant)  {
 			lprintk("## Not dormant: ");
 			if (initiator_found)
