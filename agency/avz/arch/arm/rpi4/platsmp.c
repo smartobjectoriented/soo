@@ -16,47 +16,28 @@
  *
  */
 
-#include <avz/init.h>
-#include <avz/errno.h>
-#include <avz/spinlock.h>
-#include <avz/delay.h>
-#include <avz/smp.h>
+#include <smp.h>
+#include <io.h>
+#include <spinlock.h>
+#include <lib.h>
+#include <memory.h>
 
-#include <asm/delay.h>
-#include <asm/io.h>
-#include <asm/mach/map.h>
 #include <asm/cacheflush.h>
+#include <asm/processor.h>
 
-#include <asm/hardware/gic.h>
-#include <asm/hardware/arm_timer.h>
-
-#include <asm/opcodes.h>
+#include <device/arch/gic.h>
 
 #include <mach/rpi4.h>
 
 extern void secondary_startup(void);
 
-/*
- * Initialise the CPU possible map early - this describes the CPUs
- * which may be present or become present in the system.
- */
-void __init rpi4_smp_init_cpus(void)
+
+void smp_prepare_cpus(unsigned int max_cpus)
 {
-	int i;
-
-	for (i = 0; i < NR_CPUS; i++)
-		cpu_set(i, cpu_possible_map);
-
-	set_smp_cross_call(gic_raise_softirq);
+	/* Nothing to do for Rpi4 */
 }
 
-static void __init rpi4_smp_prepare_cpus(unsigned int max_cpus)
-{
-
-
-}
-
-static int rpi4_smp_boot_secondary(unsigned int cpu)
+void smp_boot_secondary(unsigned int cpu)
 {
 	unsigned long secondary_startup_phys = (unsigned long) virt_to_phys((void *) secondary_startup);
 	void *intc_vaddr;
@@ -69,19 +50,9 @@ static int rpi4_smp_boot_secondary(unsigned int cpu)
 
 	dsb(sy);
 	sev();
-
-	return 0;
 }
 
-void __cpuinit rpi4_smp_secondary_init(unsigned int cpu) {
-
-
+void smp_secondary_init(unsigned int cpu) {
+	/* Nothing to do for Rpi4 */
 }
-
-struct smp_operations rpi4_smp_ops __initdata = {
-	.smp_init_cpus          = rpi4_smp_init_cpus,
-	.smp_prepare_cpus	= rpi4_smp_prepare_cpus,
-	.smp_boot_secondary	= rpi4_smp_boot_secondary,
-	.smp_secondary_init	= rpi4_smp_secondary_init,
-};
 

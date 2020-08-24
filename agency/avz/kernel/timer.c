@@ -17,22 +17,20 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/init.h>
-#include <avz/types.h>
-#include <avz/errno.h>
-#include <avz/sched.h>
-#include <avz/lib.h>
-#include <avz/smp.h>
-#include <avz/time.h>
-#include <avz/softirq.h>
-#include <avz/timer.h>
-#include <avz/keyhandler.h>
-#include <avz/percpu.h>
-#include <avz/cpumask.h>
-#include <avz/xmalloc.h>
+#include <config.h>
+#include <types.h>
+#include <errno.h>
+#include <sched.h>
+#include <lib.h>
+#include <smp.h>
+#include <time.h>
+#include <softirq.h>
+#include <timer.h>
+#include <keyhandler.h>
+#include <percpu.h>
+#include <xmalloc.h>
 
-#include <asm/system.h>
+#include <asm/backtrace.h>
 
 #include <soo/soo.h>
 
@@ -213,7 +211,6 @@ static void execute_timer(struct timers *ts, struct timer *t) {
 static void timer_softirq_action(void) {
 	struct timer *cur, *t, *start;
 	struct timers *ts;
-
 	u64 now;
 	u64 end = STIME_MAX;
 
@@ -251,13 +248,7 @@ static void timer_softirq_action(void) {
 		t = t->list_next;
 	}
 
-	/* Check if it is needed to reprogram the timer, only for ME RT CPU since ME standard CPU has periodic timer */
-
-	if ((smp_processor_id() == ME_RT_CPU) && (start != NULL)) 
-		reprogram_timer(start->expires); 
-
 	spin_unlock(&ts->lock);
-
 }
 
 static void dump_timer(struct timer *t, u64 now) {
@@ -270,34 +261,29 @@ static void dump_timerq(unsigned char key) {
 	struct timer *t;
 	struct timers *ts;
 	u64 now = NOW();
-	int i, j;
+	int j;
 
 	printk("Dumping timer queues:\n");
 
-	for_each_online_cpu(i)
-	{
-		ts = &per_cpu(timers, i);
+	ts = &per_cpu(timers, ME_CPU);
+	printk("CPU #%d:\n", ME_CPU);
 
-		printk("CPU #%d:\n", i);
-		spin_lock(&ts->lock);
+	spin_lock(&ts->lock);
 
-		for (t = ts->list, j = 0; t != NULL; t = t->list_next, j++)
-			dump_timer(t, now);
+	for (t = ts->list, j = 0; t != NULL; t = t->list_next, j++)
+		dump_timer(t, now);
 
-		spin_unlock(&ts->lock);
-	}
+	spin_unlock(&ts->lock);
 }
 
 static struct keyhandler dump_timerq_keyhandler = { .diagnostic = 1, .u.fn =
 		dump_timerq, .desc = "dump timer queues" };
 
-void __init timer_init(void) {
-	int i;
+void timer_init(void) {
 
 	open_softirq(TIMER_SOFTIRQ, timer_softirq_action);
 
-	for_each_possible_cpu(i)
-		spin_lock_init(&per_cpu(timers, i).lock);
+	spin_lock_init(&per_cpu(timers, ME_CPU).lock);
 
 	register_keyhandler('a', &dump_timerq_keyhandler);
 }

@@ -21,8 +21,9 @@
 
 #include <soo/uapi/avz.h>
 
-#include <avz/percpu.h>
-#include <asm/page.h>
+#include <asm/mmu.h>
+
+#include <percpu.h>
 
 struct vcpu;
 extern struct domain *agency;

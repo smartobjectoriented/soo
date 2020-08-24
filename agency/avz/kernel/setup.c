@@ -16,41 +16,25 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/init.h>
-#include <avz/lib.h>
-#include <avz/cpumask.h>
-#include <avz/sched.h>
-#include <avz/softirq.h>
-#include <avz/console.h>
-#include <avz/mm.h>
-#include <avz/domain.h>
-#include <avz/irq.h>
+#include <config.h>
+#include <lib.h>
+#include <sched.h>
+#include <softirq.h>
+#include <console.h>
+#include <domain.h>
+#include <smp.h>
+#include <libelf.h>
+#include <memslot.h>
+#include <keyhandler.h>
+#include <event.h>
 
-#include <avz/keyhandler.h>
+#include <device/device.h>
 
 #include <asm/processor.h>
-
-#include <asm/cache.h>
-#include <asm/debugger.h>
-#include <asm/delay.h>
 #include <asm/percpu.h>
 #include <asm/io.h>
 #include <asm/div64.h>
-#include <asm/time.h>
-#include <mach/irqs.h>
-#include <mach/system.h>
 #include <asm/vfp.h>
-
-#include <asm/page.h>
-#include <asm/pgtable.h>
-#include <asm/pgtable-hwdef.h>
-#include <asm/memslot.h>
-
-#include <asm/cputype.h>
-
-#include <avz/smp.h>
-#include <avz/libelf.h>
 
 #include <soo/soo.h>
 
@@ -60,68 +44,29 @@
 
 extern void startup_cpu_idle_loop(void);
 
-/* maxcpus: maximum number of CPUs to activate. */
-static unsigned int max_cpus = NR_CPUS;
-integer_param("maxcpus", max_cpus);
-
-uint cpu_hard_id[NR_CPUS] __initdata;
-cpumask_t cpu_present_map;
-
-extern char __per_cpu_start[], __per_cpu_data_end[], __per_cpu_end[];
-
 struct domain *idle_domain[NR_CPUS];
 
-extern int __init customize_machine(void);
-
-int __cpu_logical_map[NR_CPUS];
-
-static void percpu_free_unused_areas(void)
+long do_set_callbacks(unsigned long event, unsigned long domcall)
 {
-	unsigned int i;
+	struct vcpu *v = (struct vcpu *) current;
 
-	for (i = 0; i < NR_CPUS; i++) {
-		if (!cpu_online(i)) {
-#if 0 /* as long as no effect ... */
-			free_percpu_area(i);
-#endif /* 0 */
-		}
-	}
-}
+	v->arch.guest_context.event_callback              = event;
+	v->arch.guest_context.domcall                     = domcall;
 
-void __init smp_setup_processor_id(void)
-{
-	int i;
-	u32 cpu = is_smp() ? read_cpuid_mpidr() & 0xff : 0;
-
-	cpu_logical_map(0) = cpu;
-	for (i = 1; i < NR_CPUS; ++i) {
-		cpu_logical_map(i) = i == cpu ? 0 : i;
-		cpumask_set_cpu(i, &cpu_possible_map);
+	if (v->domain->domain_id == DOMID_AGENCY) {
+		/*
+		 * Do the same thing for the realtime subdomain.
+		 */
+		domains[DOMID_AGENCY_RT]->vcpu[0]->arch.guest_context.event_callback = v->arch.guest_context.event_callback;
+		domains[DOMID_AGENCY_RT]->vcpu[0]->arch.guest_context.domcall = v->arch.guest_context.domcall;
 	}
 
-	printk(KERN_INFO "Booting the Agency Hypervisor AVZ on physical CPU %d\n", cpu);
+	return 0;
 }
 
-
-static void __init do_initcalls(void)
+void dump_backtrace_entry(unsigned long where, unsigned long from)
 {
-	initcall_t *call;
-	for (call = &__initcall_start; call < &__initcall_end; call++) {
-		(*call)();
-	}
-}
-
-/*
- *	Activate the first processor.
- */
-
-static void __init boot_cpu_init(void)
-{
-	int cpu = smp_processor_id();
-	/* Mark the boot cpu "present", "online" etc for SMP and UP case */
-	cpu_set(cpu, cpu_possible_map);
-	cpu_set(cpu, cpu_present_map);
-	cpu_set(cpu, cpu_online_map);
+	printk("Function entered at [<%08lx>] from [<%08lx>]\n", where, from);
 }
 
 void init_idle_domain(void)
@@ -129,7 +74,7 @@ void init_idle_domain(void)
   int cpu = smp_processor_id();
 
 	/* Domain creation requires that scheduler structures are initialised. */
-	idle_domain[cpu] = domain_create(DOMID_IDLE, (smp_processor_id() == ME_RT_CPU), false);
+	idle_domain[cpu] = domain_create(DOMID_IDLE, false);
 
 	if (idle_domain[cpu] == NULL)
 		BUG();
@@ -140,28 +85,21 @@ void init_idle_domain(void)
 }
 
 extern void setup_arch(char **);
-extern struct vcpu *__init alloc_domU_vcpu0(struct domain *d);
 
-void __init __start_avz(void)
+void kernel_start(void)
 {
 	char *command_line;
 	int i;
-	int cpus;
 
 	local_irq_disable();
 
-	smp_clear_cpu_maps();
-
 	early_memory_init();
+
+	initialize_keytable();
 
 	loadAgency();
 
-	smp_setup_processor_id();
-
 	percpu_init_areas();
-
-	/* Mark boot CPU (CPU0) possible, present, active and online */
-	boot_cpu_init();
 
 	/* At this time... */
 	set_current(NULL);
@@ -169,40 +107,31 @@ void __init __start_avz(void)
 	/* We initialize the console device(s) very early so we can get debugging. */
 	console_init();
 
+	pagealloc_init();
+
 	memory_init();
 
 	softirq_init();
 
 	/* allocate pages for per-cpu areas */
-	for_each_possible_cpu(i)
-	{
-		/* from the second core */
-		if (i != 0)
-			init_percpu_area(i);
-	}
+	for (i = 0; i < NR_CPUS; i++)
+		init_percpu_area(i);
 
 	/* Initialization of the machine. */
 	setup_arch(&command_line);
-
-	trap_init();
 
 	/* Prepare to adapt the serial virtual address at a better location in the I/O space. */
 	console_init_post();
 
 	logbool_init();
 
-	printk("Init IRQ...\n");
-	init_IRQ();
-
-	printk("Init machine...\n");
-	customize_machine();
+	printk("Init devices...\n");
+	devices_init();
 
 	printk("Init scheduler...\n");
 	scheduler_init();
 
-	initialize_keytable();
-
-	printk("Initializing timer...\n");
+	printk("Initializing avz timer...\n");
 	/* get the time base kicked */
 
 	timer_init();
@@ -212,25 +141,21 @@ void __init __start_avz(void)
 	init_idle_domain();
 
 	/* for further create_mapping use... */
-	current->arch.guest_table = mk_pagetable(__pa(swapper_pg_dir));
+	current->arch.guest_ptable = (void *) __pa(swapper_pg_dir);
 
-	do_initcalls();
+	event_channel_init();
+
+	soo_activity_init();
 
 	/* Deal with secondary processors.  */
-	printk("spinning up at most %d total processors ...\n", max_cpus);
-
-	/* This cannot be called before secondary cpus are marked online.  */
-	percpu_free_unused_areas();
+	printk("spinning up at most %d total processors ...\n", NR_CPUS);
 
 	local_irq_enable();
-
-	cpus = smp_get_max_cpus();
-	smp_prepare_cpus(cpus);
 
 	smp_init();
 
 	/* Create initial domain 0. */
-	domains[DOMID_AGENCY] = domain_create(DOMID_AGENCY, false, false);
+	domains[DOMID_AGENCY] = domain_create(DOMID_AGENCY, false);
 	agency = domains[DOMID_AGENCY];
 
 	if (agency == NULL)
@@ -241,7 +166,7 @@ void __init __start_avz(void)
 	 * hypercalls and upcalls will be processed correctly.
 	 */
 
-	domains[DOMID_AGENCY_RT] = domain_create(DOMID_AGENCY_RT, false, false);
+	domains[DOMID_AGENCY_RT] = domain_create(DOMID_AGENCY_RT, false);
 
 	if (domains[DOMID_AGENCY_RT] == NULL)
 		panic("Error creating realtime agency subdomain.\n");

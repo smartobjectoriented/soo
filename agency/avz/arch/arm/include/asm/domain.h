@@ -48,8 +48,7 @@
 #define DOMAIN_USER	1
 #define DOMAIN_IO	2
 
-#include <asm/page.h>
-#include <asm/vfp.h>
+#include <asm/mmu.h>
 
 #ifndef __ASSEMBLY__
 #include <soo/uapi/avz.h>
@@ -80,10 +79,9 @@
 
 #ifndef __ASSEMBLY__
 
-#include <asm/config.h>
-#include <asm/mm.h>
-
-#include <avz/cache.h>
+#include <config.h>
+#include <memory.h>
+#include <cache.h>
 #endif
 
 #ifndef __ASSEMBLY__
@@ -95,53 +93,6 @@
 	  : : "r" (x));					\
 	isb();						\
 	} while (0)
-
-
-
-struct arch_domain {
-
-	unsigned long vstartinfo_start;
-	unsigned long domain_stack;
-
-} __cacheline_aligned;
-
-
-struct arch_vcpu {
-	struct vcpu_guest_context guest_context;
-	cpu_user_regs_t ctxt; /* User-level CPU registers */
-
-	struct vfp_state vfp;
-
-	pagetable_t  guest_table;           /* (MA) guest notion of cr3 */
-	pte_t  *guest_vtable;         /* virtual address of pagetable */
-
-	unsigned long	guest_pstart;		/* guest OS physical start address */
-	unsigned long	guest_vstart;		/* guest OS virtual start address */
-
-
-} __cacheline_aligned;
-
-
-#define USE_NORMAL_PGTABLE	  0
-#define USE_SYSTEM_PGTABLE	1
-
-extern void full_resume(void);
-
-extern struct domain *agency_rt_domain;
-extern struct domain *domains[MAX_DOMAINS];
-
-extern int construct_agency(struct domain *d);
-extern int construct_ME(struct domain *d);
-
-extern struct vcpu *alloc_domU_vcpu0(struct domain *d);
-
-extern void new_thread(struct vcpu *d, unsigned long start_pc, unsigned long r2_arg, unsigned long start_stack, unsigned long start_info);
-void *setup_dom_stack(struct vcpu *v);
-
-extern int domain_call(struct domain *target_dom, int cmd, void *arg, struct domain *current_mapped);
-extern int prep_switch_domain(void);
-extern void switch_mm(struct vcpu *prev, struct vcpu *next);
-void machine_halt(void);
 
 #endif  /* !__ASSEMBLY__ */
 

@@ -37,6 +37,7 @@ struct vfp_state {
 	uint32_t fpinst2;
 };
 
+struct vcpu;
 void vfp_save_state(struct vcpu *v);
 void vfp_restore_state(struct vcpu *v);
 void vfp_enable(void);

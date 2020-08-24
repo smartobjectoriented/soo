@@ -16,11 +16,11 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/init.h>
-#include <avz/mm.h>
-#include <avz/sched.h>
-#include <avz/softirq.h>
+#include <config.h>
+#include <sched.h>
+#include <softirq.h>
+
+#include <asm/cacheflush.h>
 
 uint32_t softirq_stat[NR_CPUS];
 
@@ -77,19 +77,16 @@ void do_softirq(void)
 
 void open_softirq(int nr, softirq_handler handler)
 {
-    ASSERT(nr < NR_SOFTIRQS);
+	ASSERT(nr < NR_SOFTIRQS);
 
-    softirq_handlers[nr] = handler;
+	softirq_handlers[nr] = handler;
 }
 
-void cpumask_raise_softirq(cpumask_t mask, unsigned int nr)
+void cpumask_raise_softirq(int cpu, unsigned int nr)
 {
-    int cpu;
+	transaction_set_bit(nr, (unsigned long *) &softirq_pending(cpu));
 
-    for_each_cpu_mask(cpu, mask)
-      transaction_set_bit(nr, (unsigned long *) &softirq_pending(cpu));
-
-    smp_send_event_check_mask(&mask);
+	smp_trigger_event(cpu);
 }
 
 /*
@@ -98,20 +95,20 @@ void cpumask_raise_softirq(cpumask_t mask, unsigned int nr)
  */
 void cpu_raise_softirq(unsigned int cpu, unsigned int nr)
 {
-  transaction_set_bit(nr, (unsigned long *) &softirq_pending(cpu));
+	transaction_set_bit(nr, (unsigned long *) &softirq_pending(cpu));
 
-  flush_all();
+	flush_all();
 
-  smp_send_event_check_cpu(cpu);
+	smp_trigger_event(cpu);
 }
 
 void raise_softirq(unsigned int nr)
 {
-  transaction_set_bit(nr, (unsigned long *) &softirq_pending(smp_processor_id()));
+	transaction_set_bit(nr, (unsigned long *) &softirq_pending(smp_processor_id()));
 }
 
 
-void __init softirq_init(void)
+void softirq_init(void)
 {
-  spin_lock_init(&softirq_pending_lock);
+	spin_lock_init(&softirq_pending_lock);
 }

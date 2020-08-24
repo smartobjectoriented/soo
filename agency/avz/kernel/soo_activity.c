@@ -21,23 +21,21 @@
 #define DEBUG
 #endif
 
+#include <memslot.h>
+#include <memory.h>
+#include <sched.h>
+#include <keyhandler.h>
+#include <lib.h>
+#include <domain.h>
+#include <errno.h>
+#include <types.h>
+
 #include <asm/io.h>
 #include <asm/domain.h>
-#include <asm/memslot.h>
 #include <asm/percpu.h>
-#include <asm/mm.h>
-#include <asm/memory.h>
+#include <asm/current.h>
 
 #include <asm/cacheflush.h>
-
-#include <avz/sched.h>
-#include <avz/keyhandler.h>
-#include <avz/lib.h>
-#include <avz/domain.h>
-#include <avz/init.h>
-#include <avz/errno.h>
-
-#include <avz/sched.h>
 
 #include <soo/uapi/debug.h>
 #include <soo/uapi/soo.h>
@@ -62,16 +60,6 @@ ME_state_t get_ME_state(unsigned int ME_slotID) {
 
 void set_ME_state(unsigned int ME_slotID, ME_state_t state) {
 	domains[ME_slotID]->shared_info->dom_desc.u.ME.state = state;
-}
-
-void set_dom_realtime(struct domain *d, bool realtime)
-{
-	d->shared_info->dom_desc.realtime = realtime;
-}
-
-bool is_dom_realtime(struct domain *d)
-{
-	return d->shared_info->dom_desc.realtime;
 }
 
 void shutdown_ME(unsigned int ME_slotID)
@@ -598,7 +586,7 @@ int do_soo_hypercall(soo_hyp_t *args) {
 	return rc;
 }
 
-static int __init soo_activity_init(void) {
+int soo_activity_init(void) {
 	int cpu;
 
 	DBG("Setting SOO avz up ...\n");
@@ -611,6 +599,4 @@ static int __init soo_activity_init(void) {
 
 	return 0;
 }
-
-__initcall(soo_activity_init);
 

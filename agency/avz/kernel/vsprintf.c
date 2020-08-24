@@ -16,11 +16,12 @@
  * - scnprintf and vscnprintf
  */
 
-#include <avz/stdarg.h>
-#include <avz/ctype.h>
-#include <avz/lib.h>
+#include <stdarg.h>
+#include <ctype.h>
+#include <lib.h>
 #include <asm/div64.h>
-#include <asm/page.h>
+
+#include <asm/mmu.h>
 
 /**
  * simple_strtoul - convert a string to an unsigned long

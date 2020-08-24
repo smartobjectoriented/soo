@@ -16,12 +16,11 @@
  *
  */
 
-#include <avz/types.h>
-#include <avz/sched.h>
+#include <types.h>
+#include <sched.h>
 
 #include <asm/vfp.h>
-#include <asm/cpregs.h>
-
+#include <asm/processor.h>
 
 /*
  * Save the VFP context related to the guest
@@ -81,22 +80,6 @@ void vfp_restore_state(struct vcpu *v)
 	WRITE_CP32(v->arch.vfp.fpscr, FPSCR);
 
 	WRITE_CP32(v->arch.vfp.fpexc, FPEXC);
-}
-
-
-static inline unsigned int get_copro_access(void)
-{
-	unsigned int val;
-	asm("mrc p15, 0, %0, c1, c0, 2 @ get copro access"
-			: "=r" (val) : : "cc");
-	return val;
-}
-
-static inline void set_copro_access(unsigned int val)
-{
-	asm volatile("mcr p15, 0, %0, c1, c0, 2 @ set copro access"
-			: : "r" (val) : "cc");
-	isb();
 }
 
 void vfp_enable(void)

@@ -16,16 +16,15 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/init.h>
-#include <avz/lib.h>
-#include <avz/errno.h>
-#include <avz/sched.h>
-#include <avz/event.h>
-#include <avz/irq.h>
-#include <avz/sched-if.h>
+#include <config.h>
+#include <lib.h>
+#include <errno.h>
+#include <sched.h>
+#include <event.h>
+#include <sched-if.h>
+#include <keyhandler.h>
 
-#include <avz/keyhandler.h>
+#include <device/irq.h>
 
 #include <asm/current.h>
 #include <asm/cacheflush.h>
@@ -389,7 +388,7 @@ static int evtchn_set_pending(struct vcpu *v, int evtchn) {
 	dmb();
 
 	if (smp_processor_id() != v->processor)
-		smp_send_event_check_cpu(v->processor);
+		smp_trigger_event(v->processor);
 
 	return 0;
 }
@@ -647,9 +646,7 @@ static void dump_evtchn_info(unsigned char key) {
 static struct keyhandler dump_evtchn_info_keyhandler = { .diagnostic = 1,
 		.u.fn = dump_evtchn_info, .desc = "dump evtchn info" };
 
-static int __init dump_evtchn_info_key_init(void) {
+void event_channel_init(void) {
 	register_keyhandler('e', &dump_evtchn_info_keyhandler);
-	return 0;
 }
-__initcall(dump_evtchn_info_key_init);
 

@@ -1,5 +1,5 @@
 #include <asm/linkage.h>
-#include <asm/asm-macros.h>
+#include <asm/processor.h>
 
 
 .macro ARM_DIV_BODY dividend, divisor, result, curbit

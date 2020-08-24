@@ -16,32 +16,24 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/lib.h>
-#include <avz/percpu.h>
-#include <avz/sched.h>
-#include <avz/init.h>
-#include <avz/ctype.h>
-#include <avz/console.h>
+#include <config.h>
+#include <lib.h>
+#include <percpu.h>
+#include <sched.h>
+#include <ctype.h>
+#include <console.h>
+#include <memslot.h>
+#include <domain.h>
+#include <errno.h>
+#include <libelf.h>
 
-#include <avz/domain.h>
-#include <avz/errno.h>
 #include <asm/processor.h>
-#include <asm/cputype.h>
-#include <asm/pgtable.h>
-#include <asm/mach/map.h>
-#include <asm/memslot.h>
-
-#include <avz/mm.h>
+#include <asm/current.h>
 
 #include <soo/uapi/arch-arm.h>
 #include <soo/uapi/logbool.h>
 
-#include <asm/mm.h>
-#include <avz/libelf.h>
-
 #include <asm/cacheflush.h>
-
 
 #define L_TEXT_OFFSET	0x8000
 

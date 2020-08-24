@@ -1,23 +1,7 @@
-/*
- * Copyright (C) 2016,2017 Daniel Rossier <daniel.rossier@soo.tech>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
- */
-
 #ifndef __ASM_ARM_STRING_H
 #define __ASM_ARM_STRING_H
+
+#include <config.h>
 
 /*
  * We don't do inline string functions, since the
@@ -43,28 +27,22 @@ extern void * memchr(const void *, int, __kernel_size_t);
 
 #define __HAVE_ARCH_MEMZERO
 #define __HAVE_ARCH_MEMSET
-extern void * memset(void *, int, __kernel_size_t);
 
+extern void *__memset(void *, int, __kernel_size_t);
 extern void __memzero(void *ptr, __kernel_size_t n);
 
 #define memset(p,v,n)							\
 	({								\
-	 	void *__p = (p); size_t __n = n;			\
-		if ((__n) != 0) {					\
+		if ((n) != 0) {						\
 			if (__builtin_constant_p((v)) && (v) == 0)	\
-				__memzero((__p),(__n));			\
+				__memzero((p),(n));			\
 			else						\
-				memset((__p),(v),(__n));		\
+				__memset((p),(v),(n));			\
 		}							\
-		(__p);							\
+		(p);							\
 	})
 
-#define memzero(p,n) 							\
-	({ 								\
-	 	void *__p = (p); size_t __n = n;			\
-	 	if ((__n) != 0) 					\
-	 		__memzero((__p),(__n)); 			\
-	 	(__p); 							\
-	 })
+#define memzero(p,n) ({ if ((n) != 0) __memzero((p),(n)); (p); })
 
-#endif
+#endif /* __ASM_ARM_STRING_H  */
+

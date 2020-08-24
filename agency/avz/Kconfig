@@ -1,6 +1,6 @@
 
 
-mainmenu "Agency AVZ Hypervisor configuration"
+mainmenu "SO3 Configuration"
 
 menu "General"
 	config CROSS_COMPILE
@@ -11,17 +11,11 @@ endmenu
  
 source "arch/arm/Kconfig"
 
-source "devices/Kconfig" 
+source "kernel/Kconfig"
 
 source "mm/Kconfig"
-		
-menu "Generated files"
-	config ELF
-		bool "Generate ELF"
-		default y
-	config BIN
-		bool "Generate BIN"
-		default y
-		depends on ELF
-endmenu
+
+source "devices/Kconfig" 
+
+	
 

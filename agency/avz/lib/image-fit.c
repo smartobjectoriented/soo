@@ -8,11 +8,11 @@
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  */
 
-#include <avz/types.h>
+#include <types.h>
 
-#include <avz/string.h>
-#include <avz/console.h>
-#include <avz/errno.h>
+#include <string.h>
+#include <console.h>
+#include <errno.h>
 
 #include <asm/byteorder.h>
 

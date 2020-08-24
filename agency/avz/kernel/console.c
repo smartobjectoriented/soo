@@ -16,26 +16,25 @@
  *
  */
 
-#include <avz/stdarg.h>
-#include <avz/config.h>
-#include <avz/init.h>
-#include <avz/lib.h>
-#include <avz/errno.h>
-#include <avz/event.h>
-#include <avz/spinlock.h>
-#include <avz/console.h>
-#include <avz/serial.h>
-#include <avz/softirq.h>
-#include <avz/keyhandler.h>
-#include <avz/mm.h>
-#include <avz/delay.h>
-#include <avz/types.h>
+#include <stdarg.h>
+#include <config.h>
+#include <lib.h>
+#include <errno.h>
+#include <event.h>
+#include <spinlock.h>
+#include <console.h>
+#include <serial.h>
+#include <softirq.h>
+#include <keyhandler.h>
+#include <memory.h>
+#include <types.h>
+
+#include <device/serial.h>
 
 #include <soo/uapi/console.h>
 
 #include <asm/domain.h>
 #include <asm/current.h>
-#include <asm/debugger.h>
 #include <asm/io.h>
 #include <asm/div64.h>
 
@@ -48,8 +47,6 @@ DEFINE_SPINLOCK(console_lock);
 /* To manage the final virtual address of the UART */
 extern uint32_t __uart_vaddr;
 
-extern void printch(char c);
-
 void serial_puts(const char *s)
 {
 	char c;
@@ -58,8 +55,12 @@ void serial_puts(const char *s)
 		printch(c);
 }
 
-void console_init_post(void) {
-	__uart_vaddr = (uint32_t) ioremap(CONFIG_DEBUG_UART_PHYS, PAGE_SIZE);
+/*
+ * Remap the UART which is currently identity-mapped so that all I/O are in the hypervisor area.
+ */
+void console_init_post(void)
+{
+	__uart_vaddr = (uint32_t) ioremap(UART_BASE, PAGE_SIZE);
 }
 
 static void sercon_puts(const char *s)
@@ -222,7 +223,7 @@ void printk_buffer_separator(void *buffer, int n, char separator) {
 	printk("\n");
 }
 
-void __init console_init(void)
+void console_init(void)
 {
 	__putstr(AVZ_BANNER);
 
@@ -233,6 +234,3 @@ void __init console_init(void)
 
 
 }
-
-
-

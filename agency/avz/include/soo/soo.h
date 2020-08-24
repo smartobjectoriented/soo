@@ -20,17 +20,13 @@
 #ifndef AVZ_SOO_H
 #define AVZ_SOO_H
 
-#include <avz/types.h>
+#include <types.h>
 
 /* Device tree features */
 #define ME_FEAT_ROOT		"/me_features"
 
-#define	ME_FEAT_REALTIME	"realtime" /* 0 means non-realtime / 1 means realtime */
 
-typedef struct {
-	bool realtime;
-} dtb_feat_t;
-
+int soo_activity_init(void);
 int soo_pre_activate(unsigned int slotID);
 int soo_cooperate(unsigned int slotID);
 void shutdown_ME(unsigned int ME_slotID);

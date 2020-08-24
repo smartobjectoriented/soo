@@ -21,19 +21,17 @@
 #define DEBUG
 #endif
 
-#include <asm/irq.h>
-#include <asm/page.h>
-#include <asm/memslot.h>
+#include <lib.h>
+#include <smp.h>
+#include <types.h>
+#include <console.h>
+#include <migration.h>
+#include <domain.h>
+#include <memslot.h>
+
 #include <asm/io.h>
 #include <asm/mmu.h>
-
-#include <avz/lib.h>
-#include <avz/smp.h>
-
-#include <avz/types.h>
-#include <avz/console.h>
-#include <avz/migration.h>
-#include <avz/domain.h>
+#include <asm/cacheflush.h>
 
 #include <soo/uapi/debug.h>
 #include <soo/uapi/avz.h>
@@ -104,7 +102,6 @@ int migration_final(soo_hyp_t *op) {
 	return 0;
 }
 
-
 /*------------------------------------------------------------------------------
  fix_page_table_ME
  Fix ME kernel page table (swapper_pg_dir) to fit new physical address space.
@@ -113,149 +110,100 @@ int migration_final(soo_hyp_t *op) {
  The rest of the page table will get fixed directly in the ME using a DOMCALL.
  ------------------------------------------------------------------------------*/
 extern unsigned long vaddr_start_ME;
-static void fix_kernel_boot_page_table_ME(unsigned int ME_slotID, ME_type_t ME_type)
+static void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 {
 	struct domain *me = domains[ME_slotID];
-	pde_t *pgtable_ME;
-	pde_t *pgd, *pgd_current;
-	pmd_t *pmd;
+	void *pgtable_ME;
 	unsigned long vaddr;
 	unsigned long old_pfn;
 	unsigned long new_pfn;
-	uint32_t prot_sect;
 	unsigned long offset;
 	volatile unsigned int base;
-
-	/* SO3-related */
 	uint32_t *l1pte, *l2pte, *l1pte_current;
 	int i, j;
 
 	/* The page table is found at domain_start + 0x4000 */
-	pgtable_ME = (pde_t *) (vaddr_start_ME + 0x4000);
+	pgtable_ME = (void *) (vaddr_start_ME + 0x4000);
 
-	/* According to the ME type, the initial fix for L1 page table may differ according
-	 * to the internal organization of the page table.
-	 */
-	if (ME_type == ME_type_SO3) {
+	/* Get the L1 PTE. */
 
-		/* Get the L1 PTE. */
+	/* We re-adjust the PTE entries until the IO_MAPPING_BASE; the rest will be done by the domain */
+	for (i = 0xc00; i < 0xe00; i++) {
+		l1pte = (uint32_t *) pgtable_ME + i;
+		if (!*l1pte)
+			continue ;
 
-		/* We re-adjust the PTE entries until the IO_MAPPING_BASE; the rest will be done by the domain */
-		for (i = 0xc00; i < 0xe00; i++) {
-			l1pte = (uint32_t *) pgtable_ME + i;
-			if (!*l1pte)
-				continue ;
+		if ((*l1pte & L1DESC_TYPE_MASK) == L1DESC_TYPE_SECT) {
 
-			if ((*l1pte & L1DESC_TYPE_MASK) == L1DESC_TYPE_SECT) {
+			old_pfn = (*l1pte & L1_SECT_MASK) >> PAGE_SHIFT;
 
-				old_pfn = (*l1pte & L1_SECT_MASK) >> PAGE_SHIFT;
+			new_pfn = old_pfn + pfn_offset;
 
-				new_pfn = old_pfn + pfn_offset;
+			/* If we have a section PTE, it means that pfn_offset *must* be 1 MB aligned */
+			BUG_ON(((new_pfn << PAGE_SHIFT) & ~L1_SECT_MASK) != 0);
 
-				/* If we have a section PTE, it means that pfn_offset *must* be 1 MB aligned */
-				BUG_ON(((new_pfn << PAGE_SHIFT) & ~L1_SECT_MASK) != 0);
+			*l1pte = (*l1pte & ~L1_SECT_MASK) | (new_pfn << PAGE_SHIFT);
 
-				*l1pte = (*l1pte & ~L1_SECT_MASK) | (new_pfn << PAGE_SHIFT);
+			flush_pte_entry((void *) l1pte);
 
-				flush_pmd_entry((pde_t *) l1pte);
+		} else {
+			/* Fix the pfn of the 1st-level PT */
+			base = (*l1pte & L1DESC_L2PT_BASE_ADDR_MASK);
+			base += pfn_to_phys(pfn_offset);
+			*l1pte = (*l1pte & ~L1DESC_L2PT_BASE_ADDR_MASK) | base;
 
-			} else {
-				/* Fix the pfn of the 1st-level PT */
-				base = (*l1pte & L1DESC_L2PT_BASE_ADDR_MASK);
-				base += pfn_to_phys(pfn_offset);
-				*l1pte = (*l1pte & ~L1DESC_L2PT_BASE_ADDR_MASK) | base;
+			flush_pte_entry((void *) l1pte);
 
-				flush_pmd_entry((pde_t *) l1pte);
+			for (j = 0; j < 256; j++) {
 
-				for (j = 0; j < 256; j++) {
+				l2pte = ((uint32_t *) __lva(*l1pte & L1DESC_L2PT_BASE_ADDR_MASK)) + j;
+				if (*l2pte) {
 
-					l2pte = ((uint32_t *) __lva(*l1pte & L1DESC_L2PT_BASE_ADDR_MASK)) + j;
-					if (*l2pte) {
+					/* Re-adjust the pfn of the L2 PTE */
+					base = *l2pte & PAGE_MASK;
+					base += pfn_to_phys(pfn_offset);
+					*l2pte = (*l2pte & ~PAGE_MASK) | base;
 
-						/* Re-adjust the pfn of the L2 PTE */
-						base = *l2pte & PAGE_MASK;
-						base += pfn_to_phys(pfn_offset);
-						*l2pte = (*l2pte & ~PAGE_MASK) | base;
-
-						flush_pmd_entry((pde_t *) l2pte);
-					}
-
+					flush_pte_entry((void *) l2pte);
 				}
-			}
-		}
 
-		/* Now, adjust the I/O range generally used by local UART - Used by AVZ */
-		for (i = 0xf80; i < 0xf8f; i++) {
-			l1pte = (uint32_t *) pgtable_ME + i;
-			l1pte_current = (uint32_t *) swapper_pg_dir + i;
-
-			*l1pte = *l1pte_current;
-			flush_pmd_entry((pde_t *) l1pte);
-		}
-
-	} else {
-
-		/* ME of Linux type */
-
-		/* Fix the first 6 MB of kernel code */
-		for (vaddr = 0xC0000000; vaddr < 0xC0600000; vaddr += SECTION_SIZE) {
-			pgd = pgd_offset_priv(pgtable_ME, vaddr);
-
-			pmd = (pmd_t *) pmd_offset(pgd);
-
-			if (pmd_none(*pmd))
-				continue;
-
-			if ((pmd_val(*pmd) & PMD_TYPE_MASK) == PMD_TYPE_SECT) {
-
-				/* Get section info to restore them after the fix */
-				prot_sect = pmd_val(*pmd) & ~PMD_MASK;
-
-				/* Get the address part */
-				old_pfn = __phys_to_pfn(pmd_val(*pmd) & PMD_MASK);
-
-				new_pfn = old_pfn + pfn_offset;
-				*pmd = __pmd(__pfn_to_phys(new_pfn) | prot_sect);
-
-				flush_pmd_entry((pde_t *) pmd);
-			} else {
-				printk("%s: unhandled pmd : %lx PMD_TYPE (%ld) for vaddr 0x%08lX!\n", __FUNCTION__, pmd_val(*pmd), (pmd_val(*pmd) & PMD_TYPE_MASK), vaddr);
-				BUG();
 			}
 		}
 	}
 
 	/* Fix the Hypervisor mapped addresses (size of hyp = 12 MB) */
-	for (vaddr = 0xFF000000; vaddr < 0xFFC00000; vaddr += SECTION_SIZE) {
-		pgd = pgd_offset_priv(pgtable_ME, vaddr);
-		pgd_current = pgd_offset_priv(swapper_pg_dir, vaddr);
+	for (vaddr = 0xff000000; vaddr < 0xffc00000; vaddr += L1_SECT_SIZE) {
+		l1pte = l1pte_offset(pgtable_ME, vaddr);
+		l1pte_current = l1pte_offset(swapper_pg_dir, vaddr);
 
-		pgd->l2 = pgd_current->l2;
-		flush_pmd_entry((pde_t *) pgd);
+		*l1pte = *l1pte_current;
+		flush_pte_entry((void *) l1pte);
 	}
 
 	/* Fix the physical address of the ME kernel page table */
-	me->vcpu[0]->arch.guest_table.pfn += pfn_offset;
+	me->vcpu[0]->arch.guest_ptable += pfn_to_phys(pfn_offset);
 
 	/* Fix other phys. var. such as TTBR* */
 
 	/* Preserve the low-level bits like SMP related bits */
 	offset = me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr0 & ((1 << PAGE_SHIFT) - 1);
 
-	old_pfn = __phys_to_pfn(me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr0);
+	old_pfn = phys_to_pfn(me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr0);
 
-	me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr0 = __pfn_to_phys(old_pfn + pfn_offset) + offset;
+	me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr0 = pfn_to_phys(old_pfn + pfn_offset) + offset;
 
 	offset = me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr1 & ((1 << PAGE_SHIFT) - 1);
 
 	if (me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr1 != 0) {
-		old_pfn = __phys_to_pfn(me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr1);
-		me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr1 = __pfn_to_phys(old_pfn + pfn_offset) + offset;
+		old_pfn = phys_to_pfn(me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr1);
+		me->vcpu[0]->arch.guest_context.sys_regs.guest_ttbr1 = pfn_to_phys(old_pfn + pfn_offset) + offset;
 	}
 
 	/* Flush all cache */
 	flush_all();
 }
+
+static unsigned char vectors[PAGE_SIZE];
 
 /*------------------------------------------------------------------------------
  fix_kernel_page_tables_ME
@@ -267,7 +215,6 @@ static int fix_kernel_page_table_ME(unsigned int ME_slotID, struct domain *curre
 	int rc = 0;
 	struct domain *me = domains[ME_slotID];
 	struct DOMCALL_fix_page_tables_args fix_pt_args;
-	unsigned char vectors[PAGE_SIZE];
 
 	fix_pt_args.pfn_offset = pfn_offset;
 
@@ -517,7 +464,7 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 	send_timer_event(me->vcpu[0]);
 
 	/* Fix the ME kernel page table for domcalls to work */
-	fix_kernel_boot_page_table_ME(ME_slotID, me->shared_info->dom_desc.u.ME.type);
+	fix_kernel_boot_page_table_ME(ME_slotID);
 
 	/* Switch back to agency address space */
 	switch_mm(idle_domain[smp_processor_id()]->vcpu[0], NULL);

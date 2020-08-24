@@ -18,7 +18,7 @@
 #include <exports.h>
 #endif
 
-#include <asm/config.h>
+#include <config.h>
 #include <fdt_support.h>
 #include <libfdt.h>
 

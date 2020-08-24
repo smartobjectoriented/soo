@@ -16,34 +16,25 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/init.h>
-#include <avz/lib.h>
-#include <avz/sched.h>
-#include <avz/domain.h>
-#include <avz/delay.h>
-#include <avz/event.h>
-#include <avz/time.h>
-#include <avz/timer.h>
-#include <avz/sched-if.h>
-#include <avz/softirq.h>
-#include <avz/spinlock.h>
+#include <config.h>
+#include <lib.h>
+#include <sched.h>
+#include <domain.h>
+#include <event.h>
+#include <time.h>
+#include <timer.h>
+#include <sched-if.h>
+#include <softirq.h>
+#include <spinlock.h>
+#include <errno.h>
 
-#include <avz/mm.h>
-#include <avz/errno.h>
+#include <device/irq.h>
 
-#include <asm/irq.h>
-#include <asm/config.h>
 #include <soo/soo.h>
 
 #include <soo/uapi/schedop.h>
 
-#include <public/sched.h>
-
 /* Various timer handlers. */
-
-static void cpu_agency_oneshot_timer_fn(void *data);
-static void cpu_ME_oneshot_timer_fn(void *data);
 
 inline void vcpu_runstate_change(struct vcpu *v, int new_state) {
 
@@ -62,12 +53,6 @@ int sched_init_vcpu(struct vcpu *v, unsigned int processor)
 	struct domain *d = v->domain;
 	unsigned int rc = 0;
 
-	/* Initialise the per-vcpu timers. */
-
-	if (processor == AGENCY_RT_CPU)
-		init_timer(&v->oneshot_timer, cpu_agency_oneshot_timer_fn, v, AGENCY_RT_CPU);
-	else if (is_dom_realtime(v->domain))
-		init_timer(&v->oneshot_timer, cpu_ME_oneshot_timer_fn, v, ME_RT_CPU);
 
 	/* Idle VCPUs are scheduled immediately. */
 	if (is_idle_domain(d))
@@ -156,62 +141,6 @@ static long do_yield(void)
 	return 0;
 }
 
-/*
- * Invoked by realtime agency or realtime ME to set a new deadline.
- */
-static int do_deadline(void *args) {
-	deadline_args_t *deadline_args = (deadline_args_t *) args;
-	unsigned int cpu = smp_processor_id();
-	uint64_t now;
-
-	ASSERT(cpu == ME_RT_CPU);
-
-	/* We need the sched lock to be sure that the vcpu_sleep() can do this job if called by CPU #0. */
-	spin_lock(&current->sched->sched_data.schedule_lock);
-
-	/* If the domain has been stopped, we cannot insert a new timer */
-	if (test_bit(_VPF_blocked, &current->pause_flags)) {
-		spin_unlock(&current->sched->sched_data.schedule_lock);
-		return 0;
-	}
-	now = NOW();
-	
-	set_timer(&current->oneshot_timer, now + deadline_args->delta_ns);
-
-	/* We force a timer_softirq to reprogram the timer if necessary. */
-
-	raise_softirq(TIMER_SOFTIRQ);
-
-	/* So that, if vcpu_sleep() is now executing a suspension of timer, the whole is coherent. */
-	spin_unlock(&current->sched->sched_data.schedule_lock);
-
-	return 0;
-}
-
-static int do_sleep(void *args) {
-	deadline_args_t *deadline_args = (deadline_args_t *) args;
-
-	ASSERT(smp_processor_id() == ME_RT_CPU);
-
-	/* The following lock is kept until schedule() did its job */
-	spin_lock(&current->sched->sched_data.schedule_lock);
-
-	/* If the domain has been stopped, we cannot insert a new timer */
-	if (test_bit(_VPF_blocked, &current->pause_flags)) {
-		spin_unlock(&current->sched->sched_data.schedule_lock);
-
-		return 0;
-	}
-
-	vcpu_sleep_nosync(current);
-
-	set_timer(&current->oneshot_timer, NOW() + deadline_args->delta_ns);
-
-	raise_softirq(TIMER_SOFTIRQ);
-
-	return 0;
-}
-
 long do_sched_op(int cmd, void *args)
 {
 	long ret = 0;
@@ -220,14 +149,6 @@ long do_sched_op(int cmd, void *args)
 
 	case SCHEDOP_yield:
 		ret = do_yield();
-		break;
-
-	case SCHEDOP_deadline:
-		ret = do_deadline(args);
-		break;
-
-	case SCHEDOP_sleep:
-		ret = do_sleep(args);
 		break;
 	}
 
@@ -258,15 +179,14 @@ static void schedule(void)
 
 	sd = &current->sched->sched_data;
 
-	if (!is_dom_realtime(current->domain))
-		stop_timer(&sd->s_timer);
+	stop_timer(&sd->s_timer);
 
 	/* get policy-specific decision on scheduling... */
 	next_slice = prev->sched->do_schedule();
 
 	next = next_slice.task;
 
-	if ((next_slice.time > 0ull) && !is_dom_realtime(current->domain))
+	if (next_slice.time > 0ull)
 		set_timer(&next->sched->sched_data.s_timer, NOW() + MILLISECS(next_slice.time));
 
 
@@ -304,31 +224,6 @@ void context_saved(struct vcpu *prev)
 	prev->is_running = 0;
 }
 
-static void cpu_agency_oneshot_timer_fn(void *data)
-{
-	struct vcpu *v = data;
-
-	send_timer_rt_event(v);
-}
-
-static void cpu_ME_oneshot_timer_fn(void *data)
-{
-	struct vcpu *v = data;
-
-	/* RT-ME: we force the ME to awake if sleeping. */
-	vcpu_wake(v);
-
-	send_timer_rt_event(v);
-}
-
-void trigger_oneshot_timer(struct vcpu *v) {
-
-	if (active_timer(&v->oneshot_timer))
-		stop_timer(&v->oneshot_timer);
-
-	cpu_ME_oneshot_timer_fn(v);
-}
-
 /** Just to bootstrap the agency **/
 static struct task_slice agency_schedule(void)
 {
@@ -353,13 +248,10 @@ struct scheduler sched_agency = {
 
 
 /* Initialise the data structures. */
-void __init scheduler_init(void)
+void  scheduler_init(void)
 {
-
 	open_softirq(SCHEDULE_SOFTIRQ, schedule);
 
 	sched_flip.init();
-	sched_rt.init();
-
 }
 
