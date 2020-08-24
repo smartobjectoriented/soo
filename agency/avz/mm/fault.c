@@ -17,12 +17,12 @@
  */
 
 
-#include <avz/console.h>
-#include <avz/spinlock.h>
+#include <console.h>
+#include <spinlock.h>
 
 #include <asm/processor.h>
-#include <asm/debugger.h>
 #include <asm/domain.h>
+#include <asm/backtrace.h>
 
 extern spinlock_t console_lock;
 
@@ -51,9 +51,9 @@ void panic(const char *fmt, ...)
 
 	spin_unlock_irqrestore(&lock, flags);
 
-	debugger_trap_immediate();
+	dump_all_execution_state();
 
-	machine_halt();
+	while (1);
 }
 
 void __bug(char *file, int line)
@@ -74,7 +74,7 @@ void __fault_trap(uint32_t far, uint32_t fsr, uint32_t lr) {
 
 	printk("### %s details are far: %x fsr: %x lr(r14)-8: %x ###\n", __func__, far, fsr, lr-8);
 
-	machine_halt();
+	while(1);
 }
 
 

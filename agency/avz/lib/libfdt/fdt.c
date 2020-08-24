@@ -53,7 +53,7 @@
 #include <fdt.h>
 #include <libfdt.h>
 
-#include <avz/lib.h>
+#include <lib.h>
 
 #include "libfdt_internal.h"
 

@@ -27,7 +27,7 @@ Boston, MA 02110-1301, USA.  */
 
 
 #include <asm/linkage.h>
-#include <asm/asm-macros.h>
+#include <asm/processor.h>
 #include <asm/errno.h>
 
 #define al r0

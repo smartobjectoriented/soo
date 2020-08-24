@@ -16,47 +16,43 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/init.h>
-#include <avz/types.h>
-#include <avz/lib.h>
-#include <avz/sched.h>
-#include <avz/spinlock.h>
-#include <avz/mm.h>
-#include <avz/irq.h>
-#include <avz/keyhandler.h>
+#include <config.h>
+#include <types.h>
+#include <lib.h>
+#include <sched.h>
+#include <spinlock.h>
+#include <keyhandler.h>
+#include <memory.h>
 
-#include <asm/page.h>
-#include <asm/irq.h>
+#include <asm/mmu.h>
 
 #define round_pgdown(_p)  ((_p)&PAGE_MASK)
 #define round_pgup(_p)    (((_p)+(PAGE_SIZE-1))&PAGE_MASK)
-
 
 /*
  * Boot-time allocator
  */
 
-static unsigned long __initdata first_valid_mfn = ~0UL;
+static unsigned long first_valid_mfn = ~0UL;
 
 static struct bootmem_region {
 	unsigned long s, e; /* MFNs @s through @e-1 inclusive are free */
-} *__initdata bootmem_region_list;
+} *bootmem_region_list;
 
-static unsigned int __initdata nr_bootmem_regions = 0;
+static unsigned int nr_bootmem_regions = 0;
 
-static void __init boot_bug(int line)
+static void boot_bug(int line)
 {
 	panic("Boot BUG at %s:%d\n", __FILE__, line);
 }
 #define BOOT_BUG_ON(p) if ( p ) boot_bug(__LINE__);
 
-static void __init bootmem_region_add(unsigned long s, unsigned long e)
+static void bootmem_region_add(unsigned long s, unsigned long e)
 {
 	unsigned int i;
 
 	if ( (bootmem_region_list == NULL) && (s < e) )
-		bootmem_region_list = mfn_to_virt(s++);
+		bootmem_region_list = pfn_to_virt(s++);
 
 	if ( s >= e )
 		return;
@@ -75,7 +71,7 @@ static void __init bootmem_region_add(unsigned long s, unsigned long e)
 	nr_bootmem_regions++;
 }
 
-void __init init_boot_pages(paddr_t ps, paddr_t pe)
+void init_boot_pages(paddr_t ps, paddr_t pe)
 {
 	ps = round_pgup(ps);
 	pe = round_pgdown(pe);
@@ -85,10 +81,9 @@ void __init init_boot_pages(paddr_t ps, paddr_t pe)
 	first_valid_mfn = min_t(unsigned long, ps >> PAGE_SHIFT, first_valid_mfn);
 
 	bootmem_region_add(ps >> PAGE_SHIFT, pe >> PAGE_SHIFT);
-
 }
 
-unsigned long __init alloc_boot_pages(unsigned long nr_pfns, unsigned long pfn_align)
+unsigned long alloc_boot_pages(unsigned long nr_pfns, unsigned long pfn_align)
 {
 	unsigned long pg, _e;
 	int i;
@@ -111,8 +106,6 @@ unsigned long __init alloc_boot_pages(unsigned long nr_pfns, unsigned long pfn_a
 	BOOT_BUG_ON(1);
 	return 0;
 }
-
-
 
 /*************************
  * BINARY BUDDY ALLOCATOR
@@ -246,10 +239,10 @@ static void free_pages(struct page_info *pg, unsigned int order)
 	{
 		mask = 1UL << order;
 
-		if ((page_to_mfn(pg) & mask))
+		if ((phys_to_pfn(page_to_phys(pg)) & mask))
 		{
 			/* Merge with predecessor block? */
-			if (!mfn_valid(page_to_mfn(pg-mask)) || !page_state_is(pg-mask, free) || (PFN_ORDER(pg-mask) != order))
+			if (!pfn_valid(page_to_pfn(pg-mask)) || !page_state_is(pg-mask, free) || (PFN_ORDER(pg-mask) != order))
 				break;
 
 			pg -= mask;
@@ -258,7 +251,7 @@ static void free_pages(struct page_info *pg, unsigned int order)
 		else
 		{
 			/* Merge with successor block? */
-			if (!mfn_valid(page_to_mfn(pg+mask)) || !page_state_is(pg+mask, free) || (PFN_ORDER(pg+mask) != order))
+			if (!pfn_valid(page_to_pfn(pg+mask)) || !page_state_is(pg+mask, free) || (PFN_ORDER(pg+mask) != order))
 				break;
 
 			page_list_del(pg + mask, &heap(node, order));
@@ -288,12 +281,12 @@ static void __init_heap_pages(struct page_info *pg, unsigned long nr_pages)
 	{
 		if (unlikely(!avail))
 		{
-			unsigned long s = page_to_mfn(pg + i);
-			unsigned long e = page_to_mfn(pg + nr_pages - 1) + 1;
+			unsigned long s = page_to_pfn(pg + i);
+			unsigned long e = page_to_pfn(pg + nr_pages - 1) + 1;
 			bool_t use_tail = !(s & ((1UL << MAX_ORDER) - 1)) && (find_first_set_bit(e) <= find_first_set_bit(s));
 			unsigned long n;
 
-			n = init_node_heap(page_to_mfn(pg+i), nr_pages - i, &use_tail);
+			n = init_node_heap(page_to_pfn(pg+i), nr_pages - i, &use_tail);
 			BUG_ON(i + n > nr_pages);
 			if (n && !use_tail)
 			{
@@ -335,12 +328,12 @@ void init_heap_pages(paddr_t ps, paddr_t pe)
 	 * Ensure there is a one-page buffer between AVZ and other zones, to
 	 * prevent merging of power-of-two blocks across the zone boundary.
 	 */
-	if (ps && !is_heap_mfn(paddr_to_pfn(ps)-1))
+	if (ps && !is_heap_mfn(phys_to_pfn(ps)-1))
 		ps += PAGE_SIZE;
-	if (!is_heap_mfn(paddr_to_pfn(pe)))
+	if (!is_heap_mfn(phys_to_pfn(pe)))
 		pe -= PAGE_SIZE;
 
-	__init_heap_pages(maddr_to_page(ps), (pe - ps) >> PAGE_SHIFT);
+	__init_heap_pages(phys_to_page(ps), (pe - ps) >> PAGE_SHIFT);
 }
 
 
@@ -372,19 +365,17 @@ static void pagealloc_info(unsigned char key)
 
 }
 
-
 static struct keyhandler pagealloc_info_keyhandler = {
 		.diagnostic = 1,
 		.u.fn = pagealloc_info,
 		.desc = "memory info"
 };
 
-static __init int pagealloc_keyhandler_init(void)
+static void pagealloc_keyhandler_init(void)
 {
 	register_keyhandler('m', &pagealloc_info_keyhandler);
-	return 0;
 }
-__initcall(pagealloc_keyhandler_init);
+
 
 static void dump_heap(unsigned char key)
 {
@@ -396,14 +387,19 @@ static void dump_heap(unsigned char key)
 }
 
 static struct keyhandler dump_heap_keyhandler = {
-		.diagnostic = 1,
-		.u.fn = dump_heap,
-		.desc = "dump heap info"
+	.diagnostic = 1,
+	.u.fn = dump_heap,
+	.desc = "dump heap info"
 };
 
-static __init int register_heap_trigger(void)
+void register_heap_trigger(void)
 {
 	register_keyhandler('H', &dump_heap_keyhandler);
-	return 0;
 }
-__initcall(register_heap_trigger);
+
+void pagealloc_init(void) {
+
+	pagealloc_keyhandler_init();
+	register_heap_trigger();
+
+}

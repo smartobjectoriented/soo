@@ -8,10 +8,11 @@
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
-#include <asm/byteorder.h>
+#include <config.h>
+#include <types.h>
+#include <string.h>
 
-#include <avz/types.h>
-#include <avz/string.h>
+#include <asm/byteorder.h>
 
 typedef unsigned char * Bytef;
 typedef unsigned int uInt;

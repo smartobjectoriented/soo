@@ -16,32 +16,26 @@
  *
  */
 
-#include <avz/init.h>
-#include <avz/errno.h>
+#include <smp.h>
+#include <io.h>
+#include <spinlock.h>
+#include <lib.h>
+#include <memory.h>
 
-#include <asm/delay.h>
-#include <asm/io.h>
 #include <asm/cacheflush.h>
-#include <asm/hardware/gic.h>
-#include <asm/mach/map.h>
-#include <asm/smp.h>
 
-#include <asm/types.h>
-#include <mach/motherboard.h>
-#include <mach/vexpress.h>
-
+#include <device/arch/gic.h>
 
 extern void secondary_startup(void);
 extern void vexpress_secondary_startup(void);
 
-extern struct smp_operations zynq_smp_ops;
-
 static DEFINE_SPINLOCK(boot_lock);
 
-#include "core.h"
 
-
-int __cpuinit vexpress_boot_secondary(unsigned int cpu) {
+/*
+ * Called from CPU #0
+ */
+void smp_boot_secondary(unsigned int cpu) {
 
 	/*
 	 * Set synchronisation state between this boot processor
@@ -55,22 +49,21 @@ int __cpuinit vexpress_boot_secondary(unsigned int cpu) {
 	 * since we haven't sent them a soft interrupt, they shouldn't
 	 * be there.
 	 */
-	write_pen_release(cpu_logical_map(cpu));
+	write_pen_release(cpu);
 
 	/*
 	 * Send the secondary CPU a soft interrupt, thereby causing
 	 * the boot monitor to read the system wide flags register,
 	 * and branch to the address found there.
 	 */
-	smp_cross_call(cpumask_of(cpu), IPI_WAKEUP);
-
+	smp_cross_call(cpu, IPI_WAKEUP);
 
 	do {
 		dmb();
 		if (pen_release == -1)
 			break;
 
-		udelay(10);
+		udelay(1000);
 	} while (1);
 
 	gic_secondary_init(0);
@@ -81,7 +74,8 @@ int __cpuinit vexpress_boot_secondary(unsigned int cpu) {
 	 */
 	spin_unlock(&boot_lock);
 
-	return pen_release != -1 ? -ENOSYS : 0;
+	if (pen_release != -1)
+		BUG();
 
 }
 
@@ -95,7 +89,7 @@ int __cpuinit vexpress_boot_secondary(unsigned int cpu) {
  * by arch/arm/kernel/head.S: secondary_startup(), called by headsmp.S
  *
  */
-void __cpuinit vexpress_secondary_init(unsigned int cpu)
+void smp_secondary_init(unsigned int cpu)
 {
 
 	gic_secondary_init(0);
@@ -114,56 +108,19 @@ void __cpuinit vexpress_secondary_init(unsigned int cpu)
 }
 
 /*
- * Initialise the CPU possible map early - this describes the CPUs
- * which may be present or become present in the system.
+ * Called from CPU #0
  */
-void __init vexpress_smp_init_cpus(void)
+void smp_prepare_cpus(unsigned int max_cpus)
 {
-	int i, ncores;
-
-	ncores = NR_CPUS;
-
-	for (i = 0; i < ncores; i++)
-		cpu_set(i, cpu_possible_map);
-
-	set_smp_cross_call(gic_raise_softirq);
-}
-
-void __init vexpress_smp_prepare_cpus(unsigned int max_cpus)
-{
-	int i;
 	unsigned int sysreg_base;
 
 	sysreg_base = (unsigned int) ioremap(VEXPRESS_SYSREG_BASE, VEXPRESS_SYSREG_SIZE);
 	if (!sysreg_base) {
 		printk(KERN_WARNING "!!!! BOOTUP jump vectors can't be used !!!!\n");
-		while (1)
-			;
+		BUG();
 	}
 
 	writel(~0, sysreg_base + SYS_FLAGSCLR);
-	writel((void *) virt_to_phys(vexpress_secondary_startup), sysreg_base + SYS_FLAGSSET);
-
-	/*
-	 * Initialise the present map, which describes the set of CPUs
-	 * actually populated at the present time.
-	 */
-	for (i = 0; i < max_cpus; i++)
-		cpu_set(i, cpu_present_map);
-
-}
-
-
-struct smp_operations vexpress_smp_ops __initdata = {
-
-  .smp_init_cpus          = vexpress_smp_init_cpus,
-
-#ifndef CONFIG_PSCI
-  .smp_prepare_cpus       = vexpress_smp_prepare_cpus,
-  .smp_secondary_init	    = vexpress_secondary_init,
-  .smp_boot_secondary     = vexpress_boot_secondary,
-#else
-  .smp_boot_secondary = psci_smp_boot_secondary,
-#endif
+	writel(virt_to_phys(vexpress_secondary_startup), sysreg_base + SYS_FLAGSSET);
 
 };

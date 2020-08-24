@@ -22,28 +22,23 @@
 #endif
 
 #include <stdarg.h>
-#include <avz/percpu.h>
-#include <avz/config.h>
-#include <avz/lib.h>
-#include <avz/sched.h>
-#include <avz/mm.h>
-#include <avz/serial.h>
-#include <avz/domain.h>
-#include <avz/console.h>
-#include <avz/errno.h>
-#include <avz/mm.h>
-#include <avz/softirq.h>
-#include <avz/sched-if.h>
+#include <percpu.h>
+#include <config.h>
+#include <lib.h>
+#include <sched.h>
+#include <serial.h>
+#include <domain.h>
+#include <console.h>
+#include <errno.h>
+#include <softirq.h>
+#include <sched-if.h>
+#include <memory.h>
 
 #include <soo/soo.h>
 
 #include <asm/current.h>
-#include <asm/system.h>
-#include <mach/system.h>
 #include <asm/processor.h>
 #include <asm/vfp.h>
-#include <asm/cpregs.h>
-#include <asm/processor.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/avz.h>
@@ -103,16 +98,12 @@ struct vcpu *alloc_vcpu(struct domain *d, unsigned int cpu_id)
 		v->sched = &sched_agency;
 	else {
 
-		if (cpu_id == ME_STANDARD_CPU) {
+		if (cpu_id == ME_CPU) {
 
 			v->sched = &sched_flip;
 			v->need_periodic_timer = true;
 
-		} else if (cpu_id == ME_RT_CPU)
-
-			v->sched = &sched_rt;
-
-		else if (cpu_id == AGENCY_CPU) {
+		} else if (cpu_id == AGENCY_CPU) {
 
 			v->sched = &sched_agency;
 			v->need_periodic_timer = true;
@@ -137,11 +128,8 @@ struct vcpu *alloc_vcpu(struct domain *d, unsigned int cpu_id)
 /*
  * Finalize the domain creation by creating a new vcpu structure and related attributes.
  */
-void finalize_domain_create(struct domain *d, bool realtime) {
+void finalize_domain_create(struct domain *d) {
 	struct vcpu *vcpu;
-
-	/* If the domain is subject to realtime constraints... */
-	set_dom_realtime(d, realtime);
 
 	/* Build up the vcpu structure */
 
@@ -160,7 +148,7 @@ void finalize_domain_create(struct domain *d, bool realtime) {
 		else if (d->domain_id == DOMID_AGENCY_RT)
 			vcpu = alloc_vcpu(d, AGENCY_RT_CPU);
 		else
-			vcpu = alloc_vcpu(d, (realtime ? ME_RT_CPU : ME_STANDARD_CPU));
+			vcpu = alloc_vcpu(d, ME_CPU);
 
 	}
 
@@ -170,12 +158,11 @@ void finalize_domain_create(struct domain *d, bool realtime) {
 
 /*
  * Creation of new domain context associated to the agency or a Mobile Entity.
+ *
  * @domid is the domain number
- * @realtime tells if the agency or the ME is realtime or not; this will affect the target CPU on which the domain will run.
  * @partial tells if the domain creation remains partial, without the creation of the vcpu structure which may intervene in a second step
- * in the case of an ME injection for example. In this case, @realtime is not used.
  */
-struct domain *domain_create(domid_t domid, bool realtime, bool partial)
+struct domain *domain_create(domid_t domid, bool partial)
 {
 	struct domain *d;
 
@@ -199,7 +186,7 @@ struct domain *domain_create(domid_t domid, bool realtime, bool partial)
 		goto fail;
 
 	if (!partial)
-		finalize_domain_create(d, realtime);
+		finalize_domain_create(d);
 
 	return d;
 
@@ -378,10 +365,10 @@ int arch_domain_create(struct domain *d)
 
 void setup_sys_regs_pgtable(struct vcpu *v) {
 
-	v->arch.guest_context.sys_regs.guest_ttbr0 = pagetable_get_paddr(v->arch.guest_table);
+	v->arch.guest_context.sys_regs.guest_ttbr0 = (uint32_t) v->arch.guest_ptable;
 	v->arch.guest_context.sys_regs.guest_ttbr0 |= TTB_FLAGS_SMP;
 
-	v->arch.guest_context.sys_regs.guest_ttbr1 = pagetable_get_paddr(v->arch.guest_table);
+	v->arch.guest_context.sys_regs.guest_ttbr1 = (uint32_t ) v->arch.guest_ptable;
 	v->arch.guest_context.sys_regs.guest_ttbr1 |= TTB_FLAGS_SMP;
 	v->arch.guest_context.sys_regs.guest_context_id = 0;
 }
@@ -522,7 +509,8 @@ static void continue_cpu_idle_loop(void)
 		ASSERT(local_irq_is_disabled());
 
 		local_irq_enable();
-		arch_idle();
+
+		cpu_do_idle();
 	}
 }
 
@@ -531,8 +519,6 @@ void startup_cpu_idle_loop(void)
 	struct vcpu *v = current;
 
 	ASSERT(is_idle_vcpu(v));
-
-	cpu_set(smp_processor_id(), cpu_online_map);
 
 	raise_softirq(SCHEDULE_SOFTIRQ);
 

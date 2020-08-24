@@ -17,7 +17,8 @@
  */
 
 #include <asm/linkage.h>
-#include <asm/assembler.h>
+#include <asm/processor.h>
+
 		.text
 
 @ fp is 0 or stack frame

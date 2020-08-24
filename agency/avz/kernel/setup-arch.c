@@ -16,12 +16,12 @@
  *
  */
 
-#include <avz/types.h>
-#include <avz/init.h>
-#include <avz/spinlock.h>
-#include <avz/sched.h>
-#include <avz/smp.h>
-#include <avz/compiler.h>
+#include <types.h>
+#include <init.h>
+#include <spinlock.h>
+#include <sched.h>
+#include <smp.h>
+#include <compiler.h>
 
 #include <asm/cpu-single.h>
 #include <asm/cputype.h>
@@ -41,28 +41,13 @@
 #define MEM_SIZE	(16*1024*1024)
 #endif
 
-#ifdef CONFIG_CPU_BIG_ENDIAN
-#define OF_DT_MAGIC 0xd00dfeed
-#else
 #define OF_DT_MAGIC 0xedfe0dd0 /* 0xd00dfeed in big-endian */
-#endif
 
 extern int sprintf(char * buf, const char *fmt, ...);
 
-
 extern void paging_init(struct machine_desc *mdesc);
-extern void reboot_setup(char *str);
-extern int root_mountflags;
 
-unsigned int __boot_params __initdata;
 unsigned int fdt_paddr __initdata;
-
-
-unsigned int processor_id;
-unsigned int __machine_arch_type;
-EXPORT_SYMBOL(__machine_arch_type);
-unsigned int cacheid;
-EXPORT_SYMBOL(cacheid);
 
 struct stack {
 	u32 irq[3];
@@ -76,11 +61,6 @@ struct cpu_tlb_fns cpu_tlb;
 struct cpu_cache_fns cpu_cache;
 
 static const char *cpu_name;
-
-
-#define video_ram   mem_res[0]
-#define kernel_code mem_res[1]
-#define kernel_data mem_res[2]
 
 static const char *cache_types[16] = {
 	"write-through",
@@ -195,91 +175,6 @@ int cpu_architecture(void)
   return cpu_arch;
 }
 
-static int cpu_has_aliasing_icache(unsigned int arch)
-{
-	int aliasing_icache;
-	unsigned int id_reg, num_sets, line_size;
-	
-	/* PIPT caches never alias. */
-	if (icache_is_pipt())
-		return 0;
-
-	/* arch specifies the register format */
-	switch (arch) {
-	case CPU_ARCH_ARMv7:
-		asm("mcr	p15, 2, %0, c0, c0, 0 @ set CSSELR"
-		    : /* No output operands */
-		    : "r" (1));
-		isb();
-		asm("mrc	p15, 1, %0, c0, c0, 0 @ read CCSIDR"
-		    : "=r" (id_reg));
-		line_size = 4 << ((id_reg & 0x7) + 2);
-		num_sets = ((id_reg >> 13) & 0x7fff) + 1;
-		aliasing_icache = (line_size * num_sets) > PAGE_SIZE;
-		break;
-	case CPU_ARCH_ARMv6:
-		aliasing_icache = read_cpuid_cachetype() & (1 << 11);
-		break;
-	default:
-		/* I-cache aliases will be handled by D-cache aliasing code */
-		aliasing_icache = 0;
-	}
-
-	return aliasing_icache;
-}
-
-static void __init cacheid_init(void)
-{
-	unsigned int arch = cpu_architecture();
-	
-	if (arch >= CPU_ARCH_ARMv6) {
-		unsigned int cachetype = read_cpuid_cachetype();
-		
-		if ((arch == CPU_ARCH_ARMv7M) && !(cachetype & 0xf000f)) {
-			cacheid = 0;
-		} else if ((cachetype & (7 << 29)) == 4 << 29) {
-			/* ARMv7 register format */
-			arch = CPU_ARCH_ARMv7;
-			cacheid = CACHEID_VIPT_NONALIASING;
-			switch (cachetype & (3 << 14)) {
-			case (1 << 14):
-				cacheid |= CACHEID_ASID_TAGGED;
-				break;
-			case (3 << 14):
-				cacheid |= CACHEID_PIPT;
-				break;
-			}
-		} else {
-			arch = CPU_ARCH_ARMv6;
-			if (cachetype & (1 << 23))
-				cacheid = CACHEID_VIPT_ALIASING;
-			else
-				cacheid = CACHEID_VIPT_NONALIASING;
-		}
-		if (cpu_has_aliasing_icache(arch))
-			cacheid |= CACHEID_VIPT_I_ALIASING;
-	} else {
-		cacheid = CACHEID_VIVT;
-	}
-
-	printk("CPU: %s data cache, %s instruction cache\n",
-		cache_is_vivt() ? "VIVT" :
-		cache_is_vipt_aliasing() ? "VIPT aliasing" :
-		cache_is_vipt_nonaliasing() ? "PIPT / VIPT nonaliasing" : "unknown",
-		cache_is_vivt() ? "VIVT" :
-		icache_is_vivt_asid_tagged() ? "VIVT ASID tagged" :
-		icache_is_vipt_aliasing() ? "VIPT aliasing" :
-		icache_is_pipt() ? "PIPT" :
-		cache_is_vipt_nonaliasing() ? "VIPT nonaliasing" : "unknown");
-}
-
-/*
- * These functions re-use the assembly code in head.S, which
- * already provide the required functionality.
- */
-extern struct proc_info_list *lookup_processor_type(unsigned int);
-extern struct machine_desc *lookup_machine_type(unsigned int);
-
 static struct machine_desc * __init setup_machine(unsigned int nr)
 {
 	struct machine_desc *list;
@@ -297,35 +192,6 @@ static struct machine_desc * __init setup_machine(unsigned int nr)
 	printk("Machine: %s\n", list->name);
 
 	return list;
-}
-
-void __init setup_processor(void)
-{
-	struct proc_info_list *list;
-
-	/*
-	 * locate processor in the list of supported processor
-	 * types.  The linker builds this table for us from the
-	 * entries in arch/arm/mm/proc-*.S
-	 */
-	list = lookup_processor_type(processor_id);
-
-	if (!list) {
-		printk("CPU configuration botched (ID %08x), unable "
-		       "to continue.\n", processor_id);
-		while (1);
-	}
-
-	cpu_name = list->cpu_name;
-
-	cpu_tlb = *list->tlb;
-	cpu_cache = *list->cache;
-
-	printk("CPU: %s [%08x] revision %d (ARMv%s), cr=%08lx\n", cpu_name, processor_id, (int)processor_id & 15, proc_arch[cpu_architecture()], cr_alignment);
-
-
-	cacheid_init();
-	cpu_proc_init();
 }
 
 /*
@@ -380,54 +246,6 @@ int __init customize_machine(void)
                 init_machine();
         return 0;
 }
-/**************************** ATAGS handling ***************************************/
-
-/*
- * Scan the tag table for this tag, and call its parse function.
- * The tag table is built by the linker from all the __tagtable
- * declarations.
- */
-static int __init parse_tag(const struct tag *tag)
-{
-	extern struct tagtable __tagtable_begin, __tagtable_end;
-	struct tagtable *t;
-
-	for (t = &__tagtable_begin; t < &__tagtable_end; t++)
-		if (tag->hdr.tag == t->tag) {
-			t->parse(tag);
-			break;
-		}
-
-	return t < &__tagtable_end;
-}
-
-/*
- * Parse all tags in the list, checking both the global and architecture
- * specific tag tables.
- */
-static void __init parse_tags(const struct tag *t)
-{
-	for (; t->hdr.size; t = tag_next(t))
-		if (!parse_tag(t))
-			printk(KERN_WARNING "Ignoring unrecognized tag 0x%08x\n", t->hdr.tag);
-}
-
-/*
- * This holds our defaults.
- */
-static struct init_tags {
-	struct tag_header hdr1;
-	struct tag_core   core;
-	struct tag_header hdr2;
-	struct tag_mem32  mem;
-	struct tag_header hdr3;
-} init_tags __initdata = {
-	{ tag_size(tag_core), ATAG_CORE },
-	{ 1, PAGE_SIZE, 0xff },
-	{ tag_size(tag_mem32), ATAG_MEM },
-	{ MEM_SIZE, PHYS_OFFSET },
-	{ 0, ATAG_NONE }
-};
 
 struct machine_desc *mdesc;
 /*
@@ -435,38 +253,8 @@ struct machine_desc *mdesc;
  */
 void __init setup_arch(char **cmdline_p)
 {
-	struct tag *tags = (struct tag *)&init_tags;
 
-	setup_processor();
 	mdesc = setup_machine(machine_arch_type);
-
-	if (fdt_paddr) {
-
-		/* Use __lva and not phys_to_virt since device tree may be in guest domain range */
-		tags = (struct tag *) __lva(fdt_paddr);
-
-	} else if (mdesc->boot_params)
-		tags = phys_to_virt(mdesc->boot_params);
-
-	/* Check if we have a device tree or tags pointed by fdt_paddr. */
-	if (*((uint32_t*)tags) != OF_DT_MAGIC) {
-		/*
-		 * If we have the old style parameters, convert them to
-		 * a tag list.
-		 */
-		if (tags->hdr.tag != ATAG_CORE)
-			convert_to_tag_list(tags);
-		if (tags->hdr.tag != ATAG_CORE)
-			tags = (struct tag *)&init_tags;
-		if (tags->hdr.tag == ATAG_CORE) {
-			if (meminfo.nr_banks != 0)
-				squash_mem_tags(tags); /* remove corresponding MEM tag if something found from the fixup */
-
-			parse_tags(tags);
-		}
-	}
-
-	paging_init(mdesc);
 
 	smp_set_ops(mdesc->smp);
 	smp_init_cpus();

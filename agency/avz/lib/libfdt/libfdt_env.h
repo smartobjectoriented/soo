@@ -54,7 +54,7 @@
 
 
 #include <stdint.h>
-#include <avz/string.h>
+#include <string.h>
 
 #ifdef __CHECKER__
 #define __force __attribute__((force))

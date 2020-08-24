@@ -18,12 +18,11 @@
 
 #ifndef __ARCH_ARM_H__
 #define __ARCH_ARM_H__
+
+#ifdef __AVZ__
+#include <types.h>
+#else
 #include <asm/types.h>
-
-#ifndef __ASSEMBLY__
-
-#include <asm/memory.h>
-
 #endif
 
 

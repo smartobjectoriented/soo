@@ -22,20 +22,16 @@
 #endif
 
 #include <fdt_support.h>
+#include <memslot.h>
+#include <lib.h>
+#include <smp.h>
+#include <types.h>
+#include <console.h>
+#include <migration.h>
+#include <domain.h>
+#include <xmalloc.h>
 
-#include <asm/irq.h>
-#include <asm/page.h>
-#include <asm/memslot.h>
-#include <asm/mach/map.h>
-
-#include <avz/lib.h>
-#include <avz/smp.h>
-
-#include <avz/types.h>
-#include <avz/console.h>
-#include <avz/migration.h>
-#include <avz/domain.h>
-#include <avz/xmalloc.h>
+#include <device/irq.h>
 
 #include <lib/crc.h>
 #include <lib/image.h>
@@ -101,7 +97,7 @@ int migration_init(soo_hyp_t *op) {
 		/* Create a domain context including the ME descriptor before the ME gets injected. */
 		switch_mm(NULL, idle_domain[smp_processor_id()]->vcpu[0]);
 
-		domME = domain_create(slotID, false, true);
+		domME = domain_create(slotID, true);
 		if (!domME)
 			panic("Error creating the ME");
 
@@ -131,7 +127,7 @@ int migration_init(soo_hyp_t *op) {
 		switch_mm(NULL, idle_domain[smp_processor_id()]->vcpu[0]);
 
 		/* Create new ME domain */
-		domME = domain_create(slotID, is_me_realtime(), false);
+		domME = domain_create(slotID, false);
 
 		domains[slotID] = domME;
 
@@ -258,15 +254,6 @@ int read_migration_structures(soo_hyp_t *op) {
 
 	return 0;
 }
-
-/*
- * Get the info to know if the ME is realtime or not (used after migrating).
- */
-bool is_me_realtime(void)
-{
-	return dom_info.dom_desc.realtime;
-}
-
 
 /*------------------------------------------------------------------------------
 restore_domain_migration_info
@@ -406,7 +393,6 @@ int inject_me(soo_hyp_t *op)
 {
 	int rc = 0;
 	unsigned int slotID;
-	dtb_feat_t dtb_feat;
 	size_t fdt_size;
 	void *fdt_vaddr;
 	int dom_size;
@@ -435,7 +421,7 @@ int inject_me(soo_hyp_t *op)
 
 	/* Create a domain context including the ME descriptor before the ME gets injected. */
 
-	domME = domain_create(slotID, false, true);
+	domME = domain_create(slotID, true);
 	if (!domME)
 		panic("Error creating the ME");
 
@@ -451,12 +437,10 @@ int inject_me(soo_hyp_t *op)
 	domME->shared_info->dom_desc.u.ME.pfn = phys_to_pfn(memslot[slotID].base_paddr);
 
 	/* Warning ! At the beginning of loadME(), a memory context switch is performed to access the AVZ system page table. */
-	loadME(slotID, (unsigned char *) op->vaddr, &dtb_feat);
-
-	DBG("ME realtime feature (0 = non-realtime, 1 = realtime): %d\n", dtb_feat.realtime);
+	loadME(slotID, (unsigned char *) op->vaddr);
 
 	/* Finalize the domain creation. */
-	finalize_domain_create(domains[slotID], dtb_feat.realtime);
+	finalize_domain_create(domains[slotID]);
 
 	if (construct_ME(domains[slotID]) != 0)
 		panic("Could not set up ME guest OS\n");

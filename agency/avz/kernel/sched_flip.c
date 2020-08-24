@@ -20,15 +20,14 @@
 #define DEBUG
 #endif
 
-#include <avz/lib.h>
-#include <avz/sched.h>
-#include <avz/sched-if.h>
-#include <avz/timer.h>
-#include <avz/softirq.h>
-#include <avz/time.h>
-#include <avz/errno.h>
-
-#include <asm/config.h>
+#include <config.h>
+#include <lib.h>
+#include <sched.h>
+#include <sched-if.h>
+#include <timer.h>
+#include <softirq.h>
+#include <time.h>
+#include <errno.h>
 
 #include <soo/soo.h>
 
@@ -148,9 +147,9 @@ void sched_flip_init(void) {
 	/*
 	 * The following timer is required to perform activation of the scheduler.
 	 * Warning !! The data argument is NULL at this stage, because this timer is not
-	 * related to a domain directly. However, he is bound to the ME standard CPU (periodic timer).
+	 * related to a domain directly. However, he is bound to the ME_CPU (periodic timer).
 	 */
-	init_timer(&sched_flip.sched_data.s_timer, s_timer_fn, NULL, ME_STANDARD_CPU);
+	reset_timer(&sched_flip.sched_data.s_timer, s_timer_fn, NULL, ME_CPU);
 
 }
 

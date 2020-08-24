@@ -16,12 +16,11 @@
  *
  */
 
-#include <avz/lib.h>
-#include <avz/config.h>
-#include <avz/irq.h>
-#include <avz/smp.h>
-#include <avz/time.h>
-#include <avz/spinlock.h>
+#include <lib.h>
+#include <config.h>
+#include <smp.h>
+#include <time.h>
+#include <spinlock.h>
 
 #include <asm/processor.h>
 

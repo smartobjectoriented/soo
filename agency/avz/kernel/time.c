@@ -18,45 +18,31 @@
 
 #define CONFIG_GENERIC_CLOCKEVENTS
 
-#include <avz/config.h>
-#include <avz/smp.h>
-#include <avz/time.h>
-#include <avz/lib.h>
-#include <avz/sched.h>
+#include <config.h>
+#include <smp.h>
+#include <lib.h>
+#include <sched.h>
+#include <config.h>
+#include <errno.h>
+#include <event.h>
+#include <sched.h>
+#include <lib.h>
+#include <config.h>
+#include <time.h>
+#include <timer.h>
+#include <smp.h>
+#include <softirq.h>
 
-#include <asm/clock.h>
-
-#include <asm/processor.h>
-#include <asm/current.h>
-#include <asm/debugger.h>
-#include <asm/bitops.h>
-
-#include <avz/config.h>
-#include <avz/errno.h>
-#include <avz/event.h>
-#include <avz/sched.h>
-#include <avz/lib.h>
-#include <avz/config.h>
-#include <avz/init.h>
-#include <avz/time.h>
-#include <avz/timer.h>
-#include <avz/smp.h>
-#include <avz/irq.h>
-#include <avz/softirq.h>
-#include <avz/cpumask.h>
+#include <device/timer.h>
 
 #include <soo/soo.h>
 
+#include <asm/bitops.h>
 #include <asm/setup.h>
 #include <asm/processor.h>
-#include <asm/time.h>
 #include <asm/div64.h>
-#include <asm/mach/arch.h>
 
-unsigned long loops_per_jiffy = (1 << 12);
-
-static u64 sys_time;
-u64 get_s_time(void);
+unsigned long loops_per_jiffy = (1 << 20);
 
 extern struct clocksource *system_timer_clocksource;
 extern struct clock_event_device *system_timer_clockevent;
@@ -187,8 +173,6 @@ void reprogram_timer(u64 deadline) {
 	}
 }
 
-static DEFINE_SPINLOCK(timer_access);
-
 /**
  * clocks_calc_mult_shift - calculate mult/shift factors for scaled math of clocks
  * @mult:	pointer to mult variable
@@ -241,39 +225,6 @@ void clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 maxsec)
 	*shift = sft;
 }
 
-void timer_interrupt(bool periodic) {
-	int i;
-
-	/*
-	 * The timer interrupt is sourced from different CPUs:
-	 * - CPU #1: when RT-agency is enabled, for oneshot interrupts dedicated to Cobalt and realtime MEs
-	 * - CPU #2: for non-RT (periodic timer based) MEs
-	 *
-	 * CPU #0 manages the non-realtime agency domain and is using the architected CPU timer directly as PIRQ.
-	 */
-
-	if (periodic) {
-
-		/* Now check for ticking the non-realtime domains which need periodic ticks. */
-		for (i = 1; i < MAX_DOMAINS; i++) {
-			/*
-			 * We have to check if the domain exists and its VCPU has been created. If not,
-			 * there is no need to propagate the timer event.
-			 */
-			if ((domains[i] != NULL) && (domains[i]->vcpu != NULL) && (domains[i]->vcpu[0] != NULL) && (!domains[i]->is_dying)) {
-				if ((domains[i]->vcpu[0]->runstate == RUNSTATE_running) || (domains[i]->vcpu[0]->runstate == RUNSTATE_runnable)) {
-					if ((domains[i]->vcpu[0]->need_periodic_timer) && (domains[i]->shared_info != NULL))
-						/* Forward to the guest */
-						send_timer_event(domains[i]->vcpu[0]);
-				}
-			}
-		}
-	}
-
-	 /* Raise a softirq on the CPU which is processing the interrupt. */
-	raise_softirq(TIMER_SOFTIRQ);
-}
-
 cycle_t cs_read_dummy(void) {
 	return (cycle_t) 0L;
 }
@@ -288,41 +239,10 @@ struct clock_event_device ce_default = {
 	.set_next_event = ce_set_next_event_dummy,
 };
 
-/***************************************************************************
- * System Time
- ***************************************************************************/
-/*
- * Return the time in ns from the monotonic clocksource.
- * May be called simultaneously by the agency CPU  and the ME CPU
- */
-u64 get_s_time(void) {
-	u64 cycle_now, cycle_delta;
-	struct clocksource *clock = system_timer_clocksource;
-
-	/* Protect against concurrent access from different CPUs */
-
-	spin_lock(&timer_access);
-
-	cycle_now = clock->read();
-
-	if (clock->cycle_last > cycle_now)
-		cycle_delta = (clock->mask - clock->cycle_last + cycle_now) & clock->mask;
-	else
-		cycle_delta = (cycle_now - clock->cycle_last) & clock->mask;
-
-	clock->cycle_last = cycle_now;
-
-	sys_time += cyc2ns(clock, cycle_delta);
-
-	spin_unlock(&timer_access);
-
-	return sys_time;
-}
-
-extern void avz_time_startup(void);
 
 /* Late init function (after all CPUs are booted). */
-int __init init_time(void) {
+int init_time(void) {
+
 	sys_time = 0ull;
 
 	system_timer_clocksource = &cs_dummy;
@@ -333,9 +253,5 @@ int __init init_time(void) {
 
 void send_timer_event(struct vcpu *v) {
 	send_guest_vcpu_virq(v, VIRQ_TIMER);
-}
-
-void send_timer_rt_event(struct vcpu *v) {
-	send_guest_vcpu_virq(v, VIRQ_TIMER_RT);
 }
 

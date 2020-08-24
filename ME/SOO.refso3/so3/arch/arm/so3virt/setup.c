@@ -192,8 +192,6 @@ void board_setup(void) {
  	   to access the shared info page */
 	HYPERVISOR_shared_info = (shared_info_t *) avz_start_info->shared_info;
 
-	set_ME_type(ME_type_SO3);
-
 	DBG("Set HYPERVISOR_set_callbacks at %lx\n", (unsigned long) linux0_hypervisor_callback);
 
 	ret = hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_vector_callback, (unsigned long) domcall, 0, 0);

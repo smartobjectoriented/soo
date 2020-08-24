@@ -19,11 +19,7 @@
 #ifndef __SCHEDOP_H__
 #define __SCHEDOP_H__
 
-
 #define SCHEDOP_yield     	0
-#define SCHEDOP_deadline	1
-#define SCHEDOP_sleep		2
-
 
 struct deadline_args {
 	u64 delta_ns;

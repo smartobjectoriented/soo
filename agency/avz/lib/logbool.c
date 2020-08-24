@@ -16,13 +16,12 @@
  *
  */
 
-#include <avz/string.h>
-#include <avz/xmalloc.h>
-#include <avz/console.h>
-#include <avz/keyhandler.h>
-#include <avz/sched.h>
-
-#include <asm/bug.h>
+#include <string.h>
+#include <xmalloc.h>
+#include <console.h>
+#include <keyhandler.h>
+#include <sched.h>
+#include <common.h>
 
 #include <soo/uapi/logbool.h>
 

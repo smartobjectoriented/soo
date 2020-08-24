@@ -20,12 +20,9 @@
 
 / {
 	description = "SO3 image containing so3 kernel and FDT blob (including rootfs)";
-	#address-cells = <0>;
-	#size-cells = <0>;
-	
+
 	images {
-		#address-cells = <0>;
-		#size-cells = <0>;
+
 		kernel {
 			/*reg = <>; Make dtc happy ;-) */
 			description = "SO3 OS kernel";
@@ -34,9 +31,6 @@
 			arch = "arm";
 			os = "linux";
 			compression = "none";
-			
-			#address-cells = <0>;
-			#size-cells = <0>;
 			
 			hash {
 				algo = "crc32";

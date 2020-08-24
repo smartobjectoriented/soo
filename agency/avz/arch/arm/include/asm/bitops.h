@@ -19,9 +19,9 @@
 #define __ASM_ARM_BITOPS_H
 
 
-#include <linux/compiler.h>
-#include <asm/system.h>
+#include <compiler.h>
 
+#include <asm/processor.h>
 
 #define __L2(_x)  (((_x) & 0x00000002) ?   1 : 0)
 #define __L4(_x)  (((_x) & 0x0000000c) ? ( 2 + __L2( (_x)>> 2)) : __L2( _x))

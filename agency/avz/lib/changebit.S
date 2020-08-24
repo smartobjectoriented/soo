@@ -1,6 +1,5 @@
 #include <asm/linkage.h>
-#include <asm/asm-macros.h>
-#include <asm/assembler.h>
+#include <asm/processor.h>
 
 		.text
 

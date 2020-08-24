@@ -1,6 +1,6 @@
-obj-y += rpi4.o
-obj-y += platsmp.o
+#
+# Makefile  
+#
 
- 
-
+obj-y	+= platsmp.o
 

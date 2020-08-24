@@ -21,25 +21,21 @@
 #define DEBUG
 #endif
 
-#include <avz/types.h>
+#include <types.h>
 
 #include <logbool.h>
 
-#include <avz/config.h>
-#include <avz/init.h>
-#include <avz/lib.h>
-#include <avz/types.h>
-#include <avz/sched.h>
-#include <avz/irq.h>
-#include <avz/event.h>
+#include <config.h>
+#include <lib.h>
+#include <types.h>
+#include <sched.h>
+#include <event.h>
+
+#include <device/irq.h>
+#include <device/arch/gic.h>
 
 #include <asm/current.h>
-#include <asm/page.h>
 #include <asm/domain.h>
-#include <asm/hypercall.h>
-#include <asm/mach/arch.h>
-#include <asm/hardware/gic.h>
-#include <asm/smp.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/physdev.h>
@@ -47,8 +43,6 @@
 #include <soo/uapi/avz.h>
 
 #include <soo/soo.h>
-
-#include <asm/system.h>
 
 int do_physdev_op(int cmd, void *args)
 {
