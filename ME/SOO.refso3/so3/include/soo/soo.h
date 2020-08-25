@@ -92,12 +92,6 @@ extern soo_personality_t soo_get_personality(void);
 #define ME_IOCTL_LOCALINFO_UPDATE		103
 #define ME_IOCTL_DUMP				104
 
-/* Definition of ME types according to their kernel */
-typedef enum {
-	ME_type_Linux,
-	ME_type_SO3
-} ME_type_t;
-
 /*
  * ME states:
  * - ME_state_booting:		ME is currently booting...
@@ -207,7 +201,6 @@ typedef struct {
  */
 typedef struct {
 	ME_state_t	state;
-	ME_type_t	type;
 
 	/* The crc32 provides a unique ID of a particular ME instance.
 	 * Each ME instance is unique and such an ID can be used
@@ -290,7 +283,6 @@ typedef struct {
  */
 
 typedef struct {
-	bool realtime; /* Tell if this domain is subject to realtime constraints */
 	union {
 		agency_desc_t agency;
 		ME_desc_t ME;
@@ -617,8 +609,5 @@ void perform_task(dc_event_t dc_event);
 int pick_next_uevent(void);
 
 void shutdown_ME(unsigned int ME_slotID);
-
-void set_ME_type(ME_type_t ME_type);
-bool me_realtime(void);
 
 #endif /* SOO_H */

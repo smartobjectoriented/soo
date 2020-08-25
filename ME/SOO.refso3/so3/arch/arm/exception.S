@@ -49,8 +49,11 @@
 .extern irq_handle
 .extern syscall_handle
 .extern dumpstack
+
 .extern __prefetch_abort
 .extern __data_abort
+.extern __undefined_instruction
+
 .extern do_exit
 .extern schedule_isr
 .extern __check_ptrace_syscall
@@ -129,7 +132,8 @@ inject_syscall_vector:
 @ exception handlers
 .align  5
 undefined_instruction:
-    b  undefined_instruction
+
+    b  __undefined_instruction
 
 @ Prepare to call a handler associated to a pending signal
 @ r0 contains the reference to the sigaction_t structure related to the signal to be processed.

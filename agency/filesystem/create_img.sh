@@ -54,3 +54,8 @@ sudo mkfs.vfat /dev/"$devname"1
 sudo mkfs.ext4 /dev/"$devname"2
 sudo mkfs.ext4 /dev/"$devname"3
 sudo mkfs.ext4 /dev/"$devname"4
+
+if [ "$1" == "vexpress" -o "$1" == "merida" ]; then
+	losetup -D
+fi
+
