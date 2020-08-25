@@ -1,7 +1,7 @@
 #include <asm/linkage.h>
-#include <asm/asm-macros.h>
+#include <asm/processor.h>
 
-                .text
+.text
 
 /*
  * Purpose  : Find a 'zero' bit

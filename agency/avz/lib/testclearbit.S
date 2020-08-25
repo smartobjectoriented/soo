@@ -1,8 +1,7 @@
 #include <asm/linkage.h>
-#include <asm/asm-macros.h>
-#include <asm/assembler.h>
+#include <asm/processor.h>
 
-                .text
+.text
 
 ENTRY(_test_and_clear_bit_be)
 		eor	r0, r0, #0x18		@ big endian byte ordering

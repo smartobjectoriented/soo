@@ -9,8 +9,6 @@
  * published by the Free Software Foundation.
  */
 #include <asm/linkage.h>
-#include <avz/init.h>
-#include <asm/assembler.h>
 
 /*
  * Realview/Versatile Express specific entry point for secondary CPUs.
@@ -25,7 +23,10 @@ ENTRY(vexpress_secondary_startup)
 	ldmia	r4, {r5, r6}
 	sub	r4, r4, r5
 	add	r6, r6, r4
-pen:	ldr	r7, [r6]
+
+pen:
+
+	ldr	r7, [r6]
 	cmp	r7, r0
 	bne	pen
 

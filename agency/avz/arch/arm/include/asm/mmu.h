@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016,2017 Daniel Rossier <daniel.rossier@soo.tech>
- *
+ * Copyright (C) 2015-2017 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -16,18 +16,32 @@
  *
  */
 
-/*
- * This header file comes from SO3. It contains the general MMU-related definition and is intended to
- * replace the defines which are currently used in AVZ in the future.
- */
+#ifndef MMU_H
+#define MMU_H
 
-#ifndef __ARM_MMU_H
-#define __ARM_MMU_H
+#ifndef __ASSEMBLY__
+#include <types.h>
+#endif
+
+#include <sizes.h>
+
+/* PAGE_SHIFT determines the page size */
+#define PAGE_SHIFT	12
+#define PAGE_SIZE       (1 << PAGE_SHIFT)
+#define PAGE_MASK       (~(PAGE_SIZE-1))
+
+/*
+ * Page offset: 3GB
+ */
+/* (DRE) Crucial !! */
+
+#define PAGE_OFFSET	UL(0xff000000)
+#define L_PAGE_OFFSET	UL(0xc0000000)
+
 
 #define L1_SYS_PAGE_TABLE_OFFSET	0x4000
 
 /* Define the number of entries in each page table */
-
 
 #define L1_PAGETABLE_ORDER      	12
 #define L2_PAGETABLE_ORDER      	8
@@ -46,6 +60,9 @@
 #define L1DESC_L2PT_BASE_ADDR_MASK	(~(L1DESC_L2PT_BASE_ADDR_OFFSET - 1))
 
 /* Page table type */
+
+#define L1_MAP_SIZE			(1UL << L1_PAGETABLE_SHIFT)
+#define L1_MAP_MASK			(~(L1_MAP_SIZE - 1))
 
 #define L1_SECT_SIZE			(0x100000)
 #define L1_SECT_MASK            	(~(L1_SECT_SIZE - 1))
@@ -82,14 +99,101 @@
 #define DESC_CACHEABLE      	(1 << 3)
 #define DESC_CACHE		(DESC_BUFFERABLE | DESC_CACHEABLE)
 
-
 /* Given a virtual address, get an entry offset into a page table. */
 #define l1pte_index(a) ((((uint32_t) a) >> L1_PAGETABLE_SHIFT) & (L1_PAGETABLE_ENTRIES - 1))
 #define l2pte_index(a) ((((uint32_t) a) >> L2_PAGETABLE_SHIFT) & (L2_PAGETABLE_ENTRIES - 1))
 
 #define l1pte_offset(pgtable, addr)     (pgtable + l1pte_index(addr))
-#define l2pte_offset(l1pte, addr) 	(((uint32_t *) (__va(*l1pte) & L1DESC_L2PT_BASE_ADDR_MASK)) + l2pte_index(addr))
-#define l2pte_first(l1pte)		(((uint32_t *) (__va(*l1pte) & L1DESC_L2PT_BASE_ADDR_MASK)))
+#define l2pte_offset(l1pte, addr) 	(((uint32_t *) (((uint32_t) __va(*l1pte)) & L1DESC_L2PT_BASE_ADDR_MASK)) + l2pte_index(addr))
+#define l2pte_first(l1pte)		(((uint32_t *) (((uint32_t) __va(*l1pte)) & L1DESC_L2PT_BASE_ADDR_MASK)))
 
+#define pgd_addr_end(addr, end)                                         \
+ ({      unsigned long __boundary = ((addr) + L1_MAP_SIZE) & L1_MAP_MASK;  \
+         (__boundary - 1 < (end) - 1) ? __boundary: (end);                \
+ })
+
+#define clear_page(page)	memzero((void *)(page), PAGE_SIZE)
+
+/* Used during CPU setup */
+#define TTB_S		(1 << 1)
+#define TTB_RGN_NC	(0 << 3)
+#define TTB_RGN_OC_WBWA	(1 << 3)
+#define TTB_RGN_OC_WT	(2 << 3)
+#define TTB_RGN_OC_WB	(3 << 3)
+#define TTB_NOS		(1 << 5)
+#define TTB_IRGN_NC	((0 << 0) | (0 << 6))
+#define TTB_IRGN_WBWA	((0 << 0) | (1 << 6))
+#define TTB_IRGN_WT	((1 << 0) | (0 << 6))
+#define TTB_IRGN_WB	((1 << 0) | (1 << 6))
+
+/* PTWs cacheable, inner WBWA shareable, outer WBWA not shareable */
+#define TTB_FLAGS_SMP	TTB_IRGN_WBWA | TTB_S | TTB_NOS | TTB_RGN_OC_WBWA
+
+#define SECTION_UP(x) (((x) + SZ_1M-1) >> L1_PAGETABLE_SHIFT)
+
+#define PFN_DOWN(x)   ((x) >> PAGE_SHIFT)
+#define PFN_UP(x)     (((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
+
+#define L1_CACHE_SHIFT		6
+#define L1_CACHE_BYTES		(1 << L1_CACHE_SHIFT)
+
+/*
+ * We add two functions for retrieving virt and phys address relative to
+ * Linux offset according to the memory map (used to access guest mem)
+ */
+#define __lpa(vaddr) ((vaddr) - L_PAGE_OFFSET + CONFIG_RAM_BASE)
+#define __lva(paddr) ((paddr) - CONFIG_RAM_BASE + L_PAGE_OFFSET)
+
+#define __pa(x)             ((unsigned long)(x) - PAGE_OFFSET + CONFIG_RAM_BASE)
+#define __va(x)             ((void *)((unsigned long)(x) + PAGE_OFFSET - CONFIG_RAM_BASE))
+
+#define virt_to_phys(x)     (__pa(x))
+#define phys_to_virt(x)     (__va(x))
+
+#define pfn_to_phys(pfn) ((pfn) << PAGE_SHIFT)
+#define phys_to_pfn(phys) (((uint32_t) phys) >> PAGE_SHIFT)
+#define virt_to_pfn(virt) (phys_to_pfn(__va((uint32_t) virt)))
+#define pfn_to_virt(pfn) (phys_to_virt(pfn_to_phys(pfn)))
+
+#ifndef __ASSEMBLY__
+
+#define cpu_get_l1pgtable()	\
+({						\
+	unsigned long pg;			\
+	__asm__("mrc	p15, 0, %0, c2, c0, 0"	\
+		 : "=r" (pg) : : "cc");		\
+	pg &= ~0x3fff;				\
+})
+
+extern uint32_t *l2pt_current_base;
+extern unsigned long l2pt_phys_start;
+
+extern void __mmu_switch(uint32_t l1pgtable_phys);
+
+void pgtable_copy_kernel_area(uint32_t *l1pgtable);
+
+void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base, uint32_t size, bool nocache);
+
+uint32_t *new_l1pgtable(void);
+void reset_l1pgtable(uint32_t *l1pgtable, bool remove);
+
+void clear_l1pte(uint32_t *l1pgtable, uint32_t vaddr);
+
+void mmu_switch(uint32_t *l1pgtable);
+void dump_pgtable(uint32_t *l1pgtable);
+
+void flush_tlb_all(void);
+
+void dump_current_pgtable(void);
+
+void set_dacr(unsigned val);
+unsigned int get_dacr(void);
+
+extern uint32_t *swapper_pg_dir;
+void vectors_init(void);
 
 #endif
+
+
+#endif /* MMU_H */
+

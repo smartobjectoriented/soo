@@ -1,5 +1,5 @@
+#include <asm/processor.h>
 #include <asm/linkage.h>
-#include <asm/asm-macros.h>
 
 		.text
 
@@ -12,7 +12,7 @@
  * HZ  <= 1000
  */
 
-ENTRY(__udelay)
+ENTRY(udelay)
 		ldr	r2, .LC1
 		mul	r0, r2, r0
 ENTRY(__const_udelay)				@ 0 <= r0 <= 0x7fffff06
@@ -31,7 +31,7 @@ ENTRY(__const_udelay)				@ 0 <= r0 <= 0x7fffff06
  */
 
 @ Delay routine
-ENTRY(__delay)
+ENTRY(delay)
 		subs	r0, r0, #1
-		bhi	__delay
+		bhi	delay
 		RETINSTR(mov,pc,lr)

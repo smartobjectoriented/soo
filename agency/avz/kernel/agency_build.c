@@ -16,30 +16,26 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/lib.h>
-#include <avz/percpu.h>
-#include <avz/sched.h>
-#include <avz/init.h>
-#include <avz/ctype.h>
-#include <avz/console.h>
+#include <config.h>
+#include <lib.h>
+#include <percpu.h>
+#include <sched.h>
+#include <ctype.h>
+#include <console.h>
+#include <domain.h>
+#include <errno.h>
+#include <memory.h>
+#include <libelf.h>
+#include <memslot.h>
 
-#include <avz/domain.h>
-#include <avz/errno.h>
 #include <asm/processor.h>
-#include <asm/cputype.h>
-#include <asm/pgtable.h>
-#include <asm/mach/map.h>
-#include <asm/memslot.h>
+#include <asm/mmu.h>
+#include <asm/current.h>
 
 #include <soo/uapi/arch-arm.h>
-
-#include <avz/mm.h>
-#include <asm/mm.h>
-#include <avz/libelf.h>
-#include <asm/cacheflush.h>
-
 #include <soo/uapi/logbool.h>
+
+#include <asm/cacheflush.h>
 
 #define L_TEXT_OFFSET	0x8000
 
@@ -49,15 +45,12 @@ start_info_t *agency_start_info;
  * setup_page_table_guestOS() is setting up the 1st-level and 2nd-level page tables within the domain.
  */
 int setup_page_table_guestOS(struct vcpu *v, unsigned long v_start, unsigned long map_size, unsigned long p_start, unsigned long vpt_start) {
-
-	struct map_desc map;
-	unsigned long addr, new_pt;
-	struct vcpu temp_vcpu;
+	uint32_t vaddr, *new_pt;
 
 	ASSERT(v);
 
 	/* Make sure that the size is 1 MB-aligned */
-	map_size = ALIGN_UP(map_size, SECTION_SIZE);
+	map_size = ALIGN_UP(map_size, L1_SECT_SIZE);
 
 	printk("*** Setup page tables of the domain: ***\n");
 	printk("   v_start          : 0x%lx\n", v_start);
@@ -65,44 +58,34 @@ int setup_page_table_guestOS(struct vcpu *v, unsigned long v_start, unsigned lon
 	printk("   phys address     : 0x%lx\n", p_start);
 	printk("   vpt_start        : 0x%lx\n", vpt_start);
 
-	new_pt = (unsigned long) __lva(vpt_start - v_start + p_start);
-
-	/* copy page table of idle domain to guest domain */
-	memcpy((unsigned long *) new_pt, swapper_pg_dir, sizeof(swapper_pg_dir));
-
 	/* guest start address (phys/virtual addr) */
 	v->arch.guest_pstart = p_start;
 	v->arch.guest_vstart = v_start;
 
 	/* guest page table address (phys addr) */
-	v->arch.guest_table = mk_pagetable(vpt_start - v_start + p_start);
-	v->arch.guest_vtable = (pte_t *) vpt_start;
+	v->arch.guest_ptable = (void *) (vpt_start - v_start + p_start);
+	v->arch.guest_vtable = (void *) vpt_start;
 
-	/* We have to change the ptes of the page table in our new page table :-) */
-	addr = (unsigned long) pgd_offset_priv((pde_t *) new_pt, vpt_start);
+	/* Manage the new system page table dedicated to the domain. */
+	new_pt = (uint32_t *) __lva(vpt_start - v_start + p_start); /* Ex.: 0xc0c04000 */
 
-	((pde_t *) addr)->l2 &= ~SECTION_MASK; /* Reset the pfn */
-	((pde_t *) addr)->l2 |= (vpt_start - v_start + p_start) & SECTION_MASK;
-
-	flush_all();
-
-	/* Immediately switch to our newly created page table in order to work in the domain address space. */
-	save_ptbase(&temp_vcpu);
-	write_ptbase(v);
+	/* copy page table of idle domain to guest domain */
+	memcpy(new_pt, swapper_pg_dir, L1_PAGETABLE_SIZE);
 
 	/* Clear the area below the I/Os, but preserve of course the page table itself which is located within the first MB */
-	for (addr = v_start + SECTION_SIZE; addr < VMALLOC_END; addr += SECTION_SIZE)
-		pmd_clear(pgd_offset_priv((pde_t *) vpt_start, addr));
+	for (vaddr = 0; vaddr < CONFIG_HYPERVISOR_VIRT_ADDR; vaddr += L1_SECT_SIZE)
+		*((uint32_t *) l1pte_offset(new_pt, vaddr)) = 0;
 
-	/* And now, re-do the mapping including the remaining sections of the guest domain */
-	map.pfn = phys_to_pfn(p_start);
-	map.virtual = v_start;
-	map.length = map_size;
-	map.type = MT_MEMORY_RWX;
+	/* Do the mapping of new domain at its virtual address location */
+	create_mapping(new_pt,  v_start, p_start, map_size, false);
 
-	create_mapping(&map, (pde_t *) vpt_start);
+	/* We have to change the ptes of the page table in our new page table :-) (currently pointing the hypervisor page table. */
+	vaddr = (uint32_t) l1pte_offset(new_pt, vpt_start);
 
-	write_ptbase(&temp_vcpu);
+	*((uint32_t *) vaddr) &= ~L1_SECT_MASK; /* Reset the pfn */
+	*((uint32_t *) vaddr) |= ((uint32_t ) v->arch.guest_ptable) & L1_SECT_MASK;
+
+	flush_all();
 
 	return 0;
 }
@@ -195,7 +178,6 @@ int construct_agency(struct domain *d) {
 	{
 		unsigned long domain_stack;
 		extern unsigned long *hypervisor_stack;
-		extern unsigned long *pseudo_usr_mode;
 		static unsigned long *__hyp_stack = (unsigned long *) &hypervisor_stack;
 		static unsigned long *__pseudo_usr_mode = (unsigned long *) &pseudo_usr_mode;
 
@@ -215,7 +197,7 @@ int construct_agency(struct domain *d) {
 	  agency->shared_info->subdomain_shared_info = domains[DOMID_AGENCY_RT]->shared_info;
 
 	  /* Create the first thread associated to this domain. */
-	  new_thread(v, L_PAGE_OFFSET + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
+	  new_thread(v, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
 	}
 
 	return 0;

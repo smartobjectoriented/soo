@@ -11,9 +11,8 @@
  * GNU General Public License for more details.
  *
  */
-#include <asm/assembler.h>
+
 #include <asm/linkage.h>
-#include <avz/init.h>
 
 #include <asm/processor.h>
 

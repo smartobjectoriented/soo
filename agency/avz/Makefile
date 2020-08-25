@@ -100,7 +100,6 @@ export srctree objtree VPATH
 
 #CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 CROSS_COMPILE = arm-linux-gnueabihf-
-ARCH = arm
 
 KCONFIG_CONFIG	?= .config
 export KCONFIG_CONFIG
@@ -186,17 +185,15 @@ gccincdir := $(shell $(CC) -print-file-name=include)
 
 LINUXINCLUDE    := -Iinclude  -I.  \
                    $(if $(KBUILD_SRC), -I$(srctree)/include) \
-                   -imacros include/generated/autoconf.h
+                   -include include/generated/autoconf.h
 
-KBUILD_CPPFLAGS := -D__KERNEL__ -D__AVZ__ -D__LINUX_ARM_ARCH__=7
+KBUILD_CPPFLAGS := -D__KERNEL__ -D__AVZ__ -DCONFIG_ARM
 
 KBUILD_CPPFLAGS += -I$(TOPDIR)include
-KBUILD_CPPFLAGS += -fno-builtin -ffreestanding -nostdinc -isystem $(gccincdir)
+KBUILD_CPPFLAGS += -fno-builtin -ffreestanding -nostdinc -isystem $(gccincdir)  
 
-KBUILD_CFLAGS   := -g -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common 
-KBUILD_CFLAGS   += -O2 -pipe -mabi=aapcs-linux -mno-thumb-interwork -D__LINUX_ARM_ARCH__=7 -march=armv7-a   
-KBUILD_CFLAGS   += -msoft-float -Uarm -fomit-frame-pointer -g  -fno-stack-protector -Wdeclaration-after-statement -Wno-pointer-sign -ffreestanding -marm
-
+KBUILD_CFLAGS   := -g  -O0 -fno-common  -marm  -mno-thumb-interwork -march=armv7-a -Wall -Wstrict-prototypes $(KBUILD_CPPFLAGS)
+KBUILD_CFLAGS	:= -mabi=aapcs-linux -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -fno-PIE -fno-dwarf2-cfi-asm -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -march=armv7-a -Uarm -fno-delete-null-pointer-checks -Wno-frame-address --param=allow-store-data-races=0 -Wframe-larger-than=1024 -fno-stack-protector -Wno-unused-but-set-variable -Wno-unused-const-variable -fomit-frame-pointer -fno-var-tracking-assignments -g -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -Werror=implicit-int -Werror=strict-prototypes -Werror=date-time -Werror=incompatible-pointer-types -Werror=designated-init -DBITS_PER_LONG=32
 
 KBUILD_AFLAGS_KERNEL := -I. 
 KBUILD_CFLAGS_KERNEL := -I. -I./lib/libfdt 
@@ -335,27 +332,14 @@ endif # $(dot-config)
 ifeq ($(CONFIG_VEXPRESS),y)
 TARGET = vexpress
 endif
-
-ifeq ($(CONFIG_MERIDA),y)
+ifeq ($(CONFIG_MERIDAv2),y)
 TARGET = merida
 endif
-
 ifeq ($(CONFIG_BPI),y)
 TARGET = bpi
 endif
-
 ifeq ($(CONFIG_RPI4),y)
 TARGET = rpi4
-endif
-
-ifeq ($(CONFIG_RPI3),y)
-TARGET = rpi3
-endif
-
-ifeq ("$(TARGET)", "")
-  PHONY += help
-  error:
-	echo "Wrong configuration..."
 endif
 
 # The all: target is the default when no target is given on the
@@ -368,22 +352,16 @@ BIN	= avz.bin
 
 include scripts/Makefile.build
  
-ifeq ($(CONFIG_BIN),y)
-all: $(BIN) 
-endif
+all: $(BIN) $(ELF)
 
-ifeq ($(CONFIG_ELF),y)
-all: $(ELF)
-endif
-
-objs-y		:= kernel mm devices arch/arm
+objs-y		:= kernel mm arch/arm devices  
 libs-y		:= lib
-libs-y		+= lib/libfdt
+libs-y 		+= lib/libfdt
 
-avz-dirs	:= $(objs-y) $(libs-y) 
+avz-dirs	:= $(objs-y) $(libs-y)
 avz-objs	:= $(patsubst %,%/built-in.o, $(objs-y))
 avz-libs	:= $(patsubst %,%/lib.a, $(libs-y))
-avz-all		:= $(avz-objs) $(avz-libs)
+avz-all	:= $(avz-objs) $(avz-libs)
 
 # Do modpost on a prelinked vmlinux. The finally linked vmlinux has
 # relevant sections renamed as per the linker script.
@@ -392,16 +370,13 @@ avz-all		:= $(avz-objs) $(avz-libs)
 #      -Wl,--start-group $(avz-libs) $(avz-objs) -Wl,--end-group
 LIBGCC_PATH := $(shell dirname `$(CC) -print-libgcc-file-name`)
 
-#quiet_cmd_avz = LD      $@
-#cmd_avz = $(LD) --defsym=ENTRY_ADDR=$(CONFIG_KERNEL_VIRT_ADDR) -T arch/arm/avz.lds -o $@ $^ -L $(LIBGCC_PATH) -lgcc
+quiet_cmd_avz = LD      $@
+     cmd_avz = $(LD) --defsym=ENTRY_ADDR=$(CONFIG_HYPERVISOR_VIRT_ADDR) -T arch/arm/avz.lds -o $@ $^ -L $(LIBGCC_PATH) -lgcc
 
-quiet_cmd_avz ?= LD      $@
-cmd_avz ?= $(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $@ -T arch/arm/avz.lds $^
-
+	 
 KBUILD_CFLAGS_KERNEL += -Iarch/arm/include/ -Iarch/arm/$(TARGET)/include/	
 KBUILD_AFLAGS_KERNEL += -Iarch/arm/include/ -Iarch/arm/$(TARGET)/include/
-KBUILD_CPPFLAGS += -Iarch/arm/include/ -Iarch/arm/$(TARGET)/include/
- 
+
 $(BIN): $(ELF)
 	$(OBJCOPY) --set-section-flags .bss=alloc,load,contents -O binary $< $@ 2>/dev/null
 	

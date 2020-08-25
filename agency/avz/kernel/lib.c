@@ -16,9 +16,10 @@
  *
  */
 
-#include <avz/ctype.h>
-#include <avz/lib.h>
-#include <avz/types.h>
+#include <ctype.h>
+#include <lib.h>
+#include <types.h>
+
 #include <asm/byteorder.h>
 
 /* for ctype.h */

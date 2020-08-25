@@ -16,37 +16,36 @@
  *
  */
 
-#include <avz/init.h>
-#include <avz/lib.h>
-#include <avz/cpumask.h>
-#include <avz/mm.h>
-#include <avz/errno.h>
+#include <lib.h>
+#include <memory.h>
+#include <errno.h>
 
-#include <asm/config.h>
-#include <asm/percpu.h>
+#include <config.h>
+#include <percpu.h>
 
 extern char __per_cpu_start[], __per_cpu_data_end[], __per_cpu_end[];
 unsigned long __per_cpu_offset[NR_CPUS];
 
 #define INVALID_PERCPU_AREA (-(long)__per_cpu_start)
-#define PERCPU_ORDER (get_order_from_bytes(__per_cpu_data_end-__per_cpu_start))
+#define PERCPU_ORDER (get_order_from_bytes(__per_cpu_data_end - __per_cpu_start))
 
-void __init percpu_init_areas(void)
+void percpu_init_areas(void)
 {
     unsigned int cpu;
 
-    for (cpu = 1; cpu < NR_CPUS; cpu++)
+    for (cpu = 0; cpu < NR_CPUS; cpu++)
         __per_cpu_offset[cpu] = INVALID_PERCPU_AREA;
 }
 
 int init_percpu_area(unsigned int cpu)
 {
     char *p;
+
     if (__per_cpu_offset[cpu] != INVALID_PERCPU_AREA)
-        return -EBUSY;
+        BUG();
 
     if ((p = alloc_heap_pages(PERCPU_ORDER, 0)) == NULL)
-        return -ENOMEM;
+        BUG();
 
     memset(p, 0, __per_cpu_data_end - __per_cpu_start);
     __per_cpu_offset[cpu] = p - __per_cpu_start;

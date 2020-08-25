@@ -1,5 +1,5 @@
 #include <asm/linkage.h>
-#include <asm/asm-macros.h>
+#include <asm/processor.h>
 
 	.text
 	.align	5

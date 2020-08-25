@@ -20,19 +20,19 @@
 #define DEBUG
 #endif
 
-#include <avz/config.h>
-#include <avz/types.h>
-#include <avz/lib.h>
-#include <avz/mm.h>
+#include <config.h>
+#include <types.h>
+#include <lib.h>
+#include <memory.h>
 
-#include <avz/sched.h>
-#include <avz/domain.h>
-#include <avz/event.h>
-#include <avz/errno.h>
+#include <sched.h>
+#include <domain.h>
+#include <event.h>
+#include <errno.h>
 
-#include <asm/irq.h>
 #include <asm/processor.h>
-#include <asm/hypercall.h> /* for arch_do_domctl */
+
+#include <device/irq.h>
 
 #include <soo/uapi/domctl.h>
 #include <soo/uapi/debug.h>
@@ -80,7 +80,6 @@ long do_domctl(domctl_t *args)
 		ret = -ESRCH;
 		if (d != NULL)
 		{
-
 			ret = -EINVAL;
 			if (d != current->domain)
 			{
