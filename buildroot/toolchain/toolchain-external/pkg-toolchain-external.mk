@@ -87,8 +87,13 @@ endif
 # If this is a buildroot toolchain, it already has a wrapper which we want to
 # bypass. Since this is only evaluated after it has been extracted, we can use
 # $(wildcard ...) here.
-TOOLCHAIN_EXTERNAL_SUFFIX = \
-	$(if $(wildcard $(TOOLCHAIN_EXTERNAL_BIN)/*.br_real),.br_real)
+
+# (SOO.tech)
+# After upgrading to Ubuntu 20.04, the .br_real suffix
+# was added to the toolchain. Weird, but this will fix it.
+
+TOOLCHAIN_EXTERNAL_SUFFIX = 
+#	$(if $(wildcard $(TOOLCHAIN_EXTERNAL_BIN)/*.br_real),.br_real)
 
 TOOLCHAIN_EXTERNAL_CROSS = $(TOOLCHAIN_EXTERNAL_BIN)/$(TOOLCHAIN_EXTERNAL_PREFIX)-
 TOOLCHAIN_EXTERNAL_CC = $(TOOLCHAIN_EXTERNAL_CROSS)gcc$(TOOLCHAIN_EXTERNAL_SUFFIX)
