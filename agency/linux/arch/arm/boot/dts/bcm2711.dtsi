@@ -149,7 +149,7 @@
 				 <&clocks BCM2835_CLOCK_VPU>;
 			clock-names = "uartclk", "apb_pclk";
 			arm,primecell-periphid = <0x00241011>;
-			status = "disabled";
+			status = "okay";
 		};
 
 		spi3: spi@7e204600 {
