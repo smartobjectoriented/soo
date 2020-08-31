@@ -55,6 +55,18 @@ static int volatile vfb_active = 0;
 /* Provided by vUART backend */
 void me_cons_sendc(domid_t domid, uint8_t ch);
 
+/**
+ * Print the contents of a buffer.
+ */
+void printk_buffer(void *buffer, uint32_t n)
+{
+	uint32_t i;
+
+	for (i = 0 ; i < n ; i++)
+		printk("%02x ", ((char *) buffer)[i]);
+	printk("\n");
+}
+
 int avzcons_get_focus(void)
 {
 	return avzcons_active;

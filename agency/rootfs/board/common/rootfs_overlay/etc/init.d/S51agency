@@ -27,8 +27,12 @@ case "$1" in
         /root/wifimanager.sh
         echo "OK"
 
+        # Disable the kernel logs (will be routed to syslog files)
+        echo "3 4 1 7" > /proc/sys/kernel/printk
+        
         echo -n "Starting Agency Core... "
-        /root/agency &
+        stdbuf -o 0 ./agency > /dev/pipe_uspace_logs &
+        
         echo "OK"
         
         if [ -r /root/otherapps.sh ]; then

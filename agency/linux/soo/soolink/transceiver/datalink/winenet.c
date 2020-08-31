@@ -1776,10 +1776,10 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 
 		} else if (packet->transID && (packet->transID & WNET_MAX_PACKET_TRANSID) != last_transID + 1) {
 
-			/* Packet chain broken. This frame is discarded. */
-			DBG("Pkt chain broken: (last_transID=%d)/(packet->transID=%d)\n", last_transID, packet->transID & WNET_MAX_PACKET_TRANSID);
-
-			clear_buf_rx_pkt();
+			/* The packet chain is (temporarly) broken by ack timeout processing from the sender. */
+#if 0
+			printk("[soo:soolink:winenet] Pkt chain broken: (last_transID=%d)/(packet->transID=%d)\n", last_transID, packet->transID & WNET_MAX_PACKET_TRANSID);
+#endif
 
 			return ;
 		}

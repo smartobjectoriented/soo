@@ -76,7 +76,7 @@ static compressor_method_t method_no_compression = {
 	.decompress_callback	= no_compression_decompress_data
 };
 
-#if defined(CONFIG_DCM_LZ4)
+#ifdef CONFIG_DCM_LZ4
 
 static int lz4_compress_data(void **data_compressed, void *source_data, size_t source_size) {
 
@@ -86,6 +86,7 @@ static int lz4_compress_data(void **data_compressed, void *source_data, size_t s
 	int ret;
 
 	alloc_data = vmalloc(LZ4_compressBound(source_size) + sizeof(compressor_data_t));
+	BUG_ON(!alloc_data);
 
 	if ((size_compressed = LZ4_compress_default((const char *) source_data, alloc_data->payload, source_size, LZ4_compressBound(source_size), work_lz4_mem)) < 0) {
 		lprintk("Error when compressing the ME\n");

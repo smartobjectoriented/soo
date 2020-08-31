@@ -118,6 +118,8 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	 */
 	if (likely(size)) {
 		*data = vmalloc(size);
+		BUG_ON(!data);
+
 		memcpy(*data, sl_desc->incoming_block, size);
 
 		mutex_lock(&decoder_lock);
@@ -141,8 +143,6 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 	transcoder_packet_t *pkt;
 	decoder_block_t *block;
-
-	DBG("Size: %d\n", size);
 
 	/* Bypass the Decoder if the requester is of Bluetooth or TCP type */
 	if ((sl_desc->if_type == SL_IF_BT) || (sl_desc->if_type == SL_IF_TCP) || (sl_desc->req_type == SL_REQ_PEER)) {
@@ -211,7 +211,8 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 		/* If we missed a packet for this block, we simply discard all subsequent packets */
 		if (block->discarded_block) {
-			DBG("Ignore: %d\n", pkt->u.ext.packetID);
+
+			printk("[soo:soolink:decoder] Ignore: %d\n", pkt->u.ext.packetID);
 
 			block->n_recv_packets++;
 
@@ -231,20 +232,28 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			}
 		}
 
-		if ((block->block_ext_in_progress) && (pkt->u.ext.packetID != block->cur_packetID + 1)) {
-			DBG("Discard: %d-%d", block->cur_packetID, pkt->u.ext.packetID);
+		if ((block->block_ext_in_progress) && (pkt->u.ext.packetID != block->cur_packetID+1)) {
+
+			printk("[soo:soolink:decoder] Discard current packetID: %d expected: %d", pkt->u.ext.packetID, block->cur_packetID+1);
 
 			transcoder_discarded_packets++;
 
-			block->discarded_block = true;
-			if (block->incoming_block) {
-				vfree(block->incoming_block);
-				block->incoming_block = NULL;
+			/* If the received packetID is smaller than the expected one, it means
+			 * that a frame has been re-sent because the sender did not receive an ack.
+			 */
+#warning Make sure the received frame matches the existing one.
+			if (pkt->u.ext.packetID > block->cur_packetID+1) {
+
+				block->discarded_block = true;
+				if (block->incoming_block) {
+					vfree(block->incoming_block);
+					block->incoming_block = NULL;
+				}
+
+				sl_desc->incoming_block = NULL;
+				sl_desc->incoming_block_size = 0;
+
 			}
-
-			sl_desc->incoming_block = NULL;
-			sl_desc->incoming_block_size = 0;
-
 
 			/*
 			 * Release the lock on the block processing.

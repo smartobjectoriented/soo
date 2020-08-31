@@ -587,7 +587,7 @@ static int iamasoo_task_fn(void *args) {
 	neighbour->missing_tick = 0;
 	neighbour->present = true;
 
-	DBG("Adding ourself (%s) - ", neighbour->name);
+	printk("[soo:soolink] Adding ourself (%s) - ", neighbour->name);
 	DBG_BUFFER(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
 	__add_neighbour(neighbour);
@@ -642,8 +642,8 @@ static int iamasoo_task_fn(void *args) {
 					if (neighbour->priv)
 						kfree(neighbour->priv);
 
-					DBG("Delete the neighbour: ");
-					DBG_BUFFER(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+					printk("[soo:soolink] Delete the neighbour: ");
+					printk_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
 					list_del(cur);
 					kfree(neighbour);
@@ -819,15 +819,28 @@ void neighbours_read(char *str) {
 static int count = 0;
 sl_desc_t *sl_desc;
 
+#define BUFFER_SIZE 16*1024*1024
+
+static unsigned char buffer[BUFFER_SIZE];
+
 static int soo_stream_task_rx_fn(void *args) {
 	uint32_t size;
 	void *data;
+	int i;
 
 	while (true){
 		size = sl_recv(sl_desc, &data);
 
-		count++;
-		lprintk("## ******************** Got a buffer (count %d got %d bytes)\n", count, size);
+		for (i = 0; i < BUFFER_SIZE; i++)
+			if (((unsigned char *) data)[i] != buffer[i]) {
+				printk("## Data corruption : failure on byte %d\n", i);
+				break;
+			}
+
+		if (i == BUFFER_SIZE) {
+			count++;
+			lprintk("## ******************** Got a buffer (count %d got %d bytes)\n", count, size);
+		}
 
 		/* Must release the allocated buffer */
 		vfree(data);
@@ -835,10 +848,6 @@ static int soo_stream_task_rx_fn(void *args) {
 
 	return 0;
 }
-
-#define BUFFER_SIZE 2*1024*1024
-
-static unsigned char buffer[BUFFER_SIZE];
 
 void stream_count_read(char *str) {
 	sprintf(str, "%d", count);
