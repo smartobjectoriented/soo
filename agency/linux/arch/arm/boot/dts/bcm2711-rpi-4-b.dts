@@ -94,6 +94,12 @@
 				compatible = "vuihandler,backend";
 				status = "disabled";
 			};
+
+			venocean {
+				
+                compatible = "venocean,backend";
+				status = "ok";
+			};
 		
 		};
 	};
@@ -341,6 +347,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart5_gpio12>;
 	status = "okay";
+
+    enocean {
+        compatible = "enocean-3-click";
+		max-speed = <2000000>;
+	    status = "okay";
+    };
 };	
 
 

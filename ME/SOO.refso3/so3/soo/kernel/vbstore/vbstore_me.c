@@ -244,6 +244,12 @@ void remove_vbstore_entries(void) {
 		DBG("%s: removing vdummy from vbstore...\n", __func__);
 		vbstore_dev_remove(ME_domID(), "vdummy");
 	}
+
+	fdt_node = fdt_find_compatible_node("venocean,frontend");
+	if (fdt_device_is_available(fdt_node)) {
+		DBG("%s: removing venocean from vbstore...\n", __func__);
+		vbstore_dev_remove(ME_domID(), "venocean");
+	}
 }
 
 /*
@@ -288,6 +294,12 @@ void vbstore_devices_populate(void) {
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: init vdoga12v6nm...\n", __func__);
 		vbstore_dev_init(ME_domID(), "vdoga12v6nm", false, "vdoga12v6nm,frontend");
+	}
+
+	fdt_node = fdt_find_compatible_node("venocean,frontend");
+	if (fdt_device_is_available(fdt_node)) {
+		DBG("%s: init venocean...\n", __func__);
+		vbstore_dev_init(ME_domID(), "venocean", false, "venocean,frontend");
 	}
 
 }

@@ -476,4 +476,9 @@ void vbstorage_agency_init(void) {
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vdoga12v6nm");
 
+	/* Agency backend side of virtual DOGA 12V 6NM device */
+	np = of_find_compatible_node(NULL, NULL, "venocean,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/venocean");
+
 }

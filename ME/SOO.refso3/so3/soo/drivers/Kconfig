@@ -19,5 +19,9 @@ config VWEATHER_FRONTEND
 config VUIHANDLER_FRONTEND
 	bool "vuihandler UI manager driver"
 
+config VENOCEAN_FRONTEND
+	bool "venocean UI FE"
+    default y
+
 endmenu
 

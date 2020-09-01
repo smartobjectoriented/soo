@@ -50,6 +50,13 @@ config VFB_BACKEND
 	  This driver enabled to deal with a virtualized interface for a framebuffer
 	  in the Mobile Entity.
 
+config VENOCEAN_BACKEND
+	bool "enOcean backend driver"
+	depends on TTY
+	default y
+	help
+	  This driver enabled to deal with a virtualized interface for the enOcean actuator.
+
 endmenu
 	
 

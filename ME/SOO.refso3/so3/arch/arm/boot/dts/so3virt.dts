@@ -81,6 +81,11 @@
 				compatible = "vuart,frontend";
 				status = "ok";
 			};
+    
+			venocean {
+				compatible = "venocean,frontend";
+				status = "ok";
+			};
 		};
 	
 		features {
