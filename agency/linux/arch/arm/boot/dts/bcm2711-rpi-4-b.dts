@@ -117,6 +117,18 @@
 		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
 	};
 
+	//BCU added spi1 configuration
+	spi1_pins: spi1_pins {
+		brcm,pins = <19 20 21>;
+		brcm,function = <BCM2835_FSEL_ALT4>;
+	};
+
+	spi1_cs_pins: spi1_cs_pins {
+		brcm,pins = <18>;
+		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
+	};
+
+
 	spi3_pins: spi3_pins {
 		brcm,pins = <1 2 3>;
 		brcm,function = <BCM2835_FSEL_ALT3>;
@@ -175,8 +187,9 @@
 		brcm,pull = <BCM2835_PUD_UP>;
 	};
 
+	//BCU brcm,pins modified
 	i2c4_pins: i2c4 {
-		brcm,pins = <8 9>;
+		brcm,pins = <6 7>;
 		brcm,function = <BCM2835_FSEL_ALT5>;
 		brcm,pull = <BCM2835_PUD_UP>;
 	};
@@ -354,6 +367,33 @@
     };
 };	
 
+&spi1 {
+	status = "okay";
+	cs-gpios = <&gpio 18 GPIO_ACTIVE_HIGH>;
+	num-cs = <1>;
+
+	drv8703q1@0 {
+		//pinctrl-names = "sleep_gpio", "mode-gpio";
+		// pinctrl-0 = <&drv8703q1_pins>;
+
+		compatible = "ti,drv8703q1";
+		reg = <0>;
+		spi-max-frequency = <100000>;
+		sleep-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>; /* PD23 for v2*/
+		mode-gpio = <&gpio 10 GPIO_ACTIVE_HIGH>; /* PD24 for v2*/
+	};
+};
+
+&i2c4 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c4_pins>;
+
+    ds1050@28 {
+        compatible = "maxim,ds1050";
+        reg = <0x28>; /* This is due to the control byte (101) + A2, A1, A0 (000) combination (101000 = 0x28) */
+    };
+};
 
 &i2c1 {
     compatible = "brcm,bcm2711-i2c", "brcm,bcm2835-i2c";
