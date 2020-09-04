@@ -1,0 +1,27 @@
+#
+# SOO Mobile Entity configuration
+#
+
+menu "SOO Mobile Entity frontend drivers"
+
+config VDUMMY_FRONTEND
+        bool "vdummy Dummy driver support debugging and testing"
+
+config VUART_FRONTEND
+	bool "vuart serial driver"
+
+config VDOGA12V6NM_FRONTEND
+	bool "vDoga12v6nm frontend for the DOGA 12V 6Nm blind motor"
+
+config VWEATHER_FRONTEND
+	bool "vWeather frontend for the SOO.outdoor weather station"
+
+config VUIHANDLER_FRONTEND
+	bool "vuihandler UI manager driver"
+
+config VENOCEAN_FRONTEND
+	bool "venocean UI FE"
+    default y
+
+endmenu
+

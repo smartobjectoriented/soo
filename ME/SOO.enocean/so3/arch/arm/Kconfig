@@ -1,0 +1,13 @@
+
+choice
+  prompt "SO3 OS type"
+	
+	config SO3VIRT
+		bool "SO3 virtshare/avz"
+		depends on MMU
+
+	config STANDALONE
+		bool "SO3 standalone environment"
+        
+   
+endchoice
