@@ -48,25 +48,30 @@
 extern ssize_t tty_do_read(struct tty_struct *tty, unsigned char *buf, size_t nr);
 extern struct tty_struct *tty_kopen(dev_t device);
 extern void uart_do_open(struct tty_struct *tty);
+extern void uart_do_close(struct tty_struct *tty);
 extern int tty_set_termios(struct tty_struct *tty, struct ktermios *new_termios);
 
-static char ascii_data[40];
+int32_t Switch_ID_Reconstitution(char ID[4]);
+
+/* ASCII data coming from the enocean module*/
+static venocean_ascii_data_t ascii_data;
 
 
 static int click_monitor_fn(void *args) {
 	struct tty_struct *tty_uart;
 	int len, nbytes;
-	char buffer[VWEATHER_FRAME_SIZE];
+	char buffer[VENOCEAN_FRAME_SIZE];
 	dev_t dev;
-	int baud = 19200;
+	int baud = 57600; //default baudrate for the enocean module
 	int bits = 8;
 	int parity = 'n';
 	int flow = 'n';
 	int i = 0;
+	bool problem = false;
 
-	lprintk("%s: starting to acquire weather data from the weather station.\n", __func__);
+	lprintk("%s: starting to acquire switch data from the enocean module.\n", __func__);
 
-	/* Initiate the tty device dedicated to the weather station. */
+	/* Initiate the tty device dedicated to the enocean module. */
 	tty_dev_name_to_number(ENOCEAN_UART5_DEV, &dev);
 	tty_uart = tty_kopen(dev);
 
@@ -74,39 +79,71 @@ static int click_monitor_fn(void *args) {
 
 	/* Set the termios parameters related to tty. */
 
-	tty_uart->termios.c_lflag = ECHO | ECHOE | NOFLSH;
+	tty_uart->termios.c_lflag = NOFLSH;
 	tty_set_termios(tty_uart, &tty_uart->termios);
 
 	/* Set UART configuration */
 	uart_set_options(((struct uart_state *) tty_uart->driver_data)->uart_port, NULL, baud, parity, bits, flow);
 
-	while (true) {
+	while (true) 
+	{
+		nbytes = 0; //reset the number of the actual byte to read
 
-		/* According to the doc, we expect 40 bytes starting with 'W' and
-		 * finishing with '3'.
-		 */
-		nbytes = 0;
-		while (nbytes < VWEATHER_FRAME_SIZE) {
-			len = tty_do_read(tty_uart, buffer + nbytes, VWEATHER_FRAME_SIZE);
+		//if a problem was detected during the precedent iteration
+		if(problem == true)
+		{
+			//read the number of byte corresponding to the enocean reset
+			while (nbytes < VENOCEAN_INIT_SIZE) 
+			{
+				len = tty_do_read(tty_uart, buffer + nbytes, VENOCEAN_INIT_SIZE);
+				nbytes += len;
+			}
+
+			problem = false; //reset the problem state
+		} 
+
+		nbytes = 0; //reset the number of the actual byte to read
+
+		while (nbytes < VENOCEAN_FRAME_SIZE) 
+		{
+			len = tty_do_read(tty_uart, buffer + nbytes, VENOCEAN_FRAME_SIZE);
 			nbytes += len;
 		}
 
-		// if (!((nbytes == VWEATHER_FRAME_SIZE) && (buffer[0] == 'W') && (buffer[VWEATHER_FRAME_SIZE-1] == 3)))
-		// 	continue;
-			
-		for (i = 0; i < VWEATHER_FRAME_SIZE; ++i) {
-			printk("0x%X ", buffer[i]);
+		/* Update the local asci data with the new received data. */
+		memcpy(&ascii_data, buffer, VENOCEAN_FRAME_SIZE);
+
+
+		if (ascii_data.switch_data == SWITCH_IS_UP)
+		{
+			printk("switch (ID: 0x%08X) is up", Switch_ID_Reconstitution(ascii_data.switch_ID));
 		}
+		else if(ascii_data.switch_data == SWITCH_IS_DOWN)
+		{
+			printk("switch (ID: 0x%08X) is down", Switch_ID_Reconstitution(ascii_data.switch_ID));
+		}
+		else if(ascii_data.switch_data == SWITCH_IS_RELEASED)
+		{
+			printk("switch (ID: 0x%08X) is released", Switch_ID_Reconstitution(ascii_data.switch_ID));
+		}
+		else
+		{
+			printk("problem");
+			problem = true;
+		} 
 		printk("\n");
-
-		/* Update the local data with the new received data. */
-		memcpy(&ascii_data, buffer, VWEATHER_FRAME_SIZE);
-		// update_weather_data();
-
 	}
-
 	return 0;
 }
+
+//Used to regroup the 4 ID bytes into one 32bits 
+int32_t Switch_ID_Reconstitution(char ID[4])
+{
+	int32_t Full_ID = ((ID[0] << 24) | (ID[1] << 16) | (ID[2] << 8) | ID[3]);
+	return Full_ID;
+}
+
+
 
 static void process_response(struct vbus_device *vdev) {
 	venocean_t *venocean = to_venocean(vdev);
@@ -241,11 +278,11 @@ int venocean_init(void) {
 
 	vdevback_init(VENOCEAN_NAME, &venoceandrv);
 
-	printk("VENOCEAN INITILIZED!!!!!!!!!!!!!!!!!\n");
-
-
+	printk("VENOCEAN INITILIZED\n");
 
 	return 0;
 }
+
+
 
 device_initcall(venocean_init);

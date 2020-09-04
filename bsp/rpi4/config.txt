@@ -63,5 +63,14 @@ max_framebuffers=2
 
 enable_uart=1
 
+dtoverlay=uart3,txd3_pin=7
+dtoverlay=uart5,txd5_pin=32
+
+dtoverlay=spi1-1cs,cs_pin=12
+
+dtoverlay=i2c4,pins_6_7
+
+
+
 [all]
 #dtoverlay=vc4-fkms-v3d

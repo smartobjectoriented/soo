@@ -96,7 +96,6 @@
 			};
 
 			venocean {
-				
                 compatible = "venocean,backend";
 				status = "ok";
 			};

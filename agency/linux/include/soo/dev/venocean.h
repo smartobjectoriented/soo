@@ -30,7 +30,15 @@
 
 #define ENOCEAN_UART5_DEV "ttyAMA5"
 
-#define VWEATHER_FRAME_SIZE 10
+#define VENOCEAN_FRAME_SIZE 20
+
+#define VENOCEAN_INIT_SIZE 5
+
+//different states for the switchs (single channel)
+//Interpreted from the frame during successive tests (could not find documentation about the data encription)
+#define SWITCH_IS_RELEASED 0x00 
+#define SWITCH_IS_UP 0x70
+#define SWITCH_IS_DOWN 0x50
 
 /*  This is a reserved char code we use to query (patched) Qemu to retrieve the window size. */
 #define SERIAL_GWINSZ   '\254'
@@ -42,6 +50,20 @@ typedef struct {
 typedef struct {
 	char c;
 } venocean_response_t;
+
+/* ASCII data coming from the enocean module*/
+typedef struct {
+	char	frame_begin;	/* 0x55 */
+	char	data_length[2];	/* lenght for the main datas*/
+	char	optionnal_length;	/* length for the optionnal datas */
+	char	packet_type;	/* 0x01 = ERP Radio Telegramm */
+	char	crc_h;	/* CRC 8 */
+	char	command_code;	/* command code */
+	char	switch_data;	/* switch state at telegramm reception*/
+	char	switch_ID[4];	/* enocean device ID */
+	char	secondary_datas[7];	/* secondary datas from the switch */
+	char	crc_l;	/* CRC 8*/
+} venocean_ascii_data_t;
 
 DEFINE_RING_TYPES(venocean, venocean_request_t, venocean_response_t);
 
