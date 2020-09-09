@@ -40,6 +40,14 @@
 #define SWITCH_IS_UP 0x70
 #define SWITCH_IS_DOWN 0x50
 
+
+#define UP_GPIO		26
+
+#define DOWN_GPIO	16
+
+/* GPIO polling period expressed in ms */
+#define GPIO_POLL_PERIOD	100
+
 /*  This is a reserved char code we use to query (patched) Qemu to retrieve the window size. */
 #define SERIAL_GWINSZ   '\254'
 

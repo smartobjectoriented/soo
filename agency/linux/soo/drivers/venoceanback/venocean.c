@@ -29,6 +29,9 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 
+#include <linux/gpio/driver.h>
+#include <linux/gpio/consumer.h> 
+
 #include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
@@ -39,7 +42,6 @@
 #include <linux/kthread.h>
 
 #include <soo/vdevback.h>
-
 
 #include <asm/termios.h>
 #include <linux/serial_core.h>
@@ -55,6 +57,10 @@ int32_t Switch_ID_Reconstitution(char ID[4]);
 
 /* ASCII data coming from the enocean module*/
 static venocean_ascii_data_t ascii_data;
+static bool can_drive_motor = true;
+
+/* 0 = no stop, 1 = up stop, 2 = down stop */
+static int last_stop_type = 0;
 
 
 static int click_monitor_fn(void *args) {
@@ -85,6 +91,8 @@ static int click_monitor_fn(void *args) {
 	/* Set UART configuration */
 	uart_set_options(((struct uart_state *) tty_uart->driver_data)->uart_port, NULL, baud, parity, bits, flow);
 
+
+
 	while (true) 
 	{
 		nbytes = 0; //reset the number of the actual byte to read
@@ -104,6 +112,7 @@ static int click_monitor_fn(void *args) {
 
 		nbytes = 0; //reset the number of the actual byte to read
 
+		//read the number of bytes corresponding to the size of the switch frame
 		while (nbytes < VENOCEAN_FRAME_SIZE) 
 		{
 			len = tty_do_read(tty_uart, buffer + nbytes, VENOCEAN_FRAME_SIZE);
@@ -114,6 +123,7 @@ static int click_monitor_fn(void *args) {
 		memcpy(&ascii_data, buffer, VENOCEAN_FRAME_SIZE);
 
 
+		//Test the differents possibilities of position
 		if (ascii_data.switch_data == SWITCH_IS_UP)
 		{
 			printk("switch (ID: 0x%08X) is up", Switch_ID_Reconstitution(ascii_data.switch_ID));
@@ -128,7 +138,7 @@ static int click_monitor_fn(void *args) {
 		}
 		else
 		{
-			printk("problem");
+			printk("invalid param");
 			problem = true;
 		} 
 		printk("\n");
@@ -143,8 +153,6 @@ int32_t Switch_ID_Reconstitution(char ID[4])
 	return Full_ID;
 }
 
-
-
 static void process_response(struct vbus_device *vdev) {
 	venocean_t *venocean = to_venocean(vdev);
 	venocean_request_t *ring_req;
@@ -157,7 +165,6 @@ static void process_response(struct vbus_device *vdev) {
 
 	notify_remote_via_virq(venocean->irq);
 
-
 }
 
 irqreturn_t venocean_interrupt(int irq, void *dev_id)
@@ -167,8 +174,79 @@ irqreturn_t venocean_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static struct gpio_desc *up_gpio;
+static struct gpio_desc *down_gpio;
+static struct gpio_desc *sleep_gpio;
+static struct gpio_desc *mode_gpio;
+static struct gpio_desc *in1_ph_gpio;
+static struct gpio_desc *heat_gpio;
 
-void venocean_probe(struct vbus_device *vdev) {
+
+static void setup_gpios(struct device *dev) {
+	int ret;
+
+	/* Up mechanical stop detection GPIO */
+	up_gpio = gpiod_get(dev, "up", GPIOD_IN);
+	printk("up_gpio = 0x%08X\n", up_gpio);
+	if (IS_ERR(up_gpio)) {
+		ret = PTR_ERR(up_gpio);
+		dev_err(dev, "Failed to get UP GPIO: %d\n", ret);
+		return;
+	}
+	gpiod_direction_input(up_gpio);
+
+
+	down_gpio = gpiod_get(dev, "down", GPIOD_IN);
+	printk("down_gpio = 0x%08X\n", down_gpio);
+	if (IS_ERR(down_gpio)) {
+		ret = PTR_ERR(down_gpio);
+		dev_err(dev, "Failed to get DOWN GPIO: %d\n", ret);
+		return;
+	}
+	gpiod_direction_input(down_gpio);
+
+	sleep_gpio = gpiod_get(dev, "sleep", GPIOD_OUT_HIGH);
+	printk("sleep_gpio = 0x%08X\n", sleep_gpio);
+	if (IS_ERR(sleep_gpio)) {
+		ret = PTR_ERR(sleep_gpio);
+		dev_err(dev, "Failed to get SLEEP GPIO: %d\n", ret);
+		return;
+	}
+	gpiod_direction_output(sleep_gpio, 1);
+
+	mode_gpio = gpiod_get(dev, "mode", GPIOD_OUT_HIGH);
+	printk("mode_gpio = 0x%08X\n", mode_gpio);
+	if (IS_ERR(mode_gpio)) {
+		ret = PTR_ERR(mode_gpio);
+		dev_err(dev, "Failed to get MODE GPIO: %d\n", ret);
+		return;
+	}
+	gpiod_direction_output(mode_gpio, 0);
+
+	in1_ph_gpio = gpiod_get(dev, "in1_ph", GPIOD_OUT_HIGH);
+	printk("in1_ph_gpio = 0x%08X\n", in1_ph_gpio);
+	if (IS_ERR(in1_ph_gpio)) {
+		ret = PTR_ERR(in1_ph_gpio);
+		dev_err(dev, "Failed to get IN1_PH GPIO: %d\n", ret);
+		return;
+	}
+	gpiod_direction_output(in1_ph_gpio, 0);
+
+	heat_gpio = gpiod_get(dev, "heat", GPIOD_OUT_HIGH);
+	printk("heat_gpio = 0x%08X\n", heat_gpio);
+	if (IS_ERR(heat_gpio)) {
+		ret = PTR_ERR(heat_gpio);
+		dev_err(dev, "Failed to get HEAT GPIO: %d\n", ret);
+		return;
+	}
+	gpiod_direction_output(heat_gpio, 0);
+
+	/* We cannot request any IRQ on PD20. We must poll it. */
+	//kthread_run(venocean_blind_stop_task_fn, NULL, "venOcean_stop");
+}
+
+void venocean_probe(struct vbus_device *vdev) 
+{
 	venocean_t *venocean;
 
 	venocean = kzalloc(sizeof(venocean_t), GFP_ATOMIC);
@@ -176,7 +254,11 @@ void venocean_probe(struct vbus_device *vdev) {
 
 	spin_lock_init(&venocean->ring_lock);
 
+	vdev->dev.of_node = of_find_compatible_node(NULL, NULL, "venocean,backend");
+
 	dev_set_drvdata(&vdev->dev, &venocean->vdevback);
+
+	setup_gpios(&vdev->dev);
 
 	kthread_run(click_monitor_fn, NULL, "click_enocean_monitor");
 
@@ -282,7 +364,5 @@ int venocean_init(void) {
 
 	return 0;
 }
-
-
 
 device_initcall(venocean_init);

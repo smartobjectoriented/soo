@@ -96,8 +96,14 @@
 			};
 
 			venocean {
-                compatible = "venocean,backend";
+				compatible = "venocean,backend";
 				status = "ok";
+
+				up-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
+				down-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
+				sleep-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
+				mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
+				in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>
 			};
 		
 		};
@@ -369,18 +375,20 @@
 
 &spi1 {
 	status = "okay";
-	cs-gpios = <&gpio 18 GPIO_ACTIVE_HIGH>;
+	cs-gpios = <&gpio 18 GPIO_ACTIVE_LOW>;
 	num-cs = <1>;
 
+	/* SOO.tech */
 	drv8703q1@0 {
 		//pinctrl-names = "sleep_gpio", "mode-gpio";
 		// pinctrl-0 = <&drv8703q1_pins>;
 
 		compatible = "ti,drv8703q1";
+		status = "okay";
 		reg = <0>;
-		spi-max-frequency = <100000>;
-		sleep-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>; /* PD23 for v2*/
-		mode-gpio = <&gpio 10 GPIO_ACTIVE_HIGH>; /* PD24 for v2*/
+		spi-max-frequency = <0x7735940>;
+		//sleep-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>;
+		//mode-gpio = <&gpio 10 GPIO_ACTIVE_HIGH>;
 	};
 };
 
