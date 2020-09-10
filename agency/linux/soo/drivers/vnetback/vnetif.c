@@ -77,7 +77,7 @@ void netif_rx_packet(struct net_device *dev, void* data, size_t pktlen)
 
 	skb_put_data(skb, data, pktlen);
 	skb->protocol = eth_type_trans(skb, dev);
-g
+
 	skb->ip_summed = CHECKSUM_NONE;
 	skb->pkt_type = PACKET_HOST;
 

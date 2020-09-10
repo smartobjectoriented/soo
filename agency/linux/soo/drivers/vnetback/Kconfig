@@ -8,7 +8,7 @@ menu "vnet backend config"
 choice VNET_BACKEND_ARCH
     prompt "Backend architecture"
     depends on VNET_BACKEND
-    default VNET_BACKEND_ARCH_BRIDGE_AND_NAT
+    default VNET_BACKEND_ARCH_BRIDGE
 
 config VNET_BACKEND_ARCH_BRIDGE
     bool "Use bridge architectue"

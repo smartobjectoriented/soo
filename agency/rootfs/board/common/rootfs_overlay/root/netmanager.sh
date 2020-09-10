@@ -5,7 +5,7 @@
 # This script configure the network allowin ME to access the network thru a NAT
 #
 
-USE_NAT=true
+USE_NAT=false
 USE_BRIDGE=true
 
 BRIDGE_NAME=soo-br0
@@ -32,6 +32,7 @@ fi
 
 
 if [ "$USE_BRIDGE" = true ]; then
+    ifconfig eth0 $OUT_IF_NAME
     brctl addbr $BRIDGE_NAME
     ifconfig $BRIDGE_NAME $ME_NET_IP netmask $ME_NET_MASK
 fi
