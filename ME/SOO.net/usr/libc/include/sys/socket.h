@@ -37,7 +37,6 @@ int sendmmsg (int, struct mmsghdr *, unsigned int, unsigned int);
 int recvmmsg (int, struct mmsghdr *, unsigned int, unsigned int, struct timespec *);
 #endif
 
-
 #define SHUT_RD 0
 #define SHUT_WR 1
 #define SHUT_RDWR 2

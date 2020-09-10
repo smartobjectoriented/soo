@@ -57,6 +57,8 @@ extern char **__environ;
 unsigned sleep(unsigned);
 int usleep(unsigned);
 
+int unlink(char *);
+
 #if 0
 int pipe(int [2]);
 int pipe2(int [2], int);
