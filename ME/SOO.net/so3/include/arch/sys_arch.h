@@ -1,6 +1,20 @@
-//
-// Created by julien on 3/12/20.
-//
+/*
+ * Copyright (C) 2020 Julien Quartier <julien.quartier@bluewin.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
 
 #ifndef SO3_SYS_ARCH_H
 #define SO3_SYS_ARCH_H
@@ -27,8 +41,9 @@ typedef struct _sys_mut sys_mutex_t;
 #define sys_mutex_valid(_mutex) (((_mutex) != NULL) && ((_mutex)->mut != NULL))
 #define sys_mutex_set_invalid(_mutex) do { if((_mutex) != NULL) (_mutex)->mut = NULL; }while(0)
 
-// https://www.careercup.com/question?id=1892664
-// https://stackoverflow.com/questions/20534782/implementing-semaphore-by-using-mutex-operations-and-primitives
+/* https://www.careercup.com/question?id=1892664
+ https://stackoverflow.com/questions/20534782/implementing-semaphore-by-using-mutex-operations-and-primitives
+*/
 struct _sys_sem {
     sem_t *sem;
 };

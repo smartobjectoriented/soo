@@ -50,7 +50,7 @@
 #define DBG_TYPES_ON                    0x00
 #define LWIP_DBG_TYPES_ON               LWIP_DBG_OFF
 
-#define ETHARP_DEBUG                    LWIP_DBG_ON
+#define ETHARP_DEBUG                    LWIP_DBG_OFF
 #define NETIF_DEBUG                     LWIP_DBG_OFF
 #define PBUF_DEBUG                      LWIP_DBG_OFF
 #define API_LIB_DEBUG                   LWIP_DBG_OFF
@@ -130,7 +130,7 @@
  * MEMP_NUM_TCP_PCB: the number of simulatenously active TCP connections.
  * (requires the LWIP_TCP option)
  */
-#define MEMP_NUM_TCP_PCB                10
+#define MEMP_NUM_TCP_PCB                20
 
 /**
  * MEMP_NUM_TCP_SEG: the number of simultaneously queued TCP segments.
@@ -148,7 +148,7 @@
  * MEMP_NUM_NETBUF: the number of struct netbufs.
  * (only needed if you use the sequential API, like api_lib.c)
  */
-#define MEMP_NUM_NETBUF                 4
+#define MEMP_NUM_NETBUF                 20
 
 /**
  * PBUF_POOL_SIZE: the number of buffers in the pbuf pool.

@@ -360,6 +360,9 @@ struct ucred
 # endif
 #endif
 
+/* Get socket manipulation related informations from kernel headers.  */
+#include <asm/socket.h>
+
 #ifndef __USE_MISC
 # ifdef __SYS_SOCKET_H_undef_FIOGETOWN
 #  undef __SYS_SOCKET_H_undef_FIOGETOWN
