@@ -476,9 +476,18 @@ void vbstorage_agency_init(void) {
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vdoga12v6nm");
 
-	/* Agency backend side of virtual DOGA 12V 6NM device */
+	/* Agency backend side of virtual enOcean  */
 	np = of_find_compatible_node(NULL, NULL, "venocean,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/venocean");
 
+	/* Agency backend side of virtual DOGA  */
+	np = of_find_compatible_node(NULL, NULL, "vdoga,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vdoga");
+
+	/* Agency backend side of virtual analog  */
+	np = of_find_compatible_node(NULL, NULL, "vanalog,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vanalog");	
 }

@@ -57,6 +57,18 @@ config VENOCEAN_BACKEND
 	help
 	  This driver enabled to deal with a virtualized interface for the enOcean actuator.
 
+config VANALOG_BACKEND
+	bool "vanalog backend driver"
+	default y
+	help
+	  This driver enabled to deal with a digital GPIO used to drive the valve
+
+config VDOGA_BACKEND
+	bool "vdoga backend driver"
+	default y
+	help
+	  This driver enabled to deal with a the doga motor using the SOO.mp board
+
 endmenu
 	
 

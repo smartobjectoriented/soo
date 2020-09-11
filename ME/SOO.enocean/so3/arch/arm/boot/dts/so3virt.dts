@@ -86,6 +86,16 @@
 				compatible = "venocean,frontend";
 				status = "ok";
 			};
+
+			vdoga {
+				compatible = "vdoga,frontend";
+				status = "ok";
+			};
+
+			vanalog {
+				compatible = "vanalog,frontend";
+				status = "ok";
+			};
 		};
 	
 		features {

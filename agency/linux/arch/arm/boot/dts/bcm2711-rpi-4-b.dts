@@ -99,13 +99,30 @@
 				compatible = "venocean,backend";
 				status = "ok";
 
-				up-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
-				down-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
+				SW2-gpios = <&gpio 0 GPIO_ACTIVE_HIGH>;
+				SW1-gpios = <&gpio 1 GPIO_ACTIVE_HIGH>;
+
+				
+			};
+
+			vanalog {
+				compatible = "vanalog,backend";
+				status = "ok";
+
+				heat-gpios = <&gpio 11 GPIO_ACTIVE_HIGH>;
+			};
+
+			vdoga {
+				compatible = "vdoga,backend";
+				status = "ok";
+
+				up_end-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
+				down_end-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
+
 				sleep-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
 				mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
-				in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>
+				in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
 			};
-		
 		};
 	};
 
@@ -366,11 +383,6 @@
 	pinctrl-0 = <&uart5_gpio12>;
 	status = "okay";
 
-    enocean {
-        compatible = "enocean-3-click";
-		max-speed = <2000000>;
-	    status = "okay";
-    };
 };	
 
 &spi1 {

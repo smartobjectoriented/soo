@@ -250,6 +250,18 @@ void remove_vbstore_entries(void) {
 		DBG("%s: removing venocean from vbstore...\n", __func__);
 		vbstore_dev_remove(ME_domID(), "venocean");
 	}
+
+	fdt_node = fdt_find_compatible_node("vanalog,frontend");
+	if (fdt_device_is_available(fdt_node)) {
+		DBG("%s: removing vanalog from vbstore...\n", __func__);
+		vbstore_dev_remove(ME_domID(), "vanalog");
+	}
+
+	fdt_node = fdt_find_compatible_node("vdoga,frontend");
+	if (fdt_device_is_available(fdt_node)) {
+		DBG("%s: removing vdoga from vbstore...\n", __func__);
+		vbstore_dev_remove(ME_domID(), "vdoga");
+	}
 }
 
 /*
@@ -300,6 +312,18 @@ void vbstore_devices_populate(void) {
 	if (fdt_device_is_available(fdt_node)) {
 		DBG("%s: init venocean...\n", __func__);
 		vbstore_dev_init(ME_domID(), "venocean", false, "venocean,frontend");
+	}
+
+	fdt_node = fdt_find_compatible_node("vanalog,frontend");
+	if (fdt_device_is_available(fdt_node)) {
+		DBG("%s: init vanalog...\n", __func__);
+		vbstore_dev_init(ME_domID(), "vanalog", false, "vanalog,frontend");
+	}
+
+	fdt_node = fdt_find_compatible_node("vdoga,frontend");
+	if (fdt_device_is_available(fdt_node)) {
+		DBG("%s: init vdoga...\n", __func__);
+		vbstore_dev_init(ME_domID(), "vdoga", false, "vdoga,frontend");
 	}
 
 }

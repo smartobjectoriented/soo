@@ -23,5 +23,13 @@ config VENOCEAN_FRONTEND
 	bool "venocean UI FE"
     default y
 
+config VANALOG_FRONTEND
+	bool "vanalog UI FE"
+    default y
+
+config VDOGA_FRONTEND
+	bool "vdoga UI FE"
+    default y		
+
 endmenu
 

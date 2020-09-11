@@ -46,6 +46,8 @@
 #include <asm/termios.h>
 #include <linux/serial_core.h>
 #include <soo/dev/venocean.h>
+#include <soo/dev/vdoga.h>
+#include <soo/dev/vanalog.h>
 
 extern ssize_t tty_do_read(struct tty_struct *tty, unsigned char *buf, size_t nr);
 extern struct tty_struct *tty_kopen(dev_t device);
@@ -57,11 +59,11 @@ int32_t Switch_ID_Reconstitution(char ID[4]);
 
 /* ASCII data coming from the enocean module*/
 static venocean_ascii_data_t ascii_data;
-static bool can_drive_motor = true;
 
-/* 0 = no stop, 1 = up stop, 2 = down stop */
-static int last_stop_type = 0;
+static struct gpio_desc *SW1_gpio;
+static struct gpio_desc *SW2_gpio;
 
+int enOcean_mode = ENOCEAN_MODE_BLIND;
 
 static int click_monitor_fn(void *args) {
 	struct tty_struct *tty_uart;
@@ -126,22 +128,87 @@ static int click_monitor_fn(void *args) {
 		//Test the differents possibilities of position
 		if (ascii_data.switch_data == SWITCH_IS_UP)
 		{
+			//print the informations about the switch state
 			printk("switch (ID: 0x%08X) is up", Switch_ID_Reconstitution(ascii_data.switch_ID));
+
+			//test the actual mode (blind or valve)
+			if(enOcean_mode == ENOCEAN_MODE_BLIND)
+			{
+				vdoga_blind_up();
+			}
+			else
+			{
+				vanalog_valve_open();
+			}
 		}
 		else if(ascii_data.switch_data == SWITCH_IS_DOWN)
 		{
+			//print the informations about the switch state
 			printk("switch (ID: 0x%08X) is down", Switch_ID_Reconstitution(ascii_data.switch_ID));
+
+			//test the actual mode (blind or valve)
+			if(enOcean_mode == ENOCEAN_MODE_BLIND)
+			{
+				vdoga_blind_down();
+			}
+			else
+			{
+				vanalog_valve_close();
+			}
 		}
 		else if(ascii_data.switch_data == SWITCH_IS_RELEASED)
 		{
+			//print the informations about the switch state
 			printk("switch (ID: 0x%08X) is released", Switch_ID_Reconstitution(ascii_data.switch_ID));
-		}
+
+			//test the actual mode (blind or valve)
+			if(enOcean_mode == ENOCEAN_MODE_BLIND)
+			{
+				vdoga_blind_stop();
+			}
+		} 
 		else
 		{
 			printk("invalid param");
 			problem = true;
 		} 
 		printk("\n");
+	}
+	return 0;
+}
+
+static int switch_between_modes(void *args) 
+{
+	int SW1_save[4] = {1, 1, 1, 1}; //array to save the 4 last values from SW1
+
+	while(1)
+	{
+		msleep(GPIO_POLL_PERIOD); 
+
+		//shift the values inside the array and get a new one
+		SW1_save[3] = SW1_save[2];	
+		SW1_save[2] = SW1_save[1];
+		SW1_save[1] = SW1_save[0];
+		SW1_save[0]	= gpiod_get_value(SW1_gpio);
+
+		//Test the 4 last values of SW1 to detect a failing edge
+		if((SW1_save[3] == 1) && (SW1_save[2] == 1) 
+			&& (SW1_save[1] == 0) && (SW1_save[0] == 0))
+		{
+			//test the actual state
+			if(enOcean_mode == ENOCEAN_MODE_BLIND)
+			{
+				enOcean_mode = ENOCEAN_MODE_VALVE;
+				printk("enOcean switch will now drive the valve");
+			}
+			else
+			{
+				enOcean_mode = ENOCEAN_MODE_BLIND;	
+				printk("enOcean switch will now drive the blind");
+			}
+			printk("\n");
+		}
+		
 	}
 	return 0;
 }
@@ -159,12 +226,10 @@ static void process_response(struct vbus_device *vdev) {
 	venocean_response_t *ring_rsp;
 	struct winsize wsz;
 
-
 	ring_rsp = venocean_ring_response(&venocean->ring);
 	venocean_ring_response_ready(&venocean->ring);
 
 	notify_remote_via_virq(venocean->irq);
-
 }
 
 irqreturn_t venocean_interrupt(int irq, void *dev_id)
@@ -174,75 +239,30 @@ irqreturn_t venocean_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static struct gpio_desc *up_gpio;
-static struct gpio_desc *down_gpio;
-static struct gpio_desc *sleep_gpio;
-static struct gpio_desc *mode_gpio;
-static struct gpio_desc *in1_ph_gpio;
-static struct gpio_desc *heat_gpio;
 
-
+//setup the gpios used in venocean backend
 static void setup_gpios(struct device *dev) {
 	int ret;
 
-	/* Up mechanical stop detection GPIO */
-	up_gpio = gpiod_get(dev, "up", GPIOD_IN);
-	printk("up_gpio = 0x%08X\n", up_gpio);
-	if (IS_ERR(up_gpio)) {
-		ret = PTR_ERR(up_gpio);
-		dev_err(dev, "Failed to get UP GPIO: %d\n", ret);
+	//gpio used as input to get the value from SW2
+	SW2_gpio = gpiod_get(dev, "SW2", GPIOD_OUT_HIGH);
+	printk("SW2_gpio = 0x%08X\n", SW2_gpio);
+	if (IS_ERR(SW2_gpio)) {
+		ret = PTR_ERR(SW2_gpio);
+		dev_err(dev, "Failed to get SW2 GPIO: %d\n", ret);
 		return;
 	}
-	gpiod_direction_input(up_gpio);
+	gpiod_direction_input(SW2_gpio); 
 
-
-	down_gpio = gpiod_get(dev, "down", GPIOD_IN);
-	printk("down_gpio = 0x%08X\n", down_gpio);
-	if (IS_ERR(down_gpio)) {
-		ret = PTR_ERR(down_gpio);
-		dev_err(dev, "Failed to get DOWN GPIO: %d\n", ret);
+	//gpio used as input to get the value from SW1
+	SW1_gpio = gpiod_get(dev, "SW1", GPIOD_OUT_HIGH);
+	printk("SW1_gpio = 0x%08X\n", SW1_gpio);
+	if (IS_ERR(SW1_gpio)) {
+		ret = PTR_ERR(SW1_gpio);
+		dev_err(dev, "Failed to get SW1 GPIO: %d\n", ret);
 		return;
 	}
-	gpiod_direction_input(down_gpio);
-
-	sleep_gpio = gpiod_get(dev, "sleep", GPIOD_OUT_HIGH);
-	printk("sleep_gpio = 0x%08X\n", sleep_gpio);
-	if (IS_ERR(sleep_gpio)) {
-		ret = PTR_ERR(sleep_gpio);
-		dev_err(dev, "Failed to get SLEEP GPIO: %d\n", ret);
-		return;
-	}
-	gpiod_direction_output(sleep_gpio, 1);
-
-	mode_gpio = gpiod_get(dev, "mode", GPIOD_OUT_HIGH);
-	printk("mode_gpio = 0x%08X\n", mode_gpio);
-	if (IS_ERR(mode_gpio)) {
-		ret = PTR_ERR(mode_gpio);
-		dev_err(dev, "Failed to get MODE GPIO: %d\n", ret);
-		return;
-	}
-	gpiod_direction_output(mode_gpio, 0);
-
-	in1_ph_gpio = gpiod_get(dev, "in1_ph", GPIOD_OUT_HIGH);
-	printk("in1_ph_gpio = 0x%08X\n", in1_ph_gpio);
-	if (IS_ERR(in1_ph_gpio)) {
-		ret = PTR_ERR(in1_ph_gpio);
-		dev_err(dev, "Failed to get IN1_PH GPIO: %d\n", ret);
-		return;
-	}
-	gpiod_direction_output(in1_ph_gpio, 0);
-
-	heat_gpio = gpiod_get(dev, "heat", GPIOD_OUT_HIGH);
-	printk("heat_gpio = 0x%08X\n", heat_gpio);
-	if (IS_ERR(heat_gpio)) {
-		ret = PTR_ERR(heat_gpio);
-		dev_err(dev, "Failed to get HEAT GPIO: %d\n", ret);
-		return;
-	}
-	gpiod_direction_output(heat_gpio, 0);
-
-	/* We cannot request any IRQ on PD20. We must poll it. */
-	//kthread_run(venocean_blind_stop_task_fn, NULL, "venOcean_stop");
+	gpiod_direction_input(SW1_gpio); 
 }
 
 void venocean_probe(struct vbus_device *vdev) 
@@ -261,6 +281,8 @@ void venocean_probe(struct vbus_device *vdev)
 	setup_gpios(&vdev->dev);
 
 	kthread_run(click_monitor_fn, NULL, "click_enocean_monitor");
+
+	kthread_run(switch_between_modes, NULL, "switch_between_mode");
 
 	DBG(VENOCEAN_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }

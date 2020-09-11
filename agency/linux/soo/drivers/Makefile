@@ -13,3 +13,5 @@ obj-$(CONFIG_VINPUT_BACKEND)	+= vinputback/
 obj-$(CONFIG_VLEDS_BACKEND)		+= vledsback/
 obj-$(CONFIG_VFB_BACKEND)  += vfbback/
 obj-$(CONFIG_VENOCEAN_BACKEND)  += venoceanback/
+obj-$(CONFIG_VANALOG_BACKEND)  += vanalogback/
+obj-$(CONFIG_VDOGA_BACKEND)  += vdogaback/
