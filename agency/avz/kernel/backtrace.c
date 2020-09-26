@@ -25,7 +25,6 @@
 
 #include <asm/processor.h>
 #include <asm/backtrace.h>
-#include <asm/current.h>
 
 void show_registers(struct cpu_user_regs *regs);
 extern void __backtrace(void);
@@ -156,21 +155,21 @@ void dump_all_execution_state(void)
     show_backtrace(sp, lr, lr);
 }
 
-void vcpu_show_execution_state(struct vcpu *v)
+void vcpu_show_execution_state(struct domain *d)
 {
     printk("*** Dumping Dom%d state: ***\n",
-           v->domain->domain_id);
+           d->domain_id);
 
-    if (v == current)
+    if (d == current)
     {
     	dump_execution_state();
         return;
     }
 
-    vcpu_pause(v); /* acceptably dangerous */
+    vcpu_pause(d); /* acceptably dangerous */
 
     dump_execution_state();
 
-    vcpu_unpause(v);
+    vcpu_unpause(d);
 }
 

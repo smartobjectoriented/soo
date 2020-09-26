@@ -36,7 +36,6 @@
 
 #include <soo/soo.h>
 
-#include <asm/current.h>
 #include <asm/processor.h>
 #include <asm/vfp.h>
 
@@ -56,104 +55,14 @@ struct domain *agency;
 
 DEFINE_PER_CPU(struct vcpu *, curr_vcpu);
 
-vcpu_info_t dummy_vcpu_info;
+struct cpu_info {
+	struct domain *d;
+	ulong saved_regs[2];
+};
 
 int current_domain_id(void)
 {
-	return current->domain->domain_id;
-}
-
-/*
- * Initialize the vcpu context associated to a domain accordin to its target cpu_id.
- */
-struct vcpu *alloc_vcpu(struct domain *d, unsigned int cpu_id)
-{
-	struct vcpu *v;
-
-	BUG_ON(!is_idle_domain(d) && d->vcpu[0]);
-
-	if ((v = alloc_vcpu_struct(d)) == NULL)
-		return NULL;
-
-	v->domain = d;
-
-	v->processor = cpu_id;
-
-	spin_lock_init(&v->virq_lock);
-
-	if (is_idle_domain(d))
-	{
-		v->runstate = RUNSTATE_running;
-	}
-	else
-	{
-		v->runstate = RUNSTATE_offline;
-		set_bit(_VPF_down, &v->pause_flags);
-		v->vcpu_info = (vcpu_info_t *) &shared_info(d, vcpu_info);
-	}
-
-	/* Now, we assign a scheduling policy for this domain */
-
-	if (is_idle_domain(d) && (cpu_id == AGENCY_CPU))
-		v->sched = &sched_agency;
-	else {
-
-		if (cpu_id == ME_CPU) {
-
-			v->sched = &sched_flip;
-			v->need_periodic_timer = true;
-
-		} else if (cpu_id == AGENCY_CPU) {
-
-			v->sched = &sched_agency;
-			v->need_periodic_timer = true;
-
-		} else if (cpu_id == AGENCY_RT_CPU)
-
-			v->sched = &sched_agency;
-
-	}
-
-	if (sched_init_vcpu(v, cpu_id) != 0)
-	{
-		free_vcpu_struct(v);
-		return NULL;
-	}
-
-	d->vcpu[0] = v;
-
-	return v;
-}
-
-/*
- * Finalize the domain creation by creating a new vcpu structure and related attributes.
- */
-void finalize_domain_create(struct domain *d) {
-	struct vcpu *vcpu;
-
-	/* Build up the vcpu structure */
-
-	d->vcpu = xmalloc_array(struct vcpu *, 1);
-	if (!d->vcpu)
-		panic("xmalloc_array failed\n");
-
-	memset(d->vcpu, 0, sizeof(*d->vcpu));
-
-	if (is_idle_domain(d))
-		vcpu = alloc_vcpu(d, smp_processor_id());
-	else {
-
-		if (d->domain_id == DOMID_AGENCY)
-			vcpu = alloc_vcpu(d, AGENCY_CPU);
-		else if (d->domain_id == DOMID_AGENCY_RT)
-			vcpu = alloc_vcpu(d, AGENCY_RT_CPU);
-		else
-			vcpu = alloc_vcpu(d, ME_CPU);
-
-	}
-
-	if (vcpu == NULL)
-		panic("alloc_vcpu failed\n");
+	return current->domain_id;
 }
 
 /*
@@ -162,7 +71,7 @@ void finalize_domain_create(struct domain *d) {
  * @domid is the domain number
  * @partial tells if the domain creation remains partial, without the creation of the vcpu structure which may intervene in a second step
  */
-struct domain *domain_create(domid_t domid, bool partial)
+struct domain *domain_create(domid_t domid, int cpu_id)
 {
 	struct domain *d;
 
@@ -172,89 +81,98 @@ struct domain *domain_create(domid_t domid, bool partial)
 	memset(d, 0, sizeof(*d));
 	d->domain_id = domid;
 
-	atomic_set(&d->refcnt, 1);
-
 	if (!is_idle_domain(d)) {
 		d->is_paused_by_controller = 1;
 		atomic_inc(&d->pause_count);
 
 		if (evtchn_init(d) != 0)
-			goto fail;
+			BUG();
 	}
 
-	if (arch_domain_create(d) != 0)
-		goto fail;
+	d->shared_info = alloc_heap_page();
+	BUG_ON(!d);
 
-	if (!partial)
-		finalize_domain_create(d);
+	clear_page(d->shared_info);
+
+	/* Create a logbool hashtable associated to this domain */
+	d->shared_info->logbool_ht = ht_create(LOGBOOL_HT_SIZE);
+	if (d->shared_info->logbool_ht == NULL)
+		BUG();
+
+	/* Will be used during the context_switch (cf kernel/entry-armv.S */
+
+	d->arch.guest_context.sys_regs.vdacr = domain_val(DOMAIN_USER, DOMAIN_MANAGER) | domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) |
+		domain_val(DOMAIN_TABLE, DOMAIN_MANAGER) | domain_val(DOMAIN_IO, DOMAIN_CLIENT);
+
+	d->arch.guest_context.sys_regs.vusp = 0x0; /* svc stack hypervisor at the beginning */
+
+	d->arch.guest_context.event_callback = 0;
+	d->arch.guest_context.domcall = 0;
+
+	if (is_idle_domain(d)) {
+		d->addrspace.pgtable_paddr = (CONFIG_RAM_BASE + L1_SYS_PAGE_TABLE_OFFSET);
+		d->addrspace.pgtable_vaddr = (CONFIG_HYPERVISOR_VIRT_ADDR + L1_SYS_PAGE_TABLE_OFFSET);
+
+		d->addrspace.ttbr0[cpu_id] = d->addrspace.pgtable_paddr;
+		d->addrspace.ttbr0[cpu_id] |= TTB_FLAGS_SMP;
+	}
+
+	d->processor = cpu_id;
+
+	spin_lock_init(&d->virq_lock);
+
+	if (is_idle_domain(d))
+	{
+		d->runstate = RUNSTATE_running;
+	}
+	else
+	{
+		d->runstate = RUNSTATE_offline;
+		set_bit(_VPF_down, &d->pause_flags);
+	}
+
+	/* Now, we assign a scheduling policy for this domain */
+
+	if (is_idle_domain(d) && (cpu_id == AGENCY_CPU))
+		d->sched = &sched_agency;
+	else {
+
+		if (cpu_id == ME_CPU) {
+
+			d->sched = &sched_flip;
+			d->need_periodic_timer = true;
+
+		} else if (cpu_id == AGENCY_CPU) {
+
+			d->sched = &sched_agency;
+			d->need_periodic_timer = true;
+
+		} else if (cpu_id == AGENCY_RT_CPU)
+
+			d->sched = &sched_agency;
+
+	}
+
+	if (sched_init_domain(d, cpu_id) != 0)
+		BUG();
 
 	return d;
-
-	fail:
-	d->is_dying = DOMDYING_dead;
-	atomic_set(&d->refcnt, DOMAIN_DESTROYED);
-
-	free_domain_struct(d);
-
-	return NULL;
 }
 
-
-int domain_kill(struct domain *d)
-{
-	int rc = 0;
-
-	if ( d == current->domain )
-		return -EINVAL;
-
-	/* Protected by domctl_lock. */
-	switch ( d->is_dying )
-	{
-	case DOMDYING_alive:
-		domain_pause(d);
-
-		d->is_dying = DOMDYING_dying;
-
-		spin_barrier(&d->domain_lock);
-
-		evtchn_destroy(d);
-
-		/* fallthrough */
-	case DOMDYING_dying:
-
-		d->is_dying = DOMDYING_dead;
-		put_domain(d);
-
-
-		/* fallthrough */
-	case DOMDYING_dead:
-		break;
-	}
-
-	return rc;
-}
 
 /* Complete domain destroy */
 static void complete_domain_destroy(struct domain *d)
 {
-	struct vcpu *v;
-
-	if ((v = d->vcpu[0]) != NULL)
-		sched_destroy_vcpu(v);
-
-	if ((v = d->vcpu[0]) != NULL) {
-		free_vcpu_struct(v);
-		xfree(d->vcpu);
-	}
+	sched_destroy_domain(d);
 
 	/* Free the logbool hashtable associated to this domain */
 	ht_destroy((logbool_hashtable_t *) d->shared_info->logbool_ht);
 
 	/* Free start_info structure */
 
-	free_heap_page((void *) d->arch.vstartinfo_start);
+	free_heap_page((void *) d->vstartinfo_start);
 	free_heap_page((void *) d->shared_info);
-	free_heap_pages((void *) d->arch.domain_stack, STACK_ORDER);
+	free_heap_pages((void *) d->domain_stack, STACK_ORDER);
 
 	free_domain_struct(d);
 }
@@ -262,52 +180,43 @@ static void complete_domain_destroy(struct domain *d)
 /* Release resources belonging to a domain */
 void domain_destroy(struct domain *d)
 {
-	atomic_t old, new;
-
 	BUG_ON(!d->is_dying);
-
-	/* May be already destroyed, or get_domain() can race us. */
-	_atomic_set(old, 0);
-	_atomic_set(new, DOMAIN_DESTROYED);
-	old = atomic_compareandswap(old, new, &d->refcnt);
-	if ( _atomic_read(old) != 0 )
-		return;
 
 	complete_domain_destroy(d);
 }
 
-void vcpu_pause(struct vcpu *v)
+void vcpu_pause(struct domain *d)
 {
-	ASSERT(v != current);
-	atomic_inc(&v->pause_count);
-	vcpu_sleep_sync(v);
+	ASSERT(d != current);
+	atomic_inc(&d->pause_count);
+	vcpu_sleep_sync(d);
 }
 
-void vcpu_pause_nosync(struct vcpu *v)
+void vcpu_pause_nosync(struct domain *d)
 {
-	atomic_inc(&v->pause_count);
-	vcpu_sleep_nosync(v);
+	atomic_inc(&d->pause_count);
+	vcpu_sleep_nosync(d);
 }
 
-void vcpu_unpause(struct vcpu *v)
+void vcpu_unpause(struct domain *d)
 {
-	if (atomic_dec_and_test(&v->pause_count))
-		vcpu_wake(v);
+	if (atomic_dec_and_test(&d->pause_count))
+		vcpu_wake(d);
 }
 
 void domain_pause(struct domain *d)
 {
-	ASSERT(d != current->domain);
+	ASSERT(d != current);
 
 	atomic_inc(&d->pause_count);
 
-	vcpu_sleep_sync(d->vcpu[0]);
+	vcpu_sleep_sync(d);
 }
 
 void domain_unpause(struct domain *d)
 {
 	if (atomic_dec_and_test(&d->pause_count))
-		vcpu_wake(d->vcpu[0]);
+		vcpu_wake(d);
 }
 
 void domain_pause_by_systemcontroller(struct domain *d) {
@@ -340,79 +249,16 @@ struct domain *alloc_domain_struct(void)
 	unsigned int bits = 32 + PAGE_SHIFT;
 
 	d = alloc_heap_pages(get_order_from_bytes(sizeof(*d)), MEMF_bits(bits));
-	if ( d != NULL )
+	if (d != NULL)
 		memset(d, 0, sizeof(*d));
 	return d;
 }
 
-int arch_domain_create(struct domain *d)
-{
-	if ((d->shared_info = alloc_heap_page()) == NULL)
-		BUG();
-
-	clear_page(d->shared_info);
-
-	/* Create a logbool hashtable associated to this domain */
-
-	d->shared_info->logbool_ht = ht_create(LOGBOOL_HT_SIZE);
-
-	if (d->shared_info->logbool_ht == NULL)
-		BUG();
-
-	return 0;
-}
-
-
-void setup_sys_regs_pgtable(struct vcpu *v) {
-
-	v->arch.guest_context.sys_regs.guest_ttbr0 = (uint32_t) v->arch.guest_ptable;
-	v->arch.guest_context.sys_regs.guest_ttbr0 |= TTB_FLAGS_SMP;
-
-	v->arch.guest_context.sys_regs.guest_ttbr1 = (uint32_t ) v->arch.guest_ptable;
-	v->arch.guest_context.sys_regs.guest_ttbr1 |= TTB_FLAGS_SMP;
-	v->arch.guest_context.sys_regs.guest_context_id = 0;
-}
-
-
-struct vcpu *alloc_vcpu_struct(struct domain *d)
-{
-	struct vcpu *v;
-
-	v = alloc_heap_pages(get_order_from_bytes(sizeof(*v)), MEMF_bits(32));
-
-	if (v != NULL)
-		memset(v, 0, sizeof(*v));
-	else
-		return NULL;
-
-	/* Will be used during the context_switch (cf kernel/entry-armv.S */
-
-	v->arch.guest_context.sys_regs.vdacr = domain_val(DOMAIN_USER, DOMAIN_MANAGER) | domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) |
-			domain_val(DOMAIN_TABLE, DOMAIN_MANAGER) | domain_val(DOMAIN_IO, DOMAIN_CLIENT);
-
-	v->arch.guest_context.sys_regs.vusp = 0x0; /* svc stack hypervisor at the beginning */
-
-	v->arch.guest_context.event_callback = 0;
-	v->arch.guest_context.domcall = 0;
-
-	if (is_idle_domain(d)) {
-		save_ptbase(v);
-		setup_sys_regs_pgtable(v);
-	}
-
-	return v;
-}
-
-void free_vcpu_struct(struct vcpu *v)
-{
-	free_heap_page(v);
-}
-
-void context_switch(struct vcpu *prev, struct vcpu *next)
+void context_switch(struct domain *prev, struct domain *next)
 {
 	local_irq_disable();
 
-	if (!is_idle_domain(current->domain)) {
+	if (!is_idle_domain(current)) {
 
 		prep_switch_domain();
 
@@ -422,18 +268,21 @@ void context_switch(struct vcpu *prev, struct vcpu *next)
 		vfp_save_state(prev);
 	}
 
-	if (!is_idle_domain(next->domain)) {
+	if (!is_idle_domain(next)) {
 
 		/* Restore the VFP context of the next guest */
 		vfp_restore_state(next);
 
 	}
 
-	switch_mm(NULL, next);
+	get_current_addrspace(&prev->addrspace);
+	switch_mm(next, &next->addrspace);
 
 	/* Clear running flag /after/ writing context to memory. */
 	dmb();
+
 	prev->is_running = 0;
+
 	/* Check for migration request /after/ clearing running flag. */
 	dmb();
 
@@ -450,7 +299,7 @@ extern void pre_ret_to_user(void);
  * Initialize the domain stack used by the hypervisor.
  * This the H-stack and contains the reference to the VCPU in its base.
  */
-void *setup_dom_stack(struct vcpu *v) {
+void *setup_dom_stack(struct domain *d) {
 	unsigned char *domain_stack;
 	struct cpu_info *ci;
 
@@ -459,10 +308,10 @@ void *setup_dom_stack(struct vcpu *v) {
 	if (domain_stack == NULL)
 	  return NULL;
 
-	v->domain->arch.domain_stack = (unsigned long) domain_stack;
+	d->domain_stack = (unsigned long) domain_stack;
 
 	ci = (struct cpu_info *) domain_stack;
-	ci->cur_vcpu = v;
+	ci->d = d;
 
 	/* Reserve the frame which will be restored later */
 	domain_stack += STACK_SIZE - sizeof(struct cpu_user_regs);
@@ -473,12 +322,12 @@ void *setup_dom_stack(struct vcpu *v) {
 /*
  * Set up the first thread of a domain (associated to vcpu *v)
  */
-void new_thread(struct vcpu *v, unsigned long start_pc, unsigned long fdt, unsigned long start_stack, unsigned long start_info)
+void new_thread(struct domain *d, unsigned long start_pc, unsigned long fdt, unsigned long start_stack, unsigned long start_info)
 {
 	struct cpu_user_regs *domain_frame;
-	struct cpu_user_regs *regs = &v->arch.guest_context.user_regs;
+	struct cpu_user_regs *regs = &d->arch.guest_context.user_regs;
 
-	domain_frame = (struct cpu_user_regs *) setup_dom_stack(v);
+	domain_frame = (struct cpu_user_regs *) setup_dom_stack(d);
 
 	if (domain_frame == NULL)
 	  panic("Could not set up a new domain stack.n");
@@ -493,9 +342,6 @@ void new_thread(struct vcpu *v, unsigned long start_pc, unsigned long fdt, unsig
 
 	regs->r13 = (unsigned long) domain_frame;
 	regs->r14 = (unsigned long) pre_ret_to_user;
-
-	setup_sys_regs_pgtable(v);
-
 }
 
 static void continue_cpu_idle_loop(void)
@@ -516,9 +362,8 @@ static void continue_cpu_idle_loop(void)
 
 void startup_cpu_idle_loop(void)
 {
-	struct vcpu *v = current;
 
-	ASSERT(is_idle_vcpu(v));
+	ASSERT(is_idle_domain(current));
 
 	raise_softirq(SCHEDULE_SOFTIRQ);
 
@@ -546,24 +391,29 @@ void machine_restart(unsigned int delay_millisecs)
  *    @current_mapped is the domain which page table is currently loaded.
  *    @current_mapped_mode indicates if we consider the swapper pgdir or the normal page table (see switch_mm() for complete description)
  */
-int domain_call(struct domain *target_dom, int cmd, void *arg, struct domain *current_mapped)
+int domain_call(struct domain *target_dom, int cmd, void *arg)
 {
 	int rc;
+	struct domain *__current;
+	addrspace_t prev_addrspace;
 
-	ASSERT(current_mapped != NULL);
 	BUG_ON(local_irq_is_enabled());
 
-	/* Switch domain address space? */
-	if (current_mapped != target_dom)
-		switch_mm(current_mapped->vcpu[0], target_dom->vcpu[0]);
+	/* Switch the current domain to the target so that preserving ttbr0 during
+	 * subsequent memory context switch will not affect the original one.
+	 */
+
+	__current = current;
+
+	get_current_addrspace(&prev_addrspace);
+	switch_mm(target_dom, &target_dom->addrspace);
 
 	/* Make the call with IRQs disabled */
 
-	rc = ((domcall_t) target_dom->vcpu[0]->arch.guest_context.domcall)(cmd, arg);
-	 
-	/* Switch back domain address space? */
-	if (current_mapped != target_dom)
-		switch_mm(target_dom->vcpu[0], current_mapped->vcpu[0]);
+	rc = ((domcall_t) target_dom->arch.guest_context.domcall)(cmd, arg);
+
+	/* Switch back to our domain address space. */
+	switch_mm(__current, &prev_addrspace);
 
 	return rc;
 }

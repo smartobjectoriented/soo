@@ -162,6 +162,7 @@
 #include <common.h>
 
 extern void __enable_vfp(void);
+extern void inject_syscall_vector(void);
 
 #define FP_SIZE 35
 

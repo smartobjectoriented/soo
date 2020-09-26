@@ -63,7 +63,7 @@ void printk_buffer(void *buffer, uint32_t n)
 	uint32_t i;
 
 	for (i = 0 ; i < n ; i++)
-		printk("%02x ", ((char *) buffer)[i]);
+		printk(KERN_CONT "%02x ", ((char *) buffer)[i]);
 	printk("\n");
 }
 
@@ -103,7 +103,8 @@ int avz_switch_console(char ch)
 	static char *input_str[N_SWITCH_FOCUS] = { "Agency domain", "Agency-RT domain", "ME-1(2)", "ME-2(3)", "ME-3(4)", "ME-4(5)", "ME-5(6)", "Agency AVZ Hypervisor" };
 
 	int active = 0;
-#if 0
+
+#if 0 /* Interactions with RT domain? */
 	int next = 1;
 #endif
 	int next = 2;
@@ -114,8 +115,11 @@ int avz_switch_console(char ch)
 #endif
 
 	if ((SWITCH_CODE != 0) && (ch == SWITCH_CODE)) {
+
 		/* We eat CTRL-<switch_char> in groups of 2 to switch console input. */
 		if (++switch_code_count == 1) {
+
+#if 0 /* Only switch between the agency and ME #1 */
 
 			if (avzcons_get_focus() == 0) {
 
@@ -126,12 +130,21 @@ int avz_switch_console(char ch)
 				active = 0;
 				next = 2;
 			}
+
+#endif /* 0 */
+
+
+#if 1 /* All MEs considered */
+
+			active = (avzcons_get_focus() + 1) % N_SWITCH_FOCUS;
+			active = ((active == 1) ? active+1 : active);
+
+			next = (active + 1) % N_SWITCH_FOCUS;
+			next = ((next == 1) ? next+1 : next);
+#endif
+
 			avzcons_set_focus(active);
 
-#if 0
-			active = avzcons_set_focus((avzcons_get_focus() + 1) % N_SWITCH_FOCUS);
-			next = (avzcons_get_focus() + 1) % N_SWITCH_FOCUS;
-#endif
 			switch_code_count = 0;
 
 			lprintk("*** Serial input -> %s (type 'CTRL-%c' twice to switch input to %s).\n", input_str[active], 'a', input_str[next]);
@@ -139,8 +152,7 @@ int avz_switch_console(char ch)
 			return 1;
 		}
 
-	}
-	else {
+	} else {
 		switch_code_count = 0;
 
 		switch (avzcons_get_focus()) {
@@ -150,16 +162,16 @@ int avz_switch_console(char ch)
 #if 0
 		case 1: /* RT domain */
 #endif
-		case 2: /* Input to ME #2 */
-
-		case 3: /* Input to ME #3 */
-		case 4: /* Input to ME #4 */
-		case 5: /* Input to ME #5 */
-		case 6: /* Input to ME #6 */
+		case 2: /* Input to ME #1 */
+		case 3: /* Input to ME #2 */
+		case 4: /* Input to ME #3 */
+		case 5: /* Input to ME #4 */
+		case 6: /* Input to ME #5 */
 #ifdef CONFIG_VUART_BACKEND
 			me_cons_sendc(avzcons_get_focus(), ch);
 #endif /* CONFIG_VUART_BACKEND */
 			return 1;
+
 		case 7: /* Input to avz */
 			hypercall_trampoline(__HYPERVISOR_console_io, CONSOLEIO_process_char, 1, (long) &ch, 0);
 			return 1;

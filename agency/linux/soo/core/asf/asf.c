@@ -126,7 +126,7 @@ static struct tee_shm *asf_shm_alloc(struct tee_context *ctx)
 	struct tee_shm *shm = NULL;
 	size_t shm_sz = ASF_MAX_BUFF_SIZE + ASF_TAG_SIZE + ASF_IV_SIZE;
 
-	shm = tee_shm_alloc(ctx, shm_sz, TEE_SHM_MAPPED);
+	shm = tee_shm_alloc(ctx, shm_sz, TEE_SHM_MAPPED | TEE_SHM_DMA_BUF);
 	if (IS_ERR(shm)) {
 		lprintk("ASF ERROR - share buffer allocation failed\n");
 		return NULL;

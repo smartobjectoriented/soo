@@ -186,11 +186,7 @@ typedef struct {
  * Species Aptitude Descriptor (SPAD)
  */
 typedef struct {
-	unsigned int 	sa_nr; /* Total number of species aptitude */
-
 	bool		valid; /* True means that the ME accepts to collaborate with other ME */
-	void		*content; /* Generic content to manage during cooperation */
-
 	unsigned char	caps[SPAD_CAPS_SIZE];
 } spad_t;
 
@@ -380,26 +376,21 @@ typedef struct {
 #define COOPERATE_TARGET	0x2
 
 typedef struct {
-
 	unsigned int	content;
 	unsigned int	imec;
-
 } pfn_coop_t;
 
 typedef struct {
-
 	unsigned int	slotID;
 	unsigned char	spid[SPID_SIZE];
 	spad_t		spad;
-	pfn_coop_t 	pfns;
-
+	pfn_coop_t 	pfn;
 } target_coop_slot_t;
 
 typedef struct {
 	unsigned char	spid[SPID_SIZE];
 	unsigned char	spad_caps[SPAD_CAPS_SIZE];
-	pfn_coop_t 	pfns;
-
+	pfn_coop_t 	pfn;
 } initiator_coop_t;
 
 typedef struct {
@@ -453,15 +444,9 @@ typedef struct {
 } skip_activation_args_t;
 
 typedef struct {
-
 	unsigned char spid[SPID_SIZE];
 	unsigned char spad_caps[SPAD_CAPS_SIZE];
-
-	struct {
-		unsigned int content;
-		unsigned int imec;
-	} pfns;
-
+	pfn_coop_t pfn;
 } target_cooperate_args_t;
 
 typedef struct {
@@ -494,7 +479,7 @@ typedef struct {
 		agencyUID_args_t agencyUID_args;
 		devcaps_args_t devcaps_args;
 		soo_name_args_t soo_name_args;
-        agency_upgrade_args_t agency_upgrade_args;
+		agency_upgrade_args_t agency_upgrade_args;
 	} u;
 
 } agency_ctl_args_t;

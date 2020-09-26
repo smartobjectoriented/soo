@@ -33,13 +33,12 @@
 #include <asm/linkage.h>
 #include <asm/string.h>
 #include <asm/cacheflush.h>
-#include <asm/current.h>
 
 #include <asm/processor.h>
 
 #include <asm/mmu.h>
 
-#include <soo/uapi/arch-arm.h>
+#include <soo/arch-arm.h>
 
 #define ME_MEMCHUNK_SIZE			2 * 1024 * 1024
 #define ME_MEMCHUNK_NR				256    /* 256 chunks of 2 MB */
@@ -332,65 +331,25 @@ void init_frametable(void)
 		clear_page((void *) phys_to_virt(((p + i) << PAGE_SHIFT)));
 }
 
-void write_ptbase(struct vcpu *v)
-{
-	flush_all();
-
-	__mmu_switch((uint32_t) v->arch.guest_ptable);
-
-	flush_all();
-}
-
-
 /*
- * switch_mm() is used to perform a memory context switch.
- * If prev is NULL, the switch is done between the current VCPU and next.
- * If prev is not NULL, the current VCPU will continue to execute within the memory context of next (VCPU), but
- * it is assumed that there is no VCPU context switch.
- * If next is NULL, next will be associated to the current VCPU ("back to home").
+ * switch_mm() is used to perform a memory context switch between domains.
+ * @d refers to the domain
+ * @next_addrspace refers to the address space to be considered with this domain.
+ * @current_addrspace will point to the current address space.
  */
-void switch_mm(struct vcpu *prev, struct vcpu *next) {
-
-	if (prev == NULL)
-		prev = current;
+void switch_mm(struct domain *d, addrspace_t *next_addrspace) {
+	addrspace_t prev_addrspace;
 
 	/* Preserve the current configuration of MMU registers of the running domain before doing a switch */
-	prev->arch.guest_context.sys_regs.guest_context_id = READ_CP32(CONTEXTIDR);
+	get_current_addrspace(&prev_addrspace);
 
-	prev->arch.guest_context.sys_regs.guest_ttbr0 = READ_CP32(TTBR0_32);
-	prev->arch.guest_context.sys_regs.guest_ttbr1 = READ_CP32(TTBR1_32);
-	prev->arch.guest_context.sys_regs.guest_ttbcr = READ_CP32(TTBCR);
+	if (is_addrspace_equal(next_addrspace, &prev_addrspace))
+	/* Check if the current page table is identical to the next one. */
+		return ;
 
-	dmb();
+	set_current(d);
 
-	if (next == NULL)
-		next = current;
-
-	flush_all();
-
-	WRITE_CP32(next->arch.guest_context.sys_regs.guest_context_id, CONTEXTIDR);
-	WRITE_CP32(next->arch.guest_context.sys_regs.guest_ttbr1, TTBR1_32);
-	WRITE_CP32(next->arch.guest_context.sys_regs.guest_ttbcr, TTBCR);
-
-	dmb();
-
-	__mmu_switch((uint32_t) next->arch.guest_context.sys_regs.guest_ttbr0);  /* This is the page table ! */
-
-	flush_all();
-}
-
-void save_ptbase(struct vcpu *v)
-{
-	unsigned long offset_p_v;
-	unsigned long ttb_address = cpu_get_l1pgtable();
-
-	v->arch.guest_ptable = (void *) ttb_address;
-
-	offset_p_v = v->arch.guest_pstart - v->arch.guest_vstart;
-	ttb_address = ttb_address - (unsigned long) offset_p_v;
-
-	v->arch.guest_vtable = (void *) ttb_address;
-
+	mmu_switch(next_addrspace);
 }
 
 void *ioremap(unsigned long phys_addr, unsigned int size) {

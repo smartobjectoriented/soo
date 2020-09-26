@@ -12,7 +12,6 @@ enum {
 #include <lib.h>
 #include <smp.h>
 #include <asm/bitops.h>
-#include <asm/current.h>
 
 #define NR_SOFTIRQS NR_COMMON_SOFTIRQS
 

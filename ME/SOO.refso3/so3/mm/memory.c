@@ -16,6 +16,7 @@
  *
  */
 
+#include <memory.h>
 #include <common.h>
 #include <types.h>
 #include <memory.h>
@@ -29,6 +30,7 @@
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
 
+/* Main system page table */
 uint32_t *__sys_l1pgtable;
 
 page_t *frame_table;
@@ -41,12 +43,6 @@ static uint32_t kernel_size;
 /* Current available I/O range address */
 uint32_t io_mapping_current;
 struct list_head io_maplist;
-
-uint32_t *__current_pgtable;
-
-uint32_t *current_pgtable(void) {
-	return __current_pgtable;
-}
 
 /* Initialize the frame table */
 void frame_table_init(uint32_t frame_table_start) {
@@ -373,6 +369,9 @@ void io_unmap(uint32_t vaddr) {
 	free(cur);
 }
 
+/*
+ * In so3virt configuration, I/O does not intend to be hardware I/O
+ */
 void readjust_io_map(unsigned pfn_offset) {
 	io_map_t *io_map;
 	struct list_head *pos;

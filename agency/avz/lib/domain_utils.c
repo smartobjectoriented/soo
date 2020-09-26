@@ -60,22 +60,18 @@ void loadAgency(void)
  * <img> represents the original binary image as injected in the user application
  * <target_dom> represents the target memory area
  */
-void loadME(unsigned int slotID, uint8_t *img) {
+void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 	void *ME_vaddr;
 	size_t size, fdt_size, initrd_size;
 	void *fdt_vaddr, *initrd_vaddr;
 	void *dest_ME_vaddr;
 	int section_nr;
-	uint32_t current_pgtable_paddr;
 	uint32_t *pgtable_from;
 	uint32_t initrd_start, initrd_end;
 	int nodeoffset;
 	int ret;
 
-	/* Pick the current pgtable from the agency and copy the PTEs corresponding to the user space region. */
-	current_pgtable_paddr = cpu_get_l1pgtable();
-	switch_mm(NULL, idle_domain[smp_processor_id()]->vcpu[0]);
-	pgtable_from = (uint32_t *) __lva(current_pgtable_paddr);
+	pgtable_from = (uint32_t *) __lva(current_addrspace->pgtable_paddr);
 
 	/* Get the visibility on the domain image stored in the agency user space area */
 	for (section_nr = 0x0; section_nr < 0xc00; section_nr++)

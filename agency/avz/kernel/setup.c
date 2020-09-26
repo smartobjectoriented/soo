@@ -48,17 +48,17 @@ struct domain *idle_domain[NR_CPUS];
 
 long do_set_callbacks(unsigned long event, unsigned long domcall)
 {
-	struct vcpu *v = (struct vcpu *) current;
+	struct domain *d = current;
 
-	v->arch.guest_context.event_callback              = event;
-	v->arch.guest_context.domcall                     = domcall;
+	d->arch.guest_context.event_callback = event;
+	d->arch.guest_context.domcall = domcall;
 
-	if (v->domain->domain_id == DOMID_AGENCY) {
+	if (d->domain_id == DOMID_AGENCY) {
 		/*
 		 * Do the same thing for the realtime subdomain.
 		 */
-		domains[DOMID_AGENCY_RT]->vcpu[0]->arch.guest_context.event_callback = v->arch.guest_context.event_callback;
-		domains[DOMID_AGENCY_RT]->vcpu[0]->arch.guest_context.domcall = v->arch.guest_context.domcall;
+		domains[DOMID_AGENCY_RT]->arch.guest_context.event_callback = d->arch.guest_context.event_callback;
+		domains[DOMID_AGENCY_RT]->arch.guest_context.domcall = d->arch.guest_context.domcall;
 	}
 
 	return 0;
@@ -71,17 +71,16 @@ void dump_backtrace_entry(unsigned long where, unsigned long from)
 
 void init_idle_domain(void)
 {
-  int cpu = smp_processor_id();
+	int cpu = smp_processor_id();
 
 	/* Domain creation requires that scheduler structures are initialised. */
-	idle_domain[cpu] = domain_create(DOMID_IDLE, false);
+	idle_domain[cpu] = domain_create(DOMID_IDLE, cpu);
 
 	if (idle_domain[cpu] == NULL)
 		BUG();
 
-	set_current(idle_domain[cpu]->vcpu[0]);
+	set_current(idle_domain[cpu]);
 
-	this_cpu(curr_vcpu) = current;
 }
 
 extern void setup_arch(char **);
@@ -100,9 +99,6 @@ void kernel_start(void)
 	loadAgency();
 
 	percpu_init_areas();
-
-	/* At this time... */
-	set_current(NULL);
 
 	/* We initialize the console device(s) very early so we can get debugging. */
 	console_init();
@@ -140,9 +136,6 @@ void kernel_start(void)
 	/* create idle domain */
 	init_idle_domain();
 
-	/* for further create_mapping use... */
-	current->arch.guest_ptable = (void *) __pa(swapper_pg_dir);
-
 	event_channel_init();
 
 	soo_activity_init();
@@ -150,12 +143,8 @@ void kernel_start(void)
 	/* Deal with secondary processors.  */
 	printk("spinning up at most %d total processors ...\n", NR_CPUS);
 
-	local_irq_enable();
-
-	smp_init();
-
 	/* Create initial domain 0. */
-	domains[DOMID_AGENCY] = domain_create(DOMID_AGENCY, false);
+	domains[DOMID_AGENCY] = domain_create(DOMID_AGENCY, AGENCY_CPU);
 	agency = domains[DOMID_AGENCY];
 
 	if (agency == NULL)
@@ -166,7 +155,7 @@ void kernel_start(void)
 	 * hypercalls and upcalls will be processed correctly.
 	 */
 
-	domains[DOMID_AGENCY_RT] = domain_create(DOMID_AGENCY_RT, false);
+	domains[DOMID_AGENCY_RT] = domain_create(DOMID_AGENCY_RT, AGENCY_RT_CPU);
 
 	if (domains[DOMID_AGENCY_RT] == NULL)
 		panic("Error creating realtime agency subdomain.\n");
@@ -180,12 +169,16 @@ void kernel_start(void)
 		while (1);
 	}
 
+	local_irq_enable();
+
+	smp_init();
+
 	/* Enabling VFP module on this CPU */
 	vfp_enable();
 
 	domain_unpause_by_systemcontroller(agency);
 
-	set_current(idle_domain[smp_processor_id()]->vcpu[0]);
+	set_current(idle_domain[smp_processor_id()]);
 
 	startup_cpu_idle_loop();
 

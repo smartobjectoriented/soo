@@ -153,9 +153,8 @@ static int recv_thread_task_fn(void *data) {
 void datacomm_init(void) {
 	DBG("Registering the DCM with Soolink\n");
 
-	lprintk("%s: my agency UID is: ", __func__);
-	lprintk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
-	lprintk("\n");
+	printk("[soo:dcm:datacomm] %s: my agency UID is: ", __func__);
+	printk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
 
 	/* At this point, we can start the Discovery process */
 	sl_discovery_start();

@@ -33,7 +33,7 @@ extern uint32_t __end;
 #undef DBG
 #define DBG(fmt, ...) \
     do { \
-		lprintk("%s:%i > "fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+		lprintk("[soo:avz] %s:%i > "fmt, __func__, __LINE__, ##__VA_ARGS__); \
     } while(0)
 #else
 #define DBG(fmt, ...)
@@ -82,7 +82,7 @@ void _bug(char *file, int line);
 
 #define assert_failed(p)                                        \
 do {                                                            \
-  lprintk("Assertion '%s' failed, line %d, file %s\n", p ,     \
+  lprintk("Assertion '%s' failed on CPU #%d, line %d, file %s\n", p , smp_processor_id(),     \
                     __LINE__, __FILE__);                         \
   kernel_panic();                                             \
 } while (0)

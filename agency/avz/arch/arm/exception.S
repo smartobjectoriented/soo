@@ -40,21 +40,6 @@ ENTRY(pre_ret_to_user)
 
 	current_cpu r3
 
-#warning must be investigated and probably be removed (CPU init part)
-#if CONFIG_CPU_V7
-
-	@ still some reconfig for V7
-	ldr	r0, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_GUEST_TTBR0)]
-    ldr	r1, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_GUEST_TTBR1)]
-	ldr r2, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_GUEST_CONTEXTID)]
-
-    @ Call arch-dependent ttb setup code in case where some special bits are necessary...
-	bl	_v7_ttb_setup
-
-	mrc	p15, 0, r2, c2, c0, 2
-	str	r2, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_GUEST_TTBCR)]
-#endif
-
 	@ switch to the guest stack
 	ldr r0, .LChypervisor_stack
 	str	sp, [r0, r3, lsl #2]
@@ -86,11 +71,9 @@ ENTRY(pre_ret_to_user)
  * Indeed, the receiver environment has not saved anything on its stack regarding
  * a context switch. We can not pursue on right-after-context-switch in the schedule function!
  * But we do not start from boot either. So, we have an appropriate restore glue code to perform
- * an upcall in the newly migrated ME. A first timer IRQ has been set in domain_migration_restore()to
+ * an upcall in the newly migrated ME. A first timer IRQ has been set in domain_migration_restore() to
  * avoid a problem in the guest when testing for upcall pending.
  *
- * In case of a realtime ME, a ping DC_RESUME might be issued before the guest had time to be in its kernel code.
- * That's why we need to proceed with a do_upcall (and not simply restore).
  *
  */
 ENTRY(after_migrate_to_user)
@@ -123,7 +106,7 @@ ENTRY(ret_to_user)
 	bl	do_softirq
 
 	vcpu	r10
-	ldr		r11, [r10, #OFFSET_VCPU_INFO]
+	ldr		r11, [r10, #OFFSET_SHARED_INFO]
 
 	@ If the softirq handling leads to trigger an interrupt in the guest,
 	@ it will be processed by do_evtchn_do_upcall. The way how to
@@ -373,28 +356,28 @@ prep_switch_domain:
         stmfd   sp!, {r0-r6, lr}
         vcpu    r0
 
-        ldr             r1, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_PREP_SWITCH_DOMAIN_CALLBACK)]
-        cmp             r1, #0
+        ldr     r1, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_PREP_SWITCH_DOMAIN_CALLBACK)]
+        cmp     r1, #0
 
         @ r1 must be preserved
 
-        beq             __out_prep_switch
+        beq     __out_prep_switch
 
         current_cpu r3
 
-        ldr             r2, .LChypervisor_stack         @ running SVC hypervisor stack
-        str             sp, [r2, r3, lsl #2]
+        ldr     r2, .LChypervisor_stack         @ running SVC hypervisor stack
+        str     sp, [r2, r3, lsl #2]
 
         @ get guest stack (already stacked from save_svc_context)
-        ldr             sp, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+        ldr     sp, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
 
         @ setting pseudo_usr_mode / r0, r1 re-assigned right after
         ldr     r0, .LCpseudo_usr_mode
-        mov             r2, #1
-        str             r2, [r0, r3, lsl #2]
+        mov     r2, #1
+        str     r2, [r0, r3, lsl #2]
 
-        adr             lr, __continue_prep_switch
-        mov             pc, r1
+        adr     lr, __continue_prep_switch
+        mov     pc, r1
 
 __continue_prep_switch:
 
@@ -440,13 +423,6 @@ save_ctx:
 
 	current_cpu r6
 
-        mrc             p15, 0, r4, c13, c0, 4          @ get per_cpu register
-        str             r4, [r1, #(OFFSET_SYS_REGS + OFFSET_GUEST_PER_CPU)]
-	mrc		p15, 0, r4, c13, c0, 3		@ get TLS register
-	str		r4, [r1, #(OFFSET_SYS_REGS + OFFSET_GUEST_TLS)]
-	mrc		p15, 0, r4, c13, c0, 2		@ get user r/w TLS register
-	str		r4, [r1, #(OFFSET_SYS_REGS + OFFSET_GUEST_TLS_RW)]
-
 	mrc		p15, 0, r4, c3, c0, 0
 	str		r4, [r1, #(OFFSET_SYS_REGS + OFFSET_VDACR)]
 
@@ -455,12 +431,6 @@ load_ctx:
 	ldr		r5, [r2, #(OFFSET_SYS_REGS + OFFSET_VUSP)]	@ Retrieve hyp stack
 	str		r5, [r4, r6, lsl #2]
 
-        ldr             r4, [r2, #(OFFSET_SYS_REGS + OFFSET_GUEST_PER_CPU)]
-        mcr             p15, 0, r4, c13, c0, 4
-	ldr		r4, [r2, #(OFFSET_SYS_REGS + OFFSET_GUEST_TLS)]
-	mcr		p15, 0, r4, c13, c0, 3
-	ldr		r4, [r2, #(OFFSET_SYS_REGS + OFFSET_GUEST_TLS_RW)]
-	mcr		p15, 0, r4, c13, c0, 2		@ reset user r/w TLS register
 
 	ldr		r4, [r2, #(OFFSET_SYS_REGS + OFFSET_VDACR)]
 	mcr		p15, 0, r4, c3, c0, 0

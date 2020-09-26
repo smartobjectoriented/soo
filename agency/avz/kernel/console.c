@@ -34,7 +34,6 @@
 #include <soo/uapi/console.h>
 
 #include <asm/domain.h>
-#include <asm/current.h>
 #include <asm/io.h>
 #include <asm/div64.h>
 
@@ -207,8 +206,12 @@ void lprintk(char *fmt, ...) {
 }
 
 
-void printk_buffer(void *buffer, int n) {
-	int i;
+/**
+ * Print the contents of a buffer.
+ */
+void printk_buffer(void *buffer, uint32_t n)
+{
+	uint32_t i;
 
 	for (i = 0 ; i < n ; i++)
 		printk("%02x ", ((char *) buffer)[i]);

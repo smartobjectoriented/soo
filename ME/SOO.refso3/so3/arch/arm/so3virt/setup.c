@@ -22,6 +22,7 @@
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
 #include <asm/armv7.h>
+#include <asm/processor.h>
 
 #include <mach/domcall.h>
 
@@ -50,9 +51,6 @@ void *__guestvectors = NULL;
 
 extern uint8_t _vectors[];
 
-
-extern void inject_syscall_vector(void);
-
 int do_presetup_adjust_variables(void *arg)
 {
 	struct DOMCALL_presetup_adjust_variables_args *args = arg;
@@ -79,33 +77,7 @@ int do_presetup_adjust_variables(void *arg)
 	return 0;
 }
 
-int do_postsetup_adjust_variables(void *arg)
-{
-	struct DOMCALL_postsetup_adjust_variables_args *args = arg;
-
-	/* Updating pfns where used. */
-	readjust_io_map(args->pfn_offset);
-
-	/* We need to add handling of swi/svc software interrupt instruction for syscall processing.
-	 * Such an exception is fully processed by the SO3 domain.
-	 */
-	inject_syscall_vector();
-
-	flush_icache_range(VECTOR_VADDR, VECTOR_VADDR + PAGE_SIZE);
-
-	return 0;
-}
-
 void vectors_setup(void) {
-	void *vectors;
-
- 	/* Create a private vector page for the guest vectors */
- 	__guestvectors = memalign(PAGE_SIZE, PAGE_SIZE);
- 	BUG_ON(!__guestvectors);
-
- 	/* Create a local page for original vectors. */
- 	vectors = memalign(PAGE_SIZE, PAGE_SIZE);
- 	BUG_ON(!vectors);
 
  	/* Make a copy of the existing vectors. The L2 pagetable was allocated by AVZ and cannot be used as such by the guest.
  	 * Therefore, we will make our own mapping in the guest for this vector page.
@@ -115,17 +87,9 @@ void vectors_setup(void) {
  	/* Reset the L1 PTE used for the vector page. */
  	clear_l1pte(NULL, VECTOR_VADDR);
 
- 	create_mapping(NULL, VECTOR_VADDR, __pa((uint32_t) vectors), PAGE_SIZE, true, false);
+ 	create_mapping(NULL, VECTOR_VADDR, __pa((uint32_t) __guestvectors), PAGE_SIZE, true, false);
 
  	memcpy((void *) VECTOR_VADDR, vectors_tmp, PAGE_SIZE);
-
-	/* Create the guest vector pages at 0xffff5000 in order to have a good mapping with all required privileges */
-	create_mapping(NULL, GUEST_VECTOR_VADDR, __pa((uint32_t) __guestvectors), PAGE_SIZE, true, false);
-
-	/* From now on... */
-	__guestvectors = (unsigned int *) GUEST_VECTOR_VADDR;
-
-	memcpy(__guestvectors, (void *) _vectors, PAGE_SIZE);
 
 	/* We need to add handling of swi/svc software interrupt instruction for syscall processing.
 	 * Such an exception is fully processed by the SO3 domain.
@@ -135,34 +99,66 @@ void vectors_setup(void) {
 	flush_icache_range(VECTOR_VADDR, VECTOR_VADDR + PAGE_SIZE);
 }
 
+int do_postsetup_adjust_variables(void *arg)
+{
+	struct DOMCALL_postsetup_adjust_variables_args *args = arg;
+
+	/* Updating pfns where used. */
+	readjust_io_map(args->pfn_offset);
+
+	vectors_setup();
+
+	return 0;
+}
+
 /*
  * Map the vbstore shared page with the agency.
  */
 static void map_vbstore_page(unsigned long vbstore_pfn, bool clear)
 {
-	if (clear)
-		/* Release the previous mapping */
-		release_mapping(NULL, HYPERVISOR_VBSTORE_VADDR, PAGE_SIZE);
-	else
-		/* Reset the L1 PTE so that we are ready to allocate a page for vbstore. */
-		clear_l1pte(NULL, HYPERVISOR_VBSTORE_VADDR);
+
+	/* Reset the L1 PTE so that we are ready to allocate a page for vbstore. */
+	clear_l1pte(NULL, HYPERVISOR_VBSTORE_VADDR);
 
 	/* Re-map the new vbstore page */
 	create_mapping(NULL, HYPERVISOR_VBSTORE_VADDR, pfn_to_phys(vbstore_pfn), PAGE_SIZE, true, false);
+
 }
 
 int do_sync_domain_interactions(void *arg)
 {
 	struct DOMCALL_sync_domain_interactions_args *args = arg;
+	pcb_t *pcb;
+	uint32_t *l1pte, *l1pte_current;
+
 	HYPERVISOR_shared_info = args->shared_info_page;
 
-	map_vbstore_page(args->vbstore_pfn, true);
+	map_vbstore_page(args->vbstore_pfn, false);
+
+	l1pte_current = l1pte_offset(__sys_l1pgtable, HYPERVISOR_VBSTORE_VADDR);
+
+	list_for_each_entry(pcb, &proc_list, list)
+	{
+		clear_l1pte(pcb->pgtable, HYPERVISOR_VBSTORE_VADDR);
+		l1pte = l1pte_offset(pcb->pgtable, HYPERVISOR_VBSTORE_VADDR);
+
+		*l1pte = *l1pte_current;
+
+		flush_pte_entry((void *) l1pte);
+	}
+
+
 	postmig_vbstore_setup(args);
 
 	return 0;
 }
 
 void board_setup_post(void) {
+
+	/* Create a private vector page for the guest vectors */
+	 __guestvectors = memalign(PAGE_SIZE, PAGE_SIZE);
+	BUG_ON(!__guestvectors);
+
 	vectors_setup();
 
 	printk("VBstore shared page with agency at pfn 0x%x\n", avz_start_info->store_mfn);

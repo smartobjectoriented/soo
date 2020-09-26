@@ -25,7 +25,6 @@
 #include <asm/mmu.h>
 #include <asm/bitops.h>
 
-
 #define VECTORS_BASE	0xffff0000
 
 struct domain;
@@ -181,10 +180,6 @@ extern void __iomem *ioremap_pages(unsigned long phys_addr, unsigned int size, u
 
 extern struct domain *idle_domain[];
 
-void switch_domain_address_space(struct domain *from, struct domain *to);
-
-void write_ptbase(struct vcpu *v);
-void save_ptbase(struct vcpu *v);
 void dump_page(unsigned int pfn);
 
 int get_ME_free_slot(unsigned int size);
@@ -192,6 +187,10 @@ int put_ME_slot(unsigned int ME_slotID);
 
 void early_memory_init(void);
 void memory_init(void);
+
+void get_current_addrspace(addrspace_t *addrspace);
+bool is_addrspace_equal(addrspace_t *addrspace1, addrspace_t *addrspace2);
+void switch_mm(struct domain *d, addrspace_t *next_addrspace);
 
 void *ioremap(unsigned long phys_addr, unsigned int size);
 

@@ -36,10 +36,10 @@
 #include <device/arch/gic.h>
 
 #include <asm/linkage.h>
-#include <asm/current.h>
+
+#include <soo/arch-arm.h>
 
 #include <soo/uapi/event_channel.h>
-#include <soo/uapi/arch-arm.h>
 #include <soo/uapi/soo.h>
 #include <soo/uapi/debug.h>
 

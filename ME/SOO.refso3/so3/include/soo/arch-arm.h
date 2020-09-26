@@ -127,9 +127,6 @@ struct vcpu_guest_context {
 
 typedef struct vcpu_guest_context vcpu_guest_context_t;
 
-struct arch_vcpu_info {
-};
-
 #endif
 
 #endif /* __ARCH_ARM__ */

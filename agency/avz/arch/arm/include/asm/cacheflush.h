@@ -59,13 +59,6 @@ static inline void __sync_cache_range_r(volatile void *p, size_t size)
 #define sync_cache_w(ptr) __sync_cache_range_w(ptr, sizeof *(ptr))
 #define sync_cache_r(ptr) __sync_cache_range_r(ptr, sizeof *(ptr))
 
-#define __tlb_op(f, insnarg, arg)					\
-	do {								\
-		asm("mcr " insnarg : : "r" (arg) : "cc");			\
-	} while (0)
-
-#define tlb_op(f, regs, arg)	__tlb_op(f, "p15, 0, %0, " regs, arg)
-
 /*
  *	flush_pte_entry
  *
@@ -76,8 +69,9 @@ static inline void __sync_cache_range_r(volatile void *p, size_t size)
  */
 static inline void flush_pte_entry(void *pte)
 {
-
-	tlb_op(TLB_DCLEAN, "c7, c10, 1	@ flush pte", pte);
+	do {
+		asm("mcr p15, 0, %0, c7, c10, 1   @ flush pte" : : "r" (pte) : "cc");
+	} while (0);
 
 	dsb();
 }

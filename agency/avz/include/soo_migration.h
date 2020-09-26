@@ -18,8 +18,7 @@
 
 #include <soo/soo.h>
 
-void mig_restore_domain_migration_info(unsigned int ME_slotID, struct domain *domU);
-void mig_restore_vcpu_migration_info(unsigned int ME_slotID, struct domain *domU);
+void mig_restore_domain_migration_info(unsigned int ME_slotID, struct domain *me);
 void after_migrate_to_user(void);
 
 int migration_init(soo_hyp_t *op);
@@ -32,5 +31,3 @@ int restore_migrated_domain(unsigned int ME_slotID);
 int restore_injected_domain(unsigned int ME_slotID);
 
 int inject_me(soo_hyp_t *op);
-
-bool is_me_realtime(void);

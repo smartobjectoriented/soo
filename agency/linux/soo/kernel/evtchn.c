@@ -167,7 +167,6 @@ asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
 	unsigned int   evtchn;
 	int            l1, virq;
 	volatile shared_info_t *s = avz_shared_info;
-	volatile vcpu_info_t *vcpu_info = &s->vcpu_info;
 
 	int loopmax = 0;
 	int at_least_one_processed;
@@ -192,7 +191,7 @@ asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
 
 retry:
 
-	l1 = xchg(&vcpu_info->evtchn_upcall_pending, 0);
+	l1 = xchg(&s->evtchn_upcall_pending, 0);
 
 	evtchn = find_first_bit((void *) &s->evtchn_pending, NR_EVTCHN);
 
@@ -227,7 +226,7 @@ retry:
 
 	} while (at_least_one_processed);
 
-	if (vcpu_info->evtchn_upcall_pending)
+	if (s->evtchn_upcall_pending)
 		goto retry;
 
 	per_cpu(in_upcall_progress, smp_processor_id()) = false;

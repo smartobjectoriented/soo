@@ -16,9 +16,9 @@
  *
  */
 
-
 #include <config.h>
 
+#include <asm/mmu.h>
 #include <asm/processor.h>
 
 #include <generated/asm-offsets.h>
@@ -45,7 +45,7 @@ ENTRY(hypercall_start)
 
 	sub		sp, sp, #S_FRAME_SIZE
 
-	stmia	        sp, {r0 - r12}
+	stmia	sp, {r0 - r12}
 
 	str		lr, [sp, #S_PC]
 

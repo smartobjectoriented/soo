@@ -19,7 +19,7 @@
 #ifndef BACKTRACE_H
 #define BACKTRACE_H
 
-#include <soo/uapi/arch-arm.h>
+#include <soo/arch-arm.h>
 
 void dump_stack(void);
 

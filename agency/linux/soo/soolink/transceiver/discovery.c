@@ -17,10 +17,6 @@
  *
  */
 
-#if 0
-#define DEBUG
-#endif
-
 #include <linux/types.h>
 #include <linux/spinlock.h>
 #include <linux/kthread.h>
@@ -588,7 +584,7 @@ static int iamasoo_task_fn(void *args) {
 	neighbour->present = true;
 
 	printk("[soo:soolink] Adding ourself (%s) - ", neighbour->name);
-	DBG_BUFFER(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+	printk_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
 	__add_neighbour(neighbour);
 
@@ -762,7 +758,7 @@ void discovery_dump_neighbours(void) {
 
 	/* There is no neighbour in the list, I am alone */
 	if (list_empty(&neighbour_list)) {
-		lprintk("No neighbour\n");
+		printk("[soo:soolink:discovery] No neighbour\n");
 		spin_unlock(&discovery_listener_lock);
 		return;
 	}

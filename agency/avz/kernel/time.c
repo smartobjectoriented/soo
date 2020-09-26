@@ -251,7 +251,7 @@ int init_time(void) {
 	return 0;
 }
 
-void send_timer_event(struct vcpu *v) {
-	send_guest_vcpu_virq(v, VIRQ_TIMER);
+void send_timer_event(struct domain *d) {
+	send_guest_virq(d, VIRQ_TIMER);
 }
 

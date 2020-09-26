@@ -1,7 +1,7 @@
 #ifndef __LINUX_CACHE_H
 #define __LINUX_CACHE_H
 
-#include <config.h>
+#include <asm/mmu.h>
 
 #define __read_mostly __attribute__((__section__(".data.read_mostly")))
 

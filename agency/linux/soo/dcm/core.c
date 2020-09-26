@@ -260,9 +260,9 @@ static int __configure_neighbourhood(unsigned long arg) {
 
 	/* If prio is to -1, we simply dump the list of neighbours */
 	if (neigh_bitmap == -1) {
-		lprintk(" ** Agency UID: ");
-		lprintk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
-		lprintk("\n");
+		printk("[soo:dcm] Agency UID: ");
+		printk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
+		printk("\n");
 
 		discovery_dump_neighbours();
 	} else

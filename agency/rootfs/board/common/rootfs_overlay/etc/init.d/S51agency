@@ -31,7 +31,7 @@ case "$1" in
         echo "3 4 1 7" > /proc/sys/kernel/printk
         
         echo -n "Starting Agency Core... "
-        stdbuf -o 0 ./agency > /dev/pipe_uspace_logs &
+        stdbuf -o 0 /root/agency > /dev/pipe_uspace_logs &
         
         echo "OK"
         

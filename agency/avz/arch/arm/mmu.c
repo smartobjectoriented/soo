@@ -49,6 +49,23 @@ void set_dacr(uint32_t val)
 	isb();
 }
 
+void get_current_addrspace(addrspace_t *addrspace) {
+	int cpu;
+
+	cpu = smp_processor_id();
+
+	/* Get the current state of MMU */
+	addrspace->ttbr0[cpu] = READ_CP32(TTBR0_32);
+	addrspace->pgtable_paddr = addrspace->ttbr0[cpu] &~TTBR_MASK;
+}
+
+/*
+ * Check if two address space are identical regarding the MMU configuration.
+ */
+bool is_addrspace_equal(addrspace_t *addrspace1, addrspace_t *addrspace2) {
+	return (addrspace1->pgtable_paddr == addrspace2->pgtable_paddr);
+}
+
 /*
  * Get a virtual address to store a L2 page table (256 bytes).
  */
@@ -237,10 +254,10 @@ void clear_l1pte(uint32_t *l1pgtable, uint32_t vaddr) {
 /*
  * Switch the MMU to a L1 page table
  */
-void mmu_switch(uint32_t *l1pgtable) {
+void mmu_switch(addrspace_t *aspace) {
 
-	__mmu_switch(__pa((uint32_t) l1pgtable));
-
+	flush_all();
+	__mmu_switch(aspace->ttbr0[smp_processor_id()]);
 	flush_all();
 }
 

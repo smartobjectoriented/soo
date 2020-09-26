@@ -253,11 +253,7 @@ extern agencyUID_t null_agencyUID;
  * Species Aptitude Descriptor (SPAD)
  */
 typedef struct {
-	unsigned int 	sa_nr; /* Total number of species aptitude */
-
 	bool		valid; /* True means that the ME accepts to collaborate with other ME */
-	void		*content; /* Generic content to manage during cooperation */
-
 	unsigned char	caps[SPAD_CAPS_SIZE];
 } spad_t;
 
@@ -537,27 +533,22 @@ typedef struct {
 #define COOPERATE_TARGET	0x2
 
 typedef struct {
-
 	unsigned int	content;
 	unsigned int	imec;
-
 } pfn_coop_t;
 
 typedef struct {
-
 	unsigned int	slotID;
 	unsigned char	spid[SPID_SIZE];
 	spad_t		spad;
-	pfn_coop_t 	pfns;
-
+	pfn_coop_t 	pfn;
 } target_coop_slot_t;
 
 typedef struct {
 
 	unsigned char	spid[SPID_SIZE];
 	unsigned char	spad_caps[SPAD_CAPS_SIZE];
-	pfn_coop_t 	pfns;
-
+	pfn_coop_t 	pfn;
 } initiator_coop_t;
 
 typedef struct {
@@ -618,7 +609,7 @@ typedef struct {
 	struct {
 		unsigned int content;
 		unsigned int imec;
-	} pfns;
+	} pfn;
 
 } target_cooperate_args_t;
 

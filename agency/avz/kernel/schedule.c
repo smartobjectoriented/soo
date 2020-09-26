@@ -34,46 +34,47 @@
 
 #include <soo/uapi/schedop.h>
 
+DEFINE_PER_CPU(struct domain *, current_domain);
+
 /* Various timer handlers. */
 
-inline void vcpu_runstate_change(struct vcpu *v, int new_state) {
+inline void domain_runstate_change(struct domain *d, int new_state) {
 
 	/*
 	 * We might already be in RUNSTATE_blocked before setting to this state; for example,
 	 * if a ME has been paused and migrates, and is killed during the cooperation phase,
 	 * the call to shutdown() will lead to be here with such a state already.
 	 */
-	ASSERT((v->runstate == RUNSTATE_blocked) || (v->runstate != new_state));
+	ASSERT((d->runstate == RUNSTATE_blocked) || (d->runstate != new_state));
 
-	v->runstate = new_state;
+	d->runstate = new_state;
 }
 
-int sched_init_vcpu(struct vcpu *v, unsigned int processor) 
+int sched_init_domain(struct domain *d, unsigned int processor)
 {
-	struct domain *d = v->domain;
 	unsigned int rc = 0;
 
 
 	/* Idle VCPUs are scheduled immediately. */
 	if (is_idle_domain(d))
-		v->is_running = 1;
+		d->is_running = 1;
 
 	return rc;
 }
 
-void sched_destroy_vcpu(struct vcpu *v)
+void sched_destroy_domain(struct domain *d)
 {
-	kill_timer(&v->oneshot_timer);
+	kill_timer(&d->oneshot_timer);
 }
 
-void vcpu_sleep_nosync(struct vcpu *v)
+void vcpu_sleep_nosync(struct domain *d)
 {
 	bool __already_locked = false;
 
-	if (spin_is_locked(&v->sched->sched_data.schedule_lock))
+	if (spin_is_locked(&d->sched->sched_data.schedule_lock))
 		__already_locked = true;
 	else
-		spin_lock(&v->sched->sched_data.schedule_lock);
+		spin_lock(&d->sched->sched_data.schedule_lock);
 
 	/*
 	 * Stop associated timers.
@@ -82,52 +83,52 @@ void vcpu_sleep_nosync(struct vcpu *v)
 	 * For this reason, we first set the VPF_blocked bit to 1, and the sched_deadline/sched_sleep have
 	 * to check for this bit.
 	 */
-	set_bit(_VPF_blocked, &v->pause_flags);
+	set_bit(_VPF_blocked, &d->pause_flags);
 
 	/* Now, setting the domain to blocked state */
-	if (v->runstate != RUNSTATE_running)
-		vcpu_runstate_change(v, RUNSTATE_blocked);
+	if (d->runstate != RUNSTATE_running)
+		domain_runstate_change(d, RUNSTATE_blocked);
 
-	if (active_timer(&v->oneshot_timer))
-		stop_timer(&v->oneshot_timer);
+	if (active_timer(&d->oneshot_timer))
+		stop_timer(&d->oneshot_timer);
 
-	v->sched->sleep(v);
+	d->sched->sleep(d);
 
 	if (!__already_locked)
-		spin_unlock(&v->sched->sched_data.schedule_lock);
+		spin_unlock(&d->sched->sched_data.schedule_lock);
 }
 
 /*
  * Set a domain sleeping. The domain state is set to blocked.
  */
-void vcpu_sleep_sync(struct vcpu *v)
+void vcpu_sleep_sync(struct domain *d)
 {
-	vcpu_sleep_nosync(v);
+	vcpu_sleep_nosync(d);
 
-	while (v->is_running)
+	while (d->is_running)
 		cpu_relax();
 
 }
 
-void vcpu_wake(struct vcpu *v)
+void vcpu_wake(struct domain *d)
 {
 	bool __already_locked = false;
 
-	if (spin_is_locked(&v->sched->sched_data.schedule_lock))
+	if (spin_is_locked(&d->sched->sched_data.schedule_lock))
 		__already_locked = true;
 	else
-		spin_lock(&v->sched->sched_data.schedule_lock);
+		spin_lock(&d->sched->sched_data.schedule_lock);
 
-	if (v->runstate >= RUNSTATE_blocked) {
-		vcpu_runstate_change(v, RUNSTATE_runnable);
+	if (d->runstate >= RUNSTATE_blocked) {
+		domain_runstate_change(d, RUNSTATE_runnable);
 
-		v->sched->wake(v);
+		d->sched->wake(d);
 
-		clear_bit(_VPF_blocked, &v->pause_flags);
+		clear_bit(_VPF_blocked, &d->pause_flags);
 	}
 
 	if (!__already_locked)
-		spin_unlock(&v->sched->sched_data.schedule_lock);
+		spin_unlock(&d->sched->sched_data.schedule_lock);
 
 }
 
@@ -164,7 +165,7 @@ extern void dump_timerq(unsigned char key);
  */
 static void schedule(void)
 {
-	struct vcpu          *prev = current, *next = NULL;
+	struct domain        *prev = current, *next = NULL;
 	struct schedule_data *sd;
 	struct task_slice     next_slice;
 
@@ -184,7 +185,7 @@ static void schedule(void)
 	/* get policy-specific decision on scheduling... */
 	next_slice = prev->sched->do_schedule();
 
-	next = next_slice.task;
+	next = next_slice.d;
 
 	if (next_slice.time > 0ull)
 		set_timer(&next->sched->sched_data.s_timer, NOW() + MILLISECS(next_slice.time));
@@ -199,10 +200,10 @@ static void schedule(void)
 	}
 	ASSERT(prev->runstate == RUNSTATE_running);
 
-	vcpu_runstate_change(prev, (test_bit(_VPF_blocked, &prev->pause_flags) ? RUNSTATE_blocked : (prev->domain->is_dying ? RUNSTATE_offline : RUNSTATE_runnable)));
+	domain_runstate_change(prev, (test_bit(_VPF_blocked, &prev->pause_flags) ? RUNSTATE_blocked : (prev->is_dying ? RUNSTATE_offline : RUNSTATE_runnable)));
 
 	ASSERT(next->runstate != RUNSTATE_running);
-	vcpu_runstate_change(next, RUNSTATE_running);
+	domain_runstate_change(next, RUNSTATE_running);
 
 	ASSERT(!next->is_running);
 	next->is_running = 1;
@@ -219,23 +220,18 @@ static void schedule(void)
 
 }
 
-void context_saved(struct vcpu *prev)
-{
-	prev->is_running = 0;
-}
-
 /** Just to bootstrap the agency **/
 static struct task_slice agency_schedule(void)
 {
 	struct task_slice ts;
 
-	ts.task = domains[0]->vcpu[0];
+	ts.d = domains[0];
 	ts.time = 0;
 
 	return ts;
 }
 
-static void agency_wake(struct vcpu *d) {
+static void agency_wake(struct domain *d) {
 	raise_softirq(SCHEDULE_SOFTIRQ);
 }
 
@@ -250,6 +246,9 @@ struct scheduler sched_agency = {
 /* Initialise the data structures. */
 void  scheduler_init(void)
 {
+	per_cpu(current_domain, AGENCY_CPU) = NULL;
+	per_cpu(current_domain, ME_CPU) = NULL;
+
 	open_softirq(SCHEDULE_SOFTIRQ, schedule);
 
 	sched_flip.init();

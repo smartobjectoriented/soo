@@ -234,7 +234,6 @@ static inline void clockevents_calc_mult_shift(struct clock_event_device *ce, u3
 extern struct clocksource *system_timer_clocksource;
 extern struct clock_event_device *system_timer_clockevent;
 
-
 extern int init_time(void);
 
 struct domain;
@@ -254,15 +253,11 @@ u64 get_s_time(void);
 #define NOW()           ((u64) get_s_time())
 #define STIME_MAX 	((u64)(~0ull))
 
-extern void update_vcpu_system_time(struct vcpu *v);
-
 extern void do_settime(unsigned long secs, unsigned long nsecs, u64 system_time_base);
 
-extern void send_timer_event(struct vcpu *v);
-extern void send_timer_rt_event(struct vcpu *v);
+extern void send_timer_event(struct domain *d);
 
 void domain_set_time_offset(struct domain *d, int32_t time_offset_seconds);
-
 
 #endif /* __AVZ_TIME_H__ */
 

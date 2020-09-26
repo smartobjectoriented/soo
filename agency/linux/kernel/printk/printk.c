@@ -1868,6 +1868,10 @@ static void cont_flush(void)
 	cont.len = 0;
 }
 
+void flush_printk(void) {
+	cont_flush();
+}
+
 static bool cont_add(u32 caller_id, int facility, int level,
 		     enum log_flags flags, const char *text, size_t len)
 {

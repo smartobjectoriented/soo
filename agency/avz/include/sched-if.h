@@ -31,7 +31,7 @@ struct schedule_data {
 
 
 struct task_slice {
-	struct vcpu *task;
+	struct domain *d;
 	u64 time;
 };
 
@@ -39,8 +39,8 @@ struct scheduler {
 	char *name;             /* full name for this scheduler      */
 
 	void (*init)  (void);
-  void (*sleep) (struct vcpu *);
-	void (*wake)  (struct vcpu *);
+	void (*sleep) (struct domain *);
+	void (*wake)  (struct domain *);
 
 	struct task_slice (*do_schedule) (void);
 

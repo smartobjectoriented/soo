@@ -21,7 +21,7 @@
 #define DEBUG
 #endif
 
-
+#include <memory.h>
 #include <common.h>
 #include <heap.h>
 #include <string.h>
@@ -36,12 +36,13 @@
 
 #define NR_DEMANDS		4096
 
-extern unsigned long __heap_base_addr;
-
 static DEFINE_SPINLOCK(heap_lock);
 
 /* Head of the quick list */
 static mem_chunk_t *quick_list;
+uint32_t heap_base_vaddr;
+
+extern uint32_t __heap_base_addr;
 
 #ifdef TRACKING
 static void *heapdemands[NR_DEMANDS];
@@ -117,6 +118,8 @@ void heap_init(void)
 		heapdemands[i] = 0;
 #endif
 	quick_list = (mem_chunk_t *) &__heap_base_addr;
+
+	heap_base_vaddr = (uint32_t) &__heap_base_addr;
 
 	/* Initialize all the heap to 0 to have a better compression ratio. */
 	memset(quick_list, 0, HEAP_SIZE);
