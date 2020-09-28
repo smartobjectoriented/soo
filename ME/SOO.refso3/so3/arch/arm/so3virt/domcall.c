@@ -17,9 +17,11 @@
  */
 
 #include <memory.h>
+#include <heap.h>
 
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
+#include <asm/processor.h>
 
 #include <mach/domcall.h>
 #include <mach/uart.h>
@@ -28,14 +30,24 @@
 #include <soo/vbus.h>
 #include <soo/console.h>
 
-/* Keep track of already updated base address entries.
- * A base address is encoded on 22 bits, since we have to keep track of such addr (coarse page table)
+/* Keep track of already updated base address entries for L2 page tables.
+ * A base address is encoded on 22 bits, since we have to keep track of such addr (coarse page table).
+ *
+ * All L2 page tables are allocated in the heap. So, to determine the position in the bitmap,
+ * we get the offset between the heap base address and the page table base address.
+ *
+ * Furthermore, a L2 page table may contain up to 256 entries. It means that the base address
+ * is always aligned on 1 KB (256 * 4).
  */
 
 /* We are able to keep track of base addresses for 2 MB RAM with 4 KB pages (1 bit per page) */
 
-/* 128 KB */
-#define BASEADDR_BITMAP_BYTES 	1 << 6
+/*
+ * If the heap is sized to 2 MB, 2*2^20 >> 10 = 2*2^10 = 2'048 bits, for max 2'048 possible base addresses.
+ * 2'048 / 8 = 256 bytes.
+ *
+ */
+#define BASEADDR_BITMAP_BYTES 	256
 
 static unsigned char baseaddr_2nd_bitmap[BASEADDR_BITMAP_BYTES];
 
@@ -53,10 +65,12 @@ static void init_baseaddr_2nd_bitmap(void) {
 static void set_baseaddr_2nd_bitmap(unsigned int baseaddr) {
 	unsigned int pos, mod;
 
-	baseaddr = (baseaddr - CONFIG_RAM_BASE) >> 10;
+	baseaddr = (baseaddr - (CONFIG_RAM_BASE + (heap_base_vaddr - CONFIG_KERNEL_VIRT_ADDR))) >> 10;
 
 	pos = baseaddr >> 3;
 	mod = baseaddr % 8;
+
+	BUG_ON(pos >= BASEADDR_BITMAP_BYTES);
 
 	baseaddr_2nd_bitmap[pos] |= (1 << (7 - mod));
 
@@ -65,10 +79,12 @@ static void set_baseaddr_2nd_bitmap(unsigned int baseaddr) {
 static unsigned int is_set_baseaddr_2nd_bitmap(unsigned int baseaddr) {
 	unsigned int pos, mod;
 
-	baseaddr = (baseaddr - CONFIG_RAM_BASE) >> 10;
+	baseaddr = (baseaddr - (CONFIG_RAM_BASE + (heap_base_vaddr - CONFIG_KERNEL_VIRT_ADDR))) >> 10;
 
 	pos = baseaddr >> 3;
 	mod = baseaddr % 8;
+
+	BUG_ON(pos >= BASEADDR_BITMAP_BYTES);
 
 	return (baseaddr_2nd_bitmap[pos] & (1 << (7 - mod)));
 
@@ -93,9 +109,7 @@ static void set_l2pte(uint32_t *l2pte, struct DOMCALL_fix_page_tables_args *args
 
 		*l2pte = (*l2pte & ~PAGE_MASK) | base;
 
-		asm volatile("mcr p15, 0, %0, c7, c10, 1" : : "r" (l2pte));
-
-		isb();
+		flush_pte_entry(l2pte);
 	}
 }
 
@@ -138,9 +152,7 @@ static void set_l1pte(uint32_t *l1pte, struct DOMCALL_fix_page_tables_args *args
 			*l1pte = (*l1pte & ~L1DESC_L2PT_BASE_ADDR_MASK) | base;
 
 
-		asm volatile("mcr p15, 0, %0, c7, c10, 1" : : "r" (l1pte));
-
-		isb();
+		flush_pte_entry(l1pte);
 	}
 
 }
@@ -200,37 +212,37 @@ int adjust_l2_page_tables(unsigned long addr, unsigned long end, uint32_t *pgtab
 
 /****************************************************/
 
-static int do_fix_kernel_page_table(struct DOMCALL_fix_page_tables_args *args)
-{
+static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
+	pcb_t *pcb;
+	uint32_t vaddr;
+	uint32_t *l1pte, *l1pte_current;
+
 	set_pfn_offset(args->pfn_offset);
 
 	init_baseaddr_2nd_bitmap();
 
-	/* IO mapping regions have to be adjusted as well. */
-
-	adjust_l1_page_tables(IO_MAPPING_BASE, POST_MIGRATION_REMAPPING_MAX, __sys_l1pgtable, args);
-	adjust_l2_page_tables(IO_MAPPING_BASE, POST_MIGRATION_REMAPPING_MAX, __sys_l1pgtable, args);
-
-	/* We remap everything from the location where page sharing is expected until the very last page. */
-
-	adjust_l1_page_tables(HYPERVISOR_VIRT_ADDR + HYPERVISOR_VIRT_SIZE, 0xffffffff, __sys_l1pgtable, args);
-	adjust_l2_page_tables(HYPERVISOR_VIRT_ADDR + HYPERVISOR_VIRT_SIZE, 0xffffffff, __sys_l1pgtable, args);
-
-	/* Flush all cache */
-	flush_all();
-
-	/* Set as processed */
-#if 0 /* not sure.... */
-	set_baseaddr_2nd_bitmap((pfn_to_phys(virt_to_pfn((unsigned int) __sys_l1pgtable[0]))));
-#endif
-
-	return 0;
-}
-
-static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
-
 	/* All page tables used by processes must be adapted. */
-	/* Not yet supported. */
+
+	list_for_each_entry(pcb, &proc_list, list)
+	{
+
+		for (vaddr = CONFIG_KERNEL_VIRT_ADDR; ((vaddr != 0) && (vaddr < 0xffffffff)); vaddr += L1_SECT_SIZE) {
+			l1pte = l1pte_offset(pcb->pgtable, vaddr);
+			l1pte_current = l1pte_offset(__sys_l1pgtable, vaddr);
+
+			*l1pte = *l1pte_current;
+
+			flush_pte_entry((void *) l1pte);
+		}
+
+		/* Finally, remap the whole user space */
+
+		adjust_l1_page_tables(0, CONFIG_KERNEL_VIRT_ADDR, pcb->pgtable, args);
+		adjust_l2_page_tables(0, CONFIG_KERNEL_VIRT_ADDR, pcb->pgtable, args);
+
+		/* Flush all cache */
+		flush_all();
+	}
 
 	return 0;
 }
@@ -248,10 +260,6 @@ int domcall(int cmd, void *arg)
 
 	case DOMCALL_postsetup_adjust_variables:
 		rc = do_postsetup_adjust_variables(arg);
-		break;
-
-	case DOMCALL_fix_kernel_page_table:
-		rc = do_fix_kernel_page_table((struct DOMCALL_fix_page_tables_args *) arg);
 		break;
 
 	case DOMCALL_fix_other_page_tables:

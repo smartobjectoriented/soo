@@ -75,74 +75,47 @@ typedef uint16_t domid_t;
  */
 #define NR_EVTCHN 1024
 
-struct vcpu_time_info {
-    /*
-     * Updates to the following values are preceded and followed by an
-     * increment of 'version'. The guest can therefore detect updates by
-     * looking for changes to 'version'. If the least-significant bit of
-     * the version number is set then an update is in progress and the guest
-     * must wait to read a consistent set of values.
-     * The correct way to interact with the version number is similar to
-     * Linux's seqlock: see the implementations of read_seqbegin/read_seqretry.
-     */
-    uint32_t version;
-    uint64_t tsc_timestamp;   /* Current (local) TSC from the free-running clocksource */
-    uint64_t tsc_prev;
-
-};
-typedef struct vcpu_time_info vcpu_time_info_t;
-
-struct vcpu_info {
-
-    uint8_t evtchn_upcall_pending;
-
-    struct arch_vcpu_info arch;
-    struct vcpu_time_info time;
-};
-
-typedef struct vcpu_info vcpu_info_t;
-
 /*
  * avz/domain shared data -- pointer provided in start_info.
  */
 struct shared_info {
-    struct vcpu_info vcpu_info;
 
-    /*
-     * A domain can create "event channels" on which it can send and receive
-     * asynchronous event notifications. There are three classes of event that
-     * are delivered by this mechanism:
-     *  1. Bi-directional inter- and intra-domain connections. Domains must
-     *     arrange out-of-band to set up a connection (usually by allocating
-     *     an unbound 'listener' port and avertising that via a storage service
-     *     such as vbstore).
-     *  2. Physical interrupts. A domain with suitable hardware-access
-     *     privileges can bind an event-channel port to a physical interrupt
-     *     source.
-     *  3. Virtual interrupts ('events'). A domain can bind an event-channel
-     *     port to a virtual interrupt source, such as the virtual-timer
-     *     device or the emergency console.
-     *
-     * To expedite scanning of pending notifications, any 0->1 pending
-     * transition on an unmasked channel causes a corresponding bit in a
-     * per-vcpu selector word to be set. Each bit in the selector covers a
-     * 'C long' in the PENDING bitfield array.
-     */
-    unsigned long evtchn_pending[NR_EVTCHN/32];
+	uint8_t evtchn_upcall_pending;
 
-    atomic_t dc_event;
+	/*
+	 * Updates to the following values are preceded and followed by an
+	 * increment of 'version'. The guest can therefore detect updates by
+	 * looking for changes to 'version'. If the least-significant bit of
+	 * the version number is set then an update is in progress and the guest
+	 * must wait to read a consistent set of values.
+	 * The correct way to interact with the version number is similar to
+	 * ME's seqlock: see the implementations of read_seqbegin/read_seqretry.
+	 */
+	uint32_t version;
+	uint64_t tsc_timestamp;   /* Current (local) TSC from the free-running clocksource */
+	uint64_t tsc_prev;
 
-    /* Clocksource reference used during migration */
-    uint64_t clocksource_ref;
-    uint64_t clocksource_base;
+	/*
+	 * A domain can create "event channels" on which it can send and receive
+	 * asynchronous event notifications.
+	 * Each event channel is assigned a bit in evtchn_pending and its modification has to be
+	 * kept atomic.
+	 */
+	unsigned long evtchn_pending[NR_EVTCHN/32];
 
-    /* Agency or ME descriptor */
-    dom_desc_t dom_desc;
+	atomic_t dc_event;
 
-    struct shared_info *subdomain_shared_info;
+	/* Clocksource reference used during migration */
+	uint64_t clocksource_ref;
+	uint64_t clocksource_base;
 
-    /* Reference to the logbool hashtable (one per each domain) */
-    void *logbool_ht;
+	/* Agency or ME descriptor */
+	dom_desc_t dom_desc;
+
+	struct shared_info *subdomain_shared_info;
+
+	/* Reference to the logbool hashtable (one per each domain) */
+	void *logbool_ht;
 };
 
 typedef struct shared_info shared_info_t;
@@ -194,10 +167,9 @@ typedef int (*domcall_t)(int cmd, void *arg);
 #define DOMCALL_sync_domain_interactions    	3
 #define DOMCALL_presetup_adjust_variables   	4
 #define DOMCALL_postsetup_adjust_variables  	5
-#define DOMCALL_fix_kernel_page_table       	6
-#define DOMCALL_fix_other_page_tables		7
-#define DOMCALL_sync_directcomm			8
-#define DOMCALL_soo				9
+#define DOMCALL_fix_other_page_tables		6
+#define DOMCALL_sync_directcomm			7
+#define DOMCALL_soo				8
 
 struct DOMCALL_presetup_adjust_variables_args {
 	start_info_t *start_info_virt; /* IN */

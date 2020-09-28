@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "Usage: ./mount_ramfs <board>"
+echo "Usage: ./mount_ramfs.sh <board>"
 echo "Here: board is $1"
 echo "-------------------mount ramfs ---------------"
 

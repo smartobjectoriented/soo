@@ -17,7 +17,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -53,7 +53,9 @@ static int live_count = 0;
  * migrated_once allows the dormant ME to control its oneshot propagation, i.e.
  * the ME must be broadcast in the neighborhood, then disappear from the smart object.
  */
+#if 0
 static uint32_t migration_count = 0;
+#endif
 
 /**
  * PRE-ACTIVATE
@@ -61,16 +63,18 @@ static uint32_t migration_count = 0;
  * Should receive local information through args
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
-#if 1 /* alphabet */
-	agency_ctl_args_t agency_ctl_args;
 
+	agency_ctl_args_t agency_ctl_args;
+#if 0
 	agencyUID_t refUID = {
 		.id = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08}
 	};
 #endif /* 0 */
 	char target_soo_name[SOO_NAME_SIZE];
 
-	DBG(">> ME %d: cb_pre_activate..\n", ME_domID());
+#if 0
+	logmsg("[soo:me:SOO.refSO3] ME %d: cb_pre_activate..\n", ME_domID());
+#endif
 
 	/* Retrieve the name of the Smart Object on which the ME has migrated */
 	agency_ctl_args.cmd = AG_SOO_NAME;
@@ -194,16 +198,18 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 #endif
 	unsigned char me_spad_caps[SPAD_CAPS_SIZE];
 	unsigned int i;
+#if 0
 	void *recv_data;
 	uint32_t pfn;
 	bool target_found, initiator_found;
 	char target_char, initiator_char;
+#endif
 
-	DBG(">> ME %d: cb_cooperate...\n", ME_domID());
+	printk("[soo:me:SOO.refSO3] ME %d: cb_cooperate...\n", ME_domID());
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
-		DBG("Cooperate: Initiator %d\n", ME_domID());
+
 		if (cooperate_args->alone)
 			return 0;
 
@@ -223,19 +229,17 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 #if 1 /* Alphabet */
 				/* Collaboration ... */
-				agency_ctl_args.u.target_cooperate_args.pfns.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
-				/* This pattern enables the cooperation with the target ME */
+				agency_ctl_args.u.target_cooperate_args.pfn.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
 
+				/* This pattern enables the cooperation with the target ME */
 
 				agency_ctl_args.cmd = AG_COOPERATE;
 				agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
-				//memcpy(agency_ctl_args.u.target_cooperate_args.spid, get_ME_desc()->spid, SPID_SIZE);
-				//memcpy(agency_ctl_args.u.target_cooperate_args.spad_caps, get_ME_desc()->spad.caps, SPAD_CAPS_SIZE);
 
 				/* Perform the cooperate in the target ME */
 				args->__agency_ctl(&agency_ctl_args);
 
-#if 0
+#if 1
 				/* Now incrementing us */
 				*((char *) localinfo_data) = *((char *) localinfo_data) + 1;
 #endif
@@ -266,6 +270,13 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
+#if 1 /* Will trigger a force_terminate on us */
+		agency_ctl_args.cmd = AG_KILL_ME;
+		agency_ctl_args.slotID = args->slotID;
+		args->__agency_ctl(&agency_ctl_args);
+#endif
+
+#if 0 /* Alphabet */
 		pfn = cooperate_args->u.initiator_coop.pfns.content;
 		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
@@ -276,6 +287,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 		target_char = *((char *) localinfo_data);
 		initiator_char = *((char *) recv_data);
+#endif
 
 #if 0 /* Alphabet - Increment the alphabet in this case. */
 		if (get_ME_state() != ME_state_dormant)  {
@@ -338,9 +350,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		agency_ctl_args.slotID = ME_domID();
 
 		args->__agency_ctl(&agency_ctl_args);
-#endif
 		io_unmap((uint32_t) recv_data);
-
+#endif
 		break;
 
 	default:
@@ -404,7 +415,7 @@ int cb_force_terminate(void) {
 	/* We do nothing particular here for this ME,
 	 * however we proceed with the normal termination of execution.
 	 */
-	lprintk("###################### FORCE terminate me %d\n", ME_domID());
+
 	set_ME_state(ME_state_terminated);
 
 	return 0;
@@ -423,8 +434,6 @@ void callbacks_init(void) {
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
-
-
 }
 
 
