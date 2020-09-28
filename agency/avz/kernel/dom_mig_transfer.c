@@ -421,7 +421,7 @@ int inject_me(soo_hyp_t *op)
 
 	/* Create a domain context including the ME descriptor before the ME gets injected. */
 
-	domME = domain_create(slotID, true);
+	domME = domain_create(slotID, ME_CPU);
 	if (!domME)
 		panic("Error creating the ME");
 
