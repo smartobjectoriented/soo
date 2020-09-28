@@ -49,6 +49,23 @@ void set_dacr(uint32_t val)
 	isb();
 }
 
+void get_current_addrspace(addrspace_t *addrspace) {
+	int cpu;
+
+	cpu = smp_processor_id();
+
+	/* Get the current state of MMU */
+	addrspace->ttbr0[cpu] = READ_CP32(TTBR0_32);
+	addrspace->pgtable_paddr = addrspace->ttbr0[cpu] &~TTBR_MASK;
+}
+
+/*
+ * Check if two address space are identical regarding the MMU configuration.
+ */
+bool is_addrspace_equal(addrspace_t *addrspace1, addrspace_t *addrspace2) {
+	return (addrspace1->pgtable_paddr == addrspace2->pgtable_paddr);
+}
+
 /*
  * Get a virtual address to store a L2 page table (256 bytes).
  */
@@ -198,19 +215,19 @@ void configure_l1pgtable(uint32_t l1pgtable, uint32_t fdt_addr) {
 	 */
 
 	/* Create an identity mapping of 1 MB on running kernel so that the kernel code can go ahead right after the MMU on */
-	*l1pte_offset(__pgtable, CONFIG_RAM_BASE) = CONFIG_RAM_BASE  | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHEABLE;
+	*l1pte_offset(__pgtable, CONFIG_RAM_BASE) = CONFIG_RAM_BASE  | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHE;
 
 	/* Now, create a virtual mapping in the kernel space */
 	for (vaddr = L_PAGE_OFFSET, paddr = CONFIG_RAM_BASE; ((vaddr < L_PAGE_OFFSET + CONFIG_RAM_SIZE) && (vaddr < CONFIG_HYPERVISOR_VIRT_ADDR));
 		vaddr += L1_SECT_SIZE, paddr += L1_SECT_SIZE)
 	{
-		*l1pte_offset(__pgtable, vaddr) = paddr | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHEABLE;
+		*l1pte_offset(__pgtable, vaddr) = paddr | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHE;
 	}
 
 	/* Create the mapping of the hypervisor code area. */
 	for (vaddr = CONFIG_HYPERVISOR_VIRT_ADDR, paddr = CONFIG_RAM_BASE; vaddr < CONFIG_HYPERVISOR_VIRT_ADDR + HYPERVISOR_SIZE; vaddr += L1_SECT_SIZE, paddr += L1_SECT_SIZE)
 	{
-		*l1pte_offset(__pgtable, vaddr) = paddr | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHEABLE;
+		*l1pte_offset(__pgtable, vaddr) = paddr | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHE;
 	}
 
 	/* Early mapping I/O for UART */
@@ -237,10 +254,10 @@ void clear_l1pte(uint32_t *l1pgtable, uint32_t vaddr) {
 /*
  * Switch the MMU to a L1 page table
  */
-void mmu_switch(uint32_t *l1pgtable) {
+void mmu_switch(addrspace_t *aspace) {
 
-	__mmu_switch(__pa((uint32_t) l1pgtable));
-
+	flush_all();
+	__mmu_switch(aspace->ttbr0[smp_processor_id()]);
 	flush_all();
 }
 

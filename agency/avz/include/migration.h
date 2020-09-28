@@ -23,32 +23,6 @@
 
 #include <soo/uapi/avz.h>
 
-struct vcpu_migration_info
-{
-	int vcpu_id;
-
-	int processor;
-
-	bool need_periodic_timer;
-
-	unsigned long pause_flags;
-	atomic_t      pause_count;
-
-	/* IRQ-safe virq_lock protects against delivering VIRQ to stale evtchn. */
-	u16           virq_to_evtchn[NR_VIRQS];
-
-	/* arch_vcpu structure */
-	struct arch_vcpu arch;
-
-	/* Internal fields of vcpu_info_t structure */
-	uint8_t       evtchn_upcall_pending;
-	uint8_t       evtchn_upcall_mask;
-	unsigned long evtchn_pending_sel;
-
-	struct arch_vcpu_info arch_info;
-	struct vcpu_time_info time;
-};
-
 struct domain_migration_info
 {
 	domid_t domain_id;
@@ -67,6 +41,7 @@ struct domain_migration_info
 
 	unsigned long evtchn_pending[sizeof(unsigned long) * 8];
 	unsigned long evtchn_mask[sizeof(unsigned long) * 8];
+
 	u64 clocksource_ref;
 
 	/* Start info page */
@@ -77,7 +52,29 @@ struct domain_migration_info
 	/* Domain start pfn */
 	unsigned long start_pfn;
 
+	int cpu_id;
+
+	int processor;
+
+	bool need_periodic_timer;
+
+	unsigned long pause_flags;
 	atomic_t pause_count;
+
+	/* IRQ-safe virq_lock protects against delivering VIRQ to stale evtchn. */
+	u16 virq_to_evtchn[NR_VIRQS];
+
+	/* arch_vcpu structure */
+	struct arch_vcpu arch;
+
+	addrspace_t addrspace;
+
+	/* Must be the first field of this structure (see exception.S) */
+	uint8_t evtchn_upcall_pending;
+
+	uint32_t version;
+	uint64_t tsc_timestamp;
+	uint64_t tsc_prev;
 };
 
 #endif /* __MIGRATION_H__ */

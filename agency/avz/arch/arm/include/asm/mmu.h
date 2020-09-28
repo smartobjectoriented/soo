@@ -20,6 +20,7 @@
 #define MMU_H
 
 #ifndef __ASSEMBLY__
+#include <config.h>
 #include <types.h>
 #endif
 
@@ -115,6 +116,10 @@
 #define clear_page(page)	memzero((void *)(page), PAGE_SIZE)
 
 /* Used during CPU setup */
+
+/* Page table base address must be 1 KB-aligned */
+#define	TTBR_MASK	(0x3ff)
+
 #define TTB_S		(1 << 1)
 #define TTB_RGN_NC	(0 << 3)
 #define TTB_RGN_OC_WBWA	(1 << 3)
@@ -157,6 +162,16 @@
 
 #ifndef __ASSEMBLY__
 
+/*
+ * This structure holds internal fields required to
+ * manage the MMU configuration regarding address space.
+ */
+typedef struct {
+	uint32_t ttbr0[NR_CPUS];
+	uint32_t pgtable_paddr;
+	uint32_t pgtable_vaddr;
+} addrspace_t;
+
 #define cpu_get_l1pgtable()	\
 ({						\
 	unsigned long pg;			\
@@ -179,7 +194,7 @@ void reset_l1pgtable(uint32_t *l1pgtable, bool remove);
 
 void clear_l1pte(uint32_t *l1pgtable, uint32_t vaddr);
 
-void mmu_switch(uint32_t *l1pgtable);
+void mmu_switch(addrspace_t *addrspace);
 void dump_pgtable(uint32_t *l1pgtable);
 
 void flush_tlb_all(void);
@@ -190,6 +205,7 @@ void set_dacr(unsigned val);
 unsigned int get_dacr(void);
 
 extern uint32_t *swapper_pg_dir;
+
 void vectors_init(void);
 
 #endif

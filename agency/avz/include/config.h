@@ -19,8 +19,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <asm/mmu.h>
-
 #define	NR_CPUS			4
 
 /*
@@ -57,9 +55,6 @@
 #define STACK_SIZE  (PAGE_SIZE << STACK_ORDER)
 
 #define HEAP_MAX_SIZE_MB 	(2)
-
-/* Hypervisor owns top 64MB of virtual address space. */
-#define HYPERVISOR_VIRT_START   0xFF000000
 
 #define HYPERVISOR_SIZE	0x00c00000  /* 12 MB */
 #define HYPERVISOR_PHYS_START CONFIG_RAM_BASE

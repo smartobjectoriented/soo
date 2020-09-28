@@ -72,7 +72,7 @@ void __warn(char *file, int line)
 
 void __fault_trap(uint32_t far, uint32_t fsr, uint32_t lr) {
 
-	printk("### %s details are far: %x fsr: %x lr(r14)-8: %x ###\n", __func__, far, fsr, lr-8);
+	printk("### !!!!!!!!!! %s on CPU %x details are far: %x fsr: %x lr(r14)-8: %x !!!!!!!!!! ###\n", __func__, smp_processor_id(), far, fsr, lr-8);
 
 	while(1);
 }

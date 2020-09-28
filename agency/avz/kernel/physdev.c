@@ -34,7 +34,6 @@
 #include <device/irq.h>
 #include <device/arch/gic.h>
 
-#include <asm/current.h>
 #include <asm/domain.h>
 
 #include <soo/uapi/avz.h>
@@ -47,6 +46,8 @@
 int do_physdev_op(int cmd, void *args)
 {
 	int val;
+	struct domain *__current;
+	addrspace_t prev_addrspace;
 
 	switch (cmd) {
 
@@ -54,11 +55,13 @@ int do_physdev_op(int cmd, void *args)
 	{
 		memcpy(&val, args, sizeof(int));
 
-		switch_mm(NULL, idle_domain[smp_processor_id()]->vcpu[0]);
+		__current = current;
+		get_current_addrspace(&prev_addrspace);
+		switch_mm(idle_domain[smp_processor_id()], &idle_domain[smp_processor_id()]->addrspace);
 
 		dump_page(val);
 
-		switch_mm(idle_domain[smp_processor_id()]->vcpu[0], NULL);
+		switch_mm(__current, &prev_addrspace);
 
 		break;
 	}

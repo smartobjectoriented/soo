@@ -30,7 +30,6 @@
 #include <device/arch/arm_timer.h>
 #include <device/arch/gic.h>
 
-#include <asm/current.h>
 #include <asm/setup.h>
 #include <asm/cacheflush.h>
 #include <asm/vfp.h>
@@ -142,8 +141,6 @@ void secondary_start_kernel(void)
 
 	init_idle_domain();
 
-	idle_domain[smp_processor_id()]->vcpu[0]->arch.guest_ptable = (void *) __pa(swapper_pg_dir);
-
 	/* Enabling VFP module on this CPU */
 	vfp_enable();
 
@@ -214,6 +211,11 @@ void cpu_up(unsigned int cpu)
 void smp_init(void)
 {
 	printk(KERN_INFO "CPU #%d is the second CPU reserved for Agency realtime activity.\n", AGENCY_RT_CPU);
+
+	/* Since the RT domain is never scheduled, we set the current domain bound to
+	 * CPU #1 to this unique domain.
+	 */
+	per_cpu(current_domain, AGENCY_RT_CPU) = domains[DOMID_AGENCY_RT];
 
 #ifndef CONFIG_PSCI
 	smp_prepare_cpus(NR_CPUS);

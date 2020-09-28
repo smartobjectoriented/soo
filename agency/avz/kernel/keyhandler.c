@@ -24,6 +24,7 @@
 #include <softirq.h>
 #include <domain.h>
 #include <ctype.h>
+#include <sched.h>
 
 #include <asm/backtrace.h>
 #include <asm/div64.h>
@@ -74,10 +75,10 @@ static void dump_registers(unsigned char key, struct cpu_user_regs *regs)
 
 	dump_execution_state();
 	printk("*** Dumping CPU%d guest state: ***\n", smp_processor_id());
-	if (is_idle_vcpu(current))
+	if (is_idle_domain(current))
 		printk("No guest context (CPU is idle).\n");
 	else
-		show_execution_state(guest_cpu_user_regs());
+		show_execution_state(&current->arch.guest_context.user_regs);
 
 
 
@@ -91,7 +92,7 @@ static struct keyhandler dump_registers_keyhandler = {
 	.desc = "dump registers"
 };
 
-extern void vcpu_show_execution_state(struct vcpu *v);
+extern void vcpu_show_execution_state(struct domain *d);
 static void dump_agency_registers(unsigned char key)
 {
 	if (agency == NULL)
@@ -99,7 +100,7 @@ static void dump_agency_registers(unsigned char key)
 
 	printk("'%c' pressed -> dumping agency's registers\n", key);
 
-	vcpu_show_execution_state(agency->vcpu[0]);
+	vcpu_show_execution_state(agency);
 }
 
 static struct keyhandler dump_agency_registers_keyhandler = {
@@ -111,7 +112,6 @@ static struct keyhandler dump_agency_registers_keyhandler = {
 static void dump_domains(unsigned char key)
 {
 	struct domain *d;
-	struct vcpu   *v;
 	u64    now = NOW();
 	int i;
 
@@ -125,20 +125,16 @@ static void dump_domains(unsigned char key)
 
 		printk("General information for domain %u:\n", d->domain_id);
 
-		printk("    refcnt=%d dying=%d nr_pages=%d max_pages=%u\n",
-				atomic_read(&d->refcnt), d->is_dying,
-				d->tot_pages, d->max_pages);
-
-		v = d->vcpu[0];
+		printk("    dying=%d nr_pages=%d max_pages=%u\n", d->is_dying, d->tot_pages, d->max_pages);
 
 		printk("VCPU information and callbacks for domain %u:\n", d->domain_id);
 
 		printk("    CPU%d [has=%c] flags=%lx "
 			"upcall_pend = %02x",
-			v->processor,
-			v->is_running ? 'T':'F',
-			v->pause_flags,
-			vcpu_info(v, evtchn_upcall_pending));
+			d->processor,
+			d->is_running ? 'T':'F',
+			d->pause_flags,
+			d->shared_info->evtchn_upcall_pending);
 
 		printk("    %s\n", tmpstr);
 

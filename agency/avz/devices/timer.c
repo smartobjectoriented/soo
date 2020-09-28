@@ -36,16 +36,17 @@ void timer_interrupt(bool periodic) {
 	if (periodic) {
 
 		/* Now check for ticking the non-realtime domains which need periodic ticks. */
-		for (i = 1; i < MAX_DOMAINS; i++) {
+		for (i = 2; i < MAX_DOMAINS; i++) {
 			/*
 			 * We have to check if the domain exists and its VCPU has been created. If not,
 			 * there is no need to propagate the timer event.
 			 */
-			if ((domains[i] != NULL) && (domains[i]->vcpu != NULL) && (domains[i]->vcpu[0] != NULL) && (!domains[i]->is_dying)) {
-				if ((domains[i]->vcpu[0]->runstate == RUNSTATE_running) || (domains[i]->vcpu[0]->runstate == RUNSTATE_runnable)) {
-					if ((domains[i]->vcpu[0]->need_periodic_timer) && (domains[i]->shared_info != NULL))
+			if ((domains[i] != NULL) && !domains[i]->is_dying) {
+				if ((domains[i]->runstate == RUNSTATE_running) || (domains[i]->runstate == RUNSTATE_runnable)) {
+					if ((domains[i]->need_periodic_timer) && (domains[i]->shared_info != NULL))
+
 						/* Forward to the guest */
-						send_timer_event(domains[i]->vcpu[0]);
+						send_timer_event(domains[i]);
 				}
 			}
 		}

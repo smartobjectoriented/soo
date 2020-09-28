@@ -28,9 +28,9 @@
 #include <libelf.h>
 
 #include <asm/processor.h>
-#include <asm/current.h>
 
-#include <soo/uapi/arch-arm.h>
+#include <soo/arch-arm.h>
+
 #include <soo/uapi/logbool.h>
 
 #include <asm/cacheflush.h>
@@ -40,7 +40,7 @@
 /*
  * setup_page_table_guestOS() is setting up the 1st-level page table within the domain.
  */
-extern int setup_page_table_guestOS(struct vcpu *v, unsigned long v_start, unsigned long map_size, unsigned long p_start, unsigned long vpt_start);
+extern int setup_page_table_guestOS(struct domain *d, unsigned long v_start, unsigned long map_size, unsigned long p_start, unsigned long vpt_start);
 extern char hypercall_start[];
 
 /*
@@ -48,13 +48,13 @@ extern char hypercall_start[];
  */
 int construct_ME(struct domain *d) {
 	unsigned int slotID;
-	struct vcpu *v;
 	unsigned long vstartinfo_start;
 	unsigned long v_start;
 	unsigned long alloc_spfn;
 	unsigned long vpt_start;
 	struct start_info *si = NULL;
 	unsigned long nr_pages;
+	addrspace_t prev_addrspace;
 
 	slotID = d->domain_id;
 
@@ -78,26 +78,24 @@ int construct_ME(struct domain *d) {
 
 	ASSERT(d);
 
-	v = d->vcpu[0];
-	BUG_ON(d->vcpu[0] == NULL);
-
-	ASSERT(v);
-
 	d->tot_pages = memslot[slotID].size >> PAGE_SHIFT;
 	alloc_spfn = memslot[slotID].base_paddr >> PAGE_SHIFT;
 
-	clear_bit(_VPF_down, &v->pause_flags);
+	clear_bit(_VPF_down, &d->pause_flags);
 
 	v_start = L_PAGE_OFFSET;
 
-	vpt_start = v_start + L_TEXT_OFFSET - 0x4000;  /* Location of the system page table (see head.S). */
+	vpt_start = v_start + L1_SYS_PAGE_TABLE_OFFSET;  /* Location of the system page table (see head.S). */
 
-	setup_page_table_guestOS(v, v_start, memslot[slotID].size, (alloc_spfn << PAGE_SHIFT), vpt_start);
+	setup_page_table_guestOS(d, v_start, memslot[slotID].size, (alloc_spfn << PAGE_SHIFT), vpt_start);
 
 	/* Lets switch to the page table of our new domain - required for sharing page info */
+	get_current_addrspace(&prev_addrspace);
 
-	save_ptbase(current);
-	write_ptbase(v);
+	/* We do this trick to access the right address space linked to the current CPU. */
+	d->addrspace.ttbr0[smp_processor_id()] = d->addrspace.ttbr0[ME_CPU];
+
+	mmu_switch(&d->addrspace);
 
 	si = (start_info_t *) vstartinfo_start;
 
@@ -121,12 +119,12 @@ int construct_ME(struct domain *d) {
 
 	si->pt_base = vpt_start;
 
-	write_ptbase(current);
+	mmu_switch(&prev_addrspace);
 
-	d->arch.vstartinfo_start = vstartinfo_start;
+	d->vstartinfo_start = vstartinfo_start;
 
 	/* Create the first thread associated to this domain. */
-	new_thread(v, L_PAGE_OFFSET + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
+	new_thread(d, L_PAGE_OFFSET + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
 
 	return 0;
 }

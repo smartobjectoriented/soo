@@ -30,9 +30,9 @@
 
 #include <asm/processor.h>
 #include <asm/mmu.h>
-#include <asm/current.h>
 
-#include <soo/uapi/arch-arm.h>
+#include <soo/arch-arm.h>
+
 #include <soo/uapi/logbool.h>
 
 #include <asm/cacheflush.h>
@@ -44,10 +44,10 @@ start_info_t *agency_start_info;
 /*
  * setup_page_table_guestOS() is setting up the 1st-level and 2nd-level page tables within the domain.
  */
-int setup_page_table_guestOS(struct vcpu *v, unsigned long v_start, unsigned long map_size, unsigned long p_start, unsigned long vpt_start) {
+int setup_page_table_guestOS(struct domain *d, unsigned long v_start, unsigned long map_size, unsigned long p_start, unsigned long vpt_start) {
 	uint32_t vaddr, *new_pt;
 
-	ASSERT(v);
+	ASSERT(d);
 
 	/* Make sure that the size is 1 MB-aligned */
 	map_size = ALIGN_UP(map_size, L1_SECT_SIZE);
@@ -58,13 +58,10 @@ int setup_page_table_guestOS(struct vcpu *v, unsigned long v_start, unsigned lon
 	printk("   phys address     : 0x%lx\n", p_start);
 	printk("   vpt_start        : 0x%lx\n", vpt_start);
 
-	/* guest start address (phys/virtual addr) */
-	v->arch.guest_pstart = p_start;
-	v->arch.guest_vstart = v_start;
-
 	/* guest page table address (phys addr) */
-	v->arch.guest_ptable = (void *) (vpt_start - v_start + p_start);
-	v->arch.guest_vtable = (void *) vpt_start;
+	d->addrspace.pgtable_paddr = (vpt_start - v_start + p_start);
+	d->addrspace.pgtable_vaddr = vpt_start;
+	d->addrspace.ttbr0[d->processor] = d->addrspace.pgtable_paddr;
 
 	/* Manage the new system page table dedicated to the domain. */
 	new_pt = (uint32_t *) __lva(vpt_start - v_start + p_start); /* Ex.: 0xc0c04000 */
@@ -83,7 +80,7 @@ int setup_page_table_guestOS(struct vcpu *v, unsigned long v_start, unsigned lon
 	vaddr = (uint32_t) l1pte_offset(new_pt, vpt_start);
 
 	*((uint32_t *) vaddr) &= ~L1_SECT_MASK; /* Reset the pfn */
-	*((uint32_t *) vaddr) |= ((uint32_t ) v->arch.guest_ptable) & L1_SECT_MASK;
+	*((uint32_t *) vaddr) |= ((uint32_t ) d->addrspace.pgtable_paddr) & L1_SECT_MASK;
 
 	flush_all();
 
@@ -93,7 +90,6 @@ int setup_page_table_guestOS(struct vcpu *v, unsigned long v_start, unsigned lon
 extern char hypercall_start[];
 
 int construct_agency(struct domain *d) {
-	struct vcpu *v;
 	unsigned long vstartinfo_start;
 	unsigned long v_start;
 	unsigned long alloc_spfn;
@@ -125,27 +121,21 @@ int construct_agency(struct domain *d) {
 
 	ASSERT(d);
 
-	v = d->vcpu[0];
-	BUG_ON(d->vcpu[0] == NULL);
-
-	ASSERT(v);
-
 	d->tot_pages = memslot[MEMSLOT_AGENCY].size >> PAGE_SHIFT;
 	alloc_spfn = memslot[MEMSLOT_AGENCY].base_paddr >> PAGE_SHIFT;
 
-	clear_bit(_VPF_down, &v->pause_flags);
+	clear_bit(_VPF_down, &d->pause_flags);
 	v_start = L_PAGE_OFFSET;
 
-	vpt_start = v_start + L_TEXT_OFFSET - 0x4000;  /* Location of the system page table (see head.S). */
+	vpt_start = v_start + L1_SYS_PAGE_TABLE_OFFSET;  /* Location of the system page table (see head.S). */
 
 	/* vstack is used when the guest has not initialized its own stack yet; put right after _end of the guest OS. */
 
-	setup_page_table_guestOS(v, v_start, memslot[MEMSLOT_AGENCY].size, (alloc_spfn << PAGE_SHIFT), vpt_start);
+	setup_page_table_guestOS(d, v_start, memslot[MEMSLOT_AGENCY].size, (alloc_spfn << PAGE_SHIFT), vpt_start);
 
 	/* Lets switch to the page table of our new domain - required for sharing page info */
 
-	save_ptbase(current);
-	write_ptbase(v);
+	mmu_switch(&d->addrspace);
 
 	si = (start_info_t *) vstartinfo_start;
 
@@ -171,9 +161,9 @@ int construct_agency(struct domain *d) {
 	si->printch = printch;
 	si->pt_base = vpt_start;
 
-	write_ptbase(current);
+	mmu_switch(&current->addrspace);
 
-	d->arch.vstartinfo_start = vstartinfo_start;
+	d->vstartinfo_start = vstartinfo_start;
 
 	{
 		unsigned long domain_stack;
@@ -182,7 +172,7 @@ int construct_agency(struct domain *d) {
 		static unsigned long *__pseudo_usr_mode = (unsigned long *) &pseudo_usr_mode;
 
 	  /* Set up a new domain stack for the RT domain */
-	  domain_stack = (unsigned long) setup_dom_stack(domains[DOMID_AGENCY_RT]->vcpu[0]);
+	  domain_stack = (unsigned long) setup_dom_stack(domains[DOMID_AGENCY_RT]);
 
 	  /* Store the stack address for further needs in hypercalls/interrupt context */
 	  __hyp_stack[AGENCY_RT_CPU] = domain_stack;
@@ -197,7 +187,7 @@ int construct_agency(struct domain *d) {
 	  agency->shared_info->subdomain_shared_info = domains[DOMID_AGENCY_RT]->shared_info;
 
 	  /* Create the first thread associated to this domain. */
-	  new_thread(v, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
+	  new_thread(d, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
 	}
 
 	return 0;

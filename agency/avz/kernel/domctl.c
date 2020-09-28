@@ -81,7 +81,7 @@ long do_domctl(domctl_t *args)
 		if (d != NULL)
 		{
 			ret = -EINVAL;
-			if (d != current->domain)
+			if (d != current)
 			{
 				domain_pause_by_systemcontroller(d);
 				ret = 0;
@@ -117,7 +117,7 @@ long arch_do_domctl(struct domctl *op,  domctl_t *args)
         if (d == NULL)
         	break;
 
-        si = (struct start_info *) d->arch.vstartinfo_start;
+        si = (struct start_info *) d->vstartinfo_start;
 
         /* Retrieve info from hypercall parameter structure */
         si->store_mfn = op->u.unpause_ME.store_mfn;

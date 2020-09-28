@@ -38,8 +38,8 @@ struct vfp_state {
 };
 
 struct vcpu;
-void vfp_save_state(struct vcpu *v);
-void vfp_restore_state(struct vcpu *v);
+void vfp_save_state(struct domain *v);
+void vfp_restore_state(struct domain *v);
 void vfp_enable(void);
 
 

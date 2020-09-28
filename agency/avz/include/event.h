@@ -20,7 +20,7 @@
  *  @v:        VCPU to which virtual IRQ should be sent
  *  @virq:     Virtual IRQ number (VIRQ_*)
  */
-void send_guest_vcpu_virq(struct vcpu *v, int virq);
+void send_guest_virq(struct domain *d, int virq);
 
 /*
  * send_guest_pirq:

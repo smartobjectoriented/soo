@@ -524,7 +524,9 @@ static inline void set_copro_access(unsigned int val)
 
 struct vcpu;
 struct vcpu_guest_context;
-void __switch_to( struct vcpu *, struct vcpu_guest_context *, struct vcpu_guest_context *);
+struct domain;
+
+void __switch_to( struct domain *, struct vcpu_guest_context *, struct vcpu_guest_context *);
 
 #define switch_to(prev,next,last)                                       \
 do {                                                                    \
