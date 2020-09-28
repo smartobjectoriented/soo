@@ -27,7 +27,6 @@
 
 typedef struct bt_sl_buf {
 	void *buffer;
-	size_t size;
 } bt_sl_buf_t;
 
 #define NB_BUF 3
@@ -39,22 +38,22 @@ static int cur_buf_idx = 0;
 /**
  * WIP
  */
-void bluetooth_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet_ptr, size_t size) {
+void bluetooth_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 	int i;
+
 	DBG("IN %s\n", __func__);
 #if 0
 	receiver_rx(sl_desc, plugin_desc, packet_ptr, size);
 	return;
 #endif
 	
-	memcpy(buffers[cur_buf_idx++].buffer, packet_ptr, size);
-	buffers[cur_buf_idx].size = 0;
+	memcpy(buffers[cur_buf_idx++].buffer, packet, packet->size + sizeof(transceiver_packet_t));
 
 	if (cur_buf_idx == 3) {
 		cur_buf_idx = 0;
 
 		for (i = 0; i < 3; ++i) {
-			receiver_rx(sl_desc, plugin_desc, buffers[i].buffer, buffers[i].size);
+			receiver_rx(sl_desc, buffers[i].buffer);
 		}
 	}
 }
@@ -83,12 +82,12 @@ void bluetooth_init(void) {
 
 
 	for (i = 0; i < NB_BUF; ++i) {
+#warning 960 ??
 		buffers[i].buffer = vmalloc(960);
 		if (buffers[i].buffer == NULL) {
 			printk("vmalloc failed in %s\n", __func__);
 			BUG();
 		} 
-		buffers[i].size = 0;
 	}
 
 	bluetooth_register();

@@ -22,6 +22,9 @@
 #endif
 
 #include <linux/slab.h>
+#include <linux/mutex.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
 
 #include <soo/soolink/transcoder.h>
 #include <soo/soolink/decoder.h>
@@ -38,21 +41,12 @@
  * but not more at the moment.
  */
 
-rtdm_task_t decoder_process_task;
-
 static struct list_head block_list;
-static rtdm_mutex_t decoder_lock;
-static rtdm_task_t decoder_watchdog;
+static struct mutex decoder_lock;
 static bool decoder_recv_requested = false;
 static decoder_block_t *last_block = NULL;
 
 uint32_t transcoder_discarded_packets = 0;
-
-static rtdm_mutex_t decoder_stream_lock;
-static rtdm_event_t decoder_stream_event;
-
-/* Pointer to received data in netstream mode. Used for the sync between the requester and Datalink. */
-static void *decoder_stream_data;
 
 /*
  * Create a new block based on the received data.
@@ -109,12 +103,12 @@ static decoder_block_t *get_block_by_sl_desc(sl_desc_t *sl_desc) {
 int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	size_t size;
 
-	rtdm_mutex_lock(&decoder_lock);
+	mutex_lock(&decoder_lock);
 	decoder_recv_requested = true;
-	rtdm_mutex_unlock(&decoder_lock);
+	mutex_unlock(&decoder_lock);
 
 	/* We still need to manage a timeout according to the specification */
-	rtdm_event_wait(&sl_desc->recv_event);
+	wait_for_completion(&sl_desc->recv_event);
 
 	size = sl_desc->incoming_block_size;
 
@@ -123,23 +117,25 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	 * The buffer will be freed by the consumer after use.
 	 */
 	if (likely(size)) {
-		*data = xnheap_vmalloc(size);
+		*data = vmalloc(size);
+		BUG_ON(!data);
+
 		memcpy(*data, sl_desc->incoming_block, size);
 
-		rtdm_mutex_lock(&decoder_lock);
+		mutex_lock(&decoder_lock);
 
 		/* Free the buffer by the Decoder's side */
-		xnheap_vfree(sl_desc->incoming_block);
+		vfree(sl_desc->incoming_block);
 
 	}
 	else {
-		rtdm_mutex_lock(&decoder_lock);
+		mutex_lock(&decoder_lock);
 		*data = NULL;
 	}
 
 	decoder_recv_requested = false;
 
-	rtdm_mutex_unlock(&decoder_lock);
+	mutex_unlock(&decoder_lock);
 
 	return size;
 }
@@ -148,25 +144,23 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 	transcoder_packet_t *pkt;
 	decoder_block_t *block;
 
-	DBG("Size: %d\n", size);
-
 	/* Bypass the Decoder if the requester is of Bluetooth or TCP type */
-	if ((sl_desc->if_type == SL_IF_BT) || (sl_desc->if_type == SL_IF_TCP)) {
+	if ((sl_desc->if_type == SL_IF_BT) || (sl_desc->if_type == SL_IF_TCP) || (sl_desc->req_type == SL_REQ_PEER)) {
 		pkt = (transcoder_packet_t *) data;
 
 		/* Allocate the memory for this new (simple) block */
-		sl_desc->incoming_block = xnheap_vmalloc(size - sizeof(transcoder_packet_format_t));
+		sl_desc->incoming_block = vmalloc(size - sizeof(transcoder_packet_format_t));
 
 		/* Transfer the block frame */
 		memcpy(sl_desc->incoming_block, pkt->payload, size - sizeof(transcoder_packet_format_t));
 		sl_desc->incoming_block_size = size - sizeof(transcoder_packet_format_t);
 
-		rtdm_event_signal(&sl_desc->recv_event);
+		complete(&sl_desc->recv_event);
 
 		return 0;
 	}
 
-	rtdm_mutex_lock(&decoder_lock);
+	mutex_lock(&decoder_lock);
 
 	/*
 	 * Look for the block associated to this agency UID.
@@ -188,7 +182,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 	if (pkt->u.simple.consistency_type == CODER_CONSISTENCY_SIMPLE) {
 
 		/* Allocate the memory for this new (simple) block */
-		block->incoming_block = xnheap_vmalloc(size - sizeof(transcoder_packet_format_t));
+		block->incoming_block = vmalloc(size - sizeof(transcoder_packet_format_t));
 
 		/* Transfer the block frame */
 		memcpy(block->incoming_block, pkt->payload, size - sizeof(transcoder_packet_format_t));
@@ -199,41 +193,26 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 		/* If a complete block has been received with no request coming from the requester, free it */
 		if (!decoder_recv_requested) {
-			xnheap_vfree(block->incoming_block);
+			vfree(block->incoming_block);
 			block->incoming_block = NULL;
 
 			/* Release the lock on the block processing */
-			rtdm_mutex_unlock(&decoder_lock);
+			mutex_unlock(&decoder_lock);
 
 			return 0;
 		}
 
-		/*
-		 * So, we are ready to forward the block to the Soolink core.
-		 * Either we are in a blocking call (via decoder_recv()), or
-		 * the sl_desc descriptor has a receiver callback, and we can use it.
-		 */
-
-		/*
-		 * Just in case we also have a registered receiver callback in the soolink descriptor,
-		 * although it would be rather a special case.
-		 * At this point, we potentially lost the lock on the block.
-		 * The RT callback is executed before the non RT part. The non RT part will free
-		 * the buffer.
-		 */
-		if (sl_desc->rtdm_recv_callback)
-			sl_desc->rtdm_recv_callback(sl_desc, block->incoming_block, block->size);
-		else
-			rtdm_event_signal(&sl_desc->recv_event);
+		complete(&sl_desc->recv_event);
 
 	} else {
 
 		/* At the moment... */
-		BUG_ON(size > sizeof(transcoder_packet_format_t) + SL_CODER_PACKET_MAX_SIZE);
+		BUG_ON(size > sizeof(transcoder_packet_format_t) + SL_PACKET_PAYLOAD_MAX_SIZE);
 
 		/* If we missed a packet for this block, we simply discard all subsequent packets */
 		if (block->discarded_block) {
-			DBG("Ignore: %d\n", pkt->u.ext.packetID);
+
+			printk("[soo:soolink:decoder] Ignore: %d\n", pkt->u.ext.packetID);
 
 			block->n_recv_packets++;
 
@@ -247,57 +226,64 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			}
 			else {
 				/* Release the lock on the block processing */
-				rtdm_mutex_unlock(&decoder_lock);
+				mutex_unlock(&decoder_lock);
 
 				return 0;
 			}
 		}
 
-		if ((block->block_ext_in_progress) && (pkt->u.ext.packetID != block->cur_packetID + 1)) {
-			DBG("Discard: %d-%d", block->cur_packetID, pkt->u.ext.packetID);
+		if ((block->block_ext_in_progress) && (pkt->u.ext.packetID != block->cur_packetID+1)) {
+
+			printk("[soo:soolink:decoder] Discard current packetID: %d expected: %d", pkt->u.ext.packetID, block->cur_packetID+1);
 
 			transcoder_discarded_packets++;
 
-			block->discarded_block = true;
-			if (block->incoming_block) {
-				xnheap_vfree(block->incoming_block);
-				block->incoming_block = NULL;
+			/* If the received packetID is smaller than the expected one, it means
+			 * that a frame has been re-sent because the sender did not receive an ack.
+			 */
+#warning Make sure the received frame matches the existing one.
+			if (pkt->u.ext.packetID > block->cur_packetID+1) {
+
+				block->discarded_block = true;
+				if (block->incoming_block) {
+					vfree(block->incoming_block);
+					block->incoming_block = NULL;
+				}
+
+				sl_desc->incoming_block = NULL;
+				sl_desc->incoming_block_size = 0;
+
 			}
-
-			sl_desc->incoming_block = NULL;
-			sl_desc->incoming_block_size = 0;
-
-			/* Wake up potential requester which performs a synchronous call */
-			rtdm_event_signal(&sl_desc->recv_event);
 
 			/*
 			 * Release the lock on the block processing.
 			 * The caller will see that the block has been discarded because incoming_block is NULL
 			 * and incoming_block_size is 0.
 			 */
-			rtdm_mutex_unlock(&decoder_lock);
+			mutex_unlock(&decoder_lock);
 
 			return 0;
 		}
 
 		if (!block->block_ext_in_progress) {
 			if (pkt->u.ext.packetID != 1) {
+				DBG("## Missed some packets\n");
 				/*
 				 * We have missed some packets of a new block when processing the current block.
 				 * Wait for the next packet ID = 1 to arrive.
 				 */
-				rtdm_mutex_unlock(&decoder_lock);
+				mutex_unlock(&decoder_lock);
 				return 0;
 			}
 
 			block->discarded_block = false;
-			block->total_size = pkt->u.ext.nr_packets * SL_CODER_PACKET_MAX_SIZE;
+			block->total_size = pkt->u.ext.nr_packets * SL_PACKET_PAYLOAD_MAX_SIZE;
 			block->real_size = 0;
 			block->n_total_packets = pkt->u.ext.nr_packets;
 			block->n_recv_packets = 0;
 			block->cur_packetID = -1;
 
-			block->incoming_block = xnheap_vmalloc(block->total_size);
+			block->incoming_block = vmalloc(block->total_size);
 			BUG_ON(block->incoming_block == NULL);
 
 			block->cur_pos = block->incoming_block;
@@ -312,7 +298,9 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		block->real_size += pkt->u.ext.payload_length;
 		block->cur_packetID = pkt->u.ext.packetID;
 
+
 		if (block->cur_packetID == pkt->u.ext.nr_packets) {
+
 			block->size = block->real_size;
 
 			sl_desc->incoming_block_size = block->real_size;
@@ -322,73 +310,29 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 			/* If a complete block has been received with no request coming from the requester, free it */
 			if (!decoder_recv_requested) {
-				xnheap_vfree(block->incoming_block);
+				vfree(block->incoming_block);
 				block->incoming_block = NULL;
 
 				/* Release the lock on the block processing */
-				rtdm_mutex_unlock(&decoder_lock);
+				mutex_unlock(&decoder_lock);
 
 				return 0;
 			}
 
 			/*
 			 * So, we are ready to forward the block to the Soolink core.
-			 * Either we are in a blocking call (via decoder_recv()), or
-			 * the sl_desc descriptor has a receiver callback, and we can use it.
 			 */
 
-			/*
-			 * Just in case we also have a registered receiver callback in the soolink descriptor,
-			 * although it would be rather a special case.
-			 * At this point, we potentially lost the lock on the block.
-			 * The RT callback is executed before the non RT part. The non RT part will free
-			 * the buffer.
-			 */
-			if (sl_desc->rtdm_recv_callback)
-				sl_desc->rtdm_recv_callback(sl_desc, block->incoming_block, block->size);
-			else
-				/* Inform the synchronous waiter about available data */
-				rtdm_event_signal(&sl_desc->recv_event);
+			/* Inform the synchronous waiter about available data */
+			complete(&sl_desc->recv_event);
 
 			block->block_ext_in_progress = false;
-
 		}
 
 	}
 
 	/* Release the lock on the block processing */
-	rtdm_mutex_unlock(&decoder_lock);
-
-	return 0;
-}
-
-/**
- * A recv request is being performed by the requester.
- * The pointer targeted by data points to the whole netstream transceiver packet.
- */
-int decoder_stream_recv(sl_desc_t *sl_desc, void **data) {
-	/* Only one RX request can be processed at a time */
-	rtdm_mutex_lock(&decoder_stream_lock);
-
-	/* Wait for a packet to come */
-	rtdm_event_wait(&decoder_stream_event);
-
-	*data = decoder_stream_data;
-
-	rtdm_mutex_unlock(&decoder_stream_lock);
-
-	return 0;
-}
-
-/**
- * A packet is incoming from the plugin.
- * data points to the whole netstream transceiver packet.
- */
-int decoder_stream_rx(sl_desc_t *sl_desc, void *data) {
-	decoder_stream_data = data;
-
-	/* Unblock the requester RX */
-	rtdm_event_signal(&decoder_stream_event);
+	mutex_unlock(&decoder_lock);
 
 	return 0;
 }
@@ -398,17 +342,17 @@ int decoder_stream_rx(sl_desc_t *sl_desc, void *data) {
  * Typically, it might happen that an extended block waits for its subsequent packets and they never arrive.
  * In this case, all received packets are discarded and the blocks are released.
  */
-static void decoder_watchdog_task_fn(void *arg)  {
+static int decoder_watchdog_task_fn(void *arg)  {
 	struct list_head *cur, *tmp;
 	decoder_block_t *block;
 	s64 current_time;
 
 	while (1) {
-		rtdm_task_wait_period(NULL);
+		msleep(DECODER_WATCHDOG_TASK_PERIOD_MS);
 
 		current_time = ktime_to_ms(ktime_get());
 
-		rtdm_mutex_lock(&decoder_lock);
+		mutex_lock(&decoder_lock);
 
 		/* Look for the blocks that exceed the timeout */
 		list_for_each_safe(cur, tmp, &block_list) {
@@ -432,7 +376,7 @@ static void decoder_watchdog_task_fn(void *arg)  {
 				 * The buffer should not be freed if the packet has been discarded and it has already been freed.
 				 */
 				if (block->incoming_block) {
-					xnheap_vfree(block->incoming_block);
+					vfree(block->incoming_block);
 					block->incoming_block = NULL;
 				}
 
@@ -440,8 +384,10 @@ static void decoder_watchdog_task_fn(void *arg)  {
 			}
 		}
 
-		rtdm_mutex_unlock(&decoder_lock);
+		mutex_unlock(&decoder_lock);
 	}
+
+	return 0;
 }
 
 /*
@@ -450,11 +396,8 @@ static void decoder_watchdog_task_fn(void *arg)  {
 void decoder_init(void) {
 	INIT_LIST_HEAD(&block_list);
 
-	rtdm_mutex_init(&decoder_lock);
-	rtdm_mutex_init(&decoder_stream_lock);
-
-	rtdm_event_init(&decoder_stream_event, 0);
+	mutex_init(&decoder_lock);
 
 	/* Watchdog */
-	rtdm_task_init(&decoder_watchdog, "Decoder_watchdog", decoder_watchdog_task_fn, NULL, DECODER_WATCHDOG_TASK_PRIO, DECODER_WATCHDOG_TASK_PERIOD);
+	kthread_run(decoder_watchdog_task_fn, NULL, "decoder_watchdog_task");
 }

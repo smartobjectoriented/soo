@@ -1242,7 +1242,7 @@ static void receiver_work_handler(struct work_struct *w) {
 		/* SOO.tech */
 
 #ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-		sl_plugin_ethernet_rx(skb, smsc911x_netdev, mac_src);
+		plugin_ethernet_rx(skb, smsc911x_netdev, mac_src);
 #endif
 	}
 

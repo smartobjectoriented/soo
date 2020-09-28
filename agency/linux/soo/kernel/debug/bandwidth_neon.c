@@ -28,16 +28,20 @@
 
 #include <arm_neon.h>
 
-void ll_bandwidth_compute(s64 *delays, size_t size, uint32_t *div, uint32_t *result) {
-	uint32_t i;
-	s64 sum = 0;
+void ll_bandwidth_compute(s64 delay, size_t size, uint32_t *div, uint32_t *result) {
 	float div_f, result_f;
+	s32 rem;
+	__kernel_time_t sec;
 
-	for (i = 0 ; i < N_BANDWIDTH_DELAYS ; i++)
-		sum += delays[i];
+	sec = div_s64_rem(delay, NSEC_PER_SEC, &rem);
+	if (unlikely(rem < 0)) {
+		sec--;
+		rem += NSEC_PER_SEC;
+	}
 
-	div_f = (float) ((uint32_t) sum / N_BANDWIDTH_DELAYS);
-	result_f = (float) size / (div_f * 1E-9); /* ns > s */
+	div_f = (float) sec;
+
+	result_f = (float) size / div_f;
 	result_f *= 8.0; /* B > bits */
 	result_f /= 1E6; /* bps > Mbps */
 

@@ -28,92 +28,35 @@
 #include <soo/debug/time.h>
 #include <soo/debug/bandwidth.h>
 
-static s64 *delays[N_BANDWIDTH_SLOTS];
+static s64 delays[N_BANDWIDTH_SLOTS] = { 0 };
 static s64 prev_timestamps[N_BANDWIDTH_SLOTS] = { 0 };
-static uint32_t delays_count[N_BANDWIDTH_SLOTS] = { 0 };
 
-int ll_bandwidth_collect_delay(uint32_t index) {
-	int ret = 0;
+void ll_bandwidth_collect_delay(uint32_t index) {
 	s64 timestamp;
 
 	if (unlikely(prev_timestamps[index] == 0)) {
 		prev_timestamps[index] = ll_time_get();
-		return 0;
+		return ;
 	}
 
 	timestamp = ll_time_get();
-	delays[index][delays_count[index]] = timestamp - prev_timestamps[index];
+	delays[index] = timestamp - prev_timestamps[index];
 	prev_timestamps[index] = timestamp;
-
-	if (unlikely(delays_count[index] == N_BANDWIDTH_DELAYS - 1))
-		ret = 1;
-
-	delays_count[index] = (delays_count[index] + 1) % N_BANDWIDTH_DELAYS;
-
-	return ret;
 }
 
-void ll_bandwidth_collect_delay_show(uint32_t index, size_t size) {
+void ll_bandwidth_show(uint32_t index, size_t size) {
 	uint32_t div, result;
 
-	if (ll_bandwidth_collect_delay(index)) {
-		kernel_neon_begin();
-		ll_bandwidth_compute(delays[index], size, &div, &result);
-		kernel_neon_end();
+	kernel_neon_begin();
+	ll_bandwidth_compute(delays[index], size, &div, &result);
+	kernel_neon_end();
 
-		lprintk("%d: %dns, %dMBps\n", index, div, result);
-	}
+	lprintk("%d: %lld ns, %dMBps\n", index, delays[index], result);
 }
 
-int rtdm_ll_bandwidth_collect_delay(uint32_t index) {
-	int ret = 0;
-	s64 timestamp;
-
-	if (unlikely(prev_timestamps[index] == 0)) {
-		prev_timestamps[index] = ll_time_get();
-		return 0;
-	}
-
-	timestamp = ll_time_get();
-	delays[index][delays_count[index]] = timestamp - prev_timestamps[index];
-	prev_timestamps[index] = timestamp;
-
-	if (unlikely(delays_count[index] == N_BANDWIDTH_DELAYS - 1))
-		ret = 1;
-
-	delays_count[index] = (delays_count[index] + 1) % N_BANDWIDTH_DELAYS;
-
-	return ret;
-}
-
-void rtdm_ll_bandwidth_collect_delay_show(uint32_t index, size_t size) {
-	uint32_t div, result;
-
-	if (rtdm_ll_bandwidth_collect_delay(index)) {
-		kernel_neon_begin();
-		ll_bandwidth_compute(delays[index], size, &div, &result);
-		kernel_neon_end();
-
-		lprintk("%d: %dns, %dMBps\n", index, div, result);
-	}
-}
 
 void ll_bandwidth_reset_delays(uint32_t index) {
-	uint32_t i;
-
-	for (i = 0 ; i < N_BANDWIDTH_DELAYS ; i++)
-		delays[index][i] = 0;
-
+	delays[index] = 0;
 	prev_timestamps[index] = 0;
-	delays_count[index] = 0;
-}
-
-void ll_bandwidth_init(void) {
-	uint32_t i;
-
-	for (i = 0 ; i < N_BANDWIDTH_SLOTS ; i++) {
-		delays[i] = kzalloc(N_BANDWIDTH_DELAYS * sizeof(s64), GFP_KERNEL);
-		ll_bandwidth_reset_delays(i);
-	}
 }
 

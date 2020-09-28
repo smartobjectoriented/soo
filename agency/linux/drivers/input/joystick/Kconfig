@@ -379,4 +379,5 @@ config JOYSTICK_RPISENSE
 
 	help
 	  This is the joystick driver for the Raspberry Pi Sense HAT
+
 endif

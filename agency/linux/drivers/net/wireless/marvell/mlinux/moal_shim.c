@@ -925,7 +925,7 @@ moal_recv_packet(IN t_void *pmoal_handle, IN pmlan_buffer pmbuf)
 			skb_protocol = ntohs(skb->protocol) & 0x10ff;
 
 			if ((skb_protocol > ETH_P_SL_MIN) && (skb_protocol < ETH_P_SL_MAX))
-				sl_plugin_wlan_rx_skb(skb, priv->netdev, mac_src);
+				plugin_wlan_rx(skb, priv->netdev, mac_src);
 			else {
 
 				if (in_interrupt())

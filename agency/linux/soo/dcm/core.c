@@ -43,8 +43,6 @@
 #include <soo/soolink/datalink.h>
 #include <soo/soolink/discovery.h>
 
-#include <xenomai/rtdm/driver.h>
-
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
@@ -262,9 +260,9 @@ static int __configure_neighbourhood(unsigned long arg) {
 
 	/* If prio is to -1, we simply dump the list of neighbours */
 	if (neigh_bitmap == -1) {
-		lprintk(" ** Agency UID: ");
-		lprintk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
-		lprintk("\n");
+		printk("[soo:dcm] Agency UID: ");
+		printk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
+		printk("\n");
 
 		discovery_dump_neighbours();
 	} else
@@ -284,7 +282,8 @@ static long dcm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
 	switch (cmd) {
 	case DCM_IOCTL_INIT:
-		return datacomm_init();
+		datacomm_init();
+		return 0;
 
 	case DCM_IOCTL_NEIGHBOUR_COUNT:
 		return sl_neighbour_count();

@@ -33,17 +33,17 @@
 typedef struct {
 
 	/* Function to be called when sending data */
-	int (*tx_callback)(sl_desc_t *sl_desc, void *packet, size_t size, bool completed);
+	int (*tx_callback)(sl_desc_t *sl_desc, transceiver_packet_t *packet, bool completed);
 
 	/* Function to be called when receiving data */
-	void (*rx_callback)(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
+	void (*rx_callback)(sl_desc_t *sl_desc, transceiver_packet_t *packet);
 
 } datalink_proto_desc_t;
 
 void datalink_register_protocol(datalink_proto_t proto, datalink_proto_desc_t *proto_desc);
 
-int datalink_tx(sl_desc_t *sl_desc, void *packet, size_t size, bool completed);
-void datalink_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
+int datalink_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, bool completed);
+void datalink_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet);
 
 void datalink_init(void);
 

@@ -392,22 +392,6 @@ int rtapp_main(void *args) {
 	rtdm_task_init(&rt_task_dcevt, "rt_dcevt", rt_task_dcevt_fct, NULL, 50, 500000);
 #endif
 
-#if 0
-	while (true) {
-		if (is_rtdm_wifi_enabled()) {
-			lprintk("X");
-			do_sync_dom(DOMID_AGENCY_RT, DC_MMC_IO_RT);
-
-		}
-		msleep(50);
-	}
-
-
-	//rtdm_task_init(&second_task, "second", second_task_fn, NULL, 50, 1000000000ull);
-
-	/* For debugging purposes, perform particular actions */
-	dbgvar_register_fct('@', first_dbgvar_action);
-#endif
 	/* We can leave this thread die. Our system is living anyway... */
 	do_exit(0);
 

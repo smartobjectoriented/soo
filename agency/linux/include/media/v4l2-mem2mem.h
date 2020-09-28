@@ -21,7 +21,8 @@
  *		callback.
  *		The job does NOT have to end before this callback returns
  *		(and it will be the usual case). When the job finishes,
- *		v4l2_m2m_job_finish() has to be called.
+ *		v4l2_m2m_job_finish() or v4l2_m2m_buf_done_and_job_finish()
+ *		has to be called.
  * @job_ready:	optional. Should return 0 if the driver does not have a job
  *		fully prepared to run yet (i.e. it will not be able to finish a
  *		transaction without sleeping). If not provided, it will be
@@ -33,7 +34,8 @@
  *		stop the device safely; e.g. in the next interrupt handler),
  *		even if the transaction would not have been finished by then.
  *		After the driver performs the necessary steps, it has to call
- *		v4l2_m2m_job_finish() (as if the transaction ended normally).
+ *		v4l2_m2m_job_finish() or v4l2_m2m_buf_done_and_job_finish() as
+ *		if the transaction ended normally.
  *		This function does not have to (and will usually not) wait
  *		until the device enters a state when it can be stopped.
  */
@@ -73,6 +75,11 @@ struct v4l2_m2m_queue_ctx {
  * struct v4l2_m2m_ctx - Memory to memory context structure
  *
  * @q_lock: struct &mutex lock
+ * @new_frame: valid in the device_run callback: if true, then this
+ *		starts a new frame; if false, then this is a new slice
+ *		for an existing frame. This is always true unless
+ *		V4L2_BUF_CAP_SUPPORTS_M2M_HOLD_CAPTURE_BUF is set, which
+ *		indicates slicing support.
  * @m2m_dev: opaque pointer to the internal data to handle M2M context
  * @cap_q_ctx: Capture (output to memory) queue context
  * @out_q_ctx: Output (input from memory) queue context
@@ -81,6 +88,9 @@ struct v4l2_m2m_queue_ctx {
  *		%TRANS_QUEUED, %TRANS_RUNNING and %TRANS_ABORT.
  * @finished: Wait queue used to signalize when a job queue finished.
  * @priv: Instance private data
+ * @cap_detached: Current job's capture buffer has been detached
+ * @det_list: List of detached (post-job but still in flight) capture buffers
+ * @det_empty: Wait queue signalled when det_list goes empty
  *
  * The memory to memory context is specific to a file handle, NOT to e.g.
  * a device.
@@ -88,6 +98,8 @@ struct v4l2_m2m_queue_ctx {
 struct v4l2_m2m_ctx {
 	/* optional cap/out vb2 queues lock */
 	struct mutex			*q_lock;
+
+	bool				new_frame;
 
 	/* internal use only */
 	struct v4l2_m2m_dev		*m2m_dev;
@@ -102,6 +114,11 @@ struct v4l2_m2m_ctx {
 	wait_queue_head_t		finished;
 
 	void				*priv;
+
+	/* Detached buffer handling */
+	bool	cap_detached;
+	struct list_head		det_list;
+	wait_queue_head_t		det_empty;
 };
 
 /**
@@ -173,11 +190,77 @@ void v4l2_m2m_try_schedule(struct v4l2_m2m_ctx *m2m_ctx);
 void v4l2_m2m_job_finish(struct v4l2_m2m_dev *m2m_dev,
 			 struct v4l2_m2m_ctx *m2m_ctx);
 
+/**
+ * v4l2_m2m_buf_done_and_job_finish() - return source/destination buffers with
+ * state and inform the framework that a job has been finished and have it
+ * clean up
+ *
+ * @m2m_dev: opaque pointer to the internal data to handle M2M context
+ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
+ * @state: vb2 buffer state passed to v4l2_m2m_buf_done().
+ *
+ * Drivers that set V4L2_BUF_CAP_SUPPORTS_M2M_HOLD_CAPTURE_BUF must use this
+ * function instead of job_finish() to take held buffers into account. It is
+ * optional for other drivers.
+ *
+ * This function removes the source buffer from the ready list and returns
+ * it with the given state. The same is done for the destination buffer, unless
+ * it is marked 'held'. In that case the buffer is kept on the ready list.
+ *
+ * After that the job is finished (see job_finish()).
+ *
+ * This allows for multiple output buffers to be used to fill in a single
+ * capture buffer. This is typically used by stateless decoders where
+ * multiple e.g. H.264 slices contribute to a single decoded frame.
+ */
+void v4l2_m2m_buf_done_and_job_finish(struct v4l2_m2m_dev *m2m_dev,
+				      struct v4l2_m2m_ctx *m2m_ctx,
+				      enum vb2_buffer_state state);
+
 static inline void
 v4l2_m2m_buf_done(struct vb2_v4l2_buffer *buf, enum vb2_buffer_state state)
 {
 	vb2_buffer_done(&buf->vb2_buf, state);
 }
+
+/**
+ * v4l2_m2m_cap_buf_detach() - detach the capture buffer from the job and
+ * return it.
+ *
+ * @m2m_dev: opaque pointer to the internal data to handle M2M context
+ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
+ *
+ * This function is designed to be used in conjunction with
+ * v4l2_m2m_buf_done_and_job_finish(). It allows the next job to start
+ * execution before the capture buffer is returned to the user which can be
+ * important if the underlying processing has multiple phases that are more
+ * efficiently executed in parallel.
+ *
+ * If used then it must be called before v4l2_m2m_buf_done_and_job_finish()
+ * as otherwise the buffer will have already gone.
+ *
+ * It is the callers reponsibilty to ensure that all detached buffers are
+ * returned.
+ */
+struct vb2_v4l2_buffer *v4l2_m2m_cap_buf_detach(struct v4l2_m2m_dev *m2m_dev,
+						struct v4l2_m2m_ctx *m2m_ctx);
+
+/**
+ * v4l2_m2m_cap_buf_return() - return a capture buffer, previously detached
+ * with v4l2_m2m_cap_buf_detach() to the user.
+ *
+ * @m2m_dev: opaque pointer to the internal data to handle M2M context
+ * @m2m_ctx: m2m context assigned to the instance given by struct &v4l2_m2m_ctx
+ * @buf: the buffer to return
+ * @state: vb2 buffer state passed to v4l2_m2m_buf_done().
+ *
+ * Buffers returned by this function will be returned to the user in the order
+ * of the original jobs rather than the order in which this function is called.
+ */
+void v4l2_m2m_cap_buf_return(struct v4l2_m2m_dev *m2m_dev,
+			     struct v4l2_m2m_ctx *m2m_ctx,
+			     struct vb2_v4l2_buffer *buf,
+			     enum vb2_buffer_state state);
 
 /**
  * v4l2_m2m_reqbufs() - multi-queue-aware REQBUFS multiplexer
@@ -672,6 +755,10 @@ int v4l2_m2m_ioctl_try_encoder_cmd(struct file *file, void *fh,
 				   struct v4l2_encoder_cmd *ec);
 int v4l2_m2m_ioctl_try_decoder_cmd(struct file *file, void *fh,
 				   struct v4l2_decoder_cmd *dc);
+int v4l2_m2m_ioctl_stateless_try_decoder_cmd(struct file *file, void *fh,
+					     struct v4l2_decoder_cmd *dc);
+int v4l2_m2m_ioctl_stateless_decoder_cmd(struct file *file, void *priv,
+					 struct v4l2_decoder_cmd *dc);
 int v4l2_m2m_fop_mmap(struct file *file, struct vm_area_struct *vma);
 __poll_t v4l2_m2m_fop_poll(struct file *file, poll_table *wait);
 

@@ -25,22 +25,35 @@
 #include <soo/soolink/discovery.h>
 
 /* Maximal number of retries */
-#define WNET_RETRIES_MAX 6
+#define WNET_RETRIES_MAX 5
 
 /* Conversion from us to ns */
 #define WNET_TIME_US_TO_NS(x) ((x) * 1000ull)
 
 #define WNET_MAX_PACKET_TRANSID 0xffffff
-#define WNET_LAST_PACKET		(1 << 24)
+#define WNET_LAST_PACKET	(1 << 24)
 
-/* Number of bufferized packets in a frame for the n pkt / 1 ACK strategy */
+/*
+ * Number of bufferized packets in a frame for the n pkt / 1 ACK strategy
+ *
+ * - On Ethernet: packet collision can lead to packet lost and therefore we cannot have
+ *   a big frame.
+ * - On Wifi: the physical layer handles receipt of packets correctly and we can reach
+ *   a max. bandwidth with biggest frame size.
+ *
+ */
+
+#ifdef CONFIG_SOOLINK_PLUGIN_WLAN
+
+#define WNET_N_PACKETS_IN_FRAME 64
+#define WNET_TSPEAKER_ACK_MS	500
+
+#else /* !CONFIG_SOOLINK_PLUGIN_WLAN */
+
 #define WNET_N_PACKETS_IN_FRAME 8
+#define WNET_TSPEAKER_ACK_MS	800
 
-/* Express in microsecs */
-#define WNET_MIN_DRAND		1000
-#define WNET_MAX_DRAND		2000
-
-#define WNET_TSPEAKER_ACK	MILLISECS(300)
+#endif
 
 /*
  * Winenet states FSM
@@ -78,7 +91,10 @@ typedef enum {
  *   the smart object which received this beacon binds itself to the speaker by using
  *   the private data of the neighbour_desc_t structure of Discovery.
  *
- * - PING: to establish the link within the neighborhood.
+ * - PING (REQUEST): to establish the link within the neighborhood. The smart object which receives
+ *   this beacon must check its agencyUID against the sender. The lowest agencyUID is
+ *   the new speaker. It responds with a PING (RESPONSE)
+ *
  */
 typedef enum {
 	WNET_BEACON_GO_SPEAKER = 0,
@@ -98,22 +114,18 @@ typedef struct {
 
 typedef struct {
 	sl_desc_t *sl_desc;
-
-	bool pending;
-	transceiver_packet_t *packet;
-	size_t	size;
 	uint32_t transID;
-	bool completed;
-	int ret;
-	rtdm_event_t xmit_event;
+
+	volatile bool pending;
+
+	volatile int ret;
+
+	struct completion xmit_event;
 
 } wnet_tx_t;
 
 typedef struct {
 	sl_desc_t *sl_desc;
-
-	bool data_received;
-	bool completed;
 	uint32_t transID;
 
 	/* Last received beacon */
@@ -140,8 +152,9 @@ typedef void (*wnet_state_fn_t)(wnet_state_t old_state);
 
 typedef struct {
 	wnet_state_fn_t	*funcs;
-	rtdm_task_t	task;
-	rtdm_event_t	event;
+
+	//rtdm_event_t	event;
+	struct completion event;
 	wnet_state_t	old_state;
 	wnet_state_t	state;
 } wnet_fsm_handle_t;
@@ -160,17 +173,11 @@ int winenet_get_my_index_and_listener(uint8_t *index, neighbour_desc_t *listener
 void winenet_dump_neighbours(void);
 void winenet_dump_state(void);
 
-void winenet_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
+void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet);
 
 void winenet_change_state(wnet_fsm_handle_t *fsm_handle, wnet_state_t new_state);
 wnet_state_t winenet_get_state(wnet_fsm_handle_t *fsm_handle);
 void winenet_start_fsm_task(char *name, wnet_fsm_handle_t *fsm_handle);
 void winenet_init(void);
-
-/* Winenet netstream */
-int winenet_netstream_request_xmit(sl_desc_t *sl_desc);
-int winenet_netstream_xmit(sl_desc_t *sl_desc, void *packet, size_t size, bool completed);
-void winenet_netstream_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size);
-void winenet_netstream_init(void);
 
 #endif /* WINENET_H */

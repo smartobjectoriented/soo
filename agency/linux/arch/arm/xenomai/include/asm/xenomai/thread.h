@@ -126,7 +126,7 @@ static inline void xnarch_disable_kfpu(void) { }
 
 register unsigned long current_stack_pointer asm ("sp");
 
-/* 16 KB RT task stack size */
+/* Standard Linux RT task stack size */
 #define XNTHREAD_STACK_SIZE 	(THREAD_SIZE)
 
 #define XNTHREAD_START_SP  	(XNTHREAD_STACK_SIZE - 8)
