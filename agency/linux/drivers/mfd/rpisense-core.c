@@ -146,6 +146,7 @@ static const struct of_device_id rpisense_core_id[] = {
 MODULE_DEVICE_TABLE(of, rpisense_core_id);
 #endif
 
+
 static struct i2c_driver rpisense_driver = {
 	.driver = {
 		   .name = "rpi-sense",

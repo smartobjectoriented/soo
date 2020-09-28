@@ -270,6 +270,11 @@ static const struct of_device_id rpisense_fb_id[] = {
 MODULE_DEVICE_TABLE(of, rpisense_fb_id);
 #endif
 
+static struct platform_device_id rpisense_fb_device_id[] = {
+	{ .name = "rpi-sense-fb" },
+	{ },
+};
+MODULE_DEVICE_TABLE(platform, rpisense_fb_device_id);
 
 static struct platform_driver rpisense_fb_driver = {
 	.probe = rpisense_fb_probe,
@@ -285,3 +290,4 @@ module_platform_driver(rpisense_fb_driver);
 MODULE_DESCRIPTION("Raspberry Pi Sense HAT framebuffer driver");
 MODULE_AUTHOR("Serge Schneider <serge@raspberrypi.org>");
 MODULE_LICENSE("GPL");
+

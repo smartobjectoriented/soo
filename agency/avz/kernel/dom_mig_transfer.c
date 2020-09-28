@@ -336,8 +336,11 @@ int inject_me(soo_hyp_t *op)
 	int dom_size;
 	struct domain *domME, *__current;
 	addrspace_t prev_addrspace;
+	unsigned long flags;
 
 	DBG("%s: Preparing ME injection, source image = %lx\n", __func__, op->vaddr);
+
+	local_irq_save(flags);
 
 	/* op->vaddr: vaddr of itb */
 
@@ -384,6 +387,9 @@ int inject_me(soo_hyp_t *op)
 
 	switch_mm(idle_domain[smp_processor_id()], &idle_domain[smp_processor_id()]->addrspace);
 
+	/* Clear the RAM allocated to this ME */
+	memset((void *) __lva(memslot[slotID].base_paddr), 0, memslot[slotID].size);
+
 	loadME(slotID, (unsigned char *) op->vaddr, &prev_addrspace);
 
 	if (construct_ME(domains[slotID]) != 0)
@@ -397,6 +403,8 @@ int inject_me(soo_hyp_t *op)
 out:
 	/* Prepare to return the slotID to the caller. */
 	*((unsigned int *) op->p_val1) = slotID;
+
+	local_irq_restore(flags);
 
 	return rc;
 }

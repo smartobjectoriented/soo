@@ -215,19 +215,19 @@ void configure_l1pgtable(uint32_t l1pgtable, uint32_t fdt_addr) {
 	 */
 
 	/* Create an identity mapping of 1 MB on running kernel so that the kernel code can go ahead right after the MMU on */
-	*l1pte_offset(__pgtable, CONFIG_RAM_BASE) = CONFIG_RAM_BASE  | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHEABLE;
+	*l1pte_offset(__pgtable, CONFIG_RAM_BASE) = CONFIG_RAM_BASE  | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHE;
 
 	/* Now, create a virtual mapping in the kernel space */
 	for (vaddr = L_PAGE_OFFSET, paddr = CONFIG_RAM_BASE; ((vaddr < L_PAGE_OFFSET + CONFIG_RAM_SIZE) && (vaddr < CONFIG_HYPERVISOR_VIRT_ADDR));
 		vaddr += L1_SECT_SIZE, paddr += L1_SECT_SIZE)
 	{
-		*l1pte_offset(__pgtable, vaddr) = paddr | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHEABLE;
+		*l1pte_offset(__pgtable, vaddr) = paddr | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHE;
 	}
 
 	/* Create the mapping of the hypervisor code area. */
 	for (vaddr = CONFIG_HYPERVISOR_VIRT_ADDR, paddr = CONFIG_RAM_BASE; vaddr < CONFIG_HYPERVISOR_VIRT_ADDR + HYPERVISOR_SIZE; vaddr += L1_SECT_SIZE, paddr += L1_SECT_SIZE)
 	{
-		*l1pte_offset(__pgtable, vaddr) = paddr | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHEABLE;
+		*l1pte_offset(__pgtable, vaddr) = paddr | L1DESC_SECT_AP01 | L1DESC_SECT_AP2 | L1DESC_TYPE_SECT | DESC_CACHE;
 	}
 
 	/* Early mapping I/O for UART */

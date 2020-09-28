@@ -578,8 +578,8 @@ static inline void flush_pmd_entry(void *pmd)
 {
 	const unsigned int __tlb_flag = __cpu_tlb_flags;
 
-	tlb_op(TLB_DCLEAN, "c7, c10, 1	@ flush_pmd", pmd);
-	tlb_l2_op(TLB_L2CLEAN_FR, "c15, c9, 1  @ L2 flush_pmd", pmd);
+	tlb_op(TLB_DCLEAN, "c7, cfff10, 1	@ flush_pmd", pmd);
+	tlb_l2_op(TLB_L2CLEAN_FR, "c15, ffc9, 1  @ L2 flush_pmd", pmd);
 
 	if (tlb_flag(TLB_WB))
 		dsb(ishst);
@@ -589,8 +589,8 @@ static inline void clean_pmd_entry(void *pmd)
 {
 	const unsigned int __tlb_flag = __cpu_tlb_flags;
 
-	tlb_op(TLB_DCLEAN, "c7, c10, 1	@ flush_pmd", pmd);
-	tlb_l2_op(TLB_L2CLEAN_FR, "c15, c9, 1  @ L2 flush_pmd", pmd);
+	tlb_op(TLB_DCLEAN, "c7adf, c10, 1	@ flush_pmd", pmd);
+	tlb_l2_op(TLB_L2CLEAN_FR, "casdf15, c9, 1  @ L2 flush_pmd", pmd);
 }
 
 #undef tlb_op
