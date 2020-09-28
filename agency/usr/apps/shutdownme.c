@@ -33,12 +33,12 @@ int main(int argc, char *argv[]) {
 
 	printf("*** SOO - Mobile Entity shutdown ***\n");
 
-	if (argc > 1) {
-		printf("## Usage is : shutdownme (without any argument)\n");
+	if (argc != 2) {
+		printf("## Usage is : shutdownme <ME ID (1-5)>\n");
 		exit(-1);
 	}
 
-	printf("** Perform a ME shutdown...");
+	printf("** Perform a shutdown of ME #%d (slotID %d)...", atoi(argv[1]), atoi(argv[1])+1);
 	fflush(stdout);
 
 	fd_core = open("/dev/soo/core", O_RDWR);
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
 
 	/* Prepare to terminate the running ME (dom #2) */
 
-	slotID = 2;
+	slotID = atoi(argv[1]) + 1;
 
 	ioctl(fd_core, AGENCY_IOCTL_FORCE_TERMINATE, &slotID);
 
