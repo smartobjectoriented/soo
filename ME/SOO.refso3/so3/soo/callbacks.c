@@ -53,7 +53,7 @@ static int live_count = 0;
  * migrated_once allows the dormant ME to control its oneshot propagation, i.e.
  * the ME must be broadcast in the neighborhood, then disappear from the smart object.
  */
-#if 0
+#if 1
 static uint32_t migration_count = 0;
 #endif
 
@@ -65,7 +65,7 @@ static uint32_t migration_count = 0;
 int cb_pre_activate(soo_domcall_arg_t *args) {
 
 	agency_ctl_args_t agency_ctl_args;
-#if 0
+#if 1
 	agencyUID_t refUID = {
 		.id = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08}
 	};
@@ -90,8 +90,8 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 #endif
 
 
-#if 0 /* alphabet */
-	lprintk("## (slotID: %d) bringing value %c (found: %d)\n", args->slotID, *((char *) localinfo_data), *((char *) localinfo_data+1));
+#if 1 /* alphabet */
+
 	if (get_ME_state() != ME_state_preparing) {
 
 		/* Keep the ME in dormant state; the ME is temporary here in order to be propagated. */
@@ -129,11 +129,11 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-#if 1 /* dummy_activity */
+#if 0 /* dummy_activity */
 	pre_propagate_args->propagate_status = 1;
 #endif
 
-#if 0 /* Alphabet */
+#if 1 /* Alphabet */
 
 	pre_propagate_args->propagate_status = 0;
 
@@ -198,7 +198,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 #endif
 	unsigned char me_spad_caps[SPAD_CAPS_SIZE];
 	unsigned int i;
-#if 0
+#if 1
 	void *recv_data;
 	uint32_t pfn;
 	bool target_found, initiator_found;
@@ -270,17 +270,15 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
-#if 1 /* Will trigger a force_terminate on us */
+#if 0 /* Will trigger a force_terminate on us */
 		agency_ctl_args.cmd = AG_KILL_ME;
 		agency_ctl_args.slotID = args->slotID;
 		args->__agency_ctl(&agency_ctl_args);
 #endif
 
-#if 0 /* Alphabet */
-		pfn = cooperate_args->u.initiator_coop.pfns.content;
+#if 1 /* Alphabet */
+		pfn = cooperate_args->u.initiator_coop.pfn.content;
 		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-
-		lprintk("## in-cooperate received : %c\n", *((char *) recv_data));
 
 		target_found = *((char *) localinfo_data+1);
 		initiator_found = *((char *) recv_data+1);
@@ -289,19 +287,16 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		initiator_char = *((char *) recv_data);
 #endif
 
-#if 0 /* Alphabet - Increment the alphabet in this case. */
+#if 1 /* Alphabet - Increment the alphabet in this case. */
 		if (get_ME_state() != ME_state_dormant)  {
-			lprintk("## Not dormant: ");
+
 			if (initiator_found)
 			{
-				lprintk("got the target :-)\n");
-
 				(*((char *) localinfo_data))++;
 				if (*((char *) localinfo_data) > 'Z')
 					*((char *) localinfo_data) = 'A';
 				*((char *) localinfo_data+1) = 0; /* Reset */
-			} else
-				lprintk("not bringing valuable value, killing ME %d\n", args->slotID);
+			}
 
 			/* In any case, the arrived ME must disappeared */
 			agency_ctl_args.cmd = AG_KILL_ME;
@@ -311,9 +306,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 
 		} else {
-			lprintk("## Target has %c and arrived has %c\n", *((char *) localinfo_data), *((char *) recv_data));
+
 			if (*((char *) localinfo_data) > (*((char *) recv_data))) {
-				lprintk("## I'm dormant and I'm killing slotID %d\n", args->slotID);
+
 				agency_ctl_args.cmd = AG_KILL_ME;
 				agency_ctl_args.slotID = args->slotID;
 
@@ -329,11 +324,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 				if ((target_char < initiator_char) ||
 				    (initiator_found && (!target_found || (initiator_char >= target_char))))
-				{
-					lprintk("## Killing myself\n");
 					set_ME_state(ME_state_killed);
-				} else {
-					lprintk("## Killing the arrived (initiator) \n");
+				else
 					agency_ctl_args.cmd = AG_KILL_ME;
 					agency_ctl_args.slotID = args->slotID;
 

@@ -17,7 +17,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -82,7 +82,6 @@ void shutdown_ME(unsigned int ME_slotID)
 
 	switch_mm(idle_domain[smp_processor_id()], &idle_domain[smp_processor_id()]->addrspace);
 
-	DBG("memset %08x %d\n", (unsigned int) memslot[ME_slotID].base_paddr, memslot[ME_slotID].size);
 	memset((void *) __lva(memslot[ME_slotID].base_paddr), 0, memslot[ME_slotID].size);
 
 	switch_mm(__current_domain, &prev_addrspace);
