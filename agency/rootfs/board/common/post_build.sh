@@ -5,6 +5,5 @@
 # See post_image.sh script for the latter.
 # Note: you should have access to most BR variables here.
 
-rm -f target/etc/init.d/S01logging
-rm -f target/etc/init.d/S01klogd
+rm -f ${BASE_DIR}/target/etc/init.d/S01syslog
 
