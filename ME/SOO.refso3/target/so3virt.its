@@ -29,7 +29,7 @@
 		kernel {
 			/*reg = <>; Make dtc happy ;-) */
 			description = "SO3 OS kernel";
-			data = /incbin/("../so3/so3.bin");
+			data = /incbin/("../so3.bin");
 			type = "kernel";
 			arch = "arm";
 			os = "linux";

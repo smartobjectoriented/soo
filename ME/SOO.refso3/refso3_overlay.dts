@@ -1,0 +1,21 @@
+/ ME {
+		
+    frontends {
+    
+        vdummy {
+            compatible = "vdummy,frontend";
+            status = "ok";
+        };
+
+        vuihandler {
+            compatible = "vuihandler,frontend";
+            status = "disabled";
+        };
+
+        vuart {
+            compatible = "vuart,frontend";
+            status = "ok";
+        };
+    };
+
+};

@@ -1,0 +1,13 @@
+
+#
+# SOO Mobile Entity - Smart Object Oriented subsystem
+#
+
+#
+# SOO Mobile Entity frontend drivers
+#
+# CONFIG_VDUMMY_FRONTEND is not set
+CONFIG_VUART_FRONTEND=y
+# CONFIG_VDOGA12V6NM_FRONTEND is not set
+CONFIG_VWEATHER_FRONTEND=y
+CONFIG_VUIHANDLER_FRONTEND=y

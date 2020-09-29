@@ -1,0 +1,10 @@
+/ ME {
+    domain-size = <0x4000000>; /* 64 MB */
+    
+    frontends {
+        vuart {
+            compatible = "vuart,frontend";
+            status = "ok";
+        };
+    };
+};

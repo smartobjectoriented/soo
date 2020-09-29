@@ -3,4 +3,4 @@
 UPGRADE_IMAGE_NAME="update.bin"
 
 ./build_upgrade "$@"
-cp $UPGRADE_IMAGE_NAME ../../ME/SOO.agency/so3/arch/arm
+cp $UPGRADE_IMAGE_NAME ../../ME/SOO.agency/bootfiles/

@@ -1,0 +1,30 @@
+/ ME {
+    
+    frontends {
+    
+        vdummyrt {
+            compatible = "vdummyrt,frontend";
+            status = "disabled";
+        };
+
+        vdummy {
+            compatible = "vdummy,frontend";
+            status = "ok";
+        };
+
+        vuihandler {
+            compatible = "vuihandler,frontend";
+            status = "disabled";
+        };
+
+        vuart {
+            compatible = "vuart,frontend";
+            status = "ok";
+        };
+
+        vnetstream {
+            compatible = "vnetstream,frontend";
+            status = "disabled";
+        };
+    };
+};
