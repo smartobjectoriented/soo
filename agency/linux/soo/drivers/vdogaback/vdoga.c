@@ -59,6 +59,8 @@ extern void ds1050_recall(void);
 
 bool can_move_up = true;
 bool can_move_down = true;
+bool already_down = true;
+bool already_up = true;
 
 void vdoga_notify(struct vbus_device *vdev)
 {
@@ -77,30 +79,39 @@ static int end_of_run_test(void *args)
 	while(1)
 	{
 		//test if the blind has reached the top end of run
-		//value to test is still to be defined
-		if(gpiod_get_value(up_end_gpio) != 0)
+		if(gpiod_get_value(up_end_gpio) == 0)
 		{
-			can_move_up = false;
-			ds1050_shutdown(); //stop the PWM generator
-			gpiod_set_value(sleep_gpio, 0); //set the sleep gpio to 0
+			if(already_up == false)
+			{
+				can_move_up = false;
+				already_up = true;
+				ds1050_shutdown(); //stop the PWM generator
+				gpiod_set_value(sleep_gpio, 0); //set the sleep gpio to 0
+			}
 		}
 		else
 		{
 			can_move_up = true;
+			already_up = false;
 		}
 
 		//test if the blind has reached the down end of run
-		//value to test is still to be defined
-		if(gpiod_get_value(down_end_gpio) != 0)
+		if(gpiod_get_value(down_end_gpio) == 0)
 		{
-			can_move_down = false;
-			ds1050_shutdown(); //stop the PWM generator
-			gpiod_set_value(sleep_gpio, 0); //set the sleep gpio to 0
+			if(already_down == false)
+			{
+				can_move_down = false;
+				already_down = true;
+				ds1050_shutdown(); //stop the PWM generator
+				gpiod_set_value(sleep_gpio, 0); //set the sleep gpio to 0
+			}
 		}
 		else
 		{
 			can_move_down = true;
+			already_down = false;
 		}
+		msleep(100);
 	}
 }
 
