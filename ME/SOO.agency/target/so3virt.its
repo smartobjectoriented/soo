@@ -44,7 +44,7 @@
 		};
 		fdt {
 			description = "Flattened Device Tree blob";
-			data = /incbin/("../so3/arch/arm/boot/dts/so3virt.dtb");
+			data = /incbin/("../so3virt.dtb");
 			type = "flat_dt";
 			arch = "arm";
 			compression = "none";
