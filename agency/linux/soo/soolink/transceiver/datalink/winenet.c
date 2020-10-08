@@ -1695,7 +1695,7 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 	static bool got_data = false;
 	wnet_beacon_t beacon;
 
-#ifdef VERBOSE
+#if 0
 	lprintk("** receiving: agencyUID_to: ");
 	printlnUID(&sl_desc->agencyUID_to);
 
@@ -1710,7 +1710,7 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 
 		memcpy(&wnet_rx.last_beacon, packet->payload, sizeof(wnet_beacon_t));
 
-#ifdef VERBOSE
+#if 0
 		lprintk("### Receiving beacon %s\n", beacon_str(&wnet_rx.last_beacon, &wnet_rx.sl_desc->agencyUID_from));
 #endif
 
@@ -1723,7 +1723,7 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 
 	if (packet->packet_type == TRANSCEIVER_PKT_DATA) {
 
-#ifdef VERBOSE
+#if 0
 		if (!got_data) {
 			lprintk("### Receiving data from ");
 			printlnUID(&wnet_rx.sl_desc->agencyUID_from);

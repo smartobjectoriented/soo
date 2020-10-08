@@ -100,6 +100,8 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 
 void discovery_listener_register(discovery_listener_t *listener);
 
+void discovery_update_ourself(agencyUID_t *agencyUID);
+
 void neighbour_list_protection(bool protect);
 
 void discovery_init(void);

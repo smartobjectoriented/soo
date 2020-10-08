@@ -39,6 +39,8 @@
 
 #undef CONFIG_ARM_PSCI
 
+static neighbour_desc_t *ourself = NULL;
+
 static bool discovery_enabled = false;
 
 static struct list_head neighbour_list;
@@ -68,6 +70,13 @@ static struct list_head neigh_blacklist;
 static spinlock_t discovery_listener_lock;
 
 static sl_desc_t *discovery_sl_desc;
+
+/*
+ * Update our agencyUID according to what device access says.
+ */
+void discovery_update_ourself(agencyUID_t *agencyUID) {
+	memcpy(&ourself->agencyUID, agencyUID, SOO_AGENCY_UID_SIZE);
+}
 
 /**
  * Call the add callbacks in all the registered Discovery listeners.
@@ -177,7 +186,8 @@ void configure_neighbitmap(uint32_t neigh_bitmap) {
 
 			cur_neighbour = list_entry(cur_neigh, neighbour_desc_t, list);
 
-			lprintk("%s: blacklist neighbour: ", __func__); lprintk_buffer(&cur_neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+			pr_cont("[soo:soolink:discovery] %s blacklist neighbour: ", __func__);
+			printk_buffer(&cur_neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
 			/* And attach to the blacklist */
 			list_add_tail(cur_neigh, &neigh_blacklist);
@@ -489,8 +499,6 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 static void send_beacon(void) {
 	iamasoo_pkt_t *iamasoo_pkt;
 	uint32_t size;
-	static neighbour_desc_t *ourself = NULL;
-	struct list_head *cur;
 	uint8_t priv_len = 0;
 #ifdef CONFIG_ARM_PSCI
 	uint8_t *iamasoo_pkt_crypt;
@@ -507,8 +515,7 @@ static void send_beacon(void) {
 	size = sizeof(iamasoo_pkt_t) + (discovery_neighbour_count() + 1) * SOO_AGENCY_UID_SIZE;
 
 	if (!ourself) {
-		list_for_each(cur, &neighbour_list) {
-			ourself = list_entry(cur, neighbour_desc_t, list);
+		list_for_each_entry(ourself, &neighbour_list, list) {
 			if (!ourself->plugin)
 				break;
 		}
@@ -583,7 +590,7 @@ static int iamasoo_task_fn(void *args) {
 	neighbour->missing_tick = 0;
 	neighbour->present = true;
 
-	printk("[soo:soolink] Adding ourself (%s) - ", neighbour->name);
+	pr_cont("[soo:soolink] Adding ourself (%s) - ", neighbour->name);
 	printk_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
 	__add_neighbour(neighbour);
@@ -767,20 +774,20 @@ void discovery_dump_neighbours(void) {
 
 		neighbour = list_entry(cur, neighbour_desc_t, list);
 
-		lprintk("- Neighbour %d: %s - ", count+1, neighbour->name);
-		lprintk_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+		pr_cont("[soo:soolink:discovery] Neighbour %d: %s - ", count+1, neighbour->name);
+		printk_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
 		if (!neighbour->plugin) {
-			lprintk(" ** ourself **");
-			lprintk("\n");
+			pr_cont("[soo:soolink:discovery] ** ourself **");
+			printk("\n");
 		} else {
-			lprintk("\n     ** Friends: **\n");
+			printk("[soo:soolink:discovery]      ** Friends: **\n");
 			list_for_each(cur_friend, &neighbour->friends) {
 				friend = list_entry(cur_friend, agencyUID_t, list);
-				lprintk_buffer(&friend->id, SOO_AGENCY_UID_SIZE);
-				lprintk("\n");
+				pr_cont("[soo:soolink:discovery] ");
+				printk_buffer(&friend->id, SOO_AGENCY_UID_SIZE);
+				printk("\n");
 			}
-			lprintk("\n");
 		}
 
 		count++;

@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -324,8 +324,10 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 				if ((target_char < initiator_char) ||
 				    (initiator_found && (!target_found || (initiator_char >= target_char))))
+
 					set_ME_state(ME_state_killed);
-				else
+
+				else {
 					agency_ctl_args.cmd = AG_KILL_ME;
 					agency_ctl_args.slotID = args->slotID;
 
@@ -342,8 +344,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		agency_ctl_args.slotID = ME_domID();
 
 		args->__agency_ctl(&agency_ctl_args);
-		io_unmap((uint32_t) recv_data);
 #endif
+
+		io_unmap((uint32_t) recv_data);
 		break;
 
 	default:

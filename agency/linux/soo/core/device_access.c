@@ -24,12 +24,14 @@
 
 #include <soo/core/device_access.h>
 
-#include <soo/uapi/soo.h>
 #include <soo/guest_api.h>
+
+#include <soo/uapi/soo.h>
 #include <soo/uapi/avz.h>
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
+#include <soo/soolink/discovery.h>
 
 #include <asm/io.h>
 
@@ -74,8 +76,8 @@ agencyUID_t *get_my_agencyUID(void) {
 }
 
 void devaccess_dump_agencyUID(void) {
-	lprintk("Agency UID: ");
-	lprintk_buffer((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID.id, SOO_AGENCY_UID_SIZE);
+	pr_cont("[soo:core:device_access] Agency UID: ");
+	printk_buffer((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID.id, SOO_AGENCY_UID_SIZE);
 }
 
 uint32_t devaccess_get_upgrade_pfn(void) {
@@ -98,7 +100,7 @@ void devaccess_store_upgrade_addr(uint32_t buffer_pfn, uint32_t buffer_size) {
 
 void devaccess_store_upgrade(uint32_t buffer_pfn, uint32_t buffer_size, unsigned int ME_slotID) {
 
-    printk("Storing upgrade image: pfn %u, size %u, slot %d\n", buffer_pfn, buffer_size, ME_slotID);
+    printk("[soo:core:device_access] Storing upgrade image: pfn %u, size %u, slot %d\n", buffer_pfn, buffer_size, ME_slotID);
 
     upgrade_buffer_pfn = buffer_pfn;
     upgrade_buffer_size = buffer_size;
@@ -147,8 +149,8 @@ void devaccess_set_devcaps(uint32_t class, uint8_t devcaps, bool available) {
 }
 
 void devaccess_dump_devcaps(void) {
-	lprintk("devcaps: ");
-	lprintk_buffer(devcaps_class, DEVCAPS_CLASS_NR);
+	pr_cont("[soo:core:device_access] devcaps: ");
+	printk_buffer(devcaps_class, DEVCAPS_CLASS_NR);
 }
 
 /**
@@ -177,10 +179,9 @@ static void init_agencyUID(void) {
 	/* Generate a random UID */
 	get_random_bytes((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, SOO_AGENCY_UID_SIZE);
 
-	lprintk("SOO Agency UID: ");
-	lprintk_buffer((uint8_t *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, SOO_AGENCY_UID_SIZE);
+	pr_cont("[soo:core:device_access] On CPU %d, SOO Agency UID: ", smp_processor_id());
+	printk_buffer((uint8_t *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, SOO_AGENCY_UID_SIZE);
 
-	lprintk("cpu=%d\n", smp_processor_id());
 }
 
 ssize_t agencyUID_show(struct device *dev, struct device_attribute *attr, char *buf) {
@@ -219,9 +220,12 @@ void set_agencyUID(uint8_t val) {
 		HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID.id[i] = 0;
 
 	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID.id[15] = val;
-	lprintk("** New SOO Agency UID: ");
-	lprintk_buffer((uint8_t *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, SOO_AGENCY_UID_SIZE);
-	lprintk("\n");
+
+	discovery_update_ourself((agencyUID_t *)&HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID);
+
+	pr_cont("[soo:core:device_access] New SOO Agency UID: ");
+	printk_buffer((uint8_t *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, SOO_AGENCY_UID_SIZE);
+	printk("\n");
 }
 
 void devaccess_init(void) {

@@ -66,7 +66,16 @@ void lprintk_buffer(void *buffer, uint32_t n) {
 
 	for (i = 0 ; i < n ; i++)
 		lprintk("%02x ", ((char *) buffer)[i]);
-	lprintk("\n");
+}
+
+/**
+ * Print the contents of a buffer.
+ */
+void printk_buffer(void *buffer, uint32_t n) {
+	uint32_t i;
+
+	for (i = 0 ; i < n ; i++)
+		pr_cont("%02x ", ((char *) buffer)[i]);
 }
 
 /**
