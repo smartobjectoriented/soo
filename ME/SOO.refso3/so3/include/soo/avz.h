@@ -73,7 +73,7 @@ typedef uint16_t domid_t;
 /*
  * 1024 event channels per domain
  */
-#define NR_EVTCHN 1024
+#define NR_EVTCHN 128
 
 /*
  * avz/domain shared data -- pointer provided in start_info.
@@ -101,7 +101,7 @@ struct shared_info {
 	 * Each event channel is assigned a bit in evtchn_pending and its modification has to be
 	 * kept atomic.
 	 */
-	unsigned long evtchn_pending[NR_EVTCHN/32];
+	volatile bool evtchn_pending[NR_EVTCHN];
 
 	atomic_t dc_event;
 

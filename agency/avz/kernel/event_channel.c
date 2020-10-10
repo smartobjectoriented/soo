@@ -298,7 +298,7 @@ long __evtchn_close(struct domain *d1, int chn) {
 	}
 
 	/* Clear pending event to avoid unexpected behavior on re-bind. */
-	clear_bit(chn, (unsigned long *) &d1->shared_info->evtchn_pending);
+	d1->shared_info->evtchn_pending[chn] = false;
 
 	/* Reset binding when the channel is freed. */
 	chn1->state = ECS_FREE;
@@ -363,13 +363,8 @@ static int evtchn_set_pending(struct domain *d, int evtchn) {
 	 */
 	ASSERT(local_irq_is_disabled());
 
-	/* Here, it is necessary to use a transactional set bit function for manipulating the bitmap since
-	 * we are working at the bit level and some simultaneous write can be done by the agency or ME.
-	 * Hence, we avoid to be overwritten by such a write.
-	 */
 
-	transaction_set_bit(evtchn, (unsigned long *) &d->shared_info->evtchn_pending);
-
+	d->shared_info->evtchn_pending[evtchn] = true;
 	d->shared_info->evtchn_upcall_pending = 1;
 
 	dmb();
@@ -580,21 +575,15 @@ static void domain_dump_evtchn_info(struct domain *d) {
 		if (chn->state == ECS_FREE)
 			continue;
 
-		printk("  Dom: %d  chn: %d pending:%d: state: %d",
-				d->domain_id, i,
-				!!test_bit(i, (unsigned long *) &d->shared_info->evtchn_pending),
-				chn->state);
+		printk("  Dom: %d  chn: %d pending:%d: state: %d", d->domain_id, i, d->shared_info->evtchn_pending[i], chn->state);
 
 		switch (chn->state) {
 		case ECS_UNBOUND:
-			printk(" unbound:remote_domid:%d",
-					chn->unbound.remote_domid);
+			printk(" unbound:remote_domid:%d", chn->unbound.remote_domid);
 			break;
 
 		case ECS_INTERDOMAIN:
-			printk(" interdomain remote_dom:%d remove_evtchn: %d",
-					chn->interdomain.remote_dom->domain_id,
-					chn->interdomain.remote_evtchn);
+			printk(" interdomain remote_dom:%d remove_evtchn: %d", chn->interdomain.remote_dom->domain_id, chn->interdomain.remote_evtchn);
 			break;
 
 		case ECS_VIRQ:

@@ -812,7 +812,7 @@ static int suspend_dev(struct device *dev, void *data)
 			return 0;
 	}
 
-	DBG("Suspending %s (vbdrv=%p, vdev=%p)\n", vdev->nodename, vbdrv, vdev);
+	DBG("Suspending %s (vbdrv=%p, vdev=%p)\n", vdev->nodename, vdrv, vdev);
 
 	/* If the device is a realtime backend, then we changed the @sync_backfront property
 	 * to inform the RT agency to suspend the device. When the RT side will reset the property,
@@ -887,7 +887,7 @@ static int resume_dev(struct device *dev, void *data)
 			return 0;
 	}
 
-	DBG("Resuming %s (vbdrv=%p, vdev=%p)\n", vdev->nodename, vbdrv, vdev);
+	DBG("Resuming %s (vbdrv=%p, vdev=%p)\n", vdev->nodename, vdrv, vdev);
 
 	/* Before resuming, we need to make sure the backend reached a stable state. */
 	/* Two possible scenarios: either the backend has been suspended, so it is in VbusStateSuspended, or

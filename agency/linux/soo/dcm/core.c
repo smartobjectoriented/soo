@@ -111,7 +111,11 @@ static void dcm_send_ME(unsigned long arg) {
 	datacomm_send(ME_crypt, size, 0);
 #else
 	/* Prio is not supported yet. Default value: 0. */
+	soo_log("[soo:dcm] Sending to datacomm...\n");
+
 	datacomm_send(ME_data, size, 0);
+
+	soo_log("[soo:dcm] After sending to datacomm...\n");
 #endif
 
 	/* Free the compressed ME area. */
@@ -260,9 +264,9 @@ static int __configure_neighbourhood(unsigned long arg) {
 
 	/* If prio is to -1, we simply dump the list of neighbours */
 	if (neigh_bitmap == -1) {
-		printk("[soo:dcm] Agency UID: ");
+		soo_log("[soo:dcm] Agency UID: ");
 		printk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
-		printk("\n");
+		soo_log("\n");
 
 		discovery_dump_neighbours();
 	} else

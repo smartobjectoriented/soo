@@ -22,37 +22,37 @@
 
 #include <asm/cacheflush.h>
 
-uint32_t softirq_stat[NR_CPUS];
+static volatile bool softirq_stat[NR_CPUS][NR_SOFTIRQS];
 
 static softirq_handler softirq_handlers[NR_SOFTIRQS];
 
 DEFINE_SPINLOCK(softirq_pending_lock);
 
-static void __do_softirq(unsigned long ignore_mask)
+void do_softirq(void)
 {
 	unsigned int i, cpu;
-	unsigned long pending;
 	unsigned int loopmax;
 
 	loopmax = 0;
 
 	cpu = smp_processor_id();
 
-	for ( ; ; )
-	{
+	while (true) {
+
 		spin_lock(&softirq_pending_lock);
 
-		if ((pending = (softirq_pending(cpu) & ~ignore_mask)) == 0) {
-			spin_unlock(&softirq_pending_lock);
-			break;
-		}
 
-		i = find_first_set_bit(pending);
+		for (i = 0; i < NR_SOFTIRQS; i++)
+			if (softirq_stat[cpu][i])
+				break;
+
+		if (i == NR_SOFTIRQS)
+			return;
 
 		if (loopmax > 100)   /* Probably something wrong ;-) */
 			printk("%s: Warning trying to process softirq on cpu %d for quite a long time (i = %d)...\n", __func__, cpu, i);
 
-		transaction_clear_bit(i, (unsigned long *) &softirq_pending(cpu));
+		softirq_stat[cpu][i] = false;
 
 		spin_unlock(&softirq_pending_lock);
 
@@ -62,31 +62,11 @@ static void __do_softirq(unsigned long ignore_mask)
 	}
 }
 
-/*
- * Helper to get a ref to irq_stat
- */
-uint32_t get_softirq_stat(void)
-{
-	return softirq_stat[smp_processor_id()];
-}
-
-void do_softirq(void)
-{
-	__do_softirq(0);
-}
-
 void open_softirq(int nr, softirq_handler handler)
 {
 	ASSERT(nr < NR_SOFTIRQS);
 
 	softirq_handlers[nr] = handler;
-}
-
-void cpumask_raise_softirq(int cpu, unsigned int nr)
-{
-	transaction_set_bit(nr, (unsigned long *) &softirq_pending(cpu));
-
-	smp_trigger_event(cpu);
 }
 
 /*
@@ -95,20 +75,24 @@ void cpumask_raise_softirq(int cpu, unsigned int nr)
  */
 void cpu_raise_softirq(unsigned int cpu, unsigned int nr)
 {
-	transaction_set_bit(nr, (unsigned long *) &softirq_pending(cpu));
-
-	flush_all();
+	softirq_stat[cpu][nr] = true;
 
 	smp_trigger_event(cpu);
 }
 
 void raise_softirq(unsigned int nr)
 {
-	transaction_set_bit(nr, (unsigned long *) &softirq_pending(smp_processor_id()));
+	softirq_stat[smp_processor_id()][nr] = true;
 }
-
 
 void softirq_init(void)
 {
+	int i, cpu;
+
+	cpu = smp_processor_id();
+
+	for (i = 0; i < NR_SOFTIRQS; i++)
+		softirq_stat[cpu][i] = false;
+
 	spin_lock_init(&softirq_pending_lock);
 }

@@ -30,6 +30,8 @@
 
 #include <xenomai/rtdm/driver.h>
 
+#include <soo/evtchn.h>
+
 #include <soo/uapi/avz.h>
 #include <soo/uapi/soo.h>
 #include <soo/guest_api.h>
@@ -341,10 +343,59 @@ void first_dbgvar_action(void) {
 	/* Nothing to do */
 }
 
-extern void reconfigure_wifi(void);
+irqreturn_t evt_interrupt(int irq, void *dev_id)
+{
+
+	lprintk("## Got irq %d\n", irq);
+
+	return IRQ_HANDLED;
+}
+
+
+
+void async_event_test(dc_event_t dc_event) {
+	static int count = 0;
+	int irq0;
+
+	/* Send a PING */
+	lprintk("## GOT the dc event to start stress test...\n");
+
+	tell_dc_stable(DC_PRE_SUSPEND);
+
+	irq0 = bind_interdomain_evtchn_to_virqhandler(2, 6, evt_interrupt, NULL, 0, "evt_6", NULL);
+
+	while (true) {
+
+		notify_remote_via_virq(irq0);
+
+		do_sync_dom(2, DC_SUSPEND);
+		do_sync_dom(2, DC_RESUME);
+		do_sync_dom(2, DC_SUSPEND);
+		do_sync_dom(2, DC_RESUME);
+		do_sync_dom(2, DC_SUSPEND);
+		do_sync_dom(2, DC_RESUME);
+
+
+		msleep(600);
+	}
+
+}
+
+
 int rtapp_main(void *args) {
 
 	lprintk("RT Agency ready\n");
+
+	unsigned int *pgdir;
+
+	pgdir = (unsigned int *) swapper_pg_dir;
+
+	lprintk("### val at c00: %x\n", pgdir[0xc00]);
+
+#if 0
+	register_dc_event_callback(DC_PRE_SUSPEND, async_event_test);
+#endif
+
 #if 0
 
 	ll_bandwidth_init();

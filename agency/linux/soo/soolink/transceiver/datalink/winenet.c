@@ -1616,8 +1616,12 @@ static int winenet_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, bool com
 
 			complete(&wnet_event);
 
+			soo_log("[soo:soolink:winenet] %s waiting on xmit_event...\n", __func__);
+
 			/* Wait until the FSM has processed the data. */
 			wait_for_completion(&wnet_tx.xmit_event);
+
+			soo_log("[soo:soolink:winenet] %s Okay, ready to go.\n", __func__);
 		}
 
 		return 0;
@@ -1666,8 +1670,12 @@ static int winenet_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, bool com
 
 		complete(&wnet_event);
 
+		soo_log("[soo:soolink:winenet] %s Packet ready to be sent, waiting on xmit_event...\n", __func__);
+
 		/* Wait until the packed has been sent out. */
 		wait_for_completion(&wnet_tx.xmit_event);
+
+		soo_log("[soo:soolink:winenet] Okay, ready to go...\n");
 
 		ret = wnet_tx.ret;
 

@@ -101,6 +101,7 @@ void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long f
 
 	local_bh_disable();
 	cpu = smp_processor_id();
+
 	HARD_TX_LOCK(net_dev, txq, cpu);
 
 	/* Normally, this should never happen,
@@ -120,6 +121,7 @@ void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long f
 	netdev_start_xmit(skb, net_dev, txq, 0);
 
 	HARD_TX_UNLOCK(net_dev, txq);
+
 	local_bh_enable();
 
 }

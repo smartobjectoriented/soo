@@ -58,6 +58,17 @@ void lprintk(char *format, ...) {
 	va_end(va);
 }
 
+void soo_log(char *format, ...) {
+#if 0
+	va_list va;
+	va_start(va, format);
+
+	__lprintk(format, va);
+
+	va_end(va);
+#endif
+}
+
 /**
  * Print the contents of a buffer.
  */

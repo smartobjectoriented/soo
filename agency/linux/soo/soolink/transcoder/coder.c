@@ -49,7 +49,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 	uint32_t packetID, nr_packets;
 	bool completed;
 
-	DBG("coder_send: processing sending / size: %d\n", size);
+	soo_log("[soo:soolink:transcoder:coder] Sending sending %d bytes...\n", size);
 
 	/* Bypass the Coder if the requester is of Bluetooth or TCP type */
 	if ((sl_desc->if_type == SL_IF_BT) || (sl_desc->if_type == SL_IF_TCP) || (sl_desc->req_type == SL_REQ_PEER)) {
@@ -143,7 +143,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 	/* Finally ... */
 	mutex_unlock(&coder_tx_lock);
 
-	DBG("coder_send: completed.\n");
+	soo_log("[soo:soolink:transcoder:coder] Send completed.\n");
 }
 
 /**

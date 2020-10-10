@@ -196,7 +196,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 #if 1
 	agency_ctl_args_t agency_ctl_args;
 #endif
-	unsigned char me_spad_caps[SPAD_CAPS_SIZE];
 	unsigned int i;
 #if 1
 	void *recv_data;
@@ -205,7 +204,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	char target_char, initiator_char;
 #endif
 
-	printk("[soo:me:SOO.refSO3] ME %d: cb_cooperate...\n", ME_domID());
+	lprintk("[soo:me:SOO.refSO3] ME %d: cb_cooperate...\n", ME_domID());
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
@@ -216,16 +215,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		for (i = 0; i < MAX_ME_DOMAINS; i++) {
 			if (cooperate_args->u.target_coop_slot[i].spad.valid) {
 
-				memcpy(me_spad_caps, cooperate_args->u.target_coop_slot[i].spad.caps, SPAD_CAPS_SIZE);
-
-#if 0
-				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
-				agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
-				lprintk("## ************** killing %d\n", agency_ctl_args.slotID);
-
-				/* Perform the cooperate in the target ME */
-				args->__agency_ctl(&agency_ctl_args);
-#endif /* 0 */
 
 #if 1 /* Alphabet */
 				/* Collaboration ... */

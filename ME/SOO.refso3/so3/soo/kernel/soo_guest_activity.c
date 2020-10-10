@@ -355,7 +355,35 @@ void perform_task(dc_event_t dc_event)
 	soo_domcall_arg_t args;
 	int rc;
 
-	DBG("ME\n");
+#if 0
+	static int last = -1;
+	int seq = 0;
+	static int count = 0;
+
+	count++;
+	if ((count % 500) == 0)
+		lprintk("## count event received: %d\n", count);
+
+	switch (dc_event) {
+	case DC_SUSPEND:
+		//lprintk("A");
+		seq = 0;
+		break;
+
+	case DC_RESUME:
+		//lprintk("B");
+		seq = 1;
+		break;
+
+	default:
+		lprintk("X");
+	}
+
+	if (seq != (last + 1) % 2)
+		lprintk("########## FAULT got: %d and last = %d\n", seq, last);
+
+	last = seq;
+#endif
 
 	switch (dc_event) {
 

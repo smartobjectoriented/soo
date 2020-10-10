@@ -59,42 +59,19 @@ inline unsigned int evtchn_from_irq(int irq)
 	return evtchn_info.irq_to_evtchn[irq];
 }
 
-static inline unsigned evtchn_is_masked(unsigned int b) {
-	return test_bit(b, evtchn_info.evtchn_mask);
+static inline bool evtchn_is_masked(unsigned int b) {
+	return evtchn_info.evtchn_mask[b];
 }
 
 void dump_evtchn_pending(void) {
-
 	int i;
-	unsigned char *ptr_pending, *ptr_mask;
 	volatile shared_info_t *s = avz_shared_info;
 
-#if 0
 	printk("   Evtchn info in Agency/ME domain %d\n\n", ME_domID());
-	for (i = 0; i < NR_EVTCHN; i++) {
+	for (i = 0; i < NR_EVTCHN; i++)
+		printk("e:%d m:%d p:%d  ", i, evtchn_info.evtchn_mask[i], s->evtchn_pending[i]);
 
-		printk("e:%d m:%d p:%d  ", i, test_bit(i, evtchn_info.evtchn_mask), test_bit(i, s->evtchn_pending));
-	}
 	printk("\n\n");
-#endif
-
-	ptr_pending = (unsigned char *) &s->evtchn_pending;
-	ptr_mask = (unsigned char *) &evtchn_info.evtchn_mask;
-
-	printk("%s: evtchn pending: ", __func__);
-	for (i = 0; i < 32; i++) {
-		printk("%.2lx ", (unsigned long) *ptr_pending);
-		ptr_pending++;
-	}
-	printk("\n");
-
-	printk("%s: evtchn mask   : ", __func__);
-	for (i = 0; i < 32; i++) {
-		printk("%.2lx ", (unsigned long) *ptr_mask);
-		ptr_mask++;
-	}
-	printk("\n");
-
 }
 
 /*
@@ -115,12 +92,11 @@ void dump_evtchn_pending(void) {
  */
 void evtchn_do_upcall(cpu_regs_t *regs)
 {
-	unsigned int   evtchn;
-	int            l1, irq;
+	unsigned int evtchn;
+	int l1, irq;
 	volatile shared_info_t *s = avz_shared_info;
 
 	int loopmax = 0;
-	int at_least_one_processed;
 
 	BUG_ON(local_irq_is_enabled());
 
@@ -148,43 +124,36 @@ retry:
 	l1 = xchg(&s->evtchn_upcall_pending, 0);
 	BUG_ON(l1 == 0);
 
-	evtchn = find_first_bit((void *) &s->evtchn_pending, NR_EVTCHN);
+	while (true) {
+		for (evtchn = 0; evtchn < NR_EVTCHN; evtchn++)
+			if ((s->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
+				break;
 
-	do {
-		at_least_one_processed = 0; /* If all interrupts are masked, we avoid to loop at infinity */
+		if (evtchn == NR_EVTCHN)
+			break;
 
-		while (evtchn < NR_EVTCHN) {
+		BUG_ON(!evtchn_info.valid[evtchn]);
 
-			BUG_ON(!evtchn_info.valid[evtchn]);
+		loopmax++;
 
-			loopmax++;
+		if (loopmax > 500)   /* Probably something wrong ;-) */
+			printk("%s: Warning trying to process evtchn: %d IRQ: %d for quite a long time (dom ID: %d) on CPU %d / masked: %d...\n",
+				__func__, evtchn, evtchn_info.evtchn_to_irq[evtchn], ME_domID(), smp_processor_id(), evtchn_is_masked(evtchn));
 
-			if (loopmax > 500)   /* Probably something wrong ;-) */
-				printk("%s: Warning trying to process evtchn: %d IRQ: %d for quite a long time (dom ID: %d) on CPU %d / masked: %d...\n",
-						__func__, evtchn, evtchn_info.evtchn_to_irq[evtchn], ME_domID(), smp_processor_id(), evtchn_is_masked(evtchn));
+		irq = evtchn_info.evtchn_to_irq[evtchn];
+		clear_evtchn(evtchn_from_irq(irq));
 
-			if (!evtchn_is_masked(evtchn)) {
+		/* Mask the VIRQ event */
+		irq_mask(irq);
 
-				at_least_one_processed = 1;
+		irq_process(irq);
 
-				irq = evtchn_info.evtchn_to_irq[evtchn];
-				clear_evtchn(evtchn_from_irq(irq));
+		/* Unmask the VIRQ event channel */
+		irq_unmask(irq);
 
-				/* Mask the VIRQ event */
-				irq_mask(irq);
+		BUG_ON(local_irq_is_enabled());
 
-				irq_process(irq);
-
-				/* Unmask the VIRQ event channel */
-				irq_unmask(irq);
-
-				BUG_ON(local_irq_is_enabled());
-
-			}
-			evtchn = find_next_bit((void *) &s->evtchn_pending, NR_EVTCHN, evtchn+1);
-		}
-
-	} while (at_least_one_processed);
+	};
 
 	if (s->evtchn_upcall_pending)
 		goto retry;
@@ -379,12 +348,12 @@ void notify_remote_via_irq(int irq)
 
 void mask_evtchn(int evtchn)
 {
-	transaction_set_bit(evtchn, &evtchn_info.evtchn_mask[0]);
+	evtchn_info.evtchn_mask[evtchn] = true;
 }
 
 void unmask_evtchn(int evtchn)
 {
-	transaction_clear_bit(evtchn, &evtchn_info.evtchn_mask[0]);
+	evtchn_info.evtchn_mask[evtchn] = false;
 }
 
 void virq_init(void)

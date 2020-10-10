@@ -69,9 +69,9 @@
 #define DOMID_INVALID (0x7FF4U)
 
 /*
- * 1024 event channels per domain
+ * 128 event channels per domain
  */
-#define NR_EVTCHN 1024
+#define NR_EVTCHN 128
 
 /*
  * avz/domain shared data -- pointer provided in start_info.
@@ -100,7 +100,7 @@ struct shared_info {
 	 * kept atomic.
 	 */
 
-	unsigned long evtchn_pending[NR_EVTCHN/32];
+	volatile bool evtchn_pending[NR_EVTCHN];
 
 	atomic_t dc_event;
 

@@ -69,6 +69,8 @@
 #define L1_SECT_MASK            	(~(L1_SECT_SIZE - 1))
 
 #define L1DESC_SECT_XN             	(1 << 4)
+#define L1DESC_SECT_TEX			(1 << 12)
+#define L1DESC_SECT_P			(1 << 9)
 
 #define L1DESC_SECT_DOMAIN_MASK       	(0xf << 5)
 #define L1DESC_PT_DOMAIN_MASK       	(0xf << 5)

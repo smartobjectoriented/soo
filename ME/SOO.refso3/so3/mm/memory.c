@@ -315,7 +315,6 @@ uint32_t io_map(uint32_t phys, size_t size) {
 
 	create_mapping(NULL, io_map->vaddr, io_map->paddr, io_map->size, true, false);
 
-	flush_tlb_all();
 	cache_clean_flush();
 
 	return io_map->vaddr + offset;

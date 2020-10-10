@@ -89,7 +89,6 @@ struct secondary_data secondary_data;
  */
 void handle_IPI(int ipinr)
 {
-
 	switch (ipinr)
 	{
 	case IPI_WAKEUP:

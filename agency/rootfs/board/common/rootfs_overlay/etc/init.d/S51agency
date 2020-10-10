@@ -28,7 +28,8 @@ case "$1" in
         echo "OK"
 
         echo -n "Starting Agency Core... "
-        /root/agency &
+#        /root/agency > /dev/pipe_uspace_logs &
+	/root/agency &
         echo "OK"
         
         if [ -r /root/otherapps.sh ]; then

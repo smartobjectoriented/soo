@@ -30,17 +30,22 @@ source s_uspace {
 };
 
 destination d_all {
-	file("/var/log/messages");
+	file("/root/log/soo/system");
+};
+
+# Provide logs from the DCM subsystem
+destination d_dcm {
+	file("/root/log/soo/dcm");
 };
 
 # Provide logs from the soolink subsystem
 destination d_soolink {
-	file("/var/log/soo/soolink");
+	file("/root/log/soo/soolink");
 };
 
 # Logging of agency (usr) messages
 destination d_agency {
-	file("/var/log/soo/agency");
+	file("/root/log/soo/agency");
 };
 
 # Logging of MEs 
@@ -52,6 +57,10 @@ filter f_all {
 	not match("\\[soo" value("MESSAGE"));
 };
 	
+filter f_dcm {
+	match("\\[soo:dcm" value("MESSAGE"));
+};
+
 filter f_soolink {
 	match("\\[soo:soolink" value("MESSAGE"));
 };
@@ -61,11 +70,17 @@ filter f_me {
 };
 
 
-#log {
-#       source(s_sys);
-#	filter(f_all);
-#	destination(d_all);
-#};
+log {
+        source(s_sys);
+        filter(f_all);
+        destination(d_all);
+};
+
+log {
+	source(s_sys);
+	filter(f_dcm);
+	destination(d_dcm);
+};
 
 log {
 	source(s_sys);
