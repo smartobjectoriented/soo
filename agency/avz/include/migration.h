@@ -39,8 +39,8 @@ struct domain_migration_info
 	 */
 	unsigned int nr_pirqs;
 
-	unsigned long evtchn_pending[sizeof(unsigned long) * 8];
-	unsigned long evtchn_mask[sizeof(unsigned long) * 8];
+	bool evtchn_pending[NR_EVTCHN];
+	bool evtchn_mask[NR_EVTCHN];
 
 	u64 clocksource_ref;
 
