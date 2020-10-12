@@ -44,7 +44,6 @@
  *
  */
 #define VIRQ_TIMER      0  /* System timer tick virtualized interrupt */
-#define VIRQ_TIMER_RT   1  /* Timer tick issued from the oneshot timer (for RT agency and MEs */
 
 /**************************************************/
 

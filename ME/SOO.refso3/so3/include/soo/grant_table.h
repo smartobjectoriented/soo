@@ -26,15 +26,15 @@
 #define GRANT_INVALID_REF	0
 
 struct grant_entry {
-    /* GTF_xxx: various type and flag information.   */
+	/* GTF_xxx: various type and flag information.   */
 	uint16_t flags;
-    /* The domain being granted foreign privileges.  */
-    domid_t  domid;
-    /*
-     * GTF_permit_access: Frame that @domid is allowed to map and access.
-     * GTF_accept_transfer: Frame whose ownership transferred by @domid.
-     */
-    uint32_t frame;
+	/* The domain being granted foreign privileges.  */
+	domid_t  domid;
+	/*
+	 * GTF_permit_access: Frame that @domid is allowed to map and access.
+	 * GTF_accept_transfer: Frame whose ownership transferred by @domid.
+	 */
+	uint32_t frame;
 };
 typedef struct grant_entry grant_entry_t;
 
@@ -95,18 +95,18 @@ typedef uint32_t grant_handle_t;
  */
 #define GNTTABOP_map_grant_ref        0
 struct gnttab_map_grant_ref {
-    /* IN parameters. */
-    uint64_t host_addr;
-    uint32_t flags;               /* GNTMAP_* */
-    grant_ref_t ref;
-    domid_t  dom;
-    /* OUT parameters. */
-    int16_t  status;              /* GNTST_* */
-    grant_handle_t handle;
-    uint64_t dev_bus_addr;
+	/* IN parameters. */
+	uint64_t host_addr;
+	uint32_t flags;               /* GNTMAP_* */
+	grant_ref_t ref;
+	domid_t  dom;
+	/* OUT parameters. */
+	int16_t  status;              /* GNTST_* */
+	grant_handle_t handle;
+	uint64_t dev_bus_addr;
 
-    uint32_t offset;
-    uint32_t size;
+	uint32_t offset;
+	uint32_t size;
 };
 typedef struct gnttab_map_grant_ref gnttab_map_grant_ref_t;
 
@@ -123,18 +123,18 @@ typedef struct gnttab_map_grant_ref gnttab_map_grant_ref_t;
  */
 #define GNTTABOP_unmap_grant_ref      1
 struct gnttab_unmap_grant_ref {
-    /* IN parameters. */
+	/* IN parameters. */
 	uint32_t flags;
 	grant_ref_t ref;
 	domid_t  dom;
-    uint64_t host_addr;
-    uint64_t dev_bus_addr;
-    grant_handle_t handle;
-    /* OUT parameters. */
-    int16_t  status;              /* GNTST_* */
+	uint64_t host_addr;
+	uint64_t dev_bus_addr;
+	grant_handle_t handle;
+	/* OUT parameters. */
+	int16_t  status;              /* GNTST_* */
 
-    uint32_t offset;
-    uint32_t size;
+	uint32_t offset;
+	uint32_t size;
 };
 typedef struct gnttab_unmap_grant_ref gnttab_unmap_grant_ref_t;
 
@@ -181,11 +181,11 @@ typedef struct gnttab_copy {
 	unsigned int handle;
 } gnttab_copy_t;
 
- 
- /* Map the grant entry for access by host CPUs. */
+
+/* Map the grant entry for access by host CPUs. */
 #define _GNTMAP_host_map        (1)
 #define GNTMAP_host_map         (1<<_GNTMAP_host_map)
- /* Accesses to the granted frame will be restricted to read-only access. */
+/* Accesses to the granted frame will be restricted to read-only access. */
 #define _GNTMAP_readonly        (2)
 #define GNTMAP_readonly         (1<<_GNTMAP_readonly)
 
@@ -211,18 +211,18 @@ typedef struct gnttab_copy {
 #define GNTST_eagain          (-12) /* Operation not done; try again.        */
 
 #define GNTTABOP_error_msgs {                   \
-    "okay",                                     \
-    "undefined error",                          \
-    "unrecognised domain id",                   \
-    "invalid grant reference",                  \
-    "invalid mapping handle",                   \
-    "invalid virtual address",                  \
-    "invalid device address",                   \
-    "no spare translation slot in the I/O MMU", \
-    "permission denied",                        \
-    "bad page",                                 \
-    "copy arguments cross page boundary",       \
-    "page address size too large"               \
+		"okay",                                     \
+		"undefined error",                          \
+		"unrecognised domain id",                   \
+		"invalid grant reference",                  \
+		"invalid mapping handle",                   \
+		"invalid virtual address",                  \
+		"invalid device address",                   \
+		"no spare translation slot in the I/O MMU", \
+		"permission denied",                        \
+		"bad page",                                 \
+		"copy arguments cross page boundary",       \
+		"page address size too large"               \
 }
 
 #endif /* __GRANT_TABLE_H__ */

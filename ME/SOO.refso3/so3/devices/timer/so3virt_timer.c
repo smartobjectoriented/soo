@@ -85,14 +85,6 @@ void periodic_timer_start(void) {
 	bind_virq_to_irqhandler(VIRQ_TIMER, timer_isr, NULL, NULL);
 }
 
-void oneshot_timer_start(void) {
-
-	clocks_calc_mult_shift(&clocksource_timer.mult, &clocksource_timer.shift, clocksource_timer.rate, NSECS, 3600);
-
-	bind_virq_to_irqhandler(VIRQ_TIMER_RT, timer_isr, NULL, NULL);
-
-}
-
 /*
  * Program the oneshot timer with a deadline expressed in ns.
  */
@@ -115,24 +107,6 @@ static int periodic_timer_init(dev_t *dev) {
 	return 0;
 }
 
-#ifdef CONFIG_RTOS
-static int oneshot_timer_init(dev_t *dev) {
-
-	oneshot_timer.dev = dev;
-
-	oneshot_timer.set_delay = oneshot_timer_set_delay;
-	oneshot_timer.start = oneshot_timer_start;
-
-	return 0;
-}
-#endif /* CONFIG_RTOS */
-
 REGISTER_DRIVER_CORE("so3virt-timer,periodic-timer", periodic_timer_init);
 REGISTER_DRIVER_CORE("so3virt-timer,clocksource-timer", clocksource_timer_init);
-
-#ifdef CONFIG_RTOS
-REGISTER_DRIVER(so3virt_oneshot_timer, "so3virt-timer,oneshot-timer", oneshot_timer_init);
-#endif /* CONFIG_RTOS */
-
-
 

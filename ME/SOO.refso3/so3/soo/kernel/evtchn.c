@@ -47,7 +47,7 @@ typedef struct {
 	int evtchn_to_irq[NR_EVTCHN];	/* evtchn -> IRQ */
 	u32 irq_to_evtchn[NR_VIRQS];	/* IRQ -> evtchn */
 	bool valid[NR_EVTCHN]; /* Indicate if the event channel can be used for notification for example */
-	unsigned long evtchn_mask[NR_EVTCHN/32];
+	bool evtchn_mask[NR_EVTCHN];
 } evtchn_info_t;
 
 static evtchn_info_t evtchn_info;
@@ -389,5 +389,4 @@ void virq_init(void)
 
 	/* Now reserve the pre-defined VIRQ used by AVZ */
 	virq_bindcount[VIRQ_TIMER]++;
-	virq_bindcount[VIRQ_TIMER_RT]++;
 }
