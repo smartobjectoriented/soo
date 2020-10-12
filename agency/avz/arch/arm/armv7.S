@@ -94,10 +94,10 @@ ENTRY(flush_kern_dcache_area)
 .equ	PRRR,	0xff0a81a8
 .equ	NMRR,	0x40e040e0
 
-	/*
-	 * Macro for setting up the TTBRx and TTBCR registers.
-	 * - \ttb0 and \ttb1 updated with the corresponding flags.
-	 */
+/*
+ * Macro for setting up the TTBRx and TTBCR registers.
+ * - \ttb0 and \ttb1 updated with the corresponding flags.
+ */
 .macro	v7_ttb_setup, zero, ttbr0, ttbr1, tmp
 	mcr	p15, 0, \zero, c2, c0, 2	@ TTB control register
 	orr	\ttbr0, \ttbr0, #TTB_FLAGS_SMP
@@ -120,7 +120,8 @@ ENTRY(flush_kern_dcache_area)
  * This routine must preserve:
  *  r4, r6, r7, r8
  */
-		.align	5
+.align	5
+
 ENTRY(cache_clean_flush)
 		stmfd	sp!, {r0-r12, lr}
 
@@ -192,15 +193,15 @@ ENTRY(flush_tlb_all)
 
 	ldmfd	sp!, {r0, pc}
 
- @ r8 contains the reference for TTBR1 (which is equal to TTBR0)
+@ r8 contains the reference for TTBR1 (which is equal to TTBR0)
 ENTRY(cpu_setup)
 	mov	r10, #0
 1:
 
 	mrc	p15, 0, r0, c1, c0, 1
 
-	tst	r0, #(1 << 6)			@ SMP/nAMP mode enabled?
-	orreq	r0, r0, #(1 << 6)		@ Enable SMP/nAMP mode
+	tst	r0, #(1 << 6)		@ SMP/nAMP mode enabled?
+	orreq	r0, r0, #(1 << 6)	@ Enable SMP/nAMP mode
 	orreq	r0, r0, r10			@ Enable CPU-specific SMP bits
 	mcreq	p15, 0, r0, c1, c0, 1
 
