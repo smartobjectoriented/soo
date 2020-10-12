@@ -774,19 +774,19 @@ void discovery_dump_neighbours(void) {
 
 		neighbour = list_entry(cur, neighbour_desc_t, list);
 
-		pr_cont("[soo:soolink:discovery] Neighbour %d: %s - ", count+1, neighbour->name);
-		printk_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+		lprintk("[soo:soolink:discovery] Neighbour %d: %s - ", count+1, neighbour->name);
+		lprintk_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+		lprintk("\n");
 
-		if (!neighbour->plugin) {
-			pr_cont("[soo:soolink:discovery] ** ourself **");
-			printk("\n");
-		} else {
-			printk("[soo:soolink:discovery]      ** Friends: **\n");
+		if (!neighbour->plugin)
+			lprintk("[soo:soolink:discovery] ** ourself **\n");
+		else {
+			lprintk("[soo:soolink:discovery]      ** Friends: **\n");
 			list_for_each(cur_friend, &neighbour->friends) {
 				friend = list_entry(cur_friend, agencyUID_t, list);
 				pr_cont("[soo:soolink:discovery] ");
-				printk_buffer(&friend->id, SOO_AGENCY_UID_SIZE);
-				printk("\n");
+				lprintk_buffer(&friend->id, SOO_AGENCY_UID_SIZE);
+				lprintk("\n");
 			}
 		}
 
