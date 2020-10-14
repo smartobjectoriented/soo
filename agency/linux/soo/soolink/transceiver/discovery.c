@@ -186,8 +186,8 @@ void configure_neighbitmap(uint32_t neigh_bitmap) {
 
 			cur_neighbour = list_entry(cur_neigh, neighbour_desc_t, list);
 
-			pr_cont("[soo:soolink:discovery] %s blacklist neighbour: ", __func__);
-			printk_buffer(&cur_neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+			soo_log("[soo:soolink:discovery] %s blacklist neighbour: ", __func__);
+			soo_log_buffer(&cur_neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
 			/* And attach to the blacklist */
 			list_add_tail(cur_neigh, &neigh_blacklist);
@@ -590,8 +590,8 @@ static int iamasoo_task_fn(void *args) {
 	neighbour->missing_tick = 0;
 	neighbour->present = true;
 
-	pr_cont("[soo:soolink] Adding ourself (%s) - ", neighbour->name);
-	printk_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+	soo_log("[soo:soolink] Adding ourself (%s) - ", neighbour->name);
+	soo_log_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
 	__add_neighbour(neighbour);
 
@@ -645,8 +645,8 @@ static int iamasoo_task_fn(void *args) {
 					if (neighbour->priv)
 						kfree(neighbour->priv);
 
-					printk("[soo:soolink] Delete the neighbour: ");
-					printk_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+					soo_log("[soo:soolink] Delete the neighbour: ");
+					soo_log_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
 					list_del(cur);
 					kfree(neighbour);
@@ -765,7 +765,7 @@ void discovery_dump_neighbours(void) {
 
 	/* There is no neighbour in the list, I am alone */
 	if (list_empty(&neighbour_list)) {
-		printk("[soo:soolink:discovery] No neighbour\n");
+		soo_log("[soo:soolink:discovery] No neighbour\n");
 		spin_unlock(&discovery_listener_lock);
 		return;
 	}
@@ -774,19 +774,19 @@ void discovery_dump_neighbours(void) {
 
 		neighbour = list_entry(cur, neighbour_desc_t, list);
 
-		pr_cont("[soo:soolink:discovery] Neighbour %d: %s - ", count+1, neighbour->name);
-		printk_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+		soo_log("[soo:soolink:discovery] Neighbour %d: %s - ", count+1, neighbour->name);
+		soo_log_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+		soo_log("\n");
 
-		if (!neighbour->plugin) {
-			pr_cont("[soo:soolink:discovery] ** ourself **");
-			printk("\n");
-		} else {
-			printk("[soo:soolink:discovery]      ** Friends: **\n");
+		if (!neighbour->plugin)
+			soo_log("[soo:soolink:discovery] ** ourself **\n");
+		else {
+			soo_log("[soo:soolink:discovery]      ** Friends: **\n");
 			list_for_each(cur_friend, &neighbour->friends) {
 				friend = list_entry(cur_friend, agencyUID_t, list);
-				pr_cont("[soo:soolink:discovery] ");
-				printk_buffer(&friend->id, SOO_AGENCY_UID_SIZE);
-				printk("\n");
+				soo_log("[soo:soolink:discovery] ");
+				soo_log_buffer(&friend->id, SOO_AGENCY_UID_SIZE);
+				soo_log("\n");
 			}
 		}
 

@@ -78,14 +78,15 @@ static inline int cmpUID(agencyUID_t *u1, agencyUID_t *u2) {
 
 /* Helper function to display agencyUID */
 static inline void printUID(agencyUID_t *uid) {
+
 	/* Normally, the length of agencyUID is SOO_AGENCY_UID_SIZE bytes, but we display less. */
-	lprintk_buffer(uid, 5);
+	soo_log_buffer(uid, 5);
 }
 
 /* Helper function to display agencyUID */
 static inline void printlnUID(agencyUID_t *uid) {
 	printUID(uid);
-	lprintk("\n");
+	soo_log("\n");
 }
 
 #endif /* DEVICE_ACCESS_H */

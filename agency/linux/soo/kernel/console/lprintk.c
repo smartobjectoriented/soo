@@ -72,6 +72,16 @@ void soo_log(char *format, ...) {
 /**
  * Print the contents of a buffer.
  */
+void soo_log_buffer(void *buffer, uint32_t n) {
+	uint32_t i;
+
+	for (i = 0 ; i < n ; i++)
+		soo_log("%02x ", ((char *) buffer)[i]);
+}
+
+/**
+ * Print the contents of a buffer.
+ */
 void lprintk_buffer(void *buffer, uint32_t n) {
 	uint32_t i;
 
