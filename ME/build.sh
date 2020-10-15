@@ -61,6 +61,8 @@ fi
 # start its parsing at $2. 
 TYPE=$1; shift
 
+ME_SPECIFIC_DIR=${SCRIPTPATH}/${TYPE}/ME_specific
+
 clean=n
 build_itb=n
 
@@ -78,9 +80,9 @@ cd $REFPATH/so3
 
 # Create links to this ME apps/ and callbacks.c files
 # symlink to the apps folder
-ln -sf ${SCRIPTPATH}/${TYPE}/apps apps
-if [ -d "${SCRIPTPATH}/${TYPE}/apps/include" ]; then
-    cp -r ${SCRIPTPATH}/${TYPE}/apps/include/* include/apps
+ln -sf ${ME_SPECIFIC_DIR}/apps apps
+if [ -d "${ME_SPECIFIC_DIR}/apps/include" ]; then
+    cp -r ${ME_SPECIFIC_DIR}/apps/include/* include/apps
 fi
 
 # Treat the clean before copying everything so we exit right after. But
@@ -96,16 +98,17 @@ if [ "$clean" == "y" ]; then
 fi
 
 cd soo
-ln -sf ${SCRIPTPATH}/${TYPE}/callbacks.c callbacks.c
+ln -sf ${ME_SPECIFIC_DIR}/callbacks.c callbacks.c
 
 # Create the full defconfig file by concatening the base one with our ME specific
 cd ${REFPATH}/so3/configs
-cat so3virt_defconfig ${SCRIPTPATH}/${TYPE}/config_overlay > "${TYPE}_defconfig"
+cat so3virt_defconfig ${ME_SPECIFIC_DIR}/config_overlay > "${TYPE}_defconfig"
+cp ${ME_SPECIFIC_DIR}/${TYPE}_overlay.dts ${REFPATH}/so3/arch/arm/boot/dts/
 
 # Execute the pre-build script if the ME has one
 # it allows for some ME to tune/add/modify other files than the general case
-if [ -f ${SCRIPTPATH}/${TYPE}/pre_build.sh ]; then
-    source ${SCRIPTPATH}/${TYPE}/pre_build.sh $REFPATH
+if [ -f ${ME_SPECIFIC_DIR}/pre_build.sh ]; then
+    source ${ME_SPECIFIC_DIR}/pre_build.sh $REFPATH
 fi
 
 # Make SO3 using the TYPE (refso3 here).
@@ -117,6 +120,7 @@ ME_TYPE=$TYPE make
 
 # Copy the resulting so3.bin in the ME folder
 cp so3.bin ${SCRIPTPATH}/${TYPE}/
+cp so3 ${SCRIPTPATH}/${TYPE}/so3.elf
 cp arch/arm/boot/dts/so3virt.dtb ${SCRIPTPATH}/${TYPE}/
 
 if [ "$build_itb" == "y" ]; then
@@ -128,8 +132,8 @@ fi
 
 # Execute the pre-build script if the ME has one
 # it allows for some ME to tune/add/modify other files than the general case
-if [ -f ${SCRIPTPATH}/${TYPE}/post_build.sh ]; then
-    source ${SCRIPTPATH}/${TYPE}/post_build.sh $REFPATH
+if [ -f ${ME_SPECIFIC_DIR}/post_build.sh ]; then
+    source ${ME_SPECIFIC_DIR}/post_build.sh $REFPATH
 fi
 
 # Cleaning in the soo directory
@@ -137,3 +141,4 @@ rm -rf apps
 rm soo/callbacks.c
 rm include/apps/*
 rm configs/${TYPE}_defconfig
+rm arch/arm/boot/dts/${TYPE}_overlay.dts
