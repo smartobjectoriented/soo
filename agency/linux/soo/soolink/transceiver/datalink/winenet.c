@@ -31,8 +31,6 @@
 
 #include <soo/soolink/soolink.h>
 
-#define WNET_CONFIG_UNIBROAD 	1
-
 #include <soo/soolink/datalink/winenet.h>
 #include <soo/soolink/datalink.h>
 #include <soo/soolink/sender.h>
