@@ -13,7 +13,7 @@ fi
 sudo rm -rf fs/*
 mkdir -p fs
  
-if [ "$PLATFORM" == "vexpress" -o "$PLATFORM" = "merida" ]; then
+if [ "$PLATFORM" == "vexpress" -o "$PLATFORM" == "merida" -o "$PLATFORM" == "virt64" ]; then
     devname=$(sudo losetup --partscan --find --show sdcard.img.${PLATFORM})
     FS_IMG=sdcard.img.${PLATFORM}
 
