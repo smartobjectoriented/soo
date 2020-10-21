@@ -4,7 +4,7 @@ QEMU_AUDIO_DRV="none"
 GDB_PORT_BASE=1234
 USR_OPTION=$1
 
-N_QEMU_INSTANCES=`ps -A | grep qemu-system-arm | wc -l`
+N_QEMU_INSTANCES=`ps -A | grep qemu-system-aarch64 | wc -l`
 
 launch_qemu() {
     QEMU_MAC_ADDR="$(printf 'DE:AD:BE:EF:%02X:%02X\n' $((N_QEMU_INSTANCES)) $((N_QEMU_INSTANCES)))"
@@ -14,17 +14,18 @@ launch_qemu() {
     echo -e "\033[01;36mMAC addr: " ${QEMU_MAC_ADDR} "\033[0;37m"
     echo -e "\033[01;36mGDB port: " ${GDB_PORT} "\033[0;37m"
 
-    sudo qemu/arm-softmmu/qemu-system-arm $@ ${USR_OPTION} \
+    sudo qemu/build/qemu-system-aarch64 $@ ${USR_OPTION} \
   	-smp 4 \
 	-serial mon:stdio  \
-	-M vexpress-a15,secure=on -cpu cortex-a15 \
+	-M virt,gic-version=2 -cpu cortex-a72  \
+	-device virtio-blk-device,drive=hd0 \
+	-drive if=none,file=agency/filesystem/sdcard.img.virt64,id=hd0 \
 	-m 1024 \
-	-bios bl1.bin \
-	-semihosting-config enable,target=native \
-	-sd agency/filesystem/sdcard.img.vexpress \
-	-net tap,script=scripts/qemu-ifup.sh,downscript=scripts/qemu-ifdown.sh -net nic,macaddr=${QEMU_MAC_ADDR} \
+	-kernel u-boot/u-boot \
 	-nographic \
-	-gdb tcp::${GDB_PORT}
+	-gdb tcp::${GDB_PORT} 
+    #   -machine dumpdtb=virt.dtb
+
         
     QEMU_RESULT=$?
     

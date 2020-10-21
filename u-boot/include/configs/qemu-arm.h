@@ -32,6 +32,7 @@
 
 #include <config_distro_bootcmd.h>
 
+#if 0 /* SOO.tech */
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	"fdt_high=0xffffffff\0" \
 	"initrd_high=0xffffffff\0" \
@@ -41,6 +42,10 @@
 	"kernel_addr_r=0x40400000\0" \
 	"ramdisk_addr_r=0x44000000\0" \
 	BOOTENV
+#endif /* 0 */
+
+#define CONFIG_EXTRA_ENV_SETTINGS \
+	"linux=load virtio 0 0x50000000 virt64.itb; bootm 0x50000000\0"
 
 #define CONFIG_SYS_CBSIZE 512
 
@@ -53,5 +58,8 @@
 #define CONFIG_SYS_MAX_FLASH_BANKS	2
 #endif
 #define CONFIG_SYS_MAX_FLASH_SECT	256 /* Sector: 256K, Bank: 64M */
+
+/* SOO.tech */
+#define CONFIG_SYS_BOOTM_LEN		SZ_64M
 
 #endif /* __CONFIG_H */
