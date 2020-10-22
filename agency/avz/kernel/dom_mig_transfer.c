@@ -22,20 +22,16 @@
 #endif
 
 #include <fdt_support.h>
+#include <memslot.h>
+#include <lib.h>
+#include <smp.h>
+#include <types.h>
+#include <console.h>
+#include <migration.h>
+#include <domain.h>
+#include <xmalloc.h>
 
-#include <asm/irq.h>
-#include <asm/page.h>
-#include <asm/memslot.h>
-#include <asm/mach/map.h>
-
-#include <avz/lib.h>
-#include <avz/smp.h>
-
-#include <avz/types.h>
-#include <avz/console.h>
-#include <avz/migration.h>
-#include <avz/domain.h>
-#include <avz/xmalloc.h>
+#include <device/irq.h>
 
 #include <lib/crc.h>
 #include <lib/image.h>
@@ -49,11 +45,10 @@
 
 #include <soo_migration.h>
 /*
- * Structures to store domain and vcpu infos. Must be here and not locally in function,
+ * Structures to store domain nfos. Must be here and not locally in function,
  * since the maximum stack size is 8 KB
  */
 static struct domain_migration_info dom_info = {0};
-static struct vcpu_migration_info vcpu_info = {0};
 
 /* PFN offset of the target platform */
 long pfn_offset = 0;
@@ -65,15 +60,6 @@ long pfn_offset = 0;
 /* Start of ME RAM in virtual address space of idle domain (extern) */
 unsigned long vaddr_start_ME = 0;
 
-/*------------------------------------------------------------------------------
-switch_domain_address_space
-------------------------------------------------------------------------------*/
-void switch_domain_address_space(struct domain *from, struct domain *to)
-{
-	save_ptbase(from->vcpu[0]);
-	write_ptbase(to->vcpu[0]);
-}
-
 /**
  * Initiate the migration process of a ME.
  */
@@ -82,7 +68,7 @@ int migration_init(soo_hyp_t *op) {
 	soo_personality_t pers = *((soo_personality_t *) op->p_val2);
 	struct domain *domME = domains[slotID];
 
-	DBG("slotID=%d, pers=%d\n", slotID, pers);
+	DBG("Initializing migration of ME slotID=%d, pers=%d\n", slotID, pers);
 
 	switch (pers) {
 	case SOO_PERSONALITY_INITIATOR:
@@ -98,10 +84,7 @@ int migration_init(soo_hyp_t *op) {
 
 		DBG("Self-referent\n");
 
-		/* Create a domain context including the ME descriptor before the ME gets injected. */
-		switch_mm(NULL, idle_domain[smp_processor_id()]->vcpu[0]);
-
-		domME = domain_create(slotID, false, true);
+		domME = domain_create(slotID, ME_CPU);
 		if (!domME)
 			panic("Error creating the ME");
 
@@ -116,9 +99,6 @@ int migration_init(soo_hyp_t *op) {
 		/* Now set the pfn base of this ME; this will be useful for the Agency Core subsystem */
 		domME->shared_info->dom_desc.u.ME.pfn = phys_to_pfn(memslot[slotID].base_paddr);
 
-		/* Switch back to dom0 address space */
-		switch_mm(idle_domain[smp_processor_id()]->vcpu[0], NULL);
-
 		break;
 
 	case SOO_PERSONALITY_TARGET:
@@ -127,28 +107,19 @@ int migration_init(soo_hyp_t *op) {
 
 		/* Create the basic domain context including the ME descriptor (in its shared info page) */
 
-		/* Switch to idle domain address space which has a full mapping of the RAM */
-		switch_mm(NULL, idle_domain[smp_processor_id()]->vcpu[0]);
-
 		/* Create new ME domain */
-		domME = domain_create(slotID, is_me_realtime(), false);
+		domME = domain_create(slotID, ME_CPU);
 
 		domains[slotID] = domME;
 
 		if (domME == NULL) {
 			printk("Error creating the ME\n");
-
-			/* Switch back address space */
-			switch_mm(idle_domain[smp_processor_id()]->vcpu[0], NULL);
 			panic("Failure during domain creation ...\n");
 		}
 
 		/* Pre-init the basic information related to the ME */
 		domME->shared_info->dom_desc.u.ME.size = memslot[slotID].size;
 		domME->shared_info->dom_desc.u.ME.pfn = phys_to_pfn(memslot[slotID].base_paddr);
-
-		/* Switch back to dom0 address space */
-		switch_mm(idle_domain[smp_processor_id()]->vcpu[0], NULL);
 
 		break;
 	}
@@ -184,7 +155,7 @@ static void build_domain_migration_info(unsigned int ME_slotID, struct domain *m
 	mig_info->clocksource_ref = me->shared_info->clocksource_ref;
 
 	/* Get the start_info structure */
-	memcpy(mig_info->start_info_page, (void *) me->arch.vstartinfo_start, PAGE_SIZE);
+	memcpy(mig_info->start_info_page, (void *) me->vstartinfo_start, PAGE_SIZE);
 
 	/* ME_desc */
 	memcpy(&mig_info->dom_desc, &me->shared_info->dom_desc, sizeof(dom_desc_t));
@@ -193,36 +164,31 @@ static void build_domain_migration_info(unsigned int ME_slotID, struct domain *m
 	mig_info->dom_desc.u.ME.state = ME_state_migrating;
 
 	/* Domain start pfn */
+
 	mig_info->start_pfn = phys_to_pfn(memslot[ME_slotID].base_paddr);
 
 	mig_info->pause_count = me->pause_count;
 
-	dmb();
-
-}
-
-static void build_vcpu_migration_info(unsigned int ME_slotID, struct domain *me, struct vcpu_migration_info *mig_info)
-{
-	mig_info->processor = me->vcpu[0]->processor;
-	mig_info->need_periodic_timer = me->vcpu[0]->need_periodic_timer;
+	mig_info->processor = me->processor;
+	mig_info->need_periodic_timer = me->need_periodic_timer;
 
 	/* Pause */
-	mig_info->pause_flags     = me->vcpu[0]->pause_flags;
+	mig_info->pause_flags = me->pause_flags;
 
-	memcpy(&(mig_info->pause_count), &(me->vcpu[0]->pause_count), sizeof(me->vcpu[0]->pause_count));
+	memcpy(&(mig_info->pause_count), &(me->pause_count), sizeof(me->pause_count));
+
 	/* VIRQ mapping */
-	memcpy(mig_info->virq_to_evtchn, me->vcpu[0]->virq_to_evtchn, sizeof((me->vcpu[0]->virq_to_evtchn)));
+	memcpy(mig_info->virq_to_evtchn, me->virq_to_evtchn, sizeof((me->virq_to_evtchn)));
 
-	/* Arch - including usr regs, vfp, etc. */
-	memcpy(&(mig_info->arch), &(me->vcpu[0]->arch), sizeof(me->vcpu[0]->arch));
+	/* Arch & address space */
+	mig_info->arch = me->arch;
+	mig_info->addrspace = me->addrspace;
 
-	/* Internal fields of vcpu_info_t structure */
-	mig_info->evtchn_upcall_pending = me->vcpu[0]->vcpu_info->evtchn_upcall_pending;
+	mig_info->evtchn_upcall_pending = me->shared_info->evtchn_upcall_pending;
 
-	memcpy(&(mig_info->arch_info), &(me->vcpu[0]->vcpu_info->arch), sizeof(me->vcpu[0]->vcpu_info->arch));
-	memcpy(&(mig_info->time), &(me->vcpu[0]->vcpu_info->time), sizeof(me->vcpu[0]->vcpu_info->time));
-
-	dmb();
+	mig_info->version = me->shared_info->version;
+	mig_info->tsc_timestamp = me->shared_info->tsc_timestamp;
+	mig_info->tsc_prev = me->shared_info->tsc_prev;
 }
 
 /**
@@ -231,42 +197,18 @@ static void build_vcpu_migration_info(unsigned int ME_slotID, struct domain *me,
 int read_migration_structures(soo_hyp_t *op) {
 	unsigned int ME_slotID = *((unsigned int *) op->p_val1);
 	struct domain *domME = domains[ME_slotID];
-	unsigned long paddr;
 
 	/* Gather all the info we need into structures */
 	build_domain_migration_info(ME_slotID, domME, &dom_info);
-	build_vcpu_migration_info(ME_slotID, domME, &vcpu_info);
-
-	/* Switch to idle domain address space */
-	switch_mm(NULL, idle_domain[smp_processor_id()]->vcpu[0]);
 
 	/* Copy structures to buffer */
-	paddr = op->paddr;
-
-	memcpy((void *) __lva(paddr), &dom_info, sizeof(dom_info));
-	paddr += sizeof(dom_info);
-	memcpy((void *) __lva(paddr), &vcpu_info, sizeof(vcpu_info));
-	paddr += sizeof(vcpu_info);
-
-	dmb();
-
-	/* Switch back to dom0 address space before updating size pointer! */
-	switch_mm(idle_domain[smp_processor_id()]->vcpu[0], NULL);
+	memcpy((void *) (__lva(op->paddr) - HYPERVISOR_SIZE), &dom_info, sizeof(dom_info));
 
 	/* Update op->size with valid data size */
-	*((unsigned int *) op->p_val2) = sizeof(dom_info) + sizeof(vcpu_info);
+	*((unsigned int *) op->p_val2) = sizeof(dom_info);
 
 	return 0;
 }
-
-/*
- * Get the info to know if the ME is realtime or not (used after migrating).
- */
-bool is_me_realtime(void)
-{
-	return dom_info.dom_desc.realtime;
-}
-
 
 /*------------------------------------------------------------------------------
 restore_domain_migration_info
@@ -284,7 +226,7 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 	struct start_info *si;
 	int i;
 
-	DBG("%s\n", __FUNCTION__);
+	DBG("%s\n", __func__);
 
 	memcpy(me->evtchn, mig_info->evtchn, sizeof(me->evtchn));
 
@@ -334,65 +276,48 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 	si->printch = printch;
 
 	/* Re-init the startinfo_start address */
-	me->arch.vstartinfo_start = vstartinfo_start;
+	me->vstartinfo_start = vstartinfo_start;
 
 	me->pause_count = mig_info->pause_count;
 
-	dmb();
-}
+	me->processor = mig_info->processor;
 
-static void restore_vcpu_migration_info(unsigned int ME_slotID, struct domain *me, struct vcpu_migration_info *mig_info)
-{
-	DBG("%s\n", __FUNCTION__);
-
-	me->vcpu[0]->processor = mig_info->processor;
-
-	me->vcpu[0]->need_periodic_timer = mig_info->need_periodic_timer;
+	me->need_periodic_timer = mig_info->need_periodic_timer;
 
 	/* Pause */
-	me->vcpu[0]->pause_flags = mig_info->pause_flags;
+	me->pause_flags = mig_info->pause_flags;
 
-	memcpy(&(me->vcpu[0]->pause_count), &(mig_info->pause_count), sizeof(me->vcpu[0]->pause_count));
+	memcpy(&(me->pause_count), &(mig_info->pause_count), sizeof(me->pause_count));
+
 	/* VIRQ mapping */
-	memcpy(me->vcpu[0]->virq_to_evtchn, mig_info->virq_to_evtchn, sizeof((me->vcpu[0]->virq_to_evtchn)));
+	memcpy(me->virq_to_evtchn, mig_info->virq_to_evtchn, sizeof((me->virq_to_evtchn)));
 
-	/* Arch */
-	memcpy(&(me->vcpu[0]->arch), &(mig_info->arch), sizeof(me->vcpu[0]->arch));
+	/* Arch & address space */
+	me->arch = mig_info->arch;
+	me->addrspace = mig_info->addrspace;
 
 	/* Internal fields of vcpu_info_t structure */
-	me->vcpu[0]->vcpu_info->evtchn_upcall_pending = mig_info->evtchn_upcall_pending;
+	/* Must be the first field of this structure (see exception.S) */
 
-	memcpy(&(me->vcpu[0]->vcpu_info->arch), &(mig_info->arch_info), sizeof(me->vcpu[0]->vcpu_info->arch));
-	memcpy(&(me->vcpu[0]->vcpu_info->time), &(mig_info->time), sizeof(me->vcpu[0]->vcpu_info->time));
-
-	dmb();
+	me->shared_info->evtchn_upcall_pending = mig_info->evtchn_upcall_pending;
+	me->shared_info->version = mig_info->version;
+	me->shared_info->tsc_timestamp = mig_info->tsc_timestamp;
+	me->shared_info->tsc_prev = mig_info->tsc_prev;
 }
+
 
 /**
  * Write the migration info structures.
  */
 int write_migration_structures(soo_hyp_t *op) {
-	unsigned long paddr;
 	uint32_t crc32;
 
 	crc32 = *((uint32_t *) op->p_val1);
 
-	/* Switch to idle domain address space */
-	switch_mm(NULL, idle_domain[smp_processor_id()]->vcpu[0]);
-
 	/* Get the migration info structures */
-	paddr = op->paddr;
-	memcpy(&dom_info, (void *) __lva(paddr), sizeof(dom_info));
+	memcpy(&dom_info, (void *) (__lva(op->paddr) - HYPERVISOR_SIZE), sizeof(dom_info));
 
 	dom_info.dom_desc.u.ME.crc32 = crc32;
-
-	paddr += sizeof(dom_info);
-	memcpy(&vcpu_info, (void *) __lva(paddr), sizeof(vcpu_info));
-
-	dmb();
-
-	/* Switch back to dom0 address space */
-	switch_mm(idle_domain[smp_processor_id()]->vcpu[0], NULL);
 
 	return 0;
 }
@@ -406,13 +331,16 @@ int inject_me(soo_hyp_t *op)
 {
 	int rc = 0;
 	unsigned int slotID;
-	dtb_feat_t dtb_feat;
 	size_t fdt_size;
 	void *fdt_vaddr;
 	int dom_size;
-	struct domain *domME;
+	struct domain *domME, *__current;
+	addrspace_t prev_addrspace;
+	unsigned long flags;
 
 	DBG("%s: Preparing ME injection, source image = %lx\n", __func__, op->vaddr);
+
+	local_irq_save(flags);
 
 	/* op->vaddr: vaddr of itb */
 
@@ -422,6 +350,7 @@ int inject_me(soo_hyp_t *op)
 		printk("### %s: wrong device tree.\n", __func__);
 		BUG();
 	}
+
 	dom_size = fdt_getprop_u32_default(fdt_vaddr, "/ME", "domain-size", 0);
 	if (dom_size < 0) {
 		printk("### %s: wrong domain-size prop/value.\n", __func__);
@@ -435,7 +364,7 @@ int inject_me(soo_hyp_t *op)
 
 	/* Create a domain context including the ME descriptor before the ME gets injected. */
 
-	domME = domain_create(slotID, false, true);
+	domME = domain_create(slotID, ME_CPU);
 	if (!domME)
 		panic("Error creating the ME");
 
@@ -451,12 +380,17 @@ int inject_me(soo_hyp_t *op)
 	domME->shared_info->dom_desc.u.ME.pfn = phys_to_pfn(memslot[slotID].base_paddr);
 
 	/* Warning ! At the beginning of loadME(), a memory context switch is performed to access the AVZ system page table. */
-	loadME(slotID, (unsigned char *) op->vaddr, &dtb_feat);
+	__current = current;
 
-	DBG("ME realtime feature (0 = non-realtime, 1 = realtime): %d\n", dtb_feat.realtime);
+	/* Pick the current pgtable from the agency and copy the PTEs corresponding to the user space region. */
+	get_current_addrspace(&prev_addrspace);
 
-	/* Finalize the domain creation. */
-	finalize_domain_create(domains[slotID], dtb_feat.realtime);
+	switch_mm(idle_domain[smp_processor_id()], &idle_domain[smp_processor_id()]->addrspace);
+
+	/* Clear the RAM allocated to this ME */
+	memset((void *) __lva(memslot[slotID].base_paddr), 0, memslot[slotID].size);
+
+	loadME(slotID, (unsigned char *) op->vaddr, &prev_addrspace);
 
 	if (construct_ME(domains[slotID]) != 0)
 		panic("Could not set up ME guest OS\n");
@@ -464,11 +398,13 @@ int inject_me(soo_hyp_t *op)
 	domains[slotID]->shared_info->dom_desc.u.ME.crc32 = xcrc32((void *) __lva(memslot[slotID].base_paddr), memslot[slotID].size, 0xffffffff);
 
 	/* Switch back to the agency address space */
-	switch_mm(idle_domain[smp_processor_id()]->vcpu[0], NULL);
+	switch_mm(__current, &prev_addrspace);
 
 out:
 	/* Prepare to return the slotID to the caller. */
 	*((unsigned int *) op->p_val1) = slotID;
+
+	local_irq_restore(flags);
 
 	return rc;
 }
@@ -480,9 +416,4 @@ out:
 void mig_restore_domain_migration_info(unsigned int ME_slotID, struct domain *me)
 {
 	return restore_domain_migration_info(ME_slotID, me, &dom_info);
-}
-
-void mig_restore_vcpu_migration_info(unsigned int ME_slotID, struct domain *me)
-{
-	return restore_vcpu_migration_info(ME_slotID, me, &vcpu_info);
 }

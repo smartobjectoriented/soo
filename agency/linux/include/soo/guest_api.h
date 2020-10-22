@@ -33,7 +33,7 @@
 #undef DBG
 #define DBG(fmt, ...) \
     do { \
-        lprintk("(Dom#%d): %s:%i > "fmt, ME_domID(), __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+        lprintk("(Dom#%d): %s:%i > "fmt, smp_processor_id(), __FUNCTION__, __LINE__, ##__VA_ARGS__); \
     } while(0)
 
 #define DBG0(...) DBG("%s", ##__VA_ARGS__)

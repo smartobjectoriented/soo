@@ -8,18 +8,18 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#ifndef __ASM_ARM_ATOMIC_H
-#define __ASM_ARM_ATOMIC_H
+#ifndef ASM_ATOMIC_H
+#define ASM_ATOMIC_H
 
-#include <linux/compiler.h>
-#include <asm/system.h>
-#include <asm/bug.h>
+#include <common.h>
+#include <compiler.h>
+
+#include <asm/processor.h>
 
 typedef struct { volatile int counter; } atomic_t;
 
 #define ATOMIC_INIT(i)	{ (i) }
 
-#ifdef __KERNEL__
 #define _atomic_read(v) ((v).counter)
 #define atomic_read(v)	((v)->counter)
 
@@ -116,7 +116,6 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 /*
  * Atomic compare and exchange.
  */
-#define __HAVE_ARCH_CMPXCHG     1
 
 static inline unsigned long wrong_size_cmpxchg(volatile void *ptr) { BUG(); return 0; }
 
@@ -153,6 +152,50 @@ static inline unsigned long __cmpxchg(volatile void *ptr,
 		 (unsigned long)_n_, sizeof(*(ptr)));			\
 })
 
+static void __bad_xchg(volatile void *ptr, int size) {
+	printk("!! __bad_xchg called! Failure...\n");
+	while (1);
+}
+
+static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size)
+{
+	unsigned long ret;
+	unsigned int tmp;
+
+	switch (size) {
+
+	case 1:
+		asm volatile("@	__xchg1\n"
+		"1:	ldrexb	%0, [%3]\n"
+		"	strexb	%1, %2, [%3]\n"
+		"	teq	%1, #0\n"
+		"	bne	1b"
+			: "=&r" (ret), "=&r" (tmp)
+			: "r" (x), "r" (ptr)
+			: "memory", "cc");
+		break;
+
+case 4:
+		asm volatile("@	__xchg4\n"
+		"1:	ldrex	%0, [%3]\n"
+		"	strex	%1, %2, [%3]\n"
+		"	teq	%1, #0\n"
+		"	bne	1b"
+			: "=&r" (ret), "=&r" (tmp)
+			: "r" (x), "r" (ptr)
+			: "memory", "cc");
+		break;
+
+	default:
+		__bad_xchg(ptr, size), ret = 0;
+		break;
+	}
+
+	return ret;
+}
+
+#define xchg(ptr,x) \
+	((__typeof__(*(ptr)))__xchg((unsigned long)(x),(ptr),sizeof(*(ptr))))
 
 
 #define atomic_xchg(v, new) (xchg(&((v)->counter), new))
@@ -181,16 +224,10 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 
 #define atomic_add_negative(i,v) (atomic_add_return(i, v) < 0)
 
-/* Atomic operations are already serializing on ARM */
-#define smp_mb__before_atomic_dec()	barrier()
-#define smp_mb__after_atomic_dec()	barrier()
-#define smp_mb__before_atomic_inc()	barrier()
-#define smp_mb__after_atomic_inc()	barrier()
-
-#include <asm-generic/atomic.h>
+#include <asm/atomic-generic.h>
 
 # define atomic_compareandswap(old, new, v)	\
-	((atomic_t){ atomic_cmpxchg(v, atomic_read(&old), atomic_read(&new)) })
+	((atomic_t) { atomic_cmpxchg(v, atomic_read(&old), atomic_read(&new)) })
 
-#endif /* __KERNEL__ */
-#endif /* __ASM_ARM_ATOMIC_H */
+
+#endif /* ASM_ATOMIC_H */

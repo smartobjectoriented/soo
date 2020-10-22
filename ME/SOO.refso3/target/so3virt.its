@@ -19,13 +19,10 @@
 /dts-v1/;
 
 / {
-	description = "SO3 image containing so3 kernel and FDT blob";
-	#address-cells = <0>;
-	#size-cells = <0>;
-	
+	description = "SO3 image containing so3 kernel and FDT blob (without rootfs)";
+
 	images {
-		#address-cells = <0>;
-		#size-cells = <0>;
+	
 		kernel {
 			/*reg = <>; Make dtc happy ;-) */
 			description = "SO3 OS kernel";
@@ -34,9 +31,6 @@
 			arch = "arm";
 			os = "linux";
 			compression = "none";
-			
-			#address-cells = <0>;
-			#size-cells = <0>;
 			
 			hash {
 				algo = "crc32";
@@ -60,7 +54,6 @@
 			description = "SO3 kernel image including device tree";
 			kernel = "kernel";
 			fdt = "fdt";
-		    ramdisk = "ramdisk";
 		};
 	};
 };

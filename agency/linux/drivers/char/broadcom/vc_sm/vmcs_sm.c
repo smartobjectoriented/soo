@@ -1179,7 +1179,7 @@ static vm_fault_t vcsm_vma_fault(struct vm_fault *vmf)
 	struct sm_resource_t *resource = map->resource;
 	pgoff_t page_offset;
 	unsigned long pfn;
-	int ret = 0;
+	vm_fault_t ret;
 
 	/* Lock the resource if necessary. */
 	if (!resource->lock_count) {
@@ -1228,26 +1228,10 @@ static vm_fault_t vcsm_vma_fault(struct vm_fault *vmf)
 
 	/* Finally, remap it */
 	ret = vmf_insert_pfn(vmf->vma, (unsigned long)vmf->address, pfn);
-
-	switch (ret) {
-	case 0:
-	case -ERESTARTSYS:
-	/*
-	 * EBUSY is ok: this just means that another thread
-	 * already did the job.
-	 */
-	case -EBUSY:
-		return VM_FAULT_NOPAGE;
-	case -ENOMEM:
-	case -EAGAIN:
+	if (ret != VM_FAULT_NOPAGE)
 		pr_err("[%s]: failed to map page pfn:%lx virt:%lx ret:%d\n", __func__,
 			pfn, (unsigned long)vmf->address, ret);
-		return VM_FAULT_OOM;
-	default:
-		pr_err("[%s]: failed to map page pfn:%lx virt:%lx ret:%d\n", __func__,
-			pfn, (unsigned long)vmf->address, ret);
-		return VM_FAULT_SIGBUS;
-	}
+	return ret;
 }
 
 static const struct vm_operations_struct vcsm_vm_ops = {
@@ -3193,7 +3177,6 @@ static void vc_sm_connected_init(void)
 {
 	int ret;
 	VCHI_INSTANCE_T vchi_instance;
-	VCHI_CONNECTION_T *vchi_connection = NULL;
 
 	pr_info("[%s]: start\n", __func__);
 
@@ -3210,7 +3193,7 @@ static void vc_sm_connected_init(void)
 		goto err_free_mem;
 	}
 
-	ret = vchi_connect(NULL, 0, vchi_instance);
+	ret = vchi_connect(vchi_instance);
 	if (ret != 0) {
 		pr_err("[%s]: failed to connect VCHI instance (ret=%d)\n",
 			__func__, ret);
@@ -3221,7 +3204,7 @@ static void vc_sm_connected_init(void)
 
 	/* Initialize an instance of the shared memory service. */
 	sm_state->sm_handle =
-	    vc_vchi_sm_init(vchi_instance, &vchi_connection, 1);
+	    vc_vchi_sm_init(vchi_instance);
 	if (sm_state->sm_handle == NULL) {
 		pr_err("[%s]: failed to initialize shared memory service\n",
 			__func__);

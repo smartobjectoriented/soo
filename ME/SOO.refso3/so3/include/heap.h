@@ -64,6 +64,7 @@ struct mem_chunk {
 };
 typedef struct mem_chunk mem_chunk_t;
 
+extern uint32_t heap_base_vaddr;
 
 #ifndef TRACKING
 void *malloc(size_t size);

@@ -114,7 +114,7 @@ void dump_evtchn_pending(void) {
 	volatile shared_info_t *s = avz_shared_info;
 
 #if 0
-	lprintk("   Evtchn info in Agency/ME domain %d\n\n", ME_domID());
+	lprintk("   Evtchn info in Agency CPU %d\n\n", smp_processor_id());
 	for (i = 0; i < NR_EVTCHN; i++) {
 
 		lprintk("e:%d m:%d p:%d  ", i, test_bit(i, per_cpu(evtchn_info, smp_processor_id()).evtchn_mask),
@@ -167,7 +167,6 @@ asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
 	unsigned int   evtchn;
 	int            l1, virq;
 	volatile shared_info_t *s = avz_shared_info;
-	volatile vcpu_info_t *vcpu_info = &s->vcpu_info;
 
 	int loopmax = 0;
 	int at_least_one_processed;
@@ -192,7 +191,7 @@ asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
 
 retry:
 
-	l1 = xchg(&vcpu_info->evtchn_upcall_pending, 0);
+	l1 = xchg(&s->evtchn_upcall_pending, 0);
 
 	evtchn = find_first_bit((void *) &s->evtchn_pending, NR_EVTCHN);
 
@@ -206,8 +205,8 @@ retry:
 			loopmax++;
 
 			if (loopmax > 500)   /* Probably something wrong ;-) */
-				lprintk("%s: Warning trying to process evtchn: %d IRQ: %d for quite a long time (dom ID: %d) on CPU %d / masked: %d...\n",
-						__func__, evtchn, per_cpu(evtchn_info, smp_processor_id()).evtchn_to_virq[evtchn], ME_domID(), smp_processor_id(), evtchn_is_masked(evtchn));
+				lprintk("%s: Warning trying to process evtchn: %d IRQ: %d for quite a long time on CPU %d / masked: %d...\n",
+						__func__, evtchn, per_cpu(evtchn_info, smp_processor_id()).evtchn_to_virq[evtchn], smp_processor_id(), evtchn_is_masked(evtchn));
 
 			if (!evtchn_is_masked(evtchn)) {
 
@@ -227,7 +226,7 @@ retry:
 
 	} while (at_least_one_processed);
 
-	if (vcpu_info->evtchn_upcall_pending)
+	if (s->evtchn_upcall_pending)
 		goto retry;
 
 	per_cpu(in_upcall_progress, smp_processor_id()) = false;

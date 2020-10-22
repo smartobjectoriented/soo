@@ -114,7 +114,7 @@ static int tcp_server_task_fn(void *arg) {
 			}
 
 			DBG("Size: %d\n", len);
-			sl_plugin_tcp_rx(buf, len);
+			plugin_tcp_rx(buf, len);
 		}
 	}
 

@@ -13,15 +13,15 @@
  * Author: Will Deacon <will.deacon@arm.com>
  */
 
-#include <avz/init.h>
-#include <avz/errno.h>
-#include <avz/spinlock.h>
-#include <avz/delay.h>
-#include <avz/smp.h>
-#include <avz/psci.h>
-#include <avz/arm-smccc.h>
+#include <errno.h>
+#include <spinlock.h>
+#include <smp.h>
+#include <psci.h>
+#include <arm-smccc.h>
+#include <memory.h>
 
-#include <asm/opcodes.h>
+#include <asm/processor.h>
+#include <asm/mmu.h>
 
 /*
  * psci_smp assumes that the following is true about PSCI:
@@ -89,6 +89,7 @@ int cpu_off(unsigned long cpuid)
 	return psci_to_errno(ret);
 }
 #endif
+
 /* Switch on a CPU */
 static int cpu_on(unsigned long cpuid, unsigned long entry_point)
 {
@@ -99,14 +100,12 @@ static int cpu_on(unsigned long cpuid, unsigned long entry_point)
 	return psci_to_errno(ret);;
 }
 
-int psci_smp_boot_secondary(unsigned int cpu)
+void psci_smp_boot_secondary(unsigned int cpu)
 {
 	printk("%s: booting CPU: %d\n", __func__, cpu);
 
 	spin_lock(&cpu_lock);
 	cpu_on(cpu, (u32) virt_to_phys(secondary_startup));
 	spin_unlock(&cpu_lock);
-
-	return 0;
 }
 

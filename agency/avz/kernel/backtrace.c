@@ -16,18 +16,19 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/percpu.h>
-#include <avz/lib.h>
-#include <avz/console.h>
-#include <avz/sched.h>
+#include <config.h>
+#include <percpu.h>
+#include <lib.h>
+#include <console.h>
+#include <sched.h>
+#include <domain.h>
 
-#include <avz/domain.h>
+#include <asm/processor.h>
+#include <asm/backtrace.h>
 
-#include <asm/debugger.h>
-#include <asm/ptrace.h>
-
+void show_registers(struct cpu_user_regs *regs);
 extern void __backtrace(void);
+
 void show_backtrace(ulong sp, ulong lr, ulong pc)
 {
     __backtrace();
@@ -77,7 +78,7 @@ void show_registers(struct cpu_user_regs *regs)
 		interrupts_enabled(regs) ? "n" : "ff",
 		fast_interrupts_enabled(regs) ? "n" : "ff",
 		processor_modes[processor_mode(regs)],
-		thumb_mode(regs) ? " (T)" : "");
+		"ARM");
 
 	{
 		unsigned int ctrl, transbase, dac;
@@ -91,6 +92,10 @@ void show_registers(struct cpu_user_regs *regs)
 	}
 }
 
+void dump_stack(void)
+{
+	__backtrace();
+}
 
 void dump_execution_state(void)
 {
@@ -137,21 +142,34 @@ void dump_execution_state(void)
     show_registers(&regs);
 }
 
-void vcpu_show_execution_state(struct vcpu *v)
+
+void dump_all_execution_state(void)
+{
+    ulong sp;
+    ulong lr;
+
+    dump_execution_state();
+    sp = (ulong)__builtin_frame_address(0);
+    lr = (ulong)__builtin_return_address(0);
+
+    show_backtrace(sp, lr, lr);
+}
+
+void vcpu_show_execution_state(struct domain *d)
 {
     printk("*** Dumping Dom%d state: ***\n",
-           v->domain->domain_id);
+           d->domain_id);
 
-    if ( v == current )
+    if (d == current)
     {
     	dump_execution_state();
         return;
     }
 
-    vcpu_pause(v); /* acceptably dangerous */
+    vcpu_pause(d); /* acceptably dangerous */
 
     dump_execution_state();
 
-    vcpu_unpause(v);
+    vcpu_unpause(d);
 }
 

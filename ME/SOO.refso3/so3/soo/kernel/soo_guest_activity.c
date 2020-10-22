@@ -350,10 +350,6 @@ void set_ME_state(ME_state_t state)
 	avz_shared_info->dom_desc.u.ME.state = state;
 }
 
-void set_ME_type(ME_type_t ME_type) {
-	avz_shared_info->dom_desc.u.ME.type = ME_type;
-}
-
 void perform_task(dc_event_t dc_event)
 {
 	soo_domcall_arg_t args;
@@ -578,10 +574,6 @@ int agency_ctl(agency_ctl_args_t *agency_ctl_args)
 	}
 
 	return 0;
-}
-
-bool me_realtime(void) {
-	return avz_shared_info->dom_desc.realtime;
 }
 
 ME_desc_t *get_ME_desc(void)

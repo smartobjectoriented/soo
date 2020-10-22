@@ -47,15 +47,6 @@ extern unsigned long __per_cpu_offset[NR_CPUS];
 #define __get_cpu_var(var) per_cpu(var, smp_processor_id())
 #define __raw_get_cpu_var(var) per_cpu(var, raw_smp_processor_id())
 
-/* A macro to avoid #include hell... */
-#define percpu_modcopy(pcpudst, src, size)			\
-do {								\
-	unsigned int __i;					\
-	for_each_possible_cpu(__i)				\
-		memcpy((pcpudst)+__per_cpu_offset[__i],		\
-		       (src), (size));				\
-} while (0)
-
 
 /* Separate out the type, so (int[3], foo) works. */
 #define __DEFINE_PER_CPU(type, name, suffix)                      \

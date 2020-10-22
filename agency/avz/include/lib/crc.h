@@ -8,7 +8,7 @@
 #ifndef _UBOOT_CRC_H
 #define _UBOOT_CRC_H
 
-#include <avz/types.h>
+#include <types.h>
 
 /* lib/crc8.c */
 unsigned int crc8(unsigned int crc_start, const unsigned char *vptr, int len);

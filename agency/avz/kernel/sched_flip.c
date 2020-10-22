@@ -20,15 +20,14 @@
 #define DEBUG
 #endif
 
-#include <avz/lib.h>
-#include <avz/sched.h>
-#include <avz/sched-if.h>
-#include <avz/timer.h>
-#include <avz/softirq.h>
-#include <avz/time.h>
-#include <avz/errno.h>
-
-#include <asm/config.h>
+#include <config.h>
+#include <lib.h>
+#include <sched.h>
+#include <sched-if.h>
+#include <timer.h>
+#include <softirq.h>
+#include <time.h>
+#include <errno.h>
 
 #include <soo/soo.h>
 
@@ -39,7 +38,7 @@ DEFINE_SPINLOCK(schedflip_lock);
 
 extern spinlock_t softirq_pending_lock;
 
-static struct vcpu *domains_runnable[MAX_DOMAINS];
+static struct domain *domains_runnable[MAX_DOMAINS];
 struct scheduler sched_flip;
 
 /*
@@ -68,7 +67,7 @@ struct task_slice flip_do_schedule(void)
 	unsigned int loopmax = MAX_DOMAINS;
 	struct schedule_data *sd;
 
-	ret.task = NULL;
+	ret.d = NULL;
 
 	sd = &sched_flip.sched_data;
 
@@ -76,14 +75,13 @@ struct task_slice flip_do_schedule(void)
 
 	do {
 		sd->current_dom = (sd->current_dom + 1) % MAX_DOMAINS;
-		ret.task = domains_runnable[sd->current_dom];
+		ret.d = domains_runnable[sd->current_dom];
 
 		loopmax--;
-	} while ((ret.task == NULL) && loopmax);
+	} while ((ret.d == NULL) && loopmax);
 
-	if (ret.task == NULL)
-		ret.task = idle_domain[smp_processor_id()]->vcpu[0];
-
+	if (ret.d == NULL)
+		ret.d = idle_domain[smp_processor_id()];
 
 	if (flip_quant_runnable() <= 1)
 		ret.time = 0;  /* Keep the schedule_softirq timer disabled */
@@ -100,28 +98,28 @@ struct task_slice flip_do_schedule(void)
 /*
  * schedule_lock is acquired.
  */
-static void flip_sleep(struct vcpu *v)
+static void flip_sleep(struct domain *d)
 {
-	DBG("flip_sleep was called, domain-id %i\n", v->domain->domain_id);
+	DBG("flip_sleep was called, domain-id %i\n", d->domain_id);
 
-	if (is_idle_vcpu(v))
+	if (is_idle_domain(d))
 		return;
 
-	domains_runnable[v->domain->domain_id] = NULL;
+	domains_runnable[d->domain_id] = NULL;
 
-	if (sched_flip.sched_data.current_dom == v->domain->domain_id)
-		cpu_raise_softirq(v->processor, SCHEDULE_SOFTIRQ);
+	if (sched_flip.sched_data.current_dom == d->domain_id)
+		cpu_raise_softirq(d->processor, SCHEDULE_SOFTIRQ);
 
 }
 
 
-static void flip_wake(struct vcpu *v)
+static void flip_wake(struct domain *d)
 {
-	DBG("flip_wake was called, domain-id %i\n", v->domain->domain_id);
+	DBG("flip_wake was called, domain-id %i\n", v->domain_id);
 
-	domains_runnable[v->domain->domain_id] = v;
+	domains_runnable[d->domain_id] = d;
 
-	cpu_raise_softirq(v->processor, SCHEDULE_SOFTIRQ);
+	cpu_raise_softirq(d->processor, SCHEDULE_SOFTIRQ);
 
 	/* We do not manage domain priorities, so we do not invoke schedule() at this time */
 
@@ -135,7 +133,6 @@ static void s_timer_fn(void *unused)
 
 
 void sched_flip_init(void) {
-
 	int i;
 
 	for (i = 0; i < MAX_DOMAINS; i++)
@@ -148,9 +145,9 @@ void sched_flip_init(void) {
 	/*
 	 * The following timer is required to perform activation of the scheduler.
 	 * Warning !! The data argument is NULL at this stage, because this timer is not
-	 * related to a domain directly. However, he is bound to the ME standard CPU (periodic timer).
+	 * related to a domain directly. However, he is bound to the ME_CPU (periodic timer).
 	 */
-	init_timer(&sched_flip.sched_data.s_timer, s_timer_fn, NULL, ME_STANDARD_CPU);
+	reset_timer(&sched_flip.sched_data.s_timer, s_timer_fn, NULL, ME_CPU);
 
 }
 

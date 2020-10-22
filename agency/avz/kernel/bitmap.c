@@ -20,11 +20,11 @@
 #define DEBUG
 #endif
 
-#include <avz/config.h>
-#include <avz/types.h>
-#include <avz/errno.h>
-#include <avz/bitmap.h>
-#include <avz/bitops.h>
+#include <config.h>
+#include <types.h>
+#include <errno.h>
+#include <bitmap.h>
+#include <bitops.h>
 #include <asm/byteorder.h>
 
 /*

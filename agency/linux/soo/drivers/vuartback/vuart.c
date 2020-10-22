@@ -94,13 +94,6 @@ void del_console(struct vbus_device *vdev_console) {
 	BUG();
 }
 
-
-static void print_guest(char ch) {
-
-	/* lprintch() goes directly to the UART through avz. */
-	lprintch(ch);
-}
-
 void process_response(struct vbus_device *vdev) {
 	vuart_t *vuart = to_vuart(vdev);
 	vuart_request_t *ring_req;
@@ -125,7 +118,7 @@ void process_response(struct vbus_device *vdev) {
 			notify_remote_via_virq(vuart->irq);
 
 		} else
-			print_guest(ring_req->c);
+			lprintch(ring_req->c);
 	}
 }
 

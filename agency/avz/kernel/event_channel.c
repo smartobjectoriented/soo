@@ -16,18 +16,16 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/init.h>
-#include <avz/lib.h>
-#include <avz/errno.h>
-#include <avz/sched.h>
-#include <avz/event.h>
-#include <avz/irq.h>
-#include <avz/sched-if.h>
+#include <config.h>
+#include <lib.h>
+#include <errno.h>
+#include <sched.h>
+#include <event.h>
+#include <sched-if.h>
+#include <keyhandler.h>
 
-#include <avz/keyhandler.h>
+#include <device/irq.h>
 
-#include <asm/current.h>
 #include <asm/cacheflush.h>
 
 #include <soo/soo.h>
@@ -53,7 +51,7 @@
 					BUG();                                                   \
 		} while ( 0 )
 
-static int evtchn_set_pending(struct vcpu *v, int evtchn);
+static int evtchn_set_pending(struct domain *d, int evtchn);
 
 int get_free_evtchn(struct domain *d) {
 	int i = 0;
@@ -74,7 +72,7 @@ static long evtchn_alloc_unbound(evtchn_alloc_unbound_t *alloc) {
 	long rc = 0;
 	struct domain *d;
 
-	d = ((alloc->dom == DOMID_SELF) ? current->domain : domains[alloc->dom]);
+	d = ((alloc->dom == DOMID_SELF) ? current : domains[alloc->dom]);
 
 	spin_lock(&d->event_lock);
 
@@ -102,13 +100,13 @@ static long evtchn_bind_interdomain(evtchn_bind_interdomain_t *bind) {
 	long rc = 0;
 	int valid = 0;
 
-	ld = current->domain;
+	ld = current;
 
 	rdom = bind->remote_dom;
 	revtchn = bind->remote_evtchn;
 
 	if (rdom == DOMID_SELF)
-		rdom = current->domain->domain_id;
+		rdom = current->domain_id;
 
 	rd = domains[rdom];
 
@@ -203,20 +201,16 @@ long evtchn_bind_existing_interdomain(struct domain *ld, struct domain *remote, 
 
 static long evtchn_bind_virq(evtchn_bind_virq_t *bind) {
 	struct evtchn *chn;
-	struct vcpu *v;
-	struct domain *d = current->domain;
+	struct domain *d = current;
 	int evtchn, virq = bind->virq;
 	long rc = 0;
 
-	if ((v = d->vcpu[0]) == NULL)
-		BUG();
-
-	if ((virq < 0) || (virq >= ARRAY_SIZE(v->virq_to_evtchn)))
+	if ((virq < 0) || (virq >= ARRAY_SIZE(d->virq_to_evtchn)))
 		BUG();
 
 	spin_lock(&d->event_lock);
 
-	if (v->virq_to_evtchn[virq] != 0)
+	if (d->virq_to_evtchn[virq] != 0)
 		BUG();
 
 	if ((evtchn = get_free_evtchn(d)) < 0)
@@ -226,7 +220,7 @@ static long evtchn_bind_virq(evtchn_bind_virq_t *bind) {
 	chn->state = ECS_VIRQ;
 	chn->virq = virq;
 
-	v->virq_to_evtchn[virq] = bind->evtchn = evtchn;
+	d->virq_to_evtchn[virq] = bind->evtchn = evtchn;
 
 	spin_unlock(&d->event_lock);
 
@@ -254,8 +248,8 @@ long __evtchn_close(struct domain *d1, int chn) {
 		break;
 
 	case ECS_VIRQ:
-		d1->vcpu[0]->virq_to_evtchn[chn1->virq] = 0;
-		spin_barrier_irq(&d1->vcpu[0]->virq_lock);
+		d1->virq_to_evtchn[chn1->virq] = 0;
+		spin_barrier_irq(&d1->virq_lock);
 		break;
 
 	case ECS_INTERDOMAIN:
@@ -265,9 +259,6 @@ long __evtchn_close(struct domain *d1, int chn) {
 			d2 = chn1->interdomain.remote_dom;
 
 			if (d2 != NULL) {
-				/* If we unlock d1 then we could lose d2. Must get a reference. */
-				if (unlikely(!get_domain(d2)))
-					BUG();
 
 				if (d1 < d2) {
 					spin_lock(&d2->event_lock);
@@ -307,7 +298,7 @@ long __evtchn_close(struct domain *d1, int chn) {
 	}
 
 	/* Clear pending event to avoid unexpected behavior on re-bind. */
-	clear_bit(chn, (unsigned long *)&shared_info(d1, evtchn_pending));
+	clear_bit(chn, (unsigned long *) &d1->shared_info->evtchn_pending);
 
 	/* Reset binding when the channel is freed. */
 	chn1->state = ECS_FREE;
@@ -317,8 +308,6 @@ long __evtchn_close(struct domain *d1, int chn) {
 	if (d2 != NULL) {
 		if (d1 != d2)
 			spin_unlock(&d2->event_lock);
-
-		put_domain(d2);
 	}
 
 	spin_unlock(&d1->event_lock);
@@ -327,13 +316,12 @@ long __evtchn_close(struct domain *d1, int chn) {
 }
 
 static long evtchn_close(evtchn_close_t *close) {
-	return __evtchn_close(current->domain, close->evtchn);
+	return __evtchn_close(current, close->evtchn);
 }
 
 int evtchn_send(struct domain *d, unsigned int levtchn) {
 	struct evtchn *lchn;
 	struct domain *ld = d, *rd;
-	struct vcpu *rvcpu;
 	int revtchn = 0, ret = 0;
 	
 	lchn = &ld->evtchn[levtchn];
@@ -358,9 +346,8 @@ int evtchn_send(struct domain *d, unsigned int levtchn) {
 	}
 	
 	revtchn = lchn->interdomain.remote_evtchn;
-	rvcpu = rd->vcpu[0];
 	
-	evtchn_set_pending(rvcpu, revtchn);
+	evtchn_set_pending(rd, revtchn);
 	spin_unlock(&ld->event_lock);
 	
 	if (ld != rd)
@@ -369,8 +356,7 @@ int evtchn_send(struct domain *d, unsigned int levtchn) {
 	return ret;
 }
 
-static int evtchn_set_pending(struct vcpu *v, int evtchn) {
-	struct domain *d = v->domain;
+static int evtchn_set_pending(struct domain *d, int evtchn) {
 
 	/*
 	 * The following bit operations must happen in strict order.
@@ -382,46 +368,45 @@ static int evtchn_set_pending(struct vcpu *v, int evtchn) {
 	 * Hence, we avoid to be overwritten by such a write.
 	 */
 
-	transaction_set_bit(evtchn, (unsigned long *) &shared_info(d, evtchn_pending));
+	transaction_set_bit(evtchn, (unsigned long *) &d->shared_info->evtchn_pending);
 
-	v->vcpu_info->evtchn_upcall_pending = 1;
+	d->shared_info->evtchn_upcall_pending = 1;
 
 	dmb();
 
-	if (smp_processor_id() != v->processor)
-		smp_send_event_check_cpu(v->processor);
+	if (smp_processor_id() != d->processor)
+		smp_trigger_event(d->processor);
 
 	return 0;
 }
 
-void send_guest_vcpu_virq(struct vcpu *v, int virq) {
+void send_guest_virq(struct domain *d, int virq) {
 	unsigned long flags;
 	int evtchn;
 	bool __already_locked = false;
 
-	spin_lock_irqsave(&v->virq_lock, flags);
-	evtchn = v->virq_to_evtchn[virq];
+	spin_lock_irqsave(&d->virq_lock, flags);
+	evtchn = d->virq_to_evtchn[virq];
 
 	if (unlikely(evtchn == 0))
 		goto out;
 
-	if (spin_is_locked(&v->sched->sched_data.schedule_lock))
+	if (spin_is_locked(&d->sched->sched_data.schedule_lock))
 		__already_locked = true;
 	else
-		spin_lock(&v->sched->sched_data.schedule_lock);
+		spin_lock(&d->sched->sched_data.schedule_lock);
 
+	spin_lock(&d->event_lock);
 
-	spin_lock(&v->domain->event_lock);
+	evtchn_set_pending(d, evtchn);
 
-	evtchn_set_pending(v, evtchn);
-
-	spin_unlock(&v->domain->event_lock);
+	spin_unlock(&d->event_lock);
 
 	if (!__already_locked)
-		spin_unlock(&v->sched->sched_data.schedule_lock);
+		spin_unlock(&d->sched->sched_data.schedule_lock);
 
 	out:
-	spin_unlock_irqrestore(&v->virq_lock, flags);
+	spin_unlock_irqrestore(&d->virq_lock, flags);
 }
 
 static long evtchn_status(evtchn_status_t *status) {
@@ -447,8 +432,7 @@ static long evtchn_status(evtchn_status_t *status) {
 
 	case ECS_INTERDOMAIN:
 		status->status = EVTCHNSTAT_interdomain;
-		status->u.interdomain.dom =
-				chn->interdomain.remote_dom->domain_id;
+		status->u.interdomain.dom = chn->interdomain.remote_dom->domain_id;
 		status->u.interdomain.evtchn = chn->interdomain.remote_evtchn;
 		break;
 
@@ -497,7 +481,7 @@ long do_event_channel_op(int cmd, void *args) {
 
 		memcpy(&bind_interdomain, args, sizeof(struct evtchn_bind_interdomain));
 
-		rc = evtchn_bind_existing_interdomain(current->domain,
+		rc = evtchn_bind_existing_interdomain(current,
 				domains[bind_interdomain.remote_dom],
 				bind_interdomain.local_evtchn,
 				bind_interdomain.remote_evtchn);
@@ -533,7 +517,7 @@ long do_event_channel_op(int cmd, void *args) {
 
 		memcpy(&send, args, sizeof(struct evtchn_send));
 
-		rc = evtchn_send(current->domain, send.evtchn);
+		rc = evtchn_send(current, send.evtchn);
 		break;
 	}
 
@@ -598,7 +582,7 @@ static void domain_dump_evtchn_info(struct domain *d) {
 
 		printk("  Dom: %d  chn: %d pending:%d: state: %d",
 				d->domain_id, i,
-				!!test_bit(i, (unsigned long *) &shared_info(d, evtchn_pending)),
+				!!test_bit(i, (unsigned long *) &d->shared_info->evtchn_pending),
 				chn->state);
 
 		switch (chn->state) {
@@ -647,9 +631,7 @@ static void dump_evtchn_info(unsigned char key) {
 static struct keyhandler dump_evtchn_info_keyhandler = { .diagnostic = 1,
 		.u.fn = dump_evtchn_info, .desc = "dump evtchn info" };
 
-static int __init dump_evtchn_info_key_init(void) {
+void event_channel_init(void) {
 	register_keyhandler('e', &dump_evtchn_info_keyhandler);
-	return 0;
 }
-__initcall(dump_evtchn_info_key_init);
 

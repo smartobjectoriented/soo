@@ -23,20 +23,15 @@
 #include <soo/uapi/debug.h>
 
 #define N_BANDWIDTH_SLOTS	8
-#define N_BANDWIDTH_DELAYS	4000
 
-int ll_bandwidth_collect_delay(uint32_t index);
-void ll_bandwidth_collect_delay_show(uint32_t index, size_t size);
-
-int rtdm_ll_bandwidth_collect_delay(uint32_t index);
-void rtdm_ll_bandwidth_collect_delay_show(uint32_t index, size_t size);
+void ll_bandwidth_collect_delay(uint32_t index);
+void ll_bandwidth_show(uint32_t index, size_t size);
 
 void ll_bandwidth_reset_delays(uint32_t index);
 
-void ll_bandwidth_init(void);
 
 /* NEON function */
 
-void ll_bandwidth_compute(s64 *delays, size_t size, uint32_t *div, uint32_t *result);
+void ll_bandwidth_compute(s64 delay, size_t size, uint32_t *div, uint32_t *result);
 
 #endif /* BANDWITDH_H */

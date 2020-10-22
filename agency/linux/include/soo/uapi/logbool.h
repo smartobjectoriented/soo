@@ -19,7 +19,7 @@
 #ifndef LOGBOOL_H
 #define LOGBOOL_H
 
-#include <soo/uapi/avz.h>
+#include <stdbool.h>
 
 /* Number of (key, value) pair in the hashtable. The number is taken from the code example. */
 #define LOGBOOL_HT_SIZE 	4096

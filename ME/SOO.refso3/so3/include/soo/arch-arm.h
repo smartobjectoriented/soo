@@ -20,21 +20,12 @@
 #define __ARCH_ARM_H__
 #include <asm/types.h>
 
-#ifndef __ASSEMBLY__
-
-#include <asm/memory.h>
-
-#endif
-
-
 /*
  * Virtual addresses beyond this are not modifiable by guest OSes. The
  * machine->physical mapping table starts at this address, read-only.
  */
 
 /* Actually, the following constants are not relevant since machine_to_phys_mapping is calculated in hypervisor/memory.c */
-
-
 
 #ifndef __ASSEMBLY__
 extern unsigned long *machine_phys_mapping;
@@ -135,9 +126,6 @@ struct vcpu_guest_context {
 
 
 typedef struct vcpu_guest_context vcpu_guest_context_t;
-
-struct arch_vcpu_info {
-};
 
 #endif
 

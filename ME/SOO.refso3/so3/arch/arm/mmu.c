@@ -33,6 +33,12 @@
 
 #include <generated/autoconf.h>
 
+uint32_t *__current_pgtable = NULL;
+
+uint32_t *current_pgtable(void) {
+	return __current_pgtable;
+}
+
 #ifdef CONFIG_SO3VIRT
 #include <soo/avz.h>
 #include <soo/console.h>
@@ -42,8 +48,7 @@ unsigned int get_domain(void)
 {
 	unsigned int domain;
 
-	asm(
-	"mrc	p15, 0, %0, c3, c0	@ get domain" : "=r" (domain) :);
+	asm("mrc	p15, 0, %0, c3, c0	@ get domain" : "=r" (domain) :);
 
 	return domain;
 }
@@ -56,7 +61,7 @@ void set_domain(uint32_t val)
 }
 
 /* Reference to the system 1st-level page table */
-static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long end, unsigned long pfn, bool nocache)
+static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long end, unsigned long pfn, bool nocache, bool usr)
 {
 	uint32_t *l2pte;
 	uint32_t size;
@@ -79,7 +84,16 @@ static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long en
 
 	do {
 		*l2pte = (pfn << PAGE_SHIFT) | L2DESC_SMALL_PAGE_AP01 | L2DESC_SMALL_PAGE_AP2 | L2DESC_PAGE_TYPE_SMALL;
-		*l2pte |= (nocache ? 0 : DESC_CACHE);
+
+		/*
+		 * One word about the following attributes: on Vexpress, DESC_CACHE (DESC_CACEABLE | DESC_BUFFERABLE) was
+		 * good to run in kernel and user space. But with Rpi4, it is another story; it works well in the kernel space
+		 * but executing instructions in other pages than the first one allocate to application code in user space
+		 * led to an undefined instruction exception (reading/writing in these different pages were successful).
+		 * It has been figured out by using DESC_CACHEABLE attribute only (BUFFERABLE is now disabled).
+		 * It works on both Rpi4 and vExpress.
+		 */
+		*l2pte |= (nocache ? 0 : (usr ? DESC_CACHEABLE : DESC_CACHE));
 
 		*l2pte &= ~L1DESC_PT_DOMAIN_MASK;
 		*l2pte |= PTE_DESC_DOMAIN_0;
@@ -94,7 +108,7 @@ static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long en
  * Allocate a section (only L1 PTE) or page table (L1 & L2 page tables)
  * @nocache indicates if the page can be cache or not (true means no support for cached page)
  */
-static void alloc_init_section(uint32_t *l1pte, uint32_t addr, uint32_t end, uint32_t phys, bool nocache)
+static void alloc_init_section(uint32_t *l1pte, uint32_t addr, uint32_t end, uint32_t phys, bool nocache, bool usr)
 {
 	/*
 	 * Try a section mapping - end, addr and phys must all be aligned
@@ -123,7 +137,7 @@ static void alloc_init_section(uint32_t *l1pte, uint32_t addr, uint32_t end, uin
 		 * No need to loop; L2 pte's aren't interested in the
 		 * individual L1 entries.
 		 */
-		alloc_init_pte(l1pte, addr, end, phys >> PAGE_SHIFT, nocache);
+		alloc_init_pte(l1pte, addr, end, phys >> PAGE_SHIFT, nocache, usr);
 	}
 }
 
@@ -135,7 +149,7 @@ static void alloc_init_section(uint32_t *l1pte, uint32_t addr, uint32_t end, uin
  * @size is the number of bytes to be mapped
  * @nocache is true if no cache (TLB) must be used (typically for I/O)
  */
-void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base, uint32_t size, bool nocache) {
+void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base, uint32_t size, bool nocache, bool usr) {
 
 	uint32_t addr, end, length, next;
 	uint32_t *l1pte;
@@ -154,7 +168,7 @@ void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base,
 	do {
 		next = pgd_addr_end(addr, end);
 
-		alloc_init_section(l1pte, addr, next, phys_base, nocache);
+		alloc_init_section(l1pte, addr, next, phys_base, nocache, usr);
 
 		phys_base += next - addr;
 		addr = next;
@@ -442,12 +456,12 @@ void duplicate_user_space(pcb_t *from, pcb_t *to) {
 
 #warning should be avoided .. (simply replace the pte and flushing only this entry)
 
-					create_mapping(current_pgtable(), TRANSITIONAL_MAPPING, paddr, PAGE_SIZE, false);
+					create_mapping(current_pgtable(), TRANSITIONAL_MAPPING, paddr, PAGE_SIZE, false, true);
 
 					/* Copy the contents */
 					memcpy((void *) TRANSITIONAL_MAPPING, (void *) ((i << L1_PAGETABLE_SHIFT) | (j << L2_PAGETABLE_SHIFT)), PAGE_SIZE);
 
-					*l2pte_dst = paddr | L2DESC_SMALL_PAGE_AP01 | 0xc | L2DESC_SMALL_PAGE_AP2 | L2DESC_PAGE_TYPE_SMALL;
+					*l2pte_dst = paddr | L2DESC_SMALL_PAGE_AP01 | DESC_CACHEABLE | L2DESC_SMALL_PAGE_AP2 | L2DESC_PAGE_TYPE_SMALL;
 
 					*l2pte_dst &= ~L1DESC_PT_DOMAIN_MASK;
 					*l2pte_dst |= PTE_DESC_DOMAIN_0;

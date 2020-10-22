@@ -17,23 +17,20 @@
  */
 
 #include <fdt_support.h>
+#include <memslot.h>
+#include <sched.h>
 
 #include <lib/image.h>
 
+#include <soo/soo.h>
 #include <soo/uapi/avz.h>
 
-#include <avz/init.h>
-#include <avz/kernel.h>
-#include <avz/sched.h>
-
-#include <asm/memslot.h>
-#include <asm/mach/map.h>
-
-#include <soo/soo.h>
+#include <asm/mmu.h>
+#include <asm/cacheflush.h>
 
 #define L_TEXT_OFFSET	0x8000
 
-extern unsigned int fdt_paddr __initdata; /* defined in kernel/setup.c */
+extern unsigned int fdt_paddr; /* defined in kernel/setup.c */
 
 /**
  * We put all the guest domains in ELF format on top of memory so
@@ -63,27 +60,22 @@ void loadAgency(void)
  * <img> represents the original binary image as injected in the user application
  * <target_dom> represents the target memory area
  */
-void loadME(unsigned int slotID, uint8_t *img, dtb_feat_t *dtb_feat) {
-	u32 realtime;
+void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 	void *ME_vaddr;
 	size_t size, fdt_size, initrd_size;
 	void *fdt_vaddr, *initrd_vaddr;
 	void *dest_ME_vaddr;
 	int section_nr;
-	uint32_t current_pgtable_paddr;
 	uint32_t *pgtable_from;
 	uint32_t initrd_start, initrd_end;
 	int nodeoffset;
 	int ret;
 
-	/* Pick the current pgtable from the agency and copy the PTEs corresponding to the user space region. */
-	current_pgtable_paddr = cpu_get_pgd_phys();
-	switch_mm(NULL, idle_domain[smp_processor_id()]->vcpu[0]);
-	pgtable_from = (uint32_t *) __lva(current_pgtable_paddr);
+	pgtable_from = (uint32_t *) __lva(current_addrspace->pgtable_paddr);
 
 	/* Get the visibility on the domain image stored in the agency user space area */
 	for (section_nr = 0x0; section_nr < 0xc00; section_nr++)
-		swapper_pg_dir[section_nr].l2 = (intpte_t) pgtable_from[section_nr];
+		((uint32_t *) swapper_pg_dir)[section_nr] = pgtable_from[section_nr];
 
 	flush_all();
 
@@ -134,9 +126,5 @@ void loadME(unsigned int slotID, uint8_t *img, dtb_feat_t *dtb_feat) {
 
 		memcpy((void *) __lva(initrd_start), initrd_vaddr, initrd_size);
 	}
-	realtime = fdt_getprop_u32_default((const void *) __lva(memslot[slotID].fdt_paddr), "/ME/features", "realtime", 0);
-
-	dtb_feat->realtime = ((realtime == 1) ? true : false);
-
 }
 

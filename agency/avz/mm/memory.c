@@ -20,34 +20,25 @@
 #define DEBUG
 #endif
 
-#include <avz/config.h>
-#include <avz/mm.h>
-#include <avz/percpu.h>
-#include <avz/kernel.h>
-#include <avz/sched.h>
-#include <avz/errno.h>
-#include <avz/sched.h>
-#include <avz/init.h>
-#include <avz/bitmap.h>
+#include <config.h>
+#include <percpu.h>
+#include <sched.h>
+#include <errno.h>
+#include <sched.h>
+#include <bitmap.h>
+#include <memory.h>
+#include <memslot.h>
+#include <common.h>
 
 #include <asm/linkage.h>
-#include <asm/init.h>
-#include <asm/page.h>
-#include <asm/mach/map.h>
 #include <asm/string.h>
-#include <asm/debugger.h>
 #include <asm/cacheflush.h>
-#include <asm/tlbflush.h>
-#include <asm/proc-fns.h>
-#include <asm/cpu-ops.h>
 
 #include <asm/processor.h>
-#include <asm/cpregs.h>
 
-#include <asm/mm.h>
-#include <asm/memslot.h>
+#include <asm/mmu.h>
 
-#include <soo/uapi/arch-arm.h>
+#include <soo/arch-arm.h>
 
 #define ME_MEMCHUNK_SIZE			2 * 1024 * 1024
 #define ME_MEMCHUNK_NR				256    /* 256 chunks of 2 MB */
@@ -73,23 +64,16 @@ unsigned long total_pages;
 
 /* Limits of avz heap, used to initialise the allocator. */
 unsigned long heap_phys_start, heap_phys_end;
-unsigned long l2pt_phys_start;
 
 unsigned int io_map_current_base;
-void *l2pt_current_base;
 
-/*
- * Flush all tlbs and I-/D-cache
- */
-void flush_all(void) {
-	flush_cache_all();
-	flush_tlb_all();
-}
 /*
  * Perform basic memory initialization, i.e. the existing memory slot.
  */
 void early_memory_init(void) {
-  unsigned int i;
+	unsigned int i;
+
+	clear_bss();
 
 	/* Hypervisor */
 	memslot[0].base_paddr = CONFIG_RAM_BASE;
@@ -102,6 +86,22 @@ void early_memory_init(void) {
 
 	for (i = 0; i < MAX_ME_DOMAINS; i++)
 		memslot[i+2].busy = false;
+
+	swapper_pg_dir = (void *) (CONFIG_HYPERVISOR_VIRT_ADDR + L1_SYS_PAGE_TABLE_OFFSET);
+}
+
+extern unsigned long __bss_start, __bss_end;
+extern unsigned long __vectors_start, __vectors_end;
+
+/*
+ * Clear the .bss section in the kernel memory layout.
+ */
+void clear_bss(void) {
+	unsigned char *cp = (unsigned char *) &__bss_start;
+
+	/* Zero out BSS */
+	while (cp < (unsigned char *) &__bss_end)
+		*cp++ = 0;
 }
 
 /*
@@ -111,26 +111,27 @@ void memory_init(void)
 {
 	ulong addr, frametable_phys_start, frametable_phys_end, frametable_size;
 	unsigned long nxhp;
-	pde_t *pde;
+	uint32_t *l1pte;
 
 	max_page = (__pa(HYPERVISOR_VIRT_START) + HYPERVISOR_SIZE) >> PAGE_SHIFT;
-	min_page = __pa(&_end) >> PAGE_SHIFT;
+	min_page = __pa(&__end) >> PAGE_SHIFT;
 
 #warning TO DOCUMENT
 
 	/*
 	 * Prepare the memory area devoted to the heap. We align the heap on section boundary so that
 	 * we can deal with different cache attributes (no cache).
+	 * Furthermore, the first MB is reserved for L2 page table allocation.
 	 */
-	l2pt_phys_start = (SECTION_UP(__pa(&_end)) + 1) << PGD_SHIFT;
+	l2pt_phys_start = (SECTION_UP(__pa(&__end)) + 1) << L1_PAGETABLE_SHIFT;
 	l2pt_current_base = __va(l2pt_phys_start);
 
 	heap_phys_start = l2pt_phys_start + SZ_1M;
 
 	/* Must pass a single mapped page for populating bootmem_region_list. */
-	init_boot_pages(__pa(&_end), heap_phys_start);
+	init_boot_pages(__pa(&__end), heap_phys_start);
 
-	heap_phys_end = heap_phys_start + (HEAP_MAX_SIZE_MB << PGD_SHIFT) - 1;
+	heap_phys_end = heap_phys_start + (HEAP_MAX_SIZE_MB << L1_PAGETABLE_SHIFT) - 1;
 	nxhp = (heap_phys_end - heap_phys_start + 1) >> PAGE_SHIFT;
 
 	printk("AVZ Hypervisor Memory Layout\n");
@@ -152,7 +153,7 @@ void memory_init(void)
 	printk("Frame table size:        %d bytes\n", (int) frametable_size);
 	printk("\n");
 
-	io_map_current_base = (unsigned int) __va(ALIGN_UP(frametable_phys_end+1, SECTION_SIZE));
+	io_map_current_base = (unsigned int) __va(ALIGN_UP(frametable_phys_end+1, L1_SECT_SIZE));
 
 	printk("I/O area (for ioremap):  0x%lx (virt)\n", (unsigned long) io_map_current_base);
 	printk("I/O area size:           0x%lx bytes\n", (unsigned long) HYPERVISOR_VIRT_START+HYPERVISOR_SIZE-io_map_current_base);
@@ -163,51 +164,15 @@ void memory_init(void)
 
 	init_heap_pages(heap_phys_start, heap_phys_end);
 
-	/* Now clearing the pmd entries related to I/O area */
-	for (addr = io_map_current_base; addr < HYPERVISOR_VIRT_START+HYPERVISOR_SIZE; addr += (1 << PGD_SHIFT)) {
-		pde = (pde_t *) (swapper_pg_dir + pde_index(addr));
-		pmd_clear(pde);
+	/* Now clearing the pte entries related to I/O area */
+	for (addr = io_map_current_base; addr < HYPERVISOR_VIRT_START+HYPERVISOR_SIZE; addr += L1_SECT_SIZE) {
+		l1pte = (uint32_t *) l1pte_offset(swapper_pg_dir, addr);
+		*l1pte = 0;
+
+		flush_pte_entry(l1pte);
 	}
 
 }
-
-/*
- * Get a virtual address to store a L2 page table (256 bytes).
- */
-void *get_l2_pgtable(void) {
-	void *l2pt_vaddr;
-
-	l2pt_vaddr = l2pt_current_base;
-	l2pt_current_base += PAGE_SIZE;   /* One page per page table */
-
-	return l2pt_vaddr;
-}
-
-#if 0 /* Not used at the moment */
-/*
- * Make the heap non cacheable (shared page info, etc.)
- */
-void make_heap_noncacheable(void) {
-	struct map_desc map;
-	ulong addr;
-	pde_t *pde;
-
-	/* Clear the pmd related to the heap sections */
-	for (addr = (unsigned int) __va(heap_phys_start); addr < (unsigned int) __va(heap_phys_start) + (HEAP_MAX_SIZE_MB << PGD_SHIFT); addr += (1 << PGD_SHIFT)) {
-		pde = (pde_t *) (swapper_pg_dir + pde_index(addr));
-		pmd_clear(pde);
-	}
-
-	/* Remap the heap with new attributes */
-	map.pfn = phys_to_pfn(heap_phys_start);
-	map.virtual = (unsigned long) __va(heap_phys_start); /* Keep the original vaddr */
-	map.length = HEAP_MAX_SIZE_MB << PGD_SHIFT;
-
-	map.type = MT_MEMORY_RWX_NONCACHED;
-
-	create_mapping(&map, NULL);
-}
-#endif
 
 /*
  * Returns the power of 2 (order) which matches the size
@@ -347,7 +312,7 @@ void dump_page(unsigned int pfn) {
 	}
 }
 
-void __init init_frametable(void)
+void init_frametable(void)
 {
 	unsigned long p;
 	unsigned long nr_pages;
@@ -360,78 +325,52 @@ void __init init_frametable(void)
 	if (p == 0)
 		panic("Not enough memory for frame table\n");
 
-	frame_table = (struct page_info *) maddr_to_virt(p << PAGE_SHIFT);
+	frame_table = (struct page_info *) phys_to_virt(p << PAGE_SHIFT);
 
 	for (i = 0; i < nr_pages; i += 1)
-		clear_page((void *)maddr_to_virt(((p + i) << PAGE_SHIFT)));
+		clear_page((void *) phys_to_virt(((p + i) << PAGE_SHIFT)));
 }
-
-void write_ptbase(struct vcpu *v)
-{
-	flush_tlb_all();
-	flush_cache_all();
-	cpu_do_switch_mm(pagetable_get_paddr(v->arch.guest_table));
-
-	flush_tlb_all();
-	flush_cache_all();
-}
-
 
 /*
- * switch_mm() is used to perform a memory context switch.
- * If prev is NULL, the switch is done between the current VCPU and next.
- * If prev is not NULL, the current VCPU will continue to execute within the memory context of next (VCPU), but
- * it is assumed that there is no VCPU context switch.
- * If next is NULL, next will be associated to the current VCPU ("back to home").
+ * switch_mm() is used to perform a memory context switch between domains.
+ * @d refers to the domain
+ * @next_addrspace refers to the address space to be considered with this domain.
+ * @current_addrspace will point to the current address space.
  */
-void switch_mm(struct vcpu *prev, struct vcpu *next) {
-
-	if (prev == NULL)
-		prev = current;
+void switch_mm(struct domain *d, addrspace_t *next_addrspace) {
+	addrspace_t prev_addrspace;
 
 	/* Preserve the current configuration of MMU registers of the running domain before doing a switch */
-	prev->arch.guest_context.sys_regs.guest_context_id = READ_CP32(CONTEXTIDR);
+	get_current_addrspace(&prev_addrspace);
 
-	prev->arch.guest_context.sys_regs.guest_ttbr0 = READ_CP32(TTBR0_32);
-	prev->arch.guest_context.sys_regs.guest_ttbr1 = READ_CP32(TTBR1_32);
-	prev->arch.guest_context.sys_regs.guest_ttbcr = READ_CP32(TTBCR);
+	if (is_addrspace_equal(next_addrspace, &prev_addrspace))
+	/* Check if the current page table is identical to the next one. */
+		return ;
 
-	dmb();
+	set_current(d);
 
-
-	if (next == NULL)
-		next = current;
-
-	flush_cache_all();
-	flush_tlb_all();
-
-	WRITE_CP32(next->arch.guest_context.sys_regs.guest_context_id, CONTEXTIDR);
-	WRITE_CP32(next->arch.guest_context.sys_regs.guest_ttbr1, TTBR1_32);
-	WRITE_CP32(next->arch.guest_context.sys_regs.guest_ttbcr, TTBCR);
-
-	dmb();
-
-	cpu_do_switch_mm(next->arch.guest_context.sys_regs.guest_ttbr0);  /* This is the page table ! */
-
-	flush_cache_all();
-	flush_tlb_all();
-
+	mmu_switch(next_addrspace);
 }
 
-void save_ptbase(struct vcpu *v)
-{
-	unsigned long offset_p_v;
-	unsigned long ttb_address = virt_to_phys(cpu_get_pgd());
+void *ioremap(unsigned long phys_addr, unsigned int size) {
+	uint32_t vaddr;
+	unsigned int offset;
 
-	v->arch.guest_table.pfn   = ttb_address >> PAGE_SHIFT;
-	offset_p_v = v->arch.guest_pstart - v->arch.guest_vstart;
-	ttb_address = ttb_address - (unsigned long)offset_p_v;
+	/* Make sure the virtual address will be correctly aligned (either section or page aligned). */
 
-	v->arch.guest_vtable = (pte_t *)ttb_address;
+	io_map_current_base = ALIGN_UP(io_map_current_base, ((size < SZ_1M) ? PAGE_SIZE : SZ_1M));
+
+	/* Preserve a possible offset */
+	offset = phys_addr & 0xfff;
+
+	vaddr = (unsigned long) io_map_current_base;
+
+	create_mapping(NULL, (unsigned long) io_map_current_base, phys_addr, size, true);
+
+	io_map_current_base += size;
+
+	flush_all();
+
+	return (void *) (vaddr + offset);
 
 }
-
-#define find_first_set_bit(word) (ffs(word)-1)
-
-extern struct domain *alloc_domain(domid_t domid);
-extern struct domain *alloc_domain_struct(void);

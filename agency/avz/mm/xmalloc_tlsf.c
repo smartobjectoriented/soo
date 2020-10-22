@@ -23,13 +23,9 @@
  *
  */
 
-#include <avz/config.h>
-#include <avz/irq.h>
-#include <avz/mm.h>
-#include <avz/sched.h>
-
-#include <asm/time.h>
-#include <asm/irq.h>
+#include <config.h>
+#include <memory.h>
+#include <sched.h>
 
 #define MAX_POOL_NAME_LEN       16
 

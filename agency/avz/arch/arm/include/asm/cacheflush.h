@@ -1,63 +1,33 @@
 /*
- *  linux/include/asm-arm/cacheflush.h
- *
- *  Copyright (C) 1999-2002 Russell King
- *
+ * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
  */
-#ifndef _ASMARM_CACHEFLUSH_H
-#define _ASMARM_CACHEFLUSH_H
 
-#include <asm/cachetype.h>
+#ifndef CACHEFLUSH_H
+#define CACHEFLUSH_H
 
-#define sync_cache_w(ptr) __sync_cache_range_w(ptr, sizeof *(ptr))
-#define sync_cache_r(ptr) __sync_cache_range_r(ptr, sizeof *(ptr))
+#include <asm/processor.h>
 
-struct cpu_cache_fns {
-	void (*flush_kern_all)(void);
-	void (*coherent_kern_range)(unsigned long, unsigned long);
-	void (*flush_kern_dcache_area)(void *, size_t size);
-};
+void cache_clean_flush(void);
+void dcache_flush(uint32_t *pte);
 
+void flush_all(void);
 
-#define	cpu_flush_cache_all 		flush_cache_all
-#define cpu_clean_cache_range		clean_cache_range
-#define cpu_clean_cache_entry		flush_cache_page
-#define cpu_flush_cache_entry		flush_cache_page
-
-extern struct cpu_cache_fns cpu_cache;
-
-#define __cpuc_flush_kern_all		cpu_cache.flush_kern_all
-#define __cpuc_coherent_kern_range	cpu_cache.coherent_kern_range
-#define __cpuc_flush_dcache_area 	cpu_cache.flush_kern_dcache_area
-
-
-/*
- * Convert calls to our calling convention.
- */
-#define flush_cache_all()		__cpuc_flush_kern_all()
-
-/*
- * Perform necessary cache operations to ensure that data previously
- * stored within this range of addresses can be executed by the CPU.
- */
-#define flush_icache_range(s,e)		__cpuc_coherent_kern_range(s,e)
-
-/*
- * Perform necessary cache operations to ensure that the TLB will
- * see data written in the specified area.
- */
-#define clean_dcache_area(start,size)	cpu_dcache_clean_area(start, size)
-
-#define clean_cache_range __cpuc_clean_cache_range
-
-/*
- * There is no __cpuc_clean_dcache_area but we use it anyway for
- * code intent clarity, and alias it to __cpuc_flush_dcache_area.
- */
-#define __cpuc_clean_dcache_area __cpuc_flush_dcache_area
+void flush_icache_range(uint32_t start, uint32_t end);
+void flush_kern_dcache_area(uint32_t p, uint32_t size);
 
 /*
  * Ensure preceding writes to *p by this CPU are visible to
@@ -67,7 +37,7 @@ static inline void __sync_cache_range_w(volatile void *p, size_t size)
 {
 	char *_p = (char *)p;
 
-	__cpuc_clean_dcache_area(_p, size);
+	flush_kern_dcache_area((uint32_t) _p, size);
 
 }
 
@@ -82,8 +52,29 @@ static inline void __sync_cache_range_r(volatile void *p, size_t size)
 	char *_p = (char *)p;
 
 	/* ... and inner cache: */
-	__cpuc_flush_dcache_area(_p, size);
+	flush_kern_dcache_area((uint32_t) _p, size);
 }
 
 
-#endif
+#define sync_cache_w(ptr) __sync_cache_range_w(ptr, sizeof *(ptr))
+#define sync_cache_r(ptr) __sync_cache_range_r(ptr, sizeof *(ptr))
+
+/*
+ *	flush_pte_entry
+ *
+ *	Flush a PTE entry (word aligned, or double-word aligned) to
+ *	RAM if the TLB for the CPU we are running on requires this.
+ *	This is typically used when we are creating or removing PTE entries.
+ *
+ */
+static inline void flush_pte_entry(void *pte)
+{
+	do {
+		asm("mcr p15, 0, %0, c7, c10, 1   @ flush pte" : : "r" (pte) : "cc");
+	} while (0);
+
+	dsb();
+}
+
+
+#endif /* CACHEFLUSH_H */

@@ -67,8 +67,6 @@
 					 V4L2_MBUS_CSI2_CHANNEL_1 | \
 					 V4L2_MBUS_CSI2_CHANNEL_2 | \
 					 V4L2_MBUS_CSI2_CHANNEL_3)
-
-/* SOO.tech */
 /*
  * Number of lanes in use, 0 == use all available lanes (default)
  *
@@ -77,7 +75,6 @@
  * solution.
  */
 #define V4L2_MBUS_CSI2_LANE_MASK                (0xf << 10)
-
 
 /**
  * enum v4l2_mbus_type - media bus type

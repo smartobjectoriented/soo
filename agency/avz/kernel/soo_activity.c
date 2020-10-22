@@ -21,31 +21,25 @@
 #define DEBUG
 #endif
 
+#include <memslot.h>
+#include <memory.h>
+#include <sched.h>
+#include <keyhandler.h>
+#include <lib.h>
+#include <domain.h>
+#include <errno.h>
+#include <types.h>
+
 #include <asm/io.h>
 #include <asm/domain.h>
-#include <asm/memslot.h>
 #include <asm/percpu.h>
-#include <asm/mm.h>
-#include <asm/memory.h>
 
 #include <asm/cacheflush.h>
-
-#include <avz/sched.h>
-#include <avz/keyhandler.h>
-#include <avz/lib.h>
-#include <avz/domain.h>
-#include <avz/init.h>
-#include <avz/errno.h>
-
-#include <avz/sched.h>
 
 #include <soo/uapi/debug.h>
 #include <soo/uapi/soo.h>
 
 #include <soo_migration.h>
-
-/* This variable is used as an intermediate value when cooperating in a recursive way. */
-DEFINE_PER_CPU(struct domain *, current_mapped_domain);
 
 /**
  * Return the state of the ME corresponding to the ME_slotID.
@@ -64,41 +58,33 @@ void set_ME_state(unsigned int ME_slotID, ME_state_t state) {
 	domains[ME_slotID]->shared_info->dom_desc.u.ME.state = state;
 }
 
-void set_dom_realtime(struct domain *d, bool realtime)
-{
-	d->shared_info->dom_desc.realtime = realtime;
-}
-
-bool is_dom_realtime(struct domain *d)
-{
-	return d->shared_info->dom_desc.realtime;
-}
-
 void shutdown_ME(unsigned int ME_slotID)
 {
 	struct domain *dom;
+	struct domain *__current_domain;
+	addrspace_t prev_addrspace;
 
 	dom = domains[ME_slotID];
 
 	/* Perform a removal of ME */
 	dom->is_dying = DOMDYING_dead;
-	DBG("Shutdowning slotID: %d - VCPU pause nosync ...\n", ME_slotID);
+	DBG("Shutdowning slotID: %d - Domain pause nosync ...\n", ME_slotID);
 
-	vcpu_pause(dom->vcpu[0]);
+	vcpu_pause(dom);
 
 	DBG("Destroy evtchn if necessary - state: %d\n", get_ME_state(ME_slotID));
 	evtchn_destroy(dom);
 
 	DBG("Switching address space ...\n");
 
-	switch_domain_address_space(agency, idle_domain[dom->vcpu[0]->processor]);
+	__current_domain = current;
+	get_current_addrspace(&prev_addrspace);
 
-	DBG("memset %08x %d\n", (unsigned int) memslot[ME_slotID].base_paddr, memslot[ME_slotID].size);
+	switch_mm(idle_domain[smp_processor_id()], &idle_domain[smp_processor_id()]->addrspace);
+
 	memset((void *) __lva(memslot[ME_slotID].base_paddr), 0, memslot[ME_slotID].size);
 
-	switch_domain_address_space(idle_domain[dom->vcpu[0]->processor], agency);
-
-	put_domain(dom);
+	switch_mm(__current_domain, &prev_addrspace);
 
 	DBG("Destroying domain structure ...\n");
 
@@ -111,6 +97,7 @@ void shutdown_ME(unsigned int ME_slotID)
 
 	/* Reset the slot availability */
 	put_ME_slot(ME_slotID);
+
 }
 
 /*
@@ -141,10 +128,9 @@ void check_killed_ME(void) {
 int agency_ctl(agency_ctl_args_t *args)
 {
 	int rc = 0;
-	struct domain *target_dom, *current_dom;
+	struct domain *target_dom;
 	soo_domcall_arg_t domcall_args;
 	int cpu;
-	struct domain *previous_mapped_domain;
 
 	memset(&domcall_args, 0, sizeof(soo_domcall_arg_t));
 
@@ -179,10 +165,15 @@ int agency_ctl(agency_ctl_args_t *args)
 		domcall_args.cmd = CB_COOPERATE;
 
 		/* This information must be provided by the initiator ME during the cooperation */
-#warning apparently wrong (to be adapted...)
-		memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.pfns, &args->u.target_cooperate_args.pfns, sizeof(pfn_coop_t));
-		memcpy(domcall_args.u.cooperate_args.u.initiator_coop.spid, args->u.target_cooperate_args.spid, SPID_SIZE);
-		memcpy(domcall_args.u.cooperate_args.u.initiator_coop.spad_caps, args->u.target_cooperate_args.spad_caps, SPAD_CAPS_SIZE);
+
+		memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.pfn, &args->u.target_cooperate_args.pfn, sizeof(pfn_coop_t));
+
+		/* Transfer the capabilities of the target ME */
+		memcpy(domcall_args.u.cooperate_args.u.initiator_coop.spad_caps, domains[args->slotID]->shared_info->dom_desc.u.ME.spad.caps, SPAD_CAPS_SIZE);
+
+		/* Transfer the SPID of the target ME */
+		memcpy(domcall_args.u.cooperate_args.u.initiator_coop.spid, domains[args->slotID]->shared_info->dom_desc.u.ME.spid, SPID_SIZE);
+
 
 		domcall_args.u.cooperate_args.role = COOPERATE_TARGET;
 		target_dom = domains[args->slotID];
@@ -202,28 +193,14 @@ int agency_ctl(agency_ctl_args_t *args)
 	 */
 	cpu = smp_processor_id();
 
-	/* Store locally the current_mapped_domain so that we can make recursive call to agency_ctl() */
-	previous_mapped_domain = per_cpu(current_mapped_domain, cpu);
-
-	if (per_cpu(current_mapped_domain, cpu) == NULL)
-		per_cpu(current_mapped_domain, cpu) = current->domain;
-
-	/* Get the current mapped domain */
-	current_dom = per_cpu(current_mapped_domain, cpu);
-
-	/* Set the newly mapped domain */
-	per_cpu(current_mapped_domain, cpu) = target_dom;
-
 	/* Originating ME */
-	domcall_args.slotID = current_dom->domain_id;
+	domcall_args.slotID = current->domain_id;
 
-	rc = domain_call(target_dom, DOMCALL_soo, &domcall_args, current_dom);
+	rc = domain_call(target_dom, DOMCALL_soo, &domcall_args);
 	if (rc != 0) {
 		printk("%s: DOMCALL_soo failed with rc = %d\n", __func__, rc);
 		return rc;
 	}
-
-	per_cpu(current_mapped_domain, cpu) = previous_mapped_domain;
 
 	DBG("Ending forward callback now, back to the originater...\n");
 
@@ -249,16 +226,10 @@ static int soo_pre_propagate(unsigned int slotID, int *propagate_status) {
 
 	domcall_args.slotID = slotID;
 
-	/* Prepare to (possibly) use agency_ctl() from the ME running on the Agency CPU */
-	per_cpu(current_mapped_domain, smp_processor_id()) = domains[slotID];
-
-	if ((rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args, domains[0])) != 0) {
+	if ((rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args)) != 0) {
 		printk("%s: DOMCALL failed (%d)\n", __func__, rc);
 		BUG();
 	}
-
-	/* Reset the current mapped domain to NULL for subsequent domcalls. */
-	per_cpu(current_mapped_domain, smp_processor_id()) = NULL;
 
 	*propagate_status = domcall_args.u.pre_propagate_args.propagate_status;
 
@@ -283,17 +254,11 @@ int soo_pre_activate(unsigned int slotID)
 	/* Perform a domcall on the specific ME */
 	DBG("Pre-activate callback being issued...\n");
 
-	/* Prepare to (possibly) use agency_ctl() from the ME running on the Agency CPU */
-	per_cpu(current_mapped_domain, smp_processor_id()) = domains[slotID];
-
-	rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args, domains[0]);
+	rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args);
 	if (rc != 0) {
 		printk("%s: DOMCALL_soo failed with rc = %d\n", __func__, rc);
 		return rc;
 	}
-
-	/* Reset the current mapped domain to NULL for subsequent domcalls. */
-	per_cpu(current_mapped_domain, smp_processor_id()) = NULL;
 
 	check_killed_ME();
 
@@ -374,17 +339,11 @@ int soo_cooperate(unsigned int slotID)
 
 	domcall_args.slotID = slotID;
 
-	/* Prepare to (possibly) use agency_ctl() from the ME running on the Agency CPU */
-	per_cpu(current_mapped_domain, smp_processor_id()) = domains[slotID];
-
-	rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args, domains[0]);
+	rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args);
 	if (rc != 0) {
 		printk("%s: DOMCALL_soo failed with rc = %d\n", __func__, rc);
 		return rc;
 	}
-
-	/* Reset the current mapped domain to NULL for subsequent domcalls. */
-	per_cpu(current_mapped_domain, smp_processor_id()) = NULL;
 
 	check_killed_ME();
 
@@ -406,11 +365,11 @@ static void dump_backtrace(unsigned char key)
 
 	printk("Agency:\n\n");
 
-	domain_call(domains[0], DOMCALL_soo, &domcall_args, current->domain);
+	domain_call(domains[0], DOMCALL_soo, &domcall_args);
 
 	printk("ME (dom 1):\n\n");
 
-	domain_call(domains[1], DOMCALL_soo, &domcall_args, current->domain);
+	domain_call(domains[1], DOMCALL_soo, &domcall_args);
 
 	local_irq_restore(flags);
 }
@@ -428,7 +387,7 @@ static void dump_vbstore(unsigned char key)
 
 	local_irq_save(flags);
 
-	domain_call(domains[0], DOMCALL_soo, &domcall_args, current->domain);
+	domain_call(domains[0], DOMCALL_soo, &domcall_args);
 
 	local_irq_restore(flags);
 }
@@ -598,19 +557,13 @@ int do_soo_hypercall(soo_hyp_t *args) {
 	return rc;
 }
 
-static int __init soo_activity_init(void) {
-	int cpu;
+int soo_activity_init(void) {
 
 	DBG("Setting SOO avz up ...\n");
 
 	register_keyhandler('b', &dump_backtrace_keyhandler);
 	register_keyhandler('v', &dump_vbstore_keyhandler);
 
-	for (cpu = 0; cpu < NR_CPUS; cpu++)
-		per_cpu(current_mapped_domain, cpu) = NULL;
-
 	return 0;
 }
-
-__initcall(soo_activity_init);
 

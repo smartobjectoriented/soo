@@ -22,18 +22,6 @@
 #define LOCAL_INTC_PHYS		0xff800000
 #define LOCAL_INTC_SIZE		0x100
 
-#define RPI4_GIC_DIST_PHYS 	0xff841000
-#define RPI4_GIC_DIST_SIZE 	0x1000
-
-#define RPI4_GIC_CPU_PHYS 	0xff842000
-#define RPI4_GIC_CPU_SIZE 	0x1000
-
-#define RPI4_INTC_PHYS	0xff841000
-#define RPI4_INTC_SIZE	0x3000
-
-#define RPI4_UART0_VIRT	0xf8c15040
-#define RPI4_UART0_PHYS	0xfe215040
-
 /*
  * From BCM2835 ARM peripherals documentation.
  *
@@ -79,12 +67,6 @@
 /* Mailbox write-to-clear bits. */
 #define LOCAL_MAILBOX0_CLR0		0x0c0
 #define LOCAL_MAILBOX3_CLR0		0x0cc
-
-#ifndef __ASSEMBLY__
-
-extern struct smp_operations    rpi4_smp_ops;
-
-#endif /* __ASSEMBLY__ */
 
 
 #endif /* RPI4_H */

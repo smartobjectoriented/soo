@@ -27,7 +27,7 @@
 #include <linux/types.h>
 #include <linux/string.h>
 #else
-#include <avz/list.h>
+#include <list.h>
 #endif
 
 #include <asm/atomic.h>
@@ -161,12 +161,6 @@ extern soo_personality_t soo_get_personality(void);
 #define ME_IOCTL_LOCALINFO_UPDATE		103
 #define ME_IOCTL_DUMP				104
 
-/* Definition of ME types according to their kernel */
-typedef enum {
-	ME_type_Linux,
-	ME_type_SO3
-} ME_type_t;
-
 /*
  * ME states:
  * - ME_state_booting:		ME is currently booting...
@@ -259,11 +253,7 @@ extern agencyUID_t null_agencyUID;
  * Species Aptitude Descriptor (SPAD)
  */
 typedef struct {
-	unsigned int 	sa_nr; /* Total number of species aptitude */
-
 	bool		valid; /* True means that the ME accepts to collaborate with other ME */
-	void		*content; /* Generic content to manage during cooperation */
-
 	unsigned char	caps[SPAD_CAPS_SIZE];
 } spad_t;
 
@@ -274,7 +264,6 @@ typedef struct {
  */
 typedef struct {
 	ME_state_t	state;
-	ME_type_t	type;
 
 	/* The crc32 provides a unique ID of a particular ME instance.
 	 * Each ME instance is unique and such an ID can be used
@@ -354,7 +343,6 @@ typedef struct {
  */
 
 typedef struct {
-	bool realtime; /* Tell if this domain is subject to realtime constraints */
 	union {
 		agency_desc_t agency;
 		ME_desc_t ME;
@@ -448,7 +436,7 @@ typedef struct {
 /* Discovery */
 
 #define DISCOVERY_TASK_PRIO		50
-#define DISCOVERY_TASK_PERIOD		MILLISECS(1000)
+#define DISCOVERY_TASK_PERIOD_MS	1000
 
 /* Soolink Coder */
 
@@ -457,7 +445,7 @@ typedef struct {
 /* Soolink Decoder */
 
 #define DECODER_WATCHDOG_TASK_PRIO	50
-#define DECODER_WATCHDOG_TASK_PERIOD	MILLISECS(1000)
+#define DECODER_WATCHDOG_TASK_PERIOD_MS 1000
 
 /* Soolink Winenet Datalink */
 
@@ -545,27 +533,22 @@ typedef struct {
 #define COOPERATE_TARGET	0x2
 
 typedef struct {
-
 	unsigned int	content;
 	unsigned int	imec;
-
 } pfn_coop_t;
 
 typedef struct {
-
 	unsigned int	slotID;
 	unsigned char	spid[SPID_SIZE];
 	spad_t		spad;
-	pfn_coop_t 	pfns;
-
+	pfn_coop_t 	pfn;
 } target_coop_slot_t;
 
 typedef struct {
 
 	unsigned char	spid[SPID_SIZE];
 	unsigned char	spad_caps[SPAD_CAPS_SIZE];
-	pfn_coop_t 	pfns;
-
+	pfn_coop_t 	pfn;
 } initiator_coop_t;
 
 typedef struct {
@@ -626,7 +609,7 @@ typedef struct {
 	struct {
 		unsigned int content;
 		unsigned int imec;
-	} pfns;
+	} pfn;
 
 } target_cooperate_args_t;
 

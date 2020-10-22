@@ -26,13 +26,8 @@
 
 #define ETHERNET_NET_DEV_NAME 	"eth0"
 
-void sl_plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
-void propagate_plugin_ethernet_send(void);
-void rtdm_propagate_sl_plugin_ethernet_rx(void);
-
-void sl_plugin_tcp_rx(void *data, size_t size);
-void propagate_plugin_tcp_send(void);
-void rtdm_propagate_sl_plugin_tcp_rx(void);
+void plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
+void plugin_tcp_rx(void *data, size_t size);
 
 void plugin_ethernet_delete_remote(agencyUID_t *agencyUID);
 

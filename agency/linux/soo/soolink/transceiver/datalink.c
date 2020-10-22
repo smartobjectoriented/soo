@@ -56,15 +56,15 @@ void datalink_register_protocol(datalink_proto_t proto, datalink_proto_desc_t *p
  * packet is a (standard) transceiver packet.
  * The size parameter refers to the payload.
  */
-int datalink_tx(sl_desc_t *sl_desc, void *packet, size_t size, bool completed) {
+int datalink_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, bool completed) {
 
 	/*
 	 * Currently, we are using the Winenet protocol for most transmission types.
 	 */
 	if ((sl_desc->trans_mode == SL_MODE_UNIBROAD) && datalink_protocols[SL_DL_PROTO_WINENET])
-		return datalink_protocols[SL_DL_PROTO_WINENET]->tx_callback(sl_desc, packet, size, completed);
+		return datalink_protocols[SL_DL_PROTO_WINENET]->tx_callback(sl_desc, packet, completed);
 
-	__sender_tx(sl_desc, packet, size, 0);
+	__sender_tx(sl_desc, packet, 0);
 
 	return 0;
 
@@ -76,14 +76,14 @@ int datalink_tx(sl_desc_t *sl_desc, void *packet, size_t size, bool completed) {
  * Otherwise, the receiver RX function is directly called.
  * The size parameter refers to the whole transceiver packet.
  */
-void datalink_rx(sl_desc_t *sl_desc, plugin_desc_t *plugin_desc, void *packet, size_t size) {
+void datalink_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 
 	if ((sl_desc->trans_mode == SL_MODE_UNIBROAD) && datalink_protocols[SL_DL_PROTO_WINENET])
-		datalink_protocols[SL_DL_PROTO_WINENET]->rx_callback(sl_desc, plugin_desc, packet, size);
+		datalink_protocols[SL_DL_PROTO_WINENET]->rx_callback(sl_desc, packet);
 	else if ((sl_desc->trans_mode == SL_MODE_UNICAST) && datalink_protocols[SL_DL_PROTO_BT])
-		datalink_protocols[SL_DL_PROTO_BT]->rx_callback(sl_desc, plugin_desc, packet, size);
+		datalink_protocols[SL_DL_PROTO_BT]->rx_callback(sl_desc, packet);
 	else
-		receiver_rx(sl_desc, plugin_desc, packet, size);
+		receiver_rx(sl_desc, packet);
 
 }
 

@@ -1,10 +1,10 @@
+
+#include <config.h>
+
+#include <asm/processor.h>
 #include <asm/linkage.h>
-#include <asm/system.h>
-#include <asm/asm-macros.h>
-#include <asm/assembler.h>
 
-
-                .text
+.text
 
 /*
  * Purpose  : Function to clear a bit

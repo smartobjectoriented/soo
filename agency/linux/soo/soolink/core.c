@@ -25,7 +25,6 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/types.h>
-#include <linux/spinlock.h>
 #include <linux/vmalloc.h>
 
 #include <soo/uapi/soo.h>
@@ -47,13 +46,6 @@
 
 /* List of registered requesters */
 struct list_head sl_req_list;
-
-/* Preparation of args to be passed in the RT domain */
-static sl_send_args_t sl_send_args;
-static sl_recv_args_t sl_recv_args;
-
-static spinlock_t send_lock;
-static spinlock_t recv_lock;
 
 /*
  * Look for a specific descriptor according to the type of requester
@@ -89,12 +81,11 @@ sl_desc_t *sl_register(req_type_t req_type, if_type_t if_type, trans_mode_t tran
 	sl_desc->req_type = req_type;
 	sl_desc->if_type = if_type;
 	sl_desc->trans_mode = trans_mode;
-	sl_desc->rtdm_recv_callback = NULL;
 
 	memcpy(&sl_desc->agencyUID_to, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
 	memcpy(&sl_desc->agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
 
-	rtdm_event_init(&sl_desc->recv_event, 0);
+	init_completion(&sl_desc->recv_event);
 
 	list_add_tail(&sl_desc->list, &sl_req_list);
 
@@ -124,54 +115,6 @@ uint32_t sl_neighbour_count(void) {
 	return discovery_neighbour_count();
 }
 
-/*
- * Send data over the interface attached in the sl_desc descriptor
- *
- * This function can be called in RT and non-RT contexts, depending on the interface.
- * If the function is called in a RT context, it should not be called from an interrupt context.
- */
-void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio) {
-	DBG("sl_send: (no-RT) sending further / size: %d\n", *size);
-
-	/* Lock to prepare args to be transfered in the RT domain. The spinlock will be unlocked in the RT domain */
-	spin_lock(&send_lock);
-
-	/* Prepare the args to send */
-	sl_send_args.sl_desc = sl_desc;
-
-	sl_send_args.data = data;
-	sl_send_args.size = size;
-	sl_send_args.agencyUID = agencyUID;
-	sl_send_args.prio = prio;
-
-	switch (sl_desc->if_type) {
-	case SL_IF_WLAN:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_WLAN_SEND);
-		break;
-
-	case SL_IF_ETH:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_ETH_SEND);
-		break;
-
-	case SL_IF_TCP:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_TCP_SEND);
-		break;
-
-	case SL_IF_BT:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_BT_SEND);
-		break;
-
-	case SL_IF_LOOP:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_LOOP_SEND);
-		break;
-
-	default:
-		break;
-	}
-
-	DBG("sl_send: (no-RT) send completed.\n");
-	/* Data are sent out... */
-}
 
 /*
  * Send data over a specific interface configured in the sl_desc descriptor.
@@ -181,8 +124,8 @@ void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID
  *
  * This function runs in the RT agency domain.
  */
-void rtdm_sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio) {
-	DBG("rtdm_sl_send: now sending to the coder / size: %d\n", *size);
+void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio) {
+	DBG("sl_send: now sending to the coder / size: %d\n", size);
 
 	/* Configure the sl_desc with the various attributes */
 
@@ -194,22 +137,7 @@ void rtdm_sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agen
 
 	coder_send(sl_desc, data, size);
 
-	DBG("rtdm_sl_send: OK.\n");
-}
-
-/*
- * Called from rtdm_vbus in order to propagate the call to sl_send()
- */
-void rtdm_propagate_sl_send(void) {
-	sl_send_args_t __sl_send_args;
-
-	/* We just make a local copy to unlock the spinlock quickly */
-	__sl_send_args = sl_send_args;
-
-	/* Now unlock the spinlock used to protect args */
-	spin_unlock(&send_lock);
-
-	rtdm_sl_send(__sl_send_args.sl_desc, __sl_send_args.data, __sl_send_args.size, __sl_send_args.agencyUID, __sl_send_args.prio);
+	DBG("sl_send: OK.\n");
 }
 
 /*
@@ -221,69 +149,7 @@ void rtdm_propagate_sl_send(void) {
  * one request must be processed.
  */
 int sl_recv(sl_desc_t *sl_desc, void **data) {
-	size_t size;
-
-	/* Lock to prepare args to be transfered in the RT domain. The spinlock will be unlocked in the RT domain */
-	spin_lock(&recv_lock);
-
-	/* Prepare the args to send */
-	sl_recv_args.sl_desc = sl_desc;
-	sl_recv_args.data = data;
-	sl_recv_args.size_p = &size;
-
-
-	switch (sl_desc->if_type) {
-	case SL_IF_WLAN:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_WLAN_RECV);
-		break;
-
-	case SL_IF_ETH:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_ETH_RECV);
-		break;
-
-	case SL_IF_TCP:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_TCP_RECV);
-		break;
-
-	case SL_IF_BT:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_BT_RECV);
-		break;
-
-	case SL_IF_LOOP:
-		do_sync_dom(DOMID_AGENCY_RT, DC_SL_LOOP_RECV);
-		break;
-
-	default:
-		break;
-	}
-
-	/* Data are now received... */
-
-	return size;
-}
-
-/*
- * Receive data over the interface attached in the sl_desc descriptor
- *
- * This function runs in the RT-agency domain.
- */
-void rtdm_sl_recv(sl_desc_t *sl_desc, void **data, size_t *size_p) {
-	*size_p = decoder_recv(sl_desc, data);
-}
-
-/*
- * Called from rtdm_vbus in order to propagate the call to rtdm_sl_recv()
- */
-void rtdm_propagate_sl_recv(void) {
-	sl_recv_args_t __sl_recv_args;
-
-	/* We just make a local copy to unlock the spinlock quickly */
-	__sl_recv_args = sl_recv_args;
-
-	/* Now unlock the spinlock used to protect args */
-	spin_unlock(&recv_lock);
-
-	rtdm_sl_recv(__sl_recv_args.sl_desc, __sl_recv_args.data, __sl_recv_args.size_p);
+	return decoder_recv(sl_desc, data);
 }
 
 /*
@@ -297,13 +163,6 @@ bool is_exclusive(sl_desc_t *sl_desc) {
 	return sl_desc->exclusive;
 }
 
-/*
- * Configure a receive callback function for asynchronous receive from the transcoder functional block (decoder).
- */
-void rtdm_sl_set_recv_callback(sl_desc_t *sl_desc, rtdm_recv_callback_t rtdm_recv_fn) {
-	sl_desc->rtdm_recv_callback = rtdm_recv_fn;
-}
-
 /* Forward the call to the Discovery block to enable the discovery process. */
 void sl_discovery_start(void) {
 	discovery_start();
@@ -313,9 +172,6 @@ static int soolink_init(void) {
 	lprintk("%s: Soolink subsys initializing ...\n", __func__);
 
 	INIT_LIST_HEAD(&sl_req_list);
-
-	spin_lock_init(&send_lock);
-	spin_lock_init(&recv_lock);
 
 	/* Initialize the Transcoder block */
 	transcoder_init();

@@ -305,7 +305,7 @@ void vbus_otherend_changed(struct vbus_watch *watch) {
 	/* Update the FE state */
 	vdev->fe_state = state;
 
-        DBG("On domID: %d, otherend changed / device: %s  state: %d, CPU %d\n", ME_domID(), vdev->nodename, state, smp_processor_id());
+        DBG("On CPU %d otherend changed / device: %s  state: %d\n", smp_processor_id(), vdev->nodename, state);
 	
 	/* We do not want to call a callback in a frontend on InitWait. This is
 	 * a state issued from the backend to tell the frontend it can be probed.
@@ -495,7 +495,7 @@ int vbus_dev_probe(struct device *dev)
 		return 0;
 	}
 
-	DBG("CPU %d  talk_to_otherend: %s\n", ME_domID(), vdev->nodename);
+	DBG("CPU %d  talk_to_otherend: %s\n", smp_processor_id(), vdev->nodename);
 
 	talk_to_otherend(vdev);
 
@@ -942,32 +942,17 @@ int vbus_resume_dev(struct bus_type *bus, unsigned int domID)
 
 /******************/
 
-
+/*
+ * Called at each backend creation when a frontend is initializing.
+ */
 void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus) {
+
 	struct vbus_device *vdev;
 
-	/*
-	 * Either the device does not exist (backend or frontend) and the dev must be allocated, initialized
-	 * and probed via the dev subsystem of Linux, OR the device exists (after migration)
-	 * and in this case, the device exists on the frontend side only, and we only have to "talk_to_otherend" to
-	 * set up the watch on its state (and retrieve the otherend id and name).
-	 */
-
 	vdev = vbus_device_find(node, &bus->bus);
-	if (!vdev)
-		vbus_probe_node(bus, type, node);
-	else {
+	BUG_ON(vdev);
 
-		BUG_ON(ME_domID() == DOMID_AGENCY);
-
-		/* Update the state in vbstore. */
-		/* We force the update, this will not trigger a watch since the watch is set right afterwards */
-		 __vbus_switch_state(vdev, vdev->state, true);
-
-		/* Setting the watch on the state */
-		talk_to_otherend(vdev);
-	}
-
+	vbus_probe_node(bus, type, node);
 }
 
 /*

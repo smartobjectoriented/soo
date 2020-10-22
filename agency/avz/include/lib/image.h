@@ -15,6 +15,8 @@
 #ifndef __IMAGE_H__
 #define __IMAGE_H__
 
+#include <types.h>
+
 #define FIT_IMAGES_PATH		"/images"
 #define FIT_CONFS_PATH		"/configurations"
 

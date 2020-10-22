@@ -24,6 +24,7 @@
 #include <linux/bug.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/mutex.h>
 
 #include <soo/soolink/transcoder.h>
 #include <soo/soolink/coder.h>
@@ -31,11 +32,13 @@
 #include <soo/soolink/sender.h>
 #include <soo/soolink/datalink.h>
 
+#include <soo/debug/bandwidth.h>
+
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 #include <soo/uapi/soo.h>
 
-static rtdm_mutex_t coder_tx_lock;
+static struct mutex coder_tx_lock;
 
 /**
  * Send data according to requirements based on the sl_desc descriptor and performs
@@ -46,10 +49,10 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 	uint32_t packetID, nr_packets;
 	bool completed;
 
-	DBG("coder_send: processing sending / size: %d\n", *size);
+	DBG("coder_send: processing sending / size: %d\n", size);
 
 	/* Bypass the Coder if the requester is of Bluetooth or TCP type */
-	if ((sl_desc->if_type == SL_IF_BT) || (sl_desc->if_type == SL_IF_TCP)) {
+	if ((sl_desc->if_type == SL_IF_BT) || (sl_desc->if_type == SL_IF_TCP) || (sl_desc->req_type == SL_REQ_PEER)) {
 		pkt = kmalloc(sizeof(transcoder_packet_format_t) + size, GFP_ATOMIC);
 
 		/* In fact, do not care about the consistency_type field */
@@ -75,10 +78,10 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 	 * Take the lock for managing the block and packets.
 	 * Protecting the access to the global transID counter.
 	 */
-	rtdm_mutex_lock(&coder_tx_lock);
+	mutex_lock(&coder_tx_lock);
 
 	/* Check if the block has to be split into multiple packets */
-	if (size <= SL_CODER_PACKET_MAX_SIZE) {
+	if (size <= SL_PACKET_PAYLOAD_MAX_SIZE) {
 		DBG("Simple packet\n");
 
 		/* Create the simple packet */
@@ -98,24 +101,26 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 	} else {
 
 		/* Determine the number of packets required for this block */
-		nr_packets = DIV_ROUND_UP(size, SL_CODER_PACKET_MAX_SIZE);
+		nr_packets = DIV_ROUND_UP(size, SL_PACKET_PAYLOAD_MAX_SIZE);
 
 		DBG("Extended packet, nr_packets=%d\n", nr_packets);
 
 		/* Need to iterate over multiple packets */
+		pkt = kmalloc(sizeof(transcoder_packet_format_t) + SL_PACKET_PAYLOAD_MAX_SIZE, GFP_ATOMIC);
+		BUG_ON(!pkt);
+
 		for (packetID = 1; packetID < nr_packets + 1; packetID++) {
 
 			/* Tell Datalink that this is the last packet in the block */
 			completed = (packetID == nr_packets);
 
 			/* Create an extended packet */
-			pkt = kmalloc(sizeof(transcoder_packet_format_t) + SL_CODER_PACKET_MAX_SIZE, GFP_ATOMIC);
 
 			pkt->u.ext.consistency_type = CODER_CONSISTENCY_EXT;
 			pkt->u.ext.nr_packets = nr_packets;
 
 			pkt->u.ext.packetID = packetID;
-			pkt->u.ext.payload_length = ((size > SL_CODER_PACKET_MAX_SIZE) ? SL_CODER_PACKET_MAX_SIZE : size);
+			pkt->u.ext.payload_length = ((size > SL_PACKET_PAYLOAD_MAX_SIZE) ? SL_PACKET_PAYLOAD_MAX_SIZE : size);
 
 			memcpy(pkt->payload, data, pkt->u.ext.payload_length);
 			data += pkt->u.ext.payload_length;
@@ -128,17 +133,15 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 
 			if (sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + pkt->u.ext.payload_length, completed) < 0) {
 				/* There has been something wrong with Datalink. Abort the transmission of the block. */
-
-				kfree(pkt);
 				break;
 			}
-
-			kfree(pkt);
 		}
+
+		kfree(pkt);
 	}
 
 	/* Finally ... */
-	rtdm_mutex_unlock(&coder_tx_lock);
+	mutex_unlock(&coder_tx_lock);
 
 	DBG("coder_send: completed.\n");
 }
@@ -147,6 +150,6 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
  * Initialize the Coder functional block of Soolink.
  */
 void coder_init(void) {
-	rtdm_mutex_init(&coder_tx_lock);
+	mutex_init(&coder_tx_lock);
 }
 

@@ -16,10 +16,10 @@
  *
  */
 
-#include <avz/types.h>
-#include <avz/string.h>
-#include <avz/ctype.h>
-#include <avz/xmalloc.h>
+#include <types.h>
+#include <string.h>
+#include <ctype.h>
+#include <xmalloc.h>
 
 #ifndef __HAVE_ARCH_STRNICMP
 /**

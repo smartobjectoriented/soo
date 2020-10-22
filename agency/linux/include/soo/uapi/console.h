@@ -41,6 +41,9 @@ void lprintk(char *format, ...);
 void lprintk_buffer(void *buffer, uint32_t n);
 void lprintk_buffer_separator(void *buffer, uint32_t n, char separator);
 
+/* Used to print out to the syslog file */
+void printk_buffer(void *buffer, uint32_t n);
+
 void __lprintk(const char *format, va_list va);
 
 void lprintch(char c);

@@ -263,7 +263,7 @@ void plugin_rx(plugin_desc_t *plugin_desc, req_type_t req_type, void *data, size
 
 	memcpy(&sl_desc->agencyUID_from, &agencyUID_from, SOO_AGENCY_UID_SIZE);
 
-	__receiver_rx(sl_desc, plugin_desc, data, size);
+	__receiver_rx(sl_desc, data, size);
 }
 
 /**
