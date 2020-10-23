@@ -325,7 +325,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 				if ((target_char < initiator_char) ||
 				    (initiator_found && (!target_found || (initiator_char >= target_char))))
 					set_ME_state(ME_state_killed);
-				else
+				else {
 					agency_ctl_args.cmd = AG_KILL_ME;
 					agency_ctl_args.slotID = args->slotID;
 
