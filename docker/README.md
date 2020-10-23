@@ -6,21 +6,31 @@ This folder contains a `Dockerfile` made to ease the compilation of the whole SO
 To build the Docker image, simple execute the following command:
 
 ```bash
-docker build -t soo/build-env path/to/soo/docker
+cd soo
+docker build -t soo/build-env docker/
 ```
 
-## Run the image
+## Run the container
 
-To run this Docker image, execute the following command:
+To run the previously built Docker image into a container, execute the following command:
 
 ```bash
-docker run --rm -it -v /absolute/path/to/soo:/home/reds/soo soo/build-env
+docker run --rm -it -v $PWD:/home/reds/soo --name soo-buildenv soo/build-env
 ```
 
-This will launch a SSH server. To launch it in background, add the `-d` argument to the previous command.
+This will launch a SSH server running in foreground. If you wish to execute the container in background, add the `-d`
+argument to the previous command.
 
 
-## Build the project
+## Connecting to the container
 
-First, `ssh` into your docker container: `ssh reds@172.17.0.2`. The password is `reds`. You can then navigate to
+First, you should retrieve the IP address of the running container. To do so, `grep` the `IPAddress` field of the
+`docker inspect soo-buildenv` command. It should return an address with the following format: `172.17.0.X`.
+
+Then, `ssh` into the Docker container: `ssh reds@172.17.0.X`. The password is `reds`. You can then navigate to
 `/home/reds/soo` and build the project!
+
+
+## Killing the container
+
+When you are done with compiling, you can simply kill the container by executing the command `docker kill soo-buildenv`.
