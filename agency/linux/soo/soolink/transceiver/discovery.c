@@ -37,7 +37,9 @@
 
 #include <soo/debug/bandwidth.h>
 
+#if 0 /* SOO.tech - active this condition to disable ASF */
 #undef CONFIG_ARM_PSCI
+#endif
 
 static bool discovery_enabled = false;
 

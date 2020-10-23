@@ -46,8 +46,9 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
+#if 0 /* SOO.tech - active this condition to disable ASF */
 #undef CONFIG_ARM_PSCI
-
+#endif
 
 /* Protection of the buffers */
 static struct mutex recv_lock;

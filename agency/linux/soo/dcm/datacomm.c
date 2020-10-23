@@ -27,6 +27,7 @@
 #include <linux/bug.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 
 #include <soo/uapi/dcm.h>
 
@@ -41,7 +42,9 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
+#if 0 /* SOO.tech - active this condition to disable ASF */
 #undef CONFIG_ARM_PSCI
+#endif
 
 /* The main requester descriptor managed by Soolink */
 static sl_desc_t *datacomm_sl_desc = NULL;
