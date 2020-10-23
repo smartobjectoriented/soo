@@ -20,7 +20,7 @@ usage()
   echo "ME_NAME is used with -a or -m and correspond to the <ME_NAME> in the ME path to be deployed."
   echo "Examples are:"
   echo "  SOO.blind"
-  echo "  SOO.refSO3"
+  echo "  SOO.refso3"
   exit 1
 }
 
