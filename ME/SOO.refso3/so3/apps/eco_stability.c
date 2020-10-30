@@ -22,7 +22,6 @@
 #endif
 
 #include <spinlock.h>
-#include <sync.h>
 #include <heap.h>
 #include <errno.h>
 
@@ -34,7 +33,7 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-#include <apps/eco_stability.h>
+#include "eco_stability.h"
 
 /**** Declarations for the interactions with the application ****/
 

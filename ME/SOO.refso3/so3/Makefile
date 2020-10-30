@@ -10,7 +10,6 @@
 # o  print "Entering directory ...";
 MAKEFLAGS += -rR --no-print-directory
 
-
 # To put more focus on warnings, be less verbose as default
 # Use 'make V=1' to see the full commands
 
@@ -187,7 +186,7 @@ LINUXINCLUDE    := -Iinclude  -I.  \
                    $(if $(KBUILD_SRC), -I$(srctree)/include) \
                    -include include/generated/autoconf.h
 
-KBUILD_CPPFLAGS := -D__KERNEL__ -D__SO3__ 
+KBUILD_CPPFLAGS := -D__KERNEL__ 
 
 KBUILD_CPPFLAGS += -I$(TOPDIR)include
 KBUILD_CPPFLAGS += -fno-builtin -ffreestanding -nostdinc -isystem $(gccincdir)  
@@ -358,7 +357,9 @@ endif
 
 ELF	= so3
 BIN	= so3.bin
-DTB	= arch/arm/boot/dts/$(TARGET).dtb
+
+DTS = $(wildcard dts/*.dts)
+DTB	= $(DTS:.dts=.dtb)
 
 include scripts/Makefile.build
  
@@ -402,10 +403,10 @@ $(BIN): $(ELF)
 	
 dtbs: $(DTB)
 
-$(DTB): arch/arm/boot/dts/$(TARGET).dts
-	$(Q)$(CC) -P -E -nostdinc -I. -undef -D__DTS__ -x assembler-with-cpp -o arch/arm/boot/dts/$(TARGET)-complete.dts arch/arm/boot/dts/$(TARGET).dts
-	dtc arch/arm/boot/dts/$(TARGET)-complete.dts -O dtb -o $@
-	$(Q)rm -f arch/arm/boot/dts/$(TARGET)-complete.dts
+%.dtb: %.dts
+	$(Q)$(CC) -P -E -nostdinc -I. -undef -D__DTS__ -x assembler-with-cpp -o $^-complete.dts $^
+	dtc $^-complete.dts -O dtb -o $@
+	$(Q)rm -f $^-complete.dts
 	
 $(ELF): $(so3-all)
 	$(call if_changed,so3)
@@ -439,7 +440,7 @@ $(so3-dirs): prepare scripts_basic
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  +=
-CLEAN_FILES +=	so3 so3.bin arch/arm/boot/dts/*.dtb
+CLEAN_FILES +=	so3 so3.bin dts/*.dtb
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated
@@ -458,7 +459,7 @@ $(clean-dirs):
 clean: $(clean-dirs)
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
-	@find . $(RCS_FIND_IGNORE) \
+	@find -L . $(RCS_FIND_IGNORE) \
 		\( -name '*.[oas]' -o -name '.*.cmd' \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
 		-o -name modules.builtin -o -name '.tmp_*.o.*' \

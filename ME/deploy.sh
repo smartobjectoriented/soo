@@ -10,7 +10,7 @@ sudo rm -rf fs/*
 
 if [ "$1" != "clean" ]; then
     if [ "$1" != "" ]; then
-        ME_to_deploy="../../ME/$1/target/so3virt.itb"
+        ME_to_deploy="../../ME/$1/target/*.itb"
         sudo cp -rf $ME_to_deploy fs/
         echo "$1 deployed"
     else

@@ -36,8 +36,6 @@
 
 #include <device/driver.h>
 
-#include <apps/main_thread.h>
-
 #include <soo/avz.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>

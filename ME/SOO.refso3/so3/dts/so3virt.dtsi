@@ -59,7 +59,7 @@
 	};
 	
 	
-	ME {
+	ME: ME {
 #if 0 /* If used without ramfs */
 		domain-size = <0x400000>; /* 4 MB */
 #endif			

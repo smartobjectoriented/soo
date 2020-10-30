@@ -105,7 +105,7 @@ typedef struct {
 extern vweather_t vweather;
 
 /* ISR associated to the notification */
-irq_return_t vweather_update_interrupt(int irq, void *dev_id);
+//irq_return_t vweather_update_interrupt(int irq, void *dev_id);
 
 /*
  * Interface with the client.
