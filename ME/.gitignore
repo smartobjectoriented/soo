@@ -46,3 +46,4 @@ agency/rootfs/target/**
 !agency/rootfs/package/**
 !agency/rootfs/board/**/*.d
 
+/Debug/
