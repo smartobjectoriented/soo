@@ -64,9 +64,7 @@
 #include <soo/evtchn.h>
 #include <soo/uapi/debug.h>
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,0,0))
 #define IRQF_DISABLED	0
-#endif
 
 /* Interfaces/addresses to vbstore and event channel for each domain */
 

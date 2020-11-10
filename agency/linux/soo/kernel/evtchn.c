@@ -71,7 +71,7 @@ typedef struct {
 	int evtchn_to_virq[NR_EVTCHN];	/* evtchn -> IRQ */
 	u32 virq_to_evtchn[NR_VIRQS];	/* IRQ -> evtchn */
 	bool valid[NR_EVTCHN]; /* Indicate if the event channel can be used for notification for example */
-	unsigned long evtchn_mask[NR_EVTCHN/32];
+	bool evtchn_mask[NR_EVTCHN];
 	int virq_bindcount[NR_VIRQS];
 } evtchn_info_t;
 
@@ -103,43 +103,20 @@ inline unsigned int evtchn_from_irq_data(struct irq_data *irq_data)
 /* __evtchn_from_irq : helpful for irq_chip handlers */
 #define __evtchn_from_virq   evtchn_from_irq_data
 
-static inline unsigned evtchn_is_masked(unsigned int b) {
-	return test_bit(b, per_cpu(evtchn_info, smp_processor_id()).evtchn_mask);
+static inline bool evtchn_is_masked(unsigned int b) {
+	return per_cpu(evtchn_info, smp_processor_id()).evtchn_mask[b];
 }
 
 void dump_evtchn_pending(void) {
-
 	int i;
-	unsigned char *ptr_pending, *ptr_mask;
 	volatile shared_info_t *s = avz_shared_info;
 
-#if 0
 	lprintk("   Evtchn info in Agency CPU %d\n\n", smp_processor_id());
-	for (i = 0; i < NR_EVTCHN; i++) {
 
-		lprintk("e:%d m:%d p:%d  ", i, test_bit(i, per_cpu(evtchn_info, smp_processor_id()).evtchn_mask),
-					       test_bit(i, s->evtchn_pending));
-	}
+	for (i = 0; i < NR_EVTCHN; i++)
+		lprintk("e:%d m:%d p:%d  ", i, per_cpu(evtchn_info, smp_processor_id()).evtchn_mask[i], s->evtchn_pending[i]);
+
 	lprintk("\n\n");
-#endif
-
-	ptr_pending = (unsigned char *) &s->evtchn_pending;
-	ptr_mask = (unsigned char *) &per_cpu(evtchn_info, smp_processor_id()).evtchn_mask;
-
-	lprintk("%s: evtchn pending: ", __func__);
-	for (i = 0; i < 32; i++) {
-		lprintk("%.2lx ", (unsigned long) *ptr_pending);
-		ptr_pending++;
-	}
-	lprintk("\n");
-
-	lprintk("%s: evtchn mask   : ", __func__);
-	for (i = 0; i < 32; i++) {
-		lprintk("%.2lx ", (unsigned long) *ptr_mask);
-		ptr_mask++;
-	}
-	lprintk("\n");
-
 }
 
 /* NB. Interrupts are disabled on entry. */
@@ -164,12 +141,10 @@ static struct irq_chip virtirq_chip;
  */
 asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
 {
-	unsigned int   evtchn;
-	int            l1, virq;
+	unsigned int evtchn;
+	int l1, virq;
 	volatile shared_info_t *s = avz_shared_info;
-
 	int loopmax = 0;
-	int at_least_one_processed;
 
 	BUG_ON(!hard_irqs_disabled());
 
@@ -190,41 +165,32 @@ asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
 	per_cpu(in_upcall_progress, smp_processor_id()) = true;
 
 retry:
-
 	l1 = xchg(&s->evtchn_upcall_pending, 0);
 
-	evtchn = find_first_bit((void *) &s->evtchn_pending, NR_EVTCHN);
+	while (true) {
+		for (evtchn = 0; evtchn < NR_EVTCHN; evtchn++)
+			if ((s->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
+				break;
 
-	do {
-		at_least_one_processed = 0; /* If all interrupts are masked, we avoid to loop at infinity */
+		if (evtchn == NR_EVTCHN)
+			break;
 
-		while (evtchn < NR_EVTCHN) {
+		BUG_ON(!per_cpu(evtchn_info, smp_processor_id()).valid[evtchn]);
 
-			BUG_ON(!per_cpu(evtchn_info, smp_processor_id()).valid[evtchn]);
+		loopmax++;
 
-			loopmax++;
+		if (loopmax > 500)   /* Probably something wrong ;-) */
+			lprintk("%s: Warning trying to process evtchn: %d IRQ: %d for quite a long time on CPU %d / masked: %d...\n",
+				__func__, evtchn, per_cpu(evtchn_info, smp_processor_id()).evtchn_to_virq[evtchn], smp_processor_id(), evtchn_is_masked(evtchn));
 
-			if (loopmax > 500)   /* Probably something wrong ;-) */
-				lprintk("%s: Warning trying to process evtchn: %d IRQ: %d for quite a long time on CPU %d / masked: %d...\n",
-						__func__, evtchn, per_cpu(evtchn_info, smp_processor_id()).evtchn_to_virq[evtchn], smp_processor_id(), evtchn_is_masked(evtchn));
+		virq = per_cpu(evtchn_info, smp_processor_id()).evtchn_to_virq[evtchn];
 
-			if (!evtchn_is_masked(evtchn)) {
+		clear_evtchn(evtchn_from_virq(virq));
 
-				at_least_one_processed = 1;
+		asm_do_IRQ(VIRQ_BASE + virq, regs);
 
-				virq = per_cpu(evtchn_info, smp_processor_id()).evtchn_to_virq[evtchn];
-
-				clear_evtchn(evtchn_from_virq(virq));
-
-				asm_do_IRQ(VIRQ_BASE + virq, regs);
-
-				BUG_ON(!hard_irqs_disabled());
-
-			}
-			evtchn = find_next_bit((void *) &s->evtchn_pending, NR_EVTCHN, evtchn+1);
-		}
-
-	} while (at_least_one_processed);
+		BUG_ON(!hard_irqs_disabled());
+	};
 
 	if (s->evtchn_upcall_pending)
 		goto retry;
@@ -471,12 +437,12 @@ void notify_remote_via_virq(int virq)
 
 void mask_evtchn(int evtchn)
 {
-	transaction_set_bit(evtchn, &per_cpu(evtchn_info, smp_processor_id()).evtchn_mask[0]);
+	per_cpu(evtchn_info, smp_processor_id()).evtchn_mask[evtchn] = true;
 }
 
 void unmask_evtchn(int evtchn)
 {
-	transaction_clear_bit(evtchn, &per_cpu(evtchn_info, smp_processor_id()).evtchn_mask[0]);
+	per_cpu(evtchn_info, smp_processor_id()).evtchn_mask[evtchn] = false;
 }
 
 void virtshare_mask_irq(struct irq_data *irq_data) {
@@ -485,10 +451,10 @@ void virtshare_mask_irq(struct irq_data *irq_data) {
 	if (cpumask_test_cpu(AGENCY_RT_CPU, irq_data->common->affinity))
 	{
 		evtchn = evtchn_from_virq_and_cpu(irq_data->irq - VIRQ_BASE, AGENCY_RT_CPU);
-		transaction_set_bit(evtchn, &per_cpu(evtchn_info, AGENCY_RT_CPU).evtchn_mask[0]);
+		per_cpu(evtchn_info, AGENCY_RT_CPU).evtchn_mask[evtchn] = true;
 	} else {
 		evtchn = evtchn_from_virq_and_cpu(irq_data->irq - VIRQ_BASE, AGENCY_CPU);
-		transaction_set_bit(evtchn, &per_cpu(evtchn_info, AGENCY_CPU).evtchn_mask[0]);
+		per_cpu(evtchn_info, AGENCY_CPU).evtchn_mask[evtchn] = true;
 	}
 
 }
@@ -499,10 +465,10 @@ void virtshare_unmask_irq(struct irq_data *irq_data) {
 	if (cpumask_test_cpu(AGENCY_RT_CPU, irq_data->common->affinity))
 	{
 		evtchn = evtchn_from_virq_and_cpu(irq_data->irq, AGENCY_RT_CPU);
-		transaction_clear_bit(evtchn, &per_cpu(evtchn_info, AGENCY_RT_CPU).evtchn_mask[0]);
+		per_cpu(evtchn_info, AGENCY_RT_CPU).evtchn_mask[evtchn] = false;
 	} else {
 		evtchn = evtchn_from_virq_and_cpu(irq_data->irq, AGENCY_CPU);
-		transaction_clear_bit(evtchn, &per_cpu(evtchn_info, AGENCY_CPU).evtchn_mask[0]);
+		per_cpu(evtchn_info, AGENCY_CPU).evtchn_mask[evtchn] = false;
 	}
 }
 
@@ -527,7 +493,7 @@ void virq_init(void)
 			per_cpu(evtchn_info, cpu).evtchn_to_virq[i] = -1;
 			per_cpu(evtchn_info, cpu).valid[i] = false;
 
-			transaction_set_bit(i, &per_cpu(evtchn_info, cpu).evtchn_mask[0]);
+			per_cpu(evtchn_info, cpu).evtchn_mask[i] = true;
 		}
 
 #ifdef CONFIG_SPARSE_IRQ
