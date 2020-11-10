@@ -17,17 +17,6 @@ enum {
 
 typedef void (*softirq_handler)(void);
 
-/*
- * Simple wrappers reducing source bloat.  Define all irq_stat fields
- * here, even ones that are arch dependent.  That way we get common
- * definitions instead of differing sets for each arch.
- */
-
-extern uint32_t softirq_stat[];
-
-/* arch independent irq_stat fields */
-#define softirq_pending(cpu)	(softirq_stat[cpu])
-
 void do_softirq(void);
 
 void open_softirq(int nr, softirq_handler handler);

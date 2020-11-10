@@ -149,7 +149,7 @@ static void build_domain_migration_info(unsigned int ME_slotID, struct domain *m
 
 	/* Shared info */
 
-	memcpy(mig_info->evtchn_pending, me->shared_info->evtchn_pending, sizeof(me->shared_info->evtchn_pending));
+	memcpy(mig_info->evtchn_pending, (bool *) &me->shared_info->evtchn_pending, sizeof(me->shared_info->evtchn_pending));
 
 	/* Keep the a local clocksource reference */
 	mig_info->clocksource_ref = me->shared_info->clocksource_ref;
@@ -244,7 +244,7 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 			me->evtchn[i].interdomain.remote_dom = NULL;
 
 	/* Shared info */
-	memcpy(me->shared_info->evtchn_pending, mig_info->evtchn_pending, sizeof((me->shared_info->evtchn_pending)));
+	memcpy((bool *) &me->shared_info->evtchn_pending, mig_info->evtchn_pending, sizeof((me->shared_info->evtchn_pending)));
 
 	/* Retrieve the clocksource reference */
 	me->shared_info->clocksource_ref = mig_info->clocksource_ref;

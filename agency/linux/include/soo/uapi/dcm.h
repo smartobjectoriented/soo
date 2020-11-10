@@ -41,14 +41,12 @@
 #endif /* __KERNEL__ */
 
 /* IOCTL codes exposed to the user space side */
-#define DCM_IOCTL_INIT				_IOWR(0x5000DC30, 0, char)
-#define DCM_IOCTL_NEIGHBOUR_COUNT		_IOWR(0x5000DC30, 1, char)
-#define DCM_IOCTL_SEND				_IOWR(0x5000DC30, 2, char)
-#define DCM_IOCTL_RECV				_IOWR(0x5000DC30, 5, char)
-#define DCM_IOCTL_RELEASE			_IOWR(0x5000DC30, 6, char)
-#define DCM_IOCTL_CONFIGURE_NEIGHBOURHOOD	_IOWR(0x5000DC30, 7, char)
-#define DCM_IOCTL_RESET_NEIGHBOURHOOD		_IOWR(0x5000DC30, 8, char)
-#define DCM_IOCTL_SET_AGENCY_UID		_IOWR(0x5000DC30, 9, char)
+#define DCM_IOCTL_NEIGHBOUR_COUNT		_IOWR(0x5000DC30, 0, char)
+#define DCM_IOCTL_SEND				_IOWR(0x5000DC30, 1, char)
+#define DCM_IOCTL_RECV				_IOWR(0x5000DC30, 2, char)
+#define DCM_IOCTL_RELEASE			_IOWR(0x5000DC30, 3, char)
+#define DCM_IOCTL_DUMP_NEIGHBOURHOOD		_IOWR(0x5000DC30, 4, char)
+#define DCM_IOCTL_SET_AGENCY_UID		_IOWR(0x5000DC30, 5, char)
 
 typedef struct {
 	void *ME_data;	/* Reference to the uncompressed ME */

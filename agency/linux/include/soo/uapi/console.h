@@ -41,6 +41,10 @@ void lprintk(char *format, ...);
 void lprintk_buffer(void *buffer, uint32_t n);
 void lprintk_buffer_separator(void *buffer, uint32_t n, char separator);
 
+/* Debug functionalities */
+void soo_log(char *format, ...);
+void soo_log_buffer(void *buffer, uint32_t n);
+
 /* Used to print out to the syslog file */
 void printk_buffer(void *buffer, uint32_t n);
 
