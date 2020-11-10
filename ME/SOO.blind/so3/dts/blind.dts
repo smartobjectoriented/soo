@@ -1,0 +1,37 @@
+#include "so3virt.dtsi"
+
+&ME {
+	frontends {
+		
+		vdummyrt {
+			compatible = "vdummyrt,frontend";
+			status = "disabled";
+		};
+
+		vdummy {
+			compatible = "vdummy,frontend";
+			status = "disabled";
+		};
+	
+		vuihandler {
+			compatible = "vuihandler,frontend";
+			status = "ok";
+		};
+    
+		vuart {
+			compatible = "vuart,frontend";
+			status = "ok";
+		};
+	
+		vnetstream {
+			compatible = "vnetstream,frontend";
+			status = "disabled";
+		};
+            
+		vdoga12v6nm {
+			compatible = "vdoga12v6nm,frontend";
+			status = "ok";
+		};
+	
+	};
+};
