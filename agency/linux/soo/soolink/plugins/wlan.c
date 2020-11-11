@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2016-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
@@ -54,7 +53,7 @@ static uint8_t broadcast_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }
  * Transmit on the WLAN interface from the RT domain.
  * At this point, we assume that the interface is up and available in the non-RT domain.
  */
-void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
+void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	struct sk_buff *skb;
 	__be16 proto;
 	uint8_t *__data;

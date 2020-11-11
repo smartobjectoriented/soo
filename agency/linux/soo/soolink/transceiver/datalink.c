@@ -64,7 +64,7 @@ int datalink_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, bool completed
 	if ((sl_desc->trans_mode == SL_MODE_UNIBROAD) && datalink_protocols[SL_DL_PROTO_WINENET])
 		return datalink_protocols[SL_DL_PROTO_WINENET]->tx_callback(sl_desc, packet, completed);
 
-	__sender_tx(sl_desc, packet, 0);
+	__sender_tx(sl_desc, packet);
 
 	return 0;
 

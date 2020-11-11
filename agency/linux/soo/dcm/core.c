@@ -121,7 +121,6 @@ static void dcm_send_ME(unsigned long arg) {
 	/* Free the compressed ME area. */
 	vfree((void *) ME_data);
 
-	/* Free the original (uncompressed) buffer */
 	vfree((void *) args.ME_data);
 
 #ifdef CONFIG_ARM_PSCI
@@ -251,9 +250,7 @@ static int dcm_open(struct inode *inode, struct file *file) {
 	return 0;
 }
 
-extern void configure_neighbitmap(uint32_t neigh_bitmap);
-extern void reset_neighbitmap(void);
-static int __configure_neighbourhood(unsigned long arg) {
+static int soolink_dump_neighbourhood(unsigned long arg) {
 	uint32_t neigh_bitmap;
 	int ret;
 
@@ -269,15 +266,7 @@ static int __configure_neighbourhood(unsigned long arg) {
 		soo_log("\n");
 
 		discovery_dump_neighbours();
-	} else
-		/* The neigh_bitmap is stored in the prio field of the args structure. */
-		configure_neighbitmap(neigh_bitmap);
-
-	return 0;
-}
-
-static int __reset_neighbourhood(void) {
-	reset_neighbitmap();
+	}
 
 	return 0;
 }
@@ -285,9 +274,6 @@ static int __reset_neighbourhood(void) {
 static long dcm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
 	switch (cmd) {
-	case DCM_IOCTL_INIT:
-		datacomm_init();
-		return 0;
 
 	case DCM_IOCTL_NEIGHBOUR_COUNT:
 		return sl_neighbour_count();
@@ -302,11 +288,8 @@ static long dcm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	case DCM_IOCTL_RELEASE:
 		return dcm_release_ME(arg);
 
-	case DCM_IOCTL_CONFIGURE_NEIGHBOURHOOD:
-		return __configure_neighbourhood(arg);
-
-	case DCM_IOCTL_RESET_NEIGHBOURHOOD:
-		return __reset_neighbourhood();
+	case DCM_IOCTL_DUMP_NEIGHBOURHOOD:
+		return soolink_dump_neighbourhood(arg);
 
 	case DCM_IOCTL_SET_AGENCY_UID:
 		set_agencyUID((uint8_t) arg);
@@ -329,7 +312,7 @@ static struct file_operations dcm_fops = {
 /**
  * DCM initialization function.
  */
-static int dcm_init(void) {
+int dcm_init(void) {
 	int rc, i;
 
 	DBG("DCM subsys initializing ...\n");
@@ -348,7 +331,8 @@ static int dcm_init(void) {
 		BUG();
 	}
 
+	datacomm_init();
+
 	return 0;
 }
 
-subsys_initcall(dcm_init);

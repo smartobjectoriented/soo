@@ -32,10 +32,6 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
-static struct list_head remote_soo_list;
-
-static spinlock_t list_lock;
-
 static req_type_t protocol_to_req_type[ETH_P_SL_MAX - ETH_P_SL_MIN] = {
 	[ETH_P_SOOLINK_DCM - ETH_P_SL_MIN] = SL_REQ_DCM,
 	[ETH_P_SOOLINK_IAMASOO - ETH_P_SL_MIN] = SL_REQ_DISCOVERY,
@@ -54,15 +50,13 @@ static uint16_t req_type_to_protocol[SL_REQ_N] = {
 	[SL_REQ_DATALINK] = ETH_P_SOOLINK_DATALINK
 };
 
-struct list_head plugin_list;
-
 /*
  * Look for a specific plugin which matches the if_type
  */
 static plugin_desc_t *find_plugin_by_if_type(if_type_t if_type) {
 	plugin_desc_t *cur;
 
-	list_for_each_entry(cur, &plugin_list, list)
+	list_for_each_entry(cur, &current_soo_plugin->plugin_list, list)
 		if (cur->if_type == if_type)
 			return cur;
 
@@ -78,18 +72,18 @@ uint8_t *get_mac_addr(agencyUID_t *agencyUID) {
 	plugin_remote_soo_desc_t *plugin_remote_soo_desc;
 	unsigned long flags;
 
-	spin_lock_irqsave(&list_lock, flags);
+	spin_lock_irqsave(&current_soo_plugin->list_lock, flags);
 
-	list_for_each(cur, &remote_soo_list) {
+	list_for_each(cur, &current_soo_plugin->remote_soo_list) {
 		plugin_remote_soo_desc = list_entry(cur, plugin_remote_soo_desc_t, list);
 		if (!memcmp(&plugin_remote_soo_desc->agencyUID, agencyUID, SOO_AGENCY_UID_SIZE)) {
 
-			spin_unlock_irqrestore(&list_lock, flags);
+			spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 			return plugin_remote_soo_desc->mac;
 		}
 	}
 
-	spin_unlock_irqrestore(&list_lock, flags);
+	spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 
 	return NULL;
 }
@@ -110,10 +104,10 @@ static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packe
 	lprintk("\n");
 #endif
 
-	spin_lock_irqsave(&list_lock, flags);
+	spin_lock_irqsave(&current_soo_plugin->list_lock, flags);
 
 	/* Look for the remote SOO in the list */
-	list_for_each(cur, &remote_soo_list) {
+	list_for_each(cur, &current_soo_plugin->remote_soo_list) {
 		remote_soo_desc_cur = list_entry(cur, plugin_remote_soo_desc_t, list);
 		if (!memcmp(remote_soo_desc_cur->mac, mac_src, ETH_ALEN)) {
 #ifdef VERBOSE
@@ -122,13 +116,13 @@ static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packe
 #endif
 			memcpy(agencyUID_from, &remote_soo_desc_cur->agencyUID, SOO_AGENCY_UID_SIZE);
 
-			spin_unlock_irqrestore(&list_lock, flags);
+			spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 
 			return true;
 		}
 	}
 
-	spin_unlock_irqrestore(&list_lock, flags);
+	spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 
 	/*
 	 * If the packet is coming from a SOO which is not in the remote SOO table yet,
@@ -148,17 +142,17 @@ void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src) {
 	plugin_remote_soo_desc_t *remote_soo_desc;
 	unsigned long flags;
 
-	spin_lock_irqsave(&list_lock, flags);
+	spin_lock_irqsave(&current_soo_plugin->list_lock, flags);
 
 	/* Look for the remote SOO in the list */
-	list_for_each_entry(remote_soo_desc, &remote_soo_list, list) {
+	list_for_each_entry(remote_soo_desc, &current_soo_plugin->remote_soo_list, list) {
 
 		if (!memcmp(remote_soo_desc->mac, mac_src, ETH_ALEN)) {
-#ifdef VERBOSE
-			lprintk("%s: agency UID found: ", __func__);
-			printlnUID(&remote_soo_desc->agencyUID);
-#endif
-			spin_unlock_irqrestore(&list_lock, flags);
+
+			soo_log("[soo:soolink:plugin] agency UID found: ");
+			soo_log_printlnUID(&remote_soo_desc->agencyUID);
+
+			spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 			return ;
 		}
 	}
@@ -171,14 +165,14 @@ void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src) {
 
 	memcpy(&remote_soo_desc->agencyUID, agencyUID, SOO_AGENCY_UID_SIZE);
 
-	list_add_tail(&remote_soo_desc->list, &remote_soo_list);
+	list_add_tail(&remote_soo_desc->list, &current_soo_plugin->remote_soo_list);
 
 #ifdef VERBOSE
 	lprintk("%s: added agency UID: ", __func__);
 	printlnUID(&remote_soo_desc->agencyUID);
 #endif
 
-	spin_unlock_irqrestore(&list_lock, flags);
+	spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 }
 
 /**
@@ -188,9 +182,9 @@ void detach_agencyUID(agencyUID_t *agencyUID) {
 	plugin_remote_soo_desc_t *remote_soo_desc, *tmp;
 	unsigned long flags;
 
-	spin_lock_irqsave(&list_lock, flags);
+	spin_lock_irqsave(&current_soo_plugin->list_lock, flags);
 
-	list_for_each_entry_safe(remote_soo_desc, tmp, &remote_soo_list, list) {
+	list_for_each_entry_safe(remote_soo_desc, tmp, &current_soo_plugin->remote_soo_list, list) {
 		if (!memcmp(agencyUID, &remote_soo_desc->agencyUID, SOO_AGENCY_UID_SIZE)) {
 #ifdef VERBOSE
 			lprintk("%s: delete the agency UID: ", __func__);
@@ -199,7 +193,7 @@ void detach_agencyUID(agencyUID_t *agencyUID) {
 			list_del(&remote_soo_desc->list);
 			kfree(remote_soo_desc);
 
-			spin_unlock_irqrestore(&list_lock, flags);
+			spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 
 			return ;
 		}
@@ -212,7 +206,7 @@ void detach_agencyUID(agencyUID_t *agencyUID) {
 /**
  * Send a packet using a plugin.
  */
-void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
+void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	plugin_desc_t *plugin_desc;
 
 	/* Find a plugin descriptor which matches with the if_type */
@@ -221,7 +215,7 @@ void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags)
 	/* Currently, it should not fail... */
 	BUG_ON(!plugin_desc);
 
-	plugin_desc->tx_callback(sl_desc, data, size, flags);
+	plugin_desc->tx_callback(sl_desc, data, size);
 
 }
 
@@ -294,7 +288,7 @@ uint16_t get_protocol_from_sl_req_type(req_type_t req_type) {
 void transceiver_plugin_register(plugin_desc_t *plugin_desc) {
 
 	/* Add it in the list of known plugin */
-	list_add_tail(&plugin_desc->list, &plugin_list);
+	list_add_tail(&plugin_desc->list, &current_soo_plugin->plugin_list);
 }
 
 /*
@@ -304,9 +298,12 @@ void transceiver_plugin_init(void) {
 
 	lprintk("Soolink transceiver plugin init ...\n");
 
-	INIT_LIST_HEAD(&plugin_list);
-	INIT_LIST_HEAD(&remote_soo_list);
+	current_soo->soo_plugin = kzalloc(sizeof(struct soo_plugin_env), GFP_KERNEL);
+	BUG_ON(!current_soo->soo_plugin);
 
-	spin_lock_init(&list_lock);
+	INIT_LIST_HEAD(&current_soo_plugin->plugin_list);
+	INIT_LIST_HEAD(&current_soo_plugin->remote_soo_list);
+
+	spin_lock_init(&current_soo_plugin->list_lock);
 
 }

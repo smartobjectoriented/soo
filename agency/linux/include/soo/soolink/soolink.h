@@ -55,7 +55,8 @@ typedef enum {
 	SL_IF_ETH,
 	SL_IF_TCP,
 	SL_IF_BT,
-	SL_IF_LOOP
+	SL_IF_LOOP,
+	SL_IF_SIMULATION
 } if_type_t;
 
 /* Transmission mode type */
@@ -140,7 +141,5 @@ uint32_t sl_neighbour_count(void);
 /* prio can be 0 to 99 (the greater the higher priority) */
 void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio);
 int sl_recv(sl_desc_t *sl_desc, void **data);
-
-void sl_discovery_start(void);
 
 #endif /* SOOLINK_H */

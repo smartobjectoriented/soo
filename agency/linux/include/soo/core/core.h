@@ -17,3 +17,5 @@
  */
 
 unsigned int xcrc32 (const unsigned char *buf, int len, unsigned int init);
+
+int agency_late_init_fn(void *args);

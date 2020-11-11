@@ -22,14 +22,14 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 
+#include <soo/netsimul.h>
+
 #include <soo/soolink/discovery.h>
 #include <soo/soolink/sender.h>
 
 #include <soo/core/device_access.h>
 #include <soo/core/sysfs.h>
 #include <soo/core/asf.h>
-
-#include <xenomai/rtdm/driver.h>
 
 #include <soo/uapi/debug.h>
 #include <soo/uapi/console.h>
@@ -39,43 +39,40 @@
 
 #undef CONFIG_ARM_PSCI
 
-static neighbour_desc_t *ourself = NULL;
-
-static bool discovery_enabled = false;
-
-static struct list_head neighbour_list;
-iamasoo_pkt_t iamasoo_beacon_pkt;
-
-static struct list_head discovery_listener_list;
-static bool __neighbour_list_protected;
-
-/* Used to maintain new discovered neighbours if the main list is protected. */
-static struct list_head discovery_pending_add_list;
-
-static volatile uint32_t neighbor_count = 0;
-
 typedef struct {
 	neighbour_desc_t *neighbour;
 	struct list_head list;
 } pending_update_t;
 
-/*
- * Used to maintain updated neighbours if the main list is protected.
- * This list is composed of pending_update_t items.
- */
-static struct list_head discovery_pending_update_list;
+struct soo_discovery_env {
 
-static struct list_head neigh_blacklist;
+	neighbour_desc_t *ourself;
+	bool discovery_enabled;
 
-static spinlock_t discovery_listener_lock;
+	struct list_head neighbour_list;
 
-static sl_desc_t *discovery_sl_desc;
+	struct list_head discovery_listener_list;
+
+	bool __neighbour_list_protected;
+
+	/* Used to maintain new discovered neighbours if the main list is protected. */
+	struct list_head discovery_pending_add_list;
+
+	volatile uint32_t neighbor_count;
+
+	struct list_head discovery_pending_update_list;
+
+	spinlock_t discovery_listener_lock;
+
+	sl_desc_t *discovery_sl_desc;
+
+};
 
 /*
  * Update our agencyUID according to what device access says.
  */
 void discovery_update_ourself(agencyUID_t *agencyUID) {
-	memcpy(&ourself->agencyUID, agencyUID, SOO_AGENCY_UID_SIZE);
+	memcpy(&current_soo_discovery->ourself->agencyUID, agencyUID, SOO_AGENCY_UID_SIZE);
 }
 
 /**
@@ -83,15 +80,12 @@ void discovery_update_ourself(agencyUID_t *agencyUID) {
  * The lock on the list must be taken.
  */
 static void callbacks_add_neighbour(neighbour_desc_t *neighbour) {
-	struct list_head *cur;
 	discovery_listener_t *cur_listener;
 
 	if (neighbour->plugin)
-		neighbor_count++;
+		current_soo_discovery->neighbor_count++;
 
-	list_for_each(cur, &discovery_listener_list) {
-		cur_listener = list_entry(cur, discovery_listener_t, list);
-
+	list_for_each_entry(cur_listener, &current_soo_discovery->discovery_listener_list, list) {
 		if (cur_listener->add_neighbour_callback)
 			cur_listener->add_neighbour_callback(neighbour);
 	}
@@ -102,14 +96,12 @@ static void callbacks_add_neighbour(neighbour_desc_t *neighbour) {
  * The lock on the list must be taken.
  */
 static void callbacks_remove_neighbour(neighbour_desc_t *neighbour) {
-	struct list_head *cur;
 	discovery_listener_t *cur_neighbour;
 
 	if (neighbour->plugin)
-		neighbor_count--;
+		current_soo_discovery->neighbor_count--;
 
-	list_for_each(cur, &discovery_listener_list) {
-		cur_neighbour = list_entry(cur, discovery_listener_t, list);
+	list_for_each_entry(cur_neighbour, &current_soo_discovery->discovery_listener_list, list) {
 
 		if (cur_neighbour->remove_neighbour_callback)
 			cur_neighbour->remove_neighbour_callback(neighbour);
@@ -125,11 +117,9 @@ static void callbacks_remove_neighbour(neighbour_desc_t *neighbour) {
  * The lock on the list must be taken.
  */
 static void callbacks_update_neighbour(neighbour_desc_t *neighbour) {
-	struct list_head *cur;
 	discovery_listener_t *cur_neighbour;
 
-	list_for_each(cur, &discovery_listener_list) {
-		cur_neighbour = list_entry(cur, discovery_listener_t, list);
+	list_for_each_entry(cur_neighbour, &current_soo_discovery->discovery_listener_list, list) {
 
 		if (cur_neighbour->update_neighbour_priv_callback)
 			cur_neighbour->update_neighbour_priv_callback(neighbour);
@@ -140,73 +130,15 @@ static void callbacks_update_neighbour(neighbour_desc_t *neighbour) {
  * The lock on the list must be taken.
  */
 static int callbacks_get_neighbour_priv(neighbour_desc_t *neighbour) {
-	struct list_head *cur;
 	discovery_listener_t *cur_neighbour;
 
-	list_for_each(cur, &discovery_listener_list) {
-		cur_neighbour = list_entry(cur, discovery_listener_t, list);
+	list_for_each_entry(cur_neighbour, &current_soo_discovery->discovery_listener_list, list) {
 
 		if (cur_neighbour->get_neighbour_priv_callback)
 			/* Currently, only one listener can use this feature. */
 			return cur_neighbour->get_neighbour_priv_callback(neighbour);
 	}
 	return 0;
-}
-
-/* Used to configure the neighbourhood. The bitmap indicates which
- * neighbours must be considered in the list of neighbours (the bitmap
- * position corresponds to the n-th item of the list).
- * Example: neigh_bitmap = 4 => only the third neighbours has to be considered, neigh_bitmap = 3,
- * only the first and second neighbours, etc.
- * If neigh_bitmap == -1 (0xffffffff) => all neighbours are considered.
- * The neighbourhood configuration must be performed once the neighbourhood is stable, typically by means
- * of the application agency_core -n <list_of_pos> (see agency_core application).
- * The neighbours are simply blacklisted.
- * This facility is mainly used for debugging purposes.
- */
-void configure_neighbitmap(uint32_t neigh_bitmap) {
-	uint32_t i;
-	struct list_head *cur_neigh, *tmp;
-	neighbour_desc_t *cur_neighbour;
-
-	spin_lock(&discovery_listener_lock);
-
-	cur_neigh = &neighbour_list;
-	cur_neigh = cur_neigh->next;
-
-	i = 0;
-	list_for_each_safe(cur_neigh, tmp, &neighbour_list) {
-
-		if (!(neigh_bitmap & (1 << i))) {
-			/* To be blacklisted */
-
-			/* Detach it */
-			cur_neigh->prev->next = cur_neigh->next;
-			cur_neigh->next->prev = cur_neigh->prev;
-
-			cur_neighbour = list_entry(cur_neigh, neighbour_desc_t, list);
-
-			soo_log("[soo:soolink:discovery] %s blacklist neighbour: ", __func__);
-			soo_log_buffer(&cur_neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
-
-			/* And attach to the blacklist */
-			list_add_tail(cur_neigh, &neigh_blacklist);
-
-			callbacks_remove_neighbour(cur_neighbour);
-		}
-
-		i++;
-	}
-
-	spin_unlock(&discovery_listener_lock);
-}
-
-/*
- * Reset the blacklisted neighbours bitmap.
- * Neighbours will re-appear as soon as their Iamasoo beacon is received.
- */
-void reset_neighbitmap(void) {
-	INIT_LIST_HEAD(&neigh_blacklist);
 }
 
 /*
@@ -218,15 +150,15 @@ static void __add_neighbour(neighbour_desc_t *neighbour) {
 	neighbour_desc_t *cur_neighbour;
 
 	/* If the list is empty, add the neighbour to it */
-	if (unlikely(list_empty(&neighbour_list)))
+	if (unlikely(list_empty(&current_soo_discovery->neighbour_list)))
 
-		list_add_tail(&neighbour->list, &neighbour_list);
+		list_add_tail(&neighbour->list, &current_soo_discovery->neighbour_list);
 
 	/* cur_neighbour is currently the last element of the list */
 	else {
 
 		/* Walk the list until we find the right place in ascending sort. */
-		list_for_each_entry(cur_neighbour, &neighbour_list, list) {
+		list_for_each_entry(cur_neighbour, &current_soo_discovery->neighbour_list, list) {
 
 			ret = memcmp(&neighbour->agencyUID, &cur_neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 
@@ -238,8 +170,8 @@ static void __add_neighbour(neighbour_desc_t *neighbour) {
 		}
 
 		/* All UIDs are less than the new one */
-		if (&cur_neighbour->list == &neighbour_list)
-			list_add_tail(&neighbour->list, &neighbour_list);
+		if (&cur_neighbour->list == &current_soo_discovery->neighbour_list)
+			list_add_tail(&neighbour->list, &current_soo_discovery->neighbour_list);
 	}
 
 	/* Call the neighbour add callbacks */
@@ -256,17 +188,17 @@ static void add_neighbour(neighbour_desc_t *neighbour) {
 	bool found = false;
 
 	/* If the list is protected, it will be added later during the unprotect operation. */
-	if (__neighbour_list_protected) {
+	if (current_soo_discovery->__neighbour_list_protected) {
 
 		/* Check if already known in the add pending list */
-		list_for_each_entry(cur_neighbour, &discovery_pending_add_list, list) {
+		list_for_each_entry(cur_neighbour, &current_soo_discovery->discovery_pending_add_list, list) {
 			if (!memcmp(&cur_neighbour->agencyUID, &neighbour->agencyUID, SOO_AGENCY_UID_SIZE)) {
 				found = true;
 				break;
 			}
 		}
 		if (!found)
-			list_add(&neighbour->list, &discovery_pending_add_list);
+			list_add(&neighbour->list, &current_soo_discovery->discovery_pending_add_list);
 	} else
 		__add_neighbour(neighbour);
 }
@@ -280,10 +212,10 @@ static void update_neighbour(neighbour_desc_t *neighbour) {
 	pending_update_t *pending_update = NULL;
 
 	/* If the list is protected, it will be added later during the unprotect operation. */
-	if (__neighbour_list_protected) {
+	if (current_soo_discovery->__neighbour_list_protected) {
 
 		/* Check if already known in the add pending list */
-		list_for_each_entry(pending_update, &discovery_pending_update_list, list) {
+		list_for_each_entry(pending_update, &current_soo_discovery->discovery_pending_update_list, list) {
 			if (pending_update->neighbour == neighbour) {
 				found = true;
 				break;
@@ -294,7 +226,7 @@ static void update_neighbour(neighbour_desc_t *neighbour) {
 			BUG_ON(!pending_update);
 
 			pending_update->neighbour = neighbour;
-			list_add(&pending_update->list, &discovery_pending_update_list);
+			list_add(&pending_update->list, &current_soo_discovery->discovery_pending_update_list);
 		}
 	} else
 		callbacks_update_neighbour(neighbour);
@@ -308,21 +240,21 @@ void concat_friends(uint8_t *friends) {
 	neighbour_desc_t *neighbour;
 	uint8_t *pos = friends;
 
-	spin_lock(&discovery_listener_lock);
+	spin_lock(&current_soo_discovery->discovery_listener_lock);
 
-	list_for_each(cur, &neighbour_list) {
+	list_for_each(cur, &current_soo_discovery->neighbour_list) {
 		neighbour = list_entry(cur, neighbour_desc_t, list);
 
 		memcpy(pos, &neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
 		pos += SOO_AGENCY_UID_SIZE;
 	}
 
-	spin_unlock(&discovery_listener_lock);
+	spin_unlock(&current_soo_discovery->discovery_listener_lock);
 }
 
 /*
  * Retrieve the list of friends from a Iamasoo packet and put them in the appropriate
- * field of neighbour_dest_c.
+ * field of neighbour_desc_t.
  * It is assumed that discovery_listener_lock is hold.
  */
 void expand_friends(uint8_t *friends, int friends_count, neighbour_desc_t *neighbour_desc) {
@@ -333,7 +265,7 @@ void expand_friends(uint8_t *friends, int friends_count, neighbour_desc_t *neigh
 		return ;
 
 	for (i = 0; i < friends_count; i++) {
-		friend = kzalloc(sizeof(agencyUID_t), GFP_ATOMIC);
+		friend = kzalloc(sizeof(agencyUID_t), GFP_KERNEL);
 		BUG_ON(!friend);
 
 		memcpy(&friend->id, friends, SOO_AGENCY_UID_SIZE);
@@ -369,7 +301,7 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 	neighbour_desc_t *neighbour;
 	iamasoo_pkt_t *iamasoo_pkt;
 
-	if (!discovery_enabled)
+	if (!current_soo_discovery->discovery_enabled)
 		return ;
 
 	/* Beacon decryption */
@@ -382,10 +314,10 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 	/* Check if there is a binding with the MAC address already. */
 	attach_agencyUID((agencyUID_t *) iamasoo_pkt->agencyUID, mac_src);
 
-	spin_lock(&discovery_listener_lock);
+	spin_lock(&current_soo_discovery->discovery_listener_lock);
 
 	/* Look for the neighbour in the list */
-	list_for_each(cur, &neighbour_list) {
+	list_for_each(cur, &current_soo_discovery->neighbour_list) {
 		neighbour = list_entry(cur, neighbour_desc_t, list);
 		if (!memcmp(&neighbour->agencyUID, iamasoo_pkt->agencyUID, SOO_AGENCY_UID_SIZE)) {
 			known_neighbour = true;
@@ -393,22 +325,11 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 		}
 	}
 
-	/* Do not try to add a blacklisted neighbour */
-	if (!known_neighbour) {
-		list_for_each(cur, &neigh_blacklist) {
-			neighbour = list_entry(cur, neighbour_desc_t, list);
-			if (!memcmp(&neighbour->agencyUID, iamasoo_pkt->agencyUID, SOO_AGENCY_UID_SIZE)) {
-				known_neighbour = true;
-				break;
-			}
-		}
-	}
-
 	/* If the neighbour is not in the list... */
 	if (!known_neighbour) {
 
 		/* Add the neighbour in the list */
-		neighbour = (neighbour_desc_t *) kzalloc(sizeof(neighbour_desc_t), GFP_ATOMIC);
+		neighbour = (neighbour_desc_t *) kzalloc(sizeof(neighbour_desc_t), GFP_KERNEL);
 		if (!neighbour) {
 			lprintk("Cannot allocate a new neighbour\n");
 			BUG();
@@ -424,7 +345,7 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 		if (iamasoo_pkt->priv_len > 0) {
 			/* Retrieve the private data */
 
-			neighbour->priv = kzalloc(iamasoo_pkt->priv_len, GFP_ATOMIC);
+			neighbour->priv = kzalloc(iamasoo_pkt->priv_len, GFP_KERNEL);
 			BUG_ON(!neighbour->priv);
 
 			memcpy(neighbour->priv, iamasoo_pkt->extra, iamasoo_pkt->priv_len);
@@ -438,8 +359,8 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 
 		expand_friends(&iamasoo_pkt->extra[iamasoo_pkt->priv_len], (size - sizeof(iamasoo_pkt_t) - iamasoo_pkt->priv_len) / SOO_AGENCY_UID_SIZE, neighbour);
 
-		DBG("Add the neighbour: %s - ", neighbour->name);
-		DBG_BUFFER(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+		soo_log("[soo:soolink:discovery] Adding the neighbour: %s - ", neighbour->name);
+		soo_log_printlnUID(&neighbour->agencyUID);
 
 		add_neighbour(neighbour);
 
@@ -488,7 +409,7 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 	kfree(iamasoo_pkt);
 #endif
 
-	spin_unlock(&discovery_listener_lock);
+	spin_unlock(&current_soo_discovery->discovery_listener_lock);
 }
 
 /**
@@ -509,23 +430,23 @@ static void send_beacon(void) {
 		return ;
 
 	/* Prepare to broadcast */
-	BUG_ON(memcmp(&discovery_sl_desc->agencyUID_to, get_null_agencyUID(), SOO_AGENCY_UID_SIZE));
+	BUG_ON(memcmp(&current_soo_discovery->discovery_sl_desc->agencyUID_to, get_null_agencyUID(), SOO_AGENCY_UID_SIZE));
 
 	/* Allocation of the Iamasoo beacon according to the structure and the number of our neighbours including us. */
 	size = sizeof(iamasoo_pkt_t) + (discovery_neighbour_count() + 1) * SOO_AGENCY_UID_SIZE;
 
-	if (!ourself) {
-		list_for_each_entry(ourself, &neighbour_list, list) {
-			if (!ourself->plugin)
+	if (!current_soo_discovery->ourself) {
+		list_for_each_entry(current_soo_discovery->ourself, &current_soo_discovery->neighbour_list, list) {
+			if (!current_soo_discovery->ourself->plugin)
 				break;
 		}
-		if (&ourself->list == &neighbour_list)
-			ourself = NULL;
+		if (&current_soo_discovery->ourself->list == &current_soo_discovery->neighbour_list)
+			current_soo_discovery->ourself = NULL;
 	}
 
-	if (ourself) {
+	if (current_soo_discovery->ourself) {
 		/* Collect private data from data link */
-		priv_len = callbacks_get_neighbour_priv(ourself);
+		priv_len = callbacks_get_neighbour_priv(current_soo_discovery->ourself);
 		size += priv_len;
 	}
 
@@ -539,7 +460,7 @@ static void send_beacon(void) {
 	/* Add the private data if any */
 	if (priv_len) {
 		iamasoo_pkt->priv_len = priv_len;
-		memcpy(iamasoo_pkt->extra, ourself->priv, priv_len);
+		memcpy(iamasoo_pkt->extra, current_soo_discovery->ourself->priv, priv_len);
 	}
 
 	concat_friends(&iamasoo_pkt->extra[priv_len]);
@@ -549,13 +470,13 @@ static void send_beacon(void) {
 	size = asf_encrypt(ASF_KEY_COM, (uint8_t *) iamasoo_pkt, size, &iamasoo_pkt_crypt);
 #endif
 	/* Now send the Iamasoo beacon to the sender */
-	DBG("%s: sending to: ", __func__);
-	DBG_BUFFER(&discovery_sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
+	soo_log("[soo:soolink:discovery] %s: sending to: ", __func__);
+	soo_log_printlnUID(&current_soo_discovery->discovery_sl_desc->agencyUID_to);
 
 #ifdef CONFIG_ARM_PSCI
-	sender_tx(discovery_sl_desc, iamasoo_pkt_crypt, size, true);
+	sender_tx(current_soo_discovery->discovery_sl_desc, iamasoo_pkt_crypt, size, true);
 #else
-	sender_tx(discovery_sl_desc, iamasoo_pkt, size, true);
+	sender_tx(current_soo_discovery->discovery_sl_desc, iamasoo_pkt, size, true);
 #endif
 
 #ifdef CONFIG_ARM_PSCI
@@ -577,7 +498,7 @@ static int iamasoo_task_fn(void *args) {
 	 * round of broadcast and to identify the next speaker.
 	 */
 
-	spin_lock(&discovery_listener_lock);
+	spin_lock(&current_soo_discovery->discovery_listener_lock);
 
 	/* Add the neighbour in the list */
 	neighbour = (neighbour_desc_t *) kzalloc(sizeof(neighbour_desc_t), GFP_ATOMIC);
@@ -590,12 +511,12 @@ static int iamasoo_task_fn(void *args) {
 	neighbour->missing_tick = 0;
 	neighbour->present = true;
 
-	soo_log("[soo:soolink] Adding ourself (%s) - ", neighbour->name);
-	soo_log_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+	soo_log("[soo:soolink:discovery] Adding ourself (%s) - ", neighbour->name);
+	soo_log_printlnUID(&neighbour->agencyUID);
 
 	__add_neighbour(neighbour);
 
-	spin_unlock(&discovery_listener_lock);
+	spin_unlock(&current_soo_discovery->discovery_listener_lock);
 
 	discovery_enable();
 
@@ -603,16 +524,16 @@ static int iamasoo_task_fn(void *args) {
 
 		msleep(DISCOVERY_TASK_PERIOD_MS);
 
-		if (!discovery_enabled)
+		if (!current_soo_discovery->discovery_enabled)
 			continue;
 
 		/* Broadcast the beacon over all plugins */
 		send_beacon();
 
-		spin_lock(&discovery_listener_lock);
+		spin_lock(&current_soo_discovery->discovery_listener_lock);
 
 		/* Increment the missing_tick, over the neighbours */
-		list_for_each(cur, &neighbour_list) {
+		list_for_each(cur, &current_soo_discovery->neighbour_list) {
 			neighbour = list_entry(cur, neighbour_desc_t, list);
 
 			/* Only for *real* neighbours */
@@ -626,13 +547,13 @@ static int iamasoo_task_fn(void *args) {
 		 */
 
 		/* Check if a neighbour is dead */
-		list_for_each_safe(cur, tmp, &neighbour_list) {
+		list_for_each_safe(cur, tmp, &current_soo_discovery->neighbour_list) {
 			neighbour = list_entry(cur, neighbour_desc_t, list);
 
 			/* If a neighbour is dead, delete it from the list */
 			if (neighbour->missing_tick >= SOOLINK_MISSING_TICK_MAX) {
 
-				if (__neighbour_list_protected)
+				if (current_soo_discovery->__neighbour_list_protected)
 					neighbour->present = false;  /* It will be removed later, during unprotect operation */
 				else {
 					/* Call the neighbour remove callbacks */
@@ -645,8 +566,8 @@ static int iamasoo_task_fn(void *args) {
 					if (neighbour->priv)
 						kfree(neighbour->priv);
 
-					soo_log("[soo:soolink] Delete the neighbour: ");
-					soo_log_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
+					soo_log("[soo:soolink:discovery] Delete the neighbour: ");
+					soo_log_printlnUID(&neighbour->agencyUID);
 
 					list_del(cur);
 					kfree(neighbour);
@@ -654,7 +575,7 @@ static int iamasoo_task_fn(void *args) {
 			}
 		}
 
-		spin_unlock(&discovery_listener_lock);
+		spin_unlock(&current_soo_discovery->discovery_listener_lock);
 	}
 
 	return 0;
@@ -669,9 +590,9 @@ int discovery_get_neighbours(struct list_head *new_list) {
 	neighbour_desc_t *neighbour, *new_neighbour;
 	uint32_t count = 0;
 
-	spin_lock(&discovery_listener_lock);
+	spin_lock(&current_soo_discovery->discovery_listener_lock);
 
-	list_for_each(cur, &neighbour_list) {
+	list_for_each(cur, &current_soo_discovery->neighbour_list) {
 		neighbour = list_entry(cur, neighbour_desc_t, list);
 
 		/* Add the neighbour in the list */
@@ -693,7 +614,7 @@ int discovery_get_neighbours(struct list_head *new_list) {
 		count++;
 	}
 
-	spin_unlock(&discovery_listener_lock);
+	spin_unlock(&current_soo_discovery->discovery_listener_lock);
 
 	return count;
 }
@@ -706,16 +627,16 @@ void neighbour_list_protection(bool protect) {
 	neighbour_desc_t *neighbour = NULL, *tmp;
 	pending_update_t *pending_update = NULL, *tmp2;
 
-	spin_lock(&discovery_listener_lock);
+	spin_lock(&current_soo_discovery->discovery_listener_lock);
 
-	BUG_ON(protect && __neighbour_list_protected);
-	BUG_ON(!protect && !__neighbour_list_protected);
+	BUG_ON(protect && current_soo_discovery->__neighbour_list_protected);
+	BUG_ON(!protect && !current_soo_discovery->__neighbour_list_protected);
 
 	/* Check for a need of synchronization with the pending list. */
 	if (!protect) {
 
 		/* Possible pending addings ? */
-		list_for_each_entry_safe(neighbour, tmp, &discovery_pending_add_list, list) {
+		list_for_each_entry_safe(neighbour, tmp, &current_soo_discovery->discovery_pending_add_list, list) {
 
 			/* Remove the entry */
 			list_del(&neighbour->list);
@@ -724,7 +645,7 @@ void neighbour_list_protection(bool protect) {
 		}
 
 		/* Possible pending updates ? */
-		list_for_each_entry_safe(pending_update, tmp2, &discovery_pending_update_list, list) {
+		list_for_each_entry_safe(pending_update, tmp2, &current_soo_discovery->discovery_pending_update_list, list) {
 
 			/* Remove the entry */
 			list_del(&pending_update->list);
@@ -734,7 +655,7 @@ void neighbour_list_protection(bool protect) {
 		}
 
 		/* We check if some neighbour disappeared in the meanwhile */
-		list_for_each_entry_safe(neighbour, tmp, &neighbour_list, list) {
+		list_for_each_entry_safe(neighbour, tmp, &current_soo_discovery->neighbour_list, list) {
 
 			if (!neighbour->present) {
 
@@ -747,9 +668,9 @@ void neighbour_list_protection(bool protect) {
 		}
 	}
 
-	__neighbour_list_protected = protect;
+	current_soo_discovery->__neighbour_list_protected = protect;
 
-	spin_unlock(&discovery_listener_lock);
+	spin_unlock(&current_soo_discovery->discovery_listener_lock);
 }
 
 /**
@@ -761,22 +682,21 @@ void discovery_dump_neighbours(void) {
 	uint32_t count = 0;
 	agencyUID_t *friend;
 
-	spin_lock(&discovery_listener_lock);
+	spin_lock(&current_soo_discovery->discovery_listener_lock);
 
 	/* There is no neighbour in the list, I am alone */
-	if (list_empty(&neighbour_list)) {
+	if (list_empty(&current_soo_discovery->neighbour_list)) {
 		soo_log("[soo:soolink:discovery] No neighbour\n");
-		spin_unlock(&discovery_listener_lock);
+		spin_unlock(&current_soo_discovery->discovery_listener_lock);
 		return;
 	}
 
-	list_for_each(cur, &neighbour_list) {
+	list_for_each(cur, &current_soo_discovery->neighbour_list) {
 
 		neighbour = list_entry(cur, neighbour_desc_t, list);
 
 		soo_log("[soo:soolink:discovery] Neighbour %d: %s - ", count+1, neighbour->name);
-		soo_log_buffer(&neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
-		soo_log("\n");
+		soo_log_printlnUID(&neighbour->agencyUID);
 
 		if (!neighbour->plugin)
 			soo_log("[soo:soolink:discovery] ** ourself **\n");
@@ -785,22 +705,21 @@ void discovery_dump_neighbours(void) {
 			list_for_each(cur_friend, &neighbour->friends) {
 				friend = list_entry(cur_friend, agencyUID_t, list);
 				soo_log("[soo:soolink:discovery] ");
-				soo_log_buffer(&friend->id, SOO_AGENCY_UID_SIZE);
-				soo_log("\n");
+				soo_log_printlnUID(friend);
 			}
 		}
 
 		count++;
 	}
 
-	spin_unlock(&discovery_listener_lock);
+	spin_unlock(&current_soo_discovery->discovery_listener_lock);
 }
 
 /**
  * Return the number of neighbours currently known.
  */
 uint32_t discovery_neighbour_count(void) {
-	return neighbor_count;
+	return current_soo_discovery->neighbor_count;
 }
 
 /**
@@ -808,148 +727,67 @@ uint32_t discovery_neighbour_count(void) {
  */
 void discovery_listener_register(discovery_listener_t *listener) {
 
-	spin_lock(&discovery_listener_lock);
-	list_add_tail(&listener->list, &discovery_listener_list);
-	spin_unlock(&discovery_listener_lock);
+	spin_lock(&current_soo_discovery->discovery_listener_lock);
+	list_add_tail(&listener->list, &current_soo_discovery->discovery_listener_list);
+	spin_unlock(&current_soo_discovery->discovery_listener_lock);
+}
+
+void discovery_enable(void) {
+	current_soo_discovery->discovery_enabled = true;
+}
+
+void discovery_disable(void) {
+	current_soo_discovery->discovery_enabled = false;
 }
 
 void neighbours_read(char *str) {
 	sprintf(str, "%d", discovery_neighbour_count());
 }
 
-#if 0 /* Debugging purposes */
-
-static int count = 0;
-sl_desc_t *sl_desc;
-
-#define BUFFER_SIZE 16*1024*1024
-
-static unsigned char buffer[BUFFER_SIZE];
-
-static int soo_stream_task_rx_fn(void *args) {
-	uint32_t size;
-	void *data;
-	int i;
-
-	while (true){
-		size = sl_recv(sl_desc, &data);
-
-		for (i = 0; i < BUFFER_SIZE; i++)
-			if (((unsigned char *) data)[i] != buffer[i]) {
-				printk("## Data corruption : failure on byte %d\n", i);
-				break;
-			}
-
-		if (i == BUFFER_SIZE) {
-			count++;
-			lprintk("## ******************** Got a buffer (count %d got %d bytes)\n", count, size);
-		}
-
-		/* Must release the allocated buffer */
-		vfree(data);
-	}
-
-	return 0;
-}
-
-void stream_count_read(char *str) {
-	sprintf(str, "%d", count);
-}
-
-/*
- * Testing RT task to send a stream to a specific smart object.
- * This is mainly used for debugging purposes and performance assessment.
- */
-static int soo_stream_task_tx_fn(void *args) {
-	int i;
-
-#if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
-	sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
-#else /* CONFIG_SOOLINK_PLUGIN_WLAN */
-	sl_desc = sl_register(SL_REQ_DCM, SL_IF_ETH, SL_MODE_UNIBROAD);
-#endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
-
-	for (i = 0; i < BUFFER_SIZE; i++)
-		buffer[i] = i;
-
-	soo_sysfs_register(stream_count, stream_count_read, NULL);
-	soo_sysfs_register(neighbours, neighbours_read, NULL);
-#if 1
-	while (true) {
-
-		if (discovery_neighbour_count() > 0) {
-			lprintk("*** sending buffer ****\n");
-			sl_send(sl_desc, buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
-
-			lprintk("*** sending COMPLETE ***\n");
-			sl_send(sl_desc, NULL, 0, get_null_agencyUID(), 10);
-
-			lprintk("*** End. ***\n");
-		} else
-			schedule();
-
-		/* rtdm_task_wait_period(NULL); */
-	}
-#endif
-	return 0;
-}
-
-#endif /* 0 */
-
-
 /*
  * Main initialization function of the Discovery functional block
  */
-void discovery_init(void) {
+void discovery_init(soo_env_t *soo_env) {
+	struct task_struct *__ts;
 
 	lprintk("Soolink Discovery init...\n");
 
-	INIT_LIST_HEAD(&neighbour_list);
+	current_soo->soo_discovery = kzalloc(sizeof(struct soo_discovery_env), GFP_KERNEL);
+	BUG_ON(!current_soo->soo_discovery);
 
-	INIT_LIST_HEAD(&discovery_listener_list);
-	spin_lock_init(&discovery_listener_lock);
+	INIT_LIST_HEAD(&current_soo_discovery->neighbour_list);
 
-	INIT_LIST_HEAD(&discovery_pending_add_list);
-	INIT_LIST_HEAD(&discovery_pending_update_list);
+	INIT_LIST_HEAD(&current_soo_discovery->discovery_listener_list);
+	spin_lock_init(&current_soo_discovery->discovery_listener_lock);
 
-	INIT_LIST_HEAD(&neigh_blacklist);
-
-	/* Create an entry in sysfs to export the number of neighbours to the user space */
-	soo_sysfs_register(neighbours, neighbours_read, NULL);
+	INIT_LIST_HEAD(&current_soo_discovery->discovery_pending_add_list);
+	INIT_LIST_HEAD(&current_soo_discovery->discovery_pending_update_list);
 
 	/* Register a new requester in Soolink for Discovery. */
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
-	discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_WLAN, SL_MODE_BROADCAST);
-#else /* CONFIG_SOOLINK_PLUGIN_WLAN */
-	discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_ETH, SL_MODE_BROADCAST);
-#endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
-
-	DBG_BUFFER(&discovery_sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
-}
-
-void discovery_enable(void) {
-	discovery_enabled = true;
-}
-
-void discovery_disable(void) {
-	discovery_enabled = false;
-}
-
-/**
- * This function should be called from CPU #0.
- */
-void discovery_start(void) {
-
-	/* Already enabled? */
-	if (discovery_enabled)
-		return ;
-
-	kthread_run(iamasoo_task_fn, NULL, "iamasoo_task");
-
-	/* Activated if necessary for debugging purposes and performance assessment. */
-#if 0
-	kthread_run(soo_stream_task_tx_fn, NULL, "rt_soo_stream_task_tx");
-	kthread_run(soo_stream_task_rx_fn, NULL, "rt_soo_stream_task_rx");
+	current_soo_discovery->discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_WLAN, SL_MODE_BROADCAST);
+#elif defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
+	current_soo_discovery->discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_ETH, SL_MODE_BROADCAST);
+#elif defined(CONFIG_SOOLINK_PLUGIN_SIMULATION)
+	current_soo_discovery->discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_SIMULATION, SL_MODE_BROADCAST);
+#else
+#error !! You must specify a plugin interface in the kernel configuration !!
 #endif
 
+	DBG_BUFFER(&current_soo_discovery->discovery_sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
+
+	/* Enable the discovery function of SOOlink transceiver. */
+
+	if (current_soo->id == 0)
+		/* Create an entry in sysfs to export the number of neighbours to the user space */
+		soo_sysfs_register(neighbours, neighbours_read, NULL);
+
+	__ts = kthread_create(iamasoo_task_fn, NULL, "iamasoo_task");
+	BUG_ON(!__ts);
+
+	add_thread(current_soo, __ts->pid);
+
+	wake_up_process(__ts);
 }
+
+

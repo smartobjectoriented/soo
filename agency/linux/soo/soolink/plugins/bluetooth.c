@@ -50,7 +50,7 @@ int rfcomm_tty_write_sl_plugin(const unsigned char *buf, int count);
  * Send a packet on the Bluetooth interface.
  * This function has to be called in a non-RT context.
  */
-static void plugin_bluetooth_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
+static void plugin_bluetooth_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	/* Discard Iamasoo (Discovery) beacons */
 	if (unlikely(sl_desc->req_type == SL_REQ_DISCOVERY))
 		return ;
@@ -133,4 +133,4 @@ static int plugin_bluetooth_init(void) {
 	return 0;
 }
 
-soolink_plugin_initcall(plugin_bluetooth_init);
+late_initcall(plugin_bluetooth_init);

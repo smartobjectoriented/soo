@@ -101,6 +101,8 @@
 #include <asm/cacheflush.h>
 
 /* SOO.tech */
+#include <soo/core/core.h>
+
 #include <soo/uapi/console.h>
 #include <soo/uapi/avz.h>
 
@@ -1014,9 +1016,6 @@ extern initcall_entry_t __initcall6_start[];
 extern initcall_entry_t __initcall7_start[];
 extern initcall_entry_t __initcall_end[];
 
-/* SOO.tech */
-extern initcall_entry_t __initcall8_start[]; /* SOOlink-related initcalls */
-
 static initcall_entry_t *initcall_levels[] __initdata = {
 	__initcall0_start,
 	__initcall1_start,
@@ -1026,10 +1025,6 @@ static initcall_entry_t *initcall_levels[] __initdata = {
 	__initcall5_start,
 	__initcall6_start,
 	__initcall7_start,
-
-	/* SOO.tech */
-	__initcall8_start,
-
 	__initcall_end,
 };
 
@@ -1043,9 +1038,6 @@ static const char *initcall_level_names[] __initdata = {
 	"fs",
 	"device",
 	"late",
-
-	/* SOO.tech */
-	"soolink",
 };
 
 static void __init do_initcall_level(int level)
@@ -1160,8 +1152,6 @@ void __weak free_initmem(void)
 	free_initmem_default(POISON_FREE_INITMEM);
 }
 
-/* SOO.tech */
-extern int rtapp_main(void *args);
 
 static int __ref kernel_init(void *unused)
 {
@@ -1188,12 +1178,10 @@ static int __ref kernel_init(void *unused)
 	/* SOO.tech */
 
 	/*
-	 * Enable to launch a RT task and to perform various tests.
-	 * By default, all code is desactivated and can be easily activated on needs.
-	 * The rtapp_main thread is terminated if no test is performed.
+	 * At this point of time, the remaining initialization task of the SOO agency can be performed.
 	 */
 
-	kernel_thread(rtapp_main, NULL, 0);
+	kernel_thread(agency_late_init_fn, NULL, 0);
 
 	if (ramdisk_execute_command) {
 		ret = run_init_process(ramdisk_execute_command);

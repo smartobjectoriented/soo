@@ -127,12 +127,3 @@ void dcm_dev_init(void) {
 		BUG();
 	}
 }
-
-void dcm_init(void) {
-	int rc;
-
-	if ((rc = ioctl(fd_dcm, DCM_IOCTL_INIT, 0)) < 0) {
-		printf("Failed to init the DCM (%d)\n", rc);
-		BUG();
-	}
-}

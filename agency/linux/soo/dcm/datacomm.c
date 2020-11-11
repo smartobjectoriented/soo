@@ -150,14 +150,14 @@ static int recv_thread_task_fn(void *data) {
 	return 0;
 }
 
+extern void soolink_netsimul_init(void);
+
 void datacomm_init(void) {
 	DBG("Registering the DCM with Soolink\n");
 
 	printk("[soo:dcm:datacomm] %s: my agency UID is: ", __func__);
 	printk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
 
-	/* At this point, we can start the Discovery process */
-	sl_discovery_start();
 
 	/*
 	 * By default, we are using the WLAN plugin on the MERIDA board, or the
@@ -168,8 +168,12 @@ void datacomm_init(void) {
 
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
 	datacomm_sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
-#else /* CONFIG_SOOLINK_PLUGIN_WLAN */
+#elif defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
 	datacomm_sl_desc = sl_register(SL_REQ_DCM, SL_IF_ETH, SL_MODE_UNIBROAD);
+#elif defined(CONFIG_SOOLINK_PLUGIN_SIMULATION)
+	datacomm_sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIMULATION, SL_MODE_UNIBROAD);
+#else
+#error "SOOlink pluging not configured..."
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
 
 

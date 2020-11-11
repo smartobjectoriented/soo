@@ -26,6 +26,8 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
+#include <soo/netsimul.h>
+
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/transceiver.h>
 #include <soo/soolink/plugin/common.h>
@@ -39,16 +41,30 @@ typedef struct {
 	if_type_t if_type;
 
 	/* Function to be called when sending data out */
-	void (*tx_callback)(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags);
+	void (*tx_callback)(sl_desc_t *sl_desc, void *data, size_t size);
 
 
 } plugin_desc_t;
 
+struct soo_plugin_sim_env;
+struct soo_plugin_env {
+	struct list_head remote_soo_list;
+
+	spinlock_t list_lock;
+	struct list_head plugin_list;
+
+	struct soo_plugin_sim_env *sim;
+
+};
+
+#define current_soo_plugin_sim     (current_soo->soo_plugin->sim)
+
 void transceiver_plugin_init(void);
 
 void transceiver_plugin_register(plugin_desc_t *plugin_desc);
+void transceiver_plugins_enable(void);
 
-void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags);
+void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size);
 void plugin_rx(plugin_desc_t *plugin_desc, req_type_t req_type, void *data, size_t size, uint8_t *mac_src);
 
 uint8_t *get_mac_addr(agencyUID_t *agencyUID);
@@ -58,5 +74,9 @@ void detach_agencyUID(agencyUID_t *agencyUID);
 
 req_type_t get_sl_req_type_from_protocol(uint16_t protocol);
 uint16_t get_protocol_from_sl_req_type(req_type_t req_type);
+
+
+/* Supported plugins */
+int plugin_simulation_init(void);
 
 #endif /* PLUGIN_H */

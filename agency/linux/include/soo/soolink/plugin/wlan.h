@@ -41,8 +41,5 @@ netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb, struct net_device *ndev
 void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
 
 void plugin_wlan_delete_remote(agencyUID_t *agencyUID);
-bool is_rtdm_wifi_enabled(void);
-void rtdm_reconfigure_wifi(void);
-void reconfigure_wifi(void);
 
 #endif /* PLUGIN_WLAN_H */

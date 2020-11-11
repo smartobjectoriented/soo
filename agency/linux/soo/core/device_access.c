@@ -33,6 +33,8 @@
 
 #include <soo/soolink/discovery.h>
 
+#include <soo/netsimul.h>
+
 #include <asm/io.h>
 
 #ifdef CONFIG_ARM
@@ -72,7 +74,7 @@ agencyUID_t *get_null_agencyUID(void) {
  * Return the agency UID of this Smart Object.
  */
 agencyUID_t *get_my_agencyUID(void) {
-	return (agencyUID_t *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID;
+	return (agencyUID_t *) current_soo->agencyUID;
 }
 
 void devaccess_dump_agencyUID(void) {
@@ -164,25 +166,16 @@ void devaccess_set_soo_name(char *name) {
  * Get the Smart Object name.
  */
 void devaccess_get_soo_name(char *ptr) {
+	strcpy(ptr, current_soo->name);
+#if 0
 	strcpy(ptr, devaccess_soo_name);
+#endif
 }
 
 void devaccess_dump_soo_name(void) {
 	lprintk("SOO name: %s\n", devaccess_soo_name);
 }
 
-/**
- * Initialize the agency UID.
- */
-static void init_agencyUID(void) {
-
-	/* Generate a random UID */
-	get_random_bytes((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, SOO_AGENCY_UID_SIZE);
-
-	pr_cont("[soo:core:device_access] On CPU %d, SOO Agency UID: ", smp_processor_id());
-	printk_buffer((uint8_t *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, SOO_AGENCY_UID_SIZE);
-
-}
 
 ssize_t agencyUID_show(struct device *dev, struct device_attribute *attr, char *buf) {
 	char agencyUID_str[SOO_AGENCY_UID_SIZE * 3];
@@ -229,7 +222,6 @@ void set_agencyUID(uint8_t val) {
 }
 
 void devaccess_init(void) {
-	init_agencyUID();
 
 	upgrade_buffer_pfn = 0;
 	upgrade_buffer_size = 0;

@@ -69,7 +69,7 @@ sl_desc_t *find_sl_desc_by_req_type(req_type_t req_type) {
 sl_desc_t *sl_register(req_type_t req_type, if_type_t if_type, trans_mode_t trans_mode) {
 	sl_desc_t *sl_desc;
 
-	sl_desc = kmalloc(sizeof(sl_desc_t), GFP_ATOMIC);
+	sl_desc = kmalloc(sizeof(sl_desc_t), GFP_KERNEL);
 
 	if (!sl_desc) {
 		lprintk("%s: failed to allocate a new requester...\n", __func__);
@@ -163,11 +163,6 @@ bool is_exclusive(sl_desc_t *sl_desc) {
 	return sl_desc->exclusive;
 }
 
-/* Forward the call to the Discovery block to enable the discovery process. */
-void sl_discovery_start(void) {
-	discovery_start();
-}
-
 static int soolink_init(void) {
 	lprintk("%s: Soolink subsys initializing ...\n", __func__);
 
@@ -175,9 +170,6 @@ static int soolink_init(void) {
 
 	/* Initialize the Transcoder block */
 	transcoder_init();
-
-	/* Initialize the Transceiver block */
-	transceiver_init();
 
 	return 0;
 }

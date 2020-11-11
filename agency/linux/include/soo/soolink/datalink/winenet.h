@@ -108,7 +108,7 @@ typedef struct {
 
 	uint8_t id;
 	void *priv;
-	uint8_t agencyUID[SOO_AGENCY_UID_SIZE];
+	agencyUID_t agencyUID;
 
 } wnet_beacon_t;
 
@@ -142,6 +142,9 @@ typedef struct {
 	/* Helper field to make a round of neighbours */
 	bool processed;
 
+	/* Used to keep the turn in a round of speaker */
+	bool speaker_done;
+
 	neighbour_desc_t *neighbour;
 	uint32_t last_transID;
 	uint8_t speakerUID[SOO_AGENCY_UID_SIZE];
@@ -153,7 +156,6 @@ typedef void (*wnet_state_fn_t)(wnet_state_t old_state);
 typedef struct {
 	wnet_state_fn_t	*funcs;
 
-	//rtdm_event_t	event;
 	struct completion event;
 	wnet_state_t	old_state;
 	wnet_state_t	state;
@@ -161,8 +163,6 @@ typedef struct {
 
 uint8_t *winenet_get_state_string(wnet_state_t state);
 uint8_t *winenet_get_beacon_id_string(wnet_beacon_id_t beacon_id);
-
-void winenet_send_beacon(wnet_beacon_t *outgoing_beacon, wnet_beacon_id_t beacon_id, agencyUID_t *dest_agencyUID, void *arg);
 
 void winenet_xmit_data_processed(int ret);
 void winenet_wait_xmit_event(void);

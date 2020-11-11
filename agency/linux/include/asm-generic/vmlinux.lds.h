@@ -815,8 +815,6 @@
 		INIT_CALLS_LEVEL(rootfs)				\
 		INIT_CALLS_LEVEL(6)					\
 		INIT_CALLS_LEVEL(7)					\
-		/* SOO.tech */						\
-		INIT_CALLS_LEVEL(8)					\
 		__initcall_end = .;
 
 #define CON_INITCALL							\

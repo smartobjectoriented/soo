@@ -44,7 +44,6 @@ typedef struct {
 } dcm_frame_hdr_t;
 
 
-void dcm_init(void);
 void dcm_dev_init(void);
 
 bool dcm_is_send_buffer_available(unsigned int ME_slotID);

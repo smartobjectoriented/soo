@@ -34,12 +34,6 @@ void transceiver_init(void) {
 	sender_init();
 	receiver_init();
 
-	/* Initialize the Discovery */
-	discovery_init();
-
-	/* Initialize the protocols within the Datalink */
-	datalink_init();
-
 	/* Initialize the SOOlink plugins (registered as SOOlink initcall). */
 	transceiver_plugin_init();
 }

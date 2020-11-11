@@ -44,7 +44,7 @@ static struct net_device *net_dev = NULL;
 
 static bool plugin_ready = false;
 
-static void plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
+static void plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	struct sk_buff *skb;
 	struct netdev_queue *txq;
 	__be16 proto;
@@ -137,7 +137,7 @@ void plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t
 
 /********************/
 
-static void plugin_tcp_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
+static void plugin_tcp_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 	/* Discard Iamasoo (Discovery) beacons */
 	if (sl_desc->req_type == SL_REQ_DISCOVERY)
@@ -194,4 +194,4 @@ static int plugin_ethernet_init(void) {
 	return 0;
 }
 
-soolink_plugin_initcall(plugin_ethernet_init);
+late_initcall(plugin_ethernet_init);

@@ -28,7 +28,14 @@ config SOOLINK_PLUGIN_LOOPBACK
 		or to do some send/receive scenarios with only one SOO device.
 	default N
 
-
+config SOOLINK_PLUGIN_SIMULATION
+	bool "Simulation plugin"
+	help
+		Simulation plugin is used to simulate the network of smart objects.
+		This plugin is used for debugging and validation purposes, helpful to
+		study the behaviour of datalink protocols such as Winenet.
+		
+	default N
 
 endmenu
  

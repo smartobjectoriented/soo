@@ -3,7 +3,7 @@
 if [ "$PLATFORM" == "" ]; then
     if [ "$1" == "" ]; then
         echo "PLATFORM must be defined (vexpress, rpi3, rpi4, bpi, merida)"
-        echo "You can invoke mount.sh <partition_nr> <platform>"
+        echo "You can invoke umount.sh <platform>"
         exit 0
     fi
     

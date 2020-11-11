@@ -46,8 +46,6 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 
-#include <soo/soolink/discovery.h>
-
 #include <asm/io.h>
 #include <asm/uaccess.h>
 
@@ -57,6 +55,8 @@
 
 #include <asm/cacheflush.h>
 
+#include <soo/netsimul.h>
+
 #include <soo/uapi/avz.h>
 #include <soo/uapi/console.h>
 #include <soo/debug/dbgvar.h>
@@ -65,11 +65,13 @@
 #include <soo/hypervisor.h>
 #include <soo/vbstore.h>
 #include <soo/vbus.h>
-#include <soo/core/sysfs.h>
 
+#include <soo/core/sysfs.h>
 #include <soo/core/core.h>
 #include <soo/core/device_access.h>
 #include <soo/core/upgrader.h>
+
+#include <soo/soolink/discovery.h>
 
 #include <soo/uapi/soo.h>
 #include <soo/uapi/logbool.h>
@@ -1144,6 +1146,28 @@ static struct notifier_block agency_reboot_nb = {
 	.notifier_call = agency_reboot_notify,
 };
 
+
+extern int rtapp_main(void *args);
+
+/*
+ * This init function is called at a very late time in the boot process,
+ * after all subsystems, devices, and late initcalls have been carried out.
+ */
+int agency_late_init_fn(void *args) {
+
+	lprintk("SOO Agency last initialization part processing now...\n");
+
+	/* At this point, we can start the Discovery process */
+	soolink_netsimul_init();
+
+	/* This thread will start various debugging testings possibly in RT domain .*/
+	kernel_thread(rtapp_main, NULL, 0);
+
+	/* Leaving the thread in a sane way... */
+	do_exit(0);
+
+	return 0;
+}
 
 int agency_init(void) {
 #ifdef CONFIG_ARM

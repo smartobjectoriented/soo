@@ -231,9 +231,6 @@ extern bool initcall_debug;
 #define late_initcall(fn)		__define_initcall(fn, 7)
 #define late_initcall_sync(fn)		__define_initcall(fn, 7s)
 
-/* SOO.tech */
-#define soolink_plugin_initcall(fn)	__define_initcall(fn, 8)
-
 #define __initcall(fn) device_initcall(fn)
 
 #define __exitcall(fn)						\

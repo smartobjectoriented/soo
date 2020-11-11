@@ -390,8 +390,6 @@ int rtapp_main(void *args) {
 
 	pgdir = (unsigned int *) swapper_pg_dir;
 
-	lprintk("### val at c00: %x\n", pgdir[0xc00]);
-
 #if 0
 	register_dc_event_callback(DC_PRE_SUSPEND, async_event_test);
 #endif

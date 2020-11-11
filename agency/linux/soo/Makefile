@@ -1,3 +1,6 @@
+
+obj-y   += netsimul.o
+
 obj-y	+= kernel/
 obj-y 	+= drivers/
 obj-y	+= core/

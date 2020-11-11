@@ -36,7 +36,10 @@
 
 #include <soo/soolink/receiver.h>
 
-static struct mutex sender_lock;
+struct soo_sender_env {
+
+	struct mutex sender_lock;
+};
 
 /**
  * This function requests to send a packet. Datalink will forward the packet
@@ -75,15 +78,18 @@ int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
  * forwarded to the plugin(s). It should not be called by anyone else.
  * The size parameter refers to the payload.
  */
-void __sender_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, unsigned long flags) {
+void __sender_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
+	mutex_lock(&current_soo_sender->sender_lock);
 
-	mutex_lock(&sender_lock);
-	plugin_tx(sl_desc, packet, packet->size + sizeof(transceiver_packet_t), flags);
-	mutex_unlock(&sender_lock);
+	plugin_tx(sl_desc, packet, packet->size + sizeof(transceiver_packet_t));
+	mutex_unlock(&current_soo_sender->sender_lock);
 }
 
 void sender_init(void) {
 	
-	mutex_init(&sender_lock);
+	current_soo->soo_sender = kzalloc(sizeof(struct soo_sender_env), GFP_KERNEL);
+	BUG_ON(!current_soo->soo_sender);
+
+	mutex_init(&current_soo_sender->sender_lock);
 
 }

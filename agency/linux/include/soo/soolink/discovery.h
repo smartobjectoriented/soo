@@ -23,6 +23,8 @@
 #include <linux/types.h>
 #include <linux/list.h>
 
+#include <soo/netsimul.h>
+
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/plugin.h>
 
@@ -104,7 +106,7 @@ void discovery_update_ourself(agencyUID_t *agencyUID);
 
 void neighbour_list_protection(bool protect);
 
-void discovery_init(void);
+void discovery_init(soo_env_t *soo_env);
 void discovery_start(void);
 
 void discovery_enable(void);

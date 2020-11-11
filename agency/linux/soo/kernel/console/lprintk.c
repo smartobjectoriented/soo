@@ -17,8 +17,14 @@
  *
  */
 
+#include <soo/netsimul.h>
+
 #include <soo/hypervisor.h>
 #include <soo/uapi/console.h>
+
+static bool log_soo_soolink_discovery = false;
+static bool log_soo_soolink_winenet = false;
+static bool log_soo_soolink_plugin = false;
 
 extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
@@ -59,14 +65,50 @@ void lprintk(char *format, ...) {
 }
 
 void soo_log(char *format, ...) {
-#if 0
 	va_list va;
+	char buf[CONSOLEIO_BUFFER_SIZE];
+	char prefix[20];
+	static char __internal_buf[CONSOLEIO_BUFFER_SIZE] = { };
+	int i;
+	bool outlog = false;
+
 	va_start(va, format);
 
-	__lprintk(format, va);
+	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
+
+	if (__internal_buf[0] == 0) {
+		/* Add log information */
+		sprintf(prefix,"(%s) ", current_soo->name);
+		strcat(__internal_buf, prefix);
+	}
+
+	strcat(__internal_buf, buf);
+
+	if (buf[strlen(buf)-1] != '\n')
+		return ;
+
+	/* SOOlink Discovery functional block */
+	if (log_soo_soolink_discovery && (strstr(__internal_buf, "[soo:soolink:discovery")))
+		outlog = true;
+	if (log_soo_soolink_winenet && (strstr(__internal_buf, "[soo:soolink:winenet")))
+		outlog = true;
+	if (log_soo_soolink_plugin && (strstr(__internal_buf, "[soo:soolink:plugin")))
+		outlog = true;
+
+	if (!outlog) {
+		__internal_buf[0] = 0;
+		return ;
+	}
+
+	/* Out to the interface...*/
+
+	for (i = 0; i < strlen(__internal_buf); i++)
+		if (likely(__printch))
+			__printch(__internal_buf[i]);
+
+	__internal_buf[0] = 0;
 
 	va_end(va);
-#endif
 }
 
 /**

@@ -48,7 +48,7 @@ static uint8_t broadcast_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }
 /* Linux net_device structure */
 static struct net_device *net_dev = NULL;
 
-static void plugin_loopback_tx(sl_desc_t *sl_desc, void *data, size_t size, unsigned long flags) {
+static void plugin_loopback_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 	if (unlikely(!net_dev))
 		return;
@@ -188,5 +188,5 @@ static int loopback_init(void) {
 	return 0;
 }
 
-soolink_plugin_initcall(loopback_init);
+late_initcall(loopback_init);
 

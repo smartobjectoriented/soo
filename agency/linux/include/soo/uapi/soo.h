@@ -154,7 +154,6 @@ extern soo_personality_t soo_get_personality(void);
 #define AGENCY_IOCTL_STORE_VERSIONS	 	_IOWR(0x05000000, 16, char)
 #define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR(0x05000000, 17, char)
 
-
 #define ME_IOCTL_FORCE_TERMINATE		100
 #define ME_IOCTL_PICK_NEXT_UEVENT		101
 #define ME_IOCTL_READY				102

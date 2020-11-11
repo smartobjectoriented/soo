@@ -20,9 +20,7 @@
 #ifndef DCM_H
 #define DCM_H
 
-#include <linux/types.h>
-
-bool dcm_initialized(void);
+int dcm_init(void);
 
 #endif /* DCM_H */
 
