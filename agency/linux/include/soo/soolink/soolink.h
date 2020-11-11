@@ -138,6 +138,8 @@ sl_desc_t *find_sl_desc_by_req_type(req_type_t req_type);
 
 uint32_t sl_neighbour_count(void);
 
+int soolink_init(void);
+
 /* prio can be 0 to 99 (the greater the higher priority) */
 void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio);
 int sl_recv(sl_desc_t *sl_desc, void **data);

@@ -11,13 +11,10 @@
 
 #include <soo/soolink/datalink/bluetooth.h>
 #include <soo/soolink/datalink.h>
-#include <soo/soolink/sender.h>
-#include <soo/soolink/receiver.h>
 #include <soo/soolink/discovery.h>
+#include <soo/soolink/transceiver.h>
 
 #include <soo/core/device_access.h>
-
-#include <xenomai/rtdm/driver.h>
 
 #include <soo/uapi/soo.h>
 

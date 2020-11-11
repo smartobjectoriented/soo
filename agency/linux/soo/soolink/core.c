@@ -17,10 +17,6 @@
  *
  */
 
-#if 0
-#define DEBUG
-#endif
-
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/slab.h>
@@ -37,15 +33,14 @@
 
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/transcoder.h>
-#include <soo/soolink/coder.h>
-#include <soo/soolink/decoder.h>
 #include <soo/soolink/transceiver.h>
-#include <soo/soolink/sender.h>
 #include <soo/soolink/discovery.h>
 #include <soo/soolink/datalink.h>
 
-/* List of registered requesters */
-struct list_head sl_req_list;
+struct soo_soolink_env {
+	/* List of registered requesters */
+	struct list_head sl_req_list;
+};
 
 /*
  * Look for a specific descriptor according to the type of requester
@@ -53,7 +48,7 @@ struct list_head sl_req_list;
 sl_desc_t *find_sl_desc_by_req_type(req_type_t req_type) {
 	sl_desc_t *cur;
 
-	list_for_each_entry(cur, &sl_req_list, list) {
+	list_for_each_entry(cur, &current_soo_soolink->sl_req_list, list) {
 		if (cur->req_type == req_type)
 			return cur;
 	}
@@ -87,7 +82,7 @@ sl_desc_t *sl_register(req_type_t req_type, if_type_t if_type, trans_mode_t tran
 
 	init_completion(&sl_desc->recv_event);
 
-	list_add_tail(&sl_desc->list, &sl_req_list);
+	list_add_tail(&sl_desc->list, &current_soo_soolink->sl_req_list);
 
 	return sl_desc;
 }
@@ -98,7 +93,7 @@ sl_desc_t *sl_register(req_type_t req_type, if_type_t if_type, trans_mode_t tran
 void sl_unregister(sl_desc_t *sl_desc) {
 	sl_desc_t *cur;
 
-	list_for_each_entry(cur, &sl_req_list, list)
+	list_for_each_entry(cur, &current_soo_soolink->sl_req_list, list)
 		if (cur == sl_desc) {
 			list_del(&cur->list);
 			kfree(cur);
@@ -122,10 +117,10 @@ uint32_t sl_neighbour_count(void) {
  * since - at the datalink level (transceiver) - we could remain "speaker" over a while
  * and prevent other smart objects belonging to the neighborhood to become a speaker.
  *
- * This function runs in the RT agency domain.
  */
 void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio) {
-	DBG("sl_send: now sending to the coder / size: %d\n", size);
+
+	soo_log("[soo:soolink] Now sending to the coder / size: %d\n", size);
 
 	/* Configure the sl_desc with the various attributes */
 
@@ -137,7 +132,7 @@ void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID
 
 	coder_send(sl_desc, data, size);
 
-	DBG("sl_send: OK.\n");
+	soo_log("[soo:soolink] send to the coder achieved successfully.\n");
 }
 
 /*
@@ -163,15 +158,14 @@ bool is_exclusive(sl_desc_t *sl_desc) {
 	return sl_desc->exclusive;
 }
 
-static int soolink_init(void) {
+int soolink_init(void) {
+
 	lprintk("%s: Soolink subsys initializing ...\n", __func__);
 
-	INIT_LIST_HEAD(&sl_req_list);
+	current_soo->soo_soolink = kzalloc(sizeof(struct soo_soolink_env), GFP_KERNEL);
+	BUG_ON(!current_soo->soo_soolink);
 
-	/* Initialize the Transcoder block */
-	transcoder_init();
+	INIT_LIST_HEAD(&current_soo_soolink->sl_req_list);
 
 	return 0;
 }
-
-subsys_initcall(soolink_init);

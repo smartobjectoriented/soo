@@ -30,24 +30,31 @@
 
 #include <soo/dcm/dcm.h>
 
+#include <soo/soolink/soolink.h>
 #include <soo/soolink/discovery.h>
-#include <soo/soolink/sender.h>
 #include <soo/soolink/datalink.h>
+#include <soo/soolink/transceiver.h>
+#include <soo/soolink/transcoder.h>
 
 #include <soo/core/sysfs.h>
 #include <soo/core/device_access.h>
 
-sl_desc_t *sl_desc;
-
-#define BUFFER_SIZE 16*1024*1024
-
-static unsigned char buffer[BUFFER_SIZE];
-
-static unsigned int count = 0;
-struct mutex count_lock;
+#define BUFFER_SIZE 16*1024
 
 /* SOO instance handling */
 struct list_head soo_environment;
+
+static int count = 0;
+static struct mutex count_lock;
+
+/* Simulation environment */
+struct soo_simul_env {
+	sl_desc_t *sl_desc;
+
+	unsigned char buffer[BUFFER_SIZE];
+	unsigned int recv_count;
+
+};
 
 soo_env_t *__current_soo(void) {
 	soo_env_t *soo;
@@ -111,17 +118,17 @@ static int soo_stream_task_rx_fn(void *args) {
 	int i;
 
 	while (true){
-		size = sl_recv(sl_desc, &data);
+		size = sl_recv(current_soo_simul->sl_desc, &data);
 
 		for (i = 0; i < BUFFER_SIZE; i++)
-			if (((unsigned char *) data)[i] != buffer[i]) {
-				printk("## Data corruption : failure on byte %d\n", i);
+			if (((unsigned char *) data)[i] != current_soo_simul->buffer[i]) {
+				lprintk("## Data corruption : failure on byte %d\n", i);
 				break;
 			}
 
 		if (i == BUFFER_SIZE) {
-			count++;
-			lprintk("## ******************** Got a buffer (count %d got %d bytes)\n", count, size);
+			current_soo_simul->recv_count++;
+			lprintk("## (%s) ******************** Got a buffer (count %d got %d bytes)\n", current_soo->name, current_soo_simul->recv_count, size);
 		}
 
 		/* Must release the allocated buffer */
@@ -132,7 +139,7 @@ static int soo_stream_task_rx_fn(void *args) {
 }
 
 void stream_count_read(char *str) {
-	sprintf(str, "%d", count);
+	sprintf(str, "%d", current_soo_simul->recv_count);
 }
 
 
@@ -144,34 +151,40 @@ static int soo_stream_task_tx_fn(void *args) {
 	int i;
 
 #if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
-	sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
 #elif defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
-	sl_desc = sl_register(SL_REQ_DCM, SL_IF_ETH, SL_MODE_UNIBROAD);
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_ETH, SL_MODE_UNIBROAD);
 #elif defined(CONFIG_SOOLINK_PLUGIN_SIMULATION)
-	sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIMULATION, SL_MODE_UNIBROAD);
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIMULATION, SL_MODE_UNIBROAD);
 #else
 #error !! You must specify a plugin interface in the kernel configuration !!
 #endif
 
 	for (i = 0; i < BUFFER_SIZE; i++)
-		buffer[i] = i;
+		current_soo_simul->buffer[i] = i;
 
 	soo_sysfs_register(stream_count, stream_count_read, NULL);
 
 	while (true) {
-#if 0
-		if (discovery_neighbour_count() > 0) {
-			lprintk("*** sending buffer ****\n");
-			sl_send(sl_desc, buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
 
-			lprintk("*** sending COMPLETE ***\n");
-			sl_send(sl_desc, NULL, 0, get_null_agencyUID(), 10);
+		if (!strcmp(current_soo->name, "SOO-1")) {
 
-			lprintk("*** End. ***\n");
+			if (discovery_neighbour_count() > 0) {
+				lprintk("*** (%s) sending buffer ****\n", current_soo->name);
+				sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+
+				lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
+				sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+
+				lprintk("*** (%s) End. ***\n", current_soo->name);
+
+				msleep(2000);
+
+			} else
+				schedule();
+
 		} else
-#endif
 			schedule();
-
 	}
 
 	return 0;
@@ -191,11 +204,11 @@ int soo_env_fn(void *args) {
 
 	list_add_tail(&soo_env->list, &soo_environment);
 
-	soo_env->id = count;
 	mutex_lock(&count_lock);
 	count++;
 	mutex_unlock(&count_lock);
 
+	soo_env->id = count;
 	strcpy(soo_env->name, (char *) args);
 
 	/* Adding ourself (the current thread) to this environment. */
@@ -204,8 +217,11 @@ int soo_env_fn(void *args) {
 	/* Generate a unique agencyUID. */
 	get_random_bytes((void *) &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
 
-	lprintk("[soo:core:device_access] On CPU %d, SOO %s has the Agency UID: ", smp_processor_id(), soo_env->name);
-	lprintk_buffer((uint8_t *) soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	soo_log("[soo:core:device_access] On CPU %d, SOO %s has the Agency UID: ", smp_processor_id(), soo_env->name);
+	soo_log_printlnUID(&current_soo->agencyUID);
+
+	/* Initializing SOOlink subsystem */
+	soolink_init();
 
 	transceiver_init();
 
@@ -222,13 +238,22 @@ int soo_env_fn(void *args) {
 	lprintk("[soo:core] Initializing SOOlink Datalink...\n");
 	datalink_init();
 
+	/* Transcoder initialization */
+	transcoder_init();
+
 	/* Ready to initializing the DCM subsystem */
 	//dcm_init();
 
 	lprintk("[soo:core] Now, starting simulation threads...\n");
 
 	/* Start activities - Simulation mode */
-#if 0
+
+	/* Prepare the environment */
+	soo_env->soo_simul = kzalloc(sizeof(struct soo_simul_env), GFP_KERNEL);
+	BUG_ON(!soo_env->soo_simul);
+
+	current_soo_simul->recv_count = 0;
+
 	__ts = kthread_create(soo_stream_task_tx_fn, NULL, "soo_stream_task_tx");
 	BUG_ON(!__ts);
 
@@ -240,7 +265,6 @@ int soo_env_fn(void *args) {
 
 	add_thread(soo_env, __ts->pid);
 	wake_up_process(__ts);
-#endif
 
 	do_exit(0);
 

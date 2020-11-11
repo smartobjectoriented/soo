@@ -17,36 +17,39 @@
  *
  */
 
-#if 0
-#define DEBUG
-#endif
-
+#include <linux/bug.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
 #include <linux/mutex.h>
-#include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/kthread.h>
+
+#include <soo/core/device_access.h>
 
 #include <soo/soolink/transcoder.h>
-#include <soo/soolink/decoder.h>
-#include <soo/soolink/coder.h>
+#include <soo/soolink/transceiver.h>
+#include <soo/soolink/datalink.h>
 
-#include <xenomai/rtdm/driver.h>
+#include <soo/debug/bandwidth.h>
 
-#include <soo/uapi/soo.h>
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
+#include <soo/uapi/soo.h>
 
-/*
- * The decoder is currently able to manage only one block at a time, i.e. it can deserve one call to decoder_recv() on a specific incoming block,
- * but not more at the moment.
- */
+struct soo_transcoder_env {
+	struct mutex coder_tx_lock;
 
-static struct list_head block_list;
-static struct mutex decoder_lock;
-static bool decoder_recv_requested = false;
-static decoder_block_t *last_block = NULL;
+	/*
+	 * The decoder is currently able to manage only one block at a time, i.e. it can deserve one call to decoder_recv() on a specific incoming block,
+	 * but not more at the moment.
+	 */
 
-uint32_t transcoder_discarded_packets = 0;
+	struct list_head block_list;
+	struct mutex decoder_lock;
+	bool decoder_recv_requested;
+	decoder_block_t *last_block;
+
+};
 
 /*
  * Create a new block based on the received data.
@@ -73,27 +76,25 @@ static decoder_block_t *create_block(sl_desc_t *sl_desc) {
 	block->complete = false;
 	block->last_timestamp = ktime_to_ms(ktime_get());
 
-	list_add_tail(&block->list, &block_list);
+	list_add_tail(&block->list, &current_soo_transcoder->block_list);
 
 	return block;
 }
 
 static decoder_block_t *get_block_by_sl_desc(sl_desc_t *sl_desc) {
-	struct list_head *cur;
 	decoder_block_t *block;
 
-	DBG("Agency UID: ");
-	DBG_BUFFER(&sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
+	soo_log("[soo:soolink:transcoder] Agency UID: ");
+	soo_log_printUID(&sl_desc->agencyUID_from);
 
-	list_for_each(cur, &block_list) {
-		block = list_entry(cur, decoder_block_t, list);
-			if (!memcmp(&block->sl_desc->agencyUID_from, &sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE)) {
-				DBG("Slot found\n");
-				return block;
-			}
+	list_for_each_entry(block, &current_soo_transcoder->block_list, list) {
+		if (!memcmp(&block->sl_desc->agencyUID_from, &sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE)) {
+			soo_log(" Block found\n");
+			return block;
+		}
 	}
 
-	DBG("Block not found\n");
+	soo_log(" Block not found\n");
 	return NULL;
 }
 
@@ -103,9 +104,9 @@ static decoder_block_t *get_block_by_sl_desc(sl_desc_t *sl_desc) {
 int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	size_t size;
 
-	mutex_lock(&decoder_lock);
-	decoder_recv_requested = true;
-	mutex_unlock(&decoder_lock);
+	mutex_lock(&current_soo_transcoder->decoder_lock);
+	current_soo_transcoder->decoder_recv_requested = true;
+	mutex_unlock(&current_soo_transcoder->decoder_lock);
 
 	/* We still need to manage a timeout according to the specification */
 	wait_for_completion(&sl_desc->recv_event);
@@ -122,20 +123,20 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 
 		memcpy(*data, sl_desc->incoming_block, size);
 
-		mutex_lock(&decoder_lock);
+		mutex_lock(&current_soo_transcoder->decoder_lock);
 
 		/* Free the buffer by the Decoder's side */
 		vfree(sl_desc->incoming_block);
 
 	}
 	else {
-		mutex_lock(&decoder_lock);
+		mutex_lock(&current_soo_transcoder->decoder_lock);
 		*data = NULL;
 	}
 
-	decoder_recv_requested = false;
+	current_soo_transcoder->decoder_recv_requested = false;
 
-	mutex_unlock(&decoder_lock);
+	mutex_unlock(&current_soo_transcoder->decoder_lock);
 
 	return size;
 }
@@ -160,7 +161,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		return 0;
 	}
 
-	mutex_lock(&decoder_lock);
+	mutex_lock(&current_soo_transcoder->decoder_lock);
 
 	/*
 	 * Look for the block associated to this agency UID.
@@ -192,12 +193,12 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		sl_desc->incoming_block = block->incoming_block;
 
 		/* If a complete block has been received with no request coming from the requester, free it */
-		if (!decoder_recv_requested) {
+		if (!current_soo_transcoder->decoder_recv_requested) {
 			vfree(block->incoming_block);
 			block->incoming_block = NULL;
 
 			/* Release the lock on the block processing */
-			mutex_unlock(&decoder_lock);
+			mutex_unlock(&current_soo_transcoder->decoder_lock);
 
 			return 0;
 		}
@@ -226,7 +227,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			}
 			else {
 				/* Release the lock on the block processing */
-				mutex_unlock(&decoder_lock);
+				mutex_unlock(&current_soo_transcoder->decoder_lock);
 
 				return 0;
 			}
@@ -235,8 +236,6 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		if ((block->block_ext_in_progress) && (pkt->u.ext.packetID != block->cur_packetID+1)) {
 
 			printk("[soo:soolink:decoder] Discard current packetID: %d expected: %d", pkt->u.ext.packetID, block->cur_packetID+1);
-
-			transcoder_discarded_packets++;
 
 			/* If the received packetID is smaller than the expected one, it means
 			 * that a frame has been re-sent because the sender did not receive an ack.
@@ -260,7 +259,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			 * The caller will see that the block has been discarded because incoming_block is NULL
 			 * and incoming_block_size is 0.
 			 */
-			mutex_unlock(&decoder_lock);
+			mutex_unlock(&current_soo_transcoder->decoder_lock);
 
 			return 0;
 		}
@@ -272,7 +271,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 				 * We have missed some packets of a new block when processing the current block.
 				 * Wait for the next packet ID = 1 to arrive.
 				 */
-				mutex_unlock(&decoder_lock);
+				mutex_unlock(&current_soo_transcoder->decoder_lock);
 				return 0;
 			}
 
@@ -306,15 +305,15 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			sl_desc->incoming_block_size = block->real_size;
 			sl_desc->incoming_block = block->incoming_block;
 
-			last_block = block;
+			current_soo_transcoder->last_block = block;
 
 			/* If a complete block has been received with no request coming from the requester, free it */
-			if (!decoder_recv_requested) {
+			if (!current_soo_transcoder->decoder_recv_requested) {
 				vfree(block->incoming_block);
 				block->incoming_block = NULL;
 
 				/* Release the lock on the block processing */
-				mutex_unlock(&decoder_lock);
+				mutex_unlock(&current_soo_transcoder->decoder_lock);
 
 				return 0;
 			}
@@ -332,7 +331,7 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 	}
 
 	/* Release the lock on the block processing */
-	mutex_unlock(&decoder_lock);
+	mutex_unlock(&current_soo_transcoder->decoder_lock);
 
 	return 0;
 }
@@ -352,10 +351,10 @@ static int decoder_watchdog_task_fn(void *arg)  {
 
 		current_time = ktime_to_ms(ktime_get());
 
-		mutex_lock(&decoder_lock);
+		mutex_lock(&current_soo_transcoder->decoder_lock);
 
 		/* Look for the blocks that exceed the timeout */
-		list_for_each_safe(cur, tmp, &block_list) {
+		list_for_each_safe(cur, tmp, &current_soo_transcoder->block_list) {
 			block = list_entry(cur, decoder_block_t, list);
 
 			/*
@@ -384,20 +383,141 @@ static int decoder_watchdog_task_fn(void *arg)  {
 			}
 		}
 
-		mutex_unlock(&decoder_lock);
+		mutex_unlock(&current_soo_transcoder->decoder_lock);
 	}
 
 	return 0;
 }
 
-/*
- * Main initialization function of the Decoder functional block.
+/**
+ * Send data according to requirements based on the sl_desc descriptor and performs
+ * consistency algorithms/packet splitting if required.
  */
-void decoder_init(void) {
-	INIT_LIST_HEAD(&block_list);
+void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
+	transcoder_packet_t *pkt;
+	uint32_t packetID, nr_packets;
+	bool completed;
 
-	mutex_init(&decoder_lock);
+	soo_log("[soo:soolink:transcoder] Sending sending %d bytes...\n", size);
+
+	/* Bypass the Coder if the requester is of Bluetooth or TCP type */
+	if ((sl_desc->if_type == SL_IF_BT) || (sl_desc->if_type == SL_IF_TCP) || (sl_desc->req_type == SL_REQ_PEER)) {
+		pkt = kmalloc(sizeof(transcoder_packet_format_t) + size, GFP_ATOMIC);
+
+		/* In fact, do not care about the consistency_type field */
+		pkt->u.simple.consistency_type = CODER_CONSISTENCY_SIMPLE;
+		memcpy(pkt->payload, data, size);
+
+		/* Forward the packet to the Transceiver */
+		sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + size, true);
+
+		kfree(pkt);
+
+		return ;
+	}
+
+	/* End of transmission ? */
+#warning sending all MEs at each time ?
+	if (!data) {
+		sender_tx(sl_desc, NULL, 0, true);
+		return ;
+	}
+
+	/*
+	 * Take the lock for managing the block and packets.
+	 * Protecting the access to the global transID counter.
+	 */
+	mutex_lock(&current_soo_transcoder->coder_tx_lock);
+
+	/* Check if the block has to be split into multiple packets */
+	if (size <= SL_PACKET_PAYLOAD_MAX_SIZE) {
+		DBG("Simple packet\n");
+
+		/* Create the simple packet */
+		pkt = kmalloc(sizeof(transcoder_packet_format_t) + size, GFP_ATOMIC);
+
+		pkt->u.simple.consistency_type = CODER_CONSISTENCY_SIMPLE;
+		memcpy(pkt->payload, data, size);
+
+		/* We forward the packet to the Transceiver. The size at the reception
+		 * will be taken from the plugin (RX).
+		 */
+
+		sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + size, true);
+
+		kfree(pkt);
+
+	} else {
+
+		/* Determine the number of packets required for this block */
+		nr_packets = DIV_ROUND_UP(size, SL_PACKET_PAYLOAD_MAX_SIZE);
+
+		DBG("Extended packet, nr_packets=%d\n", nr_packets);
+
+		/* Need to iterate over multiple packets */
+		pkt = kmalloc(sizeof(transcoder_packet_format_t) + SL_PACKET_PAYLOAD_MAX_SIZE, GFP_ATOMIC);
+		BUG_ON(!pkt);
+
+		for (packetID = 1; packetID < nr_packets + 1; packetID++) {
+
+			/* Tell Datalink that this is the last packet in the block */
+			completed = (packetID == nr_packets);
+
+			/* Create an extended packet */
+
+			pkt->u.ext.consistency_type = CODER_CONSISTENCY_EXT;
+			pkt->u.ext.nr_packets = nr_packets;
+
+			pkt->u.ext.packetID = packetID;
+			pkt->u.ext.payload_length = ((size > SL_PACKET_PAYLOAD_MAX_SIZE) ? SL_PACKET_PAYLOAD_MAX_SIZE : size);
+
+			memcpy(pkt->payload, data, pkt->u.ext.payload_length);
+			data += pkt->u.ext.payload_length;
+			size -= pkt->u.ext.payload_length;
+
+			/*
+			 * We forward the packet to the Transceiver. The size at the reception
+			 * will be taken from the plugin (RX).
+			 */
+
+			if (sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + pkt->u.ext.payload_length, completed) < 0) {
+				/* There has been something wrong with Datalink. Abort the transmission of the block. */
+				break;
+			}
+		}
+
+		kfree(pkt);
+	}
+
+	/* Finally ... */
+	mutex_unlock(&current_soo_transcoder->coder_tx_lock);
+
+	soo_log("[soo:soolink:transcoder] Send completed.\n");
+}
+
+/**
+ * Initialize the Coder functional block of Soolink.
+ */
+void transcoder_init(void) {
+	struct task_struct *__ts;
+
+	current_soo->soo_transcoder = kzalloc(sizeof(struct soo_transcoder_env), GFP_KERNEL);
+	BUG_ON(!current_soo->soo_transcoder);
+
+	current_soo_transcoder->decoder_recv_requested = false;
+	current_soo_transcoder->last_block = NULL;
+
+	mutex_init(&current_soo_transcoder->coder_tx_lock);
+	INIT_LIST_HEAD(&current_soo_transcoder->block_list);
+
+	mutex_init(&current_soo_transcoder->decoder_lock);
 
 	/* Watchdog */
-	kthread_run(decoder_watchdog_task_fn, NULL, "decoder_watchdog_task");
+	__ts = kthread_create(decoder_watchdog_task_fn, NULL, "decoder_watchdog_task");
+	BUG_ON(!__ts);
+
+	add_thread(current_soo, __ts->pid);
+
+	wake_up_process(__ts);
+
 }

@@ -17,13 +17,10 @@
  *
  */
 
-
-//#define VERBOSE
-
 #include <linux/spinlock.h>
 #include <linux/list.h>
 
-#include <soo/soolink/receiver.h>
+#include <soo/soolink/transceiver.h>
 #include <soo/soolink/plugin.h>
 #include <soo/soolink/discovery.h>
 

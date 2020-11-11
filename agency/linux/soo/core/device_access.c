@@ -16,10 +16,6 @@
  *
  */
 
-#if 0
-#define DEBUG
-#endif
-
 #include <linux/random.h>
 
 #include <soo/core/device_access.h>
@@ -74,12 +70,12 @@ agencyUID_t *get_null_agencyUID(void) {
  * Return the agency UID of this Smart Object.
  */
 agencyUID_t *get_my_agencyUID(void) {
-	return (agencyUID_t *) current_soo->agencyUID;
+	return &current_soo->agencyUID;
 }
 
 void devaccess_dump_agencyUID(void) {
-	pr_cont("[soo:core:device_access] Agency UID: ");
-	printk_buffer((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID.id, SOO_AGENCY_UID_SIZE);
+	soo_log("[soo:core:device_access] Agency UID: ");
+	soo_log_printlnUID(&current_soo->agencyUID);
 }
 
 uint32_t devaccess_get_upgrade_pfn(void) {
@@ -210,15 +206,14 @@ void set_agencyUID(uint8_t val) {
 	int i;
 
 	for (i = 0; i < 15; i++)
-		HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID.id[i] = 0;
+		current_soo->agencyUID.id[i] = 0;
 
-	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID.id[15] = val;
+	current_soo->agencyUID.id[15] = val;
 
-	discovery_update_ourself((agencyUID_t *)&HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID);
+	discovery_update_ourself(&current_soo->agencyUID);
 
-	pr_cont("[soo:core:device_access] New SOO Agency UID: ");
-	printk_buffer((uint8_t *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, SOO_AGENCY_UID_SIZE);
-	printk("\n");
+	soo_log("[soo:core:device_access] New SOO Agency UID: ");
+	soo_log_printlnUID(&current_soo->agencyUID);
 }
 
 void devaccess_init(void) {

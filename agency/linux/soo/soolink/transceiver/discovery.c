@@ -25,7 +25,7 @@
 #include <soo/netsimul.h>
 
 #include <soo/soolink/discovery.h>
-#include <soo/soolink/sender.h>
+#include <soo/soolink/transceiver.h>
 
 #include <soo/core/device_access.h>
 #include <soo/core/sysfs.h>

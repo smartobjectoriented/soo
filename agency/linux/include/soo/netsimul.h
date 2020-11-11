@@ -42,15 +42,20 @@ typedef struct {
         unsigned int id;
 
         /* agencyUID of this Smart Object */
-        uint8_t agencyUID[SOO_AGENCY_UID_SIZE];
+        agencyUID_t agencyUID;
 
+        struct soo_simul_env *soo_simul;
+
+        struct soo_soolink_env *soo_soolink;
         struct soo_discovery_env *soo_discovery;
         struct soo_winenet_env *soo_winenet;
         struct soo_plugin_env *soo_plugin;
 
         /* Transceiver */
-        struct soo_sender_env *soo_sender;
+        struct soo_transceiver_env *soo_transceiver;
 
+        /* Transcoder */
+        struct soo_transcoder_env *soo_transcoder;
 
 } soo_env_t;
 
@@ -60,10 +65,14 @@ typedef bool(*soo_iterator_t)(soo_env_t *, void *args);
 
 #define current_soo	__current_soo()
 
+#define current_soo_simul	(current_soo->soo_simul)
+
+#define current_soo_soolink	(current_soo->soo_soolink)
 #define current_soo_discovery	(current_soo->soo_discovery)
 #define current_soo_plugin	(current_soo->soo_plugin)
 #define current_soo_winenet     (current_soo->soo_winenet)
-#define current_soo_sender	(current_soo->soo_sender)
+#define current_soo_transceiver	(current_soo->soo_transceiver)
+#define current_soo_transcoder	(current_soo->soo_transcoder)
 
 void add_thread(soo_env_t *soo, unsigned int pid);
 void soolink_netsimul_init(void);

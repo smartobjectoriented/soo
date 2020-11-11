@@ -22,6 +22,8 @@
 
 #include <linux/types.h>
 
+#include <soo/soolink/soolink.h>
+
 /* Used to keep track of allocated buffer */
 #define TRANSCEIVER_PKT_NONE		0
 
@@ -46,5 +48,12 @@ typedef struct {
 } transceiver_packet_t;
 
 void transceiver_init(void);
+
+int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed);
+void __sender_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet);
+
+void __receiver_rx(sl_desc_t *sl_desc, void *packet, size_t size);
+void receiver_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet);
+
 
 #endif /* TRANSCEIVER_H */

@@ -23,8 +23,6 @@
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/datalink.h>
 #include <soo/soolink/transceiver.h>
-#include <soo/soolink/sender.h>
-#include <soo/soolink/receiver.h>
 
 #include <soo/soolink/datalink/winenet.h>
 #include <soo/soolink/datalink/bluetooth.h>

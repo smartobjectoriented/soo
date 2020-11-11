@@ -67,6 +67,40 @@ typedef struct {
 
 } transcoder_packet_t;
 
+/* Timeout after which a block is deleted, in ms */
+#define SOOLINK_DECODE_BLOCK_TIMEOUT	4000
+
+/* A decoder block maintains all attributes of a given block which may be simple or extended */
+typedef struct {
+	sl_desc_t 	*sl_desc;
+
+	/* The block frame itself */
+	void		*incoming_block;
+
+	size_t		size;
+	size_t		total_size;
+	size_t		real_size;
+
+	uint32_t	n_total_packets;
+	uint32_t	n_recv_packets;
+
+	uint32_t	cur_packetID;
+	uint8_t		*cur_pos;
+	bool		block_ext_in_progress;
+	bool		discarded_block;
+	bool		complete;
+
+	s64		last_timestamp;
+
+	/* List of block */
+	struct list_head list;
+} decoder_block_t;
+
+int decoder_recv(sl_desc_t *sl_desc, void **data);
+int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size);
+
 void transcoder_init(void);
+
+void coder_send(sl_desc_t *sl_desc, void *data, size_t size);
 
 #endif /* TRANSCODER_H */
