@@ -16,7 +16,6 @@
  *
  */
 
-#include <lib.h>
 #include <config.h>
 #include <smp.h>
 #include <time.h>
@@ -26,7 +25,7 @@
 
 #ifndef NDEBUG
 
-static atomic_t spin_debug __read_mostly = ATOMIC_INIT(0);
+static atomic_t spin_debug = ATOMIC_INIT(0);
 
 static void check_lock(struct lock_debug *debug)
 {

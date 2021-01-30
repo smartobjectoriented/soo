@@ -31,7 +31,6 @@
 #include <common.h>
 
 #include <asm/linkage.h>
-#include <asm/string.h>
 #include <asm/cacheflush.h>
 
 #include <asm/processor.h>
@@ -87,7 +86,7 @@ void early_memory_init(void) {
 	for (i = 0; i < MAX_ME_DOMAINS; i++)
 		memslot[i+2].busy = false;
 
-	swapper_pg_dir = (void *) (CONFIG_HYPERVISOR_VIRT_ADDR + L1_SYS_PAGE_TABLE_OFFSET);
+	__sys_l1pgtable = (void *) (CONFIG_HYPERVISOR_VIRT_ADDR + TTB_L1_SYS_OFFSET);
 }
 
 extern unsigned long __bss_start, __bss_end;
@@ -123,15 +122,15 @@ void memory_init(void)
 	 * we can deal with different cache attributes (no cache).
 	 * Furthermore, the first MB is reserved for L2 page table allocation.
 	 */
-	l2pt_phys_start = (SECTION_UP(__pa(&__end)) + 1) << L1_PAGETABLE_SHIFT;
-	l2pt_current_base = __va(l2pt_phys_start);
+	l2pt_phys_start = (SECTION_UP(__pa(&__end)) + 1) << TTB_L1_SECT_ADDR_SHIFT;
+	l2pt_current_base = (uint32_t *) __va(l2pt_phys_start);
 
 	heap_phys_start = l2pt_phys_start + SZ_1M;
 
 	/* Must pass a single mapped page for populating bootmem_region_list. */
 	init_boot_pages(__pa(&__end), heap_phys_start);
 
-	heap_phys_end = heap_phys_start + (HEAP_MAX_SIZE_MB << L1_PAGETABLE_SHIFT) - 1;
+	heap_phys_end = heap_phys_start + (HEAP_MAX_SIZE_MB << TTB_L1_SECT_ADDR_SHIFT) - 1;
 	nxhp = (heap_phys_end - heap_phys_start + 1) >> PAGE_SHIFT;
 
 	printk("AVZ Hypervisor Memory Layout\n");
@@ -153,7 +152,7 @@ void memory_init(void)
 	printk("Frame table size:        %d bytes\n", (int) frametable_size);
 	printk("\n");
 
-	io_map_current_base = (unsigned int) __va(ALIGN_UP(frametable_phys_end+1, L1_SECT_SIZE));
+	io_map_current_base = (unsigned int) __va(ALIGN_UP(frametable_phys_end+1, TTB_SECT_SIZE));
 
 	printk("I/O area (for ioremap):  0x%lx (virt)\n", (unsigned long) io_map_current_base);
 	printk("I/O area size:           0x%lx bytes\n", (unsigned long) HYPERVISOR_VIRT_START+HYPERVISOR_SIZE-io_map_current_base);
@@ -165,13 +164,12 @@ void memory_init(void)
 	init_heap_pages(heap_phys_start, heap_phys_end);
 
 	/* Now clearing the pte entries related to I/O area */
-	for (addr = io_map_current_base; addr < HYPERVISOR_VIRT_START+HYPERVISOR_SIZE; addr += L1_SECT_SIZE) {
-		l1pte = (uint32_t *) l1pte_offset(swapper_pg_dir, addr);
+	for (addr = io_map_current_base; addr < HYPERVISOR_VIRT_START + HYPERVISOR_SIZE; addr += TTB_SECT_SIZE) {
+		l1pte = (uint32_t *) l1pte_offset(__sys_l1pgtable, addr);
 		*l1pte = 0;
 
 		flush_pte_entry(l1pte);
 	}
-
 }
 
 /*
@@ -368,8 +366,6 @@ void *ioremap(unsigned long phys_addr, unsigned int size) {
 	create_mapping(NULL, (unsigned long) io_map_current_base, phys_addr, size, true);
 
 	io_map_current_base += size;
-
-	flush_all();
 
 	return (void *) (vaddr + offset);
 

@@ -1,4 +1,4 @@
-obj-y += device.o
+obj-y += fdt.o device.o
 
 obj-y += irq.o
 obj-y += timer.o

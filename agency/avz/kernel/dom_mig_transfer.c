@@ -21,9 +21,7 @@
 #define DEBUG
 #endif
 
-#include <fdt_support.h>
 #include <memslot.h>
-#include <lib.h>
 #include <smp.h>
 #include <types.h>
 #include <console.h>
@@ -35,6 +33,8 @@
 
 #include <lib/crc.h>
 #include <lib/image.h>
+
+#include <libfdt/libfdt.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/debug.h>

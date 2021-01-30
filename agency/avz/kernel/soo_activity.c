@@ -25,13 +25,11 @@
 #include <memory.h>
 #include <sched.h>
 #include <keyhandler.h>
-#include <lib.h>
 #include <domain.h>
 #include <errno.h>
 #include <types.h>
 
 #include <asm/io.h>
-#include <asm/domain.h>
 #include <asm/percpu.h>
 
 #include <asm/cacheflush.h>
@@ -552,7 +550,7 @@ int do_soo_hypercall(soo_hyp_t *args) {
 	/* If all OK, copy updated structure to guest */
 	memcpy(args, &op, sizeof(soo_hyp_t));
 
-	flush_all();
+	flush_dcache_all();
 
 	return rc;
 }

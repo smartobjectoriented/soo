@@ -25,6 +25,8 @@
 #include <errno.h>
 #include <bitmap.h>
 #include <bitops.h>
+#include <common.h>
+
 #include <asm/byteorder.h>
 
 /*

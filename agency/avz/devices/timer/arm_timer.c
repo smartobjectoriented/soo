@@ -20,9 +20,6 @@
 #include <types.h>
 #include <sched.h>
 #include <io.h>
-#include <lib.h>
-
-#include <asm/domain.h>
 
 #include <device/irq.h>
 #include <device/arch/arm_timer.h>

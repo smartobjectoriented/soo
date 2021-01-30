@@ -27,7 +27,7 @@ struct schedule_data {
 
     unsigned int current_dom;
 
-} __cacheline_aligned;
+};
 
 
 struct task_slice {

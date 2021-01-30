@@ -16,7 +16,10 @@
  *
  */
 
-#include <fdt_support.h>
+#include <libfdt/fdt_support.h>
+
+#include <device/fdt.h>
+
 #include <memslot.h>
 #include <sched.h>
 
@@ -38,21 +41,54 @@ extern unsigned int fdt_paddr; /* defined in kernel/setup.c */
  */
 void loadAgency(void)
 {
-	void *fdt;
 	uint32_t dom_addr;
+	int nodeoffset, next_node;
+	uint8_t tmp[16];
+	u64 base, size;
+	int len, depth = 0, ret;
+	const char *propstring;
 
-	/* Get the address of the device tree (FDT) passed by U-boot
-	 * and configure the corresponding memslot (slot 1) of the Agency.
-	 */
-	fdt = (void *) __lva(fdt_paddr);
+	nodeoffset = 0;
+	while (nodeoffset >= 0) {
+		next_node = fdt_next_node((void *) _fdt_addr, nodeoffset, &depth);
+		ret = fdt_property_read_string(nodeoffset, "type", &propstring);
+		if ((ret != -1) && (!strcmp(propstring, "agency"))) {
+			ret = fdt_property_read_u32(nodeoffset, "load-addr", &dom_addr);
+			if (ret == -1) {
+				lprintk("!! Missing load-addr in the agency node !!\n");
+				BUG();
+			} else
+			  break;
+		}
+		nodeoffset = next_node;
+	}
 
-	dom_addr = fdt_getprop_u32_default(fdt, "/fit-images/agency", "load-addr", 0);
+	if (nodeoffset < 0) {
+		lprintk("!! Unable to find a node with type agency in the FIT image... !!\n");
+		BUG();
+	}
 
 	/* Set the memslot base address to a section boundary */
 	memslot[MEMSLOT_AGENCY].base_paddr = (dom_addr & ~(SZ_1M - 1));
-	memslot[MEMSLOT_AGENCY].fdt_paddr = fdt_paddr;
-	memslot[MEMSLOT_AGENCY].size = fdt_getprop_u32_default(fdt, "/agency", "domain-size", 0);
+	memslot[MEMSLOT_AGENCY].fdt_paddr = __lpa(_fdt_addr);
+	memslot[MEMSLOT_AGENCY].size = fdt_getprop_u32_default((void *) _fdt_addr, "/agency", "domain-size", 0);
+	
+	/* Fixup the agency device tree */
+
+	/* find or create "/memory" node. */
+	nodeoffset = fdt_find_or_add_subnode((void *) _fdt_addr, 0, "memory");
+	BUG_ON(nodeoffset < 0);
+
+	fdt_setprop((void *) _fdt_addr, nodeoffset, "device_type", "memory", sizeof("memory"));
+
+	base = (u64) memslot[MEMSLOT_AGENCY].base_paddr;
+	size = (u64) memslot[MEMSLOT_AGENCY].size;
+
+	len = fdt_pack_reg((void *) _fdt_addr, tmp, &base, &size);
+
+	fdt_setprop((void *) _fdt_addr, nodeoffset, "reg", tmp, len);
 }
+
 
 /*
  * The concatened image must be out of domains because of elf parser
@@ -75,9 +111,9 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 
 	/* Get the visibility on the domain image stored in the agency user space area */
 	for (section_nr = 0x0; section_nr < 0xc00; section_nr++)
-		((uint32_t *) swapper_pg_dir)[section_nr] = pgtable_from[section_nr];
+		__sys_l1pgtable[section_nr] = pgtable_from[section_nr];
 
-	flush_all();
+	flush_dcache_all();
 
 	/* Get the pointer to the OS binary image from the ITB we got from the user space. */
 	fit_image_get_data_and_size(img, fit_image_get_node(img, "kernel"), (const void **) &ME_vaddr, &size);

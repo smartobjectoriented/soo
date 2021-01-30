@@ -24,7 +24,6 @@
 #include <stdarg.h>
 #include <percpu.h>
 #include <config.h>
-#include <lib.h>
 #include <sched.h>
 #include <serial.h>
 #include <domain.h>
@@ -102,7 +101,7 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 	/* Will be used during the context_switch (cf kernel/entry-armv.S */
 
 	d->arch.guest_context.sys_regs.vdacr = domain_val(DOMAIN_USER, DOMAIN_MANAGER) | domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) |
-		domain_val(DOMAIN_TABLE, DOMAIN_MANAGER) | domain_val(DOMAIN_IO, DOMAIN_CLIENT);
+		domain_val(DOMAIN_IO, DOMAIN_MANAGER);
 
 	d->arch.guest_context.sys_regs.vusp = 0x0; /* svc stack hypervisor at the beginning */
 
@@ -110,11 +109,11 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 	d->arch.guest_context.domcall = 0;
 
 	if (is_idle_domain(d)) {
-		d->addrspace.pgtable_paddr = (CONFIG_RAM_BASE + L1_SYS_PAGE_TABLE_OFFSET);
-		d->addrspace.pgtable_vaddr = (CONFIG_HYPERVISOR_VIRT_ADDR + L1_SYS_PAGE_TABLE_OFFSET);
+		d->addrspace.pgtable_paddr = (CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET);
+		d->addrspace.pgtable_vaddr = (CONFIG_HYPERVISOR_VIRT_ADDR + TTB_L1_SYS_OFFSET);
 
-		d->addrspace.ttbr0[cpu_id] = d->addrspace.pgtable_paddr;
-		d->addrspace.ttbr0[cpu_id] |= TTB_FLAGS_SMP;
+		d->addrspace.ttbr0[cpu_id] = cpu_get_ttbr0() & ~TTBR0_BASE_ADDR_MASK;
+		d->addrspace.ttbr0[cpu_id] |= d->addrspace.pgtable_paddr;
 	}
 
 	d->processor = cpu_id;

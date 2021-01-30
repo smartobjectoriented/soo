@@ -81,7 +81,7 @@ struct clocksource {
 	 * Keep it in a different cache line to dirty no
 	 * more than one cache line.
 	 */
-	cycle_t cycle_last __cacheline_aligned;
+	cycle_t cycle_last;
 
 };
 
@@ -258,6 +258,8 @@ extern void do_settime(unsigned long secs, unsigned long nsecs, u64 system_time_
 extern void send_timer_event(struct domain *d);
 
 void domain_set_time_offset(struct domain *d, int32_t time_offset_seconds);
+
+void udelay(int us);
 
 #endif /* __AVZ_TIME_H__ */
 

@@ -31,8 +31,8 @@
 .global cpu3_stack
 
 .extern clear_bss
-.extern configure_l1pgtable
-.extern cpu_setup
+.extern mmu_configure
+
 .extern __stack_top
 
 .section ".head.text","ax"
@@ -80,7 +80,6 @@ _start:
   @ Preserve the (physical address of) device tree base in r9
   mov 	r9, r2
 
-
   @ Initialize stack pointers for current mode (normal case if no MMU is used)
   ldr  	sp, =cpu0_stack
 
@@ -88,7 +87,6 @@ _start:
 
   @ Set up the MMU
   b		mmu_setup
-
 
 __kernel_main:
 
@@ -108,36 +106,12 @@ mmu_setup:
   adrl	sp, cpu0_stack
 
   @ Refer to the 1st-level page table
-  ldr	r4, =CONFIG_RAM_BASE + L1_SYS_PAGE_TABLE_OFFSET
+  ldr	r0, =CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET
 
-  mov	r0, r4
   mov	r1, r9 @ fdt addr
-  mov   r7, lr
-  bl 	configure_l1pgtable
-  mov 	lr, r7
-
-  mov 	r8, r4
-
-  @ r8 contains the reference for TTBR1 (which is equal to TTBR0)
-  bl 	cpu_setup
-
-__enable_mmu:
-
-  bic	r0, r0, #CR_A
-
-  mov	r5, #0xffffffff				@ all domains are manager at the beginning
-  mcr	p15, 0, r5, c3, c0, 0		@ load domain access register
-  mcr	p15, 0, r4, c2, c0, 0		@ load page table pointer
-
-  mov	r0, r0
-
-  isb
-
-  mcr	p15, 0, r0, c1, c0, 0		@ write control reg
-  mrc	p15, 0, r3, c0, c0, 0		@ read id reg
-
-  isb
-
+  
+  bl 	mmu_configure
+  
   @ Readjust the stack
   ldr	sp, =cpu0_stack
 
@@ -146,6 +120,7 @@ __enable_mmu:
   @ Store the virtual address which will be used to continue
   @ the execution after the MMU enabled.
   ldr	pc, .LCvirt_entry
+
 
 ENTRY(secondary_startup)
 	/*
@@ -165,32 +140,15 @@ ENTRY(secondary_startup)
     ldmia   r4, {r5, r7}       @ retrieve secondary_data field values (pgdir, stack) / r5 & r7 are virtual addresses.
     sub 	lr, r4, r5         @ r4 is a physical address since the adr pseudo is based on relative pc (mmu is off at this point).
 
-    ldr 	r4, [lr, r7]       @ get secondary_data.pgdir (r7 is virtual, r4 is phys).
+    ldr 	r0, [lr, r7]       @ get secondary_data.pgdir (r7 is virtual, r0 is phys).
     add		r7, r7, #4
     ldr		sp, [lr, r7]	   @ get the stack pointer (virt. address)
 	add		sp, sp, lr		   @ convert to phys address.
 
-	mov 	r8, r4
+  	@ Up to here, a stack should be initialized
 
-  	@ r8 contains the reference for TTBR1 (which is equal to TTBR0)
-  	bl 	cpu_setup
-
-  	@ Now enable mmu
-
-	bic	r0, r0, #CR_A
-
-  	mov	r5, #0xffffffff				@ all domains are manager at the beginning
-  	mcr	p15, 0, r5, c3, c0, 0		@ load domain access register
-  	mcr	p15, 0, r4, c2, c0, 0		@ load page table pointer
-
-  	mov	r0, r0
-
-  	isb
-
-  	mcr	p15, 0, r0, c1, c0, 0		@ write control reg
-  	mrc	p15, 0, r3, c0, c0, 0		@ read id reg
-
-  	isb
+  	@ Set up the MMU - The second argument (fdt addr) is not used in this context.
+  	bl 	mmu_configure
 
  	 @ Readjust the stack (r7 has still the virt. address of the stack)
   	ldr	sp, [r7]
@@ -198,9 +156,8 @@ ENTRY(secondary_startup)
   	@ Keep executing in the kernel space
 
   	@ Store the virtual address which will be used to continue
- 	 @ the execution after the MMU enabled.
+ 	@ the execution after the MMU enabled.
   	ldr	pc, .LC_virt_secondary_entry
-
 
     .align
 

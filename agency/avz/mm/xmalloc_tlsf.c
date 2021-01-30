@@ -26,6 +26,7 @@
 #include <config.h>
 #include <memory.h>
 #include <sched.h>
+#include <xmalloc.h>
 
 #define MAX_POOL_NAME_LEN       16
 
@@ -316,7 +317,7 @@ struct xmem_pool *xmem_pool_create(
     pool->grow_size = grow_size;
     pool->get_mem = get_mem;
     pool->put_mem = put_mem;
-    strlcpy(pool->name, name, sizeof(pool->name));
+    strcpy(pool->name, name);
 
     /* always obtain init_region lazily now to ensure it is get_mem'd
      * in the same "context" as all other regions */

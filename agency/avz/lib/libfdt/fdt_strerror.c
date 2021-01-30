@@ -48,12 +48,9 @@
  *     OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  *     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "libfdt_env.h"
-
-#include <fdt.h>
-#include <libfdt.h>
-
-#include "libfdt_internal.h"
+#include <libfdt/libfdt_env.h>
+#include <libfdt/libfdt.h>
+#include <libfdt/libfdt_internal.h>
 
 struct fdt_errtabent {
 	const char *str;
@@ -69,6 +66,7 @@ static struct fdt_errtabent fdt_errtable[] = {
 
 	FDT_ERRTABENT(FDT_ERR_BADOFFSET),
 	FDT_ERRTABENT(FDT_ERR_BADPATH),
+	FDT_ERRTABENT(FDT_ERR_BADPHANDLE),
 	FDT_ERRTABENT(FDT_ERR_BADSTATE),
 
 	FDT_ERRTABENT(FDT_ERR_TRUNCATED),
@@ -76,6 +74,11 @@ static struct fdt_errtabent fdt_errtable[] = {
 	FDT_ERRTABENT(FDT_ERR_BADVERSION),
 	FDT_ERRTABENT(FDT_ERR_BADSTRUCTURE),
 	FDT_ERRTABENT(FDT_ERR_BADLAYOUT),
+	FDT_ERRTABENT(FDT_ERR_INTERNAL),
+	FDT_ERRTABENT(FDT_ERR_BADNCELLS),
+	FDT_ERRTABENT(FDT_ERR_BADVALUE),
+	FDT_ERRTABENT(FDT_ERR_BADOVERLAY),
+	FDT_ERRTABENT(FDT_ERR_NOPHANDLES),
 };
 #define FDT_ERRTABSIZE	(sizeof(fdt_errtable) / sizeof(fdt_errtable[0]))
 

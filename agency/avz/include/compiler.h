@@ -1,14 +1,39 @@
-#ifndef __LINUX_COMPILER_H
-#define __LINUX_COMPILER_H
+/*
+ * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
 
-#if !defined(__GNUC__) || (__GNUC__ < 3)
-#error Sorry, your compiler is too old/not recognized.
-#endif
+#ifndef COMPILER_H
+#define COMPILER_H
+
+/* Type for `void *' pointers. */
+typedef unsigned long int uintptr_t;
 
 #define barrier()     __asm__ __volatile__("": : :"memory")
 
 #define likely(x)     __builtin_expect((x),1)
 #define unlikely(x)   __builtin_expect((x),0)
+
+#ifdef __CHECKER__
+#define __force __attribute__((force))
+#define __bitwise __attribute__((bitwise))
+#else
+#define __force
+#define __bitwise
+#endif
 
 #define inline        __inline__
 #define always_inline __inline__ __attribute__ ((always_inline))
@@ -17,23 +42,20 @@
 #define __attribute_pure__  __attribute__((pure))
 #define __attribute_const__ __attribute__((__const__))
 
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3)
 #define __attribute_used__ __attribute__((__used__))
-#else
-#define __attribute_used__ __attribute__((__unused__))
-#endif
 
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
 #define __must_check __attribute__((warn_unused_result))
-#else
-#define __must_check
-#endif
 
-#if __GNUC__ > 3
 #define offsetof(a,b) __builtin_offsetof(a,b)
-#else
-#define offsetof(a,b) ((unsigned long)&(((a *)0)->b))
-#endif
+
+/* Force a compilation error if condition is true, but also produce a
+   result (of value 0 and type size_t), so the expression can be used
+   e.g. in a structure initializer (or where-ever else comma expressions
+   aren't permitted). */
+#define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
+
+/* Force a compilation error if condition is true */
+#define BUILD_BUG_ON(condition) ((void)sizeof(struct { int:-!!(condition); }))
 
 /* &a[0] degrades to a pointer: a different type from an array */
 #define __must_be_array(a) \
@@ -63,4 +85,4 @@
  */
 #define uninitialized_var(x) x = x
 
-#endif /* __LINUX_COMPILER_H */
+#endif /* COMPILER_H */

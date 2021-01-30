@@ -10,7 +10,7 @@
 #ifndef __ASM_ARM_HARDWARE_GIC_H
 #define __ASM_ARM_HARDWARE_GIC_H
 
-#include <linux/compiler.h>
+#include <compiler.h>
 
 #define GIC_CPU_CTRL			0x00
 #define GIC_CPU_PRIMASK			0x04

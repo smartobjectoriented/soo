@@ -90,7 +90,6 @@ unsigned long total_free_pages(void);
 extern int __irq_safe[];
 
 extern unsigned long heap_phys_end;
-extern uint32_t *__sys_l1pgtable;
 
 /*
  * Per-page-frame information.

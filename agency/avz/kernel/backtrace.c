@@ -18,7 +18,6 @@
 
 #include <config.h>
 #include <percpu.h>
-#include <lib.h>
 #include <console.h>
 #include <sched.h>
 #include <domain.h>

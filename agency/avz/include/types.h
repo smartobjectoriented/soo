@@ -30,13 +30,6 @@
 #undef NULL
 #define NULL ((void *) 0)
 
-#define INT_MAX         ((int)(~0U>>1))
-#define INT_MIN         (-INT_MAX - 1)
-#define UINT_MAX        (~0U)
-#define LONG_MAX        ((long)(~0UL>>1))
-#define LONG_MIN        (-LONG_MAX - 1)
-#define ULONG_MAX       (~0UL)
-
 /* mandatory types */
 
 typedef unsigned int size_t;
@@ -230,6 +223,7 @@ typedef unsigned char bool_t;
 #define ALIGN_DOWN(addr,size) ((addr)&(~((size)-1)))
 
 typedef uint32_t paddr_t;
+typedef uint32_t 	phys_addr_t;
 
 /*
  * Fast implementation of tolower() for internal usage. Do not use in your

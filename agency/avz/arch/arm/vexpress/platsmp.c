@@ -19,8 +19,8 @@
 #include <smp.h>
 #include <io.h>
 #include <spinlock.h>
-#include <lib.h>
 #include <memory.h>
+#include <time.h>
 
 #include <asm/cacheflush.h>
 

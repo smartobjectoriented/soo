@@ -16,6 +16,7 @@
  *
  */
 
+#include <common.h>
 #include <keyhandler.h> 
 #include <event.h>
 #include <console.h>

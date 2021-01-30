@@ -193,7 +193,7 @@ KBUILD_CPPFLAGS += -I$(TOPDIR)include
 KBUILD_CPPFLAGS += -fno-builtin -ffreestanding -nostdinc -isystem $(gccincdir)  
 
 KBUILD_CFLAGS   := -g  -O0 -fno-common  -marm  -mno-thumb-interwork -march=armv7-a -Wall -Wstrict-prototypes $(KBUILD_CPPFLAGS)
-KBUILD_CFLAGS	:= -mabi=aapcs-linux -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -fno-PIE -fno-dwarf2-cfi-asm -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -march=armv7-a -Uarm -fno-delete-null-pointer-checks -Wno-frame-address --param=allow-store-data-races=0 -Wframe-larger-than=1024 -fno-stack-protector -Wno-unused-but-set-variable -Wno-unused-const-variable -fomit-frame-pointer -fno-var-tracking-assignments -g -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -Werror=implicit-int -Werror=strict-prototypes -Werror=date-time -Werror=incompatible-pointer-types -Werror=designated-init -DBITS_PER_LONG=32
+KBUILD_CFLAGS	:= -mabi=aapcs-linux -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -fno-PIE -fno-dwarf2-cfi-asm -fno-ipa-sra -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -march=armv7-a -Uarm -fno-delete-null-pointer-checks -Wno-frame-address --param=allow-store-data-races=0 -Wframe-larger-than=1024 -fno-stack-protector -Wno-unused-but-set-variable -Wno-unused-const-variable -fomit-frame-pointer -fno-var-tracking-assignments -g -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fno-merge-all-constants -fmerge-constants -fno-stack-check -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes -Werror=date-time -Werror=incompatible-pointer-types -Werror=designated-init -fno-function-sections -fno-data-sections -DBITS_PER_LONG=32
 
 KBUILD_AFLAGS_KERNEL := -I. 
 KBUILD_CFLAGS_KERNEL := -I. -I./lib/libfdt 
@@ -349,10 +349,11 @@ endif
 
 ELF	= avz
 BIN	= avz.bin
+DTB	= dts/$(TARGET).dtb
 
 include scripts/Makefile.build
  
-all: $(BIN) $(ELF)
+all: $(BIN) $(DTB)
 
 objs-y		:= kernel mm arch/arm devices  
 libs-y		:= lib
@@ -379,6 +380,13 @@ KBUILD_AFLAGS_KERNEL += -Iarch/arm/include/ -Iarch/arm/$(TARGET)/include/
 
 $(BIN): $(ELF)
 	$(OBJCOPY) --set-section-flags .bss=alloc,load,contents -O binary $< $@ 2>/dev/null
+	
+dtbs: $(DTB)
+
+$(DTB): dts/$(TARGET).dts
+	$(Q)$(CC) -P -E -nostdinc -I. -undef -D__DTS__ -x assembler-with-cpp -o dts/$(TARGET)-complete.dts dts/$(TARGET).dts
+	dtc dts/$(TARGET)-complete.dts -O dtb -o $@
+	$(Q)rm -f dts/$(TARGET)-complete.dts
 	
 $(ELF): $(avz-all)
 	$(call if_changed,avz)
@@ -412,7 +420,7 @@ $(avz-dirs): prepare scripts_basic
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  +=
-CLEAN_FILES +=	avz avz.bin 
+CLEAN_FILES +=	avz avz.bin dts/*.dtb
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated

@@ -20,18 +20,17 @@
 
 #include <config.h>
 #include <smp.h>
-#include <lib.h>
 #include <sched.h>
 #include <config.h>
 #include <errno.h>
 #include <event.h>
 #include <sched.h>
-#include <lib.h>
 #include <config.h>
 #include <time.h>
 #include <timer.h>
 #include <smp.h>
 #include <softirq.h>
+#include <limits.h>
 
 #include <device/timer.h>
 
@@ -75,7 +74,7 @@ static u64 cev_delta2ns(unsigned long latch, struct clock_event_device *evt,
 
 	if (unlikely(!evt->mult)) {
 		evt->mult = 1;
-		WARN_ON(1);
+		BUG();
 	}
 	rnd = (u64) evt->mult - 1;
 

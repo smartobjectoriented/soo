@@ -25,14 +25,11 @@ obj-y += bitmap.o
 obj-y += domctl.o
 obj-y += event_channel.o
 obj-y += keyhandler.o
-obj-y += lib.o
  
 obj-y += sched_flip.o 
 obj-y += schedule.o
 obj-y += softirq.o
 obj-y += spinlock.o
-obj-y += string.o
 
 obj-y += timer.o
-obj-y += vsprintf.o
 

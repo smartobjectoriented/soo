@@ -3,7 +3,7 @@
 #ifndef LIST_H
 #define LIST_H
 
-#include <lib.h>
+#include <common.h>
 
 #include <asm/processor.h>
 

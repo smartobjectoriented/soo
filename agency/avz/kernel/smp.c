@@ -56,12 +56,15 @@ void write_pen_release(int val)
 {
 	pen_release = val;
 	dmb();
-	sync_cache_w(&pen_release);
+
+	flush_dcache_all();
 }
 
 int read_pen_release(void) {
 	dmb();
-	sync_cache_r(&pen_release);
+
+	flush_dcache_all();
+
 	return pen_release;
 }
 
@@ -173,9 +176,9 @@ void cpu_up(unsigned int cpu)
 		BUG();
 	}
 
-	secondary_data.pgdir = virt_to_phys(swapper_pg_dir);
+	secondary_data.pgdir = virt_to_phys(__sys_l1pgtable);
 
-	sync_cache_w(&secondary_data);
+	flush_dcache_all();
 
 	/*
 	 * Now bring the CPU into our world.

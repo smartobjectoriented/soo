@@ -18,11 +18,11 @@
 
 #include <config.h>
 #include <types.h>
-#include <lib.h>
 #include <sched.h>
 #include <spinlock.h>
 #include <keyhandler.h>
 #include <memory.h>
+#include <xmalloc.h>
 
 #include <asm/mmu.h>
 
@@ -52,7 +52,7 @@ static void bootmem_region_add(unsigned long s, unsigned long e)
 	unsigned int i;
 
 	if ( (bootmem_region_list == NULL) && (s < e) )
-		bootmem_region_list = pfn_to_virt(s++);
+		bootmem_region_list = (struct bootmem_region *) pfn_to_virt(s++);
 
 	if ( s >= e )
 		return;
@@ -345,7 +345,7 @@ void *alloc_heap_pages(unsigned int order, unsigned int memflags)
 	if (unlikely(pg == NULL))
 		return NULL;
 
-	return page_to_virt(pg);
+	return (void *) page_to_virt(pg);
 }
 
 

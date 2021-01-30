@@ -9,7 +9,7 @@
 #define __FDT_SUPPORT_H
 
 
-#include <libfdt.h>
+#include <libfdt/libfdt.h>
 
 u32 fdt_getprop_u32_default(const void *fdt, const char *path,
 				const char *prop, const u32 dflt);

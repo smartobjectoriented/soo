@@ -18,7 +18,6 @@
 
 #include <stdarg.h>
 #include <config.h>
-#include <lib.h>
 #include <errno.h>
 #include <event.h>
 #include <spinlock.h>
@@ -28,12 +27,12 @@
 #include <keyhandler.h>
 #include <memory.h>
 #include <types.h>
+#include <string.h>
 
 #include <device/serial.h>
 
 #include <soo/uapi/console.h>
 
-#include <asm/domain.h>
 #include <asm/io.h>
 #include <asm/div64.h>
 

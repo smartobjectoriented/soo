@@ -16,7 +16,7 @@
 
 #include <asm/byteorder.h>
 
-#include <fdt_support.h>
+#include <libfdt/fdt_support.h>
 
 #include <lib/image.h>
 #include <lib/crc.h>

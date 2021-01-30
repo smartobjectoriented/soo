@@ -45,7 +45,7 @@ struct stack {
 	u32 abt[3];
 	u32 und[3];
 	u32 fiq[3];
-} ____cacheline_aligned;
+};
 
 struct stack stacks[NR_CPUS];
 
@@ -81,6 +81,21 @@ void setup_exception_stacks(void) {
 
 }
 
+void arm_init_domains(void)
+{
+	u32 reg;
+
+	reg = get_dacr();
+	/*
+	* Set DOMAIN to client access so that all permissions
+	* set in pagetables are validated by the mmu.
+	*/
+	reg &= ~DOMAIN_MASK;
+	reg |= DOMAIN_MANAGER;
+
+	set_dacr(reg);
+}
+
 void cpu_init(void) {
 	/* Original boot CPU identification to prevent undesired activities on another CPU . */
 	origin_cpu = smp_processor_id();
@@ -108,6 +123,6 @@ void setup_arch(void) {
 	 * any write-allocated cache lines in the vector page are written
 	 * back.  After this point, we can start to touch devices again.
 	 */
-	flush_all();
+	flush_dcache_all();
 
 }

@@ -20,7 +20,6 @@
 
 #include <asm/mmu.h>
 #include <asm/processor.h>
-#include <asm/domain.h>
 
 #include <generated/asm-offsets.h>
 

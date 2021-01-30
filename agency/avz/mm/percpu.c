@@ -16,9 +16,9 @@
  *
  */
 
-#include <lib.h>
 #include <memory.h>
 #include <errno.h>
+#include <string.h>
 
 #include <config.h>
 #include <percpu.h>

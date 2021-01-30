@@ -21,7 +21,6 @@
 #define DEBUG
 #endif
 
-#include <lib.h>
 #include <smp.h>
 #include <types.h>
 #include <console.h>
@@ -66,7 +65,7 @@ int migration_final(soo_hyp_t *op) {
 	case SOO_PERSONALITY_TARGET:
 		DBG("Target\n");
 
-		flush_all();
+		flush_dcache_all();
 
 		if ((rc = restore_migrated_domain(slotID)) < 0) {
 			printk("Agency: %s:%d Failed to restore migrated domain (%d)\n", __func__, __LINE__, rc);
@@ -78,7 +77,7 @@ int migration_final(soo_hyp_t *op) {
 	case SOO_PERSONALITY_SELFREFERENT:
 		DBG("Self-referent\n");
 
-		flush_all();
+		flush_dcache_all();
 
 		DBG0("ME paused OK\n");
 
@@ -128,42 +127,46 @@ static void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 	pgtable_ME = (uint32_t *) (vaddr_start_ME + 0x4000);
 
 	/* We re-adjust the PTE entries for the whole kernel space until the hypervisor area. */
-	for (i = (L_PAGE_OFFSET >> L1_PAGETABLE_SHIFT); i < (CONFIG_HYPERVISOR_VIRT_ADDR >> L1_PAGETABLE_SHIFT); i++) {
+	for (i = (L_PAGE_OFFSET >> TTB_I1_SHIFT); i < (CONFIG_HYPERVISOR_VIRT_ADDR >> TTB_I1_SHIFT); i++) {
 
 		l1pte = pgtable_ME + i;
 		if (!*l1pte)
 			continue ;
 
-		if ((*l1pte & L1DESC_TYPE_MASK) == L1DESC_TYPE_SECT) {
+		if (l1pte_is_sect(*l1pte)) {
 
-			old_pfn = (*l1pte & L1_SECT_MASK) >> PAGE_SHIFT;
+			old_pfn = (*l1pte & TTB_L1_SECT_ADDR_MASK) >> PAGE_SHIFT;
 
 			new_pfn = old_pfn + pfn_offset;
 
 			/* If we have a section PTE, it means that pfn_offset *must* be 1 MB aligned */
-			BUG_ON(((new_pfn << PAGE_SHIFT) & ~L1_SECT_MASK) != 0);
+			BUG_ON(((new_pfn << PAGE_SHIFT) & ~TTB_L1_SECT_ADDR_MASK) != 0);
 
-			*l1pte = (*l1pte & ~L1_SECT_MASK) | (new_pfn << PAGE_SHIFT);
+			*l1pte = (*l1pte & ~TTB_L1_SECT_ADDR_MASK) | (new_pfn << PAGE_SHIFT);
 
 			flush_pte_entry((void *) l1pte);
 
 		} else {
 
 			/* Fix the pfn of the 1st-level PT */
-			base = (*l1pte & L1DESC_L2PT_BASE_ADDR_MASK);
+			base = (*l1pte & TTB_L1_PAGE_ADDR_MASK);
+
 			base += pfn_to_phys(pfn_offset);
-			*l1pte = (*l1pte & ~L1DESC_L2PT_BASE_ADDR_MASK) | base;
+
+			*l1pte = (*l1pte & ~TTB_L1_PAGE_ADDR_MASK) | base;
 
 			flush_pte_entry((void *) l1pte);
 
 			for (j = 0; j < 256; j++) {
 
-				l2pte = ((uint32_t *) __lva(*l1pte & L1DESC_L2PT_BASE_ADDR_MASK)) + j;
+				l2pte = ((uint32_t *) __lva(*l1pte & TTB_L1_PAGE_ADDR_MASK)) + j;
 				if (*l2pte) {
 
 					/* Re-adjust the pfn of the L2 PTE */
 					base = *l2pte & PAGE_MASK;
+
 					base += pfn_to_phys(pfn_offset);
+
 					*l2pte = (*l2pte & ~PAGE_MASK) | base;
 
 					flush_pte_entry((void *) l2pte);
@@ -174,9 +177,9 @@ static void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 	}
 
 	/* Fix the Hypervisor mapped addresses (size of hyp = 12 MB) */
-	for (vaddr = 0xff000000; vaddr < 0xffc00000; vaddr += L1_SECT_SIZE) {
+	for (vaddr = 0xff000000; vaddr < 0xffc00000; vaddr += TTB_SECT_SIZE) {
 		l1pte = l1pte_offset(pgtable_ME, vaddr);
-		l1pte_current = l1pte_offset(swapper_pg_dir, vaddr);
+		l1pte_current = l1pte_offset(__sys_l1pgtable, vaddr);
 
 		*l1pte = *l1pte_current;
 		flush_pte_entry((void *) l1pte);
@@ -186,19 +189,19 @@ static void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 	/**********************/
 	/* We re-adjust the PTE entries for the whole kernel space until the hypervisor area. */
 
-	l1pte = pgtable_ME + (VECTORS_BASE >> L1_PAGETABLE_SHIFT);
+	l1pte = pgtable_ME + (VECTORS_BASE >> TTB_I1_SHIFT);
 
 	/* Fix the pfn of the 1st-level PT */
 
-	base = (*l1pte & L1DESC_L2PT_BASE_ADDR_MASK);
+	base = (*l1pte & TTB_L1_PAGE_ADDR_MASK);
 	base += pfn_to_phys(pfn_offset);
-	*l1pte = (*l1pte & ~L1DESC_L2PT_BASE_ADDR_MASK) | base;
+	*l1pte = (*l1pte & ~TTB_L1_PAGE_ADDR_MASK) | base;
 
 	flush_pte_entry((void *) l1pte);
 
 	for (j = 0; j < 256; j++) {
 
-		l2pte = ((uint32_t *) __lva(*l1pte & L1DESC_L2PT_BASE_ADDR_MASK)) + j;
+		l2pte = ((uint32_t *) __lva(*l1pte & TTB_L1_PAGE_ADDR_MASK)) + j;
 		if (*l2pte) {
 
 			/* Re-adjust the pfn of the L2 PTE */
@@ -269,7 +272,7 @@ static int fix_other_page_tables_ME(unsigned int ME_slotID)
 	}
 
 	/* Flush all cache */
-	flush_all();
+	flush_dcache_all();
 
 out:
 	return rc;

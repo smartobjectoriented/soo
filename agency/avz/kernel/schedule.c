@@ -17,7 +17,6 @@
  */
 
 #include <config.h>
-#include <lib.h>
 #include <sched.h>
 #include <domain.h>
 #include <event.h>
@@ -236,10 +235,10 @@ static void agency_wake(struct domain *d) {
 }
 
 struct scheduler sched_agency = {
-		.name = "SOO AVZ agency activation",
+	.name = "SOO AVZ agency activation",
 
-		.wake = agency_wake,
-		.do_schedule = agency_schedule
+	.wake = agency_wake,
+	.do_schedule = agency_schedule
 };
 
 

@@ -20,7 +20,6 @@
 #define DEBUG
 #endif
 
-#include <lib.h>
 #include <types.h>
 #include <errno.h>
 #include <spinlock.h>

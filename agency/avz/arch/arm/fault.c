@@ -26,13 +26,13 @@ void __stack_alignment_fault(void) {
 }
 
 void __prefetch_abort(uint32_t ifar, uint32_t ifsr, uint32_t lr) {
-	lprintk("### prefetch abort exception ifar: %x ifsr: %x lr(r14)-8: %x ###\n", ifar, ifsr, lr-8);
+	lprintk("### prefetch abort exception ifar: %x ifsr: %x lr(r14)-8: %x cr: %x ###\n", ifar, ifsr, lr-8, get_cr());
 
 	kernel_panic();
 }
 
 void __data_abort(uint32_t far, uint32_t fsr, uint32_t lr) {
-	lprintk("### abort exception far: %x fsr: %x lr(r14)-8: %x ###\n", far, fsr, lr-8);
+	lprintk("### abort exception far: %x fsr: %x lr(r14)-8: %x cr: %x ###\n", far, fsr, lr-8, get_cr());
 
 	kernel_panic();
 }

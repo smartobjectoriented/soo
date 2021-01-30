@@ -4,9 +4,9 @@
 #ifndef __ASSEMBLY__
 
 #include <config.h>
-#include <lib.h>
 #include <types.h>
 #include <bitops.h>
+#include <string.h>
 
 /*
  * bitmaps provide bit arrays that consume one or more unsigned

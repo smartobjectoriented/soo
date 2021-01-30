@@ -17,6 +17,9 @@
 
 #include <types.h>
 
+#include <libfdt/libfdt.h>
+#include <libfdt/fdt_support.h>
+
 #define FIT_IMAGES_PATH		"/images"
 #define FIT_CONFS_PATH		"/configurations"
 

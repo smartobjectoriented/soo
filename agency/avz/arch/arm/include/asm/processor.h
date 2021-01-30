@@ -22,10 +22,11 @@
 #ifndef __ASM_ARM_PROCESSOR_H
 #define __ASM_ARM_PROCESSOR_H
 
+#include <stringify.h>
+
 #include <asm/cpregs.h>
 #include <asm/linkage.h>
 
-#include <linux/stringify.h>
 /*
  * Default implementation of macro that returns current
  * instruction pointer ("program counter").
@@ -124,6 +125,14 @@
 #define CPACC_SVC(n)            (1 << (n * 2))
 #define CPACC_DISABLE(n)        (0 << (n * 2))
 
+/* CCSIDR */
+#define CCSIDR_LINE_SIZE_OFFSET		0
+#define CCSIDR_LINE_SIZE_MASK		0x7
+#define CCSIDR_ASSOCIATIVITY_OFFSET	3
+#define CCSIDR_ASSOCIATIVITY_MASK	(0x3FF << 3)
+#define CCSIDR_NUM_SETS_OFFSET		13
+#define CCSIDR_NUM_SETS_MASK		(0x7FFF << 13)
+
 /*
  * PSR bits
  */
@@ -150,18 +159,20 @@
 #define PSR_STATUS_Z    0x40000000
 #define PSR_STATUS_N    0x80000000
 
-#define PSR_MODE_USR26  0x00000000
-#define PSR_MODE_FIQ26  0x00000001
-#define PSR_MODE_IRQ26  0x00000002
-#define PSR_MODE_SVC26  0x00000003
-#define PSR_MODE_USR    0x00000010
-#define PSR_MODE_FIQ    0x00000011
-#define PSR_MODE_IRQ    0x00000012
-#define PSR_MODE_SVC    0x00000013
-#define PSR_MODE_ABT    0x00000017
-#define PSR_MODE_UND    0x0000001b
-#define PSR_MODE_SYS    0x0000001f
-#define PSR_MODE_MASK   0x0000001f
+#define PSR_USR26_MODE	0x00000000
+#define PSR_FIQ26_MODE	0x00000001
+#define PSR_IRQ26_MODE	0x00000002
+#define PSR_SVC26_MODE	0x00000003
+#define PSR_USR_MODE	0x00000010
+#define PSR_FIQ_MODE	0x00000011
+#define PSR_IRQ_MODE	0x00000012
+#define PSR_SVC_MODE	0x00000013
+#define PSR_ABT_MODE	0x00000017
+#define PSR_UND_MODE	0x0000001b
+#define PSR_HYP_MODE 	0x0000001a
+#define PSR_SYSTEM_MODE	0x0000001f
+#define PSR_MODE32_BIT	0x00000010
+#define PSR_MODE_MASK	0x0000001f
 #define PSR_T_BIT	0x00000020
 #define PSR_F_BIT	0x00000040
 #define PSR_I_BIT	0x00000080
@@ -212,6 +223,28 @@
 	0xE1600070 | (((imm4) & 0xF) << 0),				\
 	0xF7F08000 | (((imm4) & 0xF) << 16)				\
 )
+
+/*
+ * Domain numbers
+ *
+ *  DOMAIN_IO     - domain 2 includes all IO only
+ *  DOMAIN_KERNEL - domain 1 includes all kernel memory only
+ *  DOMAIN_USER   - domain 0 includes all user memory only
+ */
+#define DOMAIN_USER	0
+#define DOMAIN_KERNEL	1
+#define DOMAIN_IO	2
+
+/*
+ * Domain types
+ */
+#define DOMAIN_MASK	(0x3 << 0)
+
+#define DOMAIN_NOACCESS	0
+#define DOMAIN_CLIENT	1
+#define DOMAIN_MANAGER	3
+
+#define domain_val(dom,type)	((type) << 2*(dom))
 
 #ifdef __ASSEMBLY__
 
@@ -322,9 +355,9 @@ tbl     .req    r8              @ syscall table pointer
 #include <types.h>
 #include <compiler.h>
 
-#define FP_SIZE 35
+void arm_init_domains(void);
 
-extern void __enable_vfp(void);
+#define FP_SIZE 35
 
 #define processor_mode(regs) \
 	((regs)->psr & PSR_MODE_MASK)
@@ -350,10 +383,10 @@ union fp_state {
 	struct fp_soft_struct	soft;
 };
 
-#define sev()		__asm__ __volatile__ ("sev" : : : "memory")
-#define isb(option) 	__asm__ __volatile__ ("isb " #option : : : "memory")
-#define dsb(option) 	__asm__ __volatile__ ("dsb " #option : : : "memory")
-#define dmb(option) 	__asm__ __volatile__ ("dmb " #option : : : "memory")
+
+#define isb(option) __asm__ __volatile__ ("isb " #option : : : "memory")
+#define dsb(option) __asm__ __volatile__ ("dsb " #option : : : "memory")
+#define dmb(option) __asm__ __volatile__ ("dmb " #option : : : "memory")
 
 /*
  * CPU regs matches with the stack frame layout.
@@ -496,7 +529,6 @@ static inline void set_cr(unsigned int val)
 
 #define barrier() __asm__ __volatile__("": : :"memory")
 
-
 static inline int smp_processor_id(void) {
 	int cpu;
 
@@ -519,6 +551,21 @@ static inline void set_copro_access(unsigned int val)
 {
 	asm volatile("mcr p15, 0, %0, c1, c0, 2 @ set copro access"
 			: : "r" (val) : "cc");
+	isb();
+}
+
+static inline unsigned int get_dacr(void)
+{
+	unsigned int val;
+	asm("mrc p15, 0, %0, c3, c0, 0	@ get DACR" : "=r" (val) : : "cc");
+
+	return val;
+}
+
+static inline void set_dacr(unsigned int val)
+{
+	asm volatile("mcr p15, 0, %0, c3, c0, 0	@ set DACR"
+	  : : "r" (val) : "cc");
 	isb();
 }
 

@@ -21,44 +21,6 @@
 
 #include <asm/processor.h>
 
-void cache_clean_flush(void);
-void dcache_flush(uint32_t *pte);
-
-void flush_all(void);
-
-void flush_icache_range(uint32_t start, uint32_t end);
-void flush_kern_dcache_area(uint32_t p, uint32_t size);
-
-/*
- * Ensure preceding writes to *p by this CPU are visible to
- * subsequent reads by other CPUs:
- */
-static inline void __sync_cache_range_w(volatile void *p, size_t size)
-{
-	char *_p = (char *)p;
-
-	flush_kern_dcache_area((uint32_t) _p, size);
-
-}
-
-/*
- * Ensure preceding writes to *p by other CPUs are visible to
- * subsequent reads by this CPU.  We must be careful not to
- * discard data simultaneously written by another CPU, hence the
- * usage of flush rather than invalidate operations.
- */
-static inline void __sync_cache_range_r(volatile void *p, size_t size)
-{
-	char *_p = (char *)p;
-
-	/* ... and inner cache: */
-	flush_kern_dcache_area((uint32_t) _p, size);
-}
-
-
-#define sync_cache_w(ptr) __sync_cache_range_w(ptr, sizeof *(ptr))
-#define sync_cache_r(ptr) __sync_cache_range_r(ptr, sizeof *(ptr))
-
 /*
  *	flush_pte_entry
  *
@@ -74,7 +36,20 @@ static inline void flush_pte_entry(void *pte)
 	} while (0);
 
 	dsb();
+	isb();
 }
 
+void invalidate_dcache_all(void);
+void flush_dcache_all(void);
+void invalidate_dcache_range(unsigned long start, unsigned long stop);
+void flush_dcache_range(unsigned long start, unsigned long stop);
+
+void v7_inval_tlb(void);
+
+void arm_init_before_mmu(void);
+
+void mmu_page_table_flush(unsigned long start, unsigned long stop);
+
+void invalidate_icache_all(void);
 
 #endif /* CACHEFLUSH_H */

@@ -1,5 +1,25 @@
-#ifndef _LINUX_CTYPE_H
-#define _LINUX_CTYPE_H
+/*
+ * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
+
+#ifndef CTYPE_H
+#define CTYPE_H
+
+#include <types.h>
 
 /*
  * NOTE! This ctype does not handle EOF like the standard C
@@ -31,6 +51,12 @@ extern const unsigned char _ctype[];
 #define isupper(c)	((__ismask(c)&(_U)) != 0)
 #define isxdigit(c)	((__ismask(c)&(_D|_X)) != 0)
 
+/*
+ * Rather than doubling the size of the _ctype lookup table to hold a 'blank'
+ * flag, just check for space or tab.
+ */
+#define isblank(c)	(c == ' ' || c == '\t')
+
 #define isascii(c) (((unsigned char)(c))<=0x7f)
 #define toascii(c) (((unsigned char)(c))&0x7f)
 
@@ -51,4 +77,36 @@ static inline unsigned char __toupper(unsigned char c)
 #define tolower(c) __tolower(c)
 #define toupper(c) __toupper(c)
 
-#endif
+extern const char hex_asc[];
+extern const char hex_asc_upper[];
+
+/* Fast check for octal digit */
+static inline int isodigit(const char c)
+{
+	return c >= '0' && c <= '7';
+}
+
+int hex_to_bin(char ch);
+
+#define hex_asc_lo(x)   hex_asc[((x) & 0x0f)]
+#define hex_asc_hi(x)   hex_asc[((x) & 0xf0) >> 4]
+
+static inline char *hex_byte_pack(char *buf, u8 byte)
+{
+         *buf++ = hex_asc_hi(byte);
+         *buf++ = hex_asc_lo(byte);
+         return buf;
+}
+
+#define hex_asc_upper_lo(x)     hex_asc_upper[((x) & 0x0f)]
+#define hex_asc_upper_hi(x)     hex_asc_upper[((x) & 0xf0) >> 4]
+
+static inline char *hex_byte_pack_upper(char *buf, u8 byte)
+{
+	*buf++ = hex_asc_upper_hi(byte);
+	*buf++ = hex_asc_upper_lo(byte);
+	return buf;
+}
+
+#endif /* CTYPE_H */
+

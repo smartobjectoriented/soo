@@ -19,9 +19,9 @@
 
 #include <console.h>
 #include <spinlock.h>
+#include <string.h>
 
 #include <asm/processor.h>
-#include <asm/domain.h>
 #include <asm/backtrace.h>
 
 extern spinlock_t console_lock;

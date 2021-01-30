@@ -26,15 +26,12 @@
 #include <logbool.h>
 
 #include <config.h>
-#include <lib.h>
 #include <types.h>
 #include <sched.h>
 #include <event.h>
 
 #include <device/irq.h>
 #include <device/arch/gic.h>
-
-#include <asm/domain.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/physdev.h>

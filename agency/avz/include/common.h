@@ -21,7 +21,7 @@
 
 #include <types.h>
 #include <linker.h>
-#include <lib.h>
+#include <printk.h>
 
 #include <soo/uapi/console.h>
 
@@ -77,6 +77,8 @@ extern uint32_t __end;
 void kernel_panic(void);
 void _bug(char *file, int line);
 
+extern void panic(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
+
 #define BUG()	_bug(__FILE__, __LINE__)
 #define BUG_ON(p)  do { if (unlikely(p)) BUG();  } while (0)
 
@@ -111,18 +113,6 @@ extern void __backtrace(void);
         ({ type __x = (x); type __y = (y); __x < __y ? __x: __y; })
 #define max_t(type,x,y) \
         ({ type __x = (x); type __y = (y); __x > __y ? __x: __y; })
-
-/**
- * container_of - cast a member of a structure out to the containing structure
- *
- * @ptr:	the pointer to the member.
- * @type:	the type of the container struct this is embedded in.
- * @member:	the name of the member within the struct.
- *
- */
-#define container_of(ptr, type, member) ({                      \
-        typeof( ((type *)0)->member ) *__mptr = (ptr);          \
-        (type *)( (char *)__mptr - offsetof(type,member) );})
 
 /*
  * Check at compile time that something is of a particular type.

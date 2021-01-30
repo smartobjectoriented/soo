@@ -21,7 +21,6 @@
 #endif
 
 #include <config.h>
-#include <lib.h>
 #include <sched.h>
 #include <sched-if.h>
 #include <timer.h>
@@ -152,12 +151,12 @@ void sched_flip_init(void) {
 }
 
 struct scheduler sched_flip = {
-		.name     = "SOO AVZ flip scheduler",
+	.name = "SOO AVZ flip scheduler",
 
-		.init = sched_flip_init,
+	.init = sched_flip_init,
 
-		.do_schedule    = flip_do_schedule,
+	.do_schedule = flip_do_schedule,
 
-		.sleep          = flip_sleep,
-		.wake           = flip_wake,
+	.sleep = flip_sleep,
+	.wake = flip_wake,
 };

@@ -17,7 +17,6 @@
  */
 
 #include <config.h>
-#include <lib.h>
 #include <percpu.h>
 #include <sched.h>
 #include <ctype.h>
@@ -85,7 +84,7 @@ int construct_ME(struct domain *d) {
 
 	v_start = L_PAGE_OFFSET;
 
-	vpt_start = v_start + L1_SYS_PAGE_TABLE_OFFSET;  /* Location of the system page table (see head.S). */
+	vpt_start = v_start + TTB_L1_SYS_OFFSET;  /* Location of the system page table (see head.S). */
 
 	setup_page_table_guestOS(d, v_start, memslot[slotID].size, (alloc_spfn << PAGE_SHIFT), vpt_start);
 

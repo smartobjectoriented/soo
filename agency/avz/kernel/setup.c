@@ -17,7 +17,6 @@
  */
 
 #include <config.h>
-#include <lib.h>
 #include <sched.h>
 #include <softirq.h>
 #include <console.h>

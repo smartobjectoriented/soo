@@ -19,7 +19,6 @@
 #ifndef IRQ_H
 #define IRQ_H
 
-#include <cache.h>
 #include <spinlock.h>
 #include <list.h>
 
@@ -156,7 +155,7 @@ typedef struct irqaction {
 	const char 		*name;
 	void 			*dev_id;
 	int irq;
-} irqaction_t __cacheline_aligned;
+} irqaction_t;
 
 
 struct irqchip {
@@ -185,7 +184,7 @@ struct irqchip {
 	void            (*eoi)(unsigned int irq);
 
 };
-typedef struct irqchip irqchip_t __cacheline_aligned;
+typedef struct irqchip irqchip_t;
 
 /* Simple list for handling bound domains */
 typedef struct {
@@ -212,7 +211,7 @@ struct irqdesc {
 	unsigned int irq_base;
 	void __iomem *reg_base;
 } ;
-typedef struct irqdesc irqdesc_t __cacheline_aligned;
+typedef struct irqdesc irqdesc_t;
 
 extern struct irqdesc irq_desc[NR_IRQS];
 

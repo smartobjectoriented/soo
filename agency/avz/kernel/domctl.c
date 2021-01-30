@@ -22,7 +22,6 @@
 
 #include <config.h>
 #include <types.h>
-#include <lib.h>
 #include <memory.h>
 
 #include <sched.h>

@@ -1,5 +1,5 @@
-#ifndef _FDT_H
-#define _FDT_H
+#ifndef FDT_H
+#define FDT_H
 /*
  * libfdt - Flat Device Tree manipulation
  * Copyright (C) 2006 David Gibson, IBM Corporation.
@@ -52,60 +52,34 @@
  *     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __ASSEMBLY__
+#include <compiler.h>
 
-struct fdt_header {
-	fdt32_t magic;			 /* magic word FDT_MAGIC */
-	fdt32_t totalsize;		 /* total size of DT block */
-	fdt32_t off_dt_struct;		 /* offset to structure */
-	fdt32_t off_dt_strings;		 /* offset to strings */
-	fdt32_t off_mem_rsvmap;		 /* offset to memory reserve map */
-	fdt32_t version;		 /* format version */
-	fdt32_t last_comp_version;	 /* last compatible version */
+#include <libfdt/libfdt.h>
 
-	/* version 2 fields below */
-	fdt32_t boot_cpuid_phys;	 /* Which physical CPU id we're
-					    booting on */
-	/* version 3 fields below */
-	fdt32_t size_dt_strings;	 /* size of the strings block */
+#define MAX_COMPAT_SIZE		128
+#define MAX_NODE_SIZE 		128
+#define MAX_SUBNODE		4
 
-	/* version 17 fields below */
-	fdt32_t size_dt_struct;		 /* size of the structure block */
-};
+extern unsigned int fdt_paddr;
+extern unsigned int _fdt_addr;
 
-struct fdt_reserve_entry {
-	fdt64_t address;
-	fdt64_t size;
-};
+int fdt_find_compatible_node(char *compat);
+const struct fdt_property *fdt_find_property(int offset, const char *propname);
+int fdt_find_node_by_name(int parent, const char *nodename);
 
-struct fdt_node_header {
-	fdt32_t tag;
-	char name[0];
-};
+int fdt_property_read_string(int offset, const char *propname, const char **out_string);
+int fdt_property_read_u32(int offset, const char *propname, u32 *out_value);
 
-struct fdt_property {
-	fdt32_t tag;
-	fdt32_t len;
-	fdt32_t nameoff;
-	char data[0];
-};
+int fdt_pack_reg(const void *fdt, void *buf, u64 *address, u64 *size);
+int fdt_find_or_add_subnode(void *fdt, int parentoffset, const char *name);
 
-#endif /* !__ASSEMBLY */
+/*
+ * Get device information from a device tree
+ * This function will be in charge of allocating dev_inf struct;
+ */
+int get_dev_info(const void *fdt, int offset, const char *compat, void *info);
+int fdt_get_int(void *dev, const char *name);
+bool fdt_device_is_available(int node_offset);
+void *find_device(const char *compat);
 
-#define FDT_MAGIC	0xd00dfeed	/* 4: version, 4: total size */
-#define FDT_TAGSIZE	sizeof(fdt32_t)
-
-#define FDT_BEGIN_NODE	0x1		/* Start node: full name */
-#define FDT_END_NODE	0x2		/* End node */
-#define FDT_PROP	0x3		/* Property: name off,
-					   size, content */
-#define FDT_NOP		0x4		/* nop */
-#define FDT_END		0x9
-
-#define FDT_V1_SIZE	(7*sizeof(fdt32_t))
-#define FDT_V2_SIZE	(FDT_V1_SIZE + sizeof(fdt32_t))
-#define FDT_V3_SIZE	(FDT_V2_SIZE + sizeof(fdt32_t))
-#define FDT_V16_SIZE	FDT_V3_SIZE
-#define FDT_V17_SIZE	(FDT_V16_SIZE + sizeof(fdt32_t))
-
-#endif /* _FDT_H */
+#endif /* FDT_H */

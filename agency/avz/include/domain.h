@@ -23,7 +23,6 @@
 
 #include <soo/arch-arm.h>
 
-#include <asm/domain.h>
 #include <asm/vfp.h>
 
 struct arch_vcpu {
@@ -32,7 +31,7 @@ struct arch_vcpu {
 
 	struct vfp_state vfp;
 
-} __cacheline_aligned;
+};
 
 
 #define USE_NORMAL_PGTABLE	0

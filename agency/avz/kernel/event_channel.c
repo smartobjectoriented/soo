@@ -17,7 +17,6 @@
  */
 
 #include <config.h>
-#include <lib.h>
 #include <errno.h>
 #include <sched.h>
 #include <event.h>

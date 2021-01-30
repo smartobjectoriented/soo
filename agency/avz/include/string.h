@@ -1,97 +1,84 @@
-#ifndef STRING_H_
-#define STRING_H_
-
-#include <types.h>	/* for size_t */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#define __kernel_size_t size_t
-
-extern char * strpbrk(const char *,const char *);
-extern char * strsep(char **,const char *);
-extern __kernel_size_t strspn(const char *,const char *);
-
-
 /*
- * Include machine specific inline routines
+ * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
  */
-#include <asm/string.h>
+#ifndef STRING_H
+#define STRING_H
 
-/*
- * These string functions are considered too dangerous for normal use.
- * Use safe_strcpy(), safe_strcat(), strlcpy(), strlcat() as appropriate.
- */
-#define strcpy  safe_strcpy
-
-#ifndef __HAVE_ARCH_STRLCPY
-extern size_t strlcpy(char *,const char *, __kernel_size_t);
-#endif
-#ifndef __HAVE_ARCH_STRLCAT
-extern size_t strlcat(char *,const char *, __kernel_size_t);
-#endif
-#ifndef __HAVE_ARCH_STRCMP
-extern int strcmp(const char *,const char *);
-#endif
-#ifndef __HAVE_ARCH_STRNCMP
-extern int strncmp(const char *,const char *,__kernel_size_t);
-#endif
-#ifndef __HAVE_ARCH_STRNICMP
-extern int strnicmp(const char *, const char *, __kernel_size_t);
-#endif
-#ifndef __HAVE_ARCH_STRCHR
-extern char * strchr(const char *,int);
-#endif
-#ifndef __HAVE_ARCH_STRRCHR
-extern char * strrchr(const char *,int);
-#endif
-#ifndef __HAVE_ARCH_STRSTR
-extern char * strstr(const char *,const char *);
-#endif
-#ifndef __HAVE_ARCH_STRLEN
-extern __kernel_size_t strlen(const char *);
-#endif
-#ifndef __HAVE_ARCH_STRNLEN
-extern __kernel_size_t strnlen(const char *,__kernel_size_t);
+#ifndef NULL
+#define NULL 0
 #endif
 
-#ifndef __HAVE_ARCH_MEMSET
-extern void * memset(void *,int,__kernel_size_t);
-#endif
-#ifndef __HAVE_ARCH_MEMCPY
-extern void * memcpy(void *,const void *,__kernel_size_t);
-#endif
-#ifndef __HAVE_ARCH_MEMMOVE
-extern void * memmove(void *,const void *,__kernel_size_t);
-#endif
-#ifndef __HAVE_ARCH_MEMSCAN
-extern void * memscan(void *,int,__kernel_size_t);
-#endif
-#ifndef __HAVE_ARCH_MEMCMP
-extern int memcmp(const void *,const void *,__kernel_size_t);
-#endif
-#ifndef __HAVE_ARCH_MEMCHR
-extern void * memchr(const void *,int,__kernel_size_t);
-#endif
+#include <stdarg.h>
+#include <types.h>
 
-#ifdef __cplusplus
-}
-#endif
+void *memchr(const void *, int, size_t);
+int memcmp(const void *, const void *, size_t);
+void *memcpy(void *, const void *, size_t);
+void *memmove(void *, const void *, size_t);
+void *memset(void *, int, size_t);
 
-#define is_char_array(x) __builtin_types_compatible_p(typeof(x), char[])
+void downcase(char *str);
 
-/* safe_xxx always NUL-terminates and returns !=0 if result is truncated. */
-#define safe_strcpy(d, s) ({                    \
-    BUILD_BUG_ON(!is_char_array(d));            \
-    (strlcpy(d, s, sizeof(d)) >= sizeof(d));    \
-})
-#define safe_strcat(d, s) ({                    \
-    BUILD_BUG_ON(!is_char_array(d));            \
-    (strlcat(d, s, sizeof(d)) >= sizeof(d));    \
-})
+void uppercase(char *str, int len);
+
+char *strchr(const char *, int);
+char *strsep(char **str, const char *sep);
+char *strsep(char **str, const char *sep);
+
+int strcmp(const char *, const char *);
+int strncmp(const char *, const char *, size_t);
+size_t strnlen(const char * s, size_t count);
 
 char *strdup(const char *s);
-int sprintf(char *s, const char *fmt, ...);
+
+int sprintf(char *buf, const char *fmt, ...);
+int scnprintf(char * buf, size_t size, const char *fmt, ...);
+
+char *strcpy(char *, const char *);
+size_t strlen(const char *);
+char *strncpy(char *, const char *, size_t);
+char *strcat(char *dest, const char *src);
+
+int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
+int vsscanf(const char *buf, const char *fmt, va_list args);
+int sscanf(const char * buf, const char * fmt, ...);
+int sprintf(char *buf, const char *fmt, ...);
+int snprintf(char * buf, size_t size, const char *fmt, ...);
+
+char *kvasprintf(const char *fmt, va_list ap);
+char *kasprintf(const char *fmt, ...);
+
+unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
+long simple_strtol(const char *cp, char **endp, unsigned int base);
+unsigned long long simple_strtoull(const char *cp, char **endp, unsigned int base);
+long long simple_strtoll(const char *cp, char **endp, unsigned int base);
+
+char *strrchr(const char *s, int c);
+char *strchrnul(const char *s, int c);
+
+/**
+ * kbasename - return the last part of a pathname.
+ *
+ * @path: path to extract the filename from.
+ */
+static inline const char *kbasename(const char *path)
+{
+	const char *tail = strrchr(path, '/');
+	return tail ? tail + 1 : path;
+}
 
 #endif /* STRING_H */

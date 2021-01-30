@@ -2,6 +2,8 @@
 #ifndef __XMALLOC_H__
 #define __XMALLOC_H__
 
+#include <limits.h>
+
 /* Allocate space for typed object. */
 #define xmalloc(_type) ((_type *)_xmalloc(sizeof(_type), __alignof__(_type)))
 

@@ -17,7 +17,6 @@
  */
 
 #include <config.h>
-#include <lib.h>
 #include <percpu.h>
 #include <sched.h>
 #include <ctype.h>
@@ -50,7 +49,7 @@ int setup_page_table_guestOS(struct domain *d, unsigned long v_start, unsigned l
 	ASSERT(d);
 
 	/* Make sure that the size is 1 MB-aligned */
-	map_size = ALIGN_UP(map_size, L1_SECT_SIZE);
+	map_size = ALIGN_UP(map_size, TTB_SECT_SIZE);
 
 	printk("*** Setup page tables of the domain: ***\n");
 	printk("   v_start          : 0x%lx\n", v_start);
@@ -61,16 +60,18 @@ int setup_page_table_guestOS(struct domain *d, unsigned long v_start, unsigned l
 	/* guest page table address (phys addr) */
 	d->addrspace.pgtable_paddr = (vpt_start - v_start + p_start);
 	d->addrspace.pgtable_vaddr = vpt_start;
-	d->addrspace.ttbr0[d->processor] = d->addrspace.pgtable_paddr;
+
+	d->addrspace.ttbr0[d->processor] = cpu_get_ttbr0() & ~TTBR0_BASE_ADDR_MASK;
+	d->addrspace.ttbr0[d->processor] |= d->addrspace.pgtable_paddr;
 
 	/* Manage the new system page table dedicated to the domain. */
 	new_pt = (uint32_t *) __lva(vpt_start - v_start + p_start); /* Ex.: 0xc0c04000 */
 
 	/* copy page table of idle domain to guest domain */
-	memcpy(new_pt, swapper_pg_dir, L1_PAGETABLE_SIZE);
+	memcpy(new_pt, __sys_l1pgtable, TTB_L1_SIZE);
 
 	/* Clear the area below the I/Os, but preserve of course the page table itself which is located within the first MB */
-	for (vaddr = 0; vaddr < CONFIG_HYPERVISOR_VIRT_ADDR; vaddr += L1_SECT_SIZE)
+	for (vaddr = 0; vaddr < CONFIG_HYPERVISOR_VIRT_ADDR; vaddr += TTB_SECT_SIZE)
 		*((uint32_t *) l1pte_offset(new_pt, vaddr)) = 0;
 
 	/* Do the mapping of new domain at its virtual address location */
@@ -79,10 +80,10 @@ int setup_page_table_guestOS(struct domain *d, unsigned long v_start, unsigned l
 	/* We have to change the ptes of the page table in our new page table :-) (currently pointing the hypervisor page table. */
 	vaddr = (uint32_t) l1pte_offset(new_pt, vpt_start);
 
-	*((uint32_t *) vaddr) &= ~L1_SECT_MASK; /* Reset the pfn */
-	*((uint32_t *) vaddr) |= ((uint32_t ) d->addrspace.pgtable_paddr) & L1_SECT_MASK;
+	*((uint32_t *) vaddr) &= ~TTB_L1_SECT_ADDR_MASK; /* Reset the pfn */
+	*((uint32_t *) vaddr) |= ((uint32_t ) d->addrspace.pgtable_paddr) & TTB_L1_SECT_ADDR_MASK;
 
-	flush_all();
+	mmu_page_table_flush((uint32_t) new_pt, ((uint32_t) new_pt) + TTB_L1_SIZE);
 
 	return 0;
 }
@@ -127,7 +128,7 @@ int construct_agency(struct domain *d) {
 	clear_bit(_VPF_down, &d->pause_flags);
 	v_start = L_PAGE_OFFSET;
 
-	vpt_start = v_start + L1_SYS_PAGE_TABLE_OFFSET;  /* Location of the system page table (see head.S). */
+	vpt_start = v_start + TTB_L1_SYS_OFFSET;  /* Location of the system page table (see head.S). */
 
 	/* vstack is used when the guest has not initialized its own stack yet; put right after _end of the guest OS. */
 

@@ -40,7 +40,8 @@
 DEFINE_PER_CPU(spinlock_t, intc_lock);
 
 /* Address of GIC 0 CPU interface */
-void __iomem *gic_cpu_base_addr __read_mostly;
+void __iomem *gic_cpu_base_addr;
+
 unsigned int gic_irq_offset = 0;
 
 struct gic_chip_data {
@@ -54,9 +55,9 @@ struct gic_chip_data {
 #define MAX_GIC_NR 	1
 #define NR_GIC_CPU_IF 	8
 
-static u8 gic_cpu_map[NR_GIC_CPU_IF] __read_mostly;
+static u8 gic_cpu_map[NR_GIC_CPU_IF];
 
-static struct gic_chip_data gic_data[MAX_GIC_NR] __read_mostly;
+static struct gic_chip_data gic_data[MAX_GIC_NR];
 
 static inline void __iomem *gic_dist_base(unsigned int irq)
 {

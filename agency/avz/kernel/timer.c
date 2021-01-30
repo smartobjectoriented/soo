@@ -21,7 +21,6 @@
 #include <types.h>
 #include <errno.h>
 #include <sched.h>
-#include <lib.h>
 #include <smp.h>
 #include <time.h>
 #include <softirq.h>
