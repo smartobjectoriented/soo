@@ -7,9 +7,6 @@ menu "General"
 		string "Cross-compiler tool prefix"
 		default "arm-linux-gnueabihf-"
 endmenu
-
-config DTC
-	bool "DTC support"
  
 source "arch/arm/Kconfig"
 
