@@ -161,7 +161,7 @@ void set_irq_base(unsigned int irq, unsigned int irq_base) {
 	spin_unlock_irqrestore(&desc->lock, flags);
 }
 
-void set_irq_reg_base(unsigned int irq, void __iomem *reg_base) {
+void set_irq_reg_base(unsigned int irq, void *reg_base) {
 	struct irqdesc *desc;
 	unsigned long flags;
 

@@ -208,7 +208,7 @@ static void schedule(void)
 	next->is_running = 1;
 
 #if 0
-	printk("### running on cpu: %d prev: %d next: %d\n", smp_processor_id(), prev->domain->domain_id, next->domain->domain_id);
+	printk("### running on cpu: %d prev: %d next: %d\n", smp_processor_id(), prev->domain_id, next->domain_id);
 #endif
 
 	/* We do not unlock the schedulder_lock until everything has been processed */

@@ -56,7 +56,8 @@ typedef struct {
 
 typedef struct {
 	void *ME_data;
-	size_t	size;
+	size_t buffer_size;
+	size_t ME_size;
 } dcm_ioctl_recv_args_t;
 
 /*
@@ -88,7 +89,7 @@ typedef struct {
 	dcm_buffer_status_t	status;
 
 	/*
-	 * Reference to the ME.
+	 * Reference to the ME buffer.
 	 */
 	void *ME_data;
 	size_t size;

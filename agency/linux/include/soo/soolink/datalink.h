@@ -38,12 +38,17 @@ typedef struct {
 	/* Function to be called when receiving data */
 	void (*rx_callback)(sl_desc_t *sl_desc, transceiver_packet_t *packet);
 
+	/* Function to be called when data receiving must be cancelled. */
+	void (*rx_cancel_callback)(sl_desc_t *sl_desc);
+
 } datalink_proto_desc_t;
 
 void datalink_register_protocol(datalink_proto_t proto, datalink_proto_desc_t *proto_desc);
 
 int datalink_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, bool completed);
 void datalink_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet);
+
+void datalink_cancel_rx(sl_desc_t *sl_desc);
 
 void datalink_init(void);
 

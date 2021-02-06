@@ -55,6 +55,7 @@
 /* FSM state helpers */
 static void change_state(wnet_state_t new_state);
 static wnet_state_t get_state(void);
+static char *wnet_str_state(void);
 
 /* SOO environment specific to Winenet */
 struct soo_winenet_env {
@@ -80,6 +81,9 @@ struct soo_winenet_env {
 	wnet_tx_t wnet_tx;
 	wnet_rx_t wnet_rx;
 
+	/* Used to track transID in received packet */
+	uint32_t last_transID;
+
 	/* Management of the neighbourhood of SOOs. Used in the retry packet management. */
 	struct list_head wnet_neighbours;
 	struct mutex neighbour_list_lock;
@@ -98,9 +102,15 @@ struct soo_winenet_env {
 	transceiver_packet_t *buf_tx_pkt[WNET_N_PACKETS_IN_FRAME];
 	transceiver_packet_t *buf_rx_pkt[WNET_N_PACKETS_IN_FRAME];
 
+	/* Used for logging purpose to limit the log message when looping in a state. */
 	wnet_state_t last_state;
 
+	/* Message logging */
 	char __beacon_str[80];
+
+	/* When a SOO starts receiving until the end of the buffer receipt. */
+	atomic_t rx_in_progress;
+
 };
 
 
@@ -127,7 +137,7 @@ static char *ping_type_str[2] = {
 
 static uint8_t invalid_str[] = "INVALID";
 
-static int wait_for_ack(wnet_beacon_t *beacon);
+static int wait_for_ack(void);
 
 /* Debugging functions */
 
@@ -147,26 +157,24 @@ char *get_current_state_str(void) {
 char *winenet_get_beacon_id_str(wnet_beacon_id_t beacon_id) {
 	uint32_t beacon_id_int = (uint32_t) beacon_id;
 
-	if (unlikely((beacon_id_int >= WNET_BEACON_N)))
-		return invalid_str;
-
 	return beacon_id_str[beacon_id_int];
 }
 
 char *beacon_str(wnet_beacon_t *beacon, agencyUID_t *uid) {
 	char uid_str[80];
 	int i;
+	wnet_ping_args_t *ping_args;
+
+	ping_args = (wnet_ping_args_t *) beacon->priv;
 
 	sprintf(current_soo_winenet->__beacon_str, " Beacon %s (type: %s) / UID: ", winenet_get_beacon_id_str(beacon->id),
-		((beacon->id == WNET_BEACON_PING) ? ping_type_str[(int) beacon->priv] : "n/a" ));
+		((beacon->id == WNET_BEACON_PING) ? ping_type_str[(int) ping_args->type] : "n/a" ));
 
-	/* Display the agency UID with the fourth first bytes (enough) */
-	for (i = 0 ; i < 4 ; i++) {
+	/* Display the agency UID with the fifth first bytes (enough) */
+	for (i = 0 ; i < 5 ; i++) {
 		sprintf(uid_str, "%02x ", ((char *) uid)[i]);
 		strcat(current_soo_winenet->__beacon_str, uid_str);
 	}
-
-	strcat(current_soo_winenet->__beacon_str, uid_str);
 
 	return current_soo_winenet->__beacon_str;
 }
@@ -257,6 +265,8 @@ void discard_transmission(void) {
  *
  * If argument pos is NULL, return the first valid neighbour if any.
  * Return NULL if there is no next neighbour anymore.
+
+ * WARNING! When called, the neighbour_list_lock must be held.
  *
  */
 static wnet_neighbour_t *next_neighbour(wnet_neighbour_t *pos, bool valid) {
@@ -264,6 +274,7 @@ static wnet_neighbour_t *next_neighbour(wnet_neighbour_t *pos, bool valid) {
 
 	/* Sanity check */
 	BUG_ON(list_empty(&current_soo_winenet->wnet_neighbours));
+	BUG_ON(!mutex_is_locked(&current_soo_winenet->neighbour_list_lock));
 
 	if (pos == NULL) {
 		pos = list_first_entry(&current_soo_winenet->wnet_neighbours, wnet_neighbour_t, list);
@@ -296,7 +307,15 @@ static wnet_neighbour_t *next_neighbour(wnet_neighbour_t *pos, bool valid) {
  * Same as the previous function, but the neighbour must be valid, i.e. the neighbour has successfully processed a ping request.
  */
 static wnet_neighbour_t *next_valid_neighbour(wnet_neighbour_t *pos) {
-	return next_neighbour(pos, true);
+	wnet_neighbour_t *__next;
+
+	mutex_lock(&current_soo_winenet->neighbour_list_lock);
+
+	__next = next_neighbour(pos, true);
+
+	mutex_unlock(&current_soo_winenet->neighbour_list_lock);
+
+	return __next;
 }
 
 /* Find a neighbour by its agencyUID */
@@ -355,35 +374,34 @@ void new_speaker_round(void) {
  * According to the kind of beacon, arg can be used to give a reference (assuming a known size) or
  * value of any type, opt for a integer.
  */
-void winenet_send_beacon(wnet_beacon_t *outgoing_beacon, wnet_beacon_id_t beacon_id, void *arg) {
+static void winenet_send_beacon(agencyUID_t *agencyUID, wnet_beacon_id_t beacon_id, void *priv, uint8_t priv_len) {
 	transceiver_packet_t *transceiver_packet;
-	void *outgoing_packet = NULL;
-
-	outgoing_beacon->id = beacon_id;
-	outgoing_beacon->priv = arg;
+	wnet_beacon_t *beacon;
 
 	/* Enforce the use of the a known SOOlink descriptor */
 	BUG_ON(!current_soo_winenet->__sl_desc);
 
-	transceiver_packet = (transceiver_packet_t *) kzalloc(sizeof(transceiver_packet_t) + sizeof(wnet_beacon_t), GFP_KERNEL);
+	transceiver_packet = (transceiver_packet_t *) kzalloc(sizeof(transceiver_packet_t) + sizeof(wnet_beacon_t) + priv_len, GFP_KERNEL);
+	BUG_ON(!transceiver_packet);
+
+	beacon = (wnet_beacon_t *) transceiver_packet->payload;
+
+	beacon->id = beacon_id;
+	beacon->priv_len = priv_len;
+	memcpy(beacon->priv, priv, priv_len);
 
 	transceiver_packet->packet_type = TRANSCEIVER_PKT_DATALINK;
 	transceiver_packet->transID = 0;
-	transceiver_packet->size = sizeof(wnet_beacon_t);
+	transceiver_packet->size = sizeof(wnet_beacon_t) + priv_len;
 
-	memcpy(transceiver_packet->payload, outgoing_beacon, transceiver_packet->size);
+	memcpy(&current_soo_winenet->__sl_desc->agencyUID_to, agencyUID, SOO_AGENCY_UID_SIZE);
 
-	outgoing_packet = (void *) transceiver_packet;
+	soo_log("[soo:soolink:winenet:beacon] Sending beacon to %s\n", beacon_str(beacon, &current_soo_winenet->__sl_desc->agencyUID_to));
 
-	memcpy(&current_soo_winenet->__sl_desc->agencyUID_to, &outgoing_beacon->agencyUID, SOO_AGENCY_UID_SIZE);
-
-	soo_log("[soo:soolink:winenet] Sending beacon %s\n", beacon_str(outgoing_beacon, &current_soo_winenet->__sl_desc->agencyUID_to));
-
-	__sender_tx(current_soo_winenet->__sl_desc, outgoing_packet);
+	__sender_tx(current_soo_winenet->__sl_desc, transceiver_packet);
 
 	/* Release the outgoing packet */
-	if (outgoing_packet)
-		kfree(outgoing_packet);
+	kfree(transceiver_packet);
 }
 
 
@@ -401,7 +419,7 @@ static void winenet_add_neighbour(neighbour_desc_t *neighbour) {
 	int ret;
 	struct list_head *cur;
 	wnet_neighbour_t *cur_neighbour;
-	wnet_beacon_t beacon;
+	wnet_ping_args_t ping_args;
 
 	/* Ping has been received correctly and will be processed by the neighbor.
 	 * If something goes wrong, the Discovery will detect and remove it.
@@ -416,7 +434,7 @@ static void winenet_add_neighbour(neighbour_desc_t *neighbour) {
 	wnet_neighbour->neighbour = neighbour;
 	wnet_neighbour->last_transID = 0;
 
-	soo_log("[soo:soolink:winenet] Adding neighbour (our state is %s): ", get_current_state_str());
+	soo_log("[soo:soolink:winenet:neighbour] Adding neighbour (our state is %s): ", get_current_state_str());
 	soo_log_printlnUID(&neighbour->agencyUID);
 
 	/*
@@ -462,8 +480,17 @@ static void winenet_add_neighbour(neighbour_desc_t *neighbour) {
 	if (cmpUID(&ourself()->neighbour->agencyUID, &neighbour->agencyUID) < 0) {
 
 		/* Trigger a ping procedure */
-		memcpy(&beacon.agencyUID, &neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
-		winenet_send_beacon(&beacon, WNET_BEACON_PING, (void *) WNET_PING_REQUEST);
+		soo_log("[soo:soolink:winenet:ping] Sending PING_REQUEST to ");
+		soo_log_printlnUID(&wnet_neighbour->neighbour->agencyUID);
+
+		ping_args.type = WNET_PING_REQUEST;
+
+		if (ourself()->neighbour->priv)
+			memcpy(&ping_args.speakerUID, ourself()->neighbour->priv, SOO_AGENCY_UID_SIZE);
+		else
+			memcpy(&ping_args.speakerUID, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
+
+		winenet_send_beacon(&neighbour->agencyUID, WNET_BEACON_PING, &ping_args, sizeof(wnet_ping_args_t));
 	}
 
 	winenet_dump_neighbours();
@@ -484,7 +511,7 @@ static void winenet_remove_neighbour(neighbour_desc_t *neighbour) {
 	 * (selection of neighbourhood).
 	 */
 
-	soo_log("[soo:soolink:winenet] Removing neighbour (our state is %s): ", get_current_state_str());
+	soo_log("[soo:soolink:winenet:neighbour] Removing neighbour (our state is %s): ", get_current_state_str());
 	soo_log_printlnUID(&neighbour->agencyUID);
 
 	mutex_lock(&current_soo_winenet->neighbour_list_lock);
@@ -521,32 +548,34 @@ static void winenet_remove_neighbour(neighbour_desc_t *neighbour) {
 
 	}
 
-	winenet_dump_neighbours();
-
 	mutex_unlock(&current_soo_winenet->neighbour_list_lock);
+
+	winenet_dump_neighbours();
 }
 
 /**
  * Perform update of neighbour information (private data) when a Iamasoo packet is received.
  */
 static void winenet_update_neighbour_priv(neighbour_desc_t *neighbour) {
-
 	wnet_neighbour_t *wnet_neighbour;
-	wnet_beacon_t beacon;
+	wnet_ping_args_t ping_args;
 
 	/* First, we check if the neighbour is still in our (winenet) list of neighbours.
 	 * If it is not the case, we (re-)add it into our list.
 	 * Then, we examine the state IDLE.
 	 */
 
-	soo_log("[soo:soolink:winenet] Updating neighbour (our state is %s): ", get_current_state_str());
+	soo_log("[soo:soolink:winenet:neighbour] Updating neighbour (our state is %s): ", get_current_state_str());
 	soo_log_printlnUID(&neighbour->agencyUID);
 
 	wnet_neighbour = find_neighbour(&neighbour->agencyUID);
-	if (!wnet_neighbour)
+	if (!wnet_neighbour) {
+
 		/* Try to re-add this neighbour if something went wrong... */
 		winenet_add_neighbour(neighbour);
-	else {
+
+	} else {
+
 		/* This is a new neighbour. Proceed with the ping procedure. */
 		if (!wnet_neighbour->valid) {
 
@@ -554,8 +583,17 @@ static void winenet_update_neighbour_priv(neighbour_desc_t *neighbour) {
 			if (cmpUID(&ourself()->neighbour->agencyUID, &neighbour->agencyUID) < 0) {
 
 				/* Trigger a ping procedure */
-				memcpy(&beacon.agencyUID, &neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
-				winenet_send_beacon(&beacon, WNET_BEACON_PING, (void *) WNET_PING_REQUEST);
+				soo_log("[soo:soolink:winenet:ping] Sending PING_REQUEST to ");
+				soo_log_printlnUID(&wnet_neighbour->neighbour->agencyUID);
+
+				ping_args.type = WNET_PING_REQUEST;
+
+				if (ourself()->neighbour->priv)
+					memcpy(&ping_args.speakerUID, ourself()->neighbour->priv, SOO_AGENCY_UID_SIZE);
+				else
+					memcpy(&ping_args.speakerUID, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
+
+				winenet_send_beacon(&neighbour->agencyUID, WNET_BEACON_PING, &ping_args, sizeof(wnet_ping_args_t));
 			}
 		}
 	}
@@ -602,11 +640,11 @@ void winenet_dump_neighbours(void) {
 
 	mutex_lock(&current_soo_winenet->neighbour_list_lock);
 
-	soo_log("[soo:soolink:winenet] ***** List of neighbours:\n");
+	soo_log("[soo:soolink:winenet:neighbour] ***** List of neighbours:\n");
 
 	/* There is no neighbour in the list, I am alone */
 	if (list_empty(&current_soo_winenet->wnet_neighbours)) {
-		soo_log("[soo:soolink:winenet] No neighbour\n");
+		soo_log("[soo:soolink:winenet:neighbour] No neighbour\n");
 
 		mutex_unlock(&current_soo_winenet->neighbour_list_lock);
 		return;
@@ -616,7 +654,7 @@ void winenet_dump_neighbours(void) {
 
 		neighbour = list_entry(cur, wnet_neighbour_t, list);
 
-		soo_log("[soo:soolink:winenet] Neighbour %d (valid: %d): ", count+1, neighbour->valid);
+		soo_log("[soo:soolink:winenet:neighbour] Neighbour %d (valid: %d): ", count+1, neighbour->valid);
 		soo_log_printlnUID(&neighbour->neighbour->agencyUID);
 		count++;
 	}
@@ -637,10 +675,11 @@ void winenet_dump_state(void) {
 void beacon_clear(void) {
 
 	/* Sanity check */
-	BUG_ON(current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_N);
+	BUG_ON(!current_soo_winenet->wnet_rx.last_beacon);
 
-	current_soo_winenet->wnet_rx.last_beacon.id = WNET_BEACON_N;
-	memcpy(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
+	kfree(current_soo_winenet->wnet_rx.last_beacon);
+
+	current_soo_winenet->wnet_rx.last_beacon = NULL;
 
 	complete(&current_soo_winenet->beacon_event);
 }
@@ -652,7 +691,7 @@ void beacon_clear(void) {
  */
 bool clear_spurious_ack(void) {
 
-	if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_ACKNOWLEDGMENT) {
+	if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_ACKNOWLEDGMENT)) {
 		beacon_clear();
 		return true;
 	}
@@ -669,28 +708,44 @@ bool clear_spurious_ack(void) {
  */
 bool process_ping_is_speaker(void) {
 	wnet_neighbour_t *pos;
-	wnet_beacon_t beacon;
+	wnet_ping_args_t ping_args;
+	agencyUID_t agencyUID_from;
 
-	if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_PING) {
+	if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_PING)) {
 
-		if ((int) current_soo_winenet->wnet_rx.last_beacon.priv == WNET_PING_REQUEST) {
+		memcpy(&ping_args, current_soo_winenet->wnet_rx.last_beacon->priv, sizeof(wnet_ping_args_t));
+
+		if (ping_args.type == WNET_PING_REQUEST) {
 
 			/* Because of the PING REQUEST strategy, we know that the other is less than us in all case, so
 			 * we abort our sending as speaker and we
 			 */
 
-			soo_log("[soo:soolink:winenet] %s: (state %s) processing ping request... from ", __func__, get_current_state_str());
+			soo_log("[soo:soolink:winenet:ping] %s: (state %s) processing ping request... from ", __func__, get_current_state_str());
 			soo_log_printlnUID(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from);
 
 			pos = find_neighbour(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from);
+			memcpy(&agencyUID_from, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
 
-			memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
+			/* Update the speakerUID field (priv data) of the neighbour */
+			if (!cmpUID(&ping_args.speakerUID, get_null_agencyUID())) {
+				if (pos->neighbour->priv)
+					kfree(pos->neighbour->priv);
+
+				pos->neighbour->priv = NULL;
+			} else {
+				if (!pos->neighbour->priv) {
+					pos->neighbour->priv = kzalloc(SOO_AGENCY_UID_SIZE, GFP_KERNEL);
+					BUG_ON(!pos->neighbour->priv);
+				}
+				memcpy(pos->neighbour->priv, &ping_args.speakerUID, SOO_AGENCY_UID_SIZE);
+			}
 			beacon_clear();
 
 			/* Already got by our Discovery? If no, he will have to re-send a ping request later. */
 			if (pos) {
-				soo_log("[soo:soolink:winenet] %s: neighbour VALID. Its UID: ", __func__);
-				soo_log_printlnUID(&beacon.agencyUID);
+				soo_log("[soo:soolink:winenet:ping] %s: neighbour VALID. Its UID: ", __func__);
+				soo_log_printlnUID(&agencyUID_from);
 
 				pos->valid = true;
 
@@ -700,8 +755,8 @@ bool process_ping_is_speaker(void) {
 				 */
 
 				if (pos->neighbour->priv && !cmpUID(&pos->neighbour->agencyUID, pos->neighbour->priv)) {
-					soo_log("[soo:soolink:winenet] %s: neighbour is speaker apparently...its agencyUID: ", __func__);
-					soo_log_printlnUID(&beacon.agencyUID);
+					soo_log("[soo:soolink:winenet:ping] Neighbour is speaker apparently...its agencyUID: ");
+					soo_log_printlnUID(&agencyUID_from);
 
 					ourself()->neighbour->priv = pos->neighbour->priv;
 
@@ -711,7 +766,13 @@ bool process_ping_is_speaker(void) {
 					 * We are now attached to the new speaker. If it had time to get IDLE,
 					 * the response will put it in speaker state.
 					 */
-					winenet_send_beacon(&beacon, WNET_BEACON_PING, (void *) WNET_PING_RESPONSE);
+					soo_log("[soo:soolink:winenet:ping] Sending PING_RESPONSE to ");
+					soo_log_printlnUID(&agencyUID_from);
+
+					ping_args.type = WNET_PING_RESPONSE;
+					memcpy(&ping_args.speakerUID, ourself()->neighbour->priv, SOO_AGENCY_UID_SIZE);
+
+					winenet_send_beacon(&agencyUID_from, WNET_BEACON_PING, &ping_args, sizeof(wnet_ping_args_t));
 
 					return true;
 				}
@@ -719,17 +780,23 @@ bool process_ping_is_speaker(void) {
 				/* Send a PING RESPONSE beacon
 				 * But okay, we stay in our current state.
 				 */
-				winenet_send_beacon(&beacon, WNET_BEACON_PING, (void *) WNET_PING_RESPONSE);
+				soo_log("[soo:soolink:winenet:ping] Sending PING_RESPONSE to ");
+				soo_log_printlnUID(&agencyUID_from);
+
+				ping_args.type = WNET_PING_RESPONSE;
+				memcpy(&ping_args.speakerUID, ourself()->neighbour->priv, SOO_AGENCY_UID_SIZE);
+
+				winenet_send_beacon(&agencyUID_from, WNET_BEACON_PING, &ping_args, sizeof(wnet_ping_args_t));
 			}
-		}
 
-		if ((int) current_soo_winenet->wnet_rx.last_beacon.priv == WNET_PING_RESPONSE) {
-			soo_log("[soo:soolink:winenet] %s: (state %s) processing ping response...\n", __func__, get_current_state_str());
+		} else if (ping_args.type == WNET_PING_RESPONSE) {
 
-			memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
+			soo_log("[soo:soolink:winenet:ping] (state %s) processing ping response...\n", get_current_state_str());
+
+			memcpy(&agencyUID_from, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
 			beacon_clear();
 
-			pos = find_neighbour(&beacon.agencyUID);
+			pos = find_neighbour(&agencyUID_from);
 
 			/* Sanity check (we got a response to our request) */
 			BUG_ON(!pos);
@@ -739,7 +806,7 @@ bool process_ping_is_speaker(void) {
 
 	}
 
-	return NULL;
+	return false;
 }
 
 /*
@@ -749,7 +816,7 @@ bool process_ping_is_speaker(void) {
  * Return -1 in case of timeout
  * Return 1 in case of another beacon received instead of ack.
  */
-static int wait_for_ack(wnet_beacon_t *beacon) {
+static int wait_for_ack(void) {
 	int ret;
 	int ret_ack = -1;
 
@@ -759,15 +826,16 @@ static int wait_for_ack(wnet_beacon_t *beacon) {
 	if (ret > 0) {
 		ret_ack = 1;
 
-		if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_ACKNOWLEDGMENT) {
+		if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_ACKNOWLEDGMENT)) {
 
 			/* We also want to make sure that the received beacon is issued from the right sender */
-			if (!cmpUID(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, &beacon->agencyUID)) {
-				if (!current_soo_winenet->wnet_rx.last_beacon.priv || ((uint32_t) current_soo_winenet->wnet_rx.last_beacon.priv == (current_soo_winenet->wnet_tx.transID & WNET_MAX_PACKET_TRANSID)))
+
+			if (!current_soo_winenet->wnet_rx.last_beacon->priv_len ||
+			    (*((uint32_t *) current_soo_winenet->wnet_rx.last_beacon->priv) == (current_soo_winenet->wnet_tx.transID & WNET_MAX_PACKET_TRANSID)))
 
 					/* OK - We got a correct acknowledgment. */
 					ret_ack = 0;
-			}
+
 
 			/* Event processed */
 			beacon_clear();
@@ -777,8 +845,8 @@ static int wait_for_ack(wnet_beacon_t *beacon) {
 
 		/* The timeout has expired */;
 
-		lprintk("######## ACK timeout... will retry to ");
-		soo_log_printlnUID(&beacon->agencyUID);
+		soo_log("[soo:soolink:winenet:ack] !!!!! ACK timeout... will retry to ");
+		soo_log_printlnUID(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from);
 
 		ret_ack = -1;
 	}
@@ -795,7 +863,6 @@ void forward_next_speaker(void) {
 	wnet_neighbour_t *next_speaker;
 	int ack;
 	int retry_count;
-	wnet_beacon_t beacon;
 
 	neighbour_list_protection(true);
 
@@ -824,11 +891,10 @@ again:
 	retry_count = 0;
 	do {
 		/* Now send the beacon */
-		memcpy(&beacon.agencyUID, &next_speaker->neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
-		winenet_send_beacon(&beacon, WNET_BEACON_GO_SPEAKER, NULL);
+		winenet_send_beacon(&next_speaker->neighbour->agencyUID, WNET_BEACON_GO_SPEAKER, NULL, 0);
 
 retry_waitack:
-		ack = wait_for_ack(&beacon);
+		ack = wait_for_ack();
 
 		if (ack != 0) {
 			/* Did we receive another beacon than ack ? */
@@ -841,13 +907,17 @@ retry_waitack:
 					return ;
 				}
 
-				if ((current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) || (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER))
+				if (current_soo_winenet->wnet_rx.last_beacon &&
+				    ((current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_GO_SPEAKER) ||
+			            (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_BROADCAST_SPEAKER)))
 					beacon_clear();
 
 				goto retry_waitack;
 
-			} else
+			} else {
 				retry_count++;
+				soo_log("[soo:soolink:winenet:ack] retry_count = %d\n", retry_count);
+			}
 		}
 
 	} while ((ack != 0) && (retry_count <= WNET_RETRIES_MAX));
@@ -886,7 +956,7 @@ bool speaker_broadcast(void) {
 	wnet_neighbour_t *pos, *tmp;
 	int ack;
 	int retry_count;
-	wnet_beacon_t beacon;
+	agencyUID_t agencyUID_from;
 
 	wnet_neighbours_processed_reset();
 
@@ -899,13 +969,14 @@ bool speaker_broadcast(void) {
 		/* Send the beacon requiring an acknowledgement */
 		retry_count = 0;
 		do {
+
 			/* Now send the beacon */
-			memcpy(&beacon.agencyUID, &pos->neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
-			winenet_send_beacon(&beacon, WNET_BEACON_BROADCAST_SPEAKER, NULL);
+			winenet_send_beacon(&pos->neighbour->agencyUID, WNET_BEACON_BROADCAST_SPEAKER, NULL, 0);
 retry_waitack:
-			ack = wait_for_ack(&beacon);
+			ack = wait_for_ack();
 
 			if (ack != 0) {
+
 				/* Did we receive another beacon than ack ? */
 				if (ack > 0) {
 
@@ -913,29 +984,48 @@ retry_waitack:
 						/* Aborting the speaker... */
 						return false;
 
-					if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
-						wnet_beacon_t ack_beacon;
+					if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_GO_SPEAKER)) {
 
 						/* Event processed */
-						memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_rx.last_beacon.agencyUID, SOO_AGENCY_UID_SIZE);
+						memcpy(&agencyUID_from, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
 						beacon_clear();
 
-						winenet_send_beacon(&ack_beacon, WNET_BEACON_ACKNOWLEDGMENT, NULL);
+						winenet_send_beacon(&agencyUID_from, WNET_BEACON_ACKNOWLEDGMENT, NULL, 0);
+
+					} else if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_BROADCAST_SPEAKER)) {
+
+						beacon_clear();
+#if 0
+						/* Should we abort? */
+						/* If the other has a smaller agencyUID, we abort ourself. */
+						if (cmpUID(&pos->neighbour->agencyUID, &ourself()->neighbour->agencyUID) < 0) {
+
+							soo_log("[soo:soolink:winenet] Neighbour is speaker apparently...its agencyUID: ");
+							soo_log_printlnUID(&beacon.agencyUID);
+
+							ourself()->neighbour->priv = &pos->neighbour->agencyUID;
+
+							winenet_send_beacon(&pos->neighbour->agencyUID, WNET_BEACON_ACKNOWLEDGMENT, NULL, 0);
+
+							change_state(WNET_STATE_LISTENER);
+							return false;
+						}
+#endif
 					}
-
-					if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER)
-						beacon_clear();
 
 					goto retry_waitack;
 
-				} else
+				} else {
 					retry_count++;
+					soo_log("[soo:soolink:winenet:ack] retry_count = %d\n", retry_count);
+				}
 			}
 
 		} while ((ack != 0) && (retry_count <= WNET_RETRIES_MAX));
 
 		/* Timeout ? */
 		if (ack != 0) {
+
 			/*
 			 * Well, it seems we have a bad guy as neighbour :-(
 			 * Just go on with another neighbour.
@@ -947,6 +1037,7 @@ retry_waitack:
 				pos = NULL;
 
 			winenet_remove_neighbour(tmp->neighbour);
+
 		} else
 			pos = next_valid_neighbour(pos);
 
@@ -954,6 +1045,7 @@ retry_waitack:
 
 	/* Alone ? */
 	if (next_valid_neighbour(NULL) == NULL) {
+		lprintk("#################################\n");
 		ourself()->neighbour->priv = NULL;
 
 		change_state(WNET_STATE_IDLE);
@@ -1003,12 +1095,12 @@ static void winenet_state_init(wnet_state_t old_state) {
  */
 static void winenet_state_idle(wnet_state_t old_state) {
 	wnet_neighbour_t *wnet_neighbour;
-	wnet_beacon_t beacon;
+	wnet_ping_args_t ping_args;
 
-	soo_log("[soo:soolink:winenet] Now in state IDLE\n");
+	soo_log("[soo:soolink:winenet:state:idle] Now in state IDLE\n");
 
 	if (current_soo_winenet->last_state != WNET_STATE_IDLE) {
-		soo_log("[soo:soolink:winenet] Smart object ");
+		soo_log("[soo:soolink:winenet:state:idle] Smart object ");
 		soo_log_printlnUID(get_my_agencyUID());
 		soo_log(" -- Now in state IDLE\n");
 
@@ -1027,21 +1119,42 @@ retry:
 		goto retry;
 
 	/* Process beacon first */
-	if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_PING) {
+	if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_PING)) {
+
+		memcpy(&ping_args, current_soo_winenet->wnet_rx.last_beacon->priv, sizeof(wnet_ping_args_t));
 
 		wnet_neighbour = find_neighbour(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from);
 		BUG_ON(!wnet_neighbour);
 
-		if ((uint32_t) current_soo_winenet->wnet_rx.last_beacon.priv == WNET_PING_REQUEST) {
+		/* Update the speakerUID field (priv data) of the neighbour */
+		if (!cmpUID(&ping_args.speakerUID, get_null_agencyUID())) {
+
+			if (wnet_neighbour->neighbour->priv)
+				kfree(wnet_neighbour->neighbour->priv);
+
+			wnet_neighbour->neighbour->priv = NULL;
+		} else {
+
+			if (!wnet_neighbour->neighbour->priv) {
+				wnet_neighbour->neighbour->priv = kzalloc(SOO_AGENCY_UID_SIZE, GFP_KERNEL);
+				BUG_ON(!wnet_neighbour);
+			}
+
+			memcpy(wnet_neighbour->neighbour->priv, &ping_args.speakerUID, SOO_AGENCY_UID_SIZE);
+		}
+
+		if (ping_args.type == WNET_PING_REQUEST) {
 
 			beacon_clear();
 
 			/* Determine which of us is speaker/listener and set the appropriate. */
 
-			soo_log("[soo:soolink:winenet] We got a request. Send a response. Neighbour VALID.\n");
+			soo_log("[soo:soolink:winenet:state:ping] We got a request. Send a response. Neighbour VALID / from ");
+			soo_log_printlnUID(&wnet_neighbour->neighbour->agencyUID);
 
 			wnet_neighbour->valid = true;
 
+			/* Is speakerUID null agencyUID? */
 			if (!wnet_neighbour->neighbour->priv) {
 				if (cmpUID(&ourself()->neighbour->agencyUID, &wnet_neighbour->neighbour->agencyUID) < 0) {
 
@@ -1059,21 +1172,30 @@ retry:
 				}
 
 			} else {
+				/* Update the speakerUID in the neighbour priv structure */
 				ourself()->neighbour->priv = wnet_neighbour->neighbour->priv;
+
 				change_state(WNET_STATE_LISTENER);
 			}
 
 			/* Send a PING RESPONSE beacon */
-			memcpy(&beacon.agencyUID, &wnet_neighbour->neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
-			winenet_send_beacon(&beacon, WNET_BEACON_PING, (void *) WNET_PING_RESPONSE);
 
-		} else if ((uint32_t ) current_soo_winenet->wnet_rx.last_beacon.priv == WNET_PING_RESPONSE) {
+			soo_log("[soo:soolink:winenet:ping] Sending PING_RESPONSE to ");
+			soo_log_printlnUID(&wnet_neighbour->neighbour->agencyUID);
+
+			ping_args.type = WNET_PING_RESPONSE;
+			memcpy(&ping_args.speakerUID, ourself()->neighbour->priv, SOO_AGENCY_UID_SIZE);
+
+			winenet_send_beacon(&wnet_neighbour->neighbour->agencyUID, WNET_BEACON_PING, &ping_args, sizeof(wnet_ping_args_t));
+
+		} else if (ping_args.type == WNET_PING_RESPONSE) {
+
 			/* Determine which of us is speaker/listener and set the appropriate. */
 
 			beacon_clear();
 
-			soo_log("[soo:soolink:winenet] We got a RESPONSE. Neighbour is VALID. ");
-			soo_log_printlnUID(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from);
+			soo_log("[soo:soolink:winenet:state:ping] We got a RESPONSE. Neighbour is VALID / from ");
+			soo_log_printlnUID(&wnet_neighbour->neighbour->agencyUID);
 
 			wnet_neighbour->valid = true;
 
@@ -1101,18 +1223,8 @@ retry:
 
 	} else {
 
-		/* Well, at this point, we should not receive any other beacon in the IDLE state.
-		 * However, we can have the wnet_event been signaled during the change of state
-		 * SPEAKER to IDLE. Typically, if a send fails and leads to the removal of all neighbours,
-		 * the sender can fail, but a send complete could happen (case of discovery test code)
-		 * and this will lead to signaling wnet_event. We hence skip such occurrences here.
-		 */
-		if (current_soo_winenet->wnet_rx.last_beacon.id != WNET_BEACON_N) {
-			lprintk("### %s: failure in idle state, received unexpected beacon: %d from ", __func__, current_soo_winenet->wnet_rx.last_beacon.id);
-			soo_log_printlnUID(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from);
-			BUG();
-		} else
-			goto retry;
+		/* Just ignore other beacons which will not be processed here. */
+		goto retry;
 	}
 
 }
@@ -1124,12 +1236,12 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 	int retry_count;
 	wnet_neighbour_t *listener, *tmp;
 	bool __broadcast_done = false;
-	wnet_beacon_t beacon;
+	agencyUID_t agencyUID_from, agencyUID_to;
 
-	soo_log("[soo:soolink:winenet] Now in state SPEAKER\n");
+	soo_log("[soo:soolink:winenet:state:speaker] Now in state SPEAKER\n");
 
 	if (current_soo_winenet->last_state != WNET_STATE_SPEAKER) {
-		soo_log("[soo:soolink:winenet] Smart object ");
+		soo_log("[soo:soolink:winenet:state:speaker] Smart object ");
 		soo_log_printlnUID(get_my_agencyUID());
 		soo_log(" -- Now in state SPEAKER\n");
 
@@ -1161,16 +1273,16 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 		}
 
 		/* Delayed (spurious) beacon */
-		if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
-			memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
+		if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_GO_SPEAKER)) {
+			memcpy(&agencyUID_from, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
 			beacon_clear();
 
-			winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, NULL);
+			winenet_send_beacon(&agencyUID_from, WNET_BEACON_ACKNOWLEDGMENT, NULL, 0);
 
 			continue;
 		}
 
-		if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) {
+		if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_BROADCAST_SPEAKER)) {
 
 			/* We ignore it since we already received a GO_SPEAKER. If this beacon comes from
 			 * new neighbors, the send/ack flow operations will lead to abort one or the other
@@ -1252,24 +1364,25 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 			__sender_tx(current_soo_winenet->wnet_tx.sl_desc, current_soo_winenet->buf_tx_pkt[i]);
 
 		/* Now waiting for the ACK beacon */
-		memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_tx.sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
+		memcpy(&agencyUID_to, &current_soo_winenet->wnet_tx.sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
 
 retry_ack1:
-		ack = wait_for_ack(&beacon);
+
+		ack = wait_for_ack();
 
 		if (ack != 0) {
 
 			/* Delayed (spurious) beacon */
-			if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
-				memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
+			if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_GO_SPEAKER)) {
+				memcpy(&agencyUID_from, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
 				beacon_clear();
 
-				winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, NULL);
+				winenet_send_beacon(&agencyUID_from, WNET_BEACON_ACKNOWLEDGMENT, NULL, 0);
 
 				continue;
 			}
 
-			if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) {
+			if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_BROADCAST_SPEAKER)) {
 
 				beacon_clear();
 				goto retry_ack1;
@@ -1289,18 +1402,20 @@ retry_ack1:
 				for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (current_soo_winenet->buf_tx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
 					__sender_tx(current_soo_winenet->wnet_tx.sl_desc, current_soo_winenet->buf_tx_pkt[i]);
 retry_ack2:
-				ack = wait_for_ack(&beacon);
+
+				ack = wait_for_ack();
 
 				/* Delayed (spurious) beacon */
-				if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
-					memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
+				if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id  == WNET_BEACON_GO_SPEAKER)) {
+					memcpy(&agencyUID_from, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
 					beacon_clear();
 
-					winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, NULL);
+					winenet_send_beacon(&agencyUID_from, WNET_BEACON_ACKNOWLEDGMENT, NULL, 0);
 
 					continue;
 				}
-				if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) {
+
+				if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_BROADCAST_SPEAKER)) {
 
 					beacon_clear();
 					goto retry_ack2;
@@ -1314,10 +1429,12 @@ retry_ack2:
 					return ;
 				}
 
-				if (ack == -1)
+				if (ack == -1) {
 					retry_count++;
+					soo_log("[soo:soolink:winenet:ack] retry_count = %d\n", retry_count);
+				}
 
-			} while ((ack != 0) && (retry_count < WNET_RETRIES_MAX));
+			} while ((ack != 0) && (retry_count <= WNET_RETRIES_MAX));
 
 			if (ack != 0) {
 				/*
@@ -1355,7 +1472,6 @@ retry_ack2:
 
 			/* Set the destination */
 			memcpy(&current_soo_winenet->wnet_tx.sl_desc->agencyUID_to, &listener->neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
-			memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_tx.sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
 
 			retry_count = 0;
 			do {
@@ -1363,12 +1479,15 @@ retry_ack2:
 				for (i = 0; ((i < WNET_N_PACKETS_IN_FRAME) && (current_soo_winenet->buf_tx_pkt[i]->packet_type != TRANSCEIVER_PKT_NONE)); i++)
 					__sender_tx(current_soo_winenet->wnet_tx.sl_desc, current_soo_winenet->buf_tx_pkt[i]);
 retry_ack3:
-				ack = wait_for_ack(&beacon);
+
+				ack = wait_for_ack();
 
 				if (ack > 0) {
 
 					/* Delayed (spurious) beacon */
-					if ((current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) || (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER)) {
+					if (current_soo_winenet->wnet_rx.last_beacon &&
+					    ((current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_GO_SPEAKER) ||
+					     (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_BROADCAST_SPEAKER))) {
 
 						/* We ignore it since we already received a GO_SPEAKER. If these beacons are due
 						 * to some new neighbours, the send/ack flow operations will lead to abort one or the other
@@ -1386,10 +1505,12 @@ retry_ack3:
 						return ;
 					}
 
-				} else
+				} else {
 					retry_count++;
+					soo_log("[soo:soolink:winenet:ack] retry_count = %d\n", retry_count);
+				}
 
-			} while ((ack != 0) && (retry_count < WNET_RETRIES_MAX));
+			} while ((ack != 0) && (retry_count <= WNET_RETRIES_MAX));
 
 			if (ack != 0) {
 				/*
@@ -1431,13 +1552,12 @@ retry_ack3:
 
 static void winenet_state_listener(wnet_state_t old_state) {
 	wnet_neighbour_t *wnet_neighbour;
-	wnet_beacon_t beacon;
+	agencyUID_t agencyUID_from;
 
-	soo_log("[soo:soolink:winenet] Now in state LISTENER\n");
-
+	soo_log("[soo:soolink:winenet:state:listener] Now in state LISTENER\n");
 
 	if (current_soo_winenet->last_state != WNET_STATE_LISTENER) {
-		soo_log("[soo:soolink:winenet] Smart object ");
+		soo_log("[soo:soolink:winenet:state:listener] Smart object ");
 		soo_log_printlnUID(get_my_agencyUID());
 		soo_log(" -- Now in state LISTENER\n");
 
@@ -1472,10 +1592,20 @@ static void winenet_state_listener(wnet_state_t old_state) {
 		/* Just check if we receive some ping beacons */
 		process_ping_is_speaker();
 
-		if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_GO_SPEAKER) {
+		/*
+		 * When a new SOO appears in the neighbourhood, it can see only us before the other and decides to become speaker
+		 * and sends a BROADCAST_SPEAKER. The same thing may appear with a SOO sending a GO_SPEAKER.
+		 * So, if we receive such beacons, we are checking if we are in the process of receiving a buffer and if it is
+		 * the case, we do not acknowledge the beacon.
+		 */
+		if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_GO_SPEAKER)) {
+
+			if (atomic_read(&current_soo_winenet->rx_in_progress))
+				/* Simply ignore it */
+				continue;
 
 			/* Event processed */
-			memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
+			memcpy(&agencyUID_from, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
 			beacon_clear();
 
 			/* Our turn... */
@@ -1486,18 +1616,22 @@ static void winenet_state_listener(wnet_state_t old_state) {
 			complete(&current_soo_winenet->wnet_event);
 
 			/* We can respond to our promoter :-) */
-			winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, NULL);
+			winenet_send_beacon(&agencyUID_from, WNET_BEACON_ACKNOWLEDGMENT, NULL, 0);
 
 			return ;
 		}
 
-		if (current_soo_winenet->wnet_rx.last_beacon.id == WNET_BEACON_BROADCAST_SPEAKER) {
+		if (current_soo_winenet->wnet_rx.last_beacon && (current_soo_winenet->wnet_rx.last_beacon->id == WNET_BEACON_BROADCAST_SPEAKER)) {
+
+			if (atomic_read(&current_soo_winenet->rx_in_progress))
+				/* Simply ignore it */
+				continue;
 
 			/* Pick it up */
 			wnet_neighbour = find_neighbour(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from);
 			BUG_ON(!wnet_neighbour);
 
-			memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
+			memcpy(&agencyUID_from, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
 
 			/* Event processed */
 			beacon_clear();
@@ -1506,9 +1640,10 @@ static void winenet_state_listener(wnet_state_t old_state) {
 			ourself()->neighbour->priv = &wnet_neighbour->neighbour->agencyUID;
 
 			/* We are ready to listen to this speaker. */
-			winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, NULL);
+			winenet_send_beacon(&agencyUID_from, WNET_BEACON_ACKNOWLEDGMENT, NULL, 0);
 
 		}
+
 	}
 }
 
@@ -1533,7 +1668,7 @@ void winenet_change_state(wnet_fsm_handle_t *handle, wnet_state_t new_state) {
 		BUG();
 	}
 
-	soo_log("[soo:soolink:winenet] !!!!! Changing state from %s to %s\n", winenet_get_state_str(handle->state), winenet_get_state_str(new_state));
+	soo_log("[soo:soolink:winenet:state] !!!!! Changing state from %s to %s\n", winenet_get_state_str(handle->state), winenet_get_state_str(new_state));
 
 	handle->old_state = handle->state;
 	handle->state = new_state;
@@ -1562,6 +1697,10 @@ static wnet_state_t get_state(void) {
 	return winenet_get_state(&current_soo_winenet->fsm_handle);
 }
 
+static char *wnet_str_state(void) {
+	return winenet_get_state_str(get_state());
+}
+
 /**
  * Main Winenet routine that implements the FSM.
  * At the beginning, we are in the IDLE state.
@@ -1571,7 +1710,7 @@ static int fsm_task_fn(void *args) {
 	wnet_state_fn_t *functions = handle->funcs;
 	struct completion *event = &handle->event;
 
-	soo_log("[soo:soolink:winenet] Entering Winenet FSM task...\n");
+	soo_log("[soo:soolink:winenet:state] Entering Winenet FSM task...\n");
 
 	while (true) {
 
@@ -1708,34 +1847,38 @@ static int winenet_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, bool com
  * The size refers to the whole transceiver packet.
  */
 void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
-	static uint32_t last_transID;
 	uint32_t i;
-	wnet_beacon_t beacon;
+	uint32_t transID;
 
 	current_soo_winenet->wnet_rx.sl_desc = sl_desc;
 	current_soo_winenet->wnet_rx.transID = packet->transID;
 
 	if (packet->packet_type == TRANSCEIVER_PKT_DATALINK) {
 
-		memcpy(&current_soo_winenet->wnet_rx.last_beacon, packet->payload, sizeof(wnet_beacon_t));
+		current_soo_winenet->wnet_rx.last_beacon = kzalloc(packet->size, GFP_KERNEL);
+		BUG_ON(!current_soo_winenet->wnet_rx.last_beacon);
 
-		soo_log("[soo:soolink:winenet] Receiving beacon %s\n", beacon_str(&current_soo_winenet->wnet_rx.last_beacon, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from));
+		memcpy(current_soo_winenet->wnet_rx.last_beacon, packet->payload, packet->size);
+
+		soo_log("[soo:soolink:winenet:beacon] (state %s) Receiving beacon from %s\n",
+			wnet_str_state(),
+			beacon_str(current_soo_winenet->wnet_rx.last_beacon, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from));
 
 		/* Processed within the FSM directly */
 		complete(&current_soo_winenet->wnet_event);
 
 		/* Wait until the beacon has been processed by the FSM */
 		wait_for_completion(&current_soo_winenet->beacon_event);
+
 	}
 
 	if (packet->packet_type == TRANSCEIVER_PKT_DATA) {
-
 
 		/* Skip the data which are not for us. */
 		/* We can logically NOT receive a PKT_DATA from a smart object which would not have
 		 * been paired (via PING) with us. Hence, ourself()->neighbour->priv can't be NULL.
 		 */
-		
+
 		if (cmpUID(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, ourself()->neighbour->priv)) {
 			soo_log("[soo:soolink:winenet] Skipping SOO ");
 			soo_log_printUID(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from);
@@ -1745,7 +1888,7 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 			return ;
 		}
 
-		/*
+			/*
 		 * Data packets are processed immediately along the RX callpath (upper layers) and has nothing to
 		 * do with the FSM. Actually, the speaker will wait for an acknowledgment beacon which will
 		 * process by the FSM *after* all packets have been received (and hence forwarded to the upper layers).
@@ -1766,23 +1909,26 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 			 */
 			clear_buf_rx_pkt();
 
-		} else if ((packet->transID & WNET_MAX_PACKET_TRANSID) < last_transID) {
+			atomic_set(&current_soo_winenet->rx_in_progress, 1);
+
+		} else if ((packet->transID & WNET_MAX_PACKET_TRANSID) < current_soo_winenet->last_transID) {
+
+			/* A packet we already received; might happen if a ACK has not been received by the speaker. */
 
 			if (((packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME == WNET_N_PACKETS_IN_FRAME - 1) || (packet->transID & WNET_LAST_PACKET)) {
+				transID = current_soo_winenet->wnet_rx.transID & WNET_MAX_PACKET_TRANSID;
 
-				memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
-				winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, (void *) (current_soo_winenet->wnet_rx.transID & WNET_MAX_PACKET_TRANSID));
-
+				winenet_send_beacon(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, WNET_BEACON_ACKNOWLEDGMENT, &transID, sizeof(transID));
 			}
 
 			return ;
 
 
-		} else if (packet->transID && (packet->transID & WNET_MAX_PACKET_TRANSID) != last_transID + 1) {
+		} else if (packet->transID && (packet->transID & WNET_MAX_PACKET_TRANSID) != current_soo_winenet->last_transID + 1) {
 
 			/* The packet chain is (temporarly) broken by ack timeout processing from the sender. */
 
-			soo_log("[soo:soolink:winenet] Pkt chain broken: (last_transID=%d)/(packet->transID=%d)\n", last_transID, packet->transID & WNET_MAX_PACKET_TRANSID);
+			soo_log("[soo:soolink:winenet] Pkt chain broken: (last_transID=%d)/(packet->transID=%d)\n", current_soo_winenet->last_transID, packet->transID & WNET_MAX_PACKET_TRANSID);
 
 			return ;
 		}
@@ -1791,7 +1937,7 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 		memcpy(current_soo_winenet->buf_rx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME], packet, packet->size + sizeof(transceiver_packet_t));
 
 		/* Save the last ID of the last received packet */
-		last_transID = (packet->transID & WNET_MAX_PACKET_TRANSID);
+		current_soo_winenet->last_transID = (packet->transID & WNET_MAX_PACKET_TRANSID);
 
 		/* If all the packets of the frame have been received, forward them to the upper layer */
 		if (((packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME == WNET_N_PACKETS_IN_FRAME - 1) || (packet->transID & WNET_LAST_PACKET)) {
@@ -1804,10 +1950,17 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 			/*
 			 * Send an ACKNOWLEDGMENT beacon.
 			 */
-			memcpy(&beacon.agencyUID, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE);
-			winenet_send_beacon(&beacon, WNET_BEACON_ACKNOWLEDGMENT, (void *) (current_soo_winenet->wnet_rx.transID & WNET_MAX_PACKET_TRANSID));
+			transID = current_soo_winenet->wnet_rx.transID & WNET_MAX_PACKET_TRANSID;
+			winenet_send_beacon(&current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, WNET_BEACON_ACKNOWLEDGMENT, &transID, sizeof(transID));
+
+			if (packet->transID & WNET_LAST_PACKET)
+				atomic_set(&current_soo_winenet->rx_in_progress, 0);
 		}
 	}
+}
+
+void winenet_cancel_rx(sl_desc_t *sl_desc) {
+	atomic_set(&current_soo_winenet->rx_in_progress, 0);
 }
 
 /**
@@ -1816,6 +1969,7 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 static datalink_proto_desc_t winenet_proto = {
 	.tx_callback = winenet_tx,
 	.rx_callback = winenet_rx,
+	.rx_cancel_callback = winenet_cancel_rx,
 };
 
 /**
@@ -1840,8 +1994,11 @@ void winenet_init(void) {
 	init_completion(&current_soo_winenet->beacon_event);
 	init_completion(&current_soo_winenet->data_event);
 
+	atomic_set(&current_soo_winenet->rx_in_progress, 0);
+
 	current_soo_winenet->wnet_tx.pending = false;
-	current_soo_winenet->wnet_rx.last_beacon.id = WNET_BEACON_N;
+	current_soo_winenet->wnet_rx.last_beacon = NULL;
+	current_soo_winenet->last_transID = 0;
 
 	mutex_init(&current_soo_winenet->wnet_xmit_lock);
 	mutex_init(&current_soo_winenet->neighbour_list_lock);

@@ -70,12 +70,6 @@
 #define KERN_INFO      "<Info>"
 #define KERN_DEBUG     "<Debug>"
 
-/* Linux 'checker' project. */
-#define __iomem
-#define __user
-#define __force
-#define __bitwise
-
 #ifndef __ASSEMBLY__
 
 int current_domain_id(void);

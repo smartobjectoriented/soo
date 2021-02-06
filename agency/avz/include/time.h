@@ -64,8 +64,8 @@ struct clocksource {
 	 */
 	char *name;
 
-	void __iomem *base;  /* virt address to access the counter */
-	void __iomem *vaddr;  /* virt address to read the clocksource (not the base) */
+	void *base;  /* virt address to access the counter */
+	void *vaddr;  /* virt address to read the clocksource (not the base) */
 
 	unsigned int rate;
 
@@ -171,7 +171,7 @@ struct clock_event_device {
 	const char *name;
 	unsigned int features;
 
-	void __iomem *base; /* virt address to access the timer */
+	void *base; /* virt address to access the timer */
 	u32 timer_nr;	/* If multiple timer can be accessed from the same base address */
 	unsigned int rate;
 	unsigned int prescale;

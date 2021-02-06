@@ -24,6 +24,8 @@
 #include <linux/delay.h>
 #include <linux/kthread.h>
 
+#include <soo/netsimul.h>
+
 #include <soo/core/device_access.h>
 
 #include <soo/soolink/transcoder.h>
@@ -117,7 +119,7 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	 * Copy received data so that the Decoder cannot free a buffer being used.
 	 * The buffer will be freed by the consumer after use.
 	 */
-	if (likely(size)) {
+	if (size) {
 		*data = vmalloc(size);
 		BUG_ON(!data);
 
@@ -197,6 +199,8 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			vfree(block->incoming_block);
 			block->incoming_block = NULL;
 
+			receiver_cancel_rx(block->sl_desc);
+
 			/* Release the lock on the block processing */
 			mutex_unlock(&current_soo_transcoder->decoder_lock);
 
@@ -247,6 +251,8 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 				if (block->incoming_block) {
 					vfree(block->incoming_block);
 					block->incoming_block = NULL;
+
+					receiver_cancel_rx(block->sl_desc);
 				}
 
 				sl_desc->incoming_block = NULL;
@@ -312,6 +318,8 @@ int decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 				vfree(block->incoming_block);
 				block->incoming_block = NULL;
 
+				receiver_cancel_rx(block->sl_desc);
+
 				/* Release the lock on the block processing */
 				mutex_unlock(&current_soo_transcoder->decoder_lock);
 
@@ -346,7 +354,8 @@ static int decoder_watchdog_task_fn(void *arg)  {
 	decoder_block_t *block;
 	s64 current_time;
 
-	while (1) {
+	while (true) {
+
 		msleep(DECODER_WATCHDOG_TASK_PERIOD_MS);
 
 		current_time = ktime_to_ms(ktime_get());
@@ -377,6 +386,8 @@ static int decoder_watchdog_task_fn(void *arg)  {
 				if (block->incoming_block) {
 					vfree(block->incoming_block);
 					block->incoming_block = NULL;
+
+					receiver_cancel_rx(block->sl_desc);
 				}
 
 				kfree(block);

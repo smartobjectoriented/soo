@@ -246,7 +246,7 @@ void mmu_configure(uint32_t l1pgtable, uint32_t fdt_addr) {
 
 	if (smp_processor_id() == AGENCY_CPU) {
 		/* The device tree is visible in the L_PAGE_OFFSET area */
-		_fdt_addr = __lva(fdt_addr);
+		fdt_vaddr = (uint32_t *) __lva(fdt_addr);
 	}
 }
 

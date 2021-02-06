@@ -100,7 +100,7 @@ void process_response(struct vbus_device *vdev) {
 	vuart_response_t *ring_rsp;
 	struct winsize wsz;
 
-	while ((ring_req = vuart_ring_request(&vuart->ring)) != NULL) {
+	while ((ring_req = vuart_get_ring_request(&vuart->ring)) != NULL) {
 
 		if (ring_req->c == SERIAL_GWINSZ) {
 			/* Process the window size info */
@@ -109,9 +109,9 @@ void process_response(struct vbus_device *vdev) {
 			wsz.ws_col = 80;
 			wsz.ws_row = 25;
 
-			ring_rsp = vuart_ring_response(&vuart->ring);
+			ring_rsp = vuart_new_ring_response(&vuart->ring);
 			ring_rsp->c = wsz.ws_row;
-			ring_rsp = vuart_ring_response(&vuart->ring);
+			ring_rsp = vuart_new_ring_response(&vuart->ring);
 			ring_rsp->c = wsz.ws_col;
 			vuart_ring_response_ready(&vuart->ring);
 
@@ -149,7 +149,7 @@ void me_cons_sendc(domid_t domid, uint8_t ch) {
 	vuart = to_vuart(console);
 
 	spin_lock(&vuart->ring_lock);
-	vuart_rsp = vuart_ring_response(&vuart->ring);
+	vuart_rsp = vuart_new_ring_response(&vuart->ring);
 
 	vuart_rsp->c = ch;
 
@@ -232,7 +232,6 @@ void vuart_reconfigured(struct vbus_device *vdev) {
 	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 	BUG_ON(res < 0);
 
-	SHARED_RING_INIT(sring);
 	BACK_RING_INIT(&vuart->ring, sring, PAGE_SIZE);
 
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vuart_interrupt, NULL, 0, VUART_NAME "-backend", vdev);

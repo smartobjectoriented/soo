@@ -90,7 +90,8 @@ int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
 	}
 
 	/* Allocate a transceiver packet and reserve enough memory for the payload */
-	packet = (transceiver_packet_t *) kmalloc(size + sizeof(transceiver_packet_t), GFP_ATOMIC);
+	packet = (transceiver_packet_t *) kzalloc(size + sizeof(transceiver_packet_t), GFP_KERNEL);
+	BUG_ON(!packet);
 
 	packet->packet_type = TRANSCEIVER_PKT_DATA;
 	packet->size = size;
@@ -116,6 +117,10 @@ void __sender_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
         mutex_lock(&current_soo_transceiver->sender_lock);
 	plugin_tx(sl_desc, packet, packet->size + sizeof(transceiver_packet_t));
 	mutex_unlock(&current_soo_transceiver->sender_lock);
+}
+
+void receiver_cancel_rx(sl_desc_t *sl_desc) {
+	datalink_cancel_rx(sl_desc);
 }
 
 void transceiver_init(void) {

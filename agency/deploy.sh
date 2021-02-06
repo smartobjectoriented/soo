@@ -97,24 +97,17 @@ if [ "$deploy_boot" == "y" ]; then
     echo Deploying boot files into the first partition...
 
     cd target
-    ./mkuboot.sh ${PLATFORM}/${PLATFORM_TYPE}
+    ./mkuboot.sh ${PLATFORM}
     cd ../filesystem
     ./mount.sh 1
     sudo rm -rf fs/*
-    sudo cp ../target/${PLATFORM}/${PLATFORM_TYPE}.itb fs/${PLATFORM}.itb
+    sudo cp ../target/${PLATFORM}.itb fs/${PLATFORM}.itb
     sudo cp ../upgrade/agency.json fs/
     sudo cp ../upgrade/root_flag fs/
     sudo cp ../../u-boot/uEnv.d/uEnv_${PLATFORM}.txt fs/uEnv.txt
 
     if [ "$PLATFORM" == "vexpress" ]; then
 	# Nothing else ...
-        ./umount.sh
-        cd ..
-    fi
-
-    if [ "$PLATFORM" == "rpi3" ]; then
-        sudo cp -r ../../bsp/rpi3/* fs/
-        sudo cp ../../u-boot/u-boot.bin fs/kernel.img
         ./umount.sh
         cd ..
     fi
@@ -231,6 +224,6 @@ fi
 if [ "$deploy_fastboot" == "y" ]; then
 
     # Deploy on the board using fastboot (Merida use case)
-    ../bsp/merida/fastboot/build/fastboot/fastboot boot target/${PLATFORM}/${PLATFORM_TYPE}.itb
+    ../bsp/merida/fastboot/build/fastboot/fastboot boot target/${PLATFORM}.itb
 
 fi

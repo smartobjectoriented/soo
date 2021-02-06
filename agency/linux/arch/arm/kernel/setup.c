@@ -64,16 +64,7 @@
 
 #include "atags.h"
 
-/* SOO.tech */
-#include <soo/hypervisor.h>
-#include <soo/uapi/avz.h>
-#include <soo/uapi/console.h>
-#include <soo/uapi/logbool.h>
-
 #include <soo/debug/gpio.h>
-
-
-volatile shared_info_t *HYPERVISOR_shared_info;
 
 #if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
 char fpe_type[8];
@@ -121,15 +112,6 @@ EXPORT_SYMBOL(elf_hwcap);
 unsigned int elf_hwcap2 __read_mostly;
 EXPORT_SYMBOL(elf_hwcap2);
 
-/* SOO.tech */
-start_info_t *avz_start_info;
-
-volatile unsigned long *HYPERVISOR_hypercall_addr;
-unsigned long	avz_guest_phys_offset = 0x0UL;
-EXPORT_SYMBOL(avz_guest_phys_offset);
-
-/* SOO.tech */
-pgd_t *swapper_pg_dir;
 
 #ifdef MULTI_CPU
 struct processor processor __ro_after_init;
@@ -780,20 +762,6 @@ int __init arm_add_memory(u64 start, u64 size)
 {
 	u64 aligned_start;
 
-/* SOO.tech */
-#ifdef CONFIG_OF_EARLY_FLATTREE
-	/*
-	 * When using a flat device tree, we may receive wrong values from bootloader.
-	 * Use the ones passed by in start_info!
-	 * we get here through early_init_dt_scan_memory() -> early_init_dt_add_memory_arch()
-	 * when booting with a FDT. */
-
-	if (memblock_get_current_limit() == 0) {
-		memblock_add(PHYS_OFFSET, avz_start_info->nr_pages * PAGE_SIZE);
-		return 0;
-	}
-#endif
-
 	/*
 	 * Ensure that start/size are aligned to a page boundary.
 	 * Size is rounded down, start is rounded up.
@@ -1123,7 +1091,6 @@ void __init setup_arch(char **cmdline_p)
 
 	setup_processor();
 	mdesc = setup_machine_fdt(__atags_pointer);
-
 	if (!mdesc)
 		mdesc = setup_machine_tags(__atags_pointer, __machine_arch_type);
 	if (!mdesc) {
@@ -1377,41 +1344,3 @@ const struct seq_operations cpuinfo_op = {
 	.stop	= c_stop,
 	.show	= c_show
 };
-
-extern struct memblock memblock;
-extern int __oo;
-
-/* SOO.tech */
-void __init avz_setup(void)
-{
-
-	__printch = avz_start_info->printch;
-
-	/* Immediately prepare for hypercall processing */
-	HYPERVISOR_hypercall_addr = (unsigned long *) avz_start_info->hypercall_addr;
-
-	lprintk("SOO Agency Virtualizer (avz) Start info :\n");
-	lprintk("Hypercall addr: %lx\n", (unsigned long) HYPERVISOR_hypercall_addr);
-	lprintk("Total Pages allocated to this domain : %ld\n", avz_start_info->nr_pages);
-	lprintk("MACHINE address of shared info struct : 0x%p\n", avz_start_info->shared_info);
-	lprintk("VIRTUAL address of page directory : 0x%lx\n", avz_start_info->pt_base);
-	lprintk("min mfn(min_page in avz) : 0x%lx\n", avz_start_info->min_mfn);
-	lprintk("FDT device tree paddr, if any: %lx\n", avz_start_info->fdt_paddr);
-	lprintk("Start_info record address: %lx\n", (unsigned long) avz_start_info);
-
-	__ht_set = (ht_set_t) avz_start_info->logbool_ht_set_addr;
-
-	/* Retrieve the initial page table */
-	swapper_pg_dir = (pgd_t *) avz_start_info->pt_base; /* (virtual addr) */
-	init_mm.pgd = swapper_pg_dir;
-
-	/* Retrieve the start of (virtual) RAM */
-	avz_guest_phys_offset = avz_start_info->min_mfn << PAGE_SHIFT;
-
-	lprintk("Allocating base virtual RAM@%lx of %lx bytes for this guest...\n", avz_guest_phys_offset, avz_start_info->nr_pages * PAGE_SIZE);
-	arm_add_memory(avz_guest_phys_offset, avz_start_info->nr_pages * PAGE_SIZE);
-
-	lprintk("Guest PHYS_OFFSET : 0x%lx\n", avz_guest_phys_offset);
-
-	lprintk("No problem\n");
-}

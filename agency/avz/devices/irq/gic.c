@@ -40,14 +40,14 @@
 DEFINE_PER_CPU(spinlock_t, intc_lock);
 
 /* Address of GIC 0 CPU interface */
-void __iomem *gic_cpu_base_addr;
+void *gic_cpu_base_addr;
 
 unsigned int gic_irq_offset = 0;
 
 struct gic_chip_data {
 	unsigned int irq_offset;
-	void __iomem *dist_base;
-	void __iomem *cpu_base;
+	void *dist_base;
+	void *cpu_base;
 	unsigned int max_irq;
 
 };
@@ -59,13 +59,13 @@ static u8 gic_cpu_map[NR_GIC_CPU_IF];
 
 static struct gic_chip_data gic_data[MAX_GIC_NR];
 
-static inline void __iomem *gic_dist_base(unsigned int irq)
+static inline void *gic_dist_base(unsigned int irq)
 {
 	struct gic_chip_data *gic_data = get_irq_chip_data(irq);
 	return gic_data->dist_base;
 }
 
-static inline void __iomem *gic_cpu_base(unsigned int irq)
+static inline void *gic_cpu_base(unsigned int irq)
 {
 	struct gic_chip_data *gic_data = get_irq_chip_data(irq);
 	return gic_data->cpu_base;
@@ -124,7 +124,7 @@ static void gic_unmask_irq(unsigned int irq)
 
 void gic_set_prio(unsigned int irq, unsigned char prio)
 {
-	void __iomem *base = gic_dist_base(irq);
+	void *base = gic_dist_base(irq);
 	unsigned int gicirq = gic_irq(irq);
 	u32 primask = 0xff << (gicirq % 4) * 8;
 	u32 prival = prio << (gicirq % 4) * 8;
@@ -139,7 +139,7 @@ void gic_set_prio(unsigned int irq, unsigned char prio)
 
 int irq_set_affinity(unsigned int irq, int cpu)
 {
-	void __iomem *reg = gic_dist_base(irq) + GIC_DIST_TARGET + (gic_irq(irq) & ~3);
+	void *reg = gic_dist_base(irq) + GIC_DIST_TARGET + (gic_irq(irq) & ~3);
 	unsigned int shift = (irq % 4) * 8;
 	u32 val;
 	struct irqdesc *desc;
@@ -180,7 +180,7 @@ static inline void *gic_data_dist_base(struct gic_chip_data *data)
 static void gic_dist_init(struct gic_chip_data *gic, unsigned int irq_start)
 {
 	unsigned int gic_irqs, irq_limit, i;
-	void __iomem *base = gic->dist_base;
+	void *base = gic->dist_base;
 
 	writel(0, base + GIC_DIST_CTRL);
 
@@ -250,7 +250,7 @@ static void gic_dist_init(struct gic_chip_data *gic, unsigned int irq_start)
 	dmb();
 }
 
-void gic_cpu_config(void __iomem *base)
+void gic_cpu_config(void *base)
 {
 	int i;
 
@@ -271,7 +271,7 @@ void gic_cpu_config(void __iomem *base)
 
 static void gic_cpu_if_up(void)
 {
-	void __iomem *cpu_base = gic_data_cpu_base(&gic_data[0]);
+	void *cpu_base = gic_data_cpu_base(&gic_data[0]);
 	u32 bypass = 0;
 
 	/*
@@ -285,8 +285,8 @@ static void gic_cpu_if_up(void)
 
 static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
 {
-	void __iomem *dist_base = gic->dist_base;
-	void __iomem *base = gic->cpu_base;
+	void *dist_base = gic->dist_base;
+	void *base = gic->cpu_base;
 	unsigned int cpu = smp_processor_id();
 
 	/*

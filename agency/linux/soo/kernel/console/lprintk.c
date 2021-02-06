@@ -22,9 +22,27 @@
 #include <soo/hypervisor.h>
 #include <soo/uapi/console.h>
 
+/* Agency Core */
+static bool log_soo_core = false;
+
+/* DCM */
+static bool log_soo_dcm = false;
+
+/* Discovery */
 static bool log_soo_soolink_discovery = false;
+
+/* Winenet */
 static bool log_soo_soolink_winenet = false;
+static bool log_soo_soolink_winenet_beacon = false;
+static bool log_soo_soolink_winenet_neighbour = false;
+static bool log_soo_soolink_winenet_state = false;
+static bool log_soo_soolink_winenet_state_idle = false;
+
+static bool log_soo_soolink_winenet_ping = false;
+static bool log_soo_soolink_winenet_ack = false;
+
 static bool log_soo_soolink_plugin = false;
+
 
 extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
@@ -71,14 +89,19 @@ void soo_log(char *format, ...) {
 	static char __internal_buf[CONSOLEIO_BUFFER_SIZE] = { };
 	int i;
 	bool outlog = false;
+	static bool force_log = false;
 
 	va_start(va, format);
 
 	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
 
 	if (__internal_buf[0] == 0) {
+
+		if ((buf[0] == '*') && (buf[1] == '*') && (buf[2] == '*'))
+			force_log = true;
+
 		/* Add log information */
-		sprintf(prefix,"(%s) ", current_soo->name);
+		sprintf(prefix, "(%s) ", current_soo->name);
 		strcat(__internal_buf, prefix);
 	}
 
@@ -87,18 +110,34 @@ void soo_log(char *format, ...) {
 	if (buf[strlen(buf)-1] != '\n')
 		return ;
 
-	/* SOOlink Discovery functional block */
-	if (log_soo_soolink_discovery && (strstr(__internal_buf, "[soo:soolink:discovery")))
-		outlog = true;
-	if (log_soo_soolink_winenet && (strstr(__internal_buf, "[soo:soolink:winenet")))
-		outlog = true;
-	if (log_soo_soolink_plugin && (strstr(__internal_buf, "[soo:soolink:plugin")))
+	/* Agency Core */
+	if ((log_soo_core && (strstr(__internal_buf, "[soo:core"))))
 		outlog = true;
 
-	if (!outlog) {
+	/* DCM */
+	if ((log_soo_dcm && (strstr(__internal_buf, "[soo:dcm"))))
+		outlog = true;
+
+	/* SOOlink Discovery functional block */
+	if ((log_soo_soolink_discovery && (strstr(__internal_buf, "[soo:soolink:discovery"))) ||
+	    (log_soo_soolink_winenet && (strstr(__internal_buf, "[soo:soolink:winenet"))) ||
+	    (log_soo_soolink_winenet_state && (strstr(__internal_buf, "[soo:soolink:winenet:state"))) ||
+	    (log_soo_soolink_winenet_state_idle && (strstr(__internal_buf, "[soo:soolink:winenet:state:idle"))) ||
+	    (log_soo_soolink_winenet_neighbour && (strstr(__internal_buf, "[soo:soolink:winenet:neighbour"))) ||
+	    (log_soo_soolink_winenet_ack && (strstr(__internal_buf, "[soo:soolink:winenet:ack"))) ||
+	    (log_soo_soolink_winenet_ping && (strstr(__internal_buf, "[soo:soolink:winenet:ping"))) ||
+	    (log_soo_soolink_winenet_beacon && (strstr(__internal_buf, "[soo:soolink:winenet:beacon"))) ||
+	    (log_soo_soolink_plugin && (strstr(__internal_buf, "[soo:soolink:plugin")))
+	    )
+		outlog = true;
+
+
+	/* Print out to the console */
+	if (!outlog && !force_log) {
 		__internal_buf[0] = 0;
 		return ;
 	}
+	force_log = false;
 
 	/* Out to the interface...*/
 

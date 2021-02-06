@@ -65,9 +65,9 @@ irqreturn_t vdummy_interrupt(int irq, void *dev_id)
 
 	DBG("%d\n", dev->otherend_id);
 
-	while ((ring_req = vdummy_ring_request(&vdummy->ring)) != NULL) {
+	while ((ring_req = vdummy_get_ring_request(&vdummy->ring)) != NULL) {
 
-		ring_rsp = vdummy_ring_response(&vdummy->ring);
+		ring_rsp = vdummy_new_ring_response(&vdummy->ring);
 
 		memcpy(ring_rsp->buffer, ring_req->buffer, VDUMMY_PACKET_SIZE);
 
@@ -144,7 +144,6 @@ void vdummy_reconfigured(struct vbus_device *vdev) {
 	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 	BUG_ON(res < 0);
 
-	SHARED_RING_INIT(sring);
 	BACK_RING_INIT(&vdummy->ring, sring, PAGE_SIZE);
 
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vdummy_interrupt, NULL, 0, VDUMMY_NAME "-backend", vdev);

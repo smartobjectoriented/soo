@@ -29,22 +29,22 @@
 #include <libfdt/libfdt_env.h>
 
 /* Virtual address of the device tree */
-unsigned int _fdt_addr = 0xbeef;
+uint32_t *fdt_vaddr = (uint32_t *) 0xbeef;
 
-const struct fdt_property *fdt_find_property(int offset, const char *propname) {
+const struct fdt_property *fdt_find_property(void *fdt_addr, int offset, const char *propname) {
 	const struct fdt_property *prop;
 
-	prop = fdt_get_property((const void *) _fdt_addr, offset, propname, NULL);
+	prop = fdt_get_property(fdt_addr, offset, propname, NULL);
 	if (prop)
 		return prop;
 	else
 		return NULL;
 }
 
-int fdt_property_read_string(int offset, const char *propname, const char **out_string) {
+int fdt_property_read_string(void *fdt_addr, int offset, const char *propname, const char **out_string) {
 	const struct fdt_property *prop;
 
-	prop = fdt_find_property(offset, propname);
+	prop = fdt_find_property(fdt_addr, offset, propname);
 	if (prop) {
 		*out_string = prop->data;
 		return 0;
@@ -53,10 +53,10 @@ int fdt_property_read_string(int offset, const char *propname, const char **out_
 	return -1;
 }
 
-int fdt_property_read_u32(int offset, const char *propname, u32 *out_value) {
+int fdt_property_read_u32(void *fdt_addr, int offset, const char *propname, u32 *out_value) {
 	const fdt32_t *val;
 
-	val = fdt_getprop((void *) _fdt_addr, offset, propname, NULL);
+	val = fdt_getprop(fdt_addr, offset, propname, NULL);
 
 	if (val) {
 		*out_value = fdt32_to_cpu(val[0]);
@@ -66,13 +66,13 @@ int fdt_property_read_u32(int offset, const char *propname, u32 *out_value) {
 	return -1;
 }
 
-int fdt_find_node_by_name(int parent, const char *nodename) {
+int fdt_find_node_by_name(void *fdt_addr, int parent, const char *nodename) {
 	int node;
 	const char *__nodename, *node_name;
 	int len;
 
-	fdt_for_each_subnode(node, (void *) _fdt_addr, parent) {
-		__nodename = fdt_get_name((void *) _fdt_addr, node, &len);
+	fdt_for_each_subnode(node, fdt_addr, parent) {
+		__nodename = fdt_get_name(fdt_addr, node, &len);
 
 		node_name = kbasename(__nodename);
 		len = strchrnul(node_name, '@') - node_name;
@@ -83,6 +83,18 @@ int fdt_find_node_by_name(int parent, const char *nodename) {
 	}
 
 	return -1;
+}
+
+/*
+ * Retrieve a node matching with a specific compat string.
+ * Returns -1 if no node is present.
+ */
+int fdt_find_compatible_node(void *fdt_addr, char *compat) {
+	int offset;
+
+	offset = fdt_node_offset_by_compatible(fdt_addr, 0, compat);
+
+	return offset;
 }
 
 /*

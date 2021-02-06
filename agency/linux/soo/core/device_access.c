@@ -45,9 +45,6 @@ unsigned int upgrade_ME_slotID = 5;
 /* Device capabilities bitmap */
 uint8_t devcaps_class[DEVCAPS_CLASS_NR];
 
-/* Name of the Smart Object */
-char devaccess_soo_name[SOO_NAME_SIZE] = { 0 };
-
 /* Null agency UID */
 static agencyUID_t null_agencyUID = {
 	.id = { 0 }
@@ -155,23 +152,23 @@ void devaccess_dump_devcaps(void) {
  * Set the Smart Object name.
  */
 void devaccess_set_soo_name(char *name) {
-	strcpy(devaccess_soo_name, name);
+	strcpy(current_soo->name, name);
 }
 
 /**
  * Get the Smart Object name.
  */
 void devaccess_get_soo_name(char *ptr) {
+
+	/* Check if we are on the agency CPU in which we can deal with netsimul env. */
+	/* Otherwise we consider the *standard* SOO name */
+
 	strcpy(ptr, current_soo->name);
-#if 0
-	strcpy(ptr, devaccess_soo_name);
-#endif
 }
 
 void devaccess_dump_soo_name(void) {
-	lprintk("SOO name: %s\n", devaccess_soo_name);
+	lprintk("SOO name: %s\n", current_soo->name);
 }
-
 
 ssize_t agencyUID_show(struct device *dev, struct device_attribute *attr, char *buf) {
 	char agencyUID_str[SOO_AGENCY_UID_SIZE * 3];
@@ -214,6 +211,30 @@ void set_agencyUID(uint8_t val) {
 
 	soo_log("[soo:core:device_access] New SOO Agency UID: ");
 	soo_log_printlnUID(&current_soo->agencyUID);
+}
+
+ssize_t soo_name_show(struct device *dev, struct device_attribute *attr, char *buf) {
+	devaccess_get_soo_name(buf);
+
+	return strlen(buf);
+}
+
+ssize_t soo_name_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size) {
+	char tmp_buf[SOO_NAME_SIZE + 1];
+
+	/* Is the name too long? */
+	if (strlen(buf) >= SOO_NAME_SIZE)
+		return size;
+
+	strcpy(tmp_buf, buf);
+
+	/* If the last character is a '\n', delete it */
+	if (tmp_buf[strlen(tmp_buf) - 1] == '\n')
+		tmp_buf[strlen(tmp_buf) - 1] = '\0';
+
+	devaccess_set_soo_name((char *) tmp_buf);
+
+	return size;
 }
 
 void devaccess_init(void) {

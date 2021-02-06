@@ -202,7 +202,7 @@ int read_migration_structures(soo_hyp_t *op) {
 	build_domain_migration_info(ME_slotID, domME, &dom_info);
 
 	/* Copy structures to buffer */
-	memcpy((void *) (__lva(op->paddr) - HYPERVISOR_SIZE), &dom_info, sizeof(dom_info));
+	memcpy((void *) op->vaddr, &dom_info, sizeof(dom_info));
 
 	/* Update op->size with valid data size */
 	*((unsigned int *) op->p_val2) = sizeof(dom_info);
@@ -310,14 +310,9 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
  * Write the migration info structures.
  */
 int write_migration_structures(soo_hyp_t *op) {
-	uint32_t crc32;
-
-	crc32 = *((uint32_t *) op->p_val1);
 
 	/* Get the migration info structures */
-	memcpy(&dom_info, (void *) (__lva(op->paddr) - HYPERVISOR_SIZE), sizeof(dom_info));
-
-	dom_info.dom_desc.u.ME.crc32 = crc32;
+	memcpy(&dom_info, (void *) op->vaddr, sizeof(dom_info));
 
 	return 0;
 }
@@ -394,8 +389,6 @@ int inject_me(soo_hyp_t *op)
 
 	if (construct_ME(domains[slotID]) != 0)
 		panic("Could not set up ME guest OS\n");
-
-	domains[slotID]->shared_info->dom_desc.u.ME.crc32 = xcrc32((void *) __lva(memslot[slotID].base_paddr), memslot[slotID].size, 0xffffffff);
 
 	/* Switch back to the agency address space */
 	switch_mm(__current, &prev_addrspace);

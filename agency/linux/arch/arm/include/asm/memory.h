@@ -138,9 +138,7 @@ extern unsigned long vectors_base;
  * have CONFIG_ARM_PATCH_PHYS_VIRT. Assembly code must always use
  * PLAT_PHYS_OFFSET and not PHYS_OFFSET.
  */
-#if 0 /* SOO.tech */
 #define PLAT_PHYS_OFFSET	UL(CONFIG_PHYS_OFFSET)
-#endif /* 0 */
 
 #ifdef CONFIG_XIP_KERNEL
 /*
@@ -167,9 +165,6 @@ extern unsigned long vectors_base;
  * PFNs are used to describe any physical page; this means
  * PFN 0 == physical address 0.
  */
-
-/* SOO.tech */
-#undef CONFIG_ARM_PATCH_PHYS_VIRT
 
 #if defined(CONFIG_ARM_PATCH_PHYS_VIRT)
 
@@ -246,11 +241,6 @@ static inline unsigned long __phys_to_virt(phys_addr_t x)
 
 #else
 
-/* SOO.tech */
-extern unsigned long avz_guest_phys_offset;
-#define PLAT_PHYS_OFFSET		(avz_guest_phys_offset)
-#define virt_to_mfn(_virt)                (__pa(_virt) >> PAGE_SHIFT)
-
 #define PHYS_OFFSET	PLAT_PHYS_OFFSET
 #define PHYS_PFN_OFFSET	((unsigned long)(PHYS_OFFSET >> PAGE_SHIFT))
 
@@ -264,17 +254,11 @@ static inline unsigned long __phys_to_virt(phys_addr_t x)
 	return x - PHYS_OFFSET + PAGE_OFFSET;
 }
 
-#if 0 /* SOO.tech */
 #endif
-#endif /* 0 */
 
 #define virt_to_pfn(kaddr) \
 	((((unsigned long)(kaddr) - PAGE_OFFSET) >> PAGE_SHIFT) + \
 	 PHYS_PFN_OFFSET)
-
-/* SOO.tech */
-#define pfn_to_virt(kaddr) \
-         ((((unsigned long) (kaddr) - PHYS_PFN_OFFSET) << PAGE_SHIFT) + PAGE_OFFSET)
 
 #define __pa_symbol_nodebug(x)	__virt_to_phys_nodebug((x))
 

@@ -79,6 +79,8 @@ void soolink_netsimul_init(void);
 
 void iterate_on_other_soo(soo_iterator_t fn, void *args);
 
+void dump_soo(void);
+
 soo_env_t *get_soo_by_name(char *name);
 
 #endif /* NETSIMUL_H */

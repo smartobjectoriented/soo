@@ -55,5 +55,7 @@ void __sender_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet);
 void __receiver_rx(sl_desc_t *sl_desc, void *packet, size_t size);
 void receiver_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet);
 
+/* Cancel an ongoing receipt of buffer */
+void receiver_cancel_rx(sl_desc_t *sl_desc);
 
 #endif /* TRANSCEIVER_H */

@@ -47,7 +47,7 @@
  */
 bool ME_processing_receive(void) {
 	unsigned char *ME_buffer;
-	size_t ME_size;
+	size_t ME_size, buffer_size;
 	int slotID;
 
 #ifdef WITH_LED_ACTIVITIES
@@ -57,7 +57,7 @@ bool ME_processing_receive(void) {
 	DBG0("Recv ME\n");
 	/* Perform receive processing as long as there are available MEs */
 
-	ME_size = dcm_recv_ME(&ME_buffer);
+	dcm_recv_ME(&ME_buffer, &buffer_size, &ME_size);
 	if (!ME_size) {
 		DBG0("No ME available. Return\n");
 		return false;
@@ -88,7 +88,6 @@ bool ME_processing_receive(void) {
 		if (get_personality() == SOO_PERSONALITY_INITIATOR)
 			set_personality_target();
 
-
 		printf("** Receiving a ME -> now in slot %d\n", slotID);
 
 		/* Tell AVZ to create a new domain context including the ME descriptor,
@@ -100,7 +99,7 @@ bool ME_processing_receive(void) {
 		}
 
 		DBG("Write snapshot located @ 0x%08x\n", (unsigned int) (ME_buffer));
-		write_ME_snapshot(slotID, ME_buffer);
+		write_ME_snapshot(slotID, ME_buffer, buffer_size);
 
 		DBG0("End write snapshot.\n");
 

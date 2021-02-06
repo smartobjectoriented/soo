@@ -356,12 +356,10 @@ int evtchn_send(struct domain *d, unsigned int levtchn) {
 }
 
 static int evtchn_set_pending(struct domain *d, int evtchn) {
-
 	/*
 	 * The following bit operations must happen in strict order.
 	 */
 	ASSERT(local_irq_is_disabled());
-
 
 	d->shared_info->evtchn_pending[evtchn] = true;
 	d->shared_info->evtchn_upcall_pending = 1;

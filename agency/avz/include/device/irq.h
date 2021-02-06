@@ -209,7 +209,7 @@ struct irqdesc {
 
 	/* Possibly having different irq banks with different irq start and base address */
 	unsigned int irq_base;
-	void __iomem *reg_base;
+	void *reg_base;
 } ;
 typedef struct irqdesc irqdesc_t;
 
@@ -229,7 +229,7 @@ void set_irq_flags(unsigned int irq, unsigned int flags);
 void set_irq_handler(unsigned int irq, irq_handler_t handler);
 
 void set_irq_base(unsigned int irq, unsigned int irq_base);
-void set_irq_reg_base(unsigned int irq, void __iomem *reg_base);
+void set_irq_reg_base(unsigned int irq, void *reg_base);
 
 void disable_irq(unsigned int);
 void enable_irq(unsigned int);

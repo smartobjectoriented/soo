@@ -85,6 +85,12 @@ void datalink_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 
 }
 
+void datalink_cancel_rx(sl_desc_t *sl_desc) {
+	if ((sl_desc->trans_mode == SL_MODE_UNIBROAD) && datalink_protocols[SL_DL_PROTO_WINENET])
+		datalink_protocols[SL_DL_PROTO_WINENET]->rx_cancel_callback(sl_desc);
+
+}
+
 /*
  * Main initialization function of the Datalink.
  */

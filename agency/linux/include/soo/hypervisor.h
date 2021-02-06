@@ -26,6 +26,7 @@
 #include <linux/cpumask.h>
 
 extern start_info_t *avz_start_info;
+extern bool __domcall_in_progress;
 
 shared_info_t *avz_map_shared_info(unsigned long pa);
 
@@ -48,5 +49,8 @@ int avz_dump_logbool(void);
 
 void avz_ME_unpause(domid_t domain_id, uint32_t store_mfn);
 void avz_ME_pause(domid_t domain_id);
+
+int domcall(int cmd, void *arg);
+void avz_linux_callback(void);
 
 #endif /* __HYPERVISOR_H__ */

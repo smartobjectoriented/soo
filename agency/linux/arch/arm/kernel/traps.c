@@ -41,11 +41,6 @@
 /* SOO.tech */
 
 #include <soo/uapi/console.h>
-#include <soo/hypervisor.h>
-
-/* for create_mapping() */
-#include <asm/mach/map.h>
-#include "../mm/mm.h"
 
 static const char *handler[]= {
 	"prefetch abort",
@@ -813,51 +808,6 @@ static inline void __init kuser_init(void *vectors)
 }
 #endif
 
-/* SOO.tech */
-
-extern void create_mapping(struct map_desc *md);
-extern void avz_linux_callback(void);
-
-/*
- * domcall
- *    Called by the hypervisor to run some domain routines
- */
-extern int do_sync_vbstore(void *arg);
-
-extern int do_post_migration_sync_ctrl(void *arg);
-extern int do_domcall_evtchn_from_irq(void *arg);
-extern int do_soo_activity(void *arg);
-extern int do_sync_directcomm(void *arg);
-
-int domcall(int cmd, void *arg)
-{
-	int rc = 0;
-
-	switch (cmd) {
-	case DOMCALL_sync_vbstore:
-		rc = do_sync_vbstore(arg);
-		break;
-	case DOMCALL_sync_directcomm:
-		rc = do_sync_directcomm(arg);
-		break;
-
-	/* SOO Activity control */
-	case DOMCALL_soo:
-		rc = do_soo_activity(arg);
-		break;
-
-	default:
-		printk("Unknowmn cmd %#x\n", cmd);
-		rc = -1;
-		break;
-	}
-
-	return rc;
-}
-
-extern volatile shared_info_t *HYPERVISOR_shared_info;
-extern start_info_t *avz_start_info;
-
 void __init early_trap_init(void *vectors_base)
 {
 #ifndef CONFIG_CPU_V7M
@@ -865,9 +815,6 @@ void __init early_trap_init(void *vectors_base)
 	extern char __stubs_start[], __stubs_end[];
 	extern char __vectors_start[], __vectors_end[];
 	unsigned i;
-
-	/* SOO.tech */
-	int ret;
 
 	vectors_page = vectors_base;
 
@@ -891,19 +838,6 @@ void __init early_trap_init(void *vectors_base)
 	kuser_init(vectors_base);
 
 	flush_icache_range(vectors, vectors + PAGE_SIZE * 2);
-
-	/* SOO.tech */
-
-	/* Get the shared info page, and keep it as a separate reference */
-	HYPERVISOR_shared_info = avz_start_info->shared_info;
-
- 	printk("done.\n");
-
- 	printk("Set HYPERVISOR_set_callbacks at %lx\n", (unsigned long) avz_linux_callback);
-
-	ret = hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_linux_callback, (unsigned long) domcall, 0, 0);
-	BUG_ON(ret < 0);
-
 #else /* ifndef CONFIG_CPU_V7M */
 	/*
 	 * on V7-M there is no need to copy the vector table to a dedicated

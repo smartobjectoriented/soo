@@ -384,9 +384,9 @@ void async_event_test(dc_event_t dc_event) {
 
 int rtapp_main(void *args) {
 
-	lprintk("RT Agency ready\n");
-
 	unsigned int *pgdir;
+
+	lprintk("RT Agency ready\n");
 
 	pgdir = (unsigned int *) swapper_pg_dir;
 

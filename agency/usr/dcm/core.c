@@ -80,24 +80,19 @@ void dcm_send_ME(void *ME_buffer, size_t ME_size, uint32_t prio) {
  *
  * The size of the ME buffer includes the various header structure as described in the Agency Core specification.
  */
-size_t dcm_recv_ME(unsigned char **ME_buffer) {
+void dcm_recv_ME(unsigned char **ME_buffer, size_t *buffer_size, size_t *ME_size) {
 	dcm_ioctl_recv_args_t args;
 
 	DBG("Trying to receive a ME\n");
 
 	if ((ioctl(fd_dcm, DCM_IOCTL_RECV, &args)) < 0) {
-		DBG0("ioctl DCM_IOCTL_RECV failed.\n");
+		printf("ioctl DCM_IOCTL_RECV failed.\n");
 		BUG();
 	}
 
-	if (args.ME_data == NULL) {
-		DBG0("No ME\n");
-		return 0;
-	}
-
 	*ME_buffer = (unsigned char *) args.ME_data;
-
-	return args.size;
+	*buffer_size = args.buffer_size;
+	*ME_size = args.ME_size;
 }
 
 /**
@@ -108,7 +103,7 @@ void dcm_release_ME(void *ME_buffer) {
 	int rc;
 
 	if (!ME_buffer) {
-		printf("No ME is available\n: 0x%08x", (unsigned int) ME_buffer);
+		printf("No ME is available, this should not happen in %s, sooo weird!..\n", __func__);
 		BUG();
 	}
 

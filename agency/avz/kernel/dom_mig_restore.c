@@ -406,7 +406,8 @@ static int presetup_adjust_variables_in_ME(unsigned int ME_slotID, start_info_t 
 	/* Success */
 	rc = 0;
 
-	out: return rc;
+out:
+	return rc;
 }
 
 /*------------------------------------------------------------------------------
@@ -428,7 +429,8 @@ static int postsetup_adjust_variables_in_ME(unsigned int ME_slotID)
 	/* Success */
 	rc = 0;
 
-	out: return rc;
+out:
+	return rc;
 }
 
 int restore_migrated_domain(unsigned int ME_slotID) {

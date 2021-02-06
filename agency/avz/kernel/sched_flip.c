@@ -88,7 +88,7 @@ struct task_slice flip_do_schedule(void)
 		ret.time = CONFIG_SCHED_FLIP_SCHEDFREQ;
 
 #if 0
-	printk("%s: on cpu %d picking now: %lx \n", __func__, smp_processor_id(), ret.task->domain->domain_id);
+	printk("%s: on cpu %d picking now: %lx \n", __func__, smp_processor_id(), ret.d->domain_id);
 #endif
 
 	return ret;

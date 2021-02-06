@@ -25,7 +25,8 @@
 #include <asm/mmu.h>
 
 .global _start
-.global fdt_paddr
+.global __fdt_addr
+
 .global cpu1_stack
 .global cpu2_stack
 .global cpu3_stack
@@ -90,7 +91,7 @@ _start:
 
 __kernel_main:
 
-  ldr	r0, =fdt_paddr
+  ldr	r0, =__fdt_addr
   str	r9, [r0]
 
   @ C main entry point
@@ -169,7 +170,7 @@ __secondary_data:
 
 .ltorg
 
-fdt_paddr:
+__fdt_addr:
   .word 	0
 
 .LCvirt_entry:

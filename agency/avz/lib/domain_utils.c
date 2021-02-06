@@ -33,8 +33,6 @@
 
 #define L_TEXT_OFFSET	0x8000
 
-extern unsigned int fdt_paddr; /* defined in kernel/setup.c */
-
 /**
  * We put all the guest domains in ELF format on top of memory so
  * that the domain_build will be able to elf-parse and load to their final destination.
@@ -45,15 +43,16 @@ void loadAgency(void)
 	int nodeoffset, next_node;
 	uint8_t tmp[16];
 	u64 base, size;
-	int len, depth = 0, ret;
+	int len, depth, ret;
 	const char *propstring;
 
 	nodeoffset = 0;
+	depth = 0;
 	while (nodeoffset >= 0) {
-		next_node = fdt_next_node((void *) _fdt_addr, nodeoffset, &depth);
-		ret = fdt_property_read_string(nodeoffset, "type", &propstring);
+		next_node = fdt_next_node(fdt_vaddr, nodeoffset, &depth);
+		ret = fdt_property_read_string(fdt_vaddr, nodeoffset, "type", &propstring);
 		if ((ret != -1) && (!strcmp(propstring, "agency"))) {
-			ret = fdt_property_read_u32(nodeoffset, "load-addr", &dom_addr);
+			ret = fdt_property_read_u32(fdt_vaddr, nodeoffset, "load-addr", &dom_addr);
 			if (ret == -1) {
 				lprintk("!! Missing load-addr in the agency node !!\n");
 				BUG();
@@ -70,23 +69,23 @@ void loadAgency(void)
 
 	/* Set the memslot base address to a section boundary */
 	memslot[MEMSLOT_AGENCY].base_paddr = (dom_addr & ~(SZ_1M - 1));
-	memslot[MEMSLOT_AGENCY].fdt_paddr = __lpa(_fdt_addr);
-	memslot[MEMSLOT_AGENCY].size = fdt_getprop_u32_default((void *) _fdt_addr, "/agency", "domain-size", 0);
+	memslot[MEMSLOT_AGENCY].fdt_paddr = (unsigned int) __fdt_addr;
+	memslot[MEMSLOT_AGENCY].size = fdt_getprop_u32_default(fdt_vaddr, "/agency", "domain-size", 0);
 	
 	/* Fixup the agency device tree */
 
 	/* find or create "/memory" node. */
-	nodeoffset = fdt_find_or_add_subnode((void *) _fdt_addr, 0, "memory");
+	nodeoffset = fdt_find_or_add_subnode(fdt_vaddr, 0, "memory");
 	BUG_ON(nodeoffset < 0);
 
-	fdt_setprop((void *) _fdt_addr, nodeoffset, "device_type", "memory", sizeof("memory"));
+	fdt_setprop(fdt_vaddr, nodeoffset, "device_type", "memory", sizeof("memory"));
 
 	base = (u64) memslot[MEMSLOT_AGENCY].base_paddr;
 	size = (u64) memslot[MEMSLOT_AGENCY].size;
 
-	len = fdt_pack_reg((void *) _fdt_addr, tmp, &base, &size);
+	len = fdt_pack_reg(fdt_vaddr, tmp, &base, &size);
 
-	fdt_setprop((void *) _fdt_addr, nodeoffset, "reg", tmp, len);
+	fdt_setprop(fdt_vaddr, nodeoffset, "reg", tmp, len);
 }
 
 
@@ -104,8 +103,9 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 	int section_nr;
 	uint32_t *pgtable_from;
 	uint32_t initrd_start, initrd_end;
-	int nodeoffset;
+	int nodeoffset, next_node, depth = 0;
 	int ret;
+	const char *propstring;
 
 	pgtable_from = (uint32_t *) __lva(current_addrspace->pgtable_paddr);
 
@@ -115,16 +115,73 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 
 	flush_dcache_all();
 
-	/* Get the pointer to the OS binary image from the ITB we got from the user space. */
-	fit_image_get_data_and_size(img, fit_image_get_node(img, "kernel"), (const void **) &ME_vaddr, &size);
+	/* Look for a node of ME type in the fit image */
+	nodeoffset = 0;
+	depth = 0;
+	while (nodeoffset >= 0) {
+		next_node = fdt_next_node((void *) img, nodeoffset, &depth);
+		ret = fdt_property_read_string(img, nodeoffset, "type", &propstring);
 
-	/* Get the associated device tree. */
-	fit_image_get_data_and_size(img, fit_image_get_node(img, "fdt"), (const void **) &fdt_vaddr, &fdt_size);
+		if ((ret != -1) && !strcmp(propstring, "ME")) {
 
-	/* Get the initrd if any. */
-	ret = fit_image_get_node(img, "ramdisk");
-	if (ret >= 0)
-		ret = fit_image_get_data_and_size(img, ret, (const void **) &initrd_vaddr, &initrd_size);
+			/* Get the pointer to the OS binary image from the ITB we got from the user space. */
+			ret = fit_image_get_data_and_size(img, nodeoffset, (const void **) &ME_vaddr, &size);
+			if (ret) {
+				lprintk("!! The properties in the ME node does not look good !!\n");
+				BUG();
+			} else
+				break;
+		}
+		nodeoffset = next_node;
+	}
+
+	if (nodeoffset < 0) {
+		lprintk("!! Unable to find a node with type ME in the FIT image... !!\n");
+		BUG();
+	}
+
+	/* Look for a node of flat_dt type in the fit image */
+	nodeoffset = 0;
+	depth = 0;
+	while (nodeoffset >= 0) {
+		next_node = fdt_next_node((void *) img, nodeoffset, &depth);
+		ret = fdt_property_read_string(img, nodeoffset, "type", &propstring);
+		if ((ret != -1) && !strcmp(propstring, "flat_dt")) {
+
+			/* Get the associated device tree. */
+			ret = fit_image_get_data_and_size(img, nodeoffset, (const void **) &fdt_vaddr, &fdt_size);
+			if (ret) {
+				lprintk("!! The properties in the device tree node does not look good !!\n");
+				BUG();
+			} else
+				break;
+		}
+		nodeoffset = next_node;
+	}
+
+	if (nodeoffset < 0) {
+		lprintk("!! Unable to find a node with type flat_dt in the FIT image... !!\n");
+		BUG();
+	}
+
+	/* Look for a possible node of ramdisk type in the fit image */
+	nodeoffset = 0;
+	depth = 0;
+	while (nodeoffset >= 0) {
+		next_node = fdt_next_node(img, nodeoffset, &depth);
+		ret = fdt_property_read_string(img, nodeoffset, "type", &propstring);
+		if ((ret != -1) && !strcmp(propstring, "ramdisk")) {
+
+			/* Get the associated device tree. */
+			ret = fit_image_get_data_and_size(img, nodeoffset, (const void **) &initrd_vaddr, &initrd_size);
+			if (ret) {
+				lprintk("!! The properties in the ramdisk node does not look good !!\n");
+				BUG();
+			} else
+				break;
+		}
+		nodeoffset = next_node;
+	}
 
 	dest_ME_vaddr = (void *) __lva(memslot[slotID].base_paddr);
 

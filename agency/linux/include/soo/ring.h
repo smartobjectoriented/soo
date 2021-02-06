@@ -115,15 +115,29 @@ typedef struct __name##_sring __name##_sring_t;                         \
 typedef struct __name##_front_ring __name##_front_ring_t;               \
 typedef struct __name##_back_ring __name##_back_ring_t;			\
 									\
-static inline __rsp_t *__name##_ring_response(__name##_back_ring_t *__name##_back_ring) { 	\
+ static inline __req_t *__name##_new_ring_request(__name##_front_ring_t *__name##_front_ring) { 	\
+	return RING_GET_REQUEST(__name##_front_ring, __name##_front_ring->req_prod_pvt++);		\
+ }													\
+  	 	 	 	 									\
+ static inline void __name##_ring_request_ready(__name##_front_ring_t *__name##_front_ring) {		\
+	 RING_PUSH_REQUESTS(__name##_front_ring);							\
+ }													\
+ 													\
+ static inline __rsp_t *__name##_get_ring_response(__name##_front_ring_t *__name##_front_ring) {	\
+ 	if (__name##_front_ring->sring->rsp_cons == __name##_front_ring->sring->rsp_prod)		\
+ 		return NULL;										\
+ else													\
+ 	return RING_GET_RESPONSE(__name##_front_ring, __name##_front_ring->sring->rsp_cons++);		\
+ }													\
+static inline __rsp_t *__name##_new_ring_response(__name##_back_ring_t *__name##_back_ring) { 		\
  	return RING_GET_RESPONSE(__name##_back_ring, __name##_back_ring->rsp_prod_pvt++);		\
 }													\
  	 	 	 	 	 	 	 	 	 	 	 	 	\
-static inline void __name##_ring_response_ready(__name##_back_ring_t *__name##_back_ring) {			\
+static inline void __name##_ring_response_ready(__name##_back_ring_t *__name##_back_ring) {		\
  	RING_PUSH_RESPONSES(__name##_back_ring);							\
 }													\
 													\
-static inline __req_t *__name##_ring_request(__name##_back_ring_t *__name##_back_ring) {		\
+static inline __req_t *__name##_get_ring_request(__name##_back_ring_t *__name##_back_ring) {		\
  	if (__name##_back_ring->sring->req_cons == __name##_back_ring->sring->req_prod)			\
  		return NULL;										\
  	else												\
@@ -169,12 +183,13 @@ static inline __req_t *__name##_ring_request(__name##_back_ring_t *__name##_back
 #define RING_FREE_REQUESTS(_r)                            \
     (RING_SIZE(_r) - ((_r)->req_prod_pvt - (_r)->sring->req_cons))
 
+/* Same for response (back side only) */
+#define RING_FREE_RESPONSES(_r)                            \
+    (RING_SIZE(_r) - ((_r)->rsp_prod_pvt - (_r)->sring->rsp_cons))
 
-/* Test if there is an empty slot available on the front ring.
- * (This is only meaningful from the front. )
- */
-#define RING_FULL(_r)                                                   \
-    (RING_FREE_REQUESTS(_r) == 0)
+/* Test if there is an empty slot available on the front ring. */
+#define RING_RSP_FULL(_r)                                                   \
+    (RING_FREE_RESPONSES(_r) == 0)
 
 #define RING_REQ_FULL(_r)                                                   \
     (RING_FREE_REQUESTS(_r) == 0)

@@ -23,6 +23,8 @@
 #include <linux/list.h>
 #include <linux/if_ether.h>
 
+#include <soo/ring.h>
+
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
@@ -43,21 +45,36 @@ typedef struct {
 	/* Function to be called when sending data out */
 	void (*tx_callback)(sl_desc_t *sl_desc, void *data, size_t size);
 
-
 } plugin_desc_t;
 
-struct soo_plugin_sim_env;
+typedef struct {
+	plugin_desc_t *plugin_desc;
+	req_type_t req_type;
+	void *data;
+	size_t size;
+	uint8_t *mac_src;
+} medium_rx_t;
+
+DEFINE_RING_TYPES(medium_rx, medium_rx_t, medium_rx_t);
+
+
 struct soo_plugin_env {
 	struct list_head remote_soo_list;
 
 	spinlock_t list_lock;
 	struct list_head plugin_list;
 
-	struct soo_plugin_sim_env *sim;
+	/* Rx part */
+	medium_rx_front_ring_t rx_ring;
+
+	struct completion rx_event;
+
+	/* Specific plugin related data */
+	void *priv;
 
 };
 
-#define current_soo_plugin_sim     (current_soo->soo_plugin->sim)
+#define current_soo_plugin_priv     (current_soo->soo_plugin->priv)
 
 void transceiver_plugin_init(void);
 
@@ -65,7 +82,6 @@ void transceiver_plugin_register(plugin_desc_t *plugin_desc);
 void transceiver_plugins_enable(void);
 
 void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size);
-void plugin_rx(plugin_desc_t *plugin_desc, req_type_t req_type, void *data, size_t size, uint8_t *mac_src);
 
 uint8_t *get_mac_addr(agencyUID_t *agencyUID);
 
@@ -75,8 +91,9 @@ void detach_agencyUID(agencyUID_t *agencyUID);
 req_type_t get_sl_req_type_from_protocol(uint16_t protocol);
 uint16_t get_protocol_from_sl_req_type(req_type_t req_type);
 
-
 /* Supported plugins */
 int plugin_simulation_init(void);
+int plugin_ethernet_init(void);
+
 
 #endif /* PLUGIN_H */

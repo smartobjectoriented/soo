@@ -347,36 +347,6 @@ static int ioctl_get_ME_desc(unsigned int arg) {
 	return 0;
 }
 
-/**
- * Read the migration info structures.
- */
-int ioctl_read_migration_struct(unsigned long arg) {
-
-	agency_tx_args_t args;
-
-	if ((copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	if ((soo_hypercall(AVZ_MIG_READ_MIGRATION_STRUCT, NULL, (void *) virt_to_phys(buffer), &args.ME_slotID, &args.value)) < 0) {
-		lprintk("Agency: %s:%d Failed to read migration struct.\n", __func__, __LINE__);
-		BUG();
-	}
-
-	if ((copy_to_user((void *) args.buffer, buffer, args.value)) != 0) {
-		lprintk("Agency: %s:%d Failed to set args into userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	if ((copy_to_user((void *) arg, (void *) &args, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to set args into userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	return 0;
-}
-
 static int ioctl_write_snapshot(unsigned long arg) {
 	ME_desc_t ME_desc;
 	agency_tx_args_t args;
@@ -395,12 +365,16 @@ static int ioctl_write_snapshot(unsigned long arg) {
 	/* Beginning of the ME_buffer */
 	ME_info_transfer = (ME_info_transfer_t *) args.buffer;
 
+	/* Check the CRC32 for consistency purposes. */
+	crc32 = xcrc32(args.buffer + sizeof(ME_info_transfer_t), args.value - sizeof(ME_info_transfer_t), 0xffffffff);
+	soo_log("[soo:core] Computed CRC32 of the received snapshot: %x / embedded crc32 value: %x / Size: %x\n", crc32, ME_info_transfer->crc32, args.value);
+
+	BUG_ON(crc32 != ME_info_transfer->crc32);
+
 	/* Retrieve the info related to the migration structure */
 	memcpy(buffer, args.buffer + sizeof(ME_info_transfer_t), ME_info_transfer->size_mig_structure);
 
-	/* Compute the crc32 applied on the ME snapshot */
-	crc32 = xcrc32((void *) (args.buffer + sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure), ME_desc.size, 0xffffffff);
-	if (soo_hypercall(AVZ_MIG_WRITE_MIGRATION_STRUCT, NULL, (void *) virt_to_phys(buffer), &crc32, NULL) < 0) {
+	if (soo_hypercall(AVZ_MIG_WRITE_MIGRATION_STRUCT, buffer, NULL, NULL, NULL) < 0) {
 		lprintk("Agency: %s:%d Failed to write migration struct.\n", __func__, __LINE__);
 		BUG();
 	}
@@ -482,7 +456,7 @@ static int ioctl_read_snapshot(unsigned long arg) {
 	ME_info_transfer = (ME_info_transfer_t *) ME_buffer;
 	ME_info_transfer->ME_size = ME_desc.size;
 
-	if ((soo_hypercall(AVZ_MIG_READ_MIGRATION_STRUCT, NULL, (void *) virt_to_phys(buffer), &args.ME_slotID, &args.value)) < 0) {
+	if ((soo_hypercall(AVZ_MIG_READ_MIGRATION_STRUCT, buffer, NULL, &args.ME_slotID, &args.value)) < 0) {
 		lprintk("Agency: %s:%d Failed to read migration struct.\n", __func__, __LINE__);
 		BUG();
 	}
@@ -503,13 +477,21 @@ static int ioctl_read_snapshot(unsigned long arg) {
 
 	cache_flush_all();
 
+	/* Compute the crc32 of the snapshot */
+
 	args.buffer = ME_buffer;
 	args.value = sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure + ME_desc.size;
+
+	/* The CRC32 is done over the bytes right after the ME_info_transfer structure since the result will be placed within this structure. */
+	ME_info_transfer->crc32 = xcrc32(args.buffer + sizeof(ME_info_transfer_t), args.value - sizeof(ME_info_transfer_t), 0xffffffff);
+
+	soo_log("[soo:core] Computed CRC32 of the current snapshot: %x / Size: %x\n", ME_info_transfer->crc32, args.value);
 
 	if ((copy_to_user((void *) arg, &args, sizeof(agency_tx_args_t))) != 0) {
 		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
 		BUG();
 	}
+
 
 	return 0;
 }

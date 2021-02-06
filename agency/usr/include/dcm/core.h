@@ -54,7 +54,7 @@ void dcm_send_ME(void *ME, size_t size, uint32_t prio);
 void dcm_prepare_update_ME(unsigned int ME_slotID, void *ME, size_t size, uint32_t prio);
 void dcm_update_ME(unsigned int ME_slotID, void *ME_buffer, size_t ME_size, uint32_t prio);
 
-size_t dcm_recv_ME(unsigned char **ME_buffer);
+void dcm_recv_ME(unsigned char **ME_buffer, size_t *buffer_size, size_t *ME_size);
 
 void dcm_release_ME(void *ME_buffer);
 

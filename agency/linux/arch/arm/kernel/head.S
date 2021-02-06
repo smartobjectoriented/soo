@@ -24,7 +24,6 @@
 #include CONFIG_DEBUG_LL_INCLUDE
 #endif
 
-#if 0 /* SOO.tech */
 /*
  * swapper_pg_dir is the virtual address of the initial page table.
  * We place the page tables 16K below KERNEL_RAM_VADDR.  Therefore, we must
@@ -36,8 +35,6 @@
 #if (KERNEL_RAM_VADDR & 0xffff) != 0x8000
 #error KERNEL_RAM_VADDR must start at 0xXXXX8000
 #endif
-
-#endif /* 0 */
 
 #ifdef CONFIG_ARM_LPAE
 	/* LPAE requires an additional page for the PGD */
@@ -125,13 +122,10 @@ ENTRY(_start)
 	strcc	fp, [r6],#4
 	bcc	1b
 
-	ldr r10, start_info
-    str r12, [r10]
+	ldr r10, =avz_start_info
+	str r12, [r10]
 
-    mrc p15, 0, r0, c1, c0      @ get control register v4
-    ldr r10, .LCcr_alignment
-    str r0, [r10]
-
+	@ Temporary stack
     ldr sp, __init_sp
 
 	@ AVZ setup
@@ -141,7 +135,9 @@ ENTRY(_start)
 
 	@ To get the MMU flags correctly
 	bl	__lookup_processor_type
-	mov 	r10, r5				@ we assume the processor is valid
+
+	@ Assume the processor is valid; set to proc-info
+	mov 	r10, r5
 
 	ldr r2, =__atags_pointer
 	ldr r2, [r2]
@@ -150,27 +146,45 @@ ENTRY(_start)
 	ldr r8, [r8]
 
 	ldr r4, =swapper_pg_dir
-    ldr r4, [r4]
+
+	mov	r5, #DACR_INIT
+	mcr	p15, 0, r5, c3, c0, 0		@ load domain access register
 
 	@ At least, to get the dtb visible...
 	bl	__create_page_tables
 
+	badr	lr, 1f				@ return (PIC) address
+
+	add r8, r8, #PG_DIR_SIZE
+
+	ldr	r12, [r10, #PROCINFO_INITFUNC]
+	add	r12, r12, r10
+	ret	r12
+1:
+	bic	r0, r0, #CR_A
+
+	mov	r0, r0
+	instr_sync
+	mcr	p15, 0, r0, c1, c0, 0		@ write control reg
+	mrc	p15, 0, r3, c0, c0, 0		@ read id reg
+	instr_sync
+
+	@ cr_alignment is used in the kernel
+    ldr r10, .LCcr_alignment
+    str r0, [r10]
+
  	b   start_kernel
 
 .ltorg
-    .LCcr_alignment:
-    .long   cr_alignment
 
-    start_info:
-    .long   avz_start_info
+.LCcr_alignment:
+    .long   cr_alignment
 
     __init_sp:
     .long   init_thread_union+8192          @ sp
 
 
 	.align 2
-
-@ -------------------
 
 #if 0 /* SOO.tech */
 
@@ -389,6 +403,8 @@ __create_page_tables:
 	sub	r4, r4, #4			@ Fixup page table pointer
 						@ for 64-bit descriptors
 #endif
+	@ SOO.tech
+	mcr p15, 0, r3, c7, c10, 1
 
 #if 0 /* SOO.tech */
 

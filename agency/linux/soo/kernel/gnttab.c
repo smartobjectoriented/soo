@@ -37,7 +37,6 @@
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
 #include <asm/io.h>
-#include <asm/memory.h>
 
 #include <soo/vbus.h>
 #include <soo/gnttab.h>
@@ -585,16 +584,15 @@ int gnttab_copy(struct gnttab_copy *op) {
 	cache_flush_all();
 
 	if (op->flags & GNTCOPY_source_gref) {
-		//printk("### %s: copy from %lx to %lx  dest.offset = %d  src.offset = %d  len = %d\n", __func__, pfn_to_map, op->dest.u.gmfn,  op->dest.offset, op->source.offset, op->len);
 
-		dst = (unsigned char *)((size_t)(pfn_to_virt(op->dest.u.gmfn)));
+		dst = (unsigned char *) phys_to_virt(__pfn_to_phys(op->dest.u.gmfn));
+
 		memcpy(dst + op->dest.offset, vaddr_foreign + op->source.offset, op->len);
 
 	} else { /* GNTCOPY_dest_gref */
 
-		//printk("### %s: copy to %lx from %lx  dest.offset = %d  src.offset = %d  len = %d\n", __func__, pfn_to_map, op->source.u.gmfn,  op->dest.offset, op->source.offset, op->len);
+		src = (unsigned char *) phys_to_virt(__pfn_to_phys(op->source.u.gmfn));
 
-		src = (unsigned char *)((size_t)(pfn_to_virt(op->source.u.gmfn)));
 		memcpy(vaddr_foreign + op->dest.offset, src + op->source.offset, op->len);
 	}
 

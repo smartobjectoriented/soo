@@ -144,6 +144,10 @@ static long dcm_recv_ME(unsigned long arg) {
 
 	mutex_lock(&recv_lock);
 
+	args.ME_size = 0;
+	args.buffer_size = 0;
+	args.ME_data = NULL;
+
 	/* Look for an available ME */
 
 	for (i = 0; i < DCM_N_RECV_BUFFERS; i++) {
@@ -156,21 +160,21 @@ static long dcm_recv_ME(unsigned long arg) {
 			args.ME_data = buffer_desc->ME_data;
 			info = (ME_info_transfer_t *) args.ME_data;
 
-			args.size = info->ME_size;
+			args.buffer_size = buffer_desc->size;
+			args.ME_size = info->ME_size;
 
-			if ((ret = copy_to_user((void *) arg, &args, sizeof(dcm_ioctl_recv_args_t))) < 0) {
-				lprintk("Error when sending args (%d)\n", ret);
-				BUG();
-			}
-
-			mutex_unlock(&recv_lock);
-			return 0;
+			/* Go out of this loop */
+			break;
 		}
 
 		cur_buffer_idx = (cur_buffer_idx + 1) % DCM_N_RECV_BUFFERS;
 	}
 
-	((dcm_ioctl_recv_args_t *) arg)->ME_data = NULL;
+
+	if ((ret = copy_to_user((void *) arg, &args, sizeof(dcm_ioctl_recv_args_t))) < 0) {
+		lprintk("Error when sending args (%d)\n", ret);
+		BUG();
+	}
 
 	mutex_unlock(&recv_lock);
 
@@ -192,7 +196,7 @@ int dcm_ME_rx(void *ME_buffer, size_t size) {
 
 	mutex_lock(&recv_lock);
 
-	DBG("%s: ME rx size: %d\n", __func__, size);
+	soo_log("[soo:dcm] Got a ME rx size: %x bytes\n", size);
 
 	buffer_idx = find_free_buffer();
 	if (buffer_idx < 0) {

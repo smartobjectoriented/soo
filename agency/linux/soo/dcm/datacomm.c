@@ -28,6 +28,8 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 
+#include <soo/netsimul.h>
+
 #include <soo/uapi/dcm.h>
 
 #include <soo/dcm/datacomm.h>
@@ -47,8 +49,6 @@
 static sl_desc_t *datacomm_sl_desc = NULL;
 
 static bool datacomm_initialized = false;
-
-static struct task_struct *recv_thread = NULL;
 
 /**
  * At the moment, we experiment a broadcast (no known recipient) and
@@ -136,7 +136,7 @@ static int recv_thread_task_fn(void *data) {
 		/* Release the original compressed buffer */
 		vfree((void *) ME_compressed_buffer);
 
-		ret = dcm_ME_rx(ME_decompressed_buffer, compressed_size);
+		ret = dcm_ME_rx(ME_decompressed_buffer, decompressed_size);
 
 		/*
 		 * If dc_recv_ME returns -ENOMEM, this means that there is no free buffer.
@@ -153,11 +153,12 @@ static int recv_thread_task_fn(void *data) {
 extern void soolink_netsimul_init(void);
 
 void datacomm_init(void) {
+	struct task_struct *__ts;
+
 	DBG("Registering the DCM with Soolink\n");
 
 	printk("[soo:dcm:datacomm] %s: my agency UID is: ", __func__);
 	printk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
-
 
 	/*
 	 * By default, we are using the WLAN plugin on the MERIDA board, or the
@@ -176,8 +177,12 @@ void datacomm_init(void) {
 #error "SOOlink pluging not configured..."
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
 
+	__ts = kthread_create(recv_thread_task_fn, NULL, "datacomm_recv");
+	BUG_ON(!__ts);
 
-	recv_thread = kthread_run(recv_thread_task_fn, NULL, "datacomm_recv");
+	add_thread(current_soo, __ts->pid);
+	wake_up_process(__ts);
+
 #endif
 	datacomm_initialized = true;
 

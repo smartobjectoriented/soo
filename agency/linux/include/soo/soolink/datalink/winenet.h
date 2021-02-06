@@ -106,9 +106,19 @@ typedef enum {
 
 typedef struct {
 
+	wnet_ping_t type;
+
+	/* Used in response */
+	agencyUID_t speakerUID;
+
+} wnet_ping_args_t;
+
+typedef struct {
+
 	uint8_t id;
-	void *priv;
-	agencyUID_t agencyUID;
+
+	uint8_t priv_len;
+	uint8_t priv[0];
 
 } wnet_beacon_t;
 
@@ -129,7 +139,7 @@ typedef struct {
 	uint32_t transID;
 
 	/* Last received beacon */
-	wnet_beacon_t last_beacon;
+	wnet_beacon_t *last_beacon;
 
 } wnet_rx_t;
 

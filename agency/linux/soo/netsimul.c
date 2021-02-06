@@ -17,7 +17,7 @@
  */
 
 /*
- * SOOlink network simulator
+ * SOO ecosystem environment management
  */
 
 #include <linux/types.h>
@@ -27,6 +27,7 @@
 #include <linux/mutex.h>
 
 #include <soo/netsimul.h>
+#include <soo/hypervisor.h>
 
 #include <soo/dcm/dcm.h>
 
@@ -45,7 +46,7 @@
 struct list_head soo_environment;
 
 static int count = 0;
-static struct mutex count_lock;
+static struct mutex env_lock;
 
 /* Simulation environment */
 struct soo_simul_env {
@@ -60,18 +61,24 @@ soo_env_t *__current_soo(void) {
 	soo_env_t *soo;
 	soo_env_thread_t *soo_thread;
 
+	BUG_ON(list_empty(&soo_environment));
+
+	if (__domcall_in_progress)
+		return list_first_entry(&soo_environment, soo_env_t, list);
+
 	list_for_each_entry(soo, &soo_environment, list)
 	{
 		list_for_each_entry(soo_thread, &soo->threads, list)
-				if (soo_thread->pid == current->pid)
-					return soo;
+			if (soo_thread->pid == current->pid)
+				return soo;
 	}
 
-	/* Should never happen */
+	/* If we did not find a SOO env in the list of threads, it means
+	 * we are not in a context of simulation. We take the first one.
+	 */
 
-	BUG();
+	return list_first_entry(&soo_environment, soo_env_t, list);
 
-	return NULL;
 }
 
 soo_env_t *get_soo_by_name(char *name) {
@@ -88,7 +95,7 @@ soo_env_t *get_soo_by_name(char *name) {
 
 void iterate_on_other_soo(soo_iterator_t fn, void *args) {
 	soo_env_t *soo;
-	bool cont = true;
+	bool cont;
 
 	list_for_each_entry(soo, &soo_environment, list)
 	{
@@ -98,6 +105,15 @@ void iterate_on_other_soo(soo_iterator_t fn, void *args) {
 		if (!cont)
 			break;
 	}
+}
+
+void dump_soo(void) {
+	soo_env_t *soo;
+
+	lprintk("[soo:soo_env] List of registered SOO:\n\n");
+
+	list_for_each_entry(soo, &soo_environment, list)
+		lprintk("[soo:soo_env] %s\n", soo->name);
 }
 
 void add_thread(soo_env_t *soo, unsigned int pid) {
@@ -167,7 +183,7 @@ static int soo_stream_task_tx_fn(void *args) {
 
 	while (true) {
 
-		if (!strcmp(current_soo->name, "SOO-1")) {
+		//if (!strcmp(current_soo->name, "SOO-1")) {
 
 			if (discovery_neighbour_count() > 0) {
 				lprintk("*** (%s) sending buffer ****\n", current_soo->name);
@@ -178,13 +194,13 @@ static int soo_stream_task_tx_fn(void *args) {
 
 				lprintk("*** (%s) End. ***\n", current_soo->name);
 
-				msleep(2000);
+				//msleep(1000);
 
 			} else
 				schedule();
 
-		} else
-			schedule();
+		//} else
+		//	schedule();
 	}
 
 	return 0;
@@ -196,26 +212,59 @@ static int soo_stream_task_tx_fn(void *args) {
 int soo_env_fn(void *args) {
 	struct task_struct *__ts;
 	soo_env_t *soo_env;
+	int i;
 
 	soo_env = kzalloc(sizeof(soo_env_t), GFP_KERNEL);
 	BUG_ON(!soo_env);
 
 	INIT_LIST_HEAD(&soo_env->threads);
 
+	mutex_lock(&env_lock);
+
+	count++;
 	list_add_tail(&soo_env->list, &soo_environment);
 
-	mutex_lock(&count_lock);
-	count++;
-	mutex_unlock(&count_lock);
-
 	soo_env->id = count;
+
+	mutex_unlock(&env_lock);
+
 	strcpy(soo_env->name, (char *) args);
+
+	devaccess_get_soo_name(soo_env->name);
 
 	/* Adding ourself (the current thread) to this environment. */
 	add_thread(soo_env, current->pid);
 
 	/* Generate a unique agencyUID. */
+#ifndef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
 	get_random_bytes((void *) &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+
+#else
+
+	for (i = 0; i < SOO_AGENCY_UID_SIZE; i++)
+		soo_env->agencyUID.id[i] = 0x00;
+
+	soo_env->agencyUID.id[3] = 0x99;
+
+	switch (count) {
+
+	/* SOO-1 */
+	case 1:
+		soo_env->agencyUID.id[4] = 0x01;
+		break;
+	case 2:
+		soo_env->agencyUID.id[4] = 0x02;
+		break;
+	case 3:
+		soo_env->agencyUID.id[4] = 0x03;
+		break;
+	default:
+		lprintk("## Invalid SOO count (soo env)...\n");
+		BUG();
+	}
+
+#endif /* CONFIG_SOOLINK_PLUGIN_SIMULATION */
 
 	soo_log("[soo:core:device_access] On CPU %d, SOO %s has the Agency UID: ", smp_processor_id(), soo_env->name);
 	soo_log_printlnUID(&current_soo->agencyUID);
@@ -227,13 +276,14 @@ int soo_env_fn(void *args) {
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	plugin_simulation_init();
-#elif
-	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+#else
+	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	plugin_ethernet_init();
 #endif
 
 	/* Initializing the Discovery and Datalink functional blocks. */
 	lprintk("[soo:core] Initializing SOOlink Discovery...\n");
-	discovery_init(soo_env);
+	discovery_init();
 
 	lprintk("[soo:core] Initializing SOOlink Datalink...\n");
 	datalink_init();
@@ -242,7 +292,7 @@ int soo_env_fn(void *args) {
 	transcoder_init();
 
 	/* Ready to initializing the DCM subsystem */
-	//dcm_init();
+	dcm_init();
 
 	lprintk("[soo:core] Now, starting simulation threads...\n");
 
@@ -254,6 +304,7 @@ int soo_env_fn(void *args) {
 
 	current_soo_simul->recv_count = 0;
 
+#if 0
 	__ts = kthread_create(soo_stream_task_tx_fn, NULL, "soo_stream_task_tx");
 	BUG_ON(!__ts);
 
@@ -265,6 +316,7 @@ int soo_env_fn(void *args) {
 
 	add_thread(soo_env, __ts->pid);
 	wake_up_process(__ts);
+#endif
 
 	do_exit(0);
 
@@ -277,9 +329,12 @@ void soolink_netsimul_init(void) {
 	lprintk("%s: starting SOO environment...\n", __func__);
 
 	INIT_LIST_HEAD(&soo_environment);
-	mutex_init(&count_lock);
+	mutex_init(&env_lock);
 
 	kthread_run(soo_env_fn, "SOO-1", "SOO-1");
-	kthread_run(soo_env_fn, "SOO-2", "SOO-2");
 
+#if 0
+	kthread_run(soo_env_fn, "SOO-2", "SOO-2");
+	kthread_run(soo_env_fn, "SOO-3", "SOO-3");
+#endif
 }

@@ -47,11 +47,9 @@ int initialize_migration(unsigned int ME_slotID);
 
 int get_ME_free_slot(size_t ME_size);
 int get_ME_desc(unsigned int ME_slotID, ME_desc_t *ME_desc);
-int read_migration_struct(unsigned int ME_slotID, unsigned char *ME_buffer);
-int write_migration_struct(unsigned int ME_slotID, unsigned char *ME_buffer, int size);
 
 void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size);
-void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer);
+void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer, size_t buffer_size);
 
 void *prepare_ME_slot(unsigned int slotID);
 int inject_ME(void *ME_buffer);

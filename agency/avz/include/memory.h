@@ -162,7 +162,7 @@ extern unsigned long total_pages;
 
 void init_frametable(void);
 
-extern void __iomem *ioremap_pages(unsigned long phys_addr, unsigned int size, unsigned int mtype);
+extern void *ioremap_pages(unsigned long phys_addr, unsigned int size, unsigned int mtype);
 
 #define __arm_ioremap(p, s, m) ioremap_pages(p, s, m)
 

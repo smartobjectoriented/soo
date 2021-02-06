@@ -264,13 +264,6 @@ typedef struct {
 typedef struct {
 	ME_state_t	state;
 
-	/* The crc32 provides a unique ID of a particular ME instance.
-	 * Each ME instance is unique and such an ID can be used
-	 * to handle which instance is currently processed during the sending for instance.
-	 * The crc32 is computed at the injection and each time a ME arrives in a smart object.
-	 */
-	unsigned int	crc32;
-
 	unsigned int	slotID;
 	unsigned int	size; /* Size of the ME */
 	unsigned int	pfn;
@@ -281,8 +274,12 @@ typedef struct {
 
 /* This structure is used as the first field of the ME buffer frame header */
 typedef struct {
+
 	size_t	ME_size;
 	size_t	size_mig_structure;
+
+	unsigned int crc32;
+
 } ME_info_transfer_t;
 
 #ifdef __KERNEL__

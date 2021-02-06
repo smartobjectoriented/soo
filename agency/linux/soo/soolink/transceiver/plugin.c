@@ -19,6 +19,7 @@
 
 #include <linux/spinlock.h>
 #include <linux/list.h>
+#include <linux/kthread.h>
 
 #include <soo/soolink/transceiver.h>
 #include <soo/soolink/plugin.h>
@@ -95,11 +96,8 @@ static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packe
 	plugin_remote_soo_desc_t *remote_soo_desc_cur;
 	unsigned long flags;
 
-#ifdef VERBOSE
-	lprintk("%s: looking for MAC: ", __func__);
-	lprintk_buffer(mac_src, ETH_ALEN);
-	lprintk("\n");
-#endif
+	soo_log("[soo:soolink:plugin] Looking for MAC");
+	soo_log_buffer(mac_src, ETH_ALEN);
 
 	spin_lock_irqsave(&current_soo_plugin->list_lock, flags);
 
@@ -107,10 +105,10 @@ static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packe
 	list_for_each(cur, &current_soo_plugin->remote_soo_list) {
 		remote_soo_desc_cur = list_entry(cur, plugin_remote_soo_desc_t, list);
 		if (!memcmp(remote_soo_desc_cur->mac, mac_src, ETH_ALEN)) {
-#ifdef VERBOSE
-			lprintk("%s: Agency UID found: ", __func__);
-			printlnUID(&remote_soo_desc_cur->agencyUID);
-#endif
+
+			soo_log("[soo:soolink:plugin] Found agency UID: ");
+			soo_log_printlnUID(&remote_soo_desc_cur->agencyUID);
+
 			memcpy(agencyUID_from, &remote_soo_desc_cur->agencyUID, SOO_AGENCY_UID_SIZE);
 
 			spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
@@ -125,9 +123,8 @@ static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packe
 	 * If the packet is coming from a SOO which is not in the remote SOO table yet,
 	 * discard the packet.
 	 */
-#ifdef VERBOSE
-	lprintk("MAC not found. Discard packet\n");
-#endif
+
+	soo_log("[soo:soolink:plugin] MAC not found. Discard packet\n");
 
 	return false;
 }
@@ -140,6 +137,12 @@ void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src) {
 	unsigned long flags;
 
 	spin_lock_irqsave(&current_soo_plugin->list_lock, flags);
+
+	/* Sanity check */
+	if (!memcmp(agencyUID, &current_soo->agencyUID, SOO_AGENCY_UID_SIZE)) {
+		lprintk("!! We are trying to a remote SOO with the same agency UID as us !!\n");
+		BUG();
+	}
 
 	/* Look for the remote SOO in the list */
 	list_for_each_entry(remote_soo_desc, &current_soo_plugin->remote_soo_list, list) {
@@ -157,17 +160,19 @@ void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src) {
 	 * Create the new entry.
 	 * The data contained by the beacon is the agency UID of the sender.
 	 */
-	remote_soo_desc = (plugin_remote_soo_desc_t *) kmalloc(sizeof(plugin_remote_soo_desc_t), GFP_ATOMIC);
+	remote_soo_desc = (plugin_remote_soo_desc_t *) kzalloc(sizeof(plugin_remote_soo_desc_t), GFP_KERNEL);
+	BUG_ON(!remote_soo_desc);
+
 	memcpy(remote_soo_desc->mac, mac_src, ETH_ALEN);
 
 	memcpy(&remote_soo_desc->agencyUID, agencyUID, SOO_AGENCY_UID_SIZE);
 
 	list_add_tail(&remote_soo_desc->list, &current_soo_plugin->remote_soo_list);
 
-#ifdef VERBOSE
-	lprintk("%s: added agency UID: ", __func__);
-	printlnUID(&remote_soo_desc->agencyUID);
-#endif
+	soo_log("[soo:soolink:plugin] added agency UID: ");
+	soo_log_printUID(&remote_soo_desc->agencyUID);
+	soo_log(" with MAC address: ");
+	soo_log_buffer(mac_src, ETH_ALEN);
 
 	spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 }
@@ -183,10 +188,10 @@ void detach_agencyUID(agencyUID_t *agencyUID) {
 
 	list_for_each_entry_safe(remote_soo_desc, tmp, &current_soo_plugin->remote_soo_list, list) {
 		if (!memcmp(agencyUID, &remote_soo_desc->agencyUID, SOO_AGENCY_UID_SIZE)) {
-#ifdef VERBOSE
-			lprintk("%s: delete the agency UID: ", __func__);
-			printlnUID(&remote_soo_desc->agencyUID);
-#endif
+
+			soo_log("[soo:soolink:plugin] delete the agency UID: ");
+			soo_log_printlnUID(&remote_soo_desc->agencyUID);
+
 			list_del(&remote_soo_desc->list);
 			kfree(remote_soo_desc);
 
@@ -217,44 +222,63 @@ void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 }
 
 /**
- * Receive a packet from a plugin.
+ * Main rx processing in a separate thread.
  */
-void plugin_rx(plugin_desc_t *plugin_desc, req_type_t req_type, void *data, size_t size, uint8_t *mac_src) {
+static int plugin_rx_fn(void *args) {
 	sl_desc_t *sl_desc;
 	bool found;
 	transceiver_packet_t *transceiver_packet;
 	agencyUID_t agencyUID_from;
 	ssize_t payload_size;
+	medium_rx_t *rsp;
 
-	if (req_type == SL_REQ_DISCOVERY) {
-		transceiver_packet = (transceiver_packet_t *) data;
+	while (true) {
 
-		/* Substract the transceiver's packet header size from the total size */
-		payload_size = size - sizeof(transceiver_packet_t);
+		soo_log("[soo:soolink:plugin] Waiting on RX packets...\n");
 
-		discovery_rx(plugin_desc, transceiver_packet->payload, payload_size, mac_src);
+		wait_for_completion(&current_soo_plugin->rx_event);
 
-		return ;
+		soo_log("[soo:soolink:plugin] Got something...\n");
+
+		rsp = medium_rx_get_ring_response(&current_soo_plugin->rx_ring);
+
+		if (rsp->req_type == SL_REQ_DISCOVERY) {
+			transceiver_packet = (transceiver_packet_t *) rsp->data;
+
+			/* Substract the transceiver's packet header size from the total size */
+			payload_size = rsp->size - sizeof(transceiver_packet_t);
+
+			discovery_rx(rsp->plugin_desc, transceiver_packet->payload , payload_size, rsp->mac_src);
+
+			continue;
+		}
+
+		if (rsp->mac_src) {
+
+			/* If we receive a packet from a neighbour which is not known yet, we simply ignore the packet. */
+			found = identify_remote_soo(rsp->req_type, rsp->data, rsp->mac_src, &agencyUID_from);
+
+			if (!found)
+				continue;
+		} else
+			memcpy(&agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
+
+		/* Find out a corresponding sl_desc descriptor for this type of requester */
+		sl_desc = find_sl_desc_by_req_type(rsp->req_type);
+
+		if (!sl_desc)
+			/* We did not find any available descriptor able to process this data. Simply ignore it... */
+			continue;
+
+		memcpy(&sl_desc->agencyUID_from, &agencyUID_from, SOO_AGENCY_UID_SIZE);
+
+		__receiver_rx(sl_desc, rsp->data, rsp->size);
+
+		kfree(rsp->mac_src);
+		kfree(rsp->data);
 	}
 
-	if (mac_src) {
-		/* If we receive a packet from a neighbour which is not known yet, we simply ignore the packet. */
-		found = identify_remote_soo(req_type, data, mac_src, &agencyUID_from);
-
-		if (!found)
-			return ;
-	} else
-		memcpy(&agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
-
-	/* Find out a corresponding sl_desc descriptor for this type of requester */
-	sl_desc = find_sl_desc_by_req_type(req_type);
-	if (!sl_desc)
-		/* We did not find any available descriptor able to process this data. Simply ignore it... */
-		return ;
-
-	memcpy(&sl_desc->agencyUID_from, &agencyUID_from, SOO_AGENCY_UID_SIZE);
-
-	__receiver_rx(sl_desc, data, size);
+	return 0;
 }
 
 /**
@@ -292,6 +316,8 @@ void transceiver_plugin_register(plugin_desc_t *plugin_desc) {
  * Main initialization function of the Plugin functional block
  */
 void transceiver_plugin_init(void) {
+	medium_rx_sring_t *sring;
+	struct task_struct *__ts;
 
 	lprintk("Soolink transceiver plugin init ...\n");
 
@@ -303,4 +329,20 @@ void transceiver_plugin_init(void) {
 
 	spin_lock_init(&current_soo_plugin->list_lock);
 
+	init_completion(&current_soo_plugin->rx_event);
+
+	/* Allocate the shared ring structure */
+
+	sring = (medium_rx_sring_t *) vmalloc(32 * PAGE_SIZE);
+	BUG_ON(!sring);
+
+	SHARED_RING_INIT(sring);
+	FRONT_RING_INIT(&current_soo_plugin->rx_ring, sring, 32 * PAGE_SIZE);
+
+	__ts = kthread_create(plugin_rx_fn, NULL, "plugin_rx");
+	BUG_ON(!__ts);
+
+	add_thread(current_soo, __ts->pid);
+
+	wake_up_process(__ts);
 }
