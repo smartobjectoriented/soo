@@ -1,0 +1,20 @@
+
+choice
+
+	prompt "SOO Mobile Entity environment"
+	
+	config SOO_REFSO3
+			bool "SO3 ME Reference"
+
+	config SOO_BLIND
+		    bool "SOO.blind Mobile Entity"
+		
+	config SOO_OUTDOOR
+			bool "SOO.outdoor Mobile Entity"
+	
+	config SOO_AGENCY
+			bool "SOO.agency Mobile Entity"
+			
+		
+endchoice
+
