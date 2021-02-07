@@ -197,7 +197,6 @@ $(obj)/%.o: $(src)/%.S FORCE
 targets += $(real-objs-y) $(lib-y)
 targets += $(extra-y) $(MAKECMDGOALS) $(always)
 
-
 # Linker scripts preprocessor (.lds.S -> .lds)
 # ---------------------------------------------------------------------------
 quiet_cmd_cpp_lds_S = LDS     $@

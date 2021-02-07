@@ -349,11 +349,10 @@ endif
 
 ELF	= avz
 BIN	= avz.bin
-DTB	= dts/$(TARGET).dtb
 
 include scripts/Makefile.build
  
-all: $(BIN) $(DTB)
+all: $(BIN) 
 
 objs-y		:= kernel mm arch/arm devices  
 libs-y		:= lib
@@ -380,13 +379,6 @@ KBUILD_AFLAGS_KERNEL += -Iarch/arm/include/ -Iarch/arm/$(TARGET)/include/
 
 $(BIN): $(ELF)
 	$(OBJCOPY) --set-section-flags .bss=alloc,load,contents -O binary $< $@ 2>/dev/null
-	
-dtbs: $(DTB)
-
-$(DTB): dts/$(TARGET).dts
-	$(Q)$(CC) -P -E -nostdinc -I. -undef -D__DTS__ -x assembler-with-cpp -o dts/$(TARGET)-complete.dts dts/$(TARGET).dts
-	dtc dts/$(TARGET)-complete.dts -O dtb -o $@
-	$(Q)rm -f dts/$(TARGET)-complete.dts
 	
 $(ELF): $(avz-all)
 	$(call if_changed,avz)
@@ -420,7 +412,7 @@ $(avz-dirs): prepare scripts_basic
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  +=
-CLEAN_FILES +=	avz avz.bin dts/*.dtb
+CLEAN_FILES +=	avz avz.bin
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated
