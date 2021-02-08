@@ -1,4 +1,4 @@
-SHELL = /bin/bash
+SHELL = bash
 
 # It can happen that a makefile calls us, which contains an 'export' directive
 # or the '.EXPORT_ALL_VARIABLES:' special target. In this case, all the make
@@ -13,6 +13,10 @@ SHELL = /bin/bash
 # biggest one due to our way of tracking dependencies and compile flags
 # (we include many *.cmd and *.d files).
 unexport MAKEFILE_LIST
+
+# Automatically delete corrupt targets (file updated but recipe exits with a
+# nonzero status). Useful since a few recipes use shell redirection.
+.DELETE_ON_ERROR:
 
 include mk/checkconf.mk
 
@@ -69,6 +73,7 @@ cmd-echo-silent := true
 endif
 endif
 
+SCRIPTS_DIR := scripts
 
 include core/core.mk
 
@@ -89,7 +94,7 @@ define build-user-ta
 ta-mk-file := $(1)
 include ta/mk/build-user-ta.mk
 endef
-$(foreach t, $(wildcard ta/*/user_ta.mk), $(eval $(call build-user-ta,$(t))))
+$(foreach t, $(sort $(wildcard ta/*/user_ta.mk)), $(eval $(call build-user-ta,$(t))))
 endif
 
 include mk/cleandirs.mk

@@ -10,6 +10,9 @@ ta-target := $(strip $(if $(CFG_USER_TA_TARGET_$(sm)), \
 ta-dev-kit-dir$(sm) := $(out-dir)/export-$(ta-target)
 link-out-dir$(sm) := $(out-dir)/$(patsubst %/,%, $(dir $(ta-mk-file)))
 
+# Default if ta-mk-file defines none
+user-ta-version := 0
+
 include $(ta-mk-file)
 ifeq ($(user-ta-uuid),)
 $(error user-ta-uuid missing in $(ta-mk-file))
@@ -31,9 +34,6 @@ endif
 
 libdirs  = $(ta-dev-kit-dir$(sm))/lib
 libnames = utils utee
-ifneq ($(CFG_TA_MBEDTLS_MPI),y)
-libnames += mpa
-endif
 ifeq ($(CFG_TA_MBEDTLS),y)
 libnames += mbedtls
 endif
@@ -54,3 +54,12 @@ include mk/compile.mk
 # Install TA libraries before in-tree TAs can be linked
 additional-link-deps := $(ta_dev_kit-files-lib)
 include  ta/arch/$(ARCH)/link.mk
+
+ta_dev_kit: $(out-dir)/export-$(ta-target)/ta/$(user-ta-uuid).ta
+
+$(out-dir)/export-$(ta-target)/ta/$(user-ta-uuid).ta: $(link-out-dir$(sm))/$(user-ta-uuid).ta
+	$(q)mkdir -p $(dir $@)
+	@$(cmd-echo-silent) '  INSTALL $@'
+	$(q)cp -P $< $@
+
+cleanfiles += $(out-dir)/export-$(ta-target)/ta/$(user-ta-uuid).ta

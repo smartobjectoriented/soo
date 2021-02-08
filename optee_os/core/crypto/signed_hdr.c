@@ -57,8 +57,8 @@ TEE_Result shdr_verify_signature(const struct shdr *shdr)
 	if (TEE_ALG_GET_MAIN_ALG(shdr->algo) != TEE_MAIN_ALGO_RSA)
 		return TEE_ERROR_SECURITY;
 
-	res = tee_hash_get_digest_size(TEE_DIGEST_HASH_TO_ALGO(shdr->algo),
-				       &hash_size);
+	res = tee_alg_get_digest_size(TEE_DIGEST_HASH_TO_ALGO(shdr->algo),
+				      &hash_size);
 	if (res)
 		return TEE_ERROR_SECURITY;
 	if (hash_size != shdr->hash_size)
@@ -76,7 +76,7 @@ TEE_Result shdr_verify_signature(const struct shdr *shdr)
 	if (res)
 		goto out;
 
-	res = crypto_acipher_rsassa_verify(shdr->algo, &key, -1,
+	res = crypto_acipher_rsassa_verify(shdr->algo, &key, shdr->hash_size,
 					   SHDR_GET_HASH(shdr), shdr->hash_size,
 					   SHDR_GET_SIG(shdr), shdr->sig_size);
 out:

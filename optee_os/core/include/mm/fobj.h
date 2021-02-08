@@ -85,6 +85,27 @@ struct fobj *fobj_ro_paged_alloc(unsigned int num_pages, void *hashes,
 				 void *store);
 
 /*
+ * fobj_ro_reloc_paged_alloc() - Allocate initialized read-only storage with
+ *				 relocation
+ * @num_pages:	Number of pages covered
+ * @hashes:	Hashes to verify the pages
+ * @reloc_offs:	Offset from the base address in the relocations in @reloc
+ * @reloc:	Relocation data
+ * @reloc_len:	Length of relocation data
+ * @store:	Clear text data for all pages
+ *
+ * This object is like fobj_ro_paged_alloc() above, but in addition the
+ * relocation information is applied to a populated page. This makes sure
+ * the offset to which all pages are relocated doesn't leak out to storage.
+ *
+ * Returns a valid pointer on success or NULL on failure.
+ */
+struct fobj *fobj_ro_reloc_paged_alloc(unsigned int num_pages, void *hashes,
+				       unsigned int reloc_offs,
+				       const void *reloc,
+				       unsigned int reloc_len, void *store);
+
+/*
  * fobj_load_page() - Load a page into memory
  * @fobj:	Fobj pointer
  * @page_index:	Index of page in @fobj
@@ -169,19 +190,5 @@ static inline void fobj_put(struct fobj *fobj)
 	if (fobj && refcount_dec(&fobj->refc))
 		fobj->ops->free(fobj);
 }
-
-#ifdef CFG_WITH_PAGER
-/*
- * fobj_generate_authenc_key() - Generate authentication key
- *
- * Generates the authentication key used in all fobjs allocated with
- * fobj_rw_paged_alloc().
- */
-void fobj_generate_authenc_key(void);
-#else
-static inline void fobj_generate_authenc_key(void)
-{
-}
-#endif
 
 #endif /*__MM_FOBJ_H*/

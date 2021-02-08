@@ -1319,39 +1319,7 @@ CONFIG_SCSI_LOWLEVEL=y
 # end of SCSI device support
 
 CONFIG_HAVE_PATA_PLATFORM=y
-CONFIG_ATA=y
-CONFIG_ATA_VERBOSE_ERROR=y
-CONFIG_SATA_PMP=y
-
-#
-# Controllers with non-SFF native interface
-#
-CONFIG_SATA_AHCI_PLATFORM=y
-# CONFIG_AHCI_CEVA is not set
-# CONFIG_AHCI_QORIQ is not set
-CONFIG_ATA_SFF=y
-
-#
-# SFF controllers with custom DMA interface
-#
-CONFIG_ATA_BMDMA=y
-
-#
-# SATA SFF controllers with BMDMA
-#
-
-#
-# PATA SFF controllers with BMDMA
-#
-
-#
-# PIO-only SFF controllers
-#
-# CONFIG_PATA_PLATFORM is not set
-
-#
-# Generic fallback / legacy drivers
-#
+# CONFIG_ATA is not set
 # CONFIG_MD is not set
 # CONFIG_TARGET_CORE is not set
 CONFIG_NETDEVICES=y
@@ -2369,7 +2337,6 @@ CONFIG_LEDS_GPIO=y
 CONFIG_LEDS_TRIGGERS=y
 # CONFIG_LEDS_TRIGGER_TIMER is not set
 # CONFIG_LEDS_TRIGGER_ONESHOT is not set
-# CONFIG_LEDS_TRIGGER_DISK is not set
 CONFIG_LEDS_TRIGGER_HEARTBEAT=y
 # CONFIG_LEDS_TRIGGER_BACKLIGHT is not set
 CONFIG_LEDS_TRIGGER_CPU=y
@@ -3304,6 +3271,7 @@ CONFIG_UNCOMPRESS_INCLUDE="debug/uncompress.h"
 #
 # SOO Framework and subsystems
 #
+# CONFIG_SOO_CORE_ASF is not set
 CONFIG_DCM_LZ4=y
 
 #
@@ -3313,6 +3281,7 @@ CONFIG_DCM_LZ4=y
 CONFIG_SOOLINK_PLUGIN_ETHERNET=y
 # CONFIG_SOOLINK_PLUGIN_BLUETOOTH is not set
 # CONFIG_SOOLINK_PLUGIN_LOOPBACK is not set
+# CONFIG_SOOLINK_PLUGIN_SIMULATION is not set
 # end of Soolink plugins
 
 #

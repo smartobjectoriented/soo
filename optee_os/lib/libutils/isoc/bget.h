@@ -26,13 +26,15 @@
 #endif /* PROTOTYPES */
 #endif
 
+#define BGET_HDR_QUANTUM    (2 * sizeof(long))
+
 typedef long bufsize;
 struct bpoolset;
 
 void	bpool	    _((void *buffer, bufsize len, struct bpoolset *poolset));
-void   *bget	    _((bufsize size, struct bpoolset *poolset));
-void   *bgetz	    _((bufsize size, struct bpoolset *poolset));
-void   *bgetr	    _((void *buffer, bufsize newsize,
+void   *bget	    _((bufsize align, bufsize hdr_size, bufsize size, struct bpoolset *poolset));
+void   *bgetz	    _((bufsize align, bufsize hdr_size, bufsize size, struct bpoolset *poolset));
+void   *bgetr	    _((void *buffer, bufsize align, bufsize hdr_size, bufsize newsize,
 		       struct bpoolset *poolset));
 void	brel	    _((void *buf, struct bpoolset *poolset, int wipe));
 void	bectl	    _((int (*compact)(bufsize sizereq, int sequence),
@@ -47,3 +49,7 @@ void	bstatse     _((bufsize *pool_incr, long *npool, long *npget,
 void	bufdump     _((void *buf));
 void	bpoold	    _((void *pool, int dumpalloc, int dumpfree));
 int	bpoolv	    _((void *pool));
+
+#if !defined(__KERNEL__) && !defined(__LDELF__) && defined(CFG_TA_BGET_TEST)
+int bget_main_test(void *(*malloc_func)(size_t), void (*free_func)(void *));
+#endif

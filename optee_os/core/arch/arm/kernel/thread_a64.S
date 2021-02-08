@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2015-2017, Linaro Limited
+ * Copyright (c) 2015-2020, Linaro Limited
  */
 
 #include <arm.h>
@@ -12,18 +12,22 @@
 #include <kernel/thread_defs.h>
 #include <mm/core_mmu.h>
 #include <smccc.h>
-#include <sm/optee_smc.h>
-#include <sm/teesmc_opteed.h>
-#include <sm/teesmc_opteed_macros.h>
 
 #include "thread_private.h"
 
 	.macro get_thread_ctx core_local, res, tmp0, tmp1
-		ldr	w\tmp0, [\core_local, \
+		ldrh	w\tmp0, [\core_local, \
 				#THREAD_CORE_LOCAL_CURR_THREAD]
 		ldr	x\res, =threads
 		mov	x\tmp1, #THREAD_CTX_SIZE
 		madd	x\res, x\tmp0, x\tmp1, x\res
+	.endm
+
+	.macro return_from_exception
+		eret
+		/* Guard against speculation past ERET */
+		dsb nsh
+		isb
 	.endm
 
 	.macro b_if_spsr_is_el0 reg, label
@@ -32,128 +36,6 @@
 		b.eq	\label
 	.endm
 
-LOCAL_FUNC vector_std_smc_entry , :
-	sub	sp, sp, #THREAD_SMC_ARGS_SIZE
-	store_xregs sp, THREAD_SMC_ARGS_X0, 0, 7
-	mov	x0, sp
-	bl	thread_handle_std_smc
-	/*
-	 * Normally thread_handle_std_smc() should return via
-	 * thread_exit(), thread_rpc(), but if thread_handle_std_smc()
-	 * hasn't switched stack (error detected) it will do a normal "C"
-	 * return.
-	 */
-	load_xregs sp, THREAD_SMC_ARGS_X0, 1, 8
-	add	sp, sp, #THREAD_SMC_ARGS_SIZE
-	ldr	x0, =TEESMC_OPTEED_RETURN_CALL_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-END_FUNC vector_std_smc_entry
-
-LOCAL_FUNC vector_fast_smc_entry , :
-	sub	sp, sp, #THREAD_SMC_ARGS_SIZE
-	store_xregs sp, THREAD_SMC_ARGS_X0, 0, 7
-	mov	x0, sp
-	bl	thread_handle_fast_smc
-	load_xregs sp, THREAD_SMC_ARGS_X0, 1, 8
-	add	sp, sp, #THREAD_SMC_ARGS_SIZE
-	ldr	x0, =TEESMC_OPTEED_RETURN_CALL_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-END_FUNC vector_fast_smc_entry
-
-LOCAL_FUNC vector_fiq_entry , :
-	/* Secure Monitor received a FIQ and passed control to us. */
-	bl	thread_check_canaries
-	adr	x16, thread_nintr_handler_ptr
-	ldr	x16, [x16]
-	blr	x16
-	ldr	x0, =TEESMC_OPTEED_RETURN_FIQ_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-END_FUNC vector_fiq_entry
-
-LOCAL_FUNC vector_cpu_on_entry , :
-	adr	x16, thread_cpu_on_handler_ptr
-	ldr	x16, [x16]
-	blr	x16
-	mov	x1, x0
-	ldr	x0, =TEESMC_OPTEED_RETURN_ON_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-END_FUNC vector_cpu_on_entry
-
-LOCAL_FUNC vector_cpu_off_entry , :
-	adr	x16, thread_cpu_off_handler_ptr
-	ldr	x16, [x16]
-	blr	x16
-	mov	x1, x0
-	ldr	x0, =TEESMC_OPTEED_RETURN_OFF_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-END_FUNC vector_cpu_off_entry
-
-LOCAL_FUNC vector_cpu_suspend_entry , :
-	adr	x16, thread_cpu_suspend_handler_ptr
-	ldr	x16, [x16]
-	blr	x16
-	mov	x1, x0
-	ldr	x0, =TEESMC_OPTEED_RETURN_SUSPEND_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-END_FUNC vector_cpu_suspend_entry
-
-LOCAL_FUNC vector_cpu_resume_entry , :
-	adr	x16, thread_cpu_resume_handler_ptr
-	ldr	x16, [x16]
-	blr	x16
-	mov	x1, x0
-	ldr	x0, =TEESMC_OPTEED_RETURN_RESUME_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-END_FUNC vector_cpu_resume_entry
-
-LOCAL_FUNC vector_system_off_entry , :
-	adr	x16, thread_system_off_handler_ptr
-	ldr	x16, [x16]
-	blr	x16
-	mov	x1, x0
-	ldr	x0, =TEESMC_OPTEED_RETURN_SYSTEM_OFF_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-END_FUNC vector_system_off_entry
-
-LOCAL_FUNC vector_system_reset_entry , :
-	adr	x16, thread_system_reset_handler_ptr
-	ldr	x16, [x16]
-	blr	x16
-	mov	x1, x0
-	ldr	x0, =TEESMC_OPTEED_RETURN_SYSTEM_RESET_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-END_FUNC vector_system_reset_entry
-
-/*
- * Vector table supplied to ARM Trusted Firmware (ARM-TF) at
- * initialization.
- *
- * Note that ARM-TF depends on the layout of this vector table, any change
- * in layout has to be synced with ARM-TF.
- */
-FUNC thread_vector_table , :
-	b	vector_std_smc_entry
-	b	vector_fast_smc_entry
-	b	vector_cpu_on_entry
-	b	vector_cpu_off_entry
-	b	vector_cpu_resume_entry
-	b	vector_cpu_suspend_entry
-	b	vector_fiq_entry
-	b	vector_system_off_entry
-	b	vector_system_reset_entry
-END_FUNC thread_vector_table
-KEEP_PAGER thread_vector_table
-
-
 /* void thread_resume(struct thread_ctx_regs *regs) */
 FUNC thread_resume , :
 	load_xregs x0, THREAD_CTX_REGS_SP, 1, 3
@@ -161,12 +43,14 @@ FUNC thread_resume , :
 	mov	sp, x1
 	msr	elr_el1, x2
 	msr	spsr_el1, x3
+	ldr	x1, [x0, THREAD_CTX_REGS_TPIDR_EL0]
+	msr	tpidr_el0, x1
 
 	b_if_spsr_is_el0 w3, 1f
 
 	load_xregs x0, THREAD_CTX_REGS_X1, 1, 3
 	ldr	x0, [x0, THREAD_CTX_REGS_X0]
-	eret
+	return_from_exception
 
 1:	load_xregs x0, THREAD_CTX_REGS_X1, 1, 3
 	ldr	x0, [x0, THREAD_CTX_REGS_X0]
@@ -175,93 +59,6 @@ FUNC thread_resume , :
 	store_xregs sp, THREAD_CORE_LOCAL_X0, 0, 1
 	b	eret_to_el0
 END_FUNC thread_resume
-
-FUNC thread_std_smc_entry , :
-	/* pass x0-x7 in a struct thread_smc_args */
-	sub	sp, sp, #THREAD_SMC_ARGS_SIZE
-	store_xregs sp, THREAD_SMC_ARGS_X0, 0, 7
-	mov	x0, sp
-
-	/* Call the registered handler */
-	bl	__thread_std_smc_entry
-
-	/*
-	 * Load the returned x0-x3 into preserved registers and skip the
-	 * "returned" x4-x7 since they will not be returned to normal
-	 * world.
-	 */
-	load_xregs sp, THREAD_SMC_ARGS_X0, 20, 23
-	add	sp, sp, #THREAD_SMC_ARGS_SIZE
-
-	/* Mask all maskable exceptions before switching to temporary stack */
-	msr	daifset, #DAIFBIT_ALL
-	bl	thread_get_tmp_sp
-	mov	sp, x0
-
-	bl	thread_state_free
-
-	ldr	x0, =TEESMC_OPTEED_RETURN_CALL_DONE
-	mov	x1, x20
-	mov	x2, x21
-	mov	x3, x22
-	mov	x4, x23
-	smc	#0
-	b	.	/* SMC should not return */
-END_FUNC thread_std_smc_entry
-
-/* void thread_rpc(uint32_t rv[THREAD_RPC_NUM_ARGS]) */
-FUNC thread_rpc , :
-	/* Read daif and create an SPSR */
-	mrs	x1, daif
-	orr	x1, x1, #(SPSR_64_MODE_EL1 << SPSR_64_MODE_EL_SHIFT)
-
-	/* Mask all maskable exceptions before switching to temporary stack */
-	msr	daifset, #DAIFBIT_ALL
-	push	x0, xzr
-	push	x1, x30
-	bl	thread_get_ctx_regs
-	ldr	x30, [sp, #8]
-	store_xregs x0, THREAD_CTX_REGS_X19, 19, 30
-	mov	x19, x0
-
-	bl	thread_get_tmp_sp
-	pop	x1, xzr		/* Match "push x1, x30" above */
-	mov	x2, sp
-	str	x2, [x19, #THREAD_CTX_REGS_SP]
-	ldr	x20, [sp]	/* Get pointer to rv[] */
-	mov	sp, x0		/* Switch to tmp stack */
-	/*
-	 * We need to read rv[] early, because thread_state_suspend
-	 * can invoke virt_unset_guest() which will unmap pages,
-	 * where rv[] resides
-	 */
-	load_wregs x20, 0, 21, 23	/* Load rv[] into w20-w22 */
-
-	adr	x2, .thread_rpc_return
-	mov	w0, #THREAD_FLAGS_COPY_ARGS_ON_RETURN
-	bl	thread_state_suspend
-	mov	x4, x0		/* Supply thread index */
-	ldr	w0, =TEESMC_OPTEED_RETURN_CALL_DONE
-	mov	x1, x21
-	mov	x2, x22
-	mov	x3, x23
-	smc	#0
-	b	.		/* SMC should not return */
-
-.thread_rpc_return:
-	/*
-	 * At this point has the stack pointer been restored to the value
-	 * stored in THREAD_CTX above.
-	 *
-	 * Jumps here from thread_resume above when RPC has returned. The
-	 * IRQ and FIQ bits are restored to what they where when this
-	 * function was originally entered.
-	 */
-	pop	x16, xzr	/* Get pointer to rv[] */
-	store_wregs x16, 0, 0, 5	/* Store w0-w5 into rv[] */
-	ret
-END_FUNC thread_rpc
-KEEP_PAGER thread_rpc
 
 FUNC thread_smc , :
 	smc	#0
@@ -272,30 +69,27 @@ FUNC thread_init_vbar , :
 	msr	vbar_el1, x0
 	ret
 END_FUNC thread_init_vbar
-KEEP_PAGER thread_init_vbar
+DECLARE_KEEP_PAGER thread_init_vbar
 
 /*
- * uint32_t __thread_enter_user_mode(unsigned long a0, unsigned long a1,
- *               unsigned long a2, unsigned long a3, unsigned long user_sp,
- *               unsigned long user_func, unsigned long spsr,
- *               uint32_t *exit_status0, uint32_t *exit_status1)
+ * uint32_t __thread_enter_user_mode(struct thread_ctx_regs *regs,
+ *				     uint32_t *exit_status0,
+ *				     uint32_t *exit_status1);
  *
+ * This function depends on being called with exceptions masked.
  */
 FUNC __thread_enter_user_mode , :
-	ldr	x8, [sp]
 	/*
 	 * Create the and fill in the struct thread_user_mode_rec
 	 */
 	sub	sp, sp, #THREAD_USER_MODE_REC_SIZE
-	store_xregs sp, THREAD_USER_MODE_REC_EXIT_STATUS0_PTR, 7, 8
+	store_xregs sp, THREAD_USER_MODE_REC_CTX_REGS_PTR, 0, 2
 	store_xregs sp, THREAD_USER_MODE_REC_X19, 19, 30
 
 	/*
-	 * Switch to SP_EL1
-	 * Disable exceptions
 	 * Save kern sp in x19
+	 * Switch to SP_EL1
 	 */
-	msr	daifset, #DAIFBIT_ALL
 	mov	x19, sp
 	msr	spsel, #1
 
@@ -313,20 +107,25 @@ FUNC __thread_enter_user_mode , :
 	/*
 	 * Initialize SPSR, ELR_EL1, and SP_EL0 to enter user mode
 	 */
-	msr	spsr_el1, x6
-	/* Set user sp */
-	mov	x13, x4		/* Used when running TA in Aarch32 */
-	msr	sp_el0, x4	/* Used when running TA in Aarch64 */
-	/* Set user function */
-	msr	elr_el1, x5
-	/* Set frame pointer (user stack can't be unwound past this point) */
-	mov x29, #0
+	load_xregs x0, THREAD_CTX_REGS_SP, 1, 3
+	msr	sp_el0, x1
+	msr	elr_el1, x2
+	msr	spsr_el1, x3
+
+	/*
+	 * Save the values for x0 and x1 in struct thread_core_local to be
+	 * restored later just before the eret.
+	 */
+	load_xregs x0, THREAD_CTX_REGS_X0, 1, 2
+	store_xregs sp, THREAD_CORE_LOCAL_X0, 1, 2
+
+	/* Load the rest of the general purpose registers */
+	load_xregs x0, THREAD_CTX_REGS_X2, 2, 30
 
 	/* Jump into user mode */
-	store_xregs sp, THREAD_CORE_LOCAL_X0, 0, 1
 	b eret_to_el0
 END_FUNC __thread_enter_user_mode
-KEEP_PAGER __thread_enter_user_mode
+DECLARE_KEEP_PAGER __thread_enter_user_mode
 
 /*
  * void thread_unwind_user_mode(uint32_t ret, uint32_t exit_status0,
@@ -335,9 +134,11 @@ KEEP_PAGER __thread_enter_user_mode
  */
 FUNC thread_unwind_user_mode , :
 	/* Store the exit status */
-	ldp	x3, x4, [sp, #THREAD_USER_MODE_REC_EXIT_STATUS0_PTR]
-	str	w1, [x3]
-	str	w2, [x4]
+	load_xregs sp, THREAD_USER_MODE_REC_CTX_REGS_PTR, 3, 5
+	str	w1, [x4]
+	str	w2, [x5]
+	/* Save x19..x30 */
+	store_xregs x3, THREAD_CTX_REGS_X19, 19, 30
 	/* Restore x19..x30 */
 	load_xregs sp, THREAD_USER_MODE_REC_X19, 19, 30
 	add	sp, sp, #THREAD_USER_MODE_REC_SIZE
@@ -377,7 +178,7 @@ END_FUNC thread_unwind_user_mode
 	1:
 
 		/* Point to the vector into the full mapping */
-		adr	x0, thread_user_kcode_offset
+		adr_l	x0, thread_user_kcode_offset
 		ldr	x0, [x0]
 		mrs	x1, vbar_el1
 		add	x1, x1, x0
@@ -389,7 +190,7 @@ END_FUNC thread_unwind_user_mode
 		 * Update the SP with thread_user_kdata_sp_offset as
 		 * described in init_user_kcode().
 		 */
-		adr	x0, thread_user_kdata_sp_offset
+		adr_l	x0, thread_user_kdata_sp_offset
 		ldr	x0, [x0]
 		add	sp, sp, x0
 #endif
@@ -409,32 +210,30 @@ END_FUNC thread_unwind_user_mode
 	.endm
 
 #define INV_INSN	0
-	.section .text.thread_excp_vect
-	.align	11, INV_INSN
-FUNC thread_excp_vect , :
+FUNC thread_excp_vect , : align=2048
 	/* -----------------------------------------------------
 	 * EL1 with SP0 : 0x0 - 0x180
 	 * -----------------------------------------------------
 	 */
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el1_sync_sp0:
 	store_xregs sp, THREAD_CORE_LOCAL_X0, 0, 3
 	b	el1_sync_abort
 	check_vector_size el1_sync_sp0
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el1_irq_sp0:
 	store_xregs sp, THREAD_CORE_LOCAL_X0, 0, 3
 	b	elx_irq
 	check_vector_size el1_irq_sp0
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el1_fiq_sp0:
 	store_xregs sp, THREAD_CORE_LOCAL_X0, 0, 3
 	b	elx_fiq
 	check_vector_size el1_fiq_sp0
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el1_serror_sp0:
 	b	el1_serror_sp0
 	check_vector_size el1_serror_sp0
@@ -443,22 +242,22 @@ el1_serror_sp0:
 	 * Current EL with SP1: 0x200 - 0x380
 	 * -----------------------------------------------------
 	 */
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el1_sync_sp1:
 	b	el1_sync_sp1
 	check_vector_size el1_sync_sp1
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el1_irq_sp1:
 	b	el1_irq_sp1
 	check_vector_size el1_irq_sp1
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el1_fiq_sp1:
 	b	el1_fiq_sp1
 	check_vector_size el1_fiq_sp1
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el1_serror_sp1:
 	b	el1_serror_sp1
 	check_vector_size el1_serror_sp1
@@ -467,7 +266,7 @@ el1_serror_sp1:
 	 * Lower EL using AArch64 : 0x400 - 0x580
 	 * -----------------------------------------------------
 	 */
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el0_sync_a64:
 	restore_mapping
 
@@ -479,21 +278,21 @@ el0_sync_a64:
 	b	el0_sync_abort
 	check_vector_size el0_sync_a64
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el0_irq_a64:
 	restore_mapping
 
 	b	elx_irq
 	check_vector_size el0_irq_a64
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el0_fiq_a64:
 	restore_mapping
 
 	b	elx_fiq
 	check_vector_size el0_fiq_a64
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el0_serror_a64:
 	b   	el0_serror_a64
 	check_vector_size el0_serror_a64
@@ -502,7 +301,7 @@ el0_serror_a64:
 	 * Lower EL using AArch32 : 0x0 - 0x180
 	 * -----------------------------------------------------
 	 */
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el0_sync_a32:
 	restore_mapping
 
@@ -514,21 +313,21 @@ el0_sync_a32:
 	b	el0_sync_abort
 	check_vector_size el0_sync_a32
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el0_irq_a32:
 	restore_mapping
 
 	b	elx_irq
 	check_vector_size el0_irq_a32
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el0_fiq_a32:
 	restore_mapping
 
 	b	elx_fiq
 	check_vector_size el0_fiq_a32
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 el0_serror_a32:
 	b	el0_serror_a32
 	check_vector_size el0_serror_a32
@@ -541,29 +340,29 @@ el0_serror_a32:
 		load_xregs sp, THREAD_CORE_LOCAL_X0, 0, 3
 	.endm
 
-	.align	11, INV_INSN
+	.balign	2048, INV_INSN
 	.global thread_excp_vect_workaround
 thread_excp_vect_workaround:
 	/* -----------------------------------------------------
 	 * EL1 with SP0 : 0x0 - 0x180
 	 * -----------------------------------------------------
 	 */
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el1_sync_sp0:
 	b	el1_sync_sp0
 	check_vector_size workaround_el1_sync_sp0
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el1_irq_sp0:
 	b	el1_irq_sp0
 	check_vector_size workaround_el1_irq_sp0
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el1_fiq_sp0:
 	b	el1_fiq_sp0
 	check_vector_size workaround_el1_fiq_sp0
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el1_serror_sp0:
 	b	el1_serror_sp0
 	check_vector_size workaround_el1_serror_sp0
@@ -572,22 +371,22 @@ workaround_el1_serror_sp0:
 	 * Current EL with SP1: 0x200 - 0x380
 	 * -----------------------------------------------------
 	 */
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el1_sync_sp1:
 	b	workaround_el1_sync_sp1
 	check_vector_size workaround_el1_sync_sp1
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el1_irq_sp1:
 	b	workaround_el1_irq_sp1
 	check_vector_size workaround_el1_irq_sp1
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el1_fiq_sp1:
 	b	workaround_el1_fiq_sp1
 	check_vector_size workaround_el1_fiq_sp1
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el1_serror_sp1:
 	b	workaround_el1_serror_sp1
 	check_vector_size workaround_el1_serror_sp1
@@ -596,25 +395,25 @@ workaround_el1_serror_sp1:
 	 * Lower EL using AArch64 : 0x400 - 0x580
 	 * -----------------------------------------------------
 	 */
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el0_sync_a64:
 	invalidate_branch_predictor
 	b	el0_sync_a64
 	check_vector_size workaround_el0_sync_a64
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el0_irq_a64:
 	invalidate_branch_predictor
 	b	el0_irq_a64
 	check_vector_size workaround_el0_irq_a64
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el0_fiq_a64:
 	invalidate_branch_predictor
 	b	el0_fiq_a64
 	check_vector_size workaround_el0_fiq_a64
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el0_serror_a64:
 	b   	workaround_el0_serror_a64
 	check_vector_size workaround_el0_serror_a64
@@ -623,25 +422,25 @@ workaround_el0_serror_a64:
 	 * Lower EL using AArch32 : 0x0 - 0x180
 	 * -----------------------------------------------------
 	 */
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el0_sync_a32:
 	invalidate_branch_predictor
 	b	el0_sync_a32
 	check_vector_size workaround_el0_sync_a32
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el0_irq_a32:
 	invalidate_branch_predictor
 	b	el0_irq_a32
 	check_vector_size workaround_el0_irq_a32
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el0_fiq_a32:
 	invalidate_branch_predictor
 	b	el0_fiq_a32
 	check_vector_size workaround_el0_fiq_a32
 
-	.align	7, INV_INSN
+	.balign	128, INV_INSN
 workaround_el0_serror_a32:
 	b	workaround_el0_serror_a32
 	check_vector_size workaround_el0_serror_a32
@@ -655,7 +454,7 @@ eret_to_el0:
 
 #ifdef CFG_CORE_UNMAP_CORE_AT_EL0
 	/* Point to the vector into the reduced mapping */
-	adr	x0, thread_user_kcode_offset
+	adr_l	x0, thread_user_kcode_offset
 	ldr	x0, [x0]
 	mrs	x1, vbar_el1
 	sub	x1, x1, x0
@@ -664,7 +463,7 @@ eret_to_el0:
 
 #ifdef CFG_CORE_WORKAROUND_SPECTRE_BP_SEC
 	/* Store the SP offset in tpidr_el1 to be used below to update SP */
-	adr	x1, thread_user_kdata_sp_offset
+	adr_l	x1, thread_user_kdata_sp_offset
 	ldr	x1, [x1]
 	msr	tpidr_el1, x1
 #endif
@@ -703,7 +502,7 @@ eret_to_el0:
 	load_xregs sp, THREAD_CORE_LOCAL_X0, 0, 1
 #endif /*CFG_CORE_UNMAP_CORE_AT_EL0*/
 
-	eret
+	return_from_exception
 
 	/*
 	 * void icache_inv_user_range(void *addr, size_t size);
@@ -721,7 +520,7 @@ icache_inv_user_range:
 
 #ifdef CFG_CORE_UNMAP_CORE_AT_EL0
 	/* Point to the vector into the reduced mapping */
-	adr	x2, thread_user_kcode_offset
+	adr_l	x2, thread_user_kcode_offset
 	ldr	x2, [x2]
 	mrs	x4, vbar_el1	/* this register must be preserved */
 	sub	x3, x4, x2
@@ -802,6 +601,8 @@ END_FUNC thread_excp_vect
 LOCAL_FUNC el0_svc , :
 	/* get pointer to current thread context in x0 */
 	get_thread_ctx sp, 0, 1, 2
+	mrs	x1, tpidr_el0
+	str	x1, [x0, #THREAD_CTX_REGS_TPIDR_EL0]
 	/* load saved kernel sp */
 	ldr	x0, [x0, #THREAD_CTX_KERN_SP]
 	/* Keep pointer to initial recod in x1 */
@@ -838,7 +639,7 @@ LOCAL_FUNC el0_svc , :
 #endif
 
 	/* Call the handler */
-	bl	tee_svc_handler
+	bl	thread_svc_handler
 
 	/* Mask all maskable exceptions since we're switching back to sp_el1 */
 	msr	daifset, #DAIFBIT_ALL
@@ -856,6 +657,8 @@ LOCAL_FUNC el0_svc , :
 	str	x1, [x0, #THREAD_CTX_KERN_SP]
 
 	/* Restore registers to the required state and return*/
+	ldr	x1, [x0, #THREAD_CTX_REGS_TPIDR_EL0]
+	msr	tpidr_el0, x1
 	load_xregs sp, THREAD_SVC_REG_ELR, 0, 1
 	msr	elr_el1, x0
 	msr	spsr_el1, x1
@@ -867,7 +670,7 @@ LOCAL_FUNC el0_svc , :
 	ldp	x0, x1, [x30, THREAD_SVC_REG_X0]
 	ldr	x30, [x30, #THREAD_SVC_REG_X30]
 
-	eret
+	return_from_exception
 
 1:	ldp	x0, x1, [x30, THREAD_SVC_REG_X0]
 	ldr	x30, [x30, #THREAD_SVC_REG_X30]
@@ -956,7 +759,7 @@ LOCAL_FUNC el1_sync_abort , :
 	load_xregs sp, THREAD_CORE_LOCAL_X0, 0, 3
 
 	/* Return from exception */
-	eret
+	return_from_exception
 END_FUNC el1_sync_abort
 
 	/* sp_el0 in x3 */
@@ -1034,7 +837,7 @@ LOCAL_FUNC el0_sync_abort , :
 	load_xregs sp, THREAD_CORE_LOCAL_X0, 0, 1
 
 	/* Return from exception */
-	eret
+	return_from_exception
 1:	b	eret_to_el0
 END_FUNC el0_sync_abort
 
@@ -1060,7 +863,10 @@ END_FUNC el0_sync_abort
 
 	/* Store original sp_el0 */
 	str	x2, [x0, #THREAD_CTX_REGS_SP]
-	/* store x4..x30 */
+	/* Store tpidr_el0 */
+	mrs	x2, tpidr_el0
+	str	x2, [x0, #THREAD_CTX_REGS_TPIDR_EL0]
+	/* Store x4..x30 */
 	store_xregs x0, THREAD_CTX_REGS_X4, 4, 30
 	/* Load original x0..x3 into x10..x13 */
 	load_xregs sp, THREAD_CORE_LOCAL_X0, 10, 13
@@ -1090,14 +896,14 @@ END_FUNC el0_sync_abort
 	mrs	x1, spsr_el1
 	mrs	x2, elr_el1
 	bl	thread_state_suspend
-	mov	w4, w0		/* Supply thread index */
 
 	/* Update core local flags */
 	/* Switch to SP_EL1 */
 	msr	spsel, #1
-	ldr	w0, [sp, #THREAD_CORE_LOCAL_FLAGS]
-	lsr	w0, w0, #THREAD_CLF_SAVED_SHIFT
-	str	w0, [sp, #THREAD_CORE_LOCAL_FLAGS]
+	ldr	w1, [sp, #THREAD_CORE_LOCAL_FLAGS]
+	lsr	w1, w1, #THREAD_CLF_SAVED_SHIFT
+	orr	w1, w1, #THREAD_CLF_TMP
+	str	w1, [sp, #THREAD_CORE_LOCAL_FLAGS]
 	msr	spsel, #0
 
 	/*
@@ -1106,13 +912,8 @@ END_FUNC el0_sync_abort
 	 * set.
 	 */
 
-	ldr	w0, =TEESMC_OPTEED_RETURN_CALL_DONE
-	ldr	w1, =OPTEE_SMC_RETURN_RPC_FOREIGN_INTR
-	mov	w2, #0
-	mov	w3, #0
-	/* w4 is already filled in above */
-	smc	#0
-	b	.	/* SMC should not return */
+	/* Passing thread index in w0 */
+	b	thread_foreign_intr_exit
 .endm
 
 /*
@@ -1165,9 +966,7 @@ END_FUNC el0_sync_abort
 	stp	x30, x2, [sp, #ELX_NINTR_REC_LR]
 
 	bl	thread_check_canaries
-	adr	x16, thread_nintr_handler_ptr
-	ldr	x16, [x16]
-	blr	x16
+	bl	itr_core_handler
 
 	/*
 	 * Restore registers
@@ -1195,7 +994,7 @@ END_FUNC el0_sync_abort
 	load_xregs sp, THREAD_CORE_LOCAL_X0, 0, 1
 
 	/* Return from exception */
-	eret
+	return_from_exception
 1:	b	eret_to_el0
 .endm
 

@@ -1,25 +1,29 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
  * Copyright (c) 2014, Linaro Limited
+ * Copyright (c) 2020, Arm Limited
  */
 
 #include <arm.h>
 #include <assert.h>
 #include <kernel/abort.h>
+#include <kernel/ldelf_syscalls.h>
 #include <kernel/misc.h>
 #include <kernel/panic.h>
 #include <kernel/tee_ta_manager.h>
 #include <kernel/thread.h>
 #include <kernel/trace_ta.h>
 #include <kernel/user_ta.h>
-#include <mm/tee_mmu.h>
+#include <ldelf.h>
+#include <mm/vm.h>
+#include <speculation_barrier.h>
 #include <string.h>
-#include <tee/tee_svc.h>
 #include <tee/arch_svc.h>
-#include <tee/tee_svc_cryp.h>
-#include <tee/tee_svc_storage.h>
 #include <tee/svc_cache.h>
 #include <tee_syscall_numbers.h>
+#include <tee/tee_svc_cryp.h>
+#include <tee/tee_svc.h>
+#include <tee/tee_svc_storage.h>
 #include <trace.h>
 #include <util.h>
 
@@ -119,15 +123,72 @@ static const struct syscall_entry tee_svc_syscall_table[] = {
 	SYSCALL_ENTRY(syscall_cache_operation),
 };
 
+/*
+ * The ldelf return, log, panic syscalls have the same functionality and syscall
+ * number as the user TAs'. To avoid unnecessary code duplication, the ldelf SVC
+ * handler doesn't implement separate functions for these.
+ */
+static const struct syscall_entry ldelf_syscall_table[] = {
+	SYSCALL_ENTRY(syscall_sys_return),
+	SYSCALL_ENTRY(syscall_log),
+	SYSCALL_ENTRY(syscall_panic),
+	SYSCALL_ENTRY(ldelf_syscall_map_zi),
+	SYSCALL_ENTRY(ldelf_syscall_unmap),
+	SYSCALL_ENTRY(ldelf_syscall_open_bin),
+	SYSCALL_ENTRY(ldelf_syscall_close_bin),
+	SYSCALL_ENTRY(ldelf_syscall_map_bin),
+	SYSCALL_ENTRY(ldelf_syscall_copy_from_bin),
+	SYSCALL_ENTRY(ldelf_syscall_set_prot),
+	SYSCALL_ENTRY(ldelf_syscall_remap),
+	SYSCALL_ENTRY(ldelf_syscall_gen_rnd_num),
+};
+
 #ifdef TRACE_SYSCALLS
 static void trace_syscall(size_t num)
 {
-	if (num == TEE_SCN_RETURN || num > TEE_SCN_MAX)
+	if (num == TEE_SCN_RETURN || num == TEE_SCN_LOG || num > TEE_SCN_MAX)
 		return;
 	FMSG("syscall #%zu (%s)", num, tee_svc_syscall_table[num].name);
 }
 #else
 static void trace_syscall(size_t num __unused)
+{
+}
+#endif
+
+#ifdef CFG_SYSCALL_FTRACE
+static void __noprof ftrace_syscall_enter(size_t num)
+{
+	struct ts_session *s = NULL;
+
+	/*
+	 * Syscalls related to inter-TA communication can't be traced in the
+	 * caller TA's ftrace buffer as it involves context switching to callee
+	 * TA's context. Moreover, user can enable ftrace for callee TA to dump
+	 * function trace in corresponding ftrace buffer.
+	 */
+	if (num == TEE_SCN_OPEN_TA_SESSION || num == TEE_SCN_CLOSE_TA_SESSION ||
+	    num == TEE_SCN_INVOKE_TA_COMMAND)
+		return;
+
+	s = TAILQ_FIRST(&thread_get_tsd()->sess_stack);
+	if (s && s->fbuf)
+		s->fbuf->syscall_trace_enabled = true;
+}
+
+static void __noprof ftrace_syscall_leave(void)
+{
+	struct ts_session *s = TAILQ_FIRST(&thread_get_tsd()->sess_stack);
+
+	if (s && s->fbuf)
+		s->fbuf->syscall_trace_enabled = false;
+}
+#else
+static void __noprof ftrace_syscall_enter(size_t num __unused)
+{
+}
+
+static void __noprof ftrace_syscall_leave(void)
 {
 }
 #endif
@@ -170,31 +231,26 @@ static void set_svc_retval(struct thread_svc_regs *regs, uint64_t ret_val)
 }
 #endif /*ARM64*/
 
-/*
- * Note: this function is weak just to make it possible to exclude it from
- * the unpaged area.
- */
-void __weak tee_svc_handler(struct thread_svc_regs *regs)
+static syscall_t get_tee_syscall_func(size_t num)
 {
-	size_t scn;
-	size_t max_args;
-	syscall_t scf;
-	uint32_t state;
+	/* Cast away const */
+	struct syscall_entry *sc_table = (void *)tee_svc_syscall_table;
 
 	COMPILE_TIME_ASSERT(ARRAY_SIZE(tee_svc_syscall_table) ==
-				(TEE_SCN_MAX + 1));
+			    (TEE_SCN_MAX + 1));
 
-	/* Enable native interupts */
-	state = thread_get_exceptions();
-	thread_unmask_exceptions(state & ~THREAD_EXCP_NATIVE_INTR);
+	if (num > TEE_SCN_MAX)
+		return (syscall_t)syscall_not_supported;
 
-	thread_user_save_vfp();
+	return load_no_speculate(&sc_table[num].fn, &sc_table[0].fn,
+				 &sc_table[TEE_SCN_MAX].fn + 1);
+}
 
-	/* TA has just entered kernel mode */
-	tee_ta_update_session_utime_suspend();
-
-	/* Restore foreign interrupts which are disabled on exception entry */
-	thread_restore_foreign_intr();
+bool user_ta_handle_svc(struct thread_svc_regs *regs)
+{
+	size_t scn = 0;
+	size_t max_args = 0;
+	syscall_t scf = NULL;
 
 	get_scn_max_args(regs, &scn, &max_args);
 
@@ -203,20 +259,68 @@ void __weak tee_svc_handler(struct thread_svc_regs *regs)
 	if (max_args > TEE_SVC_MAX_ARGS) {
 		DMSG("Too many arguments for SCN %zu (%zu)", scn, max_args);
 		set_svc_retval(regs, TEE_ERROR_GENERIC);
-		return;
+		return true; /* return to user mode */
 	}
 
-	if (scn > TEE_SCN_MAX)
-		scf = (syscall_t)syscall_not_supported;
-	else
-		scf = tee_svc_syscall_table[scn].fn;
+	scf = get_tee_syscall_func(scn);
+
+	ftrace_syscall_enter(scn);
 
 	set_svc_retval(regs, tee_svc_do_call(regs, scf));
 
-	if (scn != TEE_SCN_RETURN) {
-		/* We're about to switch back to user mode */
-		tee_ta_update_session_utime_resume();
+	ftrace_syscall_leave();
+
+	/*
+	 * Return true if we're to return to user mode,
+	 * thread_svc_handler() will take care of the rest.
+	 */
+	return scn != TEE_SCN_RETURN && scn != TEE_SCN_PANIC;
+}
+
+static syscall_t get_ldelf_syscall_func(size_t num)
+{
+	/* Cast away const */
+	struct syscall_entry *sc_table = (void *)ldelf_syscall_table;
+
+	COMPILE_TIME_ASSERT(ARRAY_SIZE(ldelf_syscall_table) ==
+			    (LDELF_SCN_MAX + 1));
+
+	if (num > LDELF_SCN_MAX)
+		return (syscall_t)syscall_not_supported;
+
+	return load_no_speculate(&sc_table[num].fn, &sc_table[0].fn,
+				 &sc_table[LDELF_SCN_MAX].fn + 1);
+}
+
+bool ldelf_handle_svc(struct thread_svc_regs *regs)
+{
+	size_t scn = 0;
+	size_t max_args = 0;
+	syscall_t scf = NULL;
+
+	get_scn_max_args(regs, &scn, &max_args);
+
+	trace_syscall(scn);
+
+	if (max_args > TEE_SVC_MAX_ARGS) {
+		DMSG("Too many arguments for SCN %zu (%zu)", scn, max_args);
+		set_svc_retval(regs, TEE_ERROR_GENERIC);
+		return true; /* return to user mode */
 	}
+
+	scf = get_ldelf_syscall_func(scn);
+
+	ftrace_syscall_enter(scn);
+
+	set_svc_retval(regs, tee_svc_do_call(regs, scf));
+
+	ftrace_syscall_leave();
+
+	/*
+	 * Return true if we're to return to user mode,
+	 * thread_svc_handler() will take care of the rest.
+	 */
+	return scn != LDELF_RETURN && scn != LDELF_PANIC;
 }
 
 #define TA32_CONTEXT_MAX_SIZE		(14 * sizeof(uint32_t))
@@ -224,7 +328,7 @@ void __weak tee_svc_handler(struct thread_svc_regs *regs)
 
 #ifdef ARM32
 #ifdef CFG_UNWIND
-/* Get register values pushed onto the stack by utee_panic() */
+/* Get register values pushed onto the stack by _utee_panic() */
 static void save_panic_regs_a32_ta(struct thread_specific_data *tsd,
 				  uint32_t *pushed)
 {
@@ -251,25 +355,22 @@ static void save_panic_regs_a32_ta(struct thread_specific_data *tsd,
 static void save_panic_stack(struct thread_svc_regs *regs)
 {
 	struct thread_specific_data *tsd = thread_get_tsd();
-	struct tee_ta_session *s;
+	struct ts_session *s = ts_get_current_session();
+	struct user_ta_ctx *utc = to_user_ta_ctx(s->ctx);
 
-	if (tee_ta_get_current_session(&s))
-		panic("No current session");
+	tsd->abort_type = ABORT_TYPE_USER_MODE_PANIC;
+	tsd->abort_descr = 0;
+	tsd->abort_va = 0;
 
-	if (tee_mmu_check_access_rights(to_user_ta_ctx(s->ctx),
-					TEE_MEMORY_ACCESS_READ |
-					TEE_MEMORY_ACCESS_WRITE,
-					(uaddr_t)regs->r1,
-					TA32_CONTEXT_MAX_SIZE)) {
+	if (vm_check_access_rights(&utc->uctx,
+				   TEE_MEMORY_ACCESS_READ |
+				   TEE_MEMORY_ACCESS_WRITE,
+				   (uaddr_t)regs->r1, TA32_CONTEXT_MAX_SIZE)) {
 		TAMSG_RAW("");
 		TAMSG_RAW("Can't unwind invalid user stack 0x%" PRIxUA,
 				(uaddr_t)regs->r1);
 		return;
 	}
-
-	tsd->abort_type = ABORT_TYPE_TA_PANIC;
-	tsd->abort_descr = 0;
-	tsd->abort_va = 0;
 
 	save_panic_regs_a32_ta(tsd, (uint32_t *)regs->r1);
 }
@@ -278,29 +379,14 @@ static void save_panic_stack(struct thread_svc_regs *regs __unused)
 {
 	struct thread_specific_data *tsd = thread_get_tsd();
 
-	tsd->abort_type = ABORT_TYPE_TA_PANIC;
+	tsd->abort_type = ABORT_TYPE_USER_MODE_PANIC;
 }
 #endif
-
-uint32_t tee_svc_sys_return_helper(uint32_t ret, bool panic,
-			uint32_t panic_code, struct thread_svc_regs *regs)
-{
-	if (panic) {
-		TAMSG_RAW("");
-		TAMSG_RAW("TA panicked with code 0x%" PRIx32, panic_code);
-		save_panic_stack(regs);
-	}
-
-	regs->r1 = panic;
-	regs->r2 = panic_code;
-	regs->lr = (uintptr_t)thread_unwind_user_mode;
-	regs->spsr = read_cpsr();
-	return ret;
-}
 #endif /*ARM32*/
+
 #ifdef ARM64
 #ifdef CFG_UNWIND
-/* Get register values pushed onto the stack by utee_panic() (32-bit TA) */
+/* Get register values pushed onto the stack by _utee_panic() (32-bit TA) */
 static void save_panic_regs_a32_ta(struct thread_specific_data *tsd,
 				   uint32_t *pushed)
 {
@@ -324,7 +410,7 @@ static void save_panic_regs_a32_ta(struct thread_specific_data *tsd,
 	};
 }
 
-/* Get register values pushed onto the stack by utee_panic() (64-bit TA) */
+/* Get register values pushed onto the stack by _utee_panic() (64-bit TA) */
 static void save_panic_regs_a64_ta(struct thread_specific_data *tsd,
 				   uint64_t *pushed)
 {
@@ -338,31 +424,27 @@ static void save_panic_regs_a64_ta(struct thread_specific_data *tsd,
 static void save_panic_stack(struct thread_svc_regs *regs)
 {
 	struct thread_specific_data *tsd = thread_get_tsd();
-	struct tee_ta_session *s = NULL;
-	struct user_ta_ctx *utc = NULL;
+	struct ts_session *s = ts_get_current_session();
+	struct user_ta_ctx *utc = to_user_ta_ctx(s->ctx);
 
-	if (tee_ta_get_current_session(&s) != TEE_SUCCESS)
-		panic();
-
-	utc = to_user_ta_ctx(s->ctx);
-
-	if (tee_mmu_check_access_rights(utc, TEE_MEMORY_ACCESS_READ |
-					TEE_MEMORY_ACCESS_WRITE,
-					(uaddr_t)regs->x1,
-					utc->is_32bit ?
-					TA32_CONTEXT_MAX_SIZE :
-					TA64_CONTEXT_MAX_SIZE)) {
+	if (vm_check_access_rights(&utc->uctx,
+				   TEE_MEMORY_ACCESS_READ |
+				   TEE_MEMORY_ACCESS_WRITE,
+				   (uaddr_t)regs->x1,
+				   utc->uctx.is_32bit ?
+				   TA32_CONTEXT_MAX_SIZE :
+				   TA64_CONTEXT_MAX_SIZE)) {
 		TAMSG_RAW("");
 		TAMSG_RAW("Can't unwind invalid user stack 0x%" PRIxUA,
 				(uaddr_t)regs->x1);
 		return;
 	}
 
-	tsd->abort_type = ABORT_TYPE_TA_PANIC;
+	tsd->abort_type = ABORT_TYPE_USER_MODE_PANIC;
 	tsd->abort_descr = 0;
 	tsd->abort_va = 0;
 
-	if (utc->is_32bit)
+	if (utc->uctx.is_32bit)
 		save_panic_regs_a32_ta(tsd, (uint32_t *)regs->x1);
 	else
 		save_panic_regs_a64_ta(tsd, (uint64_t *)regs->x1);
@@ -372,12 +454,14 @@ static void save_panic_stack(struct thread_svc_regs *regs __unused)
 {
 	struct thread_specific_data *tsd = thread_get_tsd();
 
-	tsd->abort_type = ABORT_TYPE_TA_PANIC;
+	tsd->abort_type = ABORT_TYPE_USER_MODE_PANIC;
 }
 #endif /* CFG_UNWIND */
+#endif /*ARM64*/
 
 uint32_t tee_svc_sys_return_helper(uint32_t ret, bool panic,
-			uint32_t panic_code, struct thread_svc_regs *regs)
+				   uint32_t panic_code,
+				   struct thread_svc_regs *regs)
 {
 	if (panic) {
 		TAMSG_RAW("");
@@ -385,19 +469,14 @@ uint32_t tee_svc_sys_return_helper(uint32_t ret, bool panic,
 		save_panic_stack(regs);
 	}
 
+#ifdef ARM32
+	regs->r1 = panic;
+	regs->r2 = panic_code;
+#endif
+#ifdef ARM64
 	regs->x1 = panic;
 	regs->x2 = panic_code;
-	regs->elr = (uintptr_t)thread_unwind_user_mode;
-	regs->spsr = SPSR_64(SPSR_64_MODE_EL1, SPSR_64_MODE_SP_EL0, 0);
-	regs->spsr |= read_daif();
-	/*
-	 * Regs is the value of stack pointer before calling the SVC
-	 * handler.  By the addition matches for the reserved space at the
-	 * beginning of el0_sync_svc(). This prepares the stack when
-	 * returning to thread_unwind_user_mode instead of a normal
-	 * exception return.
-	 */
-	regs->sp_el0 = (uint64_t)(regs + 1);
+#endif
+
 	return ret;
 }
-#endif /*ARM64*/

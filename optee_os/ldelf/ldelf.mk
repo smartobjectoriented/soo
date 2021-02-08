@@ -20,6 +20,7 @@ endif
 
 cppflags$(sm)	+= -include $(conf-file)
 cppflags$(sm)	+= -DTRACE_LEVEL=$(CFG_TEE_CORE_LOG_LEVEL)
+cppflags$(sm)	+= -D__LDELF__
 
 # Use same compiler as for core
 CROSS_COMPILE_$(sm)	:= $(CROSS_COMPILE_core)
@@ -34,6 +35,10 @@ include mk/lib.mk
 
 libname = utee
 libdir = lib/libutee
+include mk/lib.mk
+
+libname = unw
+libdir = lib/libunw
 include mk/lib.mk
 
 base-prefix :=

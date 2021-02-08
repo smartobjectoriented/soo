@@ -9,7 +9,7 @@
 #include <mempool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <tomcrypt.h>
+#include <tomcrypt_private.h>
 #include <tomcrypt_mp.h>
 #include <util.h>
 
@@ -107,7 +107,7 @@ static int init_copy(void **a, void *b)
 }
 
 /* ---- trivial ---- */
-static int set_int(void *a, unsigned long b)
+static int set_int(void *a, ltc_mp_digit b)
 {
 	uint32_t b32 = b;
 
@@ -163,7 +163,7 @@ static int compare(void *a, void *b)
 	return LTC_MP_EQ;
 }
 
-static int compare_d(void *a, unsigned long b)
+static int compare_d(void *a, ltc_mp_digit b)
 {
 	unsigned long v = b;
 	unsigned int shift = 31;
@@ -275,7 +275,7 @@ static int add(void *a, void *b, void *c)
 	return CRYPT_OK;
 }
 
-static int addi(void *a, unsigned long b, void *c)
+static int addi(void *a, ltc_mp_digit b, void *c)
 {
 	uint32_t b32 = b;
 
@@ -297,7 +297,7 @@ static int sub(void *a, void *b, void *c)
 	return CRYPT_OK;
 }
 
-static int subi(void *a, unsigned long b, void *c)
+static int subi(void *a, ltc_mp_digit b, void *c)
 {
 	uint32_t b32 = b;
 
@@ -319,7 +319,7 @@ static int mul(void *a, void *b, void *c)
 	return CRYPT_OK;
 }
 
-static int muli(void *a, unsigned long b, void *c)
+static int muli(void *a, ltc_mp_digit b, void *c)
 {
 	if (b > (unsigned long) UINT32_MAX)
 		return CRYPT_INVALID_ARG;
@@ -361,7 +361,7 @@ static int div_2(void *a, void *b)
 }
 
 /* modi */
-static int modi(void *a, unsigned long b, unsigned long *c)
+static int modi(void *a, ltc_mp_digit b, ltc_mp_digit *c)
 {
 	mbedtls_mpi bn_b;
 	mbedtls_mpi bn_c;
@@ -426,6 +426,26 @@ static int mod(void *a, void *b, void *c)
 		return CRYPT_ERROR;
 
 	return CRYPT_OK;
+}
+
+static int addmod(void *a, void *b, void *c, void *d)
+{
+	int res = add(a, b, d);
+
+	if (res)
+		return res;
+
+	return mod(d, c, d);
+}
+
+static int submod(void *a, void *b, void *c, void *d)
+{
+	int res = sub(a, b, d);
+
+	if (res)
+		return res;
+
+	return mod(d, c, d);
 }
 
 static int mulmod(void *a, void *b, void *c, void *d)
@@ -598,7 +618,7 @@ static int isprime(void *a, int b __unused, int *c)
 	return CRYPT_OK;
 }
 
-static int mpa_rand(void *a, int size)
+static int mpi_rand(void *a, int size)
 {
 	if (mbedtls_mpi_fill_random(a, size, rng_read, NULL))
 		return CRYPT_MEM;
@@ -610,79 +630,80 @@ ltc_math_descriptor ltc_mp = {
 	.name = "MPI",
 	.bits_per_digit = sizeof(mbedtls_mpi_uint) * 8,
 
-	.init = &init,
-	.init_size = &init_size,
-	.init_copy = &init_copy,
-	.deinit = &deinit,
+	.init = init,
+	.init_size = init_size,
+	.init_copy = init_copy,
+	.deinit = deinit,
 
-	.neg = &neg,
-	.copy = &copy,
+	.neg = neg,
+	.copy = copy,
 
-	.set_int = &set_int,
-	.get_int = &get_int,
-	.get_digit = &get_digit,
-	.get_digit_count = &get_digit_count,
-	.compare = &compare,
-	.compare_d = &compare_d,
-	.count_bits = &count_bits,
-	.count_lsb_bits = &count_lsb_bits,
-	.twoexpt = &twoexpt,
+	.set_int = set_int,
+	.get_int = get_int,
+	.get_digit = get_digit,
+	.get_digit_count = get_digit_count,
+	.compare = compare,
+	.compare_d = compare_d,
+	.count_bits = count_bits,
+	.count_lsb_bits = count_lsb_bits,
+	.twoexpt = twoexpt,
 
-	.read_radix = &read_radix,
-	.write_radix = &write_radix,
-	.unsigned_size = &unsigned_size,
-	.unsigned_write = &unsigned_write,
-	.unsigned_read = &unsigned_read,
+	.read_radix = read_radix,
+	.write_radix = write_radix,
+	.unsigned_size = unsigned_size,
+	.unsigned_write = unsigned_write,
+	.unsigned_read = unsigned_read,
 
-	.add = &add,
-	.addi = &addi,
-	.sub = &sub,
-	.subi = &subi,
-	.mul = &mul,
-	.muli = &muli,
-	.sqr = &sqr,
-	.mpdiv = &divide,
-	.div_2 = &div_2,
-	.modi = &modi,
-	.gcd = &gcd,
-	.lcm = &lcm,
+	.add = add,
+	.addi = addi,
+	.sub = sub,
+	.subi = subi,
+	.mul = mul,
+	.muli = muli,
+	.sqr = sqr,
+	.mpdiv = divide,
+	.div_2 = div_2,
+	.modi = modi,
+	.gcd = gcd,
+	.lcm = lcm,
 
-	.mod = &mod,
-	.mulmod = &mulmod,
-	.sqrmod = &sqrmod,
-	.invmod = &invmod,
+	.mulmod = mulmod,
+	.sqrmod = sqrmod,
+	.invmod = invmod,
 
-	.montgomery_setup = &montgomery_setup,
-	.montgomery_normalization = &montgomery_normalization,
-	.montgomery_reduce = &montgomery_reduce,
-	.montgomery_deinit = &montgomery_deinit,
+	.montgomery_setup = montgomery_setup,
+	.montgomery_normalization = montgomery_normalization,
+	.montgomery_reduce = montgomery_reduce,
+	.montgomery_deinit = montgomery_deinit,
 
-	.exptmod = &exptmod,
-	.isprime = &isprime,
+	.exptmod = exptmod,
+	.isprime = isprime,
 
 #ifdef LTC_MECC
 #ifdef LTC_MECC_FP
-	.ecc_ptmul = &ltc_ecc_fp_mulmod,
+	.ecc_ptmul = ltc_ecc_fp_mulmod,
 #else
-	.ecc_ptmul = &ltc_ecc_mulmod,
+	.ecc_ptmul = ltc_ecc_mulmod,
 #endif /* LTC_MECC_FP */
-	.ecc_ptadd = &ltc_ecc_projective_add_point,
-	.ecc_ptdbl = &ltc_ecc_projective_dbl_point,
-	.ecc_map = &ltc_ecc_map,
+	.ecc_ptadd = ltc_ecc_projective_add_point,
+	.ecc_ptdbl = ltc_ecc_projective_dbl_point,
+	.ecc_map = ltc_ecc_map,
 #ifdef LTC_ECC_SHAMIR
 #ifdef LTC_MECC_FP
-	.ecc_mul2add = &ltc_ecc_fp_mul2add,
+	.ecc_mul2add = ltc_ecc_fp_mul2add,
 #else
-	.ecc_mul2add = &ltc_ecc_mul2add,
+	.ecc_mul2add = ltc_ecc_mul2add,
 #endif /* LTC_MECC_FP */
 #endif /* LTC_ECC_SHAMIR */
 #endif /* LTC_MECC */
 
 #ifdef LTC_MRSA
-	.rsa_keygen = &rsa_make_key,
-	.rsa_me = &rsa_exptmod,
+	.rsa_keygen = rsa_make_key,
+	.rsa_me = rsa_exptmod,
 #endif
-	.rand = &mpa_rand,
+	.addmod = addmod,
+	.submod = submod,
+	.rand = mpi_rand,
 
 };
 

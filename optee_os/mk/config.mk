@@ -32,6 +32,12 @@ endif
 # Supported values: undefined, 1, 2 and 3. 3 gives more warnings.
 WARNS ?= 3
 
+# Path to the Python interpreter used by the build system.
+# This variable is set to the default python3 interpreter in the user's
+# path. But build environments that require more explicit control can
+# set the path to a specific interpreter through this variable.
+PYTHON3 ?= python3
+
 # Define DEBUG=1 to compile without optimization (forces -O0)
 # DEBUG=1
 
@@ -49,7 +55,7 @@ CFG_TEE_CORE_DEBUG ?= y
 # 2: error + warning
 # 3: error + warning + debug
 # 4: error + warning + debug + flow
-CFG_TEE_CORE_LOG_LEVEL ?= 0
+CFG_TEE_CORE_LOG_LEVEL ?= 1
 
 # TA log level
 # If user-mode library libutils.a is built with CFG_TEE_TA_LOG_LEVEL=0,
@@ -60,7 +66,7 @@ CFG_TEE_TA_LOG_LEVEL ?= 1
 # TA enablement
 # When defined to "y", TA traces are output according to
 # CFG_TEE_TA_LOG_LEVEL. Otherwise, they are not output at all
-CFG_TEE_CORE_TA_TRACE ?= n
+CFG_TEE_CORE_TA_TRACE ?= y
 
 # If y, enable the memory leak detection feature in the bget memory allocator.
 # When this feature is enabled, calling mdbg_check(1) will print a list of all
@@ -116,7 +122,7 @@ endif
 # with limited depth not including any tag, so there is really no guarantee
 # that TEE_IMPL_VERSION contains the major and minor revision numbers.
 CFG_OPTEE_REVISION_MAJOR ?= 3
-CFG_OPTEE_REVISION_MINOR ?= 6
+CFG_OPTEE_REVISION_MINOR ?= 12
 
 # Trusted OS implementation manufacturer name
 CFG_TEE_MANUFACTURER ?= LINARO
@@ -141,6 +147,39 @@ CFG_RPMB_FS ?= n
 # tee-supplicant process will open /dev/mmcblk<id>rpmb
 CFG_RPMB_FS_DEV_ID ?= 0
 
+# This config variable determines the number of entries read in from RPMB at
+# once whenever a function traverses the RPMB FS. Increasing the default value
+# has the following consequences:
+# - More memory required on heap. A single FAT entry currently has a size of
+#   256 bytes.
+# - Potentially significant speed-ups for RPMB I/O. Depending on how many
+#   entries a function needs to traverse, the number of time-consuming RPMB
+#   read-in operations can be reduced.
+# Chosing a proper value is both platform- (available memory) and use-case-
+# dependent (potential number of FAT fs entries), so overwrite in platform
+# config files
+CFG_RPMB_FS_RD_ENTRIES ?= 8
+
+# Enables caching of FAT FS entries when set to a value greater than zero.
+# When enabled, the cache stores the first 'CFG_RPMB_FS_CACHE_ENTRIES' FAT FS
+# entries. The cache is populated when FAT FS entries are initially read in.
+# When traversing the FAT FS entries, we read from the cache instead of reading
+# in the entries from RPMB storage. Consequently, when a FAT FS entry is
+# written, the cache is updated. In scenarios where an estimate of the number
+# of FAT FS entries can be made, the cache may be specifically tailored to
+# store all entries. The caching can improve RPMB I/O at the cost
+# of additional memory.
+# Without caching, we temporarily require
+# CFG_RPMB_FS_RD_ENTRIES*sizeof(struct rpmb_fat_entry) bytes of heap memory
+# while traversing the FAT FS (e.g. in read_fat).
+# For example 8*256 bytes = 2kB while in read_fat.
+# With caching, we constantly require up to
+# CFG_RPMB_FS_CACHE_ENTRIES*sizeof(struct rpmb_fat_entry) bytes of heap memory
+# depending on how many elements are in the cache, and additional temporary
+# CFG_RPMB_FS_RD_ENTRIES*sizeof(struct rpmb_fat_entry) bytes of heap memory
+# in case the cache is too small to hold all elements when traversing.
+CFG_RPMB_FS_CACHE_ENTRIES ?= 0
+
 # Enables RPMB key programming by the TEE, in case the RPMB partition has not
 # been configured yet.
 # !!! Security warning !!!
@@ -151,8 +190,12 @@ CFG_RPMB_FS_DEV_ID ?= 0
 # - RPMB key provisioning in a controlled environment (factory setup)
 CFG_RPMB_WRITE_KEY ?= n
 
-# Embed public part of this key in OP-TEE OS
+# Signing key for OP-TEE TA's
+# When performing external HSM signing for TA's TA_SIGN_KEY can be set to dummy
+# key and then set TA_PUBLIC_KEY to match public key from the HSM.
+# TA_PUBLIC_KEY's public key will be embedded into OP-TEE OS.
 TA_SIGN_KEY ?= keys/default_ta.pem
+TA_PUBLIC_KEY ?= $(TA_SIGN_KEY)
 
 # Include lib/libutils/isoc in the build? Most platforms need this, but some
 # may not because they obtain the isoc functions from elsewhere
@@ -222,6 +265,13 @@ CFG_TA_ASLR ?= n
 CFG_TA_ASLR_MIN_OFFSET_PAGES ?= 0
 CFG_TA_ASLR_MAX_OFFSET_PAGES ?= 128
 
+# Address Space Layout Randomization for TEE Core
+#
+# When this flag is enabled, the early init code will introduce a random
+# offset when mapping TEE Core. ASLR makes the exploitation of memory
+# corruption vulnerabilities more difficult.
+CFG_CORE_ASLR ?= y
+
 # Load user TAs from the REE filesystem via tee-supplicant
 CFG_REE_FS_TA ?= y
 
@@ -232,7 +282,7 @@ CFG_REE_FS_TA ?= y
 #   valid.
 # - If disabled: hash the binaries as they are being processed and verify the
 #   signature as a last step.
-CFG_REE_FS_TA_BUFFERED ?= $(CFG_REE_FS_TA)
+CFG_REE_FS_TA_BUFFERED ?= n
 $(eval $(call cfg-depends-all,CFG_REE_FS_TA_BUFFERED,CFG_REE_FS_TA))
 
 # Support for loading user TAs from a special section in the TEE binary.
@@ -258,10 +308,19 @@ $(eval $(call cfg-depends-all,CFG_REE_FS_TA_BUFFERED,CFG_REE_FS_TA))
 # for instance avb/023f8f1a-292a-432b-8fc4-de8471358067
 ifneq ($(EARLY_TA_PATHS)$(CFG_IN_TREE_EARLY_TAS),)
 $(call force,CFG_EARLY_TA,y)
+$(call force,CFG_EMBEDDED_TS,y)
 else
 CFG_EARLY_TA ?= n
 endif
-ifeq ($(CFG_EARLY_TA),y)
+
+ifneq ($(SP_PATHS),)
+$(call force,CFG_SECURE_PARTITION,y)
+$(call force,CFG_EMBEDDED_TS,y)
+else
+CFG_SECURE_PARTITION ?= n
+endif
+
+ifeq ($(CFG_EMBEDDED_TS),y)
 $(call force,CFG_ZLIB,y)
 endif
 
@@ -271,10 +330,12 @@ CFG_WITH_PAGER ?= n
 # Runtime lock dependency checker: ensures that a proper locking hierarchy is
 # used in the TEE core when acquiring and releasing mutexes. Any violation will
 # cause a panic as soon as the invalid locking condition is detected. If
-# CFG_UNWIND is enabled, the algorithm records the call stacks when locks are
-# taken, and prints them when a potential deadlock is found.
+# CFG_UNWIND and CFG_LOCKDEP_RECORD_STACK are both enabled, the algorithm
+# records the call stacks when locks are taken, and prints them when a
+# potential deadlock is found.
 # Expect a significant performance impact when enabling this.
 CFG_LOCKDEP ?= n
+CFG_LOCKDEP_RECORD_STACK ?= y
 
 # BestFit algorithm in bget reduces the fragmentation of the heap when running
 # with the pager enabled or lockdep
@@ -291,6 +352,18 @@ CFG_CORE_SANITIZE_UNDEFINED ?= n
 # lot of memory and need platform specific adaptations, can't be enabled by
 # default
 CFG_CORE_SANITIZE_KADDRESS ?= n
+
+# Add stack guards before/after stacks and periodically check them
+CFG_WITH_STACK_CANARIES ?= y
+
+# Use compiler instrumentation to troubleshoot stack overflows.
+# When enabled, most C functions check the stack pointer against the current
+# stack limits on entry and panic immediately if it is out of range.
+CFG_CORE_DEBUG_CHECK_STACKS ?= n
+
+# Use when the default stack allocations are not sufficient.
+CFG_STACK_THREAD_EXTRA ?= 0
+CFG_STACK_TMP_EXTRA ?= 0
 
 # Device Tree support
 #
@@ -328,8 +401,15 @@ CFG_DTB_MAX_SIZE ?= 0x10000
 # DTB using the standard fdt_overlay_apply() method.
 CFG_EXTERNAL_DTB_OVERLAY ?= n
 
+# All embedded tests are supposed to be disabled by default, this flag
+# is used to control the default value of all other embedded tests
+CFG_ENABLE_EMBEDDED_TESTS ?= n
+
 # Enable core self tests and related pseudo TAs
-CFG_TEE_CORE_EMBED_INTERNAL_TESTS ?= y
+CFG_TEE_CORE_EMBED_INTERNAL_TESTS ?= $(CFG_ENABLE_EMBEDDED_TESTS)
+
+# Compiles bget_main_test() to be called from a test TA
+CFG_TA_BGET_TEST ?= $(CFG_ENABLE_EMBEDDED_TESTS)
 
 # This option enables OP-TEE to respond to SMP boot request: the Rich OS
 # issues this to request OP-TEE to release secondaries cores out of reset,
@@ -348,6 +428,11 @@ CFG_CORE_NEX_HEAP_SIZE ?= 16384
 # instrumented with GCC's -pg flag and will output profiling information
 # in gmon.out format to /tmp/gmon-<ta_uuid>.out (path is defined in
 # tee-supplicant)
+# Note: this does not work well with shared libraries at the moment for a
+# couple of reasons:
+# 1. The profiling code assumes a unique executable section in the TA VA space.
+# 2. The code used to detect at run time if the TA is intrumented assumes that
+# the TA is linked statically.
 CFG_TA_GPROF_SUPPORT ?= n
 
 # TA function tracing.
@@ -355,19 +440,44 @@ CFG_TA_GPROF_SUPPORT ?= n
 # instrumented with GCC's -pg flag and will output function tracing
 # information in ftrace.out format to /tmp/ftrace-<ta_uuid>.out (path is
 # defined in tee-supplicant)
-CFG_TA_FTRACE_SUPPORT ?= n
+CFG_FTRACE_SUPPORT ?= n
+
+# How to make room when the function tracing buffer is full?
+# 'shift': shift the previously stored data by the amount needed in order
+#    to always keep the latest logs (slower, especially with big buffer sizes)
+# 'wrap': discard the previous data and start at the beginning of the buffer
+#    again (fast, but can result in a mostly empty buffer)
+# 'stop': stop logging new data
+CFG_FTRACE_BUF_WHEN_FULL ?= shift
+$(call cfg-check-value,FTRACE_BUF_WHEN_FULL,shift stop wrap)
+$(call force,_CFG_FTRACE_BUF_WHEN_FULL_$(CFG_FTRACE_BUF_WHEN_FULL),y)
+
+# Function tracing: unit to be used when displaying durations
+#  0: always display durations in microseconds
+# >0: if duration is greater or equal to the specified value (in microseconds),
+#     display it in milliseconds
+CFG_FTRACE_US_MS ?= 10000
+
+# Core syscall function tracing.
+# When this option is enabled, OP-TEE core is instrumented with GCC's
+# -pg flag and will output syscall function graph in user TA ftrace
+# buffer
+CFG_SYSCALL_FTRACE ?= n
+$(call cfg-depends-all,CFG_SYSCALL_FTRACE,CFG_FTRACE_SUPPORT)
 
 # Enable to compile user TA libraries with profiling (-pg).
-# Depends on CFG_TA_GPROF_SUPPORT or CFG_TA_FTRACE_SUPPORT.
+# Depends on CFG_TA_GPROF_SUPPORT or CFG_FTRACE_SUPPORT.
 CFG_ULIBS_MCOUNT ?= n
+# Profiling/tracing of syscall wrapper (utee_*)
+CFG_SYSCALL_WRAPPERS_MCOUNT ?= $(CFG_ULIBS_MCOUNT)
 
-ifeq ($(CFG_ULIBS_MCOUNT),y)
-ifeq (,$(filter y,$(CFG_TA_GPROF_SUPPORT) $(CFG_TA_FTRACE_SUPPORT)))
+ifeq (y,$(filter y,$(CFG_ULIBS_MCOUNT) $(CFG_SYSCALL_WRAPPERS_MCOUNT)))
+ifeq (,$(filter y,$(CFG_TA_GPROF_SUPPORT) $(CFG_FTRACE_SUPPORT)))
 $(error Cannot instrument user libraries if user mode profiling is disabled)
 endif
 endif
 
-# Build libutee, libutils, libmpa/libmbedtls as shared libraries.
+# Build libutee, libutils, libmbedtls as shared libraries.
 # - Static libraries are still generated when this is enabled, but TAs will use
 # the shared libraries unless explicitly linked with the -static flag.
 # - Shared libraries are made of two files: for example, libutee is
@@ -378,15 +488,6 @@ endif
 CFG_ULIBS_SHARED ?= n
 
 ifeq (yy,$(CFG_TA_GPROF_SUPPORT)$(CFG_ULIBS_SHARED))
-# FIXME:
-# TA profiling with gprof does not work well with shared libraries (not limited
-# to CFG_ULIBS_SHARED=y actually), because the total .text size is not known at
-# link time. The symptom is an error trace when the TA starts (and no gprof
-# output is produced):
-#  E/TA: __utee_gprof_init:159 gprof: could not allocate profiling buffer
-# The allocation of the profiling buffer should probably be done at runtime
-# via a new syscall/PTA call instead of having it pre-allocated in .bss by the
-# linker.
 $(error CFG_TA_GPROF_SUPPORT and CFG_ULIBS_SHARED are currently incompatible)
 endif
 
@@ -422,6 +523,12 @@ CFG_DEVICE_ENUM_PTA ?= y
 # Default is 2**(2) = 4 cores per cluster.
 CFG_CORE_CLUSTER_SHIFT ?= 2
 
+# Define the number of threads per core used in calculating processing
+# element's position. The core number is shifted by this value and added to
+# the thread ID, so its value represents log2(threads/core).
+# Default is 2**(0) = 1 threads per core.
+CFG_CORE_THREAD_SHIFT ?= 0
+
 # Enable support for dynamic shared memory (shared memory anywhere in
 # non-secure memory).
 CFG_CORE_DYN_SHM ?= y
@@ -447,8 +554,10 @@ CFG_TA_BIGNUM_MAX_BITS ?= 2048
 # Set this to a lower value to reduce the memory footprint.
 CFG_CORE_BIGNUM_MAX_BITS ?= 4096
 
-# Compiles mbedTLS for TA usage
-CFG_TA_MBEDTLS ?= y
+# Not used since libmpa was removed. Force the values to catch build scripts
+# that would set = n.
+$(call force,CFG_TA_MBEDTLS_MPI,y)
+$(call force,CFG_TA_MBEDTLS,y)
 
 # Compile the TA library mbedTLS with self test functions, the functions
 # need to be called to test anything
@@ -465,12 +574,12 @@ CFG_TA_MBEDTLS_SELF_TEST ?= y
 CFG_CRYPTOLIB_NAME ?= tomcrypt
 CFG_CRYPTOLIB_DIR ?= core/lib/libtomcrypt
 
-# Enable TEE_ALG_RSASSA_PKCS1_V1_5 algorithm for signing with PKCS#1 v1.5 EMSA
-# without ASN.1 around the hash.
-ifeq ($(CFG_CRYPTOLIB_NAME),tomcrypt)
-CFG_CRYPTO_RSASSA_NA1 ?= y
-CFG_CORE_MBEDTLS_MPI ?= y
-endif
+# Not used since libmpa was removed. Force the value to catch build scripts
+# that would set = n.
+$(call force,CFG_CORE_MBEDTLS_MPI,y)
+
+# Enable PKCS#11 TA's TEE Identity based authentication support
+CFG_PKCS11_TA_AUTH_TEE_IDENTITY ?= y
 
 # Enable virtualization support. OP-TEE will not work without compatible
 # hypervisor if this option is enabled.
@@ -486,3 +595,44 @@ endif
 
 # Enables backwards compatible derivation of RPMB and SSK keys
 CFG_CORE_HUK_SUBKEY_COMPAT ?= y
+
+# Compress and encode conf.mk into the TEE core, and show the encoded string on
+# boot (with severity TRACE_INFO).
+CFG_SHOW_CONF_ON_BOOT ?= n
+
+# Enables support for passing a TPM Event Log stored in secure memory
+# to a TA, so a TPM Service could use it to extend any measurement
+# taken before the service was up and running.
+CFG_CORE_TPM_EVENT_LOG ?= n
+
+# When enabled, CFG_SCMI_MSG_DRIVERS embeds SCMI message drivers in the core.
+# Refer to the supported SCMI features embedded upon CFG_SCMI_MSG_*
+# CFG_SCMI_MSG_CLOCK embeds SCMI clock protocol support.
+# CFG_SCMI_MSG_RESET_DOMAIN embeds SCMI reset domain protocol support.
+# CFG_SCMI_MSG_SMT embeds SMT based message buffer of communication channel
+CFG_SCMI_MSG_DRIVERS ?= n
+CFG_SCMI_MSG_CLOCK ?= n
+CFG_SCMI_MSG_RESET_DOMAIN ?= n
+CFG_SCMI_MSG_SMT ?= n
+
+ifneq ($(CFG_STMM_PATH),)
+$(call force,CFG_WITH_STMM_SP,y)
+else
+CFG_WITH_STMM_SP ?= n
+endif
+ifeq ($(CFG_WITH_STMM_SP),y)
+$(call force,CFG_ZLIB,y)
+endif
+
+# When enabled checks that buffers passed to the GP Internal Core API
+# comply with the rules added as annotations as part of the definition of
+# the API. For example preventing buffers in non-secure shared memory when
+# not allowed.
+CFG_TA_STRICT_ANNOTATION_CHECKS ?= y
+
+# When enabled accepts the DES key sizes excluding parity bits as in
+# the GP Internal API Specification v1.0
+CFG_COMPAT_GP10_DES ?= y
+
+# Defines a limit for many levels TAs may call each others.
+CFG_CORE_MAX_SYSCALL_RECURSION ?= 4

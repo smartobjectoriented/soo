@@ -11,7 +11,7 @@
 
 #define ASF_KEY_SIZE		32 /* AES 256 */
 #define ASF_TAG_SIZE		16
-#define ASF_IV_SZ			12
+#define ASF_IV_SZ		12
 
 typedef enum {
 	ASF_KEY_COM = 0, /* Symmetric key for the 'Communication' flow */
@@ -196,20 +196,27 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_types,
 	(void)&sess_ctx;
 
 	/* Get AES communication key */
+
+	/* The max len of the buffer must be specified and is checked by the function */
+	com_key_size = ASF_KEY_SIZE;
+
 	res = TEE_GetPropertyAsBinaryBlock(TEE_PROPSET_CURRENT_TA, "gp.ta.com_key", aes_com_key, &com_key_size);
 	if ((res != TEE_SUCCESS) || (com_key_size != ASF_KEY_SIZE)) {
-		EMSG("ASF - Recuperation of asf communication key failed");
+		EMSG("ASF - Recuperation of asf communication key failed with res = %x\n", res);
 		return TEE_ERROR_GENERIC;
 	}
 
-	/* Get AES communication key */
-#if 1
+	/* Get AES injector key */
+
+	/* The max len of the buffer must be specified and is checked by the function */
+	inject_key_size = ASF_KEY_SIZE;
+
 	res = TEE_GetPropertyAsBinaryBlock(TEE_PROPSET_CURRENT_TA, "gp.ta.inject_key", aes_inject_key, &inject_key_size);
 	if ((res != TEE_SUCCESS) || (inject_key_size != ASF_KEY_SIZE)) {
 		EMSG("ASF - Recuperation of asf communication key failed");
 		return TEE_ERROR_GENERIC;
 	}
-#endif
+
 	return TEE_SUCCESS;
 }
 

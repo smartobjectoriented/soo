@@ -1,4 +1,7 @@
 CFG_CRYPTO ?= y
+# Select small code size in the crypto library if applicable (for instance
+# LibTomCrypt has -DLTC_SMALL_CODE)
+# Note: the compiler flag -Os is not set here but by CFG_CC_OPT_LEVEL
 CFG_CRYPTO_SIZE_OPTIMIZATION ?= y
 
 ifeq (y,$(CFG_CRYPTO))
@@ -6,6 +9,7 @@ ifeq (y,$(CFG_CRYPTO))
 # Ciphers
 CFG_CRYPTO_AES ?= y
 CFG_CRYPTO_DES ?= y
+CFG_CRYPTO_SM4 ?= y
 
 # Cipher block modes
 CFG_CRYPTO_ECB ?= y
@@ -27,21 +31,23 @@ CFG_CRYPTO_SHA256 ?= y
 CFG_CRYPTO_SHA384 ?= y
 CFG_CRYPTO_SHA512 ?= y
 CFG_CRYPTO_SHA512_256 ?= y
+CFG_CRYPTO_SM3 ?= y
 
 # Asymmetric ciphers
 CFG_CRYPTO_DSA ?= y
 CFG_CRYPTO_RSA ?= y
 CFG_CRYPTO_DH ?= y
+# ECC includes ECDSA and ECDH
 CFG_CRYPTO_ECC ?= y
+CFG_CRYPTO_SM2_PKE ?= y
+CFG_CRYPTO_SM2_DSA ?= y
+CFG_CRYPTO_SM2_KEP ?= y
 
 # Authenticated encryption
 CFG_CRYPTO_CCM ?= y
 CFG_CRYPTO_GCM ?= y
 # Default uses the OP-TEE internal AES-GCM implementation
-#CFG_CRYPTO_AES_GCM_FROM_CRYPTOLIB ?= n
-# OSSO - using TOM Crypt lib,
-# Tests with default lib were not working
-CFG_CRYPTO_AES_GCM_FROM_CRYPTOLIB ?= y
+CFG_CRYPTO_AES_GCM_FROM_CRYPTOLIB ?= n
 
 endif
 
@@ -64,17 +70,12 @@ $(call force,CFG_AES_GCM_TABLE_BASED,n,conflicts with CFG_CRYPTO_WITH_CE)
 # assume they are implicitly contained in CFG_CRYPTO_WITH_CE=y.
 CFG_HWSUPP_PMULT_64 ?= y
 
-ifeq ($(CFG_ARM32_core),y)
-CFG_CRYPTO_AES_ARM32_CE ?= $(CFG_CRYPTO_AES)
-CFG_CRYPTO_SHA1_ARM32_CE ?= $(CFG_CRYPTO_SHA1)
-CFG_CRYPTO_SHA256_ARM32_CE ?= $(CFG_CRYPTO_SHA256)
-endif
-
-ifeq ($(CFG_ARM64_core),y)
-CFG_CRYPTO_AES_ARM64_CE ?= $(CFG_CRYPTO_AES)
-CFG_CRYPTO_SHA1_ARM64_CE ?= $(CFG_CRYPTO_SHA1)
-CFG_CRYPTO_SHA256_ARM64_CE ?= $(CFG_CRYPTO_SHA256)
-endif
+CFG_CRYPTO_SHA256_ARM_CE ?= $(CFG_CRYPTO_SHA256)
+CFG_CORE_CRYPTO_SHA256_ACCEL ?= $(CFG_CRYPTO_SHA256_ARM_CE)
+CFG_CRYPTO_SHA1_ARM_CE ?= $(CFG_CRYPTO_SHA1)
+CFG_CORE_CRYPTO_SHA1_ACCEL ?= $(CFG_CRYPTO_SHA1_ARM_CE)
+CFG_CRYPTO_AES_ARM_CE ?= $(CFG_CRYPTO_AES)
+CFG_CORE_CRYPTO_AES_ACCEL ?= $(CFG_CRYPTO_AES_ARM_CE)
 
 else #CFG_CRYPTO_WITH_CE
 
@@ -91,14 +92,11 @@ endif
 ifeq ($(CFG_CRYPTO_SHA256_ARM64_CE),y)
 $(call force,CFG_WITH_VFP,y,required by CFG_CRYPTO_SHA256_ARM64_CE)
 endif
-ifeq ($(CFG_CRYPTO_SHA1_ARM32_CE),y)
-$(call force,CFG_WITH_VFP,y,required by CFG_CRYPTO_SHA1_ARM32_CE)
+ifeq ($(CFG_CRYPTO_SHA1_ARM_CE),y)
+$(call force,CFG_WITH_VFP,y,required by CFG_CRYPTO_SHA1_ARM_CE)
 endif
-ifeq ($(CFG_CRYPTO_SHA1_ARM64_CE),y)
-$(call force,CFG_WITH_VFP,y,required by CFG_CRYPTO_SHA1_ARM64_CE)
-endif
-ifeq ($(CFG_CRYPTO_AES_ARM64_CE),y)
-$(call force,CFG_WITH_VFP,y,required by CFG_CRYPTO_AES_ARM64_CE)
+ifeq ($(CFG_CRYPTO_AES_ARM_CE),y)
+$(call force,CFG_WITH_VFP,y,required by CFG_CRYPTO_AES_ARM_CE)
 endif
 
 cryp-enable-all-depends = $(call cfg-enable-all-depends,$(strip $(1)),$(foreach v,$(2),CFG_CRYPTO_$(v)))
@@ -126,6 +124,10 @@ $(eval $(call cryp-dep-one, GCM, AES))
 $(eval $(call cryp-dep-one, AES, ECB CBC CTR CTS XTS))
 # If no DES cipher mode is left, disable DES
 $(eval $(call cryp-dep-one, DES, ECB CBC))
+# SM2 is Elliptic Curve Cryptography, it uses some generic ECC functions
+$(eval $(call cryp-dep-one, SM2_PKE, ECC))
+$(eval $(call cryp-dep-one, SM2_DSA, ECC))
+$(eval $(call cryp-dep-one, SM2_KEP, ECC))
 
 ###############################################################
 # libtomcrypt (LTC) specifics, phase #1
@@ -152,13 +154,16 @@ ifeq ($(CFG_CRYPTO_AES_GCM_FROM_CRYPTOLIB),y)
 core-ltc-vars += GCM
 endif
 core-ltc-vars += RSA DSA DH ECC
-core-ltc-vars += AES_ARM64_CE AES_ARM32_CE
-core-ltc-vars += SHA1_ARM32_CE SHA1_ARM64_CE
-core-ltc-vars += SHA256_ARM32_CE SHA256_ARM64_CE
 core-ltc-vars += SIZE_OPTIMIZATION
+core-ltc-vars += SM2_PKE
+core-ltc-vars += SM2_DSA
+core-ltc-vars += SM2_KEP
 # Assigned selected CFG_CRYPTO_xxx as _CFG_CORE_LTC_xxx
 $(foreach v, $(core-ltc-vars), $(eval _CFG_CORE_LTC_$(v) := $(CFG_CRYPTO_$(v))))
 _CFG_CORE_LTC_MPI := $(CFG_CORE_MBEDTLS_MPI)
+_CFG_CORE_LTC_AES_ACCEL := $(CFG_CORE_CRYPTO_AES_ACCEL)
+_CFG_CORE_LTC_SHA1_ACCEL := $(CFG_CORE_CRYPTO_SHA1_ACCEL)
+_CFG_CORE_LTC_SHA256_ACCEL := $(CFG_CORE_CRYPTO_SHA256_ACCEL)
 endif
 
 ###############################################################
@@ -182,6 +187,17 @@ endif
 # libtomcrypt (LTC) specifics, phase #2
 ###############################################################
 
+_CFG_CORE_LTC_SHA256_DESC := $(call cfg-one-enabled, _CFG_CORE_LTC_SHA256_DESC \
+						     _CFG_CORE_LTC_SHA224 \
+						     _CFG_CORE_LTC_SHA256)
+_CFG_CORE_LTC_SHA384_DESC := $(call cfg-one-enabled, _CFG_CORE_LTC_SHA384_DESC \
+						     _CFG_CORE_LTC_SHA384)
+_CFG_CORE_LTC_SHA512_DESC := $(call cfg-one-enabled, _CFG_CORE_LTC_SHA512_DESC \
+						     _CFG_CORE_LTC_SHA512_256 \
+						     _CFG_CORE_LTC_SHA512)
+_CFG_CORE_LTC_AES_DESC := $(call cfg-one-enabled, _CFG_CORE_LTC_AES_DESC \
+						  _CFG_CORE_LTC_AES)
+
 # Assign system variables
 _CFG_CORE_LTC_CE := $(CFG_CRYPTO_WITH_CE)
 _CFG_CORE_LTC_VFP := $(CFG_WITH_VFP)
@@ -193,12 +209,23 @@ _CFG_CORE_LTC_HWSUPP_PMULL := $(CFG_HWSUPP_PMULL)
 # Assign aggregated variables
 ltc-one-enabled = $(call cfg-one-enabled,$(foreach v,$(1),_CFG_CORE_LTC_$(v)))
 _CFG_CORE_LTC_ACIPHER := $(call ltc-one-enabled, RSA DSA DH ECC)
-_CFG_CORE_LTC_AUTHENC := $(and $(filter y,$(_CFG_CORE_LTC_AES) \
-					  $(_CFG_CORE_LTC_AES_DESC)), \
-			       $(call ltc-one-enabled, CCM GCM))
-_CFG_CORE_LTC_CIPHER := $(call ltc-one-enabled, AES AES_DESC DES)
+_CFG_CORE_LTC_AUTHENC := $(and $(filter y,$(_CFG_CORE_LTC_AES_DESC)), \
+			       $(filter y,$(call ltc-one-enabled, CCM GCM)))
+_CFG_CORE_LTC_CIPHER := $(call ltc-one-enabled, AES_DESC DES)
 _CFG_CORE_LTC_HASH := $(call ltc-one-enabled, MD5 SHA1 SHA224 SHA256 SHA384 \
 					      SHA512)
 _CFG_CORE_LTC_MAC := $(call ltc-one-enabled, HMAC CMAC CBC_MAC)
 _CFG_CORE_LTC_CBC := $(call ltc-one-enabled, CBC CBC_MAC)
 _CFG_CORE_LTC_ASN1 := $(call ltc-one-enabled, RSA DSA ECC)
+
+###############################################################
+# Platform independent crypto-driver configuration
+###############################################################
+CRYPTO_MAKEFILES := $(sort $(wildcard core/drivers/crypto/*/crypto.mk))
+include $(CRYPTO_MAKEFILES)
+
+# Enable TEE_ALG_RSASSA_PKCS1_V1_5 algorithm for signing with PKCS#1 v1.5 EMSA
+# without ASN.1 around the hash.
+ifeq ($(CFG_CRYPTOLIB_NAME),tomcrypt)
+CFG_CRYPTO_RSASSA_NA1 ?= y
+endif

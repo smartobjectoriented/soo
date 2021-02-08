@@ -36,8 +36,6 @@
 
 #include <soo/debug/bandwidth.h>
 
-#undef CONFIG_ARM_PSCI
-
 typedef struct {
 	neighbour_desc_t *neighbour;
 	struct list_head list;
@@ -304,7 +302,7 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 		return ;
 
 	/* Beacon decryption */
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 	size = asf_decrypt(ASF_KEY_COM, (uint8_t *) data, size, (uint8_t **) &iamasoo_pkt);
 #else
 	iamasoo_pkt = (iamasoo_pkt_t *) data;
@@ -404,7 +402,7 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 
 	}
 
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 	kfree(iamasoo_pkt);
 #endif
 
@@ -421,7 +419,7 @@ static void send_beacon(void) {
 	iamasoo_pkt_t *iamasoo_pkt;
 	uint32_t size;
 	uint8_t priv_len = 0;
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 	uint8_t *iamasoo_pkt_crypt;
 #endif
 
@@ -467,20 +465,20 @@ static void send_beacon(void) {
 	concat_friends(&iamasoo_pkt->extra[priv_len]);
 
 	/* Beacon encryption */
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 	size = asf_encrypt(ASF_KEY_COM, (uint8_t *) iamasoo_pkt, size, &iamasoo_pkt_crypt);
 #endif
 	/* Now send the Iamasoo beacon to the sender */
 	soo_log("[soo:soolink:discovery] %s: sending to: ", __func__);
 	soo_log_printlnUID(&current_soo_discovery->discovery_sl_desc->agencyUID_to);
 
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 	sender_tx(current_soo_discovery->discovery_sl_desc, iamasoo_pkt_crypt, size, true);
 #else
 	sender_tx(current_soo_discovery->discovery_sl_desc, iamasoo_pkt, size, true);
 #endif
 
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 	kfree(iamasoo_pkt_crypt);
 #endif
 	kfree(iamasoo_pkt);

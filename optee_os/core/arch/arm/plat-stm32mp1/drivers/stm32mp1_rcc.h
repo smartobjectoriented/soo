@@ -295,7 +295,8 @@
 #define RCC_BDCR_LSEDRV_MASK		GENMASK_32(5, 4)
 #define RCC_BDCR_LSEDRV_SHIFT		4
 #define RCC_BDCR_LSECSSON		BIT(8)
-#define RCC_BDCR_RTCCKEN		BIT(20)
+#define RCC_BDCR_RTCCKEN_POS		20
+#define RCC_BDCR_RTCCKEN		BIT(RCC_BDCR_RTCCKEN_POS)
 #define RCC_BDCR_RTCSRC_MASK		GENMASK_32(17, 16)
 #define RCC_BDCR_RTCSRC_SHIFT		16
 #define RCC_BDCR_VSWRST			BIT(31)
@@ -454,6 +455,9 @@
 #define RCC_MP_SREQCLRR_STPREQ_P0	BIT(0)
 #define RCC_MP_SREQCLRR_STPREQ_P1	BIT(1)
 
+/* Global Control Register */
+#define RCC_MP_GCR_BOOT_MCU		BIT(0)
+
 /* RCC_MP_APB5RST(SET|CLR)R bit fields */
 #define RCC_APB5RSTSETR_SPI6RST		BIT(0)
 #define RCC_APB5RSTSETR_I2C4RST		BIT(2)
@@ -529,11 +533,17 @@
 #define RCC_MP_AHB5LPENSETR_RNG1LPEN		BIT(6)
 #define RCC_MP_AHB5LPENSETR_BKPSRAMLPEN		BIT(8)
 
+/* RCC_MP_TZAHB6EN(SET|CLR)R bit fields */
+#define RCC_MP_TZAHB6ENSETR_MDMA_POS	0
+#define RCC_MP_TZAHB6ENSETR_MDMA	BIT(RCC_MP_TZAHB6ENSETR_MDMA_POS)
+
 /* RCC_MP_IWDGFZ(SET|CLR)R bit fields */
 #define RCC_MP_IWDGFZSETR_IWDG1			BIT(0)
 #define RCC_MP_IWDGFZSETR_IWDG2			BIT(1)
 
-#ifndef ASM
+#define DT_RCC_CLK_COMPAT	"st,stm32mp1-rcc"
+
+#ifndef __ASSEMBLER__
 vaddr_t stm32_rcc_base(void);
 
 static inline bool stm32_rcc_is_secure(void)
@@ -545,6 +555,6 @@ static inline bool stm32_rcc_is_mckprot(void)
 {
 	return io_read32(stm32_rcc_base() + RCC_TZCR) & RCC_TZCR_MCKPROT;
 }
-#endif /*ASM*/
+#endif /*__ASSEMBLER__*/
 
 #endif /*__STM32MP1_RCC_H__*/

@@ -61,6 +61,13 @@
 #define TEE_TEXT_VA_START       (TEE_RAM_VA_START + \
 					(TEE_LOAD_ADDR - TEE_RAM_START))
 
+/*
+ * Note:
+ * Clang 11 (ld.lld) generates non-relocatable reference when using ROUNDDOWN()
+ * from <util.h>, which does not work with ASLR.
+ */
+#define LD_ROUNDDOWN(x, y) ((x) - ((x) % (y)))
+
 OUTPUT_FORMAT(CFG_KERN_LINKER_FORMAT)
 OUTPUT_ARCH(CFG_KERN_LINKER_ARCH)
 
@@ -81,10 +88,19 @@ SECTIONS
 	 * value will be mapped with unpaged "text" section attributes:
 	 * likely to be read-only/executable.
 	 */
-	__flatmap_unpg_rx_start = ROUNDDOWN(__text_start, SMALL_PAGE_SIZE);
+	__flatmap_unpg_rx_start = LD_ROUNDDOWN(__text_start, SMALL_PAGE_SIZE);
 
 	.text : {
 		KEEP(*(.text._start))
+		__identity_map_init_start = .;
+		*(.identity_map .identity_map.* \
+			/*
+			 * The one below is needed because it's a weak
+			 * symbol that may be overridden by platform
+			 * specific code.
+			 */
+		  .text.get_core_pos_mpidr)
+		__identity_map_init_end = .;
 		KEEP(*(.text.init .text.plat_cpu_reset_early \
 		       .text.reset .text.reset_primary .text.unhandled_cpu \
 		       .text.__assert_flat_mapped_range))
@@ -119,13 +135,6 @@ SECTIONS
 		KEEP(*(.rodata.dtdrv))
 		__rodata_dtdrv_end = .;
 #endif
-#ifdef CFG_EARLY_TA
-		. = ALIGN(8);
-		__rodata_early_ta_start = .;
-		KEEP(*(.rodata.early_ta))
-		__rodata_early_ta_end = .;
-#endif
-
 		*(.rodata .rodata.*)
 		. = ALIGN(8);
 		KEEP(*(SORT(.scattered_array*)));
@@ -134,30 +143,19 @@ SECTIONS
 		__rodata_end = .;
 	}
 
-	.hash : { *(.hash) }
-	.dynsym : { *(.dynsym) }
-	.dynstr : { *(.dynstr) }
-	.rel.text : { *(.rel.text) *(.rel.gnu.linkonce.t*) }
-	.rela.text : { *(.rela.text) *(.rela.gnu.linkonce.t*) }
-	.rel.data : { *(.rel.data) *(.rel.gnu.linkonce.d*) }
-	.rela.data : { *(.rela.data) *(.rela.gnu.linkonce.d*) }
-	.rel.rodata : { *(.rel.rodata) *(.rel.gnu.linkonce.r*) }
-	.rela.rodata : { *(.rela.rodata) *(.rela.gnu.linkonce.r*) }
-	.rel.got : { *(.rel.got) }
-	.rela.got : { *(.rela.got) }
-	.rel.ctors : { *(.rel.ctors) }
-	.rela.ctors : { *(.rela.ctors) }
-	.rel.dtors : { *(.rel.dtors) }
-	.rela.dtors : { *(.rela.dtors) }
-	.rel.init : { *(.rel.init) }
-	.rela.init : { *(.rela.init) }
-	.rel.fini : { *(.rel.fini) }
-	.rela.fini : { *(.rela.fini) }
-	.rel.bss : { *(.rel.bss) }
-	.rela.bss : { *(.rela.bss) }
-	.rel.plt : { *(.rel.plt) }
-	.rela.plt : { *(.rela.plt) }
+	.got : { *(.got.plt) *(.got) }
 	.plt : { *(.plt) }
+
+	.ctors : ALIGN(8) {
+		__ctor_list = .;
+		KEEP(*(.ctors .ctors.* .init_array .init_array.*))
+		__ctor_end = .;
+	}
+	.dtors : ALIGN(8) {
+		__dtor_list = .;
+		KEEP(*(.dtors .dtors.* .fini_array .fini_array.*))
+		__dtor_end = .;
+	}
 
 	/* .ARM.exidx is sorted, so has to go in its own output section.  */
 	.ARM.exidx : {
@@ -233,19 +231,6 @@ SECTIONS
 		*(.data .data.* .gnu.linkonce.d.*)
 		. = ALIGN(8);
 	}
-
-	.ctors : ALIGN(8) {
-		__ctor_list = .;
-		KEEP(*(.ctors .ctors.* .init_array .init_array.*))
-		__ctor_end = .;
-	}
-	.dtors : ALIGN(8) {
-		__dtor_list = .;
-		KEEP(*(.dtors .dtors.* .fini_array .fini_array.*))
-		__dtor_end = .;
-	}
-	.got : { *(.got.plt) *(.got) }
-	.dynamic : { *(.dynamic) }
 
 	/* unintialized data */
 	.bss : {
@@ -346,9 +331,9 @@ SECTIONS
 		. = ALIGN(8);
 		__rodata_init_end = .;
 	}
-	__rodata_init_end = .;
 
-	__init_end = ROUNDUP(__rodata_init_end, SMALL_PAGE_SIZE);
+	__init_end = ALIGN(__rodata_init_end, SMALL_PAGE_SIZE);
+	__get_tee_init_end = __init_end;
 	__init_size = __init_end - __init_start;
 
 	/* vcore flat map stops here. No need to page align, rodata follows. */
@@ -359,12 +344,6 @@ SECTIONS
 		__rodata_dtdrv_start = .;
 		KEEP(*(.rodata.dtdrv))
 		__rodata_dtdrv_end = .;
-#endif
-#ifdef CFG_EARLY_TA
-		. = ALIGN(8);
-		__rodata_early_ta_start = .;
-		KEEP(*(.rodata.early_ta))
-		__rodata_early_ta_end = .;
 #endif
 		*(.rodata*)
 	}
@@ -383,23 +362,10 @@ SECTIONS
 	__pageable_start = __init_start;
 	__pageable_end = __pageable_part_end;
 
-	/*
-	 * Assign a safe spot to store the hashes of the pages before
-	 * heap is initialized.
-	 */
-	__tmp_hashes_start = __init_end;
-	__tmp_hashes_size = ((__pageable_end - __pageable_start) /
-				SMALL_PAGE_SIZE) * 32;
-	__tmp_hashes_end = __tmp_hashes_start + __tmp_hashes_size;
-
-	__init_mem_usage = __tmp_hashes_end - TEE_TEXT_VA_START;
-
 	ASSERT(TEE_LOAD_ADDR >= TEE_RAM_START,
 		"Load address before start of physical memory")
 	ASSERT(TEE_LOAD_ADDR < (TEE_RAM_START + TEE_RAM_PH_SIZE),
 		"Load address after end of physical memory")
-	ASSERT(__tmp_hashes_end < (TEE_RAM_VA_START + TEE_RAM_PH_SIZE),
-		"OP-TEE can't fit init part into available physical memory")
 	ASSERT((TEE_RAM_VA_START + TEE_RAM_PH_SIZE - __init_end) >
 		SMALL_PAGE_SIZE, "Too few free pages to initialize paging")
 
@@ -421,7 +387,6 @@ SECTIONS
 
 #ifndef CFG_WITH_PAGER
 	__init_size = __data_end - TEE_TEXT_VA_START;
-	__init_mem_usage = __end - TEE_TEXT_VA_START;
 #endif
 	/*
 	 * Guard against moving the location counter backwards in the assignment
@@ -435,6 +400,28 @@ SECTIONS
 
 #ifndef CFG_WITH_PAGER
 	__flatmap_unpg_rw_size = _end_of_ram - __flatmap_unpg_rw_start;
+	__get_tee_init_end = .;
+#endif
+
+	/*
+	 * These regions will not become a normal part of the dumped
+	 * binary, instead some are interpreted by the dump script and
+	 * converted into suitable format for OP-TEE itself to use.
+	 */
+	.dynamic : { *(.dynamic) }
+	.hash : { *(.hash) }
+	.dynsym : { *(.dynsym) }
+	.dynstr : { *(.dynstr) }
+
+	.rel : {
+		*(.rel.*)
+	}
+	.rela : {
+		*(.rela.*)
+	}
+#ifndef CFG_CORE_ASLR
+	ASSERT(SIZEOF(.rel) == 0, "Relocation entries not expected")
+	ASSERT(SIZEOF(.rela) == 0, "Relocation entries not expected")
 #endif
 
 	/DISCARD/ : {
@@ -456,15 +443,19 @@ __vcore_unpg_ro_size = __flatmap_unpg_ro_size;
 __vcore_unpg_rx_size = __flatmap_unpg_rx_size + __flatmap_unpg_ro_size;
 __vcore_unpg_ro_size = 0;
 #endif
+__vcore_unpg_rx_end = __vcore_unpg_rx_start + __vcore_unpg_rx_size;
+__vcore_unpg_ro_end = __vcore_unpg_ro_start + __vcore_unpg_ro_size;
 
 /* Unpaged read-write memory */
 __vcore_unpg_rw_start = __flatmap_unpg_rw_start;
 __vcore_unpg_rw_size = __flatmap_unpg_rw_size;
+__vcore_unpg_rw_end = __vcore_unpg_rw_start + __vcore_unpg_rw_size;
 
 #ifdef CFG_VIRTUALIZATION
 /* Nexus read-write memory */
 __vcore_nex_rw_start = __flatmap_nex_rw_start;
 __vcore_nex_rw_size = __flatmap_nex_rw_size;
+__vcore_nex_rw_end = __vcore_nex_rw_start + __vcore_nex_rw_size;
 #endif
 
 #ifdef CFG_WITH_PAGER
@@ -488,6 +479,8 @@ __vcore_init_rx_size = __flatmap_init_rx_size + __flatmap_init_ro_size +
 		       __FLATMAP_PAGER_TRAILING_SPACE;
 __vcore_init_ro_size = 0;
 #endif /* CFG_CORE_RODATA_NOEXEC */
+__vcore_init_rx_end = __vcore_init_rx_start + __vcore_init_rx_size;
+__vcore_init_ro_end = __vcore_init_ro_start + __vcore_init_ro_size;
 #endif /* CFG_WITH_PAGER */
 
 #ifdef CFG_CORE_SANITIZE_KADDRESS

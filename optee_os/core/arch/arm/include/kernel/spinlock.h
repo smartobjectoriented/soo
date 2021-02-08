@@ -10,7 +10,7 @@
 #define SPINLOCK_LOCK       1
 #define SPINLOCK_UNLOCK     0
 
-#ifndef ASM
+#ifndef __ASSEMBLER__
 #include <assert.h>
 #include <compiler.h>
 #include <stdbool.h>
@@ -20,14 +20,14 @@
 void spinlock_count_incr(void);
 void spinlock_count_decr(void);
 bool have_spinlock(void);
-static inline void assert_have_no_spinlock(void)
+static inline void __nostackcheck assert_have_no_spinlock(void)
 {
 	assert(!have_spinlock());
 }
 #else
 static inline void spinlock_count_incr(void) { }
 static inline void spinlock_count_decr(void) { }
-static inline void assert_have_no_spinlock(void) { }
+static inline void __nostackcheck assert_have_no_spinlock(void) { }
 #endif
 
 void __cpu_spin_lock(unsigned int *lock);
@@ -129,6 +129,6 @@ static inline void cpu_spin_unlock_xrestore(unsigned int *lock,
 	cpu_spin_unlock(lock);
 	thread_unmask_exceptions(exceptions);
 }
-#endif /* ASM */
+#endif /* __ASSEMBLER__ */
 
 #endif /* KERNEL_SPINLOCK_H */

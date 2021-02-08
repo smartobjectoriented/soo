@@ -53,11 +53,6 @@
  * functions.
  */
 #define VM_FLAG_READONLY		BIT(4)
-/*
- * The mobj in the region is exclusive, that is, it's the last pointer to
- * that mobj and has to be freed when the region is removed.
- */
-#define VM_FLAG_EXCLUSIVE_MOBJ		BIT(5)
 
 /*
  * Set of flags used by tee_mmu_is_vbuf_inside_ta_private() and
@@ -66,7 +61,7 @@
  */
 #define VM_FLAGS_NONPRIV		(VM_FLAG_EPHEMERAL | \
 					 VM_FLAG_PERMANENT | \
-					 VM_FLAG_SHAREABLE | VM_FLAG_LDELF)
+					 VM_FLAG_SHAREABLE)
 
 struct tee_mmap_region {
 	unsigned int type; /* enum teecore_memtypes */

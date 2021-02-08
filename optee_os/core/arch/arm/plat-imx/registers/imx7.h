@@ -5,6 +5,8 @@
 #ifndef __IMX7_H__
 #define __IMX7_H__
 
+#include <registers/imx7-crm.h>
+
 #define GIC_BASE		0x31000000
 #define GIC_SIZE		0x8000
 #define GICC_OFFSET		0x2000
@@ -46,6 +48,7 @@
 #define CSU_CSL_END		0x100
 #define	CSU_ACCESS_ALL		0x00FF00FF
 #define CSU_SETTING_LOCK	0x01000100
+#define CSU_SA			0x218
 
 #define TRUSTZONE_OCRAM_START	0x180000
 
@@ -62,5 +65,7 @@
 #define IOMUXC_GPR11_OCRAM_S_TZ_EN_LOCK_OFFSET		26
 #define IOMUXC_GPR11_OCRAM_S_TZ_EN_LOCK_MASK		GENMASK_32(26, 26)
 #define IOMUXC_GPR11_OCRAM_S_TZ_ADDR_LOCK_OFFSET	GENMASK_32(29, 27)
+
+#define DIGPROG_OFFSET	0x800
 
 #endif /* __IMX7_H__ */

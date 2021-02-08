@@ -36,16 +36,13 @@
 
 #include <arm.h>
 #include <console.h>
-#include <kernel/generic_boot.h>
-#include <kernel/pm_stubs.h>
+#include <kernel/boot.h>
+#include <kernel/interrupt.h>
 #include <kernel/misc.h>
 #include <kernel/tee_time.h>
 #include <mm/core_memprot.h>
-#include <tee/entry_fast.h>
-#include <tee/entry_std.h>
 #include <trace.h>
 
-static void main_fiq(void);
 static struct gic_data gic_data;
 static struct cdns_uart_data console_data;
 
@@ -61,32 +58,6 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC,
 			ROUNDDOWN(GIC_BASE + GICD_OFFSET, CORE_MMU_PGDIR_SIZE),
 			CORE_MMU_PGDIR_SIZE);
 
-static const struct thread_handlers handlers = {
-	.std_smc = tee_entry_std,
-	.fast_smc = tee_entry_fast,
-	.nintr = main_fiq,
-#if defined(CFG_WITH_ARM_TRUSTED_FW)
-	.cpu_on = cpu_on_handler,
-	.cpu_off = pm_do_nothing,
-	.cpu_suspend = pm_do_nothing,
-	.cpu_resume = pm_do_nothing,
-	.system_off = pm_do_nothing,
-	.system_reset = pm_do_nothing,
-#else
-	.cpu_on = pm_panic,
-	.cpu_off = pm_panic,
-	.cpu_suspend = pm_panic,
-	.cpu_resume = pm_panic,
-	.system_off = pm_panic,
-	.system_reset = pm_panic,
-#endif
-};
-
-const struct thread_handlers *generic_boot_get_handlers(void)
-{
-	return &handlers;
-}
-
 void main_init_gic(void)
 {
 	vaddr_t gicc_base, gicd_base;
@@ -99,7 +70,7 @@ void main_init_gic(void)
 	gic_init_base_addr(&gic_data, gicc_base, gicd_base);
 }
 
-static void main_fiq(void)
+void itr_core_handler(void)
 {
 	gic_it_handle(&gic_data);
 }

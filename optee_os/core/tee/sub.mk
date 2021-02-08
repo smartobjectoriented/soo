@@ -34,14 +34,15 @@ srcs-$(call cfg-one-enabled,CFG_REE_FS CFG_TEE_CORE_EMBED_INTERNAL_TESTS) += \
 	fs_htree.c
 srcs-$(CFG_REE_FS) += fs_dirfile.c
 srcs-$(CFG_REE_FS) += tee_fs_rpc.c
-srcs-$(call cfg-one-enabled,CFG_REE_FS CFG_RPMB_FS) += tee_fs_rpc_cache.c
 srcs-y += tee_fs_key_manager.c
 srcs-y += tee_obj.c
 srcs-y += tee_pobj.c
 srcs-y += tee_time_generic.c
-
 srcs-$(CFG_SECSTOR_TA) += tadb.c
+srcs-$(CFG_GP_SOCKETS) += socket.c
 
 endif #CFG_WITH_USER_TA,y
 
 srcs-y += uuid.c
+srcs-y += tee_ta_enc_manager.c
+srcs-y += tee_supp_plugin_rpc.c

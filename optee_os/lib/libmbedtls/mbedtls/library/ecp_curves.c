@@ -29,6 +29,7 @@
 
 #include "mbedtls/ecp.h"
 #include "mbedtls/platform_util.h"
+#include "mbedtls/error.h"
 
 #include <string.h>
 
@@ -51,11 +52,11 @@
  */
 #if defined(MBEDTLS_HAVE_INT32)
 
-#define BYTES_TO_T_UINT_4( a, b, c, d )             \
-    ( (mbedtls_mpi_uint) a <<  0 ) |                          \
-    ( (mbedtls_mpi_uint) b <<  8 ) |                          \
-    ( (mbedtls_mpi_uint) c << 16 ) |                          \
-    ( (mbedtls_mpi_uint) d << 24 )
+#define BYTES_TO_T_UINT_4( a, b, c, d )                       \
+    ( (mbedtls_mpi_uint) (a) <<  0 ) |                        \
+    ( (mbedtls_mpi_uint) (b) <<  8 ) |                        \
+    ( (mbedtls_mpi_uint) (c) << 16 ) |                        \
+    ( (mbedtls_mpi_uint) (d) << 24 )
 
 #define BYTES_TO_T_UINT_2( a, b )                   \
     BYTES_TO_T_UINT_4( a, b, 0, 0 )
@@ -67,14 +68,14 @@
 #else /* 64-bits */
 
 #define BYTES_TO_T_UINT_8( a, b, c, d, e, f, g, h ) \
-    ( (mbedtls_mpi_uint) a <<  0 ) |                          \
-    ( (mbedtls_mpi_uint) b <<  8 ) |                          \
-    ( (mbedtls_mpi_uint) c << 16 ) |                          \
-    ( (mbedtls_mpi_uint) d << 24 ) |                          \
-    ( (mbedtls_mpi_uint) e << 32 ) |                          \
-    ( (mbedtls_mpi_uint) f << 40 ) |                          \
-    ( (mbedtls_mpi_uint) g << 48 ) |                          \
-    ( (mbedtls_mpi_uint) h << 56 )
+    ( (mbedtls_mpi_uint) (a) <<  0 ) |                        \
+    ( (mbedtls_mpi_uint) (b) <<  8 ) |                        \
+    ( (mbedtls_mpi_uint) (c) << 16 ) |                        \
+    ( (mbedtls_mpi_uint) (d) << 24 ) |                        \
+    ( (mbedtls_mpi_uint) (e) << 32 ) |                        \
+    ( (mbedtls_mpi_uint) (f) << 40 ) |                        \
+    ( (mbedtls_mpi_uint) (g) << 48 ) |                        \
+    ( (mbedtls_mpi_uint) (h) << 56 )
 
 #define BYTES_TO_T_UINT_4( a, b, c, d )             \
     BYTES_TO_T_UINT_8( a, b, c, d, 0, 0, 0, 0 )
@@ -557,6 +558,47 @@ static const mbedtls_mpi_uint brainpoolP512r1_n[] = {
 #endif /* MBEDTLS_ECP_DP_BP512R1_ENABLED */
 
 /*
+ * Domain parameters for SM2 (GM/T 0003 Part 5)
+ */
+#if defined(MBEDTLS_ECP_DP_SM2_ENABLED)
+static const mbedtls_mpi_uint sm2_p[] = {
+    BYTES_TO_T_UINT_8( 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_8( 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_8( 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_8( 0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF ),
+};
+static const mbedtls_mpi_uint sm2_a[] = {
+    BYTES_TO_T_UINT_8( 0xFC, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_8( 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_8( 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_8( 0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF ),
+};
+static const mbedtls_mpi_uint sm2_b[] = {
+    BYTES_TO_T_UINT_8( 0x93, 0x0E, 0x94, 0x4D, 0x41, 0xBD, 0xBC, 0xDD ),
+    BYTES_TO_T_UINT_8( 0x92, 0x8F, 0xAB, 0x15, 0xF5, 0x89, 0x97, 0xF3 ),
+    BYTES_TO_T_UINT_8( 0xA7, 0x09, 0x65, 0xCF, 0x4B, 0x9E, 0x5A, 0x4D ),
+    BYTES_TO_T_UINT_8( 0x34, 0x5E, 0x9F, 0x9D, 0x9E, 0xFA, 0xE9, 0x28 ),
+};
+static const mbedtls_mpi_uint sm2_gx[] = {
+    BYTES_TO_T_UINT_8( 0xC7, 0x74, 0x4C, 0x33, 0x89, 0x45, 0x5A, 0x71 ),
+    BYTES_TO_T_UINT_8( 0xE1, 0x0B, 0x66, 0xF2, 0xBF, 0x0B, 0xE3, 0x8F ),
+    BYTES_TO_T_UINT_8( 0x94, 0xC9, 0x39, 0x6A, 0x46, 0x04, 0x99, 0x5F ),
+    BYTES_TO_T_UINT_8( 0x19, 0x81, 0x19, 0x1F, 0x2C, 0xAE, 0xC4, 0x32 ),
+};
+static const mbedtls_mpi_uint sm2_gy[] = {
+    BYTES_TO_T_UINT_8( 0xA0, 0xF0, 0x39, 0x21, 0xE5, 0x32, 0xDF, 0x02 ),
+    BYTES_TO_T_UINT_8( 0x40, 0x47, 0x2A, 0xC6, 0x7C, 0x87, 0xA9, 0xD0 ),
+    BYTES_TO_T_UINT_8( 0x53, 0x21, 0x69, 0x6B, 0xE3, 0xCE, 0xBD, 0x59 ),
+    BYTES_TO_T_UINT_8( 0x9C, 0x77, 0xF6, 0xF4, 0xA2, 0x36, 0x37, 0xBC ),
+};
+static const mbedtls_mpi_uint sm2_n[] = {
+    BYTES_TO_T_UINT_8( 0x23, 0x41, 0xD5, 0x39, 0x09, 0xF4, 0xBB, 0x53 ),
+    BYTES_TO_T_UINT_8( 0x2B, 0x05, 0xC6, 0x21, 0x6B, 0xDF, 0x03, 0x72 ),
+    BYTES_TO_T_UINT_8( 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_8( 0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF ),
+};
+#endif /* MBEDTLS_ECP_DP_SM2_ENABLED */
+/*
  * Create an MPI from embedded constants
  * (assumes len is an exact multiple of sizeof mbedtls_mpi_uint)
  */
@@ -669,7 +711,7 @@ static int ecp_mod_p256k1( mbedtls_mpi * );
  */
 static int ecp_use_curve25519( mbedtls_ecp_group *grp )
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
 
     /* Actually ( A + 2 ) / 4 */
     MBEDTLS_MPI_CHK( mbedtls_mpi_read_string( &grp->A, 16, "01DB42" ) );
@@ -709,7 +751,7 @@ cleanup:
 static int ecp_use_curve448( mbedtls_ecp_group *grp )
 {
     mbedtls_mpi Ns;
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
 
     mbedtls_mpi_init( &Ns );
 
@@ -818,6 +860,11 @@ int mbedtls_ecp_group_load( mbedtls_ecp_group *grp, mbedtls_ecp_group_id id )
             return( LOAD_GROUP_A( brainpoolP384r1 ) );
 #endif /* MBEDTLS_ECP_DP_BP384R1_ENABLED */
 
+#if defined(MBEDTLS_ECP_DP_SM2_ENABLED)
+        case MBEDTLS_ECP_DP_SM2:
+            return( LOAD_GROUP_A( sm2 ) );
+#endif /* MBEDTLS_ECP_DP_SM2_ENABLED */
+
 #if defined(MBEDTLS_ECP_DP_BP512R1_ENABLED)
         case MBEDTLS_ECP_DP_BP512R1:
             return( LOAD_GROUP_A( brainpoolP512r1 ) );
@@ -836,7 +883,7 @@ int mbedtls_ecp_group_load( mbedtls_ecp_group *grp, mbedtls_ecp_group_id id )
 #endif /* MBEDTLS_ECP_DP_CURVE448_ENABLED */
 
         default:
-            mbedtls_ecp_group_free( grp );
+            grp->id = MBEDTLS_ECP_DP_NONE;
             return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
     }
 }
@@ -890,7 +937,7 @@ static inline void carry64( mbedtls_mpi_uint *dst, mbedtls_mpi_uint *carry )
 }
 
 #define WIDTH       8 / sizeof( mbedtls_mpi_uint )
-#define A( i )      N->p + i * WIDTH
+#define A( i )      N->p + (i) * WIDTH
 #define ADD( i )    add64( p, A( i ), &c )
 #define NEXT        p += WIDTH; carry64( p, &c )
 #define LAST        p += WIDTH; *p = c; while( ++p < end ) *p = 0
@@ -900,7 +947,7 @@ static inline void carry64( mbedtls_mpi_uint *dst, mbedtls_mpi_uint *carry )
  */
 static int ecp_mod_p192( mbedtls_mpi *N )
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     mbedtls_mpi_uint c = 0;
     mbedtls_mpi_uint *p, *end;
 
@@ -955,7 +1002,8 @@ cleanup:
 #else                               /* 64-bit */
 
 #define MAX32       N->n * 2
-#define A( j ) j % 2 ? (uint32_t)( N->p[j/2] >> 32 ) : (uint32_t)( N->p[j/2] )
+#define A( j ) (j) % 2 ? (uint32_t)( N->p[(j)/2] >> 32 ) : \
+                         (uint32_t)( N->p[(j)/2] )
 #define STORE32                                   \
     if( i % 2 ) {                                 \
         N->p[i/2] &= 0x00000000FFFFFFFF;          \
@@ -989,20 +1037,21 @@ static inline void sub32( uint32_t *dst, uint32_t src, signed char *carry )
  * Helpers for the main 'loop'
  * (see fix_negative for the motivation of C)
  */
-#define INIT( b )                                           \
-    int ret;                                                \
-    signed char c = 0, cc;                                  \
-    uint32_t cur;                                           \
-    size_t i = 0, bits = b;                                 \
-    mbedtls_mpi C;                                                  \
-    mbedtls_mpi_uint Cp[ b / 8 / sizeof( mbedtls_mpi_uint) + 1 ];               \
-                                                            \
-    C.s = 1;                                                \
-    C.n = b / 8 / sizeof( mbedtls_mpi_uint) + 1;                      \
-    C.p = Cp;                                               \
-    memset( Cp, 0, C.n * sizeof( mbedtls_mpi_uint ) );                \
-                                                            \
-    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, b * 2 / 8 / sizeof( mbedtls_mpi_uint ) ) ); \
+#define INIT( b )                                                       \
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;                                                            \
+    signed char c = 0, cc;                                              \
+    uint32_t cur;                                                       \
+    size_t i = 0, bits = (b);                                           \
+    mbedtls_mpi C;                                                      \
+    mbedtls_mpi_uint Cp[ (b) / 8 / sizeof( mbedtls_mpi_uint) + 1 ];     \
+                                                                        \
+    C.s = 1;                                                            \
+    C.n = (b) / 8 / sizeof( mbedtls_mpi_uint) + 1;                      \
+    C.p = Cp;                                                           \
+    memset( Cp, 0, C.n * sizeof( mbedtls_mpi_uint ) );                  \
+                                                                        \
+    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, (b) * 2 / 8 /                 \
+                                       sizeof( mbedtls_mpi_uint ) ) );  \
     LOAD32;
 
 #define NEXT                    \
@@ -1025,7 +1074,7 @@ static inline void sub32( uint32_t *dst, uint32_t src, signed char *carry )
  */
 static inline int fix_negative( mbedtls_mpi *N, signed char c, mbedtls_mpi *C, size_t bits )
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
 
     /* C = - c * 2^(bits + 32) */
 #if !defined(MBEDTLS_HAVE_INT64)
@@ -1183,7 +1232,7 @@ cleanup:
  */
 static int ecp_mod_p521( mbedtls_mpi *N )
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     size_t i;
     mbedtls_mpi M;
     mbedtls_mpi_uint Mp[P521_WIDTH + 1];
@@ -1232,7 +1281,7 @@ cleanup:
  */
 static int ecp_mod_p255( mbedtls_mpi *N )
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     size_t i;
     mbedtls_mpi M;
     mbedtls_mpi_uint Mp[P255_WIDTH + 2];
@@ -1289,7 +1338,7 @@ cleanup:
  */
 static int ecp_mod_p448( mbedtls_mpi *N )
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     size_t i;
     mbedtls_mpi M, Q;
     mbedtls_mpi_uint Mp[P448_WIDTH + 1], Qp[P448_WIDTH];
@@ -1351,7 +1400,7 @@ cleanup:
 static inline int ecp_mod_koblitz( mbedtls_mpi *N, mbedtls_mpi_uint *Rp, size_t p_limbs,
                                    size_t adjust, size_t shift, mbedtls_mpi_uint mask )
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     size_t i;
     mbedtls_mpi M, R;
     mbedtls_mpi_uint Mp[P_KOBLITZ_MAX + P_KOBLITZ_R + 1];

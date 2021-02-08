@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2020 NXP
  * All rights reserved.
  *
  * Peng Fan <peng.fan@nxp.com>
@@ -228,7 +228,17 @@ int tzc_auto_configure(vaddr_t addr, vaddr_t size, uint32_t attr,
 	uint64_t lsize = size;
 	uint32_t mask = 0;
 	int i = 0;
-	uint8_t pow = TZC380_POW;
+	uint8_t pow = 0;
+
+	assert(tzc.base);
+
+	/*
+	 * TZC380 RM
+	 * For region_attributes_<n> registers, region_size:
+	 * Note: The AXI address width, that is AXI_ADDRESS_MSB+1, controls the
+	 * upper limit value of the field.
+	 */
+	pow = tzc.addr_width;
 
 	while (lsize != 0 && pow > 15) {
 		region_size = 1ULL << pow;
@@ -243,7 +253,7 @@ int tzc_auto_configure(vaddr_t addr, vaddr_t size, uint32_t attr,
 			lregion++;
 			address += region_size;
 			lsize -= region_size;
-			pow--;
+			pow = tzc.addr_width;
 			continue;
 		}
 
@@ -268,7 +278,7 @@ int tzc_auto_configure(vaddr_t addr, vaddr_t size, uint32_t attr,
 					     TZC_ATTR_REGION_EN_MASK |
 					     mask | attr);
 			lregion++;
-			pow--;
+			pow = tzc.addr_width;
 			continue;
 		}
 		pow--;
@@ -276,6 +286,31 @@ int tzc_auto_configure(vaddr_t addr, vaddr_t size, uint32_t attr,
 	assert(lsize == 0);
 	assert(address == addr + size);
 	return lregion;
+}
+
+/*
+ * `region_lockdown` is used to lockdown the TZC380 configuration to prevent
+ * unintended overwrites of the configuration. Returns TEE_ERROR_SECURITY in
+ * case the lockdown fails.
+ */
+TEE_Result tzc_regions_lockdown(void)
+{
+	uint32_t val = 0;
+	uint32_t check = 0;
+
+	val = LOCKDOWN_RANGE_ENABLE | tzc.num_regions;
+	io_write32(tzc.base + LOCKDOWN_RANGE_OFF, val);
+	check = io_read32(tzc.base + LOCKDOWN_RANGE_OFF);
+	if (check != val)
+		return TEE_ERROR_SECURITY;
+
+	val = LOCKDOWN_SELECT_RANGE_ENABLE;
+	io_write32(tzc.base + LOCKDOWN_SELECT_OFF, val);
+	check = io_read32(tzc.base + LOCKDOWN_SELECT_OFF);
+	if (check != val)
+		return TEE_ERROR_SECURITY;
+
+	return TEE_SUCCESS;
 }
 
 #if TRACE_LEVEL >= TRACE_DEBUG
@@ -296,7 +331,7 @@ void tzc_dump_state(void)
 	uint32_t n;
 	uint32_t temp_32reg, temp_32reg_h;
 
-	DMSG("enter");
+	DMSG("TZC380 configuration:");
 	DMSG("security_inversion_en %x",
 	     io_read32(tzc.base + SECURITY_INV_EN_OFF));
 	for (n = 0; n <= REGION_MAX; n++) {
@@ -314,6 +349,11 @@ void tzc_dump_state(void)
 		DMSG("region size: %x", (temp_32reg & TZC_REGION_SIZE_MASK) >>
 				TZC_REGION_SIZE_SHIFT);
 	}
+	DMSG("Lockdown select: %"PRIx32,
+	     io_read32(tzc.base + LOCKDOWN_SELECT_OFF));
+	DMSG("Lockdown range: %"PRIx32,
+	     io_read32(tzc.base + LOCKDOWN_RANGE_OFF));
+	DMSG("Action register: %"PRIx32, tzc_get_action());
 	DMSG("exit");
 }
 

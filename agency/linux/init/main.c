@@ -696,6 +696,10 @@ asmlinkage __visible void __init start_kernel(void)
 	/* Trace events are available after this */
 	trace_init();
 
+#if 0
+	initcall_debug = true;
+#endif
+
 	if (initcall_debug)
 		initcall_debug_enable();
 

@@ -237,7 +237,7 @@ static ssize_t asf_res_buf_alloc(size_t slice_nr, size_t rest, int mode, uint8_t
 	res_buf_sz  = slice_nr * slice_sz;
 	res_buf_sz += rest_sz;
 
-	*res_buf = (uint8_t *)kmalloc(res_buf_sz, GFP_ATOMIC);
+	*res_buf = (uint8_t *) kmalloc(res_buf_sz, GFP_ATOMIC);
 	if (!*res_buf) {
 		lprintk("ASF ERROR - Buffer allocation failed\n");
 		return -1;

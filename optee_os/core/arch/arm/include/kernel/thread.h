@@ -2,12 +2,13 @@
 /*
  * Copyright (c) 2014, STMicroelectronics International N.V.
  * Copyright (c) 2016-2017, Linaro Limited
+ * Copyright (c) 2020, Arm Limited
  */
 
 #ifndef KERNEL_THREAD_H
 #define KERNEL_THREAD_H
 
-#ifndef ASM
+#ifndef __ASSEMBLER__
 #include <arm.h>
 #include <types_ext.h>
 #include <compiler.h>
@@ -21,7 +22,7 @@
 
 #define THREAD_RPC_MAX_NUM_PARAMS	4
 
-#ifndef ASM
+#ifndef __ASSEMBLER__
 
 #ifdef ARM64
 /*
@@ -42,11 +43,14 @@ struct thread_core_local {
 	uint64_t x[4];
 #endif
 	vaddr_t tmp_stack_va_end;
-	int curr_thread;
+	short int curr_thread;
 	uint32_t flags;
 	vaddr_t abt_stack_va_end;
 #ifdef CFG_TEE_CORE_DEBUG
 	unsigned int locked_count; /* Number of spinlocks held */
+#endif
+#ifdef CFG_CORE_DEBUG_CHECK_STACKS
+	bool stackcheck_recursion;
 #endif
 } THREAD_CORE_LOCAL_ALIGNED;
 
@@ -194,73 +198,74 @@ struct thread_svc_regs {
 } __aligned(16);
 #endif /*ARM64*/
 
-struct thread_specific_data {
-	TAILQ_HEAD(, tee_ta_session) sess_stack;
-	struct tee_ta_ctx *ctx;
-	struct pgt_cache pgt_cache;
-	void *rpc_fs_payload;
-	struct mobj *rpc_fs_payload_mobj;
-	size_t rpc_fs_payload_size;
+#ifdef ARM32
+struct thread_ctx_regs {
+	uint32_t r0;
+	uint32_t r1;
+	uint32_t r2;
+	uint32_t r3;
+	uint32_t r4;
+	uint32_t r5;
+	uint32_t r6;
+	uint32_t r7;
+	uint32_t r8;
+	uint32_t r9;
+	uint32_t r10;
+	uint32_t r11;
+	uint32_t r12;
+	uint32_t usr_sp;
+	uint32_t usr_lr;
+	uint32_t svc_spsr;
+	uint32_t svc_sp;
+	uint32_t svc_lr;
+	uint32_t pc;
+	uint32_t cpsr;
+};
+#endif /*ARM32*/
 
+#ifdef ARM64
+struct thread_ctx_regs {
+	uint64_t sp;
+	uint64_t pc;
+	uint64_t cpsr;
+	uint64_t x[31];
+	uint64_t tpidr_el0;
+};
+#endif /*ARM64*/
+
+struct thread_specific_data {
+	TAILQ_HEAD(, ts_session) sess_stack;
+	struct ts_ctx *ctx;
+	struct pgt_cache pgt_cache;
+#ifdef CFG_CORE_FFA
+	uint32_t rpc_target_info;
+#endif
 	uint32_t abort_type;
 	uint32_t abort_descr;
 	vaddr_t abort_va;
 	unsigned int abort_core;
 	struct thread_abort_regs abort_regs;
+#ifdef CFG_CORE_DEBUG_CHECK_STACKS
+	bool stackcheck_recursion;
+#endif
+	unsigned int syscall_recursion;
 };
 
-#endif /*ASM*/
+struct user_mode_ctx;
 
-#ifndef ASM
-typedef void (*thread_smc_handler_t)(struct thread_smc_args *args);
-typedef void (*thread_nintr_handler_t)(void);
-typedef unsigned long (*thread_pm_handler_t)(unsigned long a0,
-					     unsigned long a1);
-struct thread_handlers {
-	/*
-	 * stdcall and fastcall are called as regular functions and
-	 * normal ARM Calling Convention applies. Return values are passed
-	 * args->param{1-3} and forwarded into r0-r3 when returned to
-	 * non-secure world.
-	 *
-	 * stdcall handles calls which can be preemted from non-secure
-	 * world. This handler is executed with a large stack.
-	 *
-	 * fastcall handles fast calls which can't be preemted. This
-	 * handler is executed with a limited stack. This handler must not
-	 * cause any aborts or reenenable native interrupts which are
-	 * temporarily masked while executing this handler.
-	 *
-	 * TODO investigate if we should execute fastcalls and native interrupts
-	 * on different stacks allowing native interrupts to be enabled during
-	 * a fastcall.
-	 */
-	thread_smc_handler_t std_smc;
-	thread_smc_handler_t fast_smc;
+#ifdef CFG_WITH_ARM_TRUSTED_FW
+/*
+ * These five functions have a __weak default implementation which does
+ * nothing. Platforms are expected to override them if needed.
+ */
+unsigned long thread_cpu_off_handler(unsigned long a0, unsigned long a1);
+unsigned long thread_cpu_suspend_handler(unsigned long a0, unsigned long a1);
+unsigned long thread_cpu_resume_handler(unsigned long a0, unsigned long a1);
+unsigned long thread_system_off_handler(unsigned long a0, unsigned long a1);
+unsigned long thread_system_reset_handler(unsigned long a0, unsigned long a1);
+#endif /*CFG_WITH_ARM_TRUSTED_FW*/
 
-	/*
-	 * fiq is called as a regular function and normal ARM Calling
-	 * Convention applies.
-	 *
-	 * This handler handles native interrupts which can't be preemted. This
-	 * handler is executed with a limited stack. This handler must not cause
-	 * any aborts or reenenable native interrupts which are temporarily
-	 * masked while executing this handler.
-	 */
-	thread_nintr_handler_t nintr;
-
-	/*
-	 * Power management handlers triggered from ARM Trusted Firmware.
-	 * Not used when using internal monitor.
-	 */
-	thread_pm_handler_t cpu_on;
-	thread_pm_handler_t cpu_off;
-	thread_pm_handler_t cpu_suspend;
-	thread_pm_handler_t cpu_resume;
-	thread_pm_handler_t system_off;
-	thread_pm_handler_t system_reset;
-};
-void thread_init_primary(const struct thread_handlers *handlers);
+void thread_init_primary(void);
 void thread_init_per_cpu(void);
 
 struct thread_core_local *thread_get_core_local(void);
@@ -281,6 +286,13 @@ bool thread_init_stack(uint32_t stack_id, vaddr_t sp);
 void thread_init_threads(void);
 
 /*
+ * Called by the init CPU. Sets temporary stack mode for all CPUs
+ * (curr_thread = -1 and THREAD_CLF_TMP) and sets the temporary stack limit for
+ * the init CPU.
+ */
+void thread_init_thread_core_local(void);
+
+/*
  * Initializes a thread to be used during boot
  */
 void thread_init_boot_thread(void);
@@ -294,12 +306,12 @@ void thread_clr_boot_thread(void);
 /*
  * Returns current thread id.
  */
-int thread_get_id(void);
+short int thread_get_id(void);
 
 /*
  * Returns current thread id, return -1 on failure.
  */
-int thread_get_id_may_fail(void);
+short int thread_get_id_may_fail(void);
 
 /* Returns Thread Specific Data (TSD) pointer. */
 struct thread_specific_data *thread_get_tsd(void);
@@ -320,7 +332,7 @@ void thread_set_foreign_intr(bool enable);
 void thread_restore_foreign_intr(void);
 
 /*
- * Defines the bits for the exception mask used the the
+ * Defines the bits for the exception mask used by the
  * thread_*_exceptions() functions below.
  * These definitions are compatible with both ARM32 and ARM64.
  */
@@ -364,7 +376,7 @@ uint32_t thread_mask_exceptions(uint32_t exceptions);
 void thread_unmask_exceptions(uint32_t state);
 
 
-static inline bool thread_foreign_intr_disabled(void)
+static inline bool __nostackcheck thread_foreign_intr_disabled(void)
 {
 	return !!(thread_get_exceptions() & THREAD_EXCP_FOREIGN_INTR);
 }
@@ -437,13 +449,12 @@ static inline void thread_user_save_vfp(void)
 
 /*
  * thread_user_clear_vfp() - Clears the vfp state
- * @uvfp:	pointer to saved state to clear
+ * @uctx:	pointer to user mode context containing the saved state to clear
  */
 #ifdef CFG_WITH_VFP
-void thread_user_clear_vfp(struct thread_user_vfp_state *uvfp);
+void thread_user_clear_vfp(struct user_mode_ctx *uctx);
 #else
-static inline void thread_user_clear_vfp(
-			struct thread_user_vfp_state *uvfp __unused)
+static inline void thread_user_clear_vfp(struct user_mode_ctx *uctx __unused)
 {
 }
 #endif
@@ -554,6 +565,28 @@ vaddr_t thread_stack_start(void);
 /* Returns the stack size for the current thread */
 size_t thread_stack_size(void);
 
+/*
+ * Returns the start (top, lowest address) and end (bottom, highest address) of
+ * the current stack (thread, temporary or abort stack).
+ * When CFG_CORE_DEBUG_CHECK_STACKS=y, the @hard parameter tells if the hard or
+ * soft limits are queried. The difference between soft and hard is that for the
+ * latter, the stack start includes some additional space to let any function
+ * overflow the soft limit and still be able to print a stack dump in this case.
+ */
+bool get_stack_limits(vaddr_t *start, vaddr_t *end, bool hard);
+
+static inline bool __nostackcheck get_stack_soft_limits(vaddr_t *start,
+							vaddr_t *end)
+{
+	return get_stack_limits(start, end, false);
+}
+
+static inline bool __nostackcheck get_stack_hard_limits(vaddr_t *start,
+							vaddr_t *end)
+{
+	return get_stack_limits(start, end, true);
+}
+
 bool thread_is_in_normal_mode(void);
 
 /*
@@ -596,6 +629,22 @@ struct mobj *thread_rpc_alloc_payload(size_t size);
  */
 void thread_rpc_free_payload(struct mobj *mobj);
 
+/**
+ * Allocate data for payload buffers only shared with the non-secure kernel
+ *
+ * @size:	size in bytes of payload buffer
+ *
+ * @returns	mobj that describes allocated buffer or NULL on error
+ */
+struct mobj *thread_rpc_alloc_kernel_payload(size_t size);
+
+/**
+ * Free physical memory previously allocated with
+ * thread_rpc_alloc_kernel_payload()
+ *
+ * @mobj:	mobj that describes the buffer
+ */
+void thread_rpc_free_kernel_payload(struct mobj *mobj);
 
 struct thread_param_memref {
 	size_t offs;
@@ -674,6 +723,41 @@ struct mobj *thread_rpc_alloc_global_payload(size_t size);
  */
 void thread_rpc_free_global_payload(struct mobj *mobj);
 
-#endif /*ASM*/
+/*
+ * enum thread_shm_type - type of non-secure shared memory
+ * @THREAD_SHM_TYPE_APPLICATION - user space application shared memory
+ * @THREAD_SHM_TYPE_KERNEL_PRIVATE - kernel private shared memory
+ * @THREAD_SHM_TYPE_GLOBAL - user space and kernel shared memory
+ */
+enum thread_shm_type {
+	THREAD_SHM_TYPE_APPLICATION,
+	THREAD_SHM_TYPE_KERNEL_PRIVATE,
+	THREAD_SHM_TYPE_GLOBAL,
+};
+
+/*
+ * enum thread_shm_cache_user - user of a cache allocation
+ * @THREAD_SHM_CACHE_USER_SOCKET - socket communication
+ * @THREAD_SHM_CACHE_USER_FS - filesystem access
+ * @THREAD_SHM_CACHE_USER_I2C - I2C communication
+ *
+ * To ensure that each user of the shared memory cache doesn't interfere
+ * with each other a unique ID per user is used.
+ */
+enum thread_shm_cache_user {
+	THREAD_SHM_CACHE_USER_SOCKET,
+	THREAD_SHM_CACHE_USER_FS,
+	THREAD_SHM_CACHE_USER_I2C,
+};
+
+/*
+ * Returns a pointer to the cached RPC memory. Each thread and @user tuple
+ * has a unique cache. The pointer is guaranteed to point to a large enough
+ * area or to be NULL.
+ */
+void *thread_rpc_shm_cache_alloc(enum thread_shm_cache_user user,
+				 enum thread_shm_type shm_type,
+				 size_t size, struct mobj **mobj);
+#endif /*__ASSEMBLER__*/
 
 #endif /*KERNEL_THREAD_H*/

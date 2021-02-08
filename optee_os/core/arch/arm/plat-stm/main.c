@@ -8,17 +8,17 @@
 #include <drivers/gic.h>
 #include <drivers/stih_asc.h>
 #include <io.h>
-#include <kernel/generic_boot.h>
+#include <kernel/boot.h>
+#include <kernel/interrupt.h>
 #include <kernel/misc.h>
 #include <kernel/panic.h>
-#include <kernel/pm_stubs.h>
 #include <kernel/tz_ssvce_pl310.h>
-#include <mm/core_mmu.h>
 #include <mm/core_memprot.h>
+#include <mm/core_mmu.h>
 #include <platform_config.h>
 #include <stdint.h>
-#include <tee/entry_std.h>
 #include <tee/entry_fast.h>
+#include <tee/entry_std.h>
 #include <trace.h>
 #include <util.h>
 
@@ -36,10 +36,7 @@ register_ddr(DRAM1_BASE, DRAM1_SIZE);
 static struct gic_data gic_data;
 static struct stih_asc_pd console_data;
 
-static void main_fiq(void);
-
 #if defined(PLATFORM_FLAVOR_b2260)
-#define stm_tee_entry_std	tee_entry_std
 static bool ns_resources_ready(void)
 {
 	return true;
@@ -51,29 +48,15 @@ static bool ns_resources_ready(void)
 {
 	return !!boot_is_completed;
 }
-static void stm_tee_entry_std(struct thread_smc_args *smc_args)
+
+/* Overriding the default __weak tee_entry_std() */
+uint32_t tee_entry_std(struct optee_msg_arg *arg, uint32_t num_params)
 {
 	boot_is_completed = 1;
-	tee_entry_std(smc_args);
+
+	return __tee_entry_std(arg, num_params);
 }
 #endif
-
-static const struct thread_handlers handlers = {
-	.std_smc = stm_tee_entry_std,
-	.fast_smc = tee_entry_fast,
-	.nintr = main_fiq,
-	.cpu_on = pm_panic,
-	.cpu_off = pm_panic,
-	.cpu_suspend = pm_panic,
-	.cpu_resume = pm_panic,
-	.system_off = pm_panic,
-	.system_reset = pm_panic,
-};
-
-const struct thread_handlers *generic_boot_get_handlers(void)
-{
-	return &handlers;
-}
 
 void console_init(void)
 {
@@ -129,17 +112,11 @@ void arm_cl2_config(vaddr_t pl310)
 	arm_cl2_invbyway(pl310);
 }
 
-void plat_cpu_reset_late(void)
+void plat_primary_init_early(void)
 {
 	int i;
 
 	assert(!cpu_mmu_enabled());
-
-	/* Allow NSec to Imprecise abort */
-	write_scr(SCR_AW);
-
-	if (get_core_pos())
-		return;
 
 	io_write32(SCU_BASE + SCU_SAC, SCU_SAC_INIT);
 	io_write32(SCU_BASE + SCU_NSAC, SCU_NSAC_INIT);
@@ -176,7 +153,7 @@ void main_secondary_init_gic(void)
 	gic_cpu_init(&gic_data);
 }
 
-static void main_fiq(void)
+void itr_core_handler(void)
 {
 	gic_it_handle(&gic_data);
 }

@@ -14,11 +14,10 @@
 #include <imx.h>
 #include <imx_pm.h>
 #include <kernel/cache_helpers.h>
-#include <kernel/generic_boot.h>
+#include <kernel/boot.h>
 #include <kernel/interrupt.h>
 #include <kernel/misc.h>
 #include <kernel/panic.h>
-#include <kernel/pm_stubs.h>
 #include <kernel/spinlock.h>
 #include <mm/core_mmu.h>
 #include <mm/core_memprot.h>
@@ -208,7 +207,8 @@ int imx7d_lowpower_idle(uint32_t power_state __unused,
 		 * TODO: Call the Wakeup Late function to restore some
 		 * HW configuration (e.g. TZASC)
 		 */
-		plat_cpu_reset_late();
+		if (!get_core_pos())
+			plat_primary_init_early();
 
 		main_init_gic();
 		gic_inited = 1;

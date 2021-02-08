@@ -9,19 +9,14 @@
 #include <tee_api_types.h>
 #include <crypto/crypto.h>
 
-TEE_Result tee_hash_get_digest_size(uint32_t algo, size_t *size);
+TEE_Result tee_alg_get_digest_size(uint32_t algo, size_t *size);
 TEE_Result tee_hash_createdigest(uint32_t algo, const uint8_t *data,
 				 size_t datalen, uint8_t *digest,
 				 size_t digestlen);
-TEE_Result tee_mac_get_digest_size(uint32_t algo, size_t *size);
 TEE_Result tee_cipher_get_block_size(uint32_t algo, size_t *size);
 TEE_Result tee_do_cipher_update(void *ctx, uint32_t algo,
 				TEE_OperationMode mode, bool last_block,
 				const uint8_t *data, size_t len, uint8_t *dst);
-TEE_Result tee_aes_cbc_cts_update(void *cbc_ctx, void *ecb_ctx,
-				  TEE_OperationMode mode, bool last_block,
-				  const uint8_t *data, size_t len,
-				  uint8_t *dst);
 
 /*
  * plat_prng_add_jitter_entropy() - Adds jitter to RNG entropy pool

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2016-2017, Linaro Limited
+ * Copyright (c) 2016-2020, Linaro Limited
  * Copyright (c) 2014, STMicroelectronics International N.V.
  */
 
@@ -12,11 +12,7 @@
 #include <kernel/abort.h>
 #include <kernel/cache_helpers.h>
 #include <kernel/thread_defs.h>
-#include <kernel/unwind.h>
 #include <mm/core_mmu.h>
-#include <sm/optee_smc.h>
-#include <sm/teesmc_opteed.h>
-#include <sm/teesmc_opteed_macros.h>
 
 #include "thread_private.h"
 
@@ -31,202 +27,53 @@
 		tst	\reg, #0x0f
 	.endm
 
-LOCAL_FUNC vector_std_smc_entry , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
-	push	{r0-r7}
-	mov	r0, sp
-	bl	thread_handle_std_smc
-	/*
-	 * Normally thread_handle_std_smc() should return via
-	 * thread_exit(), thread_rpc(), but if thread_handle_std_smc()
-	 * hasn't switched stack (error detected) it will do a normal "C"
-	 * return.
-	 */
-	pop	{r1-r8}
-	ldr	r0, =TEESMC_OPTEED_RETURN_CALL_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-UNWIND(	.fnend)
-END_FUNC vector_std_smc_entry
-
-LOCAL_FUNC vector_fast_smc_entry , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
-	push	{r0-r7}
-	mov	r0, sp
-	bl	thread_handle_fast_smc
-	pop	{r1-r8}
-	ldr	r0, =TEESMC_OPTEED_RETURN_CALL_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-UNWIND(	.fnend)
-END_FUNC vector_fast_smc_entry
-
-LOCAL_FUNC vector_fiq_entry , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
- 	/* Secure Monitor received a FIQ and passed control to us. */
-	bl	thread_check_canaries
-	ldr	lr, =thread_nintr_handler_ptr
- 	ldr	lr, [lr]
- 	blx	lr
-	mov	r1, r0
-	ldr	r0, =TEESMC_OPTEED_RETURN_FIQ_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-UNWIND(	.fnend)
-END_FUNC vector_fiq_entry
-
-LOCAL_FUNC vector_cpu_on_entry , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
-	ldr	lr, =thread_cpu_on_handler_ptr
-	ldr	lr, [lr]
-	blx	lr
-	mov	r1, r0
-	ldr	r0, =TEESMC_OPTEED_RETURN_ON_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-UNWIND(	.fnend)
-END_FUNC vector_cpu_on_entry
-
-LOCAL_FUNC vector_cpu_off_entry , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
-	ldr	lr, =thread_cpu_off_handler_ptr
-	ldr	lr, [lr]
-	blx	lr
-	mov	r1, r0
-	ldr	r0, =TEESMC_OPTEED_RETURN_OFF_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-UNWIND(	.fnend)
-END_FUNC vector_cpu_off_entry
-
-LOCAL_FUNC vector_cpu_suspend_entry , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
-	ldr	lr, =thread_cpu_suspend_handler_ptr
-	ldr	lr, [lr]
-	blx	lr
-	mov	r1, r0
-	ldr	r0, =TEESMC_OPTEED_RETURN_SUSPEND_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-UNWIND(	.fnend)
-END_FUNC vector_cpu_suspend_entry
-
-LOCAL_FUNC vector_cpu_resume_entry , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
-	ldr	lr, =thread_cpu_resume_handler_ptr
-	ldr	lr, [lr]
-	blx	lr
-	mov	r1, r0
-	ldr	r0, =TEESMC_OPTEED_RETURN_RESUME_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-UNWIND(	.fnend)
-END_FUNC vector_cpu_resume_entry
-
-LOCAL_FUNC vector_system_off_entry , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
-	ldr	lr, =thread_system_off_handler_ptr
-	ldr	lr, [lr]
-	blx	lr
-	mov	r1, r0
-	ldr	r0, =TEESMC_OPTEED_RETURN_SYSTEM_OFF_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-UNWIND(	.fnend)
-END_FUNC vector_system_off_entry
-
-LOCAL_FUNC vector_system_reset_entry , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
-	ldr	lr, =thread_system_reset_handler_ptr
-	ldr	lr, [lr]
-	blx	lr
-	mov	r1, r0
-	ldr	r0, =TEESMC_OPTEED_RETURN_SYSTEM_RESET_DONE
-	smc	#0
-	b	.	/* SMC should not return */
-UNWIND(	.fnend)
-END_FUNC vector_system_reset_entry
-
-/*
- * Vector table supplied to ARM Trusted Firmware (ARM-TF) at
- * initialization.  Also used when compiled with the internal monitor, but
- * the cpu_*_entry and system_*_entry are not used then.
- *
- * Note that ARM-TF depends on the layout of this vector table, any change
- * in layout has to be synced with ARM-TF.
- */
-FUNC thread_vector_table , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
-	b	vector_std_smc_entry
-	b	vector_fast_smc_entry
-	b	vector_cpu_on_entry
-	b	vector_cpu_off_entry
-	b	vector_cpu_resume_entry
-	b	vector_cpu_suspend_entry
-	b	vector_fiq_entry
-	b	vector_system_off_entry
-	b	vector_system_reset_entry
-UNWIND(	.fnend)
-END_FUNC thread_vector_table
-KEEP_PAGER thread_vector_table
-
 FUNC thread_set_abt_sp , :
-UNWIND(	.fnstart)
 UNWIND(	.cantunwind)
 	mrs	r1, cpsr
 	cps	#CPSR_MODE_ABT
 	mov	sp, r0
 	msr	cpsr, r1
 	bx	lr
-UNWIND(	.fnend)
 END_FUNC thread_set_abt_sp
 
 FUNC thread_set_und_sp , :
-UNWIND(	.fnstart)
 UNWIND(	.cantunwind)
 	mrs	r1, cpsr
 	cps	#CPSR_MODE_UND
 	mov	sp, r0
 	msr	cpsr, r1
 	bx	lr
-UNWIND(	.fnend)
 END_FUNC thread_set_und_sp
 
 FUNC thread_set_irq_sp , :
-UNWIND(	.fnstart)
 UNWIND(	.cantunwind)
 	mrs	r1, cpsr
 	cps	#CPSR_MODE_IRQ
 	mov	sp, r0
 	msr	cpsr, r1
 	bx	lr
-UNWIND(	.fnend)
 END_FUNC thread_set_irq_sp
 
 FUNC thread_set_fiq_sp , :
-UNWIND(	.fnstart)
 UNWIND(	.cantunwind)
 	mrs	r1, cpsr
 	cps	#CPSR_MODE_FIQ
 	mov	sp, r0
 	msr	cpsr, r1
 	bx	lr
-UNWIND(	.fnend)
 END_FUNC thread_set_fiq_sp
+
+FUNC thread_get_usr_sp , :
+	mrs	r1, cpsr
+	cpsid	aif
+	cps	#CPSR_MODE_SYS
+	mov	r0, sp
+	msr	cpsr, r1
+	bx	lr
+END_FUNC thread_get_usr_sp
 
 /* void thread_resume(struct thread_ctx_regs *regs) */
 FUNC thread_resume , :
-UNWIND(	.fnstart)
 UNWIND(	.cantunwind)
 	add	r12, r0, #(13 * 4)	/* Restore registers r0-r12 later */
 
@@ -254,7 +101,6 @@ UNWIND(	.cantunwind)
 	ldm	r0, {r0-r12}
 	movsne	pc, lr
 	b	eret_to_user_mode
-UNWIND(	.fnend)
 END_FUNC thread_resume
 
 /*
@@ -262,7 +108,6 @@ END_FUNC thread_resume
  * the banked r8-r12 registers, returns original CPSR.
  */
 LOCAL_FUNC thread_save_state_fiq , :
-UNWIND(	.fnstart)
 UNWIND(	.cantunwind)
 	mov	r9, lr
 
@@ -304,15 +149,13 @@ UNWIND(	.cantunwind)
 
 	mov	r0, r8			/* Return original CPSR */
 	bx	r9
-UNWIND(	.fnend)
 END_FUNC thread_save_state_fiq
 
 /*
  * Disables IRQ and FIQ and saves state of thread, returns original
  * CPSR.
  */
-LOCAL_FUNC thread_save_state , :
-UNWIND(	.fnstart)
+FUNC thread_save_state , :
 UNWIND(	.cantunwind)
 	push	{r12, lr}
 	/*
@@ -356,116 +199,23 @@ UNWIND(	.cantunwind)
 
 	mov	r0, r5			/* Return original CPSR */
 	bx	lr
-UNWIND(	.fnend)
 END_FUNC thread_save_state
-
-FUNC thread_std_smc_entry , :
-UNWIND(	.fnstart)
-UNWIND(	.cantunwind)
-	/* Pass r0-r7 in a struct thread_smc_args */
-	push	{r0-r7}
-	mov	r0, sp
-	bl	__thread_std_smc_entry
-	/*
-	 * Load the returned r0-r3 into preserved registers and skip the
-	 * "returned" r4-r7 since they will not be returned to normal
-	 * world.
-	 */
-	pop	{r4-r7}
-	add	sp, #(4 * 4)
-
-	/* Disable interrupts before switching to temporary stack */
-	cpsid	aif
-	bl	thread_get_tmp_sp
-	mov	sp, r0
-
-	bl	thread_state_free
-
-	ldr	r0, =TEESMC_OPTEED_RETURN_CALL_DONE
-	mov	r1, r4
-	mov	r2, r5
-	mov	r3, r6
-	mov	r4, r7
-	smc	#0
-	b	.	/* SMC should not return */
-UNWIND(	.fnend)
-END_FUNC thread_std_smc_entry
-
-
-/* void thread_rpc(uint32_t rv[THREAD_RPC_NUM_ARGS]) */
-FUNC thread_rpc , :
-/*
- * r0-r2 are used to pass parameters to normal world
- * r0-r5 are used to pass return vaule back from normal world
- *
- * note that r3 is used to pass "resume information", that is, which
- * thread it is that should resume.
- *
- * Since the this function is following AAPCS we need to preserve r4-r5
- * which are otherwise modified when returning back from normal world.
- */
-UNWIND(	.fnstart)
-	push	{r4-r5, lr}
-UNWIND(	.save	{r4-r5, lr})
-	push	{r0}
-UNWIND(	.save	{r0})
-
-	bl	thread_save_state
-	mov	r4, r0			/* Save original CPSR */
-
-	/*
- 	 * Switch to temporary stack and SVC mode. Save CPSR to resume into.
-	 */
-	bl	thread_get_tmp_sp
-	ldr	r5, [sp]		/* Get pointer to rv[] */
-	cps	#CPSR_MODE_SVC		/* Change to SVC mode */
-	mov	sp, r0			/* Switch to tmp stack */
-
-	mov	r0, #THREAD_FLAGS_COPY_ARGS_ON_RETURN
-	mov	r1, r4			/* CPSR to restore */
-	ldr	r2, =.thread_rpc_return
-	bl	thread_state_suspend
-	mov	r4, r0			/* Supply thread index */
-	ldr	r0, =TEESMC_OPTEED_RETURN_CALL_DONE
-	ldm	r5, {r1-r3}		/* Load rv[] into r0-r2 */
-	smc	#0
-	b	.	/* SMC should not return */
-
-.thread_rpc_return:
-	/*
-	 * At this point has the stack pointer been restored to the value
-	 * it had when thread_save_state() was called above.
-	 *
-	 * Jumps here from thread_resume above when RPC has returned. The
-	 * IRQ and FIQ bits are restored to what they where when this
-	 * function was originally entered.
-	 */
-	pop	{r12}			/* Get pointer to rv[] */
-	stm	r12, {r0-r5}		/* Store r0-r5 into rv[] */
-	pop	{r4-r5, pc}
-UNWIND(	.fnend)
-END_FUNC thread_rpc
-KEEP_PAGER thread_rpc
 
 /*
  * unsigned long thread_smc(unsigned long func_id, unsigned long a1,
  *			    unsigned long a2, unsigned long a3)
  */
 FUNC thread_smc , :
-UNWIND(	.fnstart)
 	smc	#0
 	bx	lr
-UNWIND(	.fnend)
 END_FUNC thread_smc
 
 FUNC thread_init_vbar , :
-UNWIND(	.fnstart)
 	/* Set vector (VBAR) */
 	write_vbar r0
 	bx	lr
-UNWIND(	.fnend)
 END_FUNC thread_init_vbar
-KEEP_PAGER thread_init_vbar
+DECLARE_KEEP_PAGER thread_init_vbar
 
 /*
  * Below are low level routines handling entry and return from user mode.
@@ -478,10 +228,10 @@ KEEP_PAGER thread_init_vbar
  * returning by restoring the registers saved by thread_enter_user_mode().
  *
  * There's three ways for thread_enter_user_mode() to return to caller,
- * user TA calls utee_return, user TA calls utee_panic or through an abort.
+ * user TA calls _utee_return, user TA calls _utee_panic or through an abort.
  *
- * Calls to utee_return or utee_panic are handled as:
- * thread_svc_handler() -> tee_svc_handler() ->	tee_svc_do_call() which
+ * Calls to _utee_return or _utee_panic are handled as:
+ * __thread_svc_handler() -> thread_svc_handler() ->tee_svc_do_call() which
  * calls syscall_return() or syscall_panic().
  *
  * These function calls returns normally except thread_svc_handler() which
@@ -502,14 +252,13 @@ KEEP_PAGER thread_init_vbar
  */
 
 /*
- * uint32_t __thread_enter_user_mode(unsigned long a0, unsigned long a1,
- *               unsigned long a2, unsigned long a3, unsigned long user_sp,
- *               unsigned long user_func, unsigned long spsr,
- *               uint32_t *exit_status0, uint32_t *exit_status1)
+ * uint32_t __thread_enter_user_mode(struct thread_ctx_regs *regs,
+ *				     uint32_t *exit_status0,
+ *				     uint32_t *exit_status1);
  *
+ * This function depends on being called with exceptions masked.
  */
 FUNC __thread_enter_user_mode , :
-UNWIND(	.fnstart)
 UNWIND(	.cantunwind)
 	/*
 	 * Save all registers to allow syscall_return() to resume execution
@@ -521,26 +270,24 @@ UNWIND(	.cantunwind)
 	 */
 	push    {r4-r12,lr}
 
-	ldr     r4, [sp, #(10 * 0x4)]   /* user stack pointer */
-	ldr     r5, [sp, #(11 * 0x4)]   /* user function */
-	ldr     r6, [sp, #(12 * 0x4)]   /* spsr */
-
 	/*
 	 * Save old user sp and set new user sp.
 	 */
 	cps	#CPSR_MODE_SYS
-	mov	r7, sp
-	mov     sp, r4
+	mov	r4, sp
+	ldr	sp, [r0, #THREAD_CTX_REGS_USR_SP]
 	cps	#CPSR_MODE_SVC
-	push	{r7,r8}
+
+	push	{r1, r2, r4, r5}
 
 	/* Prepare user mode entry via eret_to_user_mode */
-	cpsid	aif
-	msr     spsr_fsxc, r6
-	mov	lr, r5
+	ldr	lr, [r0, #THREAD_CTX_REGS_PC]
+	ldr	r4, [r0, #THREAD_CTX_REGS_CPSR]
+	msr     spsr_fsxc, r4
+
+	ldm	r0, {r0-r12}
 
 	b	eret_to_user_mode
-UNWIND(	.fnend)
 END_FUNC __thread_enter_user_mode
 
 /*
@@ -549,21 +296,19 @@ END_FUNC __thread_enter_user_mode
  * See description in thread.h
  */
 FUNC thread_unwind_user_mode , :
-UNWIND(	.fnstart)
 UNWIND(	.cantunwind)
-	ldr     ip, [sp, #(15 * 0x4)]   /* &ctx->panicked */
-	str	r1, [ip]
-	ldr     ip, [sp, #(16 * 0x4)]   /* &ctx->panic_code */
-	str	r2, [ip]
+	/* Match push {r1, r2, r4, r5} in thread_enter_user_mode() */
+	pop	{r4-r7}
+	str	r1, [r4]
+	str	r2, [r5]
 
 	/* Restore old user sp */
-	pop	{r4,r7}
 	cps	#CPSR_MODE_SYS
-	mov	sp, r4
+	mov	sp, r6
 	cps	#CPSR_MODE_SVC
 
-	pop     {r4-r12,pc}	/* Match the push in thread_enter_user_mode()*/
-UNWIND(	.fnend)
+	/* Match push {r4-r12,lr} in thread_enter_user_mode() */
+	pop     {r4-r12,pc}
 END_FUNC thread_unwind_user_mode
 
 	.macro maybe_restore_mapping
@@ -616,9 +361,9 @@ END_FUNC thread_unwind_user_mode
 		write_contextidr r0
 		isb
 #ifdef CFG_CORE_UNMAP_CORE_AT_EL0
-		read_ttbr1 r0
-		sub	r0, r0, #CORE_MMU_L1_TBL_OFFSET
-		write_ttbr1 r0
+		read_ttbcr r0
+		bic	r0, r0, #TTBCR_PD1
+		write_ttbcr r0
 		isb
 #endif
 
@@ -673,9 +418,7 @@ END_FUNC thread_unwind_user_mode
 	.endif
 
 	bl	thread_check_canaries
-	ldr	lr, =thread_nintr_handler_ptr
-	ldr	lr, [lr]
-	blx	lr
+	bl	itr_core_handler
 
 	mrs	r0, spsr
 	cmp_spsr_user_mode r0
@@ -737,21 +480,6 @@ END_FUNC thread_unwind_user_mode
 	bl	thread_save_state
 	.endif
 
-	mov	r0, #THREAD_FLAGS_EXIT_ON_FOREIGN_INTR
-	mrs	r1, spsr
-	pop	{r2}
-	pop	{r12}
-	blx	thread_state_suspend
-	mov	r4, r0		/* Supply thread index */
-
-	/*
-	 * Switch to SVC mode and copy current stack pointer as it already
-	 * is the tmp stack.
-	 */
-	mov	r0, sp
-	cps	#CPSR_MODE_SVC
-	mov	sp, r0
-
 #ifdef CFG_CORE_WORKAROUND_NSITR_CACHE_PRIME
 	/*
 	 * Prevent leaking information about which entries has been used in
@@ -763,28 +491,49 @@ END_FUNC thread_unwind_user_mode
 	write_iciallu
 #endif
 
-	ldr	r0, =TEESMC_OPTEED_RETURN_CALL_DONE
-	ldr	r1, =OPTEE_SMC_RETURN_RPC_FOREIGN_INTR
-	mov	r2, #0
-	mov	r3, #0
-	/* r4 is already filled in above */
-	smc	#0
-	b	.	/* SMC should not return */
+	/*
+	 * Use SP_abt to update core local flags.
+	 * flags = (flags << THREAD_CLF_SAVED_SHIFT) | THREAD_CLF_TMP;
+	 */
+	cps     #CPSR_MODE_ABT
+	ldr     r1, [sp, #THREAD_CORE_LOCAL_FLAGS]
+	lsl     r1, r1, #THREAD_CLF_SAVED_SHIFT
+	orr     r1, r1, #THREAD_CLF_TMP
+	str     r1, [sp, #THREAD_CORE_LOCAL_FLAGS]
+	.ifc    \mode\(),fiq
+	cps     #CPSR_MODE_FIQ
+	.else
+	cps     #CPSR_MODE_IRQ
+	.endif
+
+	mov	r0, #THREAD_FLAGS_EXIT_ON_FOREIGN_INTR
+	mrs	r1, spsr
+	pop	{r2}
+	pop	{r12}
+	blx	thread_state_suspend
+
+	/*
+	 * Switch to SVC mode and copy current stack pointer as it already
+	 * is the tmp stack.
+	 */
+	mov	r1, sp
+	cps	#CPSR_MODE_SVC
+	mov	sp, r1
+
+	/* Passing thread index in r0 */
+	b	thread_foreign_intr_exit
 .endm
 
-	.section .text.thread_excp_vect
-        .align	5
-FUNC thread_excp_vect , :
-UNWIND(	.fnstart)
+FUNC thread_excp_vect , :, align=32
 UNWIND(	.cantunwind)
 	b	.			/* Reset			*/
-	b	thread_und_handler	/* Undefined instruction	*/
-	b	thread_svc_handler	/* System call			*/
-	b	thread_pabort_handler	/* Prefetch abort		*/
-	b	thread_dabort_handler	/* Data abort			*/
+	b	__thread_und_handler	/* Undefined instruction	*/
+	b	__thread_svc_handler	/* System call			*/
+	b	__thread_pabort_handler	/* Prefetch abort		*/
+	b	__thread_dabort_handler	/* Data abort			*/
 	b	.			/* Reserved			*/
-	b	thread_irq_handler	/* IRQ				*/
-	b	thread_fiq_handler	/* FIQ				*/
+	b	__thread_irq_handler	/* IRQ				*/
+	b	__thread_fiq_handler	/* FIQ				*/
 #ifdef CFG_CORE_WORKAROUND_SPECTRE_BP_SEC
 	.macro vector_prologue_spectre
 		/*
@@ -808,13 +557,14 @@ UNWIND(	.cantunwind)
 		add	sp, sp, #1	/* 3:011 Data abort		*/
 		add	sp, sp, #1	/* 2:010 Reserved		*/
 		add	sp, sp, #1	/* 1:001 IRQ			*/
-		write_tpidrprw r0	/* 0:000 FIQ			*/
+		cpsid   aif		/* 0:000 FIQ			*/
 	.endm
 
-        .align	5
+        .balign	32
 	.global thread_excp_vect_workaround_a15
 thread_excp_vect_workaround_a15:
 	vector_prologue_spectre
+	write_tpidrprw r0
 	mrs	r0, spsr
 	cmp_spsr_user_mode r0
 	bne	1f
@@ -833,10 +583,11 @@ thread_excp_vect_workaround_a15:
 	isb
 	b	1f
 
-        .align	5
+        .balign	32
 	.global thread_excp_vect_workaround
 thread_excp_vect_workaround:
 	vector_prologue_spectre
+	write_tpidrprw r0
 	mrs	r0, spsr
 	cmp_spsr_user_mode r0
 	bne	1f
@@ -850,24 +601,24 @@ thread_excp_vect_workaround:
 	nop
 
 	read_tpidrprw r0
-	b	thread_fiq_handler	/* FIQ				*/
+	b	__thread_fiq_handler	/* FIQ				*/
 	read_tpidrprw r0
-	b	thread_irq_handler	/* IRQ				*/
+	b	__thread_irq_handler	/* IRQ				*/
 	read_tpidrprw r0
 	b	.			/* Reserved			*/
 	read_tpidrprw r0
-	b	thread_dabort_handler	/* Data abort			*/
+	b	__thread_dabort_handler	/* Data abort			*/
 	read_tpidrprw r0
-	b	thread_pabort_handler	/* Prefetch abort		*/
+	b	__thread_pabort_handler	/* Prefetch abort		*/
 	read_tpidrprw r0
-	b	thread_svc_handler	/* System call			*/
+	b	__thread_svc_handler	/* System call			*/
 	read_tpidrprw r0
-	b	thread_und_handler	/* Undefined instruction	*/
+	b	__thread_und_handler	/* Undefined instruction	*/
 	read_tpidrprw r0
 	b	.			/* Reset			*/
 #endif /*CFG_CORE_WORKAROUND_SPECTRE_BP_SEC*/
 
-thread_und_handler:
+__thread_und_handler:
 	cpsid	aif
 	maybe_restore_mapping
 	strd	r0, r1, [sp, #THREAD_CORE_LOCAL_R0]
@@ -876,24 +627,24 @@ thread_und_handler:
 	subne	lr, lr, #2
 	subeq	lr, lr, #4
 	mov	r0, #ABORT_TYPE_UNDEF
-	b	thread_abort_common
+	b	__thread_abort_common
 
-thread_dabort_handler:
+__thread_dabort_handler:
 	cpsid	aif
 	maybe_restore_mapping
 	strd	r0, r1, [sp, #THREAD_CORE_LOCAL_R0]
 	sub	lr, lr, #8
 	mov	r0, #ABORT_TYPE_DATA
-	b	thread_abort_common
+	b	__thread_abort_common
 
-thread_pabort_handler:
+__thread_pabort_handler:
 	cpsid	aif
 	maybe_restore_mapping
 	strd	r0, r1, [sp, #THREAD_CORE_LOCAL_R0]
 	sub	lr, lr, #4
 	mov	r0, #ABORT_TYPE_PREFETCH
 
-thread_abort_common:
+__thread_abort_common:
 	/*
 	 * At this label:
 	 * cpsr is in mode undef or abort
@@ -980,7 +731,7 @@ thread_abort_common:
 	b	eret_to_user_mode
 	/* end thread_abort_common */
 
-thread_svc_handler:
+__thread_svc_handler:
 	cpsid	aif
 
 	maybe_restore_mapping
@@ -989,7 +740,7 @@ thread_svc_handler:
 	mrs	r0, spsr
 	push	{r0}
 	mov	r0, sp
-	bl	tee_svc_handler
+	bl	thread_svc_handler
 	cpsid	aif	/* In case something was unmasked */
 	pop	{r0}
 	msr	spsr_fsxc, r0
@@ -999,7 +750,7 @@ thread_svc_handler:
 	b	eret_to_user_mode
 	/* end thread_svc_handler */
 
-thread_fiq_handler:
+__thread_fiq_handler:
 #if defined(CFG_ARM_GICV3)
 	foreign_intr_handler	fiq
 #else
@@ -1007,7 +758,7 @@ thread_fiq_handler:
 #endif
 	/* end thread_fiq_handler */
 
-thread_irq_handler:
+__thread_irq_handler:
 #if defined(CFG_ARM_GICV3)
 	native_intr_handler	irq
 #else
@@ -1053,9 +804,9 @@ eret_to_user_mode:
 	isb
 #else /*!CFG_WITH_LPAE*/
 #ifdef CFG_CORE_UNMAP_CORE_AT_EL0
-	read_ttbr1 r0
-	add	r0, r0, #CORE_MMU_L1_TBL_OFFSET
-	write_ttbr1 r0
+	read_ttbcr r0
+	orr	r0, r0, #TTBCR_PD1
+	write_ttbcr r0
 	isb
 #endif
 	read_contextidr r0
@@ -1104,18 +855,20 @@ icache_inv_user_range:
 
 #ifdef CFG_WITH_LPAE
 	read_ttbr0_64bit r6, r7	/* These registers must be preseved */
-#ifdef CFG_CORE_UNMAP_CORE_AT_EL0
-	add	r2, r6, #CORE_MMU_L1_TBL_OFFSET
-#endif
 	/* switch to user ASID */
 	orr	r3, r7, #BIT(TTBR_ASID_SHIFT - 32)
+#ifdef CFG_CORE_UNMAP_CORE_AT_EL0
+	add	r2, r6, #CORE_MMU_L1_TBL_OFFSET
 	write_ttbr0_64bit r2, r3
+#else
+	write_ttbr0_64bit r6, r3
+#endif
 	isb
 #else /*!CFG_WITH_LPAE*/
 #ifdef CFG_CORE_UNMAP_CORE_AT_EL0
-	read_ttbr1 r6		/* This register must be preserved */
-	add	r2, r6, #CORE_MMU_L1_TBL_OFFSET
-	write_ttbr1 r2
+	read_ttbcr r6	/* This register must be preserved */
+	orr	r2, r6, #TTBCR_PD1
+	write_ttbcr r2
 	isb
 #endif /*CFG_CORE_UNMAP_CORE_AT_EL0*/
 	read_contextidr r7	/* This register must be preserved */
@@ -1156,7 +909,7 @@ icache_inv_user_range:
 	write_contextidr r7
 	isb
 #ifdef CFG_CORE_UNMAP_CORE_AT_EL0
-	write_ttbr1 r6
+	write_ttbcr r6
 	isb
 #endif
 #endif /*!CFG_WITH_LPAE*/
@@ -1182,7 +935,6 @@ icache_inv_user_range:
 	 * thread_excp_vect_end label.
 	 */
 	.pool
-UNWIND(	.fnend)
 	.global thread_excp_vect_end
 thread_excp_vect_end:
 END_FUNC thread_excp_vect

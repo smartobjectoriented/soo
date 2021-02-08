@@ -6,6 +6,7 @@
 #ifndef __CRYPTO_CRYPTO_IMPL_H
 #define __CRYPTO_CRYPTO_IMPL_H
 
+#include <crypto/crypto.h>
 #include <tee_api_types.h>
 
 /*
@@ -68,6 +69,12 @@ TEE_Result crypto_sha512_alloc_ctx(struct crypto_hash_ctx **ctx);
 CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(sha512, hash)
 #endif
 
+#if defined(CFG_CRYPTO_SM3)
+TEE_Result crypto_sm3_alloc_ctx(struct crypto_hash_ctx **ctx);
+#else
+CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(sm3, hash)
+#endif
+
 /*
  * The crypto context used by the crypto_mac_*() functions is defined by
  * struct crypto_mac_ctx.
@@ -102,6 +109,12 @@ CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(hmac_sha224, mac)
 CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(hmac_sha256, mac)
 CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(hmac_sha384, mac)
 CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(hmac_sha512, mac)
+#endif
+
+#if defined(CFG_CRYPTO_SM3) && defined(CFG_CRYPTO_HMAC)
+TEE_Result crypto_hmac_sm3_alloc_ctx(struct crypto_mac_ctx **ctx);
+#else
+CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(hmac_sm3, mac)
 #endif
 
 #if defined(CFG_CRYPTO_CBC_MAC)
@@ -195,6 +208,24 @@ CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(des_cbc, cipher)
 CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(des3_cbc, cipher)
 #endif
 
+#if defined(CFG_CRYPTO_SM4) && defined(CFG_CRYPTO_ECB)
+TEE_Result crypto_sm4_ecb_alloc_ctx(struct crypto_cipher_ctx **ctx);
+#else
+CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(sm4_ecb, cipher)
+#endif
+
+#if defined(CFG_CRYPTO_SM4) && defined(CFG_CRYPTO_CBC)
+TEE_Result crypto_sm4_cbc_alloc_ctx(struct crypto_cipher_ctx **ctx);
+#else
+CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(sm4_cbc, cipher)
+#endif
+
+#if defined(CFG_CRYPTO_SM4) && defined(CFG_CRYPTO_CTR)
+TEE_Result crypto_sm4_ctr_alloc_ctx(struct crypto_cipher_ctx **ctx);
+#else
+CRYPTO_ALLOC_CTX_NOT_IMPLEMENTED(sm4_ctr, cipher)
+#endif
+
 /*
  * The crypto context used by the crypto_authen_*() functions below is
  * defined by struct crypto_authenc_ctx.
@@ -232,4 +263,129 @@ struct crypto_authenc_ops {
 
 TEE_Result crypto_aes_ccm_alloc_ctx(struct crypto_authenc_ctx **ctx);
 TEE_Result crypto_aes_gcm_alloc_ctx(struct crypto_authenc_ctx **ctx);
+
+#ifdef CFG_CRYPTO_DRV_HASH
+TEE_Result drvcrypt_hash_alloc_ctx(struct crypto_hash_ctx **ctx, uint32_t algo);
+#else
+static inline TEE_Result
+drvcrypt_hash_alloc_ctx(struct crypto_hash_ctx **ctx __unused,
+			uint32_t algo __unused)
+{
+	return TEE_ERROR_NOT_IMPLEMENTED;
+}
+#endif /* CFG_CRYPTO_DRV_HASH */
+
+#ifdef CFG_CRYPTO_DRV_CIPHER
+TEE_Result drvcrypt_cipher_alloc_ctx(struct crypto_cipher_ctx **ctx,
+				     uint32_t algo);
+#else
+static inline TEE_Result
+drvcrypt_cipher_alloc_ctx(struct crypto_cipher_ctx **ctx __unused,
+			  uint32_t algo __unused)
+{
+	return TEE_ERROR_NOT_IMPLEMENTED;
+}
+#endif /* CFG_CRYPTO_DRV_CIPHER */
+
+#ifdef CFG_CRYPTO_DRV_MAC
+/* Cryptographic MAC driver context allocation */
+TEE_Result drvcrypt_mac_alloc_ctx(struct crypto_mac_ctx **ctx, uint32_t algo);
+#else
+static inline TEE_Result
+drvcrypt_mac_alloc_ctx(struct crypto_mac_ctx **ctx __unused,
+		       uint32_t algo __unused)
+{
+	return TEE_ERROR_NOT_IMPLEMENTED;
+}
+#endif /* CFG_CRYPTO_DRV_MAC */
+
+/*
+ * The ECC public key operations used by the crypto_acipher_ecc_*() and
+ * crypto_acipher_free_ecc_*() functions.
+ * Reference set in ecc_public_key when key allocated.
+ *
+ * @free    is mandatory
+ * @verify  is optional
+ * @encrypt is optional
+ */
+struct crypto_ecc_public_ops {
+	void (*free)(struct ecc_public_key *key);
+	TEE_Result (*verify)(uint32_t algo, struct ecc_public_key *key,
+			     const uint8_t *msg, size_t msg_len,
+			     const uint8_t *sig, size_t sig_len);
+	TEE_Result (*encrypt)(struct ecc_public_key *key, const uint8_t *src,
+			      size_t src_len, uint8_t *dst, size_t *dst_len);
+};
+
+/*
+ * The ECC keypair operations used by the crypto_acipher_ecc_*() and
+ * crypto_acipher_gen_ecc_*() functions.
+ * Reference set in ecc_keypair when key allocated.
+ *
+ * @generate      is mandatory
+ * @sign          is optional
+ * @shared_secret is optional
+ * @decrypt       is optional
+ */
+struct crypto_ecc_keypair_ops {
+	TEE_Result (*generate)(struct ecc_keypair *key, size_t key_size_bits);
+	TEE_Result (*sign)(uint32_t algo, struct ecc_keypair *key,
+			   const uint8_t *msg, size_t msg_len, uint8_t *sig,
+			   size_t *sig_len);
+	TEE_Result (*shared_secret)(struct ecc_keypair *private_key,
+				    struct ecc_public_key *public_key,
+				    void *secret, unsigned long *secret_len);
+	TEE_Result (*decrypt)(struct ecc_keypair *key, const uint8_t *src,
+			      size_t src_len, uint8_t *dst, size_t *dst_len);
+};
+
+#ifdef CFG_CRYPTO_ECC
+TEE_Result crypto_asym_alloc_ecc_public_key(struct ecc_public_key *key,
+					    uint32_t key_type,
+					    size_t key_size_bits);
+TEE_Result crypto_asym_alloc_ecc_keypair(struct ecc_keypair *key,
+					 uint32_t key_type,
+					 size_t key_size_bits);
+#else
+static inline TEE_Result
+crypto_asym_alloc_ecc_public_key(struct ecc_public_key *key __unused,
+				 uint32_t key_type __unused,
+				 size_t key_size_bits __unused)
+{
+	return TEE_ERROR_NOT_IMPLEMENTED;
+}
+
+static inline TEE_Result
+crypto_asym_alloc_ecc_keypair(struct ecc_keypair *key __unused,
+			      uint32_t key_type __unused,
+			      size_t key_size_bits __unused)
+{
+	return TEE_ERROR_NOT_IMPLEMENTED;
+}
+#endif /* CFG_CRYPTO_ECC */
+
+#ifdef CFG_CRYPTO_DRV_ECC
+TEE_Result drvcrypt_asym_alloc_ecc_public_key(struct ecc_public_key *key,
+					      uint32_t key_type,
+					      size_t key_size_bits);
+TEE_Result drvcrypt_asym_alloc_ecc_keypair(struct ecc_keypair *key,
+					   uint32_t key_type,
+					   size_t key_size_bits);
+#else
+static inline TEE_Result
+drvcrypt_asym_alloc_ecc_public_key(struct ecc_public_key *key __unused,
+				   uint32_t key_type __unused,
+				   size_t key_size_bits __unused)
+{
+	return TEE_ERROR_NOT_IMPLEMENTED;
+}
+
+static inline TEE_Result
+drvcrypt_asym_alloc_ecc_keypair(struct ecc_keypair *key __unused,
+				uint32_t key_type __unused,
+				size_t key_size_bits __unused)
+{
+	return TEE_ERROR_NOT_IMPLEMENTED;
+}
+#endif /* CFG_CRYPTO_DRV_ECC */
 #endif /*__CRYPTO_CRYPTO_IMPL_H*/

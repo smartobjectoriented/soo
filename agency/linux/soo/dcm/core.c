@@ -46,9 +46,6 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
-#undef CONFIG_ARM_PSCI
-
-
 /* Protection of the buffers */
 static struct mutex recv_lock;
 
@@ -85,7 +82,7 @@ static void dcm_send_ME(unsigned long arg) {
 	void *ME_data;
 	size_t size = 0;
 	int ret;
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 	void *ME_crypt;
 #endif
 
@@ -103,7 +100,7 @@ static void dcm_send_ME(unsigned long arg) {
 	/* Check for end of transmission. */
 	size = compress_data(COMPRESSOR_LZ4, &ME_data, args.ME_data, args.size);
 
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 	/* ME encryption */
 	size = security_encrypt(ME_data, size, &ME_crypt);
 
@@ -123,7 +120,7 @@ static void dcm_send_ME(unsigned long arg) {
 
 	vfree((void *) args.ME_data);
 
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 	/* Free the encrypted buffer */
 	kfree(ME_crypt);
 #endif

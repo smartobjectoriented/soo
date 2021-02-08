@@ -48,7 +48,11 @@
 #define NUM_SGI			16
 
 /* Number of Non-secure Software Generated Interrupt */
-#define NUM_NS_SGI		13
+#if 0 /* SOO.tech */
+#define NUM_NS_SGI		8
+#endif
+#define NUM_NS_SGI		15
+
 
 /* Number of interrupts in one register */
 #define NUM_INTS_PER_REG	32
@@ -84,7 +88,7 @@ static const struct itr_ops gic_ops = {
 	.raise_sgi = gic_op_raise_sgi,
 	.set_affinity = gic_op_set_affinity,
 };
-KEEP_PAGER(gic_ops);
+DECLARE_KEEP_PAGER(gic_ops);
 
 static size_t probe_max_it(vaddr_t gicc_base __maybe_unused, vaddr_t gicd_base)
 {
@@ -138,11 +142,15 @@ void gic_cpu_init(struct gic_data *gd)
 #endif
 
 	/* per-CPU interrupts config:
-	 * ID0-ID13(SGI)   for Non-secure interrupts
-	 * ID14-ID15(SGI)  for Secure interrupts.
+	 * ID0-ID7(SGI)   for Non-secure interrupts
+	 * ID8-ID15(SGI)  for Secure interrupts.
 	 * All PPI config as Non-secure interrupts.
 	 */
-	io_write32(gd->gicd_base + GICD_IGROUPR(0), 0xff3fffff);
+#if 0 /* SOO.tech */
+	io_write32(gd->gicd_base + GICD_IGROUPR(0), 0xffff00ff);
+#endif
+	/* Mark all interrups as non secure */
+	io_write32(gd->gicd_base + GICD_IGROUPR(0), 0xffffffff);
 
 	/* Set the priority mask to permit Non-secure interrupts, and to
 	 * allow the Non-secure world to adjust the priority mask itself
@@ -175,16 +183,20 @@ void gic_init(struct gic_data *gd, vaddr_t gicc_base __maybe_unused,
 		io_write32(gd->gicd_base + GICD_ICPENDR(n), 0xffffffff);
 
 		/* Mark interrupts non-secure */
+#if 0 /* SOO.tech */
 		if (n == 0) {
-			/* per-CPU interrupts config:
-                         * ID0-ID13(SGI)   for Non-secure interrupts
-                         * ID14-ID15(SGI)  for Secure interrupts.
+			/* per-CPU inerrupts config:
+                         * ID0-ID7(SGI)   for Non-secure interrupts
+                         * ID8-ID15(SGI)  for Secure interrupts.
                          * All PPI config as Non-secure interrupts.
 			 */
-			io_write32(gd->gicd_base + GICD_IGROUPR(n), 0xff3fffff);
+			io_write32(gd->gicd_base + GICD_IGROUPR(n), 0xffff00ff);
 		} else {
 			io_write32(gd->gicd_base + GICD_IGROUPR(n), 0xffffffff);
 		}
+#endif
+		/* Mark all interrupts as non-secure */
+		io_write32(gd->gicd_base + GICD_IGROUPR(n), 0xffffffff);
 	}
 
 	/* Set the priority mask to permit Non-secure interrupts, and to
@@ -203,7 +215,6 @@ void gic_init(struct gic_data *gd, vaddr_t gicc_base __maybe_unused,
 	io_setbits32(gd->gicd_base + GICD_CTLR,
 		     GICD_CTLR_ENABLEGRP0 | GICD_CTLR_ENABLEGRP1);
 #endif
-
 }
 
 void gic_init_base_addr(struct gic_data *gd, vaddr_t gicc_base __maybe_unused,
@@ -307,8 +318,6 @@ static void gic_it_set_pending(struct gic_data *gd, size_t it)
 
 	/* Should be Peripheral Interrupt */
 	assert(it >= NUM_SGI);
-	/* Assigned to group0 */
-	assert(!(io_read32(gd->gicd_base + GICD_IGROUPR(idx)) & mask));
 
 	/* Raise the interrupt */
 	io_write32(gd->gicd_base + GICD_ISPENDR(idx), mask);

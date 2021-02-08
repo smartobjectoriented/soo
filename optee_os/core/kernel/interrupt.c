@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2016, Linaro Limited
+ * Copyright (c) 2016-2019, Linaro Limited
  */
 
 #include <kernel/interrupt.h>
+#include <kernel/panic.h>
 #include <trace.h>
+#include <assert.h>
 
 /*
  * NOTE!
@@ -14,42 +16,44 @@
  * we begin to modify settings after boot initialization.
  */
 
-static struct itr_chip *itr_chip;
-static SLIST_HEAD(, itr_handler) handlers = SLIST_HEAD_INITIALIZER(handlers);
+static struct itr_chip *itr_chip __nex_bss;
+static SLIST_HEAD(, itr_handler) handlers __nex_data =
+	SLIST_HEAD_INITIALIZER(handlers);
 
 void itr_init(struct itr_chip *chip)
 {
 	itr_chip = chip;
 }
 
-static struct itr_handler *find_handler(size_t it)
-{
-	struct itr_handler *h;
-
-	SLIST_FOREACH(h, &handlers, link)
-		if (h->it == it)
-			return h;
-	return NULL;
-}
-
 void itr_handle(size_t it)
 {
-	struct itr_handler *h = find_handler(it);
+	struct itr_handler *h = NULL;
+	bool was_handled = false;
 
-	if (!h) {
-		EMSG("Disabling unhandled interrupt %zu", it);
-		itr_chip->ops->disable(itr_chip, it);
-		return;
+	SLIST_FOREACH(h, &handlers, link) {
+		if (h->it == it) {
+			if (h->handler(h) == ITRR_HANDLED)
+				was_handled = true;
+			else if (!(h->flags & ITRF_SHARED))
+				break;
+		}
 	}
 
-	if (h->handler(h) != ITRR_HANDLED) {
-		EMSG("Disabling interrupt %zu not handled by handler", it);
+	if (!was_handled) {
+		EMSG("Disabling unhandled interrupt %zu", it);
 		itr_chip->ops->disable(itr_chip, it);
 	}
 }
 
 void itr_add(struct itr_handler *h)
 {
+	struct itr_handler __maybe_unused *hdl = NULL;
+
+	SLIST_FOREACH(hdl, &handlers, link)
+		if (hdl->it == h->it)
+			assert((hdl->flags & ITRF_SHARED) &&
+			       (h->flags & ITRF_SHARED));
+
 	itr_chip->ops->add(itr_chip, h->it, h->flags);
 	SLIST_INSERT_HEAD(&handlers, h, link);
 }
@@ -77,4 +81,10 @@ void itr_raise_sgi(size_t it, uint8_t cpu_mask)
 void itr_set_affinity(size_t it, uint8_t cpu_mask)
 {
 	itr_chip->ops->set_affinity(itr_chip, it, cpu_mask);
+}
+
+/* This function is supposed to be overridden in platform specific code */
+void __weak __noreturn itr_core_handler(void)
+{
+	panic("Secure interrupt handler not defined");
 }

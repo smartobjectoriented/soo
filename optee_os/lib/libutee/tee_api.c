@@ -153,11 +153,17 @@ TEE_Result TEE_OpenTASession(const TEE_UUID *destination,
 	size_t tmp_len = 0;
 	void *tmp_va[TEE_NUM_PARAMS] = { NULL };
 
+	if (paramTypes)
+		__utee_check_inout_annotation(params,
+					      sizeof(TEE_Param) *
+					      TEE_NUM_PARAMS);
+	__utee_check_out_annotation(session, sizeof(*session));
+
 	res = copy_param(&up, paramTypes, params, &tmp_buf, &tmp_len, tmp_va);
 	if (res)
 		goto out;
-	res = utee_open_ta_session(destination, cancellationRequestTimeout,
-				   &up, &s, returnOrigin);
+	res = _utee_open_ta_session(destination, cancellationRequestTimeout,
+				    &up, &s, returnOrigin);
 	update_out_param(params, tmp_va, &up);
 	if (tmp_buf) {
 		TEE_Result res2 = tee_unmap(tmp_buf, tmp_len);
@@ -182,7 +188,7 @@ out:
 void TEE_CloseTASession(TEE_TASessionHandle session)
 {
 	if (session != TEE_HANDLE_NULL) {
-		TEE_Result res = utee_close_ta_session((uintptr_t)session);
+		TEE_Result res = _utee_close_ta_session((uintptr_t)session);
 
 		if (res != TEE_SUCCESS)
 			TEE_Panic(res);
@@ -202,10 +208,18 @@ TEE_Result TEE_InvokeTACommand(TEE_TASessionHandle session,
 	size_t tmp_len = 0;
 	void *tmp_va[TEE_NUM_PARAMS] = { NULL };
 
+	if (paramTypes)
+		__utee_check_inout_annotation(params,
+					      sizeof(TEE_Param) *
+					      TEE_NUM_PARAMS);
+	if (returnOrigin)
+		__utee_check_out_annotation(returnOrigin,
+					    sizeof(*returnOrigin));
+
 	res = copy_param(&up, paramTypes, params, &tmp_buf, &tmp_len, tmp_va);
 	if (res)
 		goto out;
-	res = utee_invoke_ta_command((uintptr_t)session,
+	res = _utee_invoke_ta_command((uintptr_t)session,
 				      cancellationRequestTimeout,
 				      commandID, &up, &ret_origin);
 	update_out_param(params, tmp_va, &up);
@@ -236,7 +250,7 @@ out:
 bool TEE_GetCancellationFlag(void)
 {
 	uint32_t c;
-	TEE_Result res = utee_get_cancellation_flag(&c);
+	TEE_Result res = _utee_get_cancellation_flag(&c);
 
 	if (res != TEE_SUCCESS)
 		c = 0;
@@ -246,7 +260,7 @@ bool TEE_GetCancellationFlag(void)
 bool TEE_UnmaskCancellation(void)
 {
 	uint32_t old_mask;
-	TEE_Result res = utee_unmask_cancellation(&old_mask);
+	TEE_Result res = _utee_unmask_cancellation(&old_mask);
 
 	if (res != TEE_SUCCESS)
 		TEE_Panic(res);
@@ -256,7 +270,7 @@ bool TEE_UnmaskCancellation(void)
 bool TEE_MaskCancellation(void)
 {
 	uint32_t old_mask;
-	TEE_Result res = utee_mask_cancellation(&old_mask);
+	TEE_Result res = _utee_mask_cancellation(&old_mask);
 
 	if (res != TEE_SUCCESS)
 		TEE_Panic(res);
@@ -274,7 +288,7 @@ TEE_Result TEE_CheckMemoryAccessRights(uint32_t accessFlags, void *buffer,
 		return TEE_SUCCESS;
 
 	/* Check access rights against memory mapping */
-	res = utee_check_access_rights(accessFlags, buffer, size);
+	res = _utee_check_access_rights(accessFlags, buffer, size);
 	if (res != TEE_SUCCESS)
 		goto out;
 
@@ -317,7 +331,7 @@ void *TEE_MemFill(void *buff, uint32_t x, uint32_t size)
 
 void TEE_GetSystemTime(TEE_Time *time)
 {
-	TEE_Result res = utee_get_time(UTEE_TIME_CAT_SYSTEM, time);
+	TEE_Result res = _utee_get_time(UTEE_TIME_CAT_SYSTEM, time);
 
 	if (res != TEE_SUCCESS)
 		TEE_Panic(res);
@@ -325,7 +339,7 @@ void TEE_GetSystemTime(TEE_Time *time)
 
 TEE_Result TEE_Wait(uint32_t timeout)
 {
-	TEE_Result res = utee_wait(timeout);
+	TEE_Result res = _utee_wait(timeout);
 
 	if (res != TEE_SUCCESS && res != TEE_ERROR_CANCEL)
 		TEE_Panic(res);
@@ -337,7 +351,7 @@ TEE_Result TEE_GetTAPersistentTime(TEE_Time *time)
 {
 	TEE_Result res;
 
-	res = utee_get_time(UTEE_TIME_CAT_TA_PERSISTENT, time);
+	res = _utee_get_time(UTEE_TIME_CAT_TA_PERSISTENT, time);
 
 	if (res != TEE_SUCCESS && res != TEE_ERROR_OVERFLOW) {
 		time->seconds = 0;
@@ -358,7 +372,7 @@ TEE_Result TEE_SetTAPersistentTime(const TEE_Time *time)
 {
 	TEE_Result res;
 
-	res = utee_set_ta_time(time);
+	res = _utee_set_ta_time(time);
 
 	if (res != TEE_SUCCESS &&
 	    res != TEE_ERROR_OUT_OF_MEMORY &&
@@ -370,7 +384,7 @@ TEE_Result TEE_SetTAPersistentTime(const TEE_Time *time)
 
 void TEE_GetREETime(TEE_Time *time)
 {
-	TEE_Result res = utee_get_time(UTEE_TIME_CAT_REE, time);
+	TEE_Result res = _utee_get_time(UTEE_TIME_CAT_REE, time);
 
 	if (res != TEE_SUCCESS)
 		TEE_Panic(res);
@@ -401,14 +415,14 @@ void TEE_Free(void *buffer)
 /* Cache maintenance support (TA requires the CACHE_MAINTENANCE property) */
 TEE_Result TEE_CacheClean(char *buf, size_t len)
 {
-	return utee_cache_operation(buf, len, TEE_CACHECLEAN);
+	return _utee_cache_operation(buf, len, TEE_CACHECLEAN);
 }
 TEE_Result TEE_CacheFlush(char *buf, size_t len)
 {
-	return utee_cache_operation(buf, len, TEE_CACHEFLUSH);
+	return _utee_cache_operation(buf, len, TEE_CACHEFLUSH);
 }
 
 TEE_Result TEE_CacheInvalidate(char *buf, size_t len)
 {
-	return utee_cache_operation(buf, len, TEE_CACHEINVALIDATE);
+	return _utee_cache_operation(buf, len, TEE_CACHEINVALIDATE);
 }

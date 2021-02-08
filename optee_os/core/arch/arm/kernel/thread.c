@@ -2,47 +2,59 @@
 /*
  * Copyright (c) 2016, Linaro Limited
  * Copyright (c) 2014, STMicroelectronics International N.V.
+ * Copyright (c) 2020, Arm Limited
  */
 
 #include <platform_config.h>
 
 #include <arm.h>
 #include <assert.h>
+#include <config.h>
 #include <io.h>
 #include <keep.h>
 #include <kernel/asan.h>
+#include <kernel/boot.h>
+#include <kernel/linker.h>
 #include <kernel/lockdep.h>
 #include <kernel/misc.h>
-#include <kernel/msg_param.h>
 #include <kernel/panic.h>
 #include <kernel/spinlock.h>
 #include <kernel/tee_ta_manager.h>
 #include <kernel/thread_defs.h>
 #include <kernel/thread.h>
+#include <kernel/user_mode_ctx_struct.h>
 #include <kernel/virtualization.h>
 #include <mm/core_memprot.h>
 #include <mm/mobj.h>
 #include <mm/tee_mm.h>
-#include <mm/tee_mmu.h>
 #include <mm/tee_pager.h>
-#include <optee_msg.h>
-#include <optee_rpc_cmd.h>
+#include <mm/vm.h>
 #include <smccc.h>
-#include <sm/optee_smc.h>
 #include <sm/sm.h>
-#include <tee/tee_cryp_utl.h>
-#include <tee/tee_fs_rpc.h>
 #include <trace.h>
 #include <util.h>
 
 #include "thread_private.h"
+
+struct thread_ctx threads[CFG_NUM_THREADS];
+
+struct thread_core_local thread_core_local[CFG_TEE_CORE_NB_CORE] __nex_bss;
+
+/*
+ * Stacks
+ *
+ * [Lower addresses on the left]
+ *
+ * [ STACK_CANARY_SIZE/2 | STACK_CHECK_EXTRA | STACK_XXX_SIZE | STACK_CANARY_SIZE/2 ]
+ * ^                     ^                   ^                ^
+ * stack_xxx[n]          "hard" top          "soft" top       bottom
+ */
 
 #ifdef CFG_WITH_ARM_TRUSTED_FW
 #define STACK_TMP_OFFS		0
 #else
 #define STACK_TMP_OFFS		SM_STACK_TMP_RESERVE_SIZE
 #endif
-
 
 #ifdef ARM32
 #ifdef CFG_CORE_SANITIZE_KADDRESS
@@ -52,7 +64,7 @@
 #endif
 #define STACK_THREAD_SIZE	8192
 
-#ifdef CFG_CORE_SANITIZE_KADDRESS
+#if defined(CFG_CORE_SANITIZE_KADDRESS) || defined(__clang__)
 #define STACK_ABT_SIZE		3072
 #else
 #define STACK_ABT_SIZE		2048
@@ -61,7 +73,11 @@
 #endif /*ARM32*/
 
 #ifdef ARM64
+#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__)
+#define STACK_TMP_SIZE		(4096 + STACK_TMP_OFFS)
+#else
 #define STACK_TMP_SIZE		(2048 + STACK_TMP_OFFS)
+#endif
 #define STACK_THREAD_SIZE	8192
 
 #if TRACE_LEVEL > 0
@@ -70,10 +86,6 @@
 #define STACK_ABT_SIZE		1024
 #endif
 #endif /*ARM64*/
-
-struct thread_ctx threads[CFG_NUM_THREADS];
-
-struct thread_core_local thread_core_local[CFG_TEE_CORE_NB_CORE] __nex_bss;
 
 #ifdef CFG_WITH_STACK_CANARIES
 #ifdef ARM32
@@ -91,44 +103,54 @@ struct thread_core_local thread_core_local[CFG_TEE_CORE_NB_CORE] __nex_bss;
 #define STACK_CANARY_SIZE	0
 #endif
 
+#ifdef CFG_CORE_DEBUG_CHECK_STACKS
+/*
+ * Extra space added to each stack in order to reliably detect and dump stack
+ * overflows. Should cover the maximum expected overflow size caused by any C
+ * function (say, 512 bytes; no function should have that much local variables),
+ * plus the maximum stack space needed by __cyg_profile_func_exit(): about 1 KB,
+ * a large part of which is used to print the call stack. Total: 1.5 KB.
+ */
+#define STACK_CHECK_EXTRA	1536
+#else
+#define STACK_CHECK_EXTRA	0
+#endif
+
 #define DECLARE_STACK(name, num_stacks, stack_size, linkage) \
 linkage uint32_t name[num_stacks] \
-		[ROUNDUP(stack_size + STACK_CANARY_SIZE, STACK_ALIGNMENT) / \
-		sizeof(uint32_t)] \
+		[ROUNDUP(stack_size + STACK_CANARY_SIZE + STACK_CHECK_EXTRA, \
+			 STACK_ALIGNMENT) / sizeof(uint32_t)] \
 		__attribute__((section(".nozi_stack." # name), \
 			       aligned(STACK_ALIGNMENT)))
 
-#define STACK_SIZE(stack) (sizeof(stack) - STACK_CANARY_SIZE / 2)
+#define GET_STACK(stack) ((vaddr_t)(stack) + STACK_SIZE(stack))
 
-#define GET_STACK(stack) \
-	((vaddr_t)(stack) + STACK_SIZE(stack))
-
-DECLARE_STACK(stack_tmp, CFG_TEE_CORE_NB_CORE, STACK_TMP_SIZE, static);
+DECLARE_STACK(stack_tmp, CFG_TEE_CORE_NB_CORE,
+	      STACK_TMP_SIZE + CFG_STACK_TMP_EXTRA, static);
 DECLARE_STACK(stack_abt, CFG_TEE_CORE_NB_CORE, STACK_ABT_SIZE, static);
 #ifndef CFG_WITH_PAGER
-DECLARE_STACK(stack_thread, CFG_NUM_THREADS, STACK_THREAD_SIZE, static);
+DECLARE_STACK(stack_thread, CFG_NUM_THREADS,
+	      STACK_THREAD_SIZE + CFG_STACK_THREAD_EXTRA, static);
 #endif
 
-const void *stack_tmp_export = (uint8_t *)stack_tmp + sizeof(stack_tmp[0]) -
-			       (STACK_TMP_OFFS + STACK_CANARY_SIZE / 2);
-const uint32_t stack_tmp_stride = sizeof(stack_tmp[0]);
+#define GET_STACK_TOP_HARD(stack, n) \
+	((vaddr_t)&(stack)[n] + STACK_CANARY_SIZE / 2)
+#define GET_STACK_TOP_SOFT(stack, n) \
+	(GET_STACK_TOP_HARD(stack, n) + STACK_CHECK_EXTRA)
+#define GET_STACK_BOTTOM(stack, n) ((vaddr_t)&(stack)[n] + sizeof(stack[n]) - \
+				    STACK_CANARY_SIZE / 2)
+
+const void *stack_tmp_export __section(".identity_map.stack_tmp_export") =
+	(void *)(GET_STACK_BOTTOM(stack_tmp, 0) - STACK_TMP_OFFS);
+const uint32_t stack_tmp_stride __section(".identity_map.stack_tmp_stride") =
+	sizeof(stack_tmp[0]);
 
 /*
  * These stack setup info are required by secondary boot cores before they
  * each locally enable the pager (the mmu). Hence kept in pager sections.
  */
-KEEP_PAGER(stack_tmp_export);
-KEEP_PAGER(stack_tmp_stride);
-
-thread_smc_handler_t thread_std_smc_handler_ptr __nex_bss;
-static thread_smc_handler_t thread_fast_smc_handler_ptr __nex_bss;
-thread_nintr_handler_t thread_nintr_handler_ptr __nex_bss;
-thread_pm_handler_t thread_cpu_on_handler_ptr __nex_bss;
-thread_pm_handler_t thread_cpu_off_handler_ptr __nex_bss;
-thread_pm_handler_t thread_cpu_suspend_handler_ptr __nex_bss;
-thread_pm_handler_t thread_cpu_resume_handler_ptr __nex_bss;
-thread_pm_handler_t thread_system_off_handler_ptr __nex_bss;
-thread_pm_handler_t thread_system_reset_handler_ptr __nex_bss;
+DECLARE_KEEP_PAGER(stack_tmp_export);
+DECLARE_KEEP_PAGER(stack_tmp_stride);
 
 #ifdef CFG_CORE_UNMAP_CORE_AT_EL0
 static vaddr_t thread_user_kcode_va __nex_bss;
@@ -150,9 +172,6 @@ static uint8_t thread_user_kdata_page[
 #endif
 
 static unsigned int thread_global_lock __nex_bss = SPINLOCK_UNLOCK;
-static bool thread_prealloc_rpc_cache;
-
-static unsigned int thread_rpc_pnum;
 
 static void init_canaries(void)
 {
@@ -165,9 +184,6 @@ static void init_canaries(void)
 									\
 		*start_canary = START_CANARY_VALUE;			\
 		*end_canary = END_CANARY_VALUE;				\
-		DMSG("#Stack canaries for %s[%zu] with top at %p",	\
-			#name, n, (void *)(end_canary - 1));		\
-		DMSG("watch *%p", (void *)end_canary);			\
 	}
 
 	INIT_CANARY(stack_tmp);
@@ -178,61 +194,69 @@ static void init_canaries(void)
 #endif/*CFG_WITH_STACK_CANARIES*/
 }
 
-#define CANARY_DIED(stack, loc, n) \
+#define CANARY_DIED(stack, loc, n, addr) \
 	do { \
-		EMSG_RAW("Dead canary at %s of '%s[%zu]'", #loc, #stack, n); \
+		EMSG_RAW("Dead canary at %s of '%s[%zu]' (%p)", #loc, #stack, \
+			 n, (void *)addr); \
 		panic(); \
 	} while (0)
 
 void thread_check_canaries(void)
 {
 #ifdef CFG_WITH_STACK_CANARIES
-	size_t n;
+	uint32_t *canary = NULL;
+	size_t n = 0;
 
 	for (n = 0; n < ARRAY_SIZE(stack_tmp); n++) {
-		if (GET_START_CANARY(stack_tmp, n) != START_CANARY_VALUE)
-			CANARY_DIED(stack_tmp, start, n);
-		if (GET_END_CANARY(stack_tmp, n) != END_CANARY_VALUE)
-			CANARY_DIED(stack_tmp, end, n);
+		canary = &GET_START_CANARY(stack_tmp, n);
+		if (*canary != START_CANARY_VALUE)
+			CANARY_DIED(stack_tmp, start, n, canary);
+		canary = &GET_END_CANARY(stack_tmp, n);
+		if (*canary != END_CANARY_VALUE)
+			CANARY_DIED(stack_tmp, end, n, canary);
 	}
 
 	for (n = 0; n < ARRAY_SIZE(stack_abt); n++) {
-		if (GET_START_CANARY(stack_abt, n) != START_CANARY_VALUE)
-			CANARY_DIED(stack_abt, start, n);
-		if (GET_END_CANARY(stack_abt, n) != END_CANARY_VALUE)
-			CANARY_DIED(stack_abt, end, n);
+		canary = &GET_START_CANARY(stack_abt, n);
+		if (*canary != START_CANARY_VALUE)
+			CANARY_DIED(stack_abt, start, n, canary);
+		canary = &GET_END_CANARY(stack_abt, n);
+		if (*canary != END_CANARY_VALUE)
+			CANARY_DIED(stack_abt, end, n, canary);
 
 	}
 #if !defined(CFG_WITH_PAGER) && !defined(CFG_VIRTUALIZATION)
 	for (n = 0; n < ARRAY_SIZE(stack_thread); n++) {
-		if (GET_START_CANARY(stack_thread, n) != START_CANARY_VALUE)
-			CANARY_DIED(stack_thread, start, n);
-		if (GET_END_CANARY(stack_thread, n) != END_CANARY_VALUE)
-			CANARY_DIED(stack_thread, end, n);
+		canary = &GET_START_CANARY(stack_thread, n);
+		if (*canary != START_CANARY_VALUE)
+			CANARY_DIED(stack_thread, start, n, canary);
+		canary = &GET_END_CANARY(stack_thread, n);
+		if (*canary != END_CANARY_VALUE)
+			CANARY_DIED(stack_thread, end, n, canary);
 	}
 #endif
 #endif/*CFG_WITH_STACK_CANARIES*/
 }
 
-static void lock_global(void)
+void thread_lock_global(void)
 {
 	cpu_spin_lock(&thread_global_lock);
 }
 
-static void unlock_global(void)
+void thread_unlock_global(void)
 {
 	cpu_spin_unlock(&thread_global_lock);
 }
 
 #ifdef ARM32
-uint32_t thread_get_exceptions(void)
+uint32_t __nostackcheck thread_get_exceptions(void)
 {
 	uint32_t cpsr = read_cpsr();
 
 	return (cpsr >> CPSR_F_SHIFT) & THREAD_EXCP_ALL;
 }
 
-void thread_set_exceptions(uint32_t exceptions)
+void __nostackcheck thread_set_exceptions(uint32_t exceptions)
 {
 	uint32_t cpsr = read_cpsr();
 
@@ -242,19 +266,22 @@ void thread_set_exceptions(uint32_t exceptions)
 
 	cpsr &= ~(THREAD_EXCP_ALL << CPSR_F_SHIFT);
 	cpsr |= ((exceptions & THREAD_EXCP_ALL) << CPSR_F_SHIFT);
+
+	barrier();
 	write_cpsr(cpsr);
+	barrier();
 }
 #endif /*ARM32*/
 
 #ifdef ARM64
-uint32_t thread_get_exceptions(void)
+uint32_t __nostackcheck thread_get_exceptions(void)
 {
 	uint32_t daif = read_daif();
 
 	return (daif >> DAIF_F_SHIFT) & THREAD_EXCP_ALL;
 }
 
-void thread_set_exceptions(uint32_t exceptions)
+void __nostackcheck thread_set_exceptions(uint32_t exceptions)
 {
 	uint32_t daif = read_daif();
 
@@ -264,11 +291,14 @@ void thread_set_exceptions(uint32_t exceptions)
 
 	daif &= ~(THREAD_EXCP_ALL << DAIF_F_SHIFT);
 	daif |= ((exceptions & THREAD_EXCP_ALL) << DAIF_F_SHIFT);
+
+	barrier();
 	write_daif(daif);
+	barrier();
 }
 #endif /*ARM64*/
 
-uint32_t thread_mask_exceptions(uint32_t exceptions)
+uint32_t __nostackcheck thread_mask_exceptions(uint32_t exceptions)
 {
 	uint32_t state = thread_get_exceptions();
 
@@ -276,16 +306,15 @@ uint32_t thread_mask_exceptions(uint32_t exceptions)
 	return state;
 }
 
-void thread_unmask_exceptions(uint32_t state)
+void __nostackcheck thread_unmask_exceptions(uint32_t state)
 {
 	thread_set_exceptions(state & THREAD_EXCP_ALL);
 }
 
 
-struct thread_core_local *thread_get_core_local(void)
+static struct thread_core_local * __nostackcheck
+get_core_local(unsigned int pos)
 {
-	uint32_t cpu_id = get_core_pos();
-
 	/*
 	 * Foreign interrupts must be disabled before playing with core_local
 	 * since we otherwise may be rescheduled to a different core in the
@@ -293,9 +322,98 @@ struct thread_core_local *thread_get_core_local(void)
 	 */
 	assert(thread_get_exceptions() & THREAD_EXCP_FOREIGN_INTR);
 
-	assert(cpu_id < CFG_TEE_CORE_NB_CORE);
-	return &thread_core_local[cpu_id];
+	assert(pos < CFG_TEE_CORE_NB_CORE);
+	return &thread_core_local[pos];
 }
+
+struct thread_core_local * __nostackcheck thread_get_core_local(void)
+{
+	unsigned int pos = get_core_pos();
+
+	return get_core_local(pos);
+}
+
+#ifdef CFG_CORE_DEBUG_CHECK_STACKS
+static void print_stack_limits(void)
+{
+	size_t n = 0;
+	vaddr_t __maybe_unused start = 0;
+	vaddr_t __maybe_unused end = 0;
+
+	for (n = 0; n < CFG_TEE_CORE_NB_CORE; n++) {
+		start = GET_STACK_TOP_SOFT(stack_tmp, n);
+		end = GET_STACK_BOTTOM(stack_tmp, n);
+		DMSG("tmp [%zu] 0x%" PRIxVA "..0x%" PRIxVA, n, start, end);
+	}
+	for (n = 0; n < CFG_TEE_CORE_NB_CORE; n++) {
+		start = GET_STACK_TOP_SOFT(stack_abt, n);
+		end = GET_STACK_BOTTOM(stack_abt, n);
+		DMSG("abt [%zu] 0x%" PRIxVA "..0x%" PRIxVA, n, start, end);
+	}
+	for (n = 0; n < CFG_NUM_THREADS; n++) {
+		end = threads[n].stack_va_end;
+		start = end - STACK_THREAD_SIZE;
+		DMSG("thr [%zu] 0x%" PRIxVA "..0x%" PRIxVA, n, start, end);
+	}
+}
+
+static void check_stack_limits(void)
+{
+	vaddr_t stack_start = 0;
+	vaddr_t stack_end = 0;
+	/* Any value in the current stack frame will do */
+	vaddr_t current_sp = (vaddr_t)&stack_start;
+
+	if (!get_stack_soft_limits(&stack_start, &stack_end))
+		panic("Unknown stack limits");
+	if (current_sp < stack_start || current_sp > stack_end) {
+		DMSG("Stack pointer out of range (0x%" PRIxVA ")", current_sp);
+		print_stack_limits();
+		panic();
+	}
+}
+
+static bool * __nostackcheck get_stackcheck_recursion_flag(void)
+{
+	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_FOREIGN_INTR);
+	unsigned int pos = get_core_pos();
+	struct thread_core_local *l = get_core_local(pos);
+	int ct = l->curr_thread;
+	bool *p = NULL;
+
+	if (l->flags & (THREAD_CLF_ABORT | THREAD_CLF_TMP))
+		p = &l->stackcheck_recursion;
+	else if (!l->flags)
+		p = &threads[ct].tsd.stackcheck_recursion;
+
+	thread_unmask_exceptions(exceptions);
+	return p;
+}
+
+void __cyg_profile_func_enter(void *this_fn, void *call_site);
+void __nostackcheck __cyg_profile_func_enter(void *this_fn __unused,
+					     void *call_site __unused)
+{
+	bool *p = get_stackcheck_recursion_flag();
+
+	assert(p);
+	if (*p)
+		return;
+	*p = true;
+	check_stack_limits();
+	*p = false;
+}
+
+void __cyg_profile_func_exit(void *this_fn, void *call_site);
+void __nostackcheck __cyg_profile_func_exit(void *this_fn __unused,
+					    void *call_site __unused)
+{
+}
+#else
+static void print_stack_limits(void)
+{
+}
+#endif
 
 static void thread_lazy_save_ns_vfp(void)
 {
@@ -326,8 +444,8 @@ static void thread_lazy_restore_ns_vfp(void)
 }
 
 #ifdef ARM32
-static void init_regs(struct thread_ctx *thread,
-		struct thread_smc_args *args)
+static void init_regs(struct thread_ctx *thread, uint32_t a0, uint32_t a1,
+		      uint32_t a2, uint32_t a3)
 {
 	thread->regs.pc = (uint32_t)thread_std_smc_entry;
 
@@ -348,20 +466,20 @@ static void init_regs(struct thread_ctx *thread,
 	 * Copy arguments into context. This will make the
 	 * arguments appear in r0-r7 when thread is started.
 	 */
-	thread->regs.r0 = args->a0;
-	thread->regs.r1 = args->a1;
-	thread->regs.r2 = args->a2;
-	thread->regs.r3 = args->a3;
-	thread->regs.r4 = args->a4;
-	thread->regs.r5 = args->a5;
-	thread->regs.r6 = args->a6;
-	thread->regs.r7 = args->a7;
+	thread->regs.r0 = a0;
+	thread->regs.r1 = a1;
+	thread->regs.r2 = a2;
+	thread->regs.r3 = a3;
+	thread->regs.r4 = 0;
+	thread->regs.r5 = 0;
+	thread->regs.r6 = 0;
+	thread->regs.r7 = 0;
 }
 #endif /*ARM32*/
 
 #ifdef ARM64
-static void init_regs(struct thread_ctx *thread,
-		struct thread_smc_args *args)
+static void init_regs(struct thread_ctx *thread, uint32_t a0, uint32_t a1,
+		      uint32_t a2, uint32_t a3)
 {
 	thread->regs.pc = (uint64_t)thread_std_smc_entry;
 
@@ -378,14 +496,14 @@ static void init_regs(struct thread_ctx *thread,
 	 * Copy arguments into context. This will make the
 	 * arguments appear in x0-x7 when thread is started.
 	 */
-	thread->regs.x[0] = args->a0;
-	thread->regs.x[1] = args->a1;
-	thread->regs.x[2] = args->a2;
-	thread->regs.x[3] = args->a3;
-	thread->regs.x[4] = args->a4;
-	thread->regs.x[5] = args->a5;
-	thread->regs.x[6] = args->a6;
-	thread->regs.x[7] = args->a7;
+	thread->regs.x[0] = a0;
+	thread->regs.x[1] = a1;
+	thread->regs.x[2] = a2;
+	thread->regs.x[3] = a3;
+	thread->regs.x[4] = 0;
+	thread->regs.x[5] = 0;
+	thread->regs.x[6] = 0;
+	thread->regs.x[7] = 0;
 
 	/* Set up frame pointer as per the Aarch64 AAPCS */
 	thread->regs.x[29] = 0;
@@ -402,7 +520,7 @@ void thread_init_boot_thread(void)
 	threads[0].state = THREAD_STATE_ACTIVE;
 }
 
-void thread_clr_boot_thread(void)
+void __nostackcheck thread_clr_boot_thread(void)
 {
 	struct thread_core_local *l = thread_get_core_local();
 
@@ -412,7 +530,7 @@ void thread_clr_boot_thread(void)
 	l->curr_thread = -1;
 }
 
-static void thread_alloc_and_run(struct thread_smc_args *args)
+void thread_alloc_and_run(uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3)
 {
 	size_t n;
 	struct thread_core_local *l = thread_get_core_local();
@@ -420,7 +538,7 @@ static void thread_alloc_and_run(struct thread_smc_args *args)
 
 	assert(l->curr_thread == -1);
 
-	lock_global();
+	thread_lock_global();
 
 	for (n = 0; n < CFG_NUM_THREADS; n++) {
 		if (threads[n].state == THREAD_STATE_FREE) {
@@ -430,56 +548,51 @@ static void thread_alloc_and_run(struct thread_smc_args *args)
 		}
 	}
 
-	unlock_global();
+	thread_unlock_global();
 
-	if (!found_thread) {
-		args->a0 = OPTEE_SMC_RETURN_ETHREAD_LIMIT;
+	if (!found_thread)
 		return;
-	}
 
 	l->curr_thread = n;
 
 	threads[n].flags = 0;
-	init_regs(threads + n, args);
-
-	/* Save Hypervisor Client ID */
-	threads[n].hyp_clnt_id = args->a7;
+	init_regs(threads + n, a0, a1, a2, a3);
 
 	thread_lazy_save_ns_vfp();
+
+	l->flags &= ~THREAD_CLF_TMP;
 	thread_resume(&threads[n].regs);
+	/*NOTREACHED*/
+	panic();
 }
 
 #ifdef ARM32
-static void copy_a0_to_a5(struct thread_ctx_regs *regs,
-		struct thread_smc_args *args)
+static void copy_a0_to_a3(struct thread_ctx_regs *regs, uint32_t a0,
+			  uint32_t a1, uint32_t a2, uint32_t a3)
 {
 	/*
 	 * Update returned values from RPC, values will appear in
 	 * r0-r3 when thread is resumed.
 	 */
-	regs->r0 = args->a0;
-	regs->r1 = args->a1;
-	regs->r2 = args->a2;
-	regs->r3 = args->a3;
-	regs->r4 = args->a4;
-	regs->r5 = args->a5;
+	regs->r0 = a0;
+	regs->r1 = a1;
+	regs->r2 = a2;
+	regs->r3 = a3;
 }
 #endif /*ARM32*/
 
 #ifdef ARM64
-static void copy_a0_to_a5(struct thread_ctx_regs *regs,
-		struct thread_smc_args *args)
+static void copy_a0_to_a3(struct thread_ctx_regs *regs, uint32_t a0,
+			  uint32_t a1, uint32_t a2, uint32_t a3)
 {
 	/*
 	 * Update returned values from RPC, values will appear in
 	 * x0-x3 when thread is resumed.
 	 */
-	regs->x[0] = args->a0;
-	regs->x[1] = args->a1;
-	regs->x[2] = args->a2;
-	regs->x[3] = args->a3;
-	regs->x[4] = args->a4;
-	regs->x[5] = args->a5;
+	regs->x[0] = a0;
+	regs->x[1] = a1;
+	regs->x[2] = a2;
+	regs->x[3] = a3;
 }
 #endif /*ARM64*/
 
@@ -502,39 +615,65 @@ static bool is_from_user(uint32_t cpsr)
 }
 #endif
 
+#ifdef CFG_SYSCALL_FTRACE
+static void __noprof ftrace_suspend(void)
+{
+	struct ts_session *s = TAILQ_FIRST(&thread_get_tsd()->sess_stack);
+
+	if (s && s->fbuf)
+		s->fbuf->syscall_trace_suspended = true;
+}
+
+static void __noprof ftrace_resume(void)
+{
+	struct ts_session *s = TAILQ_FIRST(&thread_get_tsd()->sess_stack);
+
+	if (s && s->fbuf)
+		s->fbuf->syscall_trace_suspended = false;
+}
+#else
+static void __noprof ftrace_suspend(void)
+{
+}
+
+static void __noprof ftrace_resume(void)
+{
+}
+#endif
+
 static bool is_user_mode(struct thread_ctx_regs *regs)
 {
 	return is_from_user((uint32_t)regs->cpsr);
 }
 
-static void thread_resume_from_rpc(struct thread_smc_args *args)
+void thread_resume_from_rpc(uint32_t thread_id, uint32_t a0, uint32_t a1,
+			    uint32_t a2, uint32_t a3)
 {
-	size_t n = args->a3; /* thread id */
+	size_t n = thread_id;
 	struct thread_core_local *l = thread_get_core_local();
-	uint32_t rv = 0;
+	bool found_thread = false;
 
 	assert(l->curr_thread == -1);
 
-	lock_global();
+	thread_lock_global();
 
-	if (n < CFG_NUM_THREADS &&
-	    threads[n].state == THREAD_STATE_SUSPENDED &&
-	    args->a7 == threads[n].hyp_clnt_id)
+	if (n < CFG_NUM_THREADS && threads[n].state == THREAD_STATE_SUSPENDED) {
 		threads[n].state = THREAD_STATE_ACTIVE;
-	else
-		rv = OPTEE_SMC_RETURN_ERESUME;
-
-	unlock_global();
-
-	if (rv) {
-		args->a0 = rv;
-		return;
+		found_thread = true;
 	}
+
+	thread_unlock_global();
+
+	if (!found_thread)
+		return;
 
 	l->curr_thread = n;
 
-	if (threads[n].have_user_map)
+	if (threads[n].have_user_map) {
 		core_mmu_set_user_map(&threads[n].user_map);
+		if (threads[n].flags & THREAD_FLAGS_EXIT_ON_FOREIGN_INTR)
+			tee_ta_ftrace_update_times_resume();
+	}
 
 	if (is_user_mode(&threads[n].regs))
 		tee_ta_update_session_utime_resume();
@@ -544,104 +683,30 @@ static void thread_resume_from_rpc(struct thread_smc_args *args)
 	 * get parameters from non-secure world.
 	 */
 	if (threads[n].flags & THREAD_FLAGS_COPY_ARGS_ON_RETURN) {
-		copy_a0_to_a5(&threads[n].regs, args);
+		copy_a0_to_a3(&threads[n].regs, a0, a1, a2, a3);
 		threads[n].flags &= ~THREAD_FLAGS_COPY_ARGS_ON_RETURN;
 	}
 
 	thread_lazy_save_ns_vfp();
+
+	if (threads[n].have_user_map)
+		ftrace_resume();
+
+	l->flags &= ~THREAD_CLF_TMP;
 	thread_resume(&threads[n].regs);
+	/*NOTREACHED*/
+	panic();
 }
 
-void thread_handle_fast_smc(struct thread_smc_args *args)
-{
-	thread_check_canaries();
-
-#ifdef CFG_VIRTUALIZATION
-	if (!virt_set_guest(args->a7)) {
-		args->a0 = OPTEE_SMC_RETURN_ENOTAVAIL;
-		goto out;
-	}
-#endif
-
-	thread_fast_smc_handler_ptr(args);
-
-#ifdef CFG_VIRTUALIZATION
-	virt_unset_guest();
-#endif
-	/* Fast handlers must not unmask any exceptions */
-out:
-	__maybe_unused;
-	assert(thread_get_exceptions() == THREAD_EXCP_ALL);
-}
-
-void thread_handle_std_smc(struct thread_smc_args *args)
-{
-	thread_check_canaries();
-
-#ifdef CFG_VIRTUALIZATION
-	if (!virt_set_guest(args->a7)) {
-		args->a0 = OPTEE_SMC_RETURN_ENOTAVAIL;
-		return;
-	}
-#endif
-
-	if (args->a0 == OPTEE_SMC_CALL_RETURN_FROM_RPC)
-		thread_resume_from_rpc(args);
-	else
-		thread_alloc_and_run(args);
-
-#ifdef CFG_VIRTUALIZATION
-	virt_unset_guest();
-#endif
-
-}
-
-/**
- * Free physical memory previously allocated with thread_rpc_alloc_arg()
- *
- * @cookie:	cookie received when allocating the buffer
- */
-static void thread_rpc_free_arg(uint64_t cookie)
-{
-	if (cookie) {
-		uint32_t rpc_args[THREAD_RPC_NUM_ARGS] = {
-			OPTEE_SMC_RETURN_RPC_FREE
-		};
-
-		reg_pair_from_64(cookie, rpc_args + 1, rpc_args + 2);
-		thread_rpc(rpc_args);
-	}
-}
-
-/*
- * Helper routine for the assembly function thread_std_smc_entry()
- *
- * Note: this function is weak just to make it possible to exclude it from
- * the unpaged area.
- */
-void __weak __thread_std_smc_entry(struct thread_smc_args *args)
-{
-#ifdef CFG_VIRTUALIZATION
-	virt_on_stdcall();
-#endif
-	thread_std_smc_handler_ptr(args);
-
-	if (args->a0 == OPTEE_SMC_RETURN_OK) {
-		struct thread_ctx *thr = threads + thread_get_id();
-
-		tee_fs_rpc_cache_clear(&thr->tsd);
-		if (!thread_prealloc_rpc_cache) {
-			thread_rpc_free_arg(mobj_get_cookie(thr->rpc_mobj));
-			mobj_free(thr->rpc_mobj);
-			thr->rpc_arg = 0;
-			thr->rpc_mobj = NULL;
-		}
-	}
-}
-
-void *thread_get_tmp_sp(void)
+void __nostackcheck *thread_get_tmp_sp(void)
 {
 	struct thread_core_local *l = thread_get_core_local();
+
+	/*
+	 * Called from assembly when switching to the temporary stack, so flags
+	 * need updating
+	 */
+	l->flags |= THREAD_CLF_TMP;
 
 	return (void *)l->tmp_stack_va_end;
 }
@@ -674,6 +739,43 @@ size_t thread_stack_size(void)
 	return STACK_THREAD_SIZE;
 }
 
+bool get_stack_limits(vaddr_t *start, vaddr_t *end, bool hard)
+{
+	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_FOREIGN_INTR);
+	unsigned int pos = get_core_pos();
+	struct thread_core_local *l = get_core_local(pos);
+	int ct = l->curr_thread;
+	bool ret = false;
+
+	if (l->flags & THREAD_CLF_TMP) {
+		if (hard)
+			*start = GET_STACK_TOP_HARD(stack_tmp, pos);
+		else
+			*start = GET_STACK_TOP_SOFT(stack_tmp, pos);
+		*end = GET_STACK_BOTTOM(stack_tmp, pos);
+		ret = true;
+	} else if (l->flags & THREAD_CLF_ABORT) {
+		if (hard)
+			*start = GET_STACK_TOP_HARD(stack_abt, pos);
+		else
+			*start = GET_STACK_TOP_SOFT(stack_abt, pos);
+		*end = GET_STACK_BOTTOM(stack_abt, pos);
+		ret = true;
+	} else if (!l->flags) {
+		if (ct < 0 || ct >= CFG_NUM_THREADS)
+			goto out;
+
+		*end = threads[ct].stack_va_end;
+		*start = *end - STACK_THREAD_SIZE;
+		if (!hard)
+			*start += STACK_CHECK_EXTRA;
+		ret = true;
+	}
+out:
+	thread_unmask_exceptions(exceptions);
+	return ret;
+}
+
 bool thread_is_from_abort_mode(void)
 {
 	struct thread_core_local *l = thread_get_core_local();
@@ -695,8 +797,11 @@ bool thread_is_in_normal_mode(void)
 	struct thread_core_local *l = thread_get_core_local();
 	bool ret;
 
-	/* If any bit in l->flags is set we're handling some exception. */
-	ret = !l->flags;
+	/*
+	 * If any bit in l->flags is set aside from THREAD_CLF_TMP we're
+	 * handling some exception.
+	 */
+	ret = (l->curr_thread != -1) && !(l->flags & ~THREAD_CLF_TMP);
 	thread_unmask_exceptions(exceptions);
 
 	return ret;
@@ -715,7 +820,7 @@ void thread_state_free(void)
 		(void *)(threads[ct].stack_va_end - STACK_THREAD_SIZE),
 		STACK_THREAD_SIZE);
 
-	lock_global();
+	thread_lock_global();
 
 	assert(threads[ct].state == THREAD_STATE_ACTIVE);
 	threads[ct].state = THREAD_STATE_FREE;
@@ -725,7 +830,7 @@ void thread_state_free(void)
 #ifdef CFG_VIRTUALIZATION
 	virt_unset_guest();
 #endif
-	unlock_global();
+	thread_unlock_global();
 }
 
 #ifdef CFG_WITH_PAGER
@@ -762,6 +867,9 @@ int thread_state_suspend(uint32_t flags, uint32_t cpsr, vaddr_t pc)
 
 	assert(ct != -1);
 
+	if (core_mmu_user_mapping_is_active())
+		ftrace_suspend();
+
 	thread_check_canaries();
 
 	release_unused_kernel_stack(threads + ct, cpsr);
@@ -773,7 +881,7 @@ int thread_state_suspend(uint32_t flags, uint32_t cpsr, vaddr_t pc)
 	}
 	thread_lazy_restore_ns_vfp();
 
-	lock_global();
+	thread_lock_global();
 
 	assert(threads[ct].state == THREAD_STATE_ACTIVE);
 	threads[ct].flags |= flags;
@@ -783,6 +891,8 @@ int thread_state_suspend(uint32_t flags, uint32_t cpsr, vaddr_t pc)
 
 	threads[ct].have_user_map = core_mmu_user_mapping_is_active();
 	if (threads[ct].have_user_map) {
+		if (threads[ct].flags & THREAD_FLAGS_EXIT_ON_FOREIGN_INTR)
+			tee_ta_ftrace_update_times_suspend();
 		core_mmu_get_user_map(&threads[ct].user_map);
 		core_mmu_set_user_map(NULL);
 	}
@@ -793,7 +903,7 @@ int thread_state_suspend(uint32_t flags, uint32_t cpsr, vaddr_t pc)
 	virt_unset_guest();
 #endif
 
-	unlock_global();
+	thread_unlock_global();
 
 	return ct;
 }
@@ -839,38 +949,27 @@ bool thread_init_stack(uint32_t thread_id, vaddr_t sp)
 	return true;
 }
 
-int thread_get_id_may_fail(void)
+short int thread_get_id_may_fail(void)
 {
 	/*
 	 * thread_get_core_local() requires foreign interrupts to be disabled
 	 */
 	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_FOREIGN_INTR);
 	struct thread_core_local *l = thread_get_core_local();
-	int ct = l->curr_thread;
+	short int ct = l->curr_thread;
 
 	thread_unmask_exceptions(exceptions);
 	return ct;
 }
 
-int thread_get_id(void)
+short int thread_get_id(void)
 {
-	int ct = thread_get_id_may_fail();
+	short int ct = thread_get_id_may_fail();
 
+	/* Thread ID has to fit in a short int */
+	COMPILE_TIME_ASSERT(CFG_NUM_THREADS <= SHRT_MAX);
 	assert(ct >= 0 && ct < CFG_NUM_THREADS);
 	return ct;
-}
-
-static void init_handlers(const struct thread_handlers *handlers)
-{
-	thread_std_smc_handler_ptr = handlers->std_smc;
-	thread_fast_smc_handler_ptr = handlers->fast_smc;
-	thread_nintr_handler_ptr = handlers->nintr;
-	thread_cpu_on_handler_ptr = handlers->cpu_on;
-	thread_cpu_off_handler_ptr = handlers->cpu_off;
-	thread_cpu_suspend_handler_ptr = handlers->cpu_suspend;
-	thread_cpu_resume_handler_ptr = handlers->cpu_resume;
-	thread_system_off_handler_ptr = handlers->system_off;
-	thread_system_reset_handler_ptr = handlers->system_reset;
 }
 
 #ifdef CFG_WITH_PAGER
@@ -918,7 +1017,7 @@ static void init_thread_stacks(void)
 
 	/* Assign the thread stacks */
 	for (n = 0; n < CFG_NUM_THREADS; n++) {
-		if (!thread_init_stack(n, GET_STACK(stack_thread[n])))
+		if (!thread_init_stack(n, GET_STACK_BOTTOM(stack_thread, n)))
 			panic("thread_init_stack failed");
 	}
 }
@@ -951,9 +1050,10 @@ static void init_user_kcode(void)
 
 void thread_init_threads(void)
 {
-	size_t n;
+	size_t n = 0;
 
 	init_thread_stacks();
+	print_stack_limits();
 	pgt_init();
 
 	mutex_lockdep_init();
@@ -962,26 +1062,34 @@ void thread_init_threads(void)
 		TAILQ_INIT(&threads[n].tsd.sess_stack);
 		SLIST_INIT(&threads[n].tsd.pgt_cache);
 	}
-
-	for (n = 0; n < CFG_TEE_CORE_NB_CORE; n++)
-		thread_core_local[n].curr_thread = -1;
 }
 
-void thread_init_primary(const struct thread_handlers *handlers)
+void __nostackcheck thread_init_thread_core_local(void)
 {
-	init_handlers(handlers);
+	size_t n = 0;
+	struct thread_core_local *tcl = thread_core_local;
 
+	for (n = 0; n < CFG_TEE_CORE_NB_CORE; n++) {
+		tcl[n].curr_thread = -1;
+		tcl[n].flags = THREAD_CLF_TMP;
+	}
+
+	tcl[0].tmp_stack_va_end = GET_STACK_BOTTOM(stack_tmp, 0);
+}
+
+void thread_init_primary(void)
+{
 	/* Initialize canaries around the stacks */
 	init_canaries();
 
 	init_user_kcode();
 }
 
-static void init_sec_mon(size_t pos __maybe_unused)
+static void init_sec_mon_stack(size_t pos __maybe_unused)
 {
 #if !defined(CFG_WITH_ARM_TRUSTED_FW)
 	/* Initialize secure monitor */
-	sm_init(GET_STACK(stack_tmp[pos]));
+	sm_init(GET_STACK_BOTTOM(stack_tmp, pos));
 #endif
 }
 
@@ -1069,14 +1177,14 @@ void thread_init_per_cpu(void)
 	size_t pos = get_core_pos();
 	struct thread_core_local *l = thread_get_core_local();
 
-	init_sec_mon(pos);
+	init_sec_mon_stack(pos);
 
-	set_tmp_stack(l, GET_STACK(stack_tmp[pos]) - STACK_TMP_OFFS);
-	set_abt_stack(l, GET_STACK(stack_abt[pos]));
+	set_tmp_stack(l, GET_STACK_BOTTOM(stack_tmp, pos) - STACK_TMP_OFFS);
+	set_abt_stack(l, GET_STACK_BOTTOM(stack_abt, pos));
 
 	thread_init_vbar(get_excp_vect());
 
-#ifdef CFG_TA_FTRACE_SUPPORT
+#ifdef CFG_FTRACE_SUPPORT
 	/*
 	 * Enable accesses to frequency register and physical counter
 	 * register in EL0/PL0 required for timestamping during
@@ -1091,7 +1199,7 @@ struct thread_specific_data *thread_get_tsd(void)
 	return &threads[thread_get_id()].tsd;
 }
 
-struct thread_ctx_regs *thread_get_ctx_regs(void)
+struct thread_ctx_regs * __nostackcheck thread_get_ctx_regs(void)
 {
 	struct thread_core_local *l = thread_get_core_local();
 
@@ -1254,8 +1362,9 @@ void thread_user_save_vfp(void)
 	tuv->lazy_saved = true;
 }
 
-void thread_user_clear_vfp(struct thread_user_vfp_state *uvfp)
+void thread_user_clear_vfp(struct user_mode_ctx *uctx)
 {
+	struct thread_user_vfp_state *uvfp = &uctx->vfp;
 	struct thread_ctx *thr = threads + thread_get_id();
 
 	if (uvfp == thr->vfp_state.uvfp)
@@ -1273,7 +1382,7 @@ static bool get_spsr(bool is_32bit, unsigned long entry_func, uint32_t *spsr)
 	if (!is_32bit)
 		return false;
 
-	s = read_spsr();
+	s = read_cpsr();
 	s &= ~(CPSR_MODE_MASK | CPSR_T | CPSR_IT_MASK1 | CPSR_IT_MASK2);
 	s |= CPSR_MODE_USR;
 	if (entry_func & 1)
@@ -1301,22 +1410,71 @@ static bool get_spsr(bool is_32bit, unsigned long entry_func, uint32_t *spsr)
 }
 #endif
 
+static void set_ctx_regs(struct thread_ctx_regs *regs, unsigned long a0,
+			 unsigned long a1, unsigned long a2, unsigned long a3,
+			 unsigned long user_sp, unsigned long entry_func,
+			 uint32_t spsr)
+{
+	/*
+	 * First clear all registers to avoid leaking information from
+	 * other TAs or even the Core itself.
+	 */
+	*regs = (struct thread_ctx_regs){ };
+#ifdef ARM32
+	regs->r0 = a0;
+	regs->r1 = a1;
+	regs->r2 = a2;
+	regs->r3 = a3;
+	regs->usr_sp = user_sp;
+	regs->pc = entry_func;
+	regs->cpsr = spsr;
+#endif
+#ifdef ARM64
+	regs->x[0] = a0;
+	regs->x[1] = a1;
+	regs->x[2] = a2;
+	regs->x[3] = a3;
+	regs->sp = user_sp;
+	regs->pc = entry_func;
+	regs->cpsr = spsr;
+	regs->x[13] = user_sp;	/* Used when running TA in Aarch32 */
+	regs->sp = user_sp;	/* Used when running TA in Aarch64 */
+	/* Set frame pointer (user stack can't be unwound past this point) */
+	regs->x[29] = 0;
+#endif
+}
+
 uint32_t thread_enter_user_mode(unsigned long a0, unsigned long a1,
 		unsigned long a2, unsigned long a3, unsigned long user_sp,
 		unsigned long entry_func, bool is_32bit,
 		uint32_t *exit_status0, uint32_t *exit_status1)
 {
-	uint32_t spsr;
+	uint32_t spsr = 0;
+	uint32_t exceptions = 0;
+	uint32_t rc = 0;
+	struct thread_ctx_regs *regs = NULL;
 
 	tee_ta_update_session_utime_resume();
 
+	/* Derive SPSR from current CPSR/PSTATE readout. */
 	if (!get_spsr(is_32bit, entry_func, &spsr)) {
 		*exit_status0 = 1; /* panic */
 		*exit_status1 = 0xbadbadba;
 		return 0;
 	}
-	return __thread_enter_user_mode(a0, a1, a2, a3, user_sp, entry_func,
-					spsr, exit_status0, exit_status1);
+
+	exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
+	/*
+	 * We're using the per thread location of saved context registers
+	 * for temporary storage. Now that exceptions are masked they will
+	 * not be used for any thing else until they are eventually
+	 * unmasked when user mode has been entered.
+	 */
+	regs = thread_get_ctx_regs();
+	set_ctx_regs(regs, a0, a1, a2, a3, user_sp, entry_func, spsr);
+	rc = __thread_enter_user_mode(regs, exit_status0, exit_status1);
+	thread_unmask_exceptions(exceptions);
+	return rc;
 }
 
 #ifdef CFG_CORE_UNMAP_CORE_AT_EL0
@@ -1325,7 +1483,7 @@ void thread_get_user_kcode(struct mobj **mobj, size_t *offset,
 {
 	core_mmu_get_user_va_range(va, NULL);
 	*mobj = mobj_tee_ram;
-	*offset = thread_user_kcode_va - TEE_RAM_START;
+	*offset = thread_user_kcode_va - VCORE_START_VA;
 	*sz = thread_user_kcode_size;
 }
 #endif
@@ -1340,388 +1498,235 @@ void thread_get_user_kdata(struct mobj **mobj, size_t *offset,
 	core_mmu_get_user_va_range(&v, NULL);
 	*va = v + thread_user_kcode_size;
 	*mobj = mobj_tee_ram;
-	*offset = (vaddr_t)thread_user_kdata_page - TEE_RAM_START;
+	*offset = (vaddr_t)thread_user_kdata_page - VCORE_START_VA;
 	*sz = sizeof(thread_user_kdata_page);
 }
 #endif
 
-bool thread_disable_prealloc_rpc_cache(uint64_t *cookie)
+static void setup_unwind_user_mode(struct thread_svc_regs *regs)
 {
-	bool rv;
-	size_t n;
-	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_FOREIGN_INTR);
-
-	lock_global();
-
-	for (n = 0; n < CFG_NUM_THREADS; n++) {
-		if (threads[n].state != THREAD_STATE_FREE) {
-			rv = false;
-			goto out;
-		}
-	}
-
-	rv = true;
-	for (n = 0; n < CFG_NUM_THREADS; n++) {
-		if (threads[n].rpc_arg) {
-			*cookie = mobj_get_cookie(threads[n].rpc_mobj);
-			mobj_free(threads[n].rpc_mobj);
-			threads[n].rpc_arg = NULL;
-			goto out;
-		}
-	}
-
-	*cookie = 0;
-	thread_prealloc_rpc_cache = false;
-out:
-	unlock_global();
-	thread_unmask_exceptions(exceptions);
-	return rv;
-}
-
-bool thread_enable_prealloc_rpc_cache(void)
-{
-	bool rv;
-	size_t n;
-	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_FOREIGN_INTR);
-
-	lock_global();
-
-	for (n = 0; n < CFG_NUM_THREADS; n++) {
-		if (threads[n].state != THREAD_STATE_FREE) {
-			rv = false;
-			goto out;
-		}
-	}
-
-	rv = true;
-	thread_prealloc_rpc_cache = true;
-out:
-	unlock_global();
-	thread_unmask_exceptions(exceptions);
-	return rv;
-}
-
-/**
- * Allocates data for struct optee_msg_arg.
- *
- * @size:	size in bytes of struct optee_msg_arg
- *
- * @returns	mobj that describes allocated buffer or NULL on error
- */
-static struct mobj *thread_rpc_alloc_arg(size_t size)
-{
-	paddr_t pa;
-	uint64_t co;
-	uint32_t rpc_args[THREAD_RPC_NUM_ARGS] = {
-		OPTEE_SMC_RETURN_RPC_ALLOC, size
-	};
-	struct mobj *mobj = NULL;
-
-	thread_rpc(rpc_args);
-
-	pa = reg_pair_to_64(rpc_args[1], rpc_args[2]);
-	co = reg_pair_to_64(rpc_args[4], rpc_args[5]);
-
-	if (!ALIGNMENT_IS_OK(pa, struct optee_msg_arg))
-		goto err;
-
-	/* Check if this region is in static shared space */
-	if (core_pbuf_is(CORE_MEM_NSEC_SHM, pa, size))
-		mobj = mobj_shm_alloc(pa, size, co);
-#ifdef CFG_CORE_DYN_SHM
-	else if ((!(pa & SMALL_PAGE_MASK)) && size <= SMALL_PAGE_SIZE)
-		mobj = mobj_mapped_shm_alloc(&pa, 1, 0, co);
+#ifdef ARM32
+	regs->lr = (uintptr_t)thread_unwind_user_mode;
+	regs->spsr = read_cpsr();
 #endif
+#ifdef ARM64
+	regs->elr = (uintptr_t)thread_unwind_user_mode;
+	regs->spsr = SPSR_64(SPSR_64_MODE_EL1, SPSR_64_MODE_SP_EL0, 0);
+	regs->spsr |= read_daif();
+	/*
+	 * Regs is the value of stack pointer before calling the SVC
+	 * handler.  By the addition matches for the reserved space at the
+	 * beginning of el0_sync_svc(). This prepares the stack when
+	 * returning to thread_unwind_user_mode instead of a normal
+	 * exception return.
+	 */
+	regs->sp_el0 = (uint64_t)(regs + 1);
+#endif
+}
 
-	if (!mobj)
-		goto err;
+static void gprof_set_status(struct ts_session *s __maybe_unused,
+			     enum ts_gprof_status status __maybe_unused)
+{
+#ifdef CFG_TA_GPROF_SUPPORT
+	if (s->ctx->ops->gprof_set_status)
+		s->ctx->ops->gprof_set_status(status);
+#endif
+}
 
-	return mobj;
+/*
+ * Note: this function is weak just to make it possible to exclude it from
+ * the unpaged area.
+ */
+void __weak thread_svc_handler(struct thread_svc_regs *regs)
+{
+	struct ts_session *sess = NULL;
+	uint32_t state = 0;
+
+	/* Enable native interrupts */
+	state = thread_get_exceptions();
+	thread_unmask_exceptions(state & ~THREAD_EXCP_NATIVE_INTR);
+
+	thread_user_save_vfp();
+
+	sess = ts_get_current_session();
+	/*
+	 * User mode service has just entered kernel mode, suspend gprof
+	 * collection until we're about to switch back again.
+	 */
+	gprof_set_status(sess, TS_GPROF_SUSPEND);
+
+	/* Restore foreign interrupts which are disabled on exception entry */
+	thread_restore_foreign_intr();
+
+	assert(sess && sess->handle_svc);
+	if (sess->handle_svc(regs)) {
+		/* We're about to switch back to user mode */
+		gprof_set_status(sess, TS_GPROF_RESUME);
+	} else {
+		/* We're returning from __thread_enter_user_mode() */
+		setup_unwind_user_mode(regs);
+	}
+}
+
+static struct mobj *alloc_shm(enum thread_shm_type shm_type, size_t size)
+{
+	switch (shm_type) {
+	case THREAD_SHM_TYPE_APPLICATION:
+		return thread_rpc_alloc_payload(size);
+	case THREAD_SHM_TYPE_KERNEL_PRIVATE:
+		return thread_rpc_alloc_kernel_payload(size);
+	case THREAD_SHM_TYPE_GLOBAL:
+		return thread_rpc_alloc_global_payload(size);
+	default:
+		return NULL;
+	}
+}
+
+static void clear_shm_cache_entry(struct thread_shm_cache_entry *ce)
+{
+	if (ce->mobj) {
+		switch (ce->type) {
+		case THREAD_SHM_TYPE_APPLICATION:
+			thread_rpc_free_payload(ce->mobj);
+			break;
+		case THREAD_SHM_TYPE_KERNEL_PRIVATE:
+			thread_rpc_free_kernel_payload(ce->mobj);
+			break;
+		case THREAD_SHM_TYPE_GLOBAL:
+			thread_rpc_free_global_payload(ce->mobj);
+			break;
+		default:
+			assert(0); /* "can't happen" */
+			break;
+		}
+	}
+	ce->mobj = NULL;
+	ce->size = 0;
+}
+
+static struct thread_shm_cache_entry *
+get_shm_cache_entry(enum thread_shm_cache_user user)
+{
+	struct thread_shm_cache *cache = &threads[thread_get_id()].shm_cache;
+	struct thread_shm_cache_entry *ce = NULL;
+
+	SLIST_FOREACH(ce, cache, link)
+		if (ce->user == user)
+			return ce;
+
+	ce = calloc(1, sizeof(*ce));
+	if (ce) {
+		ce->user = user;
+		SLIST_INSERT_HEAD(cache, ce, link);
+	}
+
+	return ce;
+}
+
+void *thread_rpc_shm_cache_alloc(enum thread_shm_cache_user user,
+				 enum thread_shm_type shm_type,
+				 size_t size, struct mobj **mobj)
+{
+	struct thread_shm_cache_entry *ce = NULL;
+	size_t sz = size;
+	paddr_t p = 0;
+	void *va = NULL;
+
+	if (!size)
+		return NULL;
+
+	ce = get_shm_cache_entry(user);
+	if (!ce)
+		return NULL;
+
+	/*
+	 * Always allocate in page chunks as normal world allocates payload
+	 * memory as complete pages.
+	 */
+	sz = ROUNDUP(size, SMALL_PAGE_SIZE);
+
+	if (ce->type != shm_type || sz > ce->size) {
+		clear_shm_cache_entry(ce);
+
+		ce->mobj = alloc_shm(shm_type, sz);
+		if (!ce->mobj)
+			return NULL;
+
+		if (mobj_get_pa(ce->mobj, 0, 0, &p))
+			goto err;
+
+		if (!ALIGNMENT_IS_OK(p, uint64_t))
+			goto err;
+
+		va = mobj_get_va(ce->mobj, 0);
+		if (!va)
+			goto err;
+
+		ce->size = sz;
+		ce->type = shm_type;
+	} else {
+		va = mobj_get_va(ce->mobj, 0);
+		if (!va)
+			goto err;
+	}
+	*mobj = ce->mobj;
+
+	return va;
 err:
-	thread_rpc_free_arg(co);
-	mobj_free(mobj);
+	clear_shm_cache_entry(ce);
 	return NULL;
 }
 
-static bool set_rmem(struct optee_msg_param *param,
-		     struct thread_param *tpm)
+void thread_rpc_shm_cache_clear(struct thread_shm_cache *cache)
 {
-	param->attr = tpm->attr - THREAD_PARAM_ATTR_MEMREF_IN +
-		      OPTEE_MSG_ATTR_TYPE_RMEM_INPUT;
-	param->u.rmem.offs = tpm->u.memref.offs;
-	param->u.rmem.size = tpm->u.memref.size;
-	if (tpm->u.memref.mobj) {
-		param->u.rmem.shm_ref = mobj_get_cookie(tpm->u.memref.mobj);
-		if (!param->u.rmem.shm_ref)
-			return false;
-	} else {
-		param->u.rmem.shm_ref = 0;
-	}
+	while (true) {
+		struct thread_shm_cache_entry *ce = SLIST_FIRST(cache);
 
-	return true;
+		if (!ce)
+			break;
+		SLIST_REMOVE_HEAD(cache, link);
+		clear_shm_cache_entry(ce);
+		free(ce);
+	}
 }
 
-static bool set_tmem(struct optee_msg_param *param,
-		     struct thread_param *tpm)
-{
-	paddr_t pa = 0;
-	uint64_t shm_ref = 0;
-	struct mobj *mobj = tpm->u.memref.mobj;
-
-	param->attr = tpm->attr - THREAD_PARAM_ATTR_MEMREF_IN +
-		      OPTEE_MSG_ATTR_TYPE_TMEM_INPUT;
-	if (mobj) {
-		shm_ref = mobj_get_cookie(mobj);
-		if (!shm_ref)
-			return false;
-		if (mobj_get_pa(mobj, tpm->u.memref.offs, 0, &pa))
-			return false;
-	}
-
-	param->u.tmem.size = tpm->u.memref.size;
-	param->u.tmem.buf_ptr = pa;
-	param->u.tmem.shm_ref = shm_ref;
-
-	return true;
-}
-
-static uint32_t get_rpc_arg(uint32_t cmd, size_t num_params,
-			    struct thread_param *params, void **arg_ret,
-			    uint64_t *carg_ret)
-{
-	struct thread_ctx *thr = threads + thread_get_id();
-	struct optee_msg_arg *arg = thr->rpc_arg;
-	size_t sz = OPTEE_MSG_GET_ARG_SIZE(THREAD_RPC_MAX_NUM_PARAMS);
-
-	if (num_params > THREAD_RPC_MAX_NUM_PARAMS)
-		return TEE_ERROR_BAD_PARAMETERS;
-
-	if (!arg) {
-		struct mobj *mobj = thread_rpc_alloc_arg(sz);
-
-		if (!mobj)
-			return TEE_ERROR_OUT_OF_MEMORY;
-
-		arg = mobj_get_va(mobj, 0);
-		if (!arg) {
-			thread_rpc_free_arg(mobj_get_cookie(mobj));
-			return TEE_ERROR_OUT_OF_MEMORY;
-		}
-
-		thr->rpc_arg = arg;
-		thr->rpc_mobj = mobj;
-	}
-
-	memset(arg, 0, OPTEE_MSG_GET_ARG_SIZE(num_params));
-	arg->cmd = cmd;
-	arg->num_params = num_params;
-	arg->ret = TEE_ERROR_GENERIC; /* in case value isn't updated */
-
-	for (size_t n = 0; n < num_params; n++) {
-		switch (params[n].attr) {
-		case THREAD_PARAM_ATTR_NONE:
-			arg->params[n].attr = OPTEE_MSG_ATTR_TYPE_NONE;
-			break;
-		case THREAD_PARAM_ATTR_VALUE_IN:
-		case THREAD_PARAM_ATTR_VALUE_OUT:
-		case THREAD_PARAM_ATTR_VALUE_INOUT:
-			arg->params[n].attr = params[n].attr -
-					      THREAD_PARAM_ATTR_VALUE_IN +
-					      OPTEE_MSG_ATTR_TYPE_VALUE_INPUT;
-			arg->params[n].u.value.a = params[n].u.value.a;
-			arg->params[n].u.value.b = params[n].u.value.b;
-			arg->params[n].u.value.c = params[n].u.value.c;
-			break;
-		case THREAD_PARAM_ATTR_MEMREF_IN:
-		case THREAD_PARAM_ATTR_MEMREF_OUT:
-		case THREAD_PARAM_ATTR_MEMREF_INOUT:
-			if (!params[n].u.memref.mobj ||
-			    mobj_matches(params[n].u.memref.mobj,
-					 CORE_MEM_NSEC_SHM)) {
-				if (!set_tmem(arg->params + n, params + n))
-					return TEE_ERROR_BAD_PARAMETERS;
-			} else  if (mobj_matches(params[n].u.memref.mobj,
-						 CORE_MEM_REG_SHM)) {
-				if (!set_rmem(arg->params + n, params + n))
-					return TEE_ERROR_BAD_PARAMETERS;
-			} else {
-				return TEE_ERROR_BAD_PARAMETERS;
-			}
-			break;
-		default:
-			return TEE_ERROR_BAD_PARAMETERS;
-		}
-	}
-
-	*arg_ret = arg;
-	*carg_ret = mobj_get_cookie(thr->rpc_mobj);
-
-	return TEE_SUCCESS;
-}
-
-static uint32_t get_rpc_arg_res(struct optee_msg_arg *arg, size_t num_params,
-				struct thread_param *params)
-{
-	for (size_t n = 0; n < num_params; n++) {
-		switch (params[n].attr) {
-		case THREAD_PARAM_ATTR_VALUE_OUT:
-		case THREAD_PARAM_ATTR_VALUE_INOUT:
-			params[n].u.value.a = arg->params[n].u.value.a;
-			params[n].u.value.b = arg->params[n].u.value.b;
-			params[n].u.value.c = arg->params[n].u.value.c;
-			break;
-		case THREAD_PARAM_ATTR_MEMREF_OUT:
-		case THREAD_PARAM_ATTR_MEMREF_INOUT:
-			/*
-			 * rmem.size and tmem.size is the same type and
-			 * location.
-			 */
-			params[n].u.memref.size = arg->params[n].u.rmem.size;
-			break;
-		default:
-			break;
-		}
-	}
-
-	return arg->ret;
-}
-
-uint32_t thread_rpc_cmd(uint32_t cmd, size_t num_params,
-			struct thread_param *params)
-{
-	uint32_t rpc_args[THREAD_RPC_NUM_ARGS] = { OPTEE_SMC_RETURN_RPC_CMD };
-	void *arg = NULL;
-	uint64_t carg = 0;
-	uint32_t ret = 0;
-
-	/* The source CRYPTO_RNG_SRC_JITTER_RPC is safe to use here */
-	plat_prng_add_jitter_entropy(CRYPTO_RNG_SRC_JITTER_RPC,
-				     &thread_rpc_pnum);
-
-	ret = get_rpc_arg(cmd, num_params, params, &arg, &carg);
-	if (ret)
-		return ret;
-
-	reg_pair_from_64(carg, rpc_args + 1, rpc_args + 2);
-	thread_rpc(rpc_args);
-
-	return get_rpc_arg_res(arg, num_params, params);
-}
-
-/**
- * Free physical memory previously allocated with thread_rpc_alloc()
- *
- * @cookie:	cookie received when allocating the buffer
- * @bt:		must be the same as supplied when allocating
- * @mobj:	mobj that describes allocated buffer
- *
- * This function also frees corresponding mobj.
+#ifdef CFG_WITH_ARM_TRUSTED_FW
+/*
+ * These five functions are __weak to allow platforms to override them if
+ * needed.
  */
-static void thread_rpc_free(unsigned int bt, uint64_t cookie, struct mobj *mobj)
+unsigned long __weak thread_cpu_off_handler(unsigned long a0 __unused,
+					    unsigned long a1 __unused)
 {
-	uint32_t rpc_args[THREAD_RPC_NUM_ARGS] = { OPTEE_SMC_RETURN_RPC_CMD };
-	void *arg = NULL;
-	uint64_t carg = 0;
-	struct thread_param param = THREAD_PARAM_VALUE(IN, bt, cookie, 0);
-	uint32_t ret = get_rpc_arg(OPTEE_RPC_CMD_SHM_FREE, 1, &param,
-				   &arg, &carg);
-
-	mobj_free(mobj);
-
-	if (!ret) {
-		reg_pair_from_64(carg, rpc_args + 1, rpc_args + 2);
-		thread_rpc(rpc_args);
-	}
+	return 0;
 }
+DECLARE_KEEP_PAGER(thread_cpu_off_handler);
 
-static struct mobj *get_rpc_alloc_res(struct optee_msg_arg *arg,
-				      unsigned int bt, size_t size)
+unsigned long __weak thread_cpu_suspend_handler(unsigned long a0 __unused,
+						unsigned long a1 __unused)
 {
-	struct mobj *mobj = NULL;
-	uint64_t cookie = 0;
-	size_t psize = 0;
-	uint64_t attr = 0;
-
-	if (arg->ret || arg->num_params != 1)
-		return NULL;
-
-	psize = READ_ONCE(arg->params[0].u.tmem.size);
-	if (psize < size)
-		return NULL;
-
-	attr = READ_ONCE(arg->params[0].attr);
-	if (attr == OPTEE_MSG_ATTR_TYPE_TMEM_OUTPUT) {
-		cookie = arg->params[0].u.tmem.shm_ref;
-		mobj = mobj_shm_alloc(arg->params[0].u.tmem.buf_ptr,
-				      psize,
-				      cookie);
-	} else if (attr == (OPTEE_MSG_ATTR_TYPE_TMEM_OUTPUT |
-			    OPTEE_MSG_ATTR_NONCONTIG)) {
-		cookie = arg->params[0].u.tmem.shm_ref;
-		mobj = msg_param_mobj_from_noncontig(
-			arg->params[0].u.tmem.buf_ptr,
-			psize,
-			cookie,
-			true);
-	} else {
-		return NULL;
-	}
-
-	if (!mobj) {
-		thread_rpc_free(bt, cookie, mobj);
-		return NULL;
-	}
-
-	assert(mobj_is_nonsec(mobj));
-
-	return mobj;
+	return 0;
 }
+DECLARE_KEEP_PAGER(thread_cpu_suspend_handler);
 
-/**
- * Allocates shared memory buffer via RPC
- *
- * @size:	size in bytes of shared memory buffer
- * @align:	required alignment of buffer
- * @bt:		buffer type OPTEE_RPC_SHM_TYPE_*
- *
- * Returns a pointer to MOBJ for the memory on success, or NULL on failure.
- */
-static struct mobj *thread_rpc_alloc(size_t size, size_t align, unsigned int bt)
+unsigned long __weak thread_cpu_resume_handler(unsigned long a0 __unused,
+					       unsigned long a1 __unused)
 {
-	uint32_t rpc_args[THREAD_RPC_NUM_ARGS] = { OPTEE_SMC_RETURN_RPC_CMD };
-	void *arg = NULL;
-	uint64_t carg = 0;
-	struct thread_param param = THREAD_PARAM_VALUE(IN, bt, size, align);
-	uint32_t ret = get_rpc_arg(OPTEE_RPC_CMD_SHM_ALLOC, 1, &param,
-				   &arg, &carg);
-
-	if (ret)
-		return NULL;
-
-	reg_pair_from_64(carg, rpc_args + 1, rpc_args + 2);
-	thread_rpc(rpc_args);
-
-	return get_rpc_alloc_res(arg, bt, size);
+	return 0;
 }
+DECLARE_KEEP_PAGER(thread_cpu_resume_handler);
 
-struct mobj *thread_rpc_alloc_payload(size_t size)
+unsigned long __weak thread_system_off_handler(unsigned long a0 __unused,
+					       unsigned long a1 __unused)
 {
-	return thread_rpc_alloc(size, 8, OPTEE_RPC_SHM_TYPE_APPL);
+	return 0;
 }
+DECLARE_KEEP_PAGER(thread_system_off_handler);
 
-void thread_rpc_free_payload(struct mobj *mobj)
+unsigned long __weak thread_system_reset_handler(unsigned long a0 __unused,
+						 unsigned long a1 __unused)
 {
-	thread_rpc_free(OPTEE_RPC_SHM_TYPE_APPL, mobj_get_cookie(mobj),
-			mobj);
+	return 0;
 }
-
-struct mobj *thread_rpc_alloc_global_payload(size_t size)
-{
-	return thread_rpc_alloc(size, 8, OPTEE_RPC_SHM_TYPE_GLOBAL);
-}
-
-void thread_rpc_free_global_payload(struct mobj *mobj)
-{
-	thread_rpc_free(OPTEE_RPC_SHM_TYPE_GLOBAL, mobj_get_cookie(mobj),
-			mobj);
-}
+DECLARE_KEEP_PAGER(thread_system_reset_handler);
+#endif /*CFG_WITH_ARM_TRUSTED_FW*/

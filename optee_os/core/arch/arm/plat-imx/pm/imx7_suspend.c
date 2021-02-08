@@ -14,7 +14,7 @@
 #include <imx_pm.h>
 #include <kernel/panic.h>
 #include <kernel/cache_helpers.h>
-#include <kernel/generic_boot.h>
+#include <kernel/boot.h>
 #include <kernel/misc.h>
 #include <mm/core_mmu.h>
 #include <mm/core_memprot.h>
@@ -52,7 +52,8 @@ int imx7_cpu_suspend(uint32_t power_state __unused, uintptr_t entry,
 		return 0;
 	}
 
-	plat_cpu_reset_late();
+	if (!get_core_pos())
+		plat_primary_init_early();
 
 	sm_restore_unbanked_regs(&nsec->ub_regs);
 

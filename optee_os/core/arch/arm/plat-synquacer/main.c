@@ -8,32 +8,16 @@
 #include <drivers/gic.h>
 #include <drivers/pl011.h>
 #include <io.h>
-#include <kernel/generic_boot.h>
+#include <kernel/boot.h>
+#include <kernel/interrupt.h>
 #include <kernel/misc.h>
 #include <kernel/panic.h>
-#include <kernel/pm_stubs.h>
 #include <kernel/thread.h>
 #include <kernel/timer.h>
 #include <mm/core_memprot.h>
 #include <platform_config.h>
-#include <sm/optee_smc.h>
-#include <tee/entry_fast.h>
-#include <tee/entry_std.h>
 #include <rng_pta.h>
-
-static void main_fiq(void);
-
-static const struct thread_handlers handlers = {
-	.std_smc = tee_entry_std,
-	.fast_smc = tee_entry_fast,
-	.nintr = main_fiq,
-	.cpu_on = cpu_on_handler,
-	.cpu_off = pm_do_nothing,
-	.cpu_suspend = pm_do_nothing,
-	.cpu_resume = pm_do_nothing,
-	.system_off = pm_do_nothing,
-	.system_reset = pm_do_nothing,
-};
+#include <sm/optee_smc.h>
 
 static struct gic_data gic_data;
 static struct pl011_data console_data;
@@ -44,12 +28,7 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC, GIC_BASE, CORE_MMU_PGDIR_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, THERMAL_SENSOR_BASE,
 			CORE_MMU_PGDIR_SIZE);
 
-const struct thread_handlers *generic_boot_get_handlers(void)
-{
-	return &handlers;
-}
-
-static void main_fiq(void)
+void itr_core_handler(void)
 {
 	gic_it_handle(&gic_data);
 }

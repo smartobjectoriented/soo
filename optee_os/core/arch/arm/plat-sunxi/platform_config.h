@@ -57,12 +57,6 @@
 
 #if defined(PLATFORM_FLAVOR_sun50i_a64)
 #define SUNXI_SMC_BASE		0x01c1e000
-
-
-#define DRAM0_BASE		0x46000000
-#define DRAM0_SIZE		0x3a000000
-
-
 #endif
 
 #endif /* PLATFORM_CONFIG_H */

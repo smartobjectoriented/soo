@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
  * Copyright (C) 2019, Linaro Limited
+ * Copyright (C) 2021, Huawei Technologies Co., Ltd
  */
 
 #include <assert.h>
 #include <compiler.h>
+#include <crypto/crypto_accel.h>
 #include <crypto/crypto.h>
 #include <crypto/crypto_impl.h>
 #include <mbedtls/aes.h>
@@ -13,6 +15,8 @@
 #include <tee_api_types.h>
 #include <utee_defines.h>
 #include <util.h>
+
+#include "mbed_helpers.h"
 
 struct mbed_aes_cbc_ctx {
 	struct crypto_cipher_ctx ctx;
@@ -94,7 +98,7 @@ static void mbed_aes_cbc_copy_state(struct crypto_cipher_ctx *dst_ctx,
 
 	memcpy(dst->iv, src->iv, sizeof(dst->iv));
 	dst->mbed_mode = src->mbed_mode;
-	dst->aes_ctx = src->aes_ctx;
+	mbed_copy_mbedtls_aes_context(&dst->aes_ctx, &src->aes_ctx);
 }
 
 static const struct crypto_cipher_ops mbed_aes_cbc_ops = {
@@ -118,3 +122,22 @@ TEE_Result crypto_aes_cbc_alloc_ctx(struct crypto_cipher_ctx **ctx_ret)
 
 	return TEE_SUCCESS;
 }
+
+#if defined(MBEDTLS_AES_ALT)
+int mbedtls_aes_crypt_cbc(mbedtls_aes_context *ctx, int mode, size_t length,
+			  unsigned char iv[16], const unsigned char *input,
+			  unsigned char *output)
+{
+	if (length % 16)
+		return MBEDTLS_ERR_AES_INVALID_INPUT_LENGTH;
+
+	if (mode == MBEDTLS_AES_ENCRYPT)
+		crypto_accel_aes_cbc_enc(output, input, ctx->key,
+					 ctx->round_count, length / 16, iv);
+	else
+		crypto_accel_aes_cbc_dec(output, input, ctx->key,
+					 ctx->round_count, length / 16, iv);
+
+	return 0;
+}
+#endif /*MBEDTLS_AES_ALT*/

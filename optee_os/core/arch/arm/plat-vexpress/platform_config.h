@@ -28,6 +28,9 @@
 
 #elif defined(PLATFORM_FLAVOR_juno)
 
+#if 0 /* SOO.tech */
+#define GIC_BASE		0x2c010000
+#endif
 #define GIC_BASE		0x2c001000
 
 /* FPGA UART0 */
@@ -64,7 +67,7 @@
 
 #define CONSOLE_UART_BASE	UART0_BASE
 
-#if 0
+#if 0 /* SOO.tech */
 #define GIC_BASE		0x08000000
 #define UART0_BASE		0x09000000
 #define UART1_BASE		0x09040000
@@ -79,10 +82,14 @@
 
 #elif defined(PLATFORM_FLAVOR_qemu_armv8a)
 
+#define GIC_BASE		0x08000000
 #define UART0_BASE		0x09000000
 #define UART1_BASE		0x09040000
 
+#define IT_UART1		40
+
 #define CONSOLE_UART_BASE	UART1_BASE
+#define IT_CONSOLE_UART		IT_UART1
 
 #else
 #error "Unknown platform flavor"
@@ -123,27 +130,27 @@
 /*
  * QEMU virt specifics.
  */
+#if 0 /* SOO.tech */
+#define SECRAM_BASE		0x0e000000
+#endif
 
 #define SECRAM_BASE		0x2e000000
 #define SECRAM_COHERENT_SIZE	4096
 
+/* SOO.tech */
 #define DRAM0_BASE		0x80000000
 #define DRAM0_SIZE		0x40000000
 
 #define GICD_OFFSET		0
-#define GICC_OFFSET		0x1000
-
-
-#if 0 /* virt */
-#define SECRAM_BASE		0x0e000000
-
-#define SECRAM_COHERENT_SIZE	4096
-
-#define GICD_OFFSET
+#if 0 /* SOO.tech */
 #define GICC_OFFSET		0x10000
 #endif
+#define GICC_OFFSET		0x1000
 
 #elif defined(PLATFORM_FLAVOR_qemu_armv8a)
+
+#define GICD_OFFSET		0
+#define GICC_OFFSET		0x10000
 
 #else
 #error "Unknown platform flavor"

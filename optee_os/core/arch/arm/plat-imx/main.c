@@ -32,46 +32,21 @@
 #include <console.h>
 #include <drivers/gic.h>
 #include <drivers/imx_uart.h>
-#include <io.h>
 #include <imx.h>
-#include <kernel/generic_boot.h>
+#include <io.h>
+#include <kernel/boot.h>
+#include <kernel/interrupt.h>
 #include <kernel/misc.h>
 #include <kernel/panic.h>
-#include <kernel/pm_stubs.h>
-#include <mm/core_mmu.h>
 #include <mm/core_memprot.h>
+#include <mm/core_mmu.h>
 #include <platform_config.h>
-#include <stdint.h>
 #include <sm/optee_smc.h>
-#include <tee/entry_fast.h>
-#include <tee/entry_std.h>
+#include <stdint.h>
 
+static struct gic_data gic_data __nex_bss;
 
-static void main_fiq(void);
-static struct gic_data gic_data;
-
-static const struct thread_handlers handlers = {
-	.std_smc = tee_entry_std,
-	.fast_smc = tee_entry_fast,
-	.nintr = main_fiq,
-#if defined(CFG_WITH_ARM_TRUSTED_FW)
-	.cpu_on = cpu_on_handler,
-	.cpu_off = pm_do_nothing,
-	.cpu_suspend = pm_do_nothing,
-	.cpu_resume = pm_do_nothing,
-	.system_off = pm_do_nothing,
-	.system_reset = pm_do_nothing,
-#else
-	.cpu_on = pm_panic,
-	.cpu_off = pm_panic,
-	.cpu_suspend = pm_panic,
-	.cpu_resume = pm_panic,
-	.system_off = pm_panic,
-	.system_reset = pm_panic,
-#endif
-};
-
-static struct imx_uart_data console_data;
+static struct imx_uart_data console_data __nex_bss;
 
 #ifdef CONSOLE_UART_BASE
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, CONSOLE_UART_BASE,
@@ -85,6 +60,10 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC, ANATOP_BASE, CORE_MMU_PGDIR_SIZE);
 #endif
 #ifdef GICD_BASE
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, GICD_BASE, 0x10000);
+#endif
+#ifdef AIPS0_BASE
+register_phys_mem_pgdir(MEM_AREA_IO_SEC, AIPS0_BASE,
+			ROUNDUP(AIPS0_SIZE, CORE_MMU_PGDIR_SIZE));
 #endif
 #ifdef AIPS1_BASE
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, AIPS1_BASE,
@@ -103,6 +82,9 @@ register_phys_mem(MEM_AREA_TEE_COHERENT,
 		  ROUNDDOWN(IRAM_BASE, CORE_MMU_PGDIR_SIZE),
 		  CORE_MMU_PGDIR_SIZE);
 #endif
+#ifdef M4_AIPS_BASE
+register_phys_mem(MEM_AREA_IO_SEC, M4_AIPS_BASE, M4_AIPS_SIZE);
+#endif
 #ifdef IRAM_S_BASE
 register_phys_mem(MEM_AREA_TEE_COHERENT,
 		  ROUNDDOWN(IRAM_S_BASE, CORE_MMU_PGDIR_SIZE),
@@ -115,20 +97,22 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC,
 			CORE_MMU_PGDIR_SIZE);
 #endif
 
-const struct thread_handlers *generic_boot_get_handlers(void)
-{
-	return &handlers;
-}
+register_dynamic_shm(CFG_NSEC_DDR_0_BASE, CFG_NSEC_DDR_0_SIZE);
+#if defined(CFG_NSEC_DDR_1_BASE) && defined(CFG_NSEC_DDR_1_SIZE)
+register_dynamic_shm(CFG_NSEC_DDR_1_BASE, CFG_NSEC_DDR_1_SIZE);
+#endif
 
-static void main_fiq(void)
+void itr_core_handler(void)
 {
 	gic_it_handle(&gic_data);
 }
 
 void console_init(void)
 {
+#ifdef CONSOLE_UART_BASE
 	imx_uart_init(&console_data, CONSOLE_UART_BASE);
 	register_serial_console(&console_data.chip);
+#endif
 }
 
 void main_init_gic(void)
@@ -166,29 +150,3 @@ void main_secondary_init_gic(void)
 	gic_cpu_init(&gic_data);
 }
 #endif
-
-#if defined(CFG_BOOT_SYNC_CPU)
-static void psci_boot_allcpus(void)
-{
-	vaddr_t src_base = core_mmu_get_va(SRC_BASE, MEM_AREA_TEE_COHERENT);
-	uint32_t pa = virt_to_phys((void *)TEE_TEXT_VA_START);
-
-	/* set secondary entry address and release core */
-	io_write32(src_base + SRC_GPR1 + 8, pa);
-	io_write32(src_base + SRC_GPR1 + 16, pa);
-	io_write32(src_base + SRC_GPR1 + 24, pa);
-
-	io_write32(src_base + SRC_SCR, BM_SRC_SCR_CPU_ENABLE_ALL);
-}
-#endif
-
-void plat_cpu_reset_late(void)
-{
-	if (!get_core_pos()) {
-		/* primary core */
-#if defined(CFG_BOOT_SYNC_CPU)
-		psci_boot_allcpus()
-#endif
-		imx_configure_tzasc();
-	}
-}

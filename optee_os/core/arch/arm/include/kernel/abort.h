@@ -6,12 +6,13 @@
 #ifndef KERNEL_ABORT_H
 #define KERNEL_ABORT_H
 
-#define ABORT_TYPE_UNDEF	0
-#define ABORT_TYPE_PREFETCH	1
-#define ABORT_TYPE_DATA		2
-#define ABORT_TYPE_TA_PANIC	3 /* Dump stack on TA panic (not an abort) */
+#define ABORT_TYPE_UNDEF		0
+#define ABORT_TYPE_PREFETCH		1
+#define ABORT_TYPE_DATA			2
+/* Dump stack on user mode panic (not an abort) */
+#define ABORT_TYPE_USER_MODE_PANIC	3
 
-#ifndef ASM
+#ifndef __ASSEMBLER__
 
 #include <compiler.h>
 #include <types_ext.h>
@@ -36,6 +37,6 @@ bool abort_is_user_exception(struct abort_info *ai);
 /* Called from a normal thread */
 void abort_print_current_ta(void);
 
-#endif /*ASM*/
+#endif /*__ASSEMBLER__*/
 #endif /*KERNEL_ABORT_H*/
 

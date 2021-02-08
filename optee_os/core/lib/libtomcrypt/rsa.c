@@ -9,7 +9,6 @@
 #include <tee_api_types.h>
 #include <tee_api_defines_extensions.h>
 #include <tee/tee_cryp_utl.h>
-#include <tomcrypt.h>
 #include <trace.h>
 #include <utee_defines.h>
 
@@ -106,14 +105,7 @@ TEE_Result crypto_acipher_alloc_rsa_keypair(struct rsa_keypair *s,
 
 	return TEE_SUCCESS;
 err:
-	crypto_bignum_free(s->e);
-	crypto_bignum_free(s->d);
-	crypto_bignum_free(s->n);
-	crypto_bignum_free(s->p);
-	crypto_bignum_free(s->q);
-	crypto_bignum_free(s->qp);
-	crypto_bignum_free(s->dp);
-
+	crypto_acipher_free_rsa_keypair(s);
 	return TEE_ERROR_OUT_OF_MEMORY;
 }
 
@@ -137,6 +129,20 @@ void crypto_acipher_free_rsa_public_key(struct rsa_public_key *s)
 		return;
 	crypto_bignum_free(s->n);
 	crypto_bignum_free(s->e);
+}
+
+void crypto_acipher_free_rsa_keypair(struct rsa_keypair *s)
+{
+	if (!s)
+		return;
+	crypto_bignum_free(s->e);
+	crypto_bignum_free(s->d);
+	crypto_bignum_free(s->n);
+	crypto_bignum_free(s->p);
+	crypto_bignum_free(s->q);
+	crypto_bignum_free(s->qp);
+	crypto_bignum_free(s->dp);
+	crypto_bignum_free(s->dq);
 }
 
 TEE_Result crypto_acipher_gen_rsa_key(struct rsa_keypair *key, size_t key_size)
@@ -482,8 +488,8 @@ TEE_Result crypto_acipher_rsassa_sign(uint32_t algo, struct rsa_keypair *key,
 			goto err;
 		}
 
-		res = tee_hash_get_digest_size(TEE_DIGEST_HASH_TO_ALGO(algo),
-					       &hash_size);
+		res = tee_alg_get_digest_size(TEE_DIGEST_HASH_TO_ALGO(algo),
+					      &hash_size);
 		if (res != TEE_SUCCESS)
 			goto err;
 
@@ -536,8 +542,8 @@ TEE_Result crypto_acipher_rsassa_verify(uint32_t algo,
 	};
 
 	if (algo != TEE_ALG_RSASSA_PKCS1_V1_5) {
-		res = tee_hash_get_digest_size(TEE_DIGEST_HASH_TO_ALGO(algo),
-					       &hash_size);
+		res = tee_alg_get_digest_size(TEE_DIGEST_HASH_TO_ALGO(algo),
+					      &hash_size);
 		if (res != TEE_SUCCESS)
 			goto err;
 

@@ -28,65 +28,65 @@ TEE_Result crypto_init(void);
 
 /* Message digest functions */
 TEE_Result crypto_hash_alloc_ctx(void **ctx, uint32_t algo);
-TEE_Result crypto_hash_init(void *ctx, uint32_t algo);
-TEE_Result crypto_hash_update(void *ctx, uint32_t algo, const uint8_t *data,
-			      size_t len);
-TEE_Result crypto_hash_final(void *ctx, uint32_t algo, uint8_t *digest,
-			     size_t len);
-void crypto_hash_free_ctx(void *ctx, uint32_t algo);
-void crypto_hash_copy_state(void *dst_ctx, void *src_ctx, uint32_t algo);
+TEE_Result crypto_hash_init(void *ctx);
+TEE_Result crypto_hash_update(void *ctx, const uint8_t *data, size_t len);
+TEE_Result crypto_hash_final(void *ctx, uint8_t *digest, size_t len);
+void crypto_hash_free_ctx(void *ctx);
+void crypto_hash_copy_state(void *dst_ctx, void *src_ctx);
 
 /* Symmetric ciphers */
 TEE_Result crypto_cipher_alloc_ctx(void **ctx, uint32_t algo);
-TEE_Result crypto_cipher_init(void *ctx, uint32_t algo, TEE_OperationMode mode,
+TEE_Result crypto_cipher_init(void *ctx, TEE_OperationMode mode,
 			      const uint8_t *key1, size_t key1_len,
 			      const uint8_t *key2, size_t key2_len,
 			      const uint8_t *iv, size_t iv_len);
-TEE_Result crypto_cipher_update(void *ctx, uint32_t algo,
-				TEE_OperationMode mode, bool last_block,
-				const uint8_t *data, size_t len, uint8_t *dst);
-void crypto_cipher_final(void *ctx, uint32_t algo);
+TEE_Result crypto_cipher_update(void *ctx, TEE_OperationMode mode,
+				bool last_block, const uint8_t *data,
+				size_t len, uint8_t *dst);
+void crypto_cipher_final(void *ctx);
 TEE_Result crypto_cipher_get_block_size(uint32_t algo, size_t *size);
-void crypto_cipher_free_ctx(void *ctx, uint32_t algo);
-void crypto_cipher_copy_state(void *dst_ctx, void *src_ctx, uint32_t algo);
+void crypto_cipher_free_ctx(void *ctx);
+void crypto_cipher_copy_state(void *dst_ctx, void *src_ctx);
 
 /* Message Authentication Code functions */
 TEE_Result crypto_mac_alloc_ctx(void **ctx, uint32_t algo);
-TEE_Result crypto_mac_init(void *ctx, uint32_t algo, const uint8_t *key,
-			   size_t len);
-TEE_Result crypto_mac_update(void *ctx, uint32_t algo, const uint8_t *data,
-			     size_t len);
-TEE_Result crypto_mac_final(void *ctx, uint32_t algo, uint8_t *digest,
-			    size_t digest_len);
-void crypto_mac_free_ctx(void *ctx, uint32_t algo);
-void crypto_mac_copy_state(void *dst_ctx, void *src_ctx, uint32_t algo);
+TEE_Result crypto_mac_init(void *ctx, const uint8_t *key, size_t len);
+TEE_Result crypto_mac_update(void *ctx, const uint8_t *data, size_t len);
+TEE_Result crypto_mac_final(void *ctx, uint8_t *digest, size_t digest_len);
+void crypto_mac_free_ctx(void *ctx);
+void crypto_mac_copy_state(void *dst_ctx, void *src_ctx);
 
 /* Authenticated encryption */
 TEE_Result crypto_authenc_alloc_ctx(void **ctx, uint32_t algo);
-TEE_Result crypto_authenc_init(void *ctx, uint32_t algo, TEE_OperationMode mode,
+TEE_Result crypto_authenc_init(void *ctx, TEE_OperationMode mode,
 			       const uint8_t *key, size_t key_len,
 			       const uint8_t *nonce, size_t nonce_len,
 			       size_t tag_len, size_t aad_len,
 			       size_t payload_len);
-TEE_Result crypto_authenc_update_aad(void *ctx, uint32_t algo,
-				     TEE_OperationMode mode,
+TEE_Result crypto_authenc_update_aad(void *ctx, TEE_OperationMode mode,
 				     const uint8_t *data, size_t len);
-TEE_Result crypto_authenc_update_payload(void *ctx, uint32_t algo,
-					 TEE_OperationMode mode,
+TEE_Result crypto_authenc_update_payload(void *ctx, TEE_OperationMode mode,
 					 const uint8_t *src_data,
 					 size_t src_len, uint8_t *dst_data,
 					 size_t *dst_len);
-TEE_Result crypto_authenc_enc_final(void *ctx, uint32_t algo,
-				    const uint8_t *src_data, size_t src_len,
-				    uint8_t *dst_data, size_t *dst_len,
-				    uint8_t *dst_tag, size_t *dst_tag_len);
-TEE_Result crypto_authenc_dec_final(void *ctx, uint32_t algo,
-				    const uint8_t *src_data, size_t src_len,
-				    uint8_t *dst_data, size_t *dst_len,
-				    const uint8_t *tag, size_t tag_len);
-void crypto_authenc_final(void *ctx, uint32_t algo);
-void crypto_authenc_free_ctx(void *ctx, uint32_t algo);
-void crypto_authenc_copy_state(void *dst_ctx, void *src_ctx, uint32_t algo);
+TEE_Result crypto_authenc_enc_final(void *ctx, const uint8_t *src_data,
+				    size_t src_len, uint8_t *dst_data,
+				    size_t *dst_len, uint8_t *dst_tag,
+				    size_t *dst_tag_len);
+TEE_Result crypto_authenc_dec_final(void *ctx, const uint8_t *src_data,
+				    size_t src_len, uint8_t *dst_data,
+				    size_t *dst_len, const uint8_t *tag,
+				    size_t tag_len);
+void crypto_authenc_final(void *ctx);
+void crypto_authenc_free_ctx(void *ctx);
+void crypto_authenc_copy_state(void *dst_ctx, void *src_ctx);
+
+#if defined(CFG_NXP_SE05X)
+TEE_Result crypto_enable_scp03(unsigned int rotate_keys);
+#endif
+
+/* Informs crypto that the data in the buffer will be removed from storage */
+void crypto_storage_obj_del(uint8_t *data, size_t len);
 
 /* Implementation-defined big numbers */
 
@@ -160,6 +160,7 @@ struct ecc_public_key {
 	struct bignum *x;	/* Public value x */
 	struct bignum *y;	/* Public value y */
 	uint32_t curve;	        /* Curve type */
+	const struct crypto_ecc_public_ops *ops; /* Key Operations */
 };
 
 struct ecc_keypair {
@@ -167,6 +168,7 @@ struct ecc_keypair {
 	struct bignum *x;	/* Public value x */
 	struct bignum *y;	/* Public value y */
 	uint32_t curve;	        /* Curve type */
+	const struct crypto_ecc_keypair_ops *ops; /* Key Operations */
 };
 
 /*
@@ -179,6 +181,7 @@ TEE_Result crypto_acipher_alloc_rsa_keypair(struct rsa_keypair *s,
 TEE_Result crypto_acipher_alloc_rsa_public_key(struct rsa_public_key *s,
 				   size_t key_size_bits);
 void crypto_acipher_free_rsa_public_key(struct rsa_public_key *s);
+void crypto_acipher_free_rsa_keypair(struct rsa_keypair *s);
 TEE_Result crypto_acipher_alloc_dsa_keypair(struct dsa_keypair *s,
 				size_t key_size_bits);
 TEE_Result crypto_acipher_alloc_dsa_public_key(struct dsa_public_key *s,
@@ -186,9 +189,11 @@ TEE_Result crypto_acipher_alloc_dsa_public_key(struct dsa_public_key *s,
 TEE_Result crypto_acipher_alloc_dh_keypair(struct dh_keypair *s,
 			       size_t key_size_bits);
 TEE_Result crypto_acipher_alloc_ecc_public_key(struct ecc_public_key *s,
-				   size_t key_size_bits);
+					       uint32_t key_type,
+					       size_t key_size_bits);
 TEE_Result crypto_acipher_alloc_ecc_keypair(struct ecc_keypair *s,
-				size_t key_size_bits);
+					    uint32_t key_type,
+					    size_t key_size_bits);
 void crypto_acipher_free_ecc_public_key(struct ecc_public_key *s);
 
 /*
@@ -197,8 +202,8 @@ void crypto_acipher_free_ecc_public_key(struct ecc_public_key *s);
 TEE_Result crypto_acipher_gen_rsa_key(struct rsa_keypair *key, size_t key_size);
 TEE_Result crypto_acipher_gen_dsa_key(struct dsa_keypair *key, size_t key_size);
 TEE_Result crypto_acipher_gen_dh_key(struct dh_keypair *key, struct bignum *q,
-				     size_t xbits);
-TEE_Result crypto_acipher_gen_ecc_key(struct ecc_keypair *key);
+				     size_t xbits, size_t key_size);
+TEE_Result crypto_acipher_gen_ecc_key(struct ecc_keypair *key, size_t key_size);
 
 TEE_Result crypto_acipher_dh_shared_secret(struct dh_keypair *private_key,
 					   struct bignum *public_key,
@@ -245,6 +250,32 @@ TEE_Result crypto_acipher_ecc_shared_secret(struct ecc_keypair *private_key,
 					    struct ecc_public_key *public_key,
 					    void *secret,
 					    unsigned long *secret_len);
+TEE_Result crypto_acipher_sm2_pke_decrypt(struct ecc_keypair *key,
+					  const uint8_t *src, size_t src_len,
+					  uint8_t *dst, size_t *dst_len);
+TEE_Result crypto_acipher_sm2_pke_encrypt(struct ecc_public_key *key,
+					  const uint8_t *src, size_t src_len,
+					  uint8_t *dst, size_t *dst_len);
+
+struct sm2_kep_parms {
+	uint8_t *out;
+	size_t out_len;
+	bool is_initiator;
+	const uint8_t *initiator_id;
+	size_t initiator_id_len;
+	const uint8_t *responder_id;
+	size_t responder_id_len;
+	const uint8_t *conf_in;
+	size_t conf_in_len;
+	uint8_t *conf_out;
+	size_t conf_out_len;
+};
+
+TEE_Result crypto_acipher_sm2_kep_derive(struct ecc_keypair *my_key,
+					 struct ecc_keypair *my_eph_key,
+					 struct ecc_public_key *peer_key,
+					 struct ecc_public_key *peer_eph_key,
+					 struct sm2_kep_parms *p);
 
 /*
  * Verifies a SHA-256 hash, doesn't require crypto_init() to be called in
@@ -319,7 +350,7 @@ TEE_Result crypto_rng_read(void *buf, size_t len);
 /*
  * crypto_aes_expand_enc_key() - Expand an AES key
  * @key:	AES key buffer
- * @key_len:	Size of the the @key buffer in bytes
+ * @key_len:	Size of the @key buffer in bytes
  * @enc_key:	Expanded AES encryption key buffer
  * @enc_keylen: Size of the @enc_key buffer in bytes
  * @rounds:	Number of rounds to be used during encryption

@@ -14,8 +14,8 @@
 #include <kernel/tee_misc.h>
 #include <mm/core_mmu.h>
 #include <mm/mobj.h>
-#include <mm/tee_mmu.h>
 #include <mm/tee_pager.h>
+#include <mm/vm.h>
 #include <optee_msg.h>
 #include <sm/optee_smc.h>
 #include <stdlib.h>
@@ -44,7 +44,7 @@ static void *mobj_phys_get_va(struct mobj *mobj, size_t offset)
 {
 	struct mobj_phys *moph = to_mobj_phys(mobj);
 
-	if (!moph->va)
+	if (!moph->va || offset >= mobj->size)
 		return NULL;
 
 	return (void *)(moph->va + offset);
@@ -71,7 +71,7 @@ static TEE_Result mobj_phys_get_pa(struct mobj *mobj, size_t offs,
 	*pa = p;
 	return TEE_SUCCESS;
 }
-KEEP_PAGER(mobj_phys_get_pa);
+DECLARE_KEEP_PAGER(mobj_phys_get_pa);
 
 static TEE_Result mobj_phys_get_cattr(struct mobj *mobj, uint32_t *cattr)
 {
@@ -173,6 +173,7 @@ struct mobj *mobj_phys_alloc(paddr_t pa, size_t size, uint32_t cattr,
 	moph->cattr = cattr;
 	moph->mobj.size = size;
 	moph->mobj.ops = &mobj_phys_ops;
+	refcount_set(&moph->mobj.refc, 1);
 	moph->pa = pa;
 	moph->va = (vaddr_t)va;
 
@@ -235,7 +236,7 @@ static TEE_Result mobj_mm_get_pa(struct mobj *mobj, size_t offs,
 	return mobj_get_pa(to_mobj_mm(mobj)->parent_mobj,
 			   mobj_mm_offs(mobj, offs), granule, pa);
 }
-KEEP_PAGER(mobj_mm_get_pa);
+DECLARE_KEEP_PAGER(mobj_mm_get_pa);
 
 static size_t mobj_mm_get_phys_offs(struct mobj *mobj, size_t granule)
 {
@@ -292,6 +293,7 @@ struct mobj *mobj_mm_alloc(struct mobj *mobj_parent, size_t size,
 	m->parent_mobj = mobj_parent;
 	m->mobj.size = size;
 	m->mobj.ops = &mobj_mm_ops;
+	refcount_set(&m->mobj.refc, 1);
 
 	return &m->mobj;
 }
@@ -344,7 +346,7 @@ static TEE_Result mobj_shm_get_pa(struct mobj *mobj, size_t offs,
 	*pa = p;
 	return TEE_SUCCESS;
 }
-KEEP_PAGER(mobj_shm_get_pa);
+DECLARE_KEEP_PAGER(mobj_shm_get_pa);
 
 static size_t mobj_shm_get_phys_offs(struct mobj *mobj, size_t granule)
 {
@@ -397,6 +399,7 @@ struct mobj *mobj_shm_alloc(paddr_t pa, size_t size, uint64_t cookie)
 
 	m->mobj.size = size;
 	m->mobj.ops = &mobj_shm_ops;
+	refcount_set(&m->mobj.refc, 1);
 	m->pa = pa;
 	m->cookie = cookie;
 
@@ -427,7 +430,7 @@ static void *mobj_seccpy_shm_get_va(struct mobj *mobj, size_t offs)
 {
 	struct mobj_seccpy_shm *m = to_mobj_seccpy_shm(mobj);
 
-	if (&m->utc->ctx != thread_get_tsd()->ctx)
+	if (&m->utc->ta_ctx.ts_ctx != thread_get_tsd()->ctx)
 		return NULL;
 
 	if (offs >= mobj->size)
@@ -447,8 +450,8 @@ static void mobj_seccpy_shm_free(struct mobj *mobj)
 {
 	struct mobj_seccpy_shm *m = to_mobj_seccpy_shm(mobj);
 
-	tee_pager_rem_uta_region(m->utc, m->va, mobj->size);
-	tee_mmu_rem_rwmem(m->utc, mobj, m->va);
+	tee_pager_rem_um_region(&m->utc->uctx, m->va, mobj->size);
+	vm_rem_rwmem(&m->utc->uctx, mobj, m->va);
 	fobj_put(m->fobj);
 	free(m);
 }
@@ -487,14 +490,15 @@ struct mobj *mobj_seccpy_shm_alloc(size_t size)
 
 	m->mobj.size = size;
 	m->mobj.ops = &mobj_seccpy_shm_ops;
+	refcount_set(&m->mobj.refc, 1);
 
-	if (tee_mmu_add_rwmem(utc, &m->mobj, &va) != TEE_SUCCESS)
+	if (vm_add_rwmem(&utc->uctx, &m->mobj, &va) != TEE_SUCCESS)
 		goto bad;
 
 	m->fobj = fobj_rw_paged_alloc(ROUNDUP(size, SMALL_PAGE_SIZE) /
 				      SMALL_PAGE_SIZE);
-	if (tee_pager_add_uta_area(utc, va, m->fobj,
-				   TEE_MATTR_PRW | TEE_MATTR_URW))
+	if (tee_pager_add_um_area(&utc->uctx, va, m->fobj,
+				  TEE_MATTR_PRW | TEE_MATTR_URW))
 		goto bad;
 
 	m->va = va;
@@ -502,7 +506,7 @@ struct mobj *mobj_seccpy_shm_alloc(size_t size)
 	return &m->mobj;
 bad:
 	if (va)
-		tee_mmu_rem_rwmem(utc, &m->mobj, va);
+		vm_rem_rwmem(&utc->uctx, &m->mobj, va);
 	fobj_put(m->fobj);
 	free(m);
 	return NULL;
@@ -531,6 +535,7 @@ struct mobj *mobj_with_fobj_alloc(struct fobj *fobj, struct file *file)
 		return NULL;
 
 	m->mobj.ops = &mobj_with_fobj_ops;
+	refcount_set(&m->mobj.refc, 1);
 	m->mobj.size = fobj->num_pages * SMALL_PAGE_SIZE;
 	m->mobj.phys_granule = SMALL_PAGE_SIZE;
 	m->fobj = fobj_get(fobj);
@@ -609,7 +614,7 @@ static TEE_Result mobj_with_fobj_get_pa(struct mobj *mobj, size_t offs,
 
 	return TEE_SUCCESS;
 }
-KEEP_PAGER(mobj_with_fobj_get_pa);
+DECLARE_KEEP_PAGER(mobj_with_fobj_get_pa);
 
 static const struct mobj_ops mobj_with_fobj_ops __rodata_unpaged = {
 	.matches = mobj_with_fobj_matches,

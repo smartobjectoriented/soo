@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-2-Clause
 #
 # Copyright (c) 2015, Linaro Limited
@@ -21,8 +21,12 @@ def get_args():
 
 def main():
     import array
-    from Crypto.PublicKey import RSA
-    from Crypto.Util.number import long_to_bytes
+    try:
+        from Cryptodome.PublicKey import RSA
+        from Cryptodome.Util.number import long_to_bytes
+    except ImportError:
+        from Crypto.PublicKey import RSA
+        from Crypto.Util.number import long_to_bytes
 
     args = get_args()
 

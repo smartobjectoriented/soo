@@ -8,17 +8,14 @@ arch-dir	:= core/arch/$(ARCH)
 platform-dir	:= $(arch-dir)/plat-$(PLATFORM)
 include $(platform-dir)/conf.mk
 include mk/config.mk
+# $(ARCH).mk also sets the compiler for the core module
 include core/arch/$(ARCH)/$(ARCH).mk
 
 PLATFORM_$(PLATFORM) := y
 PLATFORM_FLAVOR_$(PLATFORM_FLAVOR) := y
 
-$(call cfg-depends-all,CFG_PAGED_USER_TA,CFG_WITH_PAGER CFG_WITH_USER_TA)
+$(eval $(call cfg-depends-all,CFG_PAGED_USER_TA,CFG_WITH_PAGER CFG_WITH_USER_TA))
 include core/crypto.mk
-
-# Setup compiler for this sub module
-COMPILER_$(sm)		?= $(COMPILER)
-include mk/$(COMPILER_$(sm)).mk
 
 cppflags$(sm)	+= -D__KERNEL__
 
@@ -34,11 +31,24 @@ ifeq ($(CFG_CORE_SANITIZE_KADDRESS),y)
 ifeq ($(CFG_ASAN_SHADOW_OFFSET),)
 $(error error: CFG_CORE_SANITIZE_KADDRESS not supported by platform (flavor))
 endif
+ifeq ($(COMPILER),clang)
+$(error error: CFG_CORE_SANITIZE_KADDRESS not supported with Clang)
+endif
 cflags_kasan	+= -fsanitize=kernel-address \
 		   -fasan-shadow-offset=$(CFG_ASAN_SHADOW_OFFSET)\
 		   --param asan-stack=1 --param asan-globals=1 \
 		   --param asan-instrumentation-with-call-threshold=0
 cflags$(sm)	+= $(cflags_kasan)
+endif
+ifeq ($(CFG_CORE_DEBUG_CHECK_STACKS),y)
+finstrument-functions := $(call cc-option,-finstrument-functions)
+ifeq (,$(finstrument-functions))
+$(error -finstrument-functions not supported)
+endif
+cflags$(sm) += $(finstrument-functions)
+endif
+ifeq ($(CFG_SYSCALL_FTRACE),y)
+cflags$(sm)	+= -pg
 endif
 aflags$(sm)	+= $(core-platform-aflags)
 
@@ -67,6 +77,7 @@ $(conf-file): $(conf-mk-file)
 
 cleanfiles += $(conf-file)
 cleanfiles += $(conf-mk-file)
+cleanfiles += $(conf-cmake-file)
 
 $(conf-file): FORCE
 	$(call check-conf-h)
@@ -92,17 +103,11 @@ include mk/lib.mk
 CFG_CRYPTOLIB_NAME_$(CFG_CRYPTOLIB_NAME) := y
 
 ifeq ($(CFG_CRYPTOLIB_NAME),tomcrypt)
-ifeq ($(CFG_CORE_MBEDTLS_MPI),y)
 # We're compiling mbedtls too, but with a limited configuration which only
 # provides the MPI routines
 libname = mbedtls
 libdir = lib/libmbedtls
 include mk/lib.mk
-else
-libname = mpa
-libdir = lib/libmpa
-include mk/lib.mk
-endif
 endif #tomcrypt
 
 ifeq ($(CFG_CRYPTOLIB_NAME),mbedtls)
@@ -127,17 +132,19 @@ include mk/lib.mk
 
 base-prefix :=
 
-ifeq ($(CFG_DT),y)
 libname = fdt
 libdir = core/lib/libfdt
 include mk/lib.mk
-endif
 
 ifeq ($(CFG_ZLIB),y)
 libname = zlib
 libdir = core/lib/zlib
 include mk/lib.mk
 endif
+
+libname = unw
+libdir = lib/libunw
+include mk/lib.mk
 
 #
 # Do main source

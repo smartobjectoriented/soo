@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
  * Copyright (c) 2019, Linaro Limited
+ * Copyright (c) 2020, Arm Limited
  */
 
 #include <assert.h>
@@ -9,41 +10,90 @@
 #include <elf64.h>
 #include <elf_common.h>
 #include <ldelf.h>
-#include <pta_system.h>
+#include <link.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string_ext.h>
 #include <string.h>
 #include <tee_api_types.h>
+#include <tee_internal_api_extensions.h>
+#include <unw/unwind.h>
 #include <user_ta_header.h>
-#include <utee_syscalls.h>
+#include <util.h>
 
 #include "sys.h"
 #include "ta_elf.h"
-#include "unwind.h"
+
+/*
+ * Layout of a 32-bit struct dl_phdr_info for a 64-bit ldelf to access a 32-bit
+ * TA
+ */
+struct dl_phdr_info32 {
+	uint32_t dlpi_addr;
+	uint32_t dlpi_name;
+	uint32_t dlpi_phdr;
+	uint16_t dlpi_phnum;
+	uint64_t dlpi_adds;
+	uint64_t dlpi_subs;
+	uint32_t dlpi_tls_modid;
+	uint32_t dlpi_tls_data;
+};
 
 static vaddr_t ta_stack;
 static vaddr_t ta_stack_size;
 
 struct ta_elf_queue main_elf_queue = TAILQ_HEAD_INITIALIZER(main_elf_queue);
 
-static struct ta_elf *queue_elf(const TEE_UUID *uuid)
+/*
+ * Main application is always ID 1, shared libraries with TLS take IDs 2 and
+ * above
+ */
+static void assign_tls_mod_id(struct ta_elf *elf)
 {
-	struct ta_elf *elf = NULL;
+	static size_t last_tls_mod_id = 1;
 
-	TAILQ_FOREACH(elf, &main_elf_queue, link)
-		if (!memcmp(uuid, &elf->uuid, sizeof(*uuid)))
-			return NULL;
+	if (elf->is_main)
+		assert(last_tls_mod_id == 1); /* Main always comes first */
+	elf->tls_mod_id = last_tls_mod_id++;
+}
 
-	elf = calloc(1, sizeof(*elf));
+static struct ta_elf *queue_elf_helper(const TEE_UUID *uuid)
+{
+	struct ta_elf *elf = calloc(1, sizeof(*elf));
+
 	if (!elf)
-		err(TEE_ERROR_OUT_OF_MEMORY, "calloc");
+		return NULL;
 
 	TAILQ_INIT(&elf->segs);
 
 	elf->uuid = *uuid;
 	TAILQ_INSERT_TAIL(&main_elf_queue, elf, link);
 	return elf;
+}
+
+static struct ta_elf *queue_elf(const TEE_UUID *uuid)
+{
+	struct ta_elf *elf = ta_elf_find_elf(uuid);
+
+	if (elf)
+		return NULL;
+
+	elf = queue_elf_helper(uuid);
+	if (!elf)
+		err(TEE_ERROR_OUT_OF_MEMORY, "queue_elf_helper");
+
+	return elf;
+}
+
+struct ta_elf *ta_elf_find_elf(const TEE_UUID *uuid)
+{
+	struct ta_elf *elf = NULL;
+
+	TAILQ_FOREACH(elf, &main_elf_queue, link)
+		if (!memcmp(uuid, &elf->uuid, sizeof(*uuid)))
+			return elf;
+
+	return NULL;
 }
 
 static TEE_Result e32_parse_ehdr(struct ta_elf *elf, Elf32_Ehdr *ehdr)
@@ -105,6 +155,24 @@ static TEE_Result e64_parse_ehdr(struct ta_elf *elf __unused,
 }
 #endif /*ARM64*/
 
+static void check_phdr_in_range(struct ta_elf *elf, unsigned int type,
+				vaddr_t addr, size_t memsz)
+{
+	vaddr_t max_addr = 0;
+
+	if (ADD_OVERFLOW(addr, memsz, &max_addr))
+		err(TEE_ERROR_BAD_FORMAT, "Program header %#x overflow", type);
+
+	/*
+	 * elf->load_addr and elf->max_addr are both using the
+	 * final virtual addresses, while this program header is
+	 * relative to 0.
+	 */
+	if (max_addr > elf->max_addr - elf->load_addr)
+		err(TEE_ERROR_BAD_FORMAT, "Program header %#x out of bounds",
+		    type);
+}
+
 static void read_dyn(struct ta_elf *elf, vaddr_t addr,
 		     size_t idx, unsigned int *tag, size_t *val)
 {
@@ -133,6 +201,8 @@ static void save_hashtab_from_segment(struct ta_elf *elf, unsigned int type,
 	if (type != PT_DYNAMIC)
 		return;
 
+	check_phdr_in_range(elf, type, addr, memsz);
+
 	if (elf->is_32bit)
 		dyn_entsize = sizeof(Elf32_Dyn);
 	else
@@ -150,8 +220,49 @@ static void save_hashtab_from_segment(struct ta_elf *elf, unsigned int type,
 	}
 }
 
+static void check_range(struct ta_elf *elf, const char *name, const void *ptr,
+			size_t sz)
+{
+	size_t max_addr = 0;
+
+	if ((vaddr_t)ptr < elf->load_addr)
+		err(TEE_ERROR_BAD_FORMAT, "%s %p out of range", name, ptr);
+
+	if (ADD_OVERFLOW((vaddr_t)ptr, sz, &max_addr))
+		err(TEE_ERROR_BAD_FORMAT, "%s range overflow", name);
+
+	if (max_addr > elf->max_addr)
+		err(TEE_ERROR_BAD_FORMAT,
+		    "%s %p..%#zx out of range", name, ptr, max_addr);
+}
+
+static void check_hashtab(struct ta_elf *elf, void *ptr, size_t num_buckets,
+			  size_t num_chains)
+{
+	/*
+	 * Starting from 2 as the first two words are mandatory and hold
+	 * num_buckets and num_chains. So this function is called twice,
+	 * first to see that there's indeed room for num_buckets and
+	 * num_chains and then to see that all of it fits.
+	 * See http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
+	 */
+	size_t num_words = 2;
+	size_t sz = 0;
+
+	if (!ALIGNMENT_IS_OK(ptr, uint32_t))
+		err(TEE_ERROR_BAD_FORMAT, "Bad alignment of DT_HASH %p", ptr);
+
+	if (ADD_OVERFLOW(num_words, num_buckets, &num_words) ||
+	    ADD_OVERFLOW(num_words, num_chains, &num_words) ||
+	    MUL_OVERFLOW(num_words, sizeof(uint32_t), &sz))
+		err(TEE_ERROR_BAD_FORMAT, "DT_HASH overflow");
+
+	check_range(elf, "DT_HASH", ptr, sz);
+}
+
 static void save_hashtab(struct ta_elf *elf)
 {
+	uint32_t *hashtab = NULL;
 	size_t n = 0;
 
 	if (elf->is_32bit) {
@@ -169,7 +280,68 @@ static void save_hashtab(struct ta_elf *elf)
 						  phdr[n].p_vaddr,
 						  phdr[n].p_memsz);
 	}
-	assert(elf->hashtab);
+
+	check_hashtab(elf, elf->hashtab, 0, 0);
+	hashtab = elf->hashtab;
+	check_hashtab(elf, elf->hashtab, hashtab[0], hashtab[1]);
+}
+
+static void save_soname_from_segment(struct ta_elf *elf, unsigned int type,
+				     vaddr_t addr, size_t memsz)
+{
+	size_t dyn_entsize = 0;
+	size_t num_dyns = 0;
+	size_t n = 0;
+	unsigned int tag = 0;
+	size_t val = 0;
+	char *str_tab = NULL;
+
+	if (type != PT_DYNAMIC)
+		return;
+
+	if (elf->is_32bit)
+		dyn_entsize = sizeof(Elf32_Dyn);
+	else
+		dyn_entsize = sizeof(Elf64_Dyn);
+
+	assert(!(memsz % dyn_entsize));
+	num_dyns = memsz / dyn_entsize;
+
+	for (n = 0; n < num_dyns; n++) {
+		read_dyn(elf, addr, n, &tag, &val);
+		if (tag == DT_STRTAB) {
+			str_tab = (char *)(val + elf->load_addr);
+			break;
+		}
+	}
+	for (n = 0; n < num_dyns; n++) {
+		read_dyn(elf, addr, n, &tag, &val);
+		if (tag == DT_SONAME) {
+			elf->soname = str_tab + val;
+			break;
+		}
+	}
+}
+
+static void save_soname(struct ta_elf *elf)
+{
+	size_t n = 0;
+
+	if (elf->is_32bit) {
+		Elf32_Phdr *phdr = elf->phdr;
+
+		for (n = 0; n < elf->e_phnum; n++)
+			save_soname_from_segment(elf, phdr[n].p_type,
+						 phdr[n].p_vaddr,
+						 phdr[n].p_memsz);
+	} else {
+		Elf64_Phdr *phdr = elf->phdr;
+
+		for (n = 0; n < elf->e_phnum; n++)
+			save_soname_from_segment(elf, phdr[n].p_type,
+						 phdr[n].p_vaddr,
+						 phdr[n].p_memsz);
+	}
 }
 
 static void e32_save_symtab(struct ta_elf *elf, size_t tab_idx)
@@ -178,10 +350,21 @@ static void e32_save_symtab(struct ta_elf *elf, size_t tab_idx)
 	size_t str_idx = shdr[tab_idx].sh_link;
 
 	elf->dynsymtab = (void *)(shdr[tab_idx].sh_addr + elf->load_addr);
-	assert(!(shdr[tab_idx].sh_size % sizeof(Elf32_Sym)));
+	if (!ALIGNMENT_IS_OK(elf->dynsymtab, Elf32_Sym))
+		err(TEE_ERROR_BAD_FORMAT, "Bad alignment of dynsymtab %p",
+		    elf->dynsymtab);
+	check_range(elf, "Dynsymtab", elf->dynsymtab, shdr[tab_idx].sh_size);
+
+	if (shdr[tab_idx].sh_size % sizeof(Elf32_Sym))
+		err(TEE_ERROR_BAD_FORMAT,
+		    "Size of dynsymtab not an even multiple of Elf32_Sym");
 	elf->num_dynsyms = shdr[tab_idx].sh_size / sizeof(Elf32_Sym);
 
+	if (str_idx >= elf->e_shnum)
+		err(TEE_ERROR_BAD_FORMAT, "Dynstr section index out of range");
 	elf->dynstr = (void *)(shdr[str_idx].sh_addr + elf->load_addr);
+	check_range(elf, "Dynstr", elf->dynstr, shdr[str_idx].sh_size);
+
 	elf->dynstr_size = shdr[str_idx].sh_size;
 }
 
@@ -192,10 +375,24 @@ static void e64_save_symtab(struct ta_elf *elf, size_t tab_idx)
 
 	elf->dynsymtab = (void *)(vaddr_t)(shdr[tab_idx].sh_addr +
 					   elf->load_addr);
-	assert(!(shdr[tab_idx].sh_size % sizeof(Elf64_Sym)));
+
+	if (!ALIGNMENT_IS_OK(elf->dynsymtab, Elf64_Sym))
+		err(TEE_ERROR_BAD_FORMAT, "Bad alignment of .dynsym/DYNSYM %p",
+		    elf->dynsymtab);
+	check_range(elf, ".dynsym/DYNSYM", elf->dynsymtab,
+		    shdr[tab_idx].sh_size);
+
+	if (shdr[tab_idx].sh_size % sizeof(Elf64_Sym))
+		err(TEE_ERROR_BAD_FORMAT,
+		    "Size of .dynsym/DYNSYM not an even multiple of Elf64_Sym");
 	elf->num_dynsyms = shdr[tab_idx].sh_size / sizeof(Elf64_Sym);
 
+	if (str_idx >= elf->e_shnum)
+		err(TEE_ERROR_BAD_FORMAT,
+		    ".dynstr/STRTAB section index out of range");
 	elf->dynstr = (void *)(vaddr_t)(shdr[str_idx].sh_addr + elf->load_addr);
+	check_range(elf, ".dynstr/STRTAB", elf->dynstr, shdr[str_idx].sh_size);
+
 	elf->dynstr_size = shdr[str_idx].sh_size;
 }
 
@@ -225,13 +422,15 @@ static void save_symtab(struct ta_elf *elf)
 	}
 
 	save_hashtab(elf);
+	save_soname(elf);
 }
 
 static void init_elf(struct ta_elf *elf)
 {
 	TEE_Result res = TEE_SUCCESS;
 	vaddr_t va = 0;
-	uint32_t flags = PTA_SYSTEM_MAP_FLAG_SHAREABLE;
+	uint32_t flags = LDELF_MAP_FLAG_SHAREABLE;
+	size_t sz = 0;
 
 	res = sys_open_ta_bin(&elf->uuid, &elf->handle);
 	if (res)
@@ -242,7 +441,7 @@ static void init_elf(struct ta_elf *elf)
 	 * the ELF header is included in a load segment.
 	 */
 	if (!elf->is_main)
-		flags |= PTA_SYSTEM_MAP_FLAG_EXECUTABLE;
+		flags |= LDELF_MAP_FLAG_EXECUTABLE;
 	res = sys_map_ta_bin(&va, SMALL_PAGE_SIZE, flags, elf->handle, 0, 0, 0);
 	if (res)
 		err(res, "sys_map_ta_bin");
@@ -262,7 +461,11 @@ static void init_elf(struct ta_elf *elf)
 	if (res)
 		err(res, "Cannot parse ELF");
 
-	if (elf->e_phoff + elf->e_phnum * elf->e_phentsize > SMALL_PAGE_SIZE)
+	if (MUL_OVERFLOW(elf->e_phnum, elf->e_phentsize, &sz) ||
+	    ADD_OVERFLOW(sz, elf->e_phoff, &sz))
+		err(TEE_ERROR_BAD_FORMAT, "Program headers size overflow");
+
+	if (sz > SMALL_PAGE_SIZE)
 		err(TEE_ERROR_NOT_SUPPORTED, "Cannot read program headers");
 
 	elf->phdr = (void *)(va + elf->e_phoff);
@@ -285,6 +488,9 @@ static void add_segment(struct ta_elf *elf, size_t offset, size_t vaddr,
 
 	if (!seg)
 		err(TEE_ERROR_OUT_OF_MEMORY, "calloc");
+
+	if (memsz < filesz)
+		err(TEE_ERROR_BAD_FORMAT, "Memsz smaller than filesz");
 
 	seg->offset = offset;
 	seg->vaddr = vaddr;
@@ -312,16 +518,23 @@ static void parse_load_segments(struct ta_elf *elf)
 			} else if (phdr[n].p_type == PT_ARM_EXIDX) {
 				elf->exidx_start = phdr[n].p_vaddr;
 				elf->exidx_size = phdr[n].p_filesz;
+			} else if (phdr[n].p_type == PT_TLS) {
+				assign_tls_mod_id(elf);
 			}
 	} else {
 		Elf64_Phdr *phdr = elf->phdr;
 
 		for (n = 0; n < elf->e_phnum; n++)
-			if (phdr[n].p_type == PT_LOAD)
+			if (phdr[n].p_type == PT_LOAD) {
 				add_segment(elf, phdr[n].p_offset,
 					    phdr[n].p_vaddr, phdr[n].p_filesz,
 					    phdr[n].p_memsz, phdr[n].p_flags,
 					    phdr[n].p_align);
+			} else if (phdr[n].p_type == PT_TLS) {
+				elf->tls_start = phdr[n].p_vaddr;
+				elf->tls_filesz = phdr[n].p_filesz;
+				elf->tls_memsz = phdr[n].p_memsz;
+			}
 	}
 }
 
@@ -496,7 +709,7 @@ static size_t get_pad_begin(void)
 	COMPILE_TIME_ASSERT(CFG_TA_ASLR_MIN_OFFSET_PAGES <
 			    CFG_TA_ASLR_MAX_OFFSET_PAGES);
 	if (max > min) {
-		res = utee_cryp_random_number_generate(&rnd32, sizeof(rnd32));
+		res = sys_gen_random_num(&rnd32, sizeof(rnd32));
 		if (res) {
 			DMSG("Random read failed: %#"PRIx32, res);
 			return min * SMALL_PAGE_SIZE;
@@ -598,15 +811,15 @@ static void populate_segments(struct ta_elf *elf)
 			}
 
 			if (seg->flags & PF_W)
-				flags |= PTA_SYSTEM_MAP_FLAG_WRITEABLE;
+				flags |= LDELF_MAP_FLAG_WRITEABLE;
 			else
-				flags |= PTA_SYSTEM_MAP_FLAG_SHAREABLE;
+				flags |= LDELF_MAP_FLAG_SHAREABLE;
 			if (seg->flags & PF_X)
-				flags |= PTA_SYSTEM_MAP_FLAG_EXECUTABLE;
+				flags |= LDELF_MAP_FLAG_EXECUTABLE;
 			if (!(seg->flags & PF_R))
 				err(TEE_ERROR_NOT_SUPPORTED,
 				    "Segment must be readable");
-			if (flags & PTA_SYSTEM_MAP_FLAG_WRITEABLE) {
+			if (flags & LDELF_MAP_FLAG_WRITEABLE) {
 				res = sys_map_zi(memsz, 0, &va, pad_begin,
 						 pad_end);
 				if (pad_begin && res == TEE_ERROR_OUT_OF_MEMORY)
@@ -619,6 +832,9 @@ static void populate_segments(struct ta_elf *elf)
 				if (res)
 					err(res, "sys_copy_from_ta_bin");
 			} else {
+				if (filesz != memsz)
+					err(TEE_ERROR_BAD_FORMAT,
+					    "Filesz and memsz mismatch");
 				res = sys_map_ta_bin(&va, filesz, flags,
 						     elf->handle, offset,
 						     pad_begin, pad_end);
@@ -633,7 +849,7 @@ static void populate_segments(struct ta_elf *elf)
 
 			if (!elf->load_addr)
 				elf->load_addr = va;
-			elf->max_addr = roundup(va + filesz);
+			elf->max_addr = roundup(va + memsz);
 			elf->max_offs += filesz;
 		}
 	}
@@ -676,79 +892,6 @@ static void map_segments(struct ta_elf *elf)
 	}
 }
 
-static int hex(char c)
-{
-	char lc = tolower(c);
-
-	if (isdigit(lc))
-		return lc - '0';
-	if (isxdigit(lc))
-		return lc - 'a' + 10;
-	return -1;
-}
-
-static uint32_t parse_hex(const char *s, size_t nchars, uint32_t *res)
-{
-	uint32_t v = 0;
-	size_t n;
-	int c;
-
-	for (n = 0; n < nchars; n++) {
-		c = hex(s[n]);
-		if (c == (char)-1) {
-			*res = TEE_ERROR_BAD_FORMAT;
-			goto out;
-		}
-		v = (v << 4) + c;
-	}
-	*res = TEE_SUCCESS;
-out:
-	return v;
-}
-
-/*
- * Convert a UUID string @s into a TEE_UUID @uuid
- * Expected format for @s is: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
- * 'x' being any hexadecimal digit (0-9a-fA-F)
- */
-static TEE_Result parse_uuid(const char *s, TEE_UUID *uuid)
-{
-	TEE_Result res = TEE_SUCCESS;
-	TEE_UUID u = { 0 };
-	const char *p = s;
-	size_t i;
-
-	if (strlen(p) != 36)
-		return TEE_ERROR_BAD_FORMAT;
-	if (p[8] != '-' || p[13] != '-' || p[18] != '-' || p[23] != '-')
-		return TEE_ERROR_BAD_FORMAT;
-
-	u.timeLow = parse_hex(p, 8, &res);
-	if (res)
-		goto out;
-	p += 9;
-	u.timeMid = parse_hex(p, 4, &res);
-	if (res)
-		goto out;
-	p += 5;
-	u.timeHiAndVersion = parse_hex(p, 4, &res);
-	if (res)
-		goto out;
-	p += 5;
-	for (i = 0; i < 8; i++) {
-		u.clockSeqAndNode[i] = parse_hex(p, 2, &res);
-		if (res)
-			goto out;
-		if (i == 1)
-			p += 3;
-		else
-			p += 2;
-	}
-	*uuid = u;
-out:
-	return res;
-}
-
 static void add_deps_from_segment(struct ta_elf *elf, unsigned int type,
 				  vaddr_t addr, size_t memsz)
 {
@@ -759,9 +902,12 @@ static void add_deps_from_segment(struct ta_elf *elf, unsigned int type,
 	size_t val = 0;
 	TEE_UUID uuid = { };
 	char *str_tab = NULL;
+	size_t str_tab_sz = 0;
 
 	if (type != PT_DYNAMIC)
 		return;
+
+	check_phdr_in_range(elf, type, addr, memsz);
 
 	if (elf->is_32bit)
 		dyn_entsize = sizeof(Elf32_Dyn);
@@ -771,19 +917,23 @@ static void add_deps_from_segment(struct ta_elf *elf, unsigned int type,
 	assert(!(memsz % dyn_entsize));
 	num_dyns = memsz / dyn_entsize;
 
-	for (n = 0; n < num_dyns; n++) {
+	for (n = 0; n < num_dyns && !(str_tab && str_tab_sz); n++) {
 		read_dyn(elf, addr, n, &tag, &val);
-		if (tag == DT_STRTAB) {
+		if (tag == DT_STRTAB)
 			str_tab = (char *)(val + elf->load_addr);
-			break;
-		}
+		else if (tag == DT_STRSZ)
+			str_tab_sz = val;
 	}
+	check_range(elf, ".dynstr/STRTAB", str_tab, str_tab_sz);
 
 	for (n = 0; n < num_dyns; n++) {
 		read_dyn(elf, addr, n, &tag, &val);
 		if (tag != DT_NEEDED)
 			continue;
-		parse_uuid(str_tab + val, &uuid);
+		if (val >= str_tab_sz)
+			err(TEE_ERROR_BAD_FORMAT,
+			    "Offset into .dynstr/STRTAB out of range");
+		tee_uuid_from_str(&uuid, str_tab + val);
 		queue_elf(&uuid);
 	}
 }
@@ -810,8 +960,11 @@ static void add_dependencies(struct ta_elf *elf)
 static void copy_section_headers(struct ta_elf *elf)
 {
 	TEE_Result res = TEE_SUCCESS;
-	size_t sz = elf->e_shnum * elf->e_shentsize;
+	size_t sz = 0;
 	size_t offs = 0;
+
+	if (MUL_OVERFLOW(elf->e_shnum, elf->e_shentsize, &sz))
+		err(TEE_ERROR_BAD_FORMAT, "Section headers size overflow");
 
 	elf->shdr = malloc(sz);
 	if (!elf->shdr)
@@ -885,6 +1038,27 @@ static void clean_elf_load_main(struct ta_elf *elf)
 	TAILQ_INIT(&elf->segs);
 }
 
+#ifdef ARM64
+/*
+ * Allocates an offset in the TA's Thread Control Block for the TLS segment of
+ * the @elf module.
+ */
+#define TCB_HEAD_SIZE (2 * sizeof(long))
+static void set_tls_offset(struct ta_elf *elf)
+{
+	static size_t next_offs = TCB_HEAD_SIZE;
+
+	if (!elf->tls_start)
+		return;
+
+	/* Module has a TLS segment */
+	elf->tls_tcb_offs = next_offs;
+	next_offs += elf->tls_memsz;
+}
+#else
+static void set_tls_offset(struct ta_elf *elf __unused) {}
+#endif
+
 static void load_main(struct ta_elf *elf)
 {
 	init_elf(elf);
@@ -894,6 +1068,7 @@ static void load_main(struct ta_elf *elf)
 	copy_section_headers(elf);
 	save_symtab(elf);
 	close_handle(elf);
+	set_tls_offset(elf);
 
 	elf->head = (struct ta_head *)elf->load_addr;
 	if (elf->head->depr_entry != UINT64_MAX) {
@@ -965,8 +1140,16 @@ void ta_elf_load_main(const TEE_UUID *uuid, uint32_t *is_32bit, uint64_t *sp,
 void ta_elf_finalize_load_main(uint64_t *entry)
 {
 	struct ta_elf *elf = TAILQ_FIRST(&main_elf_queue);
+	TEE_Result res = TEE_SUCCESS;
 
 	assert(elf->is_main);
+
+	res = ta_elf_set_init_fini_info_compat(elf->is_32bit);
+	if (res)
+		err(res, "ta_elf_set_init_fini_info_compat");
+	res = ta_elf_set_elf_phdr_info(elf->is_32bit);
+	if (res)
+		err(res, "ta_elf_set_elf_phdr_info");
 
 	if (elf->is_legacy)
 		*entry = elf->head->depr_entry;
@@ -992,6 +1175,7 @@ void ta_elf_load_dependency(struct ta_elf *elf, bool is_32bit)
 	copy_section_headers(elf);
 	save_symtab(elf);
 	close_handle(elf);
+	set_tls_offset(elf);
 }
 
 void ta_elf_finalize_mappings(struct ta_elf *elf)
@@ -1007,9 +1191,9 @@ void ta_elf_finalize_mappings(struct ta_elf *elf)
 		uint32_t flags =  0;
 
 		if (seg->flags & PF_W)
-			flags |= PTA_SYSTEM_MAP_FLAG_WRITEABLE;
+			flags |= LDELF_MAP_FLAG_WRITEABLE;
 		if (seg->flags & PF_X)
-			flags |= PTA_SYSTEM_MAP_FLAG_EXECUTABLE;
+			flags |= LDELF_MAP_FLAG_EXECUTABLE;
 
 		res = sys_set_prot(va, seg->memsz, flags);
 		if (res)
@@ -1204,6 +1388,32 @@ void ta_elf_print_mappings(void *pctx, print_func_t print_func,
 }
 
 #ifdef CFG_UNWIND
+/* Called by libunw */
+bool find_exidx(vaddr_t addr, vaddr_t *idx_start, vaddr_t *idx_end)
+{
+	struct segment *seg = NULL;
+	struct ta_elf *elf = NULL;
+	vaddr_t a = 0;
+
+	TAILQ_FOREACH(elf, &main_elf_queue, link) {
+		if (addr < elf->load_addr)
+			continue;
+		a = addr - elf->load_addr;
+		TAILQ_FOREACH(seg, &elf->segs, link) {
+			if (a < seg->vaddr)
+				continue;
+			if (a - seg->vaddr < seg->filesz) {
+				*idx_start = elf->exidx_start + elf->load_addr;
+				*idx_end = elf->exidx_start + elf->load_addr +
+					   elf->exidx_size;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 void ta_elf_stack_trace_a32(uint32_t regs[16])
 {
 	struct unwind_state_arm32 state = { };
@@ -1219,3 +1429,411 @@ void ta_elf_stack_trace_a64(uint64_t fp, uint64_t sp, uint64_t pc)
 	print_stack_arm64(&state, ta_stack, ta_stack_size);
 }
 #endif
+
+TEE_Result ta_elf_add_library(const TEE_UUID *uuid)
+{
+	TEE_Result res = TEE_ERROR_GENERIC;
+	struct ta_elf *ta = TAILQ_FIRST(&main_elf_queue);
+	struct ta_elf *lib = ta_elf_find_elf(uuid);
+	struct ta_elf *elf = NULL;
+
+	if (lib)
+		return TEE_SUCCESS; /* Already mapped */
+
+	lib = queue_elf_helper(uuid);
+	if (!lib)
+		return TEE_ERROR_OUT_OF_MEMORY;
+
+	for (elf = lib; elf; elf = TAILQ_NEXT(elf, link))
+		ta_elf_load_dependency(elf, ta->is_32bit);
+
+	for (elf = lib; elf; elf = TAILQ_NEXT(elf, link)) {
+		ta_elf_relocate(elf);
+		ta_elf_finalize_mappings(elf);
+	}
+
+	for (elf = lib; elf; elf = TAILQ_NEXT(elf, link))
+		DMSG("ELF (%pUl) at %#"PRIxVA,
+		     (void *)&elf->uuid, elf->load_addr);
+
+	res = ta_elf_set_init_fini_info_compat(ta->is_32bit);
+	if (res)
+		return res;
+
+	return ta_elf_set_elf_phdr_info(ta->is_32bit);
+}
+
+/* Get address/size of .init_array and .fini_array from the dynamic segment */
+static void get_init_fini_array(struct ta_elf *elf, unsigned int type,
+				vaddr_t addr, size_t memsz, vaddr_t *init,
+				size_t *init_cnt, vaddr_t *fini,
+				size_t *fini_cnt)
+{
+	size_t addrsz = 0;
+	size_t dyn_entsize = 0;
+	size_t num_dyns = 0;
+	size_t n = 0;
+	unsigned int tag = 0;
+	size_t val = 0;
+
+	assert(type == PT_DYNAMIC);
+
+	check_phdr_in_range(elf, type, addr, memsz);
+
+	if (elf->is_32bit) {
+		dyn_entsize = sizeof(Elf32_Dyn);
+		addrsz = 4;
+	} else {
+		dyn_entsize = sizeof(Elf64_Dyn);
+		addrsz = 8;
+	}
+
+	assert(!(memsz % dyn_entsize));
+	num_dyns = memsz / dyn_entsize;
+
+	for (n = 0; n < num_dyns; n++) {
+		read_dyn(elf, addr, n, &tag, &val);
+		if (tag == DT_INIT_ARRAY)
+			*init = val + elf->load_addr;
+		else if (tag == DT_FINI_ARRAY)
+			*fini = val + elf->load_addr;
+		else if (tag == DT_INIT_ARRAYSZ)
+			*init_cnt = val / addrsz;
+		else if (tag == DT_FINI_ARRAYSZ)
+			*fini_cnt = val / addrsz;
+	}
+}
+
+/* Get address/size of .init_array and .fini_array in @elf (if present) */
+static void elf_get_init_fini_array(struct ta_elf *elf, vaddr_t *init,
+				    size_t *init_cnt, vaddr_t *fini,
+				    size_t *fini_cnt)
+{
+	size_t n = 0;
+
+	if (elf->is_32bit) {
+		Elf32_Phdr *phdr = elf->phdr;
+
+		for (n = 0; n < elf->e_phnum; n++) {
+			if (phdr[n].p_type == PT_DYNAMIC) {
+				get_init_fini_array(elf, phdr[n].p_type,
+						    phdr[n].p_vaddr,
+						    phdr[n].p_memsz,
+						    init, init_cnt, fini,
+						    fini_cnt);
+				return;
+			}
+		}
+	} else {
+		Elf64_Phdr *phdr = elf->phdr;
+
+		for (n = 0; n < elf->e_phnum; n++) {
+			if (phdr[n].p_type == PT_DYNAMIC) {
+				get_init_fini_array(elf, phdr[n].p_type,
+						    phdr[n].p_vaddr,
+						    phdr[n].p_memsz,
+						    init, init_cnt, fini,
+						    fini_cnt);
+				return;
+			}
+		}
+	}
+}
+
+/*
+ * Deprecated by __elf_phdr_info below. Kept for compatibility.
+ *
+ * Pointers to ELF initialization and finalization functions are extracted by
+ * ldelf and stored on the TA heap, then exported to the TA via the global
+ * symbol __init_fini_info. libutee in OP-TEE 3.9.0 uses this mechanism.
+ */
+
+struct __init_fini {
+	uint32_t flags;
+	uint16_t init_size;
+	uint16_t fini_size;
+
+	void (**init)(void); /* @init_size entries */
+	void (**fini)(void); /* @fini_size entries */
+};
+
+#define __IFS_VALID            BIT(0)
+#define __IFS_INIT_HAS_RUN     BIT(1)
+#define __IFS_FINI_HAS_RUN     BIT(2)
+
+struct __init_fini_info {
+	uint32_t reserved;
+	uint16_t size;
+	uint16_t pad;
+	struct __init_fini *ifs; /* @size entries */
+};
+
+/* 32-bit variants for a 64-bit ldelf to access a 32-bit TA */
+
+struct __init_fini32 {
+	uint32_t flags;
+	uint16_t init_size;
+	uint16_t fini_size;
+	uint32_t init;
+	uint32_t fini;
+};
+
+struct __init_fini_info32 {
+	uint32_t reserved;
+	uint16_t size;
+	uint16_t pad;
+	uint32_t ifs;
+};
+
+static TEE_Result realloc_ifs(vaddr_t va, size_t cnt, bool is_32bit)
+{
+	struct __init_fini_info32 *info32 = (struct __init_fini_info32 *)va;
+	struct __init_fini_info *info = (struct __init_fini_info *)va;
+	struct __init_fini32 *ifs32 = NULL;
+	struct __init_fini *ifs = NULL;
+	size_t prev_cnt = 0;
+	void *ptr = NULL;
+
+	if (is_32bit) {
+		ptr = (void *)(vaddr_t)info32->ifs;
+		ptr = realloc(ptr, cnt * sizeof(struct __init_fini32));
+		if (!ptr)
+			return TEE_ERROR_OUT_OF_MEMORY;
+		ifs32 = ptr;
+		prev_cnt = info32->size;
+		if (cnt > prev_cnt)
+			memset(ifs32 + prev_cnt, 0,
+			       (cnt - prev_cnt) * sizeof(*ifs32));
+		info32->ifs = (uint32_t)(vaddr_t)ifs32;
+		info32->size = cnt;
+	} else {
+		ptr = realloc(info->ifs, cnt * sizeof(struct __init_fini));
+		if (!ptr)
+			return TEE_ERROR_OUT_OF_MEMORY;
+		ifs = ptr;
+		prev_cnt = info->size;
+		if (cnt > prev_cnt)
+			memset(ifs + prev_cnt, 0,
+			       (cnt - prev_cnt) * sizeof(*ifs));
+		info->ifs = ifs;
+		info->size = cnt;
+	}
+
+	return TEE_SUCCESS;
+}
+
+static void fill_ifs(vaddr_t va, size_t idx, struct ta_elf *elf, bool is_32bit)
+{
+	struct __init_fini_info32 *info32 = (struct __init_fini_info32 *)va;
+	struct __init_fini_info *info = (struct __init_fini_info *)va;
+	struct __init_fini32 *ifs32 = NULL;
+	struct __init_fini *ifs = NULL;
+	size_t init_cnt = 0;
+	size_t fini_cnt = 0;
+	vaddr_t init = 0;
+	vaddr_t fini = 0;
+
+	if (is_32bit) {
+		assert(idx < info32->size);
+		ifs32 = &((struct __init_fini32 *)(vaddr_t)info32->ifs)[idx];
+
+		if (ifs32->flags & __IFS_VALID)
+			return;
+
+		elf_get_init_fini_array(elf, &init, &init_cnt, &fini,
+					&fini_cnt);
+
+		ifs32->init = (uint32_t)init;
+		ifs32->init_size = init_cnt;
+
+		ifs32->fini = (uint32_t)fini;
+		ifs32->fini_size = fini_cnt;
+
+		ifs32->flags |= __IFS_VALID;
+	} else {
+		assert(idx < info->size);
+		ifs = &info->ifs[idx];
+
+		if (ifs->flags & __IFS_VALID)
+			return;
+
+		elf_get_init_fini_array(elf, &init, &init_cnt, &fini,
+					&fini_cnt);
+
+		ifs->init = (void (**)(void))init;
+		ifs->init_size = init_cnt;
+
+		ifs->fini = (void (**)(void))fini;
+		ifs->fini_size = fini_cnt;
+
+		ifs->flags |= __IFS_VALID;
+	}
+}
+
+/*
+ * Set or update __init_fini_info in the TA with information from the ELF
+ * queue
+ */
+TEE_Result ta_elf_set_init_fini_info_compat(bool is_32bit)
+{
+	struct __init_fini_info *info = NULL;
+	TEE_Result res = TEE_SUCCESS;
+	struct ta_elf *elf = NULL;
+	vaddr_t info_va = 0;
+	size_t cnt = 0;
+
+	res = ta_elf_resolve_sym("__init_fini_info", &info_va, NULL, NULL);
+	if (res) {
+		if (res == TEE_ERROR_ITEM_NOT_FOUND) {
+			/*
+			 * Not an error, only TAs linked against libutee from
+			 * OP-TEE 3.9.0 have this symbol.
+			 */
+			return TEE_SUCCESS;
+		}
+		return res;
+	}
+	assert(info_va);
+
+	info = (struct __init_fini_info *)info_va;
+	if (info->reserved)
+		return TEE_ERROR_NOT_SUPPORTED;
+
+	TAILQ_FOREACH(elf, &main_elf_queue, link)
+		cnt++;
+
+	/* Queue has at least one file (main) */
+	assert(cnt);
+
+	res = realloc_ifs(info_va, cnt, is_32bit);
+	if (res)
+		goto err;
+
+	cnt = 0;
+	TAILQ_FOREACH(elf, &main_elf_queue, link) {
+		fill_ifs(info_va, cnt, elf, is_32bit);
+		cnt++;
+	}
+
+	return TEE_SUCCESS;
+err:
+	free(info);
+	return res;
+}
+
+static TEE_Result realloc_elf_phdr_info(vaddr_t va, size_t cnt, bool is_32bit)
+{
+	struct __elf_phdr_info32 *info32 = (struct __elf_phdr_info32 *)va;
+	struct __elf_phdr_info *info = (struct __elf_phdr_info *)va;
+	struct dl_phdr_info32 *dlpi32 = NULL;
+	struct dl_phdr_info *dlpi = NULL;
+	size_t prev_cnt = 0;
+	void *ptr = NULL;
+
+	if (is_32bit) {
+		ptr = (void *)(vaddr_t)info32->dlpi;
+		ptr = realloc(ptr, cnt * sizeof(*dlpi32));
+		if (!ptr)
+			return TEE_ERROR_OUT_OF_MEMORY;
+		dlpi32 = ptr;
+		prev_cnt = info32->count;
+		if (cnt > prev_cnt)
+			memset(dlpi32 + prev_cnt, 0,
+			       (cnt - prev_cnt) * sizeof(*dlpi32));
+		info32->dlpi = (uint32_t)(vaddr_t)dlpi32;
+		info32->count = cnt;
+	} else {
+		ptr = realloc(info->dlpi, cnt * sizeof(*dlpi));
+		if (!ptr)
+			return TEE_ERROR_OUT_OF_MEMORY;
+		dlpi = ptr;
+		prev_cnt = info->count;
+		if (cnt > prev_cnt)
+			memset(dlpi + prev_cnt, 0,
+			       (cnt - prev_cnt) * sizeof(*dlpi));
+		info->dlpi = dlpi;
+		info->count = cnt;
+	}
+
+	return TEE_SUCCESS;
+}
+
+static void fill_elf_phdr_info(vaddr_t va, size_t idx, struct ta_elf *elf,
+			       bool is_32bit)
+{
+	struct __elf_phdr_info32 *info32 = (struct __elf_phdr_info32 *)va;
+	struct __elf_phdr_info *info = (struct __elf_phdr_info *)va;
+	struct dl_phdr_info32 *dlpi32 = NULL;
+	struct dl_phdr_info *dlpi = NULL;
+
+	if (is_32bit) {
+		assert(idx < info32->count);
+		dlpi32 = (struct dl_phdr_info32 *)(vaddr_t)info32->dlpi + idx;
+
+		dlpi32->dlpi_addr = elf->load_addr;
+		if (elf->soname)
+			dlpi32->dlpi_name = (vaddr_t)elf->soname;
+		else
+			dlpi32->dlpi_name = (vaddr_t)&info32->zero;
+		dlpi32->dlpi_phdr = (vaddr_t)elf->phdr;
+		dlpi32->dlpi_phnum = elf->e_phnum;
+		dlpi32->dlpi_adds = 1; /* No unloading on dlclose() currently */
+		dlpi32->dlpi_subs = 0; /* No unloading on dlclose() currently */
+		dlpi32->dlpi_tls_modid = elf->tls_mod_id;
+		dlpi32->dlpi_tls_data = elf->tls_start;
+	} else {
+		assert(idx < info->count);
+		dlpi = info->dlpi + idx;
+
+		dlpi->dlpi_addr = elf->load_addr;
+		if (elf->soname)
+			dlpi->dlpi_name = elf->soname;
+		else
+			dlpi->dlpi_name = &info32->zero;
+		dlpi->dlpi_phdr = elf->phdr;
+		dlpi->dlpi_phnum = elf->e_phnum;
+		dlpi->dlpi_adds = 1; /* No unloading on dlclose() currently */
+		dlpi->dlpi_subs = 0; /* No unloading on dlclose() currently */
+		dlpi->dlpi_tls_modid = elf->tls_mod_id;
+		dlpi->dlpi_tls_data = (void *)elf->tls_start;
+	}
+}
+
+/* Set or update __elf_hdr_info in the TA with information from the ELF queue */
+TEE_Result ta_elf_set_elf_phdr_info(bool is_32bit)
+{
+	struct __elf_phdr_info *info = NULL;
+	TEE_Result res = TEE_SUCCESS;
+	struct ta_elf *elf = NULL;
+	vaddr_t info_va = 0;
+	size_t cnt = 0;
+
+	res = ta_elf_resolve_sym("__elf_phdr_info", &info_va, NULL, NULL);
+	if (res) {
+		if (res == TEE_ERROR_ITEM_NOT_FOUND) {
+			/* Older TA */
+			return TEE_SUCCESS;
+		}
+		return res;
+	}
+	assert(info_va);
+
+	info = (struct __elf_phdr_info *)info_va;
+	if (info->reserved)
+		return TEE_ERROR_NOT_SUPPORTED;
+
+	TAILQ_FOREACH(elf, &main_elf_queue, link)
+		cnt++;
+
+	res = realloc_elf_phdr_info(info_va, cnt, is_32bit);
+	if (res)
+		return res;
+
+	cnt = 0;
+	TAILQ_FOREACH(elf, &main_elf_queue, link) {
+		fill_elf_phdr_info(info_va, cnt, elf, is_32bit);
+		cnt++;
+	}
+
+	return TEE_SUCCESS;
+}

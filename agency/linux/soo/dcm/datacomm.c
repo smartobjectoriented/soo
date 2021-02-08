@@ -27,6 +27,7 @@
 #include <linux/bug.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 
 #include <soo/netsimul.h>
 
@@ -42,8 +43,6 @@
 
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
-
-#undef CONFIG_ARM_PSCI
 
 /* The main requester descriptor managed by Soolink */
 static sl_desc_t *datacomm_sl_desc = NULL;
@@ -82,7 +81,7 @@ static int recv_thread_task_fn(void *data) {
 	void *ME_compressed_buffer, *ME_decompressed_buffer;
 	size_t compressed_size, decompressed_size;
 	int ret;
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 	int size;
 	void *ME_decrypt;
 #endif
@@ -95,7 +94,7 @@ static int recv_thread_task_fn(void *data) {
 		if (!compressed_size)
 			continue;
 
-#ifdef CONFIG_ARM_PSCI
+#ifdef CONFIG_SOO_CORE_ASF
 		size = security_decrypt(ME_compressed_buffer, compressed_size, &ME_decrypt);
 		if (size <= 0)
 			continue;
@@ -117,7 +116,7 @@ static int recv_thread_task_fn(void *data) {
 		/* Release the original compressed buffer */
 		kfree(ME_decrypt);
 
-#else /* !CONFIG_ARM_PSCI */
+#else /* !CONFIG_SOO_CORE_ASF */
 
 		if ((ret = decompress_data(&ME_decompressed_buffer, ME_compressed_buffer, compressed_size)) < 0) {
 			/*
@@ -129,7 +128,7 @@ static int recv_thread_task_fn(void *data) {
 			vfree((void *) ME_compressed_buffer);
 			continue;
 		}
-#endif /* !CONFIG_ARM_PSCI */
+#endif /* !CONFIG_SOO_CORE_ASF */
 
 		decompressed_size = ret;
 

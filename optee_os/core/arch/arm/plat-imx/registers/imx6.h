@@ -30,6 +30,8 @@
 #ifndef __IMX6_H__
 #define __IMX6_H__
 
+#include <registers/imx6-crm.h>
+
 #define UART1_BASE			0x2020000
 #define IOMUXC_BASE			0x020E0000
 #define IOMUXC_SIZE			0x4000
@@ -76,6 +78,8 @@
 
 #if defined(CFG_MX6UL) || defined(CFG_MX6ULL)
 #define GICC_OFFSET			0x2000
+#define UART6_BASE			0x021FC000
+#define UART7_BASE			0x02018000
 /* No CAAM on i.MX6ULL */
 #define CAAM_BASE			0x02140000
 #else
@@ -91,6 +95,7 @@
 #define CSU_CSL_END			0xA0
 #define	CSU_ACCESS_ALL			0x00FF00FF
 #define CSU_SETTING_LOCK		0x01000100
+#define CSU_SA				0x218
 
 /* Used in suspend/resume and low power idle */
 #define MX6Q_SRC_GPR1			0x20
@@ -128,5 +133,24 @@
 #define IOMUXC_GPR10_OCRAM_TZ_EN_LOCK_MASK_6UL		GENMASK_32(26, 26)
 #define IOMUXC_GPR10_OCRAM_TZ_ADDR_LOCK_OFFSET_6UL	(27)
 #define IOMUXC_GPR10_OCRAM_TZ_ADDR_LOCK_MASK_6UL	GENMASK_32(31, 27)
+
+#ifdef CFG_MX6SL
+#define DIGPROG_OFFSET	0x280
+#else
+#define DIGPROG_OFFSET	0x260
+#endif
+
+#if defined(CFG_MX6ULL)
+#define I2C1_BASE		0x021a0000
+#define I2C2_BASE		0x021a4000
+#define I2C3_BASE		0x02184000
+
+#define IOMUXC_I2C1_SCL_CFG_OFF	0x340
+#define IOMUXC_I2C1_SDA_CFG_OFF	0x344
+#define IOMUXC_I2C1_SCL_MUX_OFF	0xb4
+#define IOMUXC_I2C1_SDA_MUX_OFF	0xb8
+#define IOMUXC_I2C1_SCL_INP_OFF	0x5a4
+#define IOMUXC_I2C1_SDA_INP_OFF	0x5a8
+#endif
 
 #endif /* __IMX6_H__ */
