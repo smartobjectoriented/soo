@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,6 +9,7 @@
 #include <arch_helpers.h>
 #include <common/debug.h>
 #include <common/desc_image_load.h>
+#include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
 
 #include <sgi_variant.h>
@@ -61,6 +62,13 @@ static int plat_sgi_append_config_node(void)
 		return -1;
 	}
 
+	platcfg = plat_arm_sgi_get_multi_chip_mode();
+	err = fdt_setprop_u32(fdt, nodeoffset, "multi-chip-mode", platcfg);
+	if (err < 0) {
+		ERROR("Failed to set multi-chip-mode\n");
+		return -1;
+	}
+
 	flush_dcache_range((uintptr_t)fdt, mem_params->image_info.image_size);
 
 	return 0;
@@ -72,14 +80,11 @@ static int plat_sgi_append_config_node(void)
 bl_params_t *plat_get_next_bl_params(void)
 {
 	int ret;
-	bl_params_t *next_bl_params;
 
 	ret = plat_sgi_append_config_node();
 	if (ret != 0)
 		panic();
 
-	next_bl_params = get_next_bl_params_from_mem_params_desc();
-	populate_next_bl_params_config(next_bl_params);
-
-	return next_bl_params;
+	return arm_get_next_bl_params();
 }
+

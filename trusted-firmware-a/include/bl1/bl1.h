@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -26,8 +26,8 @@
 /*
  * BL1 SMC version
  */
-#define BL1_SMC_MAJOR_VER		0x0
-#define BL1_SMC_MINOR_VER		0x1
+#define BL1_SMC_MAJOR_VER		UL(0x0)
+#define BL1_SMC_MINOR_VER		UL(0x1)
 
 /*
  * Defines for FWU SMC function ids.
@@ -61,28 +61,29 @@
 #define is_fwu_fid(_fid) \
     ((_fid >= FWU_SMC_FID_START) && (_fid <= FWU_SMC_FID_END))
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <lib/cassert.h>
 
 struct entry_point_info;
 
-register_t bl1_smc_wrapper(uint32_t smc_fid,
+u_register_t bl1_smc_wrapper(uint32_t smc_fid,
 	void *cookie,
 	void *handle,
 	unsigned int flags);
 
-register_t bl1_smc_handler(unsigned int smc_fid,
-	register_t x1,
-	register_t x2,
-	register_t x3,
-	register_t x4,
+u_register_t bl1_smc_handler(unsigned int smc_fid,
+	u_register_t x1,
+	u_register_t x2,
+	u_register_t x3,
+	u_register_t x4,
 	void *cookie,
 	void *handle,
 	unsigned int flags);
 
 void bl1_print_next_bl_ep_info(const struct entry_point_info *bl_ep_info);
 
+void bl1_setup(void);
 void bl1_main(void);
 void bl1_plat_prepare_exit(entry_point_info_t *ep_info);
 
@@ -97,5 +98,5 @@ CASSERT(FWU_NUM_SMC_CALLS == 	\
 void bl1_calc_bl2_mem_layout(const meminfo_t *bl1_mem_layout,
 			meminfo_t *bl2_mem_layout);
 
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 #endif /* BL1_H */

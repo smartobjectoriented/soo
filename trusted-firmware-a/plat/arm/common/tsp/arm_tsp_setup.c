@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -13,11 +13,7 @@
 #include <common/debug.h>
 #include <drivers/arm/pl011.h>
 #include <drivers/console.h>
-
-#include <arm_def.h>
-#include <plat_arm.h>
-
-#define BL32_END (unsigned long)(&__BL32_END__)
+#include <plat/arm/common/plat_arm.h>
 
 /* Weak definitions may be overridden in specific ARM standard platform */
 #pragma weak tsp_early_platform_setup
@@ -32,13 +28,10 @@
 /*******************************************************************************
  * Initialize the UART
  ******************************************************************************/
-#if MULTI_CONSOLE_API
-static console_pl011_t arm_tsp_runtime_console;
-#endif
+static console_t arm_tsp_runtime_console;
 
 void arm_tsp_early_platform_setup(void)
 {
-#if MULTI_CONSOLE_API
 	/*
 	 * Initialize a different console than already in use to display
 	 * messages from TSP
@@ -50,12 +43,8 @@ void arm_tsp_early_platform_setup(void)
 	if (rc == 0)
 		panic();
 
-	console_set_scope(&arm_tsp_runtime_console.console,
+	console_set_scope(&arm_tsp_runtime_console,
 			  CONSOLE_FLAG_BOOT | CONSOLE_FLAG_RUNTIME);
-#else
-	console_init(PLAT_ARM_TSP_UART_BASE, PLAT_ARM_TSP_UART_CLK_IN_HZ,
-			ARM_CONSOLE_BAUDRATE);
-#endif /* MULTI_CONSOLE_API */
 }
 
 void tsp_early_platform_setup(void)
@@ -78,7 +67,7 @@ void tsp_platform_setup(void)
 void tsp_plat_arch_setup(void)
 {
 #if USE_COHERENT_MEM
-	/* Ensure ARM platforms dont use coherent memory in TSP */
+	/* Ensure ARM platforms don't use coherent memory in TSP */
 	assert((BL_COHERENT_RAM_END - BL_COHERENT_RAM_BASE) == 0U);
 #endif
 
@@ -90,4 +79,8 @@ void tsp_plat_arch_setup(void)
 
 	setup_page_tables(bl_regions, plat_arm_get_mmap());
 	enable_mmu_el1(0);
+
+#if PLAT_RO_XLAT_TABLES
+	arm_xlat_make_tables_readonly();
+#endif
 }

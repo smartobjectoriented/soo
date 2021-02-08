@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -31,10 +31,18 @@ extern unsigned int bl_mem_params_desc_num;
 
 /* BL image loading utility functions */
 void flush_bl_params_desc(void);
+void flush_bl_params_desc_args(bl_mem_params_node_t *mem_params_desc_ptr,
+	unsigned int mem_params_desc_num,
+	bl_params_t *next_bl_params_ptr);
 int get_bl_params_node_index(unsigned int image_id);
 bl_mem_params_node_t *get_bl_mem_params_node(unsigned int image_id);
 bl_load_info_t *get_bl_load_info_from_mem_params_desc(void);
 bl_params_t *get_next_bl_params_from_mem_params_desc(void);
 void populate_next_bl_params_config(bl_params_t *bl2_to_next_bl_params);
+
+/* Helper to extract BL32/BL33 entry point info from arg0 passed to BL31. */
+void bl31_params_parse_helper(u_register_t param,
+			      entry_point_info_t *bl32_ep_info_out,
+			      entry_point_info_t *bl33_ep_info_out);
 
 #endif /* DESC_IMAGE_LOAD_H */

@@ -24,16 +24,8 @@
 #include "hi3798cv200.h"
 #include "plat_private.h"
 
-/* Memory ranges for code and read only data sections */
-#define BL2_RO_BASE	(unsigned long)(&__RO_START__)
-#define BL2_RO_LIMIT	(unsigned long)(&__RO_END__)
-
-/* Memory ranges for coherent memory section */
-#define BL2_COHERENT_RAM_BASE	(unsigned long)(&__COHERENT_RAM_START__)
-#define BL2_COHERENT_RAM_LIMIT	(unsigned long)(&__COHERENT_RAM_END__)
-
 static meminfo_t bl2_tzram_layout __aligned(CACHE_WRITEBACK_GRANULE);
-static console_pl011_t console;
+static console_t console;
 
 /*******************************************************************************
  * Transfer SCP_BL2 from Trusted RAM using the SCP Download protocol.
@@ -62,7 +54,7 @@ uint32_t poplar_get_spsr_for_bl32_entry(void)
 /*******************************************************************************
  * Gets SPSR for BL33 entry
  ******************************************************************************/
-#ifndef AARCH32
+#ifdef __aarch64__
 uint32_t poplar_get_spsr_for_bl33_entry(void)
 {
 	unsigned long el_status;
@@ -101,7 +93,7 @@ uint32_t poplar_get_spsr_for_bl33_entry(void)
 			SPSR_E_LITTLE, DISABLE_ALL_EXCEPTIONS);
 	return spsr;
 }
-#endif /* AARCH32 */
+#endif /* __aarch64__ */
 
 int poplar_bl2_handle_post_image_load(unsigned int image_id)
 {
@@ -115,7 +107,7 @@ int poplar_bl2_handle_post_image_load(unsigned int image_id)
 	assert(bl_mem_params);
 
 	switch (image_id) {
-#ifdef AARCH64
+#ifdef __aarch64__
 	case BL32_IMAGE_ID:
 #ifdef SPD_opteed
 		pager_mem_params = get_bl_mem_params_node(BL32_EXTRA1_IMAGE_ID);
@@ -206,10 +198,10 @@ void bl2_plat_arch_setup(void)
 {
 	plat_configure_mmu_el1(bl2_tzram_layout.total_base,
 			       bl2_tzram_layout.total_size,
-			       BL2_RO_BASE,
-			       BL2_RO_LIMIT,
-			       BL2_COHERENT_RAM_BASE,
-			       BL2_COHERENT_RAM_LIMIT);
+			       BL_CODE_BASE,
+			       BL_CODE_END,
+			       BL_COHERENT_RAM_BASE,
+			       BL_COHERENT_RAM_END);
 }
 
 void bl2_platform_setup(void)

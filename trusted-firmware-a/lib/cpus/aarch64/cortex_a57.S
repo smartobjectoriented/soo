@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -59,6 +60,13 @@ func cortex_a57_disable_ext_debug
 	mov	x0, #1
 	msr	osdlr_el1, x0
 	isb
+#if ERRATA_A57_817169
+	/*
+	 * Invalidate any TLB address
+	 */
+	mov	x0, #0
+	tlbi	vae3, x0
+#endif
 	dsb	sy
 	ret
 endfunc cortex_a57_disable_ext_debug
@@ -131,6 +139,48 @@ func check_errata_813420
 	mov	x1, #0x00
 	b	cpu_rev_var_ls
 endfunc check_errata_813420
+
+	/* ---------------------------------------------------
+	 * Errata Workaround for Cortex A57 Errata #814670.
+	 * This applies only to revision r0p0 of Cortex A57.
+	 * Inputs:
+	 * x0: variant[4:7] and revision[0:3] of current cpu.
+	 * Shall clobber: x0-x17
+	 * ---------------------------------------------------
+	 */
+func errata_a57_814670_wa
+	/*
+	 * Compare x0 against revision r0p0
+	 */
+	mov	x17, x30
+	bl	check_errata_814670
+	cbz	x0, 1f
+	mrs	x1, CORTEX_A57_CPUACTLR_EL1
+	orr	x1, x1, #CORTEX_A57_CPUACTLR_EL1_DIS_DMB_NULLIFICATION
+	msr	CORTEX_A57_CPUACTLR_EL1, x1
+	isb
+1:
+	ret	x17
+endfunc errata_a57_814670_wa
+
+func check_errata_814670
+	mov	x1, #0x00
+	b	cpu_rev_var_ls
+endfunc check_errata_814670
+
+	/* ----------------------------------------------------
+	 * Errata Workaround for Cortex A57 Errata #817169.
+	 * This applies only to revision <= r0p1 of Cortex A57.
+	 * ----------------------------------------------------
+	 */
+func check_errata_817169
+	/*
+	 * Even though this is only needed for revision <= r0p1, it
+	 * is always applied because of the low cost of the workaround.
+	 */
+	mov	x0, #ERRATA_APPLIES
+	ret
+endfunc check_errata_817169
 
 	/* --------------------------------------------------------------------
 	 * Disable the over-read from the LDNP instruction.
@@ -346,6 +396,20 @@ func check_errata_cve_2018_3639
 	ret
 endfunc check_errata_cve_2018_3639
 
+	/* --------------------------------------------------
+	 * Errata workaround for Cortex A57 Errata #1319537.
+	 * This applies to all revisions of Cortex A57.
+	 * --------------------------------------------------
+	 */
+func check_errata_1319537
+#if ERRATA_A57_1319537
+	mov	x0, #ERRATA_APPLIES
+#else
+	mov	x0, #ERRATA_MISSING
+#endif
+	ret
+endfunc check_errata_1319537
+
 	/* -------------------------------------------------
 	 * The CPU Ops reset function for Cortex-A57.
 	 * Shall clobber: x0-x19
@@ -364,6 +428,11 @@ func cortex_a57_reset_func
 #if ERRATA_A57_813420
 	mov	x0, x18
 	bl	errata_a57_813420_wa
+#endif
+
+#if ERRATA_A57_814670
+	mov	x0, x18
+	bl	errata_a57_814670_wa
 #endif
 
 #if A57_DISABLE_NON_TEMPORAL_HINT
@@ -413,6 +482,17 @@ func cortex_a57_reset_func
 	msr	CORTEX_A57_CPUACTLR_EL1, x0
 	isb
 	dsb	sy
+#endif
+
+#if A57_ENABLE_NONCACHEABLE_LOAD_FWD
+	/* ---------------------------------------------
+	 * Enable higher performance non-cacheable load
+	 * forwarding
+	 * ---------------------------------------------
+	 */
+	mrs	x0, CORTEX_A57_CPUACTLR_EL1
+	orr	x0, x0, #CORTEX_A57_CPUACTLR_EL1_EN_NC_LOAD_FWD
+	msr	CORTEX_A57_CPUACTLR_EL1, x0
 #endif
 
 	/* ---------------------------------------------
@@ -537,6 +617,8 @@ func cortex_a57_errata_report
 	report_errata ERRATA_A57_806969, cortex_a57, 806969
 	report_errata ERRATA_A57_813419, cortex_a57, 813419
 	report_errata ERRATA_A57_813420, cortex_a57, 813420
+	report_errata ERRATA_A57_814670, cortex_a57, 814670
+	report_errata ERRATA_A57_817169, cortex_a57, 817169
 	report_errata A57_DISABLE_NON_TEMPORAL_HINT, cortex_a57, \
 		disable_ldnp_overread
 	report_errata ERRATA_A57_826974, cortex_a57, 826974
@@ -545,6 +627,7 @@ func cortex_a57_errata_report
 	report_errata ERRATA_A57_829520, cortex_a57, 829520
 	report_errata ERRATA_A57_833471, cortex_a57, 833471
 	report_errata ERRATA_A57_859972, cortex_a57, 859972
+	report_errata ERRATA_A57_1319537, cortex_a57, 1319537
 	report_errata WORKAROUND_CVE_2017_5715, cortex_a57, cve_2017_5715
 	report_errata WORKAROUND_CVE_2018_3639, cortex_a57, cve_2018_3639
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -53,4 +53,20 @@ void mbedtls_init(void)
 #endif
 		ready = 1;
 	}
+}
+
+/*
+ * The following helper function simply returns the default allocated heap.
+ * It can be used by platforms for their plat_get_mbedtls_heap() implementation.
+ */
+int get_mbedtls_heap_helper(void **heap_addr, size_t *heap_size)
+{
+	static unsigned char heap[TF_MBEDTLS_HEAP_SIZE];
+
+	assert(heap_addr != NULL);
+	assert(heap_size != NULL);
+
+	*heap_addr = heap;
+	*heap_size = sizeof(heap);
+	return 0;
 }

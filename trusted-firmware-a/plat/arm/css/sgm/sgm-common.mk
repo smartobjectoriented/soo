@@ -1,8 +1,10 @@
 #
-# Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
+
+CSS_USE_SCMI_SDS_DRIVER	:=	1
 
 CSS_SGM_BASE		:=	plat/arm/css/sgm
 
@@ -12,7 +14,7 @@ PLAT_BL_COMMON_SOURCES	:=	${CSS_SGM_BASE}/sgm_mmap_config.c	\
 				${CSS_SGM_BASE}/aarch64/css_sgm_helpers.S
 
 SECURITY_SOURCES	:=	drivers/arm/tzc/tzc_dmc500.c		\
-				plat/arm/common/arm_tzc_dmc500.c 	\
+				plat/arm/common/arm_tzc_dmc500.c	\
 				${CSS_SGM_BASE}/sgm_security.c
 
 SGM_CPU_SOURCES		:=	lib/cpus/aarch64/cortex_a55.S		\
@@ -20,20 +22,24 @@ SGM_CPU_SOURCES		:=	lib/cpus/aarch64/cortex_a55.S		\
 
 INTERCONNECT_SOURCES	:=	${CSS_SGM_BASE}/sgm_interconnect.c
 
-SGM_GIC_SOURCES		:=	drivers/arm/gic/common/gic_common.c	\
-				drivers/arm/gic/v3/gicv3_main.c		\
-				drivers/arm/gic/v3/gicv3_helpers.c	\
+# GIC-600 configuration
+GICV3_SUPPORT_GIC600	:=	1
+
+# Include GICv3 driver files
+include drivers/arm/gic/v3/gicv3.mk
+
+SGM_GIC_SOURCES		:=	${GICV3_SOURCES}			\
 				plat/common/plat_gicv3.c		\
-				plat/arm/common/arm_gicv3.c		\
-				drivers/arm/gic/v3/gic600.c		\
-				drivers/arm/gic/v3/arm_gicv3_common.c
+				plat/arm/common/arm_gicv3.c
 
 BL1_SOURCES		+=	$(SGM_CPU_SOURCES)			\
 				${INTERCONNECT_SOURCES}			\
-				${CSS_SGM_BASE}/sgm_bl1_setup.c	\
-				${CSS_SGM_BASE}/sgm_plat_config.c
+				${CSS_SGM_BASE}/sgm_bl1_setup.c		\
+				${CSS_SGM_BASE}/sgm_plat_config.c	\
+				drivers/arm/sp805/sp805.c
 
-BL2_SOURCES		+=	${SECURITY_SOURCES}
+BL2_SOURCES		+=	${SECURITY_SOURCES}			\
+				${CSS_SGM_BASE}/sgm_plat_config.c
 
 BL2U_SOURCES		+=	${SECURITY_SOURCES}
 
@@ -41,7 +47,7 @@ BL31_SOURCES		+=	$(SGM_CPU_SOURCES)			\
 				${INTERCONNECT_SOURCES}			\
 				${SECURITY_SOURCES}			\
 				${SGM_GIC_SOURCES}			\
-				${CSS_SGM_BASE}/sgm_topology.c	\
+				${CSS_SGM_BASE}/sgm_topology.c		\
 				${CSS_SGM_BASE}/sgm_bl31_setup.c	\
 				${CSS_SGM_BASE}/sgm_plat_config.c
 

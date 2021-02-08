@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -7,6 +7,7 @@
 #define CPU_MACROS_S
 
 #include <arch.h>
+#include <assert_macros.S>
 #include <lib/cpus/errata_report.h>
 
 #define CPU_IMPL_PN_MASK	(MIDR_IMPL_MASK << MIDR_IMPL_SHIFT) | \
@@ -24,10 +25,6 @@
 /* Word size for 64-bit CPUs */
 #define CPU_WORD_SIZE			8
 
-#if defined(IMAGE_BL1) || defined(IMAGE_BL31) ||(defined(IMAGE_BL2) && BL2_AT_EL3)
-#define IMAGE_AT_EL3
-#endif
-
 /*
  * Whether errata status needs reporting. Errata status is printed in debug
  * builds for both BL1 and BL31 images.
@@ -42,6 +39,7 @@
 	.equ	CPU_MIDR_SIZE, CPU_WORD_SIZE
 	.equ	CPU_EXTRA1_FUNC_SIZE, CPU_WORD_SIZE
 	.equ	CPU_EXTRA2_FUNC_SIZE, CPU_WORD_SIZE
+	.equ	CPU_E_HANDLER_FUNC_SIZE, CPU_WORD_SIZE
 	.equ	CPU_RESET_FUNC_SIZE, CPU_WORD_SIZE
 	.equ	CPU_PWR_DWN_OPS_SIZE, CPU_WORD_SIZE * CPU_MAX_PWR_DWN_OPS
 	.equ	CPU_ERRATA_FUNC_SIZE, CPU_WORD_SIZE
@@ -82,7 +80,8 @@
 	.equ	CPU_RESET_FUNC, CPU_MIDR + CPU_MIDR_SIZE
 	.equ	CPU_EXTRA1_FUNC, CPU_RESET_FUNC + CPU_RESET_FUNC_SIZE
 	.equ	CPU_EXTRA2_FUNC, CPU_EXTRA1_FUNC + CPU_EXTRA1_FUNC_SIZE
-	.equ	CPU_PWR_DWN_OPS, CPU_EXTRA2_FUNC + CPU_EXTRA2_FUNC_SIZE
+	.equ	CPU_E_HANDLER_FUNC, CPU_EXTRA2_FUNC + CPU_EXTRA2_FUNC_SIZE
+	.equ	CPU_PWR_DWN_OPS, CPU_E_HANDLER_FUNC + CPU_E_HANDLER_FUNC_SIZE
 	.equ	CPU_ERRATA_FUNC, CPU_PWR_DWN_OPS + CPU_PWR_DWN_OPS_SIZE
 	.equ	CPU_ERRATA_LOCK, CPU_ERRATA_FUNC + CPU_ERRATA_FUNC_SIZE
 	.equ	CPU_ERRATA_PRINTED, CPU_ERRATA_LOCK + CPU_ERRATA_LOCK_SIZE
@@ -138,6 +137,8 @@
 	 *	This is a placeholder for future per CPU operations.  Currently
 	 *	some CPUs use this entry to set a function to disable the
 	 *	workaround for CVE-2018-3639.
+	 * _e_handler:
+	 *	This is a placeholder for future per CPU exception handlers.
 	 * _power_down_ops:
 	 *	Comma-separated list of functions to perform power-down
 	 *	operatios on the CPU. At least one, and up to
@@ -148,7 +149,7 @@
 	 *	used to handle power down at subsequent levels
 	 */
 	.macro declare_cpu_ops_base _name:req, _midr:req, _resetfunc:req, \
-		_extra1:req, _extra2:req, _power_down_ops:vararg
+		_extra1:req, _extra2:req, _e_handler:req, _power_down_ops:vararg
 	.section cpu_ops, "a"
 	.align 3
 	.type cpu_ops_\_name, %object
@@ -158,6 +159,7 @@
 #endif
 	.quad \_extra1
 	.quad \_extra2
+	.quad \_e_handler
 #ifdef IMAGE_BL31
 	/* Insert list of functions */
 	fill_constants CPU_MAX_PWR_DWN_OPS, \_power_down_ops
@@ -202,15 +204,21 @@
 
 	.macro declare_cpu_ops _name:req, _midr:req, _resetfunc:req, \
 		_power_down_ops:vararg
-		declare_cpu_ops_base \_name, \_midr, \_resetfunc, 0, 0, \
+		declare_cpu_ops_base \_name, \_midr, \_resetfunc, 0, 0, 0, \
 			\_power_down_ops
+	.endm
+
+	.macro declare_cpu_ops_eh _name:req, _midr:req, _resetfunc:req, \
+		_e_handler:req, _power_down_ops:vararg
+		declare_cpu_ops_base \_name, \_midr, \_resetfunc, \
+			0, 0, \_e_handler, \_power_down_ops
 	.endm
 
 	.macro declare_cpu_ops_wa _name:req, _midr:req, \
 		_resetfunc:req, _extra1:req, _extra2:req, \
 		_power_down_ops:vararg
 		declare_cpu_ops_base \_name, \_midr, \_resetfunc, \
-			\_extra1, \_extra2, \_power_down_ops
+			\_extra1, \_extra2, 0, \_power_down_ops
 	.endm
 
 #if REPORT_ERRATA
@@ -263,11 +271,22 @@
 	mrs	\_reg, id_aa64pfr0_el1
 	ubfx	\_reg, \_reg, #ID_AA64PFR0_CSV2_SHIFT, #ID_AA64PFR0_CSV2_LENGTH
 	/*
-	 * If the field equals to 1 then branch targets trained in one
-	 * context cannot affect speculative execution in a different context.
+	 * If the field equals 1, branch targets trained in one context cannot
+	 * affect speculative execution in a different context.
+	 *
+	 * If the field equals 2, it means that the system is also aware of
+	 * SCXTNUM_ELx register contexts. We aren't using them in the TF, so we
+	 * expect users of the registers to do the right thing.
+	 *
+	 * Only apply mitigations if the value of this field is 0.
 	 */
-	cmp	\_reg, #1
-	beq	\_label
+#if ENABLE_ASSERTIONS
+	cmp	\_reg, #3 /* Only values 0 to 2 are expected */
+	ASM_ASSERT(lo)
+#endif
+
+	cmp	\_reg, #0
+	bne	\_label
 	.endm
 
 	/*

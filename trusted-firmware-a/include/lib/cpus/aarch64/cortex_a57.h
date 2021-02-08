@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2014-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -26,13 +27,13 @@
  ******************************************************************************/
 #define CORTEX_A57_ECTLR_EL1			S3_1_C15_C2_1
 
-#define CORTEX_A57_ECTLR_SMP_BIT		(U(1) << 6)
-#define CORTEX_A57_ECTLR_DIS_TWD_ACC_PFTCH_BIT	(U(1) << 38)
-#define CORTEX_A57_ECTLR_L2_IPFTCH_DIST_MASK	(U(0x3) << 35)
-#define CORTEX_A57_ECTLR_L2_DPFTCH_DIST_MASK	(U(0x3) << 32)
+#define CORTEX_A57_ECTLR_SMP_BIT		(ULL(1) << 6)
+#define CORTEX_A57_ECTLR_DIS_TWD_ACC_PFTCH_BIT	(ULL(1) << 38)
+#define CORTEX_A57_ECTLR_L2_IPFTCH_DIST_MASK	(ULL(0x3) << 35)
+#define CORTEX_A57_ECTLR_L2_DPFTCH_DIST_MASK	(ULL(0x3) << 32)
 
 #define CORTEX_A57_ECTLR_CPU_RET_CTRL_SHIFT	U(0)
-#define CORTEX_A57_ECTLR_CPU_RET_CTRL_MASK	(U(0x7) << CORTEX_A57_ECTLR_CPU_RET_CTRL_SHIFT)
+#define CORTEX_A57_ECTLR_CPU_RET_CTRL_MASK	(ULL(0x7) << CORTEX_A57_ECTLR_CPU_RET_CTRL_SHIFT)
 
 /*******************************************************************************
  * CPU Memory Error Syndrome register specific definitions.
@@ -45,6 +46,7 @@
 #define CORTEX_A57_CPUACTLR_EL1				S3_1_C15_C2_0
 
 #define CORTEX_A57_CPUACTLR_EL1_DIS_LOAD_PASS_DMB	(ULL(1) << 59)
+#define CORTEX_A57_CPUACTLR_EL1_DIS_DMB_NULLIFICATION	(ULL(1) << 58)
 #define CORTEX_A57_CPUACTLR_EL1_DIS_LOAD_PASS_STORE	(ULL(1) << 55)
 #define CORTEX_A57_CPUACTLR_EL1_GRE_NGRE_AS_NGNRE	(ULL(1) << 54)
 #define CORTEX_A57_CPUACTLR_EL1_DIS_OVERREAD		(ULL(1) << 52)
@@ -53,6 +55,7 @@
 #define CORTEX_A57_CPUACTLR_EL1_FORCE_FPSCR_FLUSH	(ULL(1) << 38)
 #define CORTEX_A57_CPUACTLR_EL1_DIS_INSTR_PREFETCH	(ULL(1) << 32)
 #define CORTEX_A57_CPUACTLR_EL1_DIS_STREAMING		(ULL(3) << 27)
+#define CORTEX_A57_CPUACTLR_EL1_EN_NC_LOAD_FWD		(ULL(1) << 24)
 #define CORTEX_A57_CPUACTLR_EL1_DIS_L1_STREAMING	(ULL(3) << 25)
 #define CORTEX_A57_CPUACTLR_EL1_DIS_INDIRECT_PREDICTOR	(ULL(1) << 4)
 

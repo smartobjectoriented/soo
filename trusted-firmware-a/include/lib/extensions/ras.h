@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -68,7 +69,7 @@
 		.num_intrs = ARRAY_SIZE(_array), \
 	}
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <assert.h>
 
@@ -106,7 +107,7 @@ struct err_handler_data {
 	 */
 	uint32_t syndrome;
 
-	/* For errors signalled via. interrupt, the raw interrupt ID; otherwise, 0. */
+	/* For errors signalled via interrupt, the raw interrupt ID; otherwise, 0. */
 	unsigned int interrupt;
 };
 
@@ -129,7 +130,7 @@ struct err_record_info {
 	union {
 		struct {
 			/*
-			 * For a group accessed via. memory-mapped register,
+			 * For a group accessed via memory-mapped register,
 			 * base address of the page hosting error records, and
 			 * the size of the record group.
 			 */
@@ -141,7 +142,7 @@ struct err_record_info {
 
 		struct {
 			/*
-			 * For error records accessed via. system register, index of
+			 * For error records accessed via system register, index of
 			 * the error record.
 			 */
 			unsigned int idx_start;
@@ -192,10 +193,11 @@ static inline int ras_err_ser_probe_sysreg(const struct err_record_info *info,
 			probe_data);
 }
 
+const char *ras_serr_to_str(unsigned int serr);
 int ras_ea_handler(unsigned int ea_reason, uint64_t syndrome, void *cookie,
 		void *handle, uint64_t flags);
 void ras_init(void);
 
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 
 #endif /* RAS_H */

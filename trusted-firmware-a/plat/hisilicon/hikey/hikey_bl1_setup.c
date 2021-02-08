@@ -22,12 +22,11 @@
 #include <hikey_def.h>
 #include <hikey_layout.h>
 
-#include "../../../bl1/bl1_private.h"
 #include "hikey_private.h"
 
 /* Data structure which holds the extents of the trusted RAM for BL1 */
 static meminfo_t bl1_tzram_layout;
-static console_pl011_t console;
+static console_t console;
 
 enum {
 	BOOT_NORMAL = 0,

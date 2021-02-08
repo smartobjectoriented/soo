@@ -1,14 +1,13 @@
 /*
- * Copyright (c) 2015-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <asm_macros.S>
-#define USE_FINISH_CONSOLE_REG_2
 #include <console_macros.S>
 
 	/*
-	 * This file contains a skeleton console driver that can be used as
+	 * This file contains a skeleton console driver that can be used as a
 	 * basis for a real console driver. Console drivers in Trusted Firmware
 	 * can be instantiated multiple times. Each instance is described by a
 	 * separate console_t structure which must be registered with the common
@@ -17,14 +16,12 @@
 	 * console_t structure passed in from the caller and registers it after
 	 * initializing the console hardware. Drivers may define their own
 	 * structures extending console_t to store private driver information.
-	 * Console drivers *MUST* take care that the console callbacks they
+	 * Console drivers *MUST* ensure that the console callbacks they
 	 * implement only change registers allowed in the clobber lists defined
 	 * in this file. (Note that in addition to the explicit clobber lists,
 	 * any function may always clobber the intra-procedure-call registers
 	 * X16 and X17, but may never depend on them retaining their values
 	 * across any function call.)
-	 * Platforms using drivers based on this template need to enable
-	 * MULTI_CONSOLE_API := 1 in their platform.mk.
 	 */
 
 	.globl	console_xxx_register
@@ -53,7 +50,7 @@ func console_xxx_register
 	 * by later console callback (e.g. putc).
 	 * Example:
 	 */
-	str	x1, [x0, #CONSOLE_T_XXX_BASE]
+	str	x1, [x0, #CONSOLE_T_BASE]
 	str	x2, [x0, #CONSOLE_T_XXX_SOME_OTHER_VALUE]
 
 	/*
@@ -90,7 +87,7 @@ func console_xxx_putc
 	 * console_xxx_t structure pointed to by x1.
 	 * Example:
 	 */
-	ldr	x1, [x1, #CONSOLE_T_XXX_BASE]
+	ldr	x1, [x1, #CONSOLE_T_BASE]
 
 	/*
 	 * Write w0 to hardware.
@@ -128,7 +125,7 @@ func console_xxx_getc
 	 * console_xxx_t structure pointed to by x0.
 	 * Example:
 	 */
-	ldr	x1, [x0, #CONSOLE_T_XXX_BASE]
+	ldr	x1, [x0, #CONSOLE_T_BASE]
 
 	/*
 	 * Try to read character into w0 from hardware.
@@ -148,11 +145,11 @@ getc_error:
 endfunc console_xxx_getc
 
 	/* ---------------------------------------------
-	 * int console_xxx_flush(console_xxx_t *console)
+	 * void console_xxx_flush(console_xxx_t *console)
 	 * Function to force a write of all buffered
 	 * data that hasn't been output.
 	 * In : x0 - pointer to console_xxx_t struct
-	 * Out: w0 - 0 on success, < 0 on error
+	 * Out: void
 	 * Clobber list : x0, x1, x2, x3, x4, x5
 	 * ---------------------------------------------
 	 */
@@ -162,18 +159,12 @@ func console_xxx_flush
 	 * console_xxx_t structure pointed to by x0.
 	 * Example:
 	 */
-	ldr	x1, [x0, #CONSOLE_T_XXX_BASE]
+	ldr	x1, [x0, #CONSOLE_T_BASE]
 
 	/*
 	 * Flush all remaining output from hardware FIFOs. Do not return until
 	 * all data has been flushed or there was an unrecoverable error.
 	 */
 
-	mov	w0, #0
-	ret
-
-	/* Jump here if an unrecoverable error has been encountered. */
-flush_error:
-	mov	w0, #-1
 	ret
 endfunc console_xxx_flush

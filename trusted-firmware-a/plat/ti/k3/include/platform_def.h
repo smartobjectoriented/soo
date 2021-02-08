@@ -29,39 +29,10 @@
 					K3_CLUSTER2_CORE_COUNT + \
 					K3_CLUSTER3_CORE_COUNT)
 
-#define PLATFORM_CLUSTER_COUNT		((K3_CLUSTER0_MSMC_PORT != UNUSED) + \
-					(K3_CLUSTER1_MSMC_PORT != UNUSED) + \
-					(K3_CLUSTER2_MSMC_PORT != UNUSED) + \
-					(K3_CLUSTER3_MSMC_PORT != UNUSED))
-
-#define UNUSED				-1
-
-#if !defined(K3_CLUSTER1_CORE_COUNT) || !defined(K3_CLUSTER1_MSMC_PORT)
-#define K3_CLUSTER1_CORE_COUNT		0
-#define K3_CLUSTER1_MSMC_PORT		UNUSED
-#endif
-
-#if !defined(K3_CLUSTER2_CORE_COUNT) || !defined(K3_CLUSTER2_MSMC_PORT)
-#define K3_CLUSTER2_CORE_COUNT		0
-#define K3_CLUSTER2_MSMC_PORT		UNUSED
-#endif
-
-#if !defined(K3_CLUSTER3_CORE_COUNT) || !defined(K3_CLUSTER3_MSMC_PORT)
-#define K3_CLUSTER3_CORE_COUNT		0
-#define K3_CLUSTER3_MSMC_PORT		UNUSED
-#endif
-
-#if K3_CLUSTER0_MSMC_PORT == UNUSED
-#error "ARM cluster 0 must be used"
-#endif
-
-#if ((K3_CLUSTER1_MSMC_PORT == UNUSED) && (K3_CLUSTER1_CORE_COUNT != 0)) || \
-    ((K3_CLUSTER2_MSMC_PORT == UNUSED) && (K3_CLUSTER2_CORE_COUNT != 0)) || \
-    ((K3_CLUSTER3_MSMC_PORT == UNUSED) && (K3_CLUSTER3_CORE_COUNT != 0))
-#error "Unused ports must have 0 ARM cores"
-#endif
-
-#define PLATFORM_CLUSTER_OFFSET		K3_CLUSTER0_MSMC_PORT
+#define PLATFORM_CLUSTER_COUNT		((K3_CLUSTER0_CORE_COUNT != 0) + \
+					(K3_CLUSTER1_CORE_COUNT != 0) + \
+					(K3_CLUSTER2_CORE_COUNT != 0) + \
+					(K3_CLUSTER3_CORE_COUNT != 0))
 
 #define PLAT_NUM_PWR_DOMAINS		(PLATFORM_SYSTEM_COUNT + \
 					PLATFORM_CLUSTER_COUNT + \
@@ -74,20 +45,14 @@
 
 /*
  * ARM-TF lives in SRAM, partition it here
- */
-
-#define SHARED_RAM_BASE			BL31_LIMIT
-#define SHARED_RAM_SIZE			0x00001000
-
-/*
+ *
  * BL3-1 specific defines.
  *
- * Put BL3-1 at the base of the Trusted SRAM, before SHARED_RAM.
+ * Put BL3-1 at the base of the Trusted SRAM.
  */
 #define BL31_BASE			SEC_SRAM_BASE
-#define BL31_SIZE			(SEC_SRAM_SIZE - SHARED_RAM_SIZE)
+#define BL31_SIZE			SEC_SRAM_SIZE
 #define BL31_LIMIT			(BL31_BASE + BL31_SIZE)
-#define BL31_PROGBITS_LIMIT		BL31_LIMIT
 
 /*
  * Defines the maximum number of translation tables that are allocated by the
@@ -125,8 +90,8 @@
 #define CACHE_WRITEBACK_GRANULE		(1 << CACHE_WRITEBACK_SHIFT)
 
 /* Platform default console definitions */
-#ifndef K3_USART_BASE_ADDRESS
-#define K3_USART_BASE_ADDRESS 0x02800000
+#ifndef K3_USART_BASE
+#define K3_USART_BASE			(0x02800000 + 0x10000 * K3_USART)
 #endif
 
 /* USART has a default size for address space */
@@ -136,12 +101,8 @@
 #define K3_USART_CLK_SPEED 48000000
 #endif
 
-#ifndef K3_USART_BAUD
-#define K3_USART_BAUD 115200
-#endif
-
 /* Crash console defaults */
-#define CRASH_CONSOLE_BASE K3_USART_BASE_ADDRESS
+#define CRASH_CONSOLE_BASE K3_USART_BASE
 #define CRASH_CONSOLE_CLK K3_USART_CLK_SPEED
 #define CRASH_CONSOLE_BAUD_RATE K3_USART_BAUD
 
@@ -189,17 +150,33 @@
 	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_6, GIC_HIGHEST_SEC_PRIORITY, grp, \
 			GIC_INTR_CFG_EDGE)
 
-#define K3_GICD_BASE  0x01800000
-#define K3_GICD_SIZE  0x10000
-#define K3_GICR_BASE  0x01880000
-#define K3_GICR_SIZE  0x100000
 
+#define K3_GTC_BASE		0x00A90000
+/* We just need 20 byte offset, but simpler to just remap the 64K page in */
+#define K3_GTC_SIZE		0x10000
+#define K3_GTC_CNTCR_OFFSET	0x00
+#define K3_GTC_CNTCR_EN_MASK	0x01
+#define K3_GTC_CNTCR_HDBG_MASK	0x02
+#define K3_GTC_CNTFID0_OFFSET	0x20
+
+#define K3_GIC_BASE	0x01800000
+#define K3_GIC_SIZE	0x200000
+
+#if !K3_SEC_PROXY_LITE
 #define SEC_PROXY_DATA_BASE	0x32C00000
 #define SEC_PROXY_DATA_SIZE	0x80000
 #define SEC_PROXY_SCFG_BASE	0x32800000
 #define SEC_PROXY_SCFG_SIZE	0x80000
 #define SEC_PROXY_RT_BASE	0x32400000
 #define SEC_PROXY_RT_SIZE	0x80000
+#else
+#define SEC_PROXY_DATA_BASE	0x4D000000
+#define SEC_PROXY_DATA_SIZE	0x80000
+#define SEC_PROXY_SCFG_BASE	0x4A400000
+#define SEC_PROXY_SCFG_SIZE	0x80000
+#define SEC_PROXY_RT_BASE	0x4A600000
+#define SEC_PROXY_RT_SIZE	0x80000
+#endif /* K3_SEC_PROXY_LITE */
 
 #define SEC_PROXY_TIMEOUT_US		1000000
 #define SEC_PROXY_MAX_MESSAGE_SIZE	56

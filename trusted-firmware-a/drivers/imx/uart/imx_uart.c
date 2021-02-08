@@ -62,8 +62,8 @@ static uint32_t read_reg(uintptr_t base, uint32_t offset)
 	return mmio_read_32(base + offset);
 }
 
-int console_core_init(uintptr_t base_addr, unsigned int uart_clk,
-		      unsigned int baud_rate)
+int console_imx_uart_core_init(uintptr_t base_addr, unsigned int uart_clk,
+			       unsigned int baud_rate)
 {
 	uint32_t val;
 	uint8_t clk_idx = 1;
@@ -129,12 +129,12 @@ int console_core_init(uintptr_t base_addr, unsigned int uart_clk,
  * Clobber list : r2
  * --------------------------------------------------------
  */
-int console_core_putc(int c, uintptr_t base_addr)
+int console_imx_uart_core_putc(int c, uintptr_t base_addr)
 {
 	uint32_t val;
 
 	if (c == '\n')
-		console_core_putc('\r', base_addr);
+		console_imx_uart_core_putc('\r', base_addr);
 
 	/* Write data */
 	write_reg(base_addr, IMX_UART_TXD_OFFSET, c);
@@ -155,7 +155,7 @@ int console_core_putc(int c, uintptr_t base_addr)
  * Clobber list : r0, r1
  * ---------------------------------------------
  */
-int console_core_getc(uintptr_t base_addr)
+int console_imx_uart_core_getc(uintptr_t base_addr)
 {
 	uint32_t val;
 
@@ -171,12 +171,11 @@ int console_core_getc(uintptr_t base_addr)
  * Function to force a write of all buffered
  * data that hasn't been output.
  * In : r0 - console base address
- * Out : return -1 on error else return 0.
+ * Out : void
  * Clobber list : r0, r1
  * ---------------------------------------------
  */
-int console_core_flush(uintptr_t base_addr)
+void console_imx_uart_core_flush(uintptr_t base_addr)
 {
-	return 0;
 }
 

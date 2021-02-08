@@ -1,20 +1,19 @@
 /*
- * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <assert.h>
-#include <errno.h>
 
 #include <arch_helpers.h>
 #include <common/bl_common.h>
 #include <common/debug.h>
-#if TRUSTED_BOARD_BOOT
-#include <drivers/auth/mbedtls/mbedtls_config.h>
-#endif
 #include <lib/xlat_tables/xlat_tables_compat.h>
 #include <plat/common/platform.h>
+#include <services/arm_arch_svc.h>
+#include <smccc_helpers.h>
+#include <tools_share/firmware_encrypted.h>
 
 /*
  * The following platform functions are weakly defined. The Platforms
@@ -26,7 +25,25 @@
 #pragma weak bl2_plat_handle_pre_image_load
 #pragma weak bl2_plat_handle_post_image_load
 #pragma weak plat_try_next_boot_source
-#pragma weak plat_get_mbedtls_heap
+#pragma weak plat_get_enc_key_info
+#pragma weak plat_is_smccc_feature_available
+#pragma weak plat_get_soc_version
+#pragma weak plat_get_soc_revision
+
+int32_t plat_get_soc_version(void)
+{
+	return SMC_ARCH_CALL_NOT_SUPPORTED;
+}
+
+int32_t plat_get_soc_revision(void)
+{
+	return SMC_ARCH_CALL_NOT_SUPPORTED;
+}
+
+int32_t plat_is_smccc_feature_available(u_register_t fid __unused)
+{
+	return SMC_ARCH_CALL_NOT_SUPPORTED;
+}
 
 void bl2_el3_plat_prepare_exit(void)
 {
@@ -57,23 +74,30 @@ int plat_try_next_boot_source(void)
 	return 0;
 }
 
-#if TRUSTED_BOARD_BOOT
 /*
- * The following default implementation of the function simply returns the
- * by-default allocated heap.
+ * Weak implementation to provide dummy decryption key only for test purposes,
+ * platforms must override this API for any real world firmware encryption
+ * use-case.
  */
-int plat_get_mbedtls_heap(void **heap_addr, size_t *heap_size)
+int plat_get_enc_key_info(enum fw_enc_status_t fw_enc_status, uint8_t *key,
+			  size_t *key_len, unsigned int *flags,
+			  const uint8_t *img_id, size_t img_id_len)
 {
-	static unsigned char heap[TF_MBEDTLS_HEAP_SIZE];
+#define DUMMY_FIP_ENC_KEY { 0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, \
+			    0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, \
+			    0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, \
+			    0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef }
 
-	assert(heap_addr != NULL);
-	assert(heap_size != NULL);
+	const uint8_t dummy_key[] = DUMMY_FIP_ENC_KEY;
 
-	*heap_addr = heap;
-	*heap_size = sizeof(heap);
+	assert(*key_len >= sizeof(dummy_key));
+
+	*key_len = sizeof(dummy_key);
+	memcpy(key, dummy_key, *key_len);
+	*flags = 0;
+
 	return 0;
 }
-#endif /* TRUSTED_BOARD_BOOT */
 
 /*
  * Set up the page tables for the generic and platform-specific memory regions.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -33,11 +33,11 @@ DECLARE_ASN1_FUNCTIONS(HASH)
 IMPLEMENT_ASN1_FUNCTIONS(HASH)
 
 /*
- * This function adds the TBB extensions to the internal extension list
+ * This function adds the CoT extensions to the internal extension list
  * maintained by OpenSSL so they can be used later.
  *
  * It also initializes the methods to print the contents of the extension. If an
- * alias is specified in the TBB extension, we reuse the methods of the alias.
+ * alias is specified in the CoT extension, we reuse the methods of the alias.
  * Otherwise, only methods for V_ASN1_INTEGER and V_ASN1_OCTET_STRING are
  * provided. Any other type will be printed as a raw ascii string.
  *
@@ -158,51 +158,36 @@ X509_EXTENSION *ext_new_hash(int nid, int crit, const EVP_MD *md,
 		unsigned char *buf, size_t len)
 {
 	X509_EXTENSION *ex;
-	ASN1_OCTET_STRING *octet;
 	HASH *hash;
 	ASN1_OBJECT *algorithm;
-	X509_ALGOR *x509_algor;
 	unsigned char *p = NULL;
 	int sz;
-
-	/* OBJECT_IDENTIFIER with hash algorithm */
-	algorithm = OBJ_nid2obj(EVP_MD_type(md));
-	if (algorithm == NULL) {
-		return NULL;
-	}
-
-	/* Create X509_ALGOR */
-	x509_algor = X509_ALGOR_new();
-	if (x509_algor == NULL) {
-		return NULL;
-	}
-	x509_algor->algorithm = algorithm;
-	x509_algor->parameter = ASN1_TYPE_new();
-	ASN1_TYPE_set(x509_algor->parameter, V_ASN1_NULL, NULL);
-
-	/* OCTET_STRING with the actual hash */
-	octet = ASN1_OCTET_STRING_new();
-	if (octet == NULL) {
-		X509_ALGOR_free(x509_algor);
-		return NULL;
-	}
-	ASN1_OCTET_STRING_set(octet, buf, len);
 
 	/* HASH structure containing algorithm + hash */
 	hash = HASH_new();
 	if (hash == NULL) {
-		ASN1_OCTET_STRING_free(octet);
-		X509_ALGOR_free(x509_algor);
 		return NULL;
 	}
-	hash->hashAlgorithm = x509_algor;
-	hash->dataHash = octet;
+
+	/* OBJECT_IDENTIFIER with hash algorithm */
+	algorithm = OBJ_nid2obj(EVP_MD_type(md));
+	if (algorithm == NULL) {
+		HASH_free(hash);
+		return NULL;
+	}
+
+	/* Create X509_ALGOR */
+	hash->hashAlgorithm->algorithm = algorithm;
+	hash->hashAlgorithm->parameter = ASN1_TYPE_new();
+	ASN1_TYPE_set(hash->hashAlgorithm->parameter, V_ASN1_NULL, NULL);
+
+	/* OCTET_STRING with the actual hash */
+	ASN1_OCTET_STRING_set(hash->dataHash, buf, len);
 
 	/* DER encoded HASH */
 	sz = i2d_HASH(hash, &p);
 	if ((sz <= 0) || (p == NULL)) {
 		HASH_free(hash);
-		X509_ALGOR_free(x509_algor);
 		return NULL;
 	}
 
@@ -284,6 +269,7 @@ X509_EXTENSION *ext_new_key(int nid, int crit, EVP_PKEY *k)
 	ex = ext_new(nid, crit, p, sz);
 
 	/* Clean up */
+	BIO_free(mem);
 	OPENSSL_free(p);
 
 	return ex;

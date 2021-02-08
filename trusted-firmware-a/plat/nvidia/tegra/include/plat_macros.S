@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2015, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -7,7 +8,7 @@
 #ifndef PLAT_MACROS_S
 #define PLAT_MACROS_S
 
-#include <gicv2.h>
+#include <drivers/arm/gicv2.h>
 #include <tegra_def.h>
 
 .section .rodata.gic_reg_name, "aS"
@@ -27,6 +28,7 @@ spacer:
  * ---------------------------------------------
  */
 .macro plat_crash_print_regs
+#ifdef TEGRA_GICC_BASE
 	mov_imm	x16, TEGRA_GICC_BASE
 
 	/* gicc base address is now in x16 */
@@ -37,7 +39,7 @@ spacer:
 	ldr	w10, [x16, #GICC_CTLR]
 	/* Store to the crash buf and print to cosole */
 	bl	str_in_crash_buf_print
-
+#endif
 	/* Print the GICD_ISPENDR regs */
 	mov_imm	x16, TEGRA_GICD_BASE
 	add	x7, x16, #GICD_ISPENDR
@@ -50,7 +52,7 @@ spacer:
 	bl	asm_print_hex
 	adr	x4, spacer
 	bl	asm_print_str
-	ldr	x4, [x7], #8
+	ldr	w4, [x7], #4
 	bl	asm_print_hex
 	adr	x4, newline
 	bl	asm_print_str

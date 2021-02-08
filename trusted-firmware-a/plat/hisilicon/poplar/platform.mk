@@ -46,15 +46,13 @@ ERRATA_A53_855873		:= 1
 ERRATA_A53_835769		:= 1
 ERRATA_A53_843419		:= 1
 ENABLE_SVE_FOR_NS		:= 0
-MULTI_CONSOLE_API		:= 1
 WORKAROUND_CVE_2017_5715	:= 0
 
 PLAT_PL061_MAX_GPIOS 		:= 104
 $(eval $(call add_define,PLAT_PL061_MAX_GPIOS))
 
 PLAT_INCLUDES	:=	-Iplat/hisilicon/poplar/include		\
-			-Iplat/hisilicon/poplar			\
-			-Iinclude/common/tbbr
+			-Iplat/hisilicon/poplar
 
 PLAT_BL_COMMON_SOURCES	:=						\
 		lib/xlat_tables/aarch64/xlat_tables.c			\

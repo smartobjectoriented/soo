@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -14,6 +14,12 @@
 
 /* Special value used to verify platform parameters from BL2 to BL3-1 */
 #define RK_BL31_PLAT_PARAM_VAL	0x0f1e2d3c4b5a6978ULL
+
+#define UART0_BASE		0xff110000
+#define UART0_SIZE		SIZE_K(64)
+
+#define UART1_BASE		0xff120000
+#define UART1_SIZE		SIZE_K(64)
 
 #define UART2_BASE		0xff130000
 #define UART2_SIZE		SIZE_K(64)
@@ -97,7 +103,6 @@
 /**************************************************************************
  * UART related constants
  **************************************************************************/
-#define RK3328_UART2_BASE	UART2_BASE
 #define RK3328_BAUDRATE	1500000
 #define RK3328_UART_CLOCK	24000000
 
@@ -131,15 +136,13 @@
 #define RK_IRQ_SEC_SGI_7	15
 
 /*
- * Define a list of Group 1 Secure and Group 0 interrupts as per GICv3
- * terminology. On a GICv2 system or mode, the lists will be merged and treated
- * as Group 0 interrupts.
+ * Define a list of Group 0 interrupts.
  */
-#define PLAT_RK_GICV2_G1S_IRQS						\
+#define PLAT_RK_GICV2_G0_IRQS						\
 	INTR_PROP_DESC(RK_IRQ_SEC_PHY_TIMER, GIC_HIGHEST_SEC_PRIORITY,	\
-		       GICV2_INTR_GROUP1, GIC_INTR_CFG_LEVEL),		\
+		       GICV2_INTR_GROUP0, GIC_INTR_CFG_LEVEL),		\
 	INTR_PROP_DESC(RK_IRQ_SEC_SGI_6, GIC_HIGHEST_SEC_PRIORITY,	\
-		       GICV2_INTR_GROUP1, GIC_INTR_CFG_LEVEL)
+		       GICV2_INTR_GROUP0, GIC_INTR_CFG_LEVEL)
 
 #define SHARE_MEM_BASE          0x100000/* [1MB, 1MB+60K]*/
 #define SHARE_MEM_PAGE_NUM      15

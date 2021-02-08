@@ -25,7 +25,6 @@
 #include <plat/common/platform.h>
 
 #include <hi3660.h>
-#include "../../../bl1/bl1_private.h"
 #include "hikey960_def.h"
 #include "hikey960_private.h"
 
@@ -42,7 +41,7 @@ enum {
 
 /* Data structure which holds the extents of the trusted RAM for BL1 */
 static meminfo_t bl1_tzram_layout;
-static console_pl011_t console;
+static console_t console;
 
 /******************************************************************************
  * On a GICv2 system, the Group 1 secure interrupts are treated as Group 0

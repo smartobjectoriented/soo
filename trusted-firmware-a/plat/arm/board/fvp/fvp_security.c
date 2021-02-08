@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#include <arm_config.h>
-#include <plat_arm.h>
+#include <plat/arm/common/arm_config.h>
+#include <plat/arm/common/plat_arm.h>
 
 /*
  * We assume that all security programming is done by the primary core.
@@ -22,5 +22,5 @@ void plat_arm_security_setup(void)
 	 */
 
 	if ((get_arm_config()->flags & ARM_CONFIG_HAS_TZC) != 0U)
-		arm_tzc400_setup(NULL);
+		arm_tzc400_setup(PLAT_ARM_TZC_BASE, NULL);
 }

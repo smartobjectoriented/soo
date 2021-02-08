@@ -13,6 +13,7 @@
 #include <arch_helpers.h>
 #include <common/bl_common.h>
 #include <common/debug.h>
+#include <lib/mmio.h>
 #include <lib/xlat_tables/xlat_tables_v2.h>
 
 #include <k3_console.h>
@@ -21,11 +22,10 @@
 
 /* Table of regions to map using the MMU */
 const mmap_region_t plat_k3_mmap[] = {
-	MAP_REGION_FLAT(SHARED_RAM_BASE, SHARED_RAM_SIZE, MT_DEVICE | MT_RW | MT_SECURE),
-	MAP_REGION_FLAT(K3_USART_BASE_ADDRESS, K3_USART_SIZE, MT_DEVICE | MT_RW | MT_SECURE),
-	MAP_REGION_FLAT(K3_GICD_BASE, K3_GICD_SIZE, MT_DEVICE | MT_RW | MT_SECURE),
-	MAP_REGION_FLAT(K3_GICR_BASE, K3_GICR_SIZE, MT_DEVICE | MT_RW | MT_SECURE),
-	MAP_REGION_FLAT(SEC_PROXY_RT_BASE, SEC_PROXY_RT_SIZE, MT_DEVICE | MT_RW | MT_SECURE),
+	MAP_REGION_FLAT(K3_USART_BASE,       K3_USART_SIZE,       MT_DEVICE | MT_RW | MT_SECURE),
+	MAP_REGION_FLAT(K3_GIC_BASE,         K3_GIC_SIZE,         MT_DEVICE | MT_RW | MT_SECURE),
+	MAP_REGION_FLAT(K3_GTC_BASE,         K3_GTC_SIZE,         MT_DEVICE | MT_RW | MT_SECURE),
+	MAP_REGION_FLAT(SEC_PROXY_RT_BASE,   SEC_PROXY_RT_SIZE,   MT_DEVICE | MT_RW | MT_SECURE),
 	MAP_REGION_FLAT(SEC_PROXY_SCFG_BASE, SEC_PROXY_SCFG_SIZE, MT_DEVICE | MT_RW | MT_SECURE),
 	MAP_REGION_FLAT(SEC_PROXY_DATA_BASE, SEC_PROXY_DATA_SIZE, MT_DEVICE | MT_RW | MT_SECURE),
 	{ /* sentinel */ }
@@ -101,13 +101,13 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 void bl31_plat_arch_setup(void)
 {
 	const mmap_region_t bl_regions[] = {
-		MAP_REGION_FLAT(BL31_BASE, BL31_END - BL31_BASE,
-				MT_MEMORY | MT_RW | MT_SECURE),
-		MAP_REGION_FLAT(BL_CODE_BASE, BL_CODE_END - BL_CODE_BASE,
-				MT_CODE | MT_SECURE),
-		MAP_REGION_FLAT(BL_RO_DATA_BASE, BL_RO_DATA_END - BL_RO_DATA_END,
-				MT_RO_DATA | MT_SECURE),
-		{0}
+		MAP_REGION_FLAT(BL31_START,           BL31_END            - BL31_START,           MT_MEMORY  | MT_RW | MT_SECURE),
+		MAP_REGION_FLAT(BL_CODE_BASE,         BL_CODE_END         - BL_CODE_BASE,         MT_CODE    | MT_RO | MT_SECURE),
+		MAP_REGION_FLAT(BL_RO_DATA_BASE,      BL_RO_DATA_END      - BL_RO_DATA_BASE,      MT_RO_DATA | MT_RO | MT_SECURE),
+#if USE_COHERENT_MEM
+		MAP_REGION_FLAT(BL_COHERENT_RAM_BASE, BL_COHERENT_RAM_END - BL_COHERENT_RAM_BASE, MT_DEVICE  | MT_RW | MT_SECURE),
+#endif
+		{ /* sentinel */ }
 	};
 
 	setup_page_tables(bl_regions, plat_k3_mmap);
@@ -116,7 +116,7 @@ void bl31_plat_arch_setup(void)
 
 void bl31_platform_setup(void)
 {
-	k3_gic_driver_init(K3_GICD_BASE, K3_GICR_BASE);
+	k3_gic_driver_init(K3_GIC_BASE);
 	k3_gic_init();
 
 	ti_sci_init();
@@ -129,6 +129,38 @@ void platform_mem_init(void)
 
 unsigned int plat_get_syscnt_freq2(void)
 {
+	uint32_t gtc_freq;
+	uint32_t gtc_ctrl;
+
+	/* Lets try and provide basic diagnostics - cost is low */
+	gtc_ctrl = mmio_read_32(K3_GTC_BASE + K3_GTC_CNTCR_OFFSET);
+	/* Did the bootloader fail to enable timer and OS guys are confused? */
+	if ((gtc_ctrl & K3_GTC_CNTCR_EN_MASK) == 0U) {
+		ERROR("GTC is disabled! Timekeeping broken. Fix Bootloader\n");
+	}
+	/*
+	 * If debug will not pause time, we will have issues like
+	 * drivers timing out while debugging, in cases of OS like Linux,
+	 * RCU stall errors, which can be hard to differentiate vs real issues.
+	 */
+	if ((gtc_ctrl & K3_GTC_CNTCR_HDBG_MASK) == 0U) {
+		WARN("GTC: Debug access doesn't stop time. Fix Bootloader\n");
+	}
+
+	gtc_freq = mmio_read_32(K3_GTC_BASE + K3_GTC_CNTFID0_OFFSET);
+	/* Many older bootloaders may have missed programming FID0 register */
+	if (gtc_freq != 0U) {
+		return gtc_freq;
+	}
+
+	/*
+	 * We could have just warned about this, but this can have serious
+	 * hard to debug side effects if we are NOT sure what the actual
+	 * frequency is. Lets make sure people don't miss this.
+	 */
+	ERROR("GTC_CNTFID0 is 0! Assuming %d Hz. Fix Bootloader\n",
+	      SYS_COUNTER_FREQ_IN_TICKS);
+
 	return SYS_COUNTER_FREQ_IN_TICKS;
 }
 

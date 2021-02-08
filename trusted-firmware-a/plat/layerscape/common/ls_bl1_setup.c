@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <common/bl_common.h>
 #include <common/debug.h>
 
 #include "ls_16550.h"
 #include "plat_ls.h"
-#include "../../../bl1/bl1_private.h"
 
 /* Data structure which holds the extents of the trusted SRAM for BL1*/
 static meminfo_t bl1_tzram_layout;
@@ -23,7 +23,7 @@ meminfo_t *bl1_plat_sec_mem_layout(void)
  ******************************************************************************/
 void ls_bl1_early_platform_setup(void)
 {
-	static console_ls_16550_t console;
+	static console_t console;
 
 #if !LS1043_DISABLE_TRUSTED_WDOG
 	/* TODO: Enable watchdog */
@@ -59,11 +59,11 @@ void ls_bl1_plat_arch_setup(void)
 #endif
 			     );
 	VERBOSE("After setup the page tables\n");
-#ifdef AARCH32
-	enable_mmu_svc_mon(0);
-#else
+#ifdef __aarch64__
 	enable_mmu_el3(0);
-#endif /* AARCH32 */
+#else
+	enable_mmu_svc_mon(0);
+#endif /* __aarch64__ */
 	VERBOSE("After MMU enabled\n");
 }
 

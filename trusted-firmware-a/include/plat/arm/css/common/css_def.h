@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,8 +10,6 @@
 #include <common/interrupt_props.h>
 #include <drivers/arm/gic_common.h>
 #include <drivers/arm/tzc400.h>
-
-#include <arm_def.h>
 
 /*************************************************************************
  * Definitions common to all ARM Compute SubSystems (CSS)
@@ -31,6 +29,10 @@
 #define SID_REG_BASE			0x2a4a0000
 #define SID_SYSTEM_ID_OFFSET		0x40
 #define SID_SYSTEM_CFG_OFFSET		0x70
+#define SID_NODE_ID_OFFSET		0x60
+#define SID_CHIP_ID_MASK		0xFF
+#define SID_MULTI_CHIP_MODE_MASK	0x100
+#define SID_MULTI_CHIP_MODE_SHIFT	8
 
 /* The slave_bootsecure controls access to GPU, DMC and CS. */
 #define CSS_NIC400_SLAVE_BOOTSECURE	8
@@ -138,7 +140,7 @@
 #define SPIDEN_INT_CLR_SHIFT	6
 #define SPIDEN_SEL_SET_SHIFT	7
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 /* SSC_VERSION related accessors */
 
@@ -152,7 +154,7 @@
 		(((val) >> SSC_VERSION_CONFIG_SHIFT) &		\
 		SSC_VERSION_CONFIG_MASK)
 
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 
 /*************************************************************************
  * Required platform porting definitions common to all
@@ -185,10 +187,7 @@
 #endif /* CSS_LOAD_SCP_IMAGES */
 
 /* Load address of Non-Secure Image for CSS platform ports */
-#define PLAT_ARM_NS_IMAGE_OFFSET	U(0xE0000000)
-
-/* TZC related constants */
-#define PLAT_ARM_TZC_FILTERS		TZC_400_REGION_ATTR_FILTER_BIT_ALL
+#define PLAT_ARM_NS_IMAGE_BASE		U(0xE0000000)
 
 /*
  * Parsing of CPU and Cluster states, as returned by 'Get CSS Power State' SCP

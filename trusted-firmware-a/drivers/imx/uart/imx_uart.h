@@ -6,6 +6,8 @@
 #ifndef IMX_UART_H
 #define IMX_UART_H
 
+#include <drivers/console.h>
+
 #define IMX_UART_RXD_OFFSET	0x00
 #define IMX_UART_RXD_CHARRDY	BIT(15)
 #define IMX_UART_RXD_ERR	BIT(14)
@@ -149,5 +151,13 @@
 #define IMX_UART_TS_TXFULL	BIT(4)
 #define IMX_UART_TS_RXFULL	BIT(3)
 #define IMX_UART_TS_SOFTRST	BIT(0)
+
+#ifndef __ASSEMBLER__
+
+int console_imx_uart_register(uintptr_t baseaddr,
+			      uint32_t clock,
+			      uint32_t baud,
+			      console_t *console);
+#endif /*__ASSEMBLER__*/
 
 #endif /* IMX_UART_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -24,7 +24,7 @@
 #define CTX_NS_SCTLR		U(0x1C)
 #define CTX_REGS_END		U(0x20)
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <stdint.h>
 
@@ -37,7 +37,7 @@
 #define WORD_SHIFT		U(2)
 #define DEFINE_REG_STRUCT(name, num_regs)	\
 	typedef struct name {			\
-		uint32_t _regs[num_regs];	\
+		uint32_t ctx_regs[num_regs];	\
 	}  __aligned(8) name##_t
 
 /* Constants to determine the size of individual context structures */
@@ -47,8 +47,8 @@ DEFINE_REG_STRUCT(regs, CTX_REG_ALL);
 
 #undef CTX_REG_ALL
 
-#define read_ctx_reg(ctx, offset)	((ctx)->_regs[offset >> WORD_SHIFT])
-#define write_ctx_reg(ctx, offset, val)	(((ctx)->_regs[offset >> WORD_SHIFT]) \
+#define read_ctx_reg(ctx, offset)	((ctx)->ctx_regs[offset >> WORD_SHIFT])
+#define write_ctx_reg(ctx, offset, val)	(((ctx)->ctx_regs[offset >> WORD_SHIFT]) \
 					 = val)
 typedef struct cpu_context {
 	regs_t regs_ctx;
@@ -65,6 +65,6 @@ typedef struct cpu_context {
 CASSERT(CTX_REGS_OFFSET == __builtin_offsetof(cpu_context_t, regs_ctx), \
 	assert_core_context_regs_offset_mismatch);
 
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 
 #endif /* CONTEXT_H */

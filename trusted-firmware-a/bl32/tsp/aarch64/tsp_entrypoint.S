@@ -1,8 +1,10 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
+#include <platform_def.h>
 
 #include <arch.h>
 #include <asm_macros.S>
@@ -46,6 +48,24 @@
 
 func tsp_entrypoint _align=3
 
+#if ENABLE_PIE
+		/*
+		 * ------------------------------------------------------------
+		 * If PIE is enabled fixup the Global descriptor Table only
+		 * once during primary core cold boot path.
+		 *
+		 * Compile time base address, required for fixup, is calculated
+		 * using "pie_fixup" label present within first page.
+		 * ------------------------------------------------------------
+		 */
+	pie_fixup:
+		ldr	x0, =pie_fixup
+		and	x0, x0, #~(PAGE_SIZE_MASK)
+		mov_imm	x1, (BL32_LIMIT - BL32_BASE)
+		add	x1, x1, x0
+		bl	fixup_gdt_reloc
+#endif /* ENABLE_PIE */
+
 	/* ---------------------------------------------
 	 * Set the exception vector to something sane.
 	 * ---------------------------------------------
@@ -63,12 +83,14 @@ func tsp_entrypoint _align=3
 
 	/* ---------------------------------------------
 	 * Enable the instruction cache, stack pointer
-	 * and data access alignment checks
+	 * and data access alignment checks and disable
+	 * speculative loads.
 	 * ---------------------------------------------
 	 */
 	mov	x1, #(SCTLR_I_BIT | SCTLR_A_BIT | SCTLR_SA_BIT)
 	mrs	x0, sctlr_el1
 	orr	x0, x0, x1
+	bic	x0, x0, #SCTLR_DSSBS_BIT
 	msr	sctlr_el1, x0
 	isb
 
@@ -122,12 +144,19 @@ func tsp_entrypoint _align=3
 #endif
 
 	/* ---------------------------------------------
-	 * Perform early platform setup & platform
-	 * specific early arch. setup e.g. mmu setup
+	 * Perform TSP setup
 	 * ---------------------------------------------
 	 */
-	bl	tsp_early_platform_setup
-	bl	tsp_plat_arch_setup
+	bl	tsp_setup
+
+#if ENABLE_PAUTH
+	/* ---------------------------------------------
+	 * Program APIAKey_EL1
+	 * and enable pointer authentication
+	 * ---------------------------------------------
+	 */
+	bl	pauth_init_enable_el1
+#endif /* ENABLE_PAUTH */
 
 	/* ---------------------------------------------
 	 * Jump to main function.
@@ -153,7 +182,7 @@ endfunc tsp_entrypoint
 	 * TSPD for the various entrypoints
 	 * -------------------------------------------
 	 */
-func tsp_vector_table
+vector_base tsp_vector_table
 	b	tsp_yield_smc_entry
 	b	tsp_fast_smc_entry
 	b	tsp_cpu_on_entry
@@ -164,7 +193,6 @@ func tsp_vector_table
 	b	tsp_system_off_entry
 	b	tsp_system_reset_entry
 	b	tsp_abort_yield_smc_entry
-endfunc tsp_vector_table
 
 	/*---------------------------------------------
 	 * This entrypoint is used by the TSPD when this
@@ -253,6 +281,15 @@ func tsp_cpu_on_entry
 	 */
 	mov	x0, #0
 	bl	bl32_plat_enable_mmu
+
+#if ENABLE_PAUTH
+	/* ---------------------------------------------
+	 * Program APIAKey_EL1
+	 * and enable pointer authentication
+	 * ---------------------------------------------
+	 */
+	bl	pauth_init_enable_el1
+#endif /* ENABLE_PAUTH */
 
 	/* ---------------------------------------------
 	 * Enter C runtime to perform any remaining

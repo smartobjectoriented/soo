@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,8 +8,25 @@
 
 #include <common/debug.h>
 #include <common/runtime_svc.h>
+#include <platform_def.h>
 
 #include "generic-arm64-smcall.h"
+
+#ifndef PLAT_ARM_GICD_BASE
+#ifdef GICD_BASE
+#define PLAT_ARM_GICD_BASE GICD_BASE
+#define PLAT_ARM_GICC_BASE GICC_BASE
+#ifdef GICR_BASE
+#define PLAT_ARM_GICR_BASE GICR_BASE
+#endif
+#else
+#error PLAT_ARM_GICD_BASE or GICD_BASE must be defined
+#endif
+#endif
+
+#ifndef PLAT_ARM_GICR_BASE
+#define PLAT_ARM_GICR_BASE SMC_UNK
+#endif
 
 int trusty_disable_serial_debug;
 
@@ -47,11 +64,14 @@ static void trusty_dputc(char ch, int secure)
 static uint64_t trusty_get_reg_base(uint32_t reg)
 {
 	switch (reg) {
-	case 0:
+	case SMC_GET_GIC_BASE_GICD:
 		return PLAT_ARM_GICD_BASE;
 
-	case 1:
+	case SMC_GET_GIC_BASE_GICC:
 		return PLAT_ARM_GICC_BASE;
+
+	case SMC_GET_GIC_BASE_GICR:
+		return PLAT_ARM_GICR_BASE;
 
 	default:
 		NOTICE("%s(0x%x) unknown reg\n", __func__, reg);

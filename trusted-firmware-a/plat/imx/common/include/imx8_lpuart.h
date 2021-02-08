@@ -50,17 +50,12 @@
 #define LPUART_BAUD_BOTHEDGE_MASK                (0x20000U)
 #define LPUART_BAUD_M10_MASK                     (0x20000000U)
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <stdint.h>
 
-typedef struct {
-	console_t console;
-	uintptr_t base;
-} console_lpuart_t;
-
 int console_lpuart_register(uintptr_t baseaddr, uint32_t clock, uint32_t baud,
-			   console_lpuart_t *console);
-#endif /*__ASSEMBLY__*/
+			   console_t *console);
+#endif /*__ASSEMBLER__*/
 
 #endif /* IMX8_LPUART_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -20,16 +20,17 @@
 #include <plat/common/platform.h>
 #endif
 
-#include "../zynqmp_private.h"
+#include <plat_private.h>
 #include "pm_api_sys.h"
 #include "pm_client.h"
 #include "pm_ipi.h"
 
+#define PM_GET_CALLBACK_DATA	0xa01
 #define PM_SET_SUSPEND_MODE	0xa02
 #define PM_GET_TRUSTZONE_VERSION	0xa03
 
-/* !0 - UP, 0 - DOWN */
-static int32_t pm_up = 0;
+/* pm_up = !0 - UP, pm_up = 0 - DOWN */
+static int32_t pm_up, ipi_irq_flag;
 
 #if ZYNQMP_WDT_RESTART
 static spinlock_t inc_lock;
@@ -76,8 +77,12 @@ static void trigger_wdt_restart(void)
 
 	INFO("Active Cores: %d\n", active_cores);
 
-	/* trigger SGI to active cores */
-	gicv2_raise_sgi(ARM_IRQ_SEC_SGI_7, target_cpu_list);
+	for (i = PLATFORM_CORE_COUNT - 1; i >= 0; i--) {
+		if (target_cpu_list & (1 << i)) {
+			/* trigger SGI to active cores */
+			plat_ic_raise_el3_sgi(ARM_IRQ_SEC_SGI_7, i);
+		}
+	}
 }
 
 /**
@@ -104,6 +109,8 @@ static uint64_t ttc_fiq_handler(uint32_t id, uint32_t flags, void *handle,
                                void *cookie)
 {
 	INFO("BL31: Got TTC FIQ\n");
+
+	plat_ic_end_of_interrupt(id);
 
 	/* Clear TTC interrupt by reading interrupt register */
 	mmio_read_32(TTC3_INTR_REGISTER_1);
@@ -135,6 +142,8 @@ static uint64_t __unused __dead2 zynqmp_sgi7_irq(uint32_t id, uint32_t flags,
                                                 void *handle, void *cookie)
 {
 	int i;
+	uint32_t value;
+
 	/* enter wfi and stay there */
 	INFO("Entering wfi\n");
 
@@ -149,8 +158,9 @@ static uint64_t __unused __dead2 zynqmp_sgi7_irq(uint32_t id, uint32_t flags,
 	spin_unlock(&inc_lock);
 
 	if (active_cores == 0) {
-		pm_system_shutdown(PMF_SHUTDOWN_TYPE_RESET,
-				PMF_SHUTDOWN_SUBTYPE_SUBSYSTEM);
+		pm_mmio_read(PMU_GLOBAL_GEN_STORAGE4, &value);
+		value = (value & RESTART_SCOPE_MASK) >> RESTART_SCOPE_SHIFT;
+		pm_system_shutdown(PMF_SHUTDOWN_TYPE_RESET, value);
 	}
 
 	/* enter wfi and stay there */
@@ -202,6 +212,15 @@ int pm_setup(void)
 	int status, ret;
 
 	status = pm_ipi_init(primary_proc);
+
+	ret = pm_get_api_version(&pm_ctx.api_version);
+	if (pm_ctx.api_version < PM_VERSION) {
+		ERROR("BL31: Platform Management API version error. Expected: "
+		      "v%d.%d - Found: v%d.%d\n", PM_VERSION_MAJOR,
+		      PM_VERSION_MINOR, pm_ctx.api_version >> 16,
+		      pm_ctx.api_version & 0xFFFF);
+		return -EINVAL;
+	}
 
 #if ZYNQMP_WDT_RESTART
 	status = pm_wdt_restart_setup();
@@ -314,21 +333,20 @@ uint64_t pm_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2, uint64_t x3,
 
 	case PM_GET_API_VERSION:
 		/* Check is PM API version already verified */
-		if (pm_ctx.api_version == PM_VERSION) {
+		if (pm_ctx.api_version >= PM_VERSION) {
+			if (!ipi_irq_flag) {
+				/*
+				 * Enable IPI IRQ
+				 * assume the rich OS is OK to handle callback IRQs now.
+				 * Even if we were wrong, it would not enable the IRQ in
+				 * the GIC.
+				 */
+				pm_ipi_irq_enable(primary_proc);
+				ipi_irq_flag = 1;
+			}
 			SMC_RET1(handle, (uint64_t)PM_RET_SUCCESS |
-				 ((uint64_t)PM_VERSION << 32));
+				 ((uint64_t)pm_ctx.api_version << 32));
 		}
-
-		ret = pm_get_api_version(&pm_ctx.api_version);
-		/*
-		 * Enable IPI IRQ
-		 * assume the rich OS is OK to handle callback IRQs now.
-		 * Even if we were wrong, it would not enable the IRQ in
-		 * the GIC.
-		 */
-		pm_ipi_irq_enable(primary_proc);
-		SMC_RET1(handle, (uint64_t)ret |
-			 ((uint64_t)pm_ctx.api_version << 32));
 
 	case PM_SET_CONFIGURATION:
 		ret = pm_set_configuration(pm_arg[0]);
@@ -412,6 +430,16 @@ uint64_t pm_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2, uint64_t x3,
 				       pm_arg[3]);
 		SMC_RET1(handle, (uint64_t)ret);
 
+	case PM_GET_CALLBACK_DATA:
+	{
+		uint32_t result[4] = {0};
+
+		pm_get_callbackdata(result, ARRAY_SIZE(result));
+		SMC_RET2(handle,
+			 (uint64_t)result[0] | ((uint64_t)result[1] << 32),
+			 (uint64_t)result[2] | ((uint64_t)result[3] << 32));
+	}
+
 	case PM_PINCTRL_REQUEST:
 		ret = pm_pinctrl_request(pm_arg[0]);
 		SMC_RET1(handle, (uint64_t)ret);
@@ -457,8 +485,8 @@ uint64_t pm_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2, uint64_t x3,
 	{
 		uint32_t data[4] = { 0 };
 
-		ret = pm_query_data(pm_arg[0], pm_arg[1], pm_arg[2],
-				    pm_arg[3], data);
+		pm_query_data(pm_arg[0], pm_arg[1], pm_arg[2],
+			      pm_arg[3], data);
 		SMC_RET2(handle, (uint64_t)data[0]  | ((uint64_t)data[1] << 32),
 			 (uint64_t)data[2] | ((uint64_t)data[3] << 32));
 	}
@@ -589,8 +617,78 @@ uint64_t pm_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2, uint64_t x3,
 		SMC_RET1(handle, (uint64_t)ret | ((uint64_t)mode << 32));
 	}
 
+	case PM_REGISTER_ACCESS:
+	{
+		uint32_t value;
+
+		ret = pm_register_access(pm_arg[0], pm_arg[1], pm_arg[2],
+					 pm_arg[3], &value);
+		SMC_RET1(handle, (uint64_t)ret | ((uint64_t)value) << 32);
+	}
+
+	case PM_EFUSE_ACCESS:
+	{
+		uint32_t value;
+
+		ret = pm_efuse_access(pm_arg[0], pm_arg[1], &value);
+		SMC_RET1(handle, (uint64_t)ret | ((uint64_t)value) << 32);
+	}
+
 	default:
 		WARN("Unimplemented PM Service Call: 0x%x\n", smc_fid);
+		SMC_RET1(handle, SMC_UNK);
+	}
+}
+
+/**
+ * em_smc_handler() - SMC handler for EM-API calls coming from EL1/EL2.
+ * @smc_fid - Function Identifier
+ * @x1 - x4 - Arguments
+ * @cookie  - Unused
+ * @handler - Pointer to caller's context structure
+ *
+ * @return  - Unused
+ *
+ * Determines that smc_fid is valid and supported EM SMC Function ID from the
+ * list of em_api_ids, otherwise completes the request with
+ * the unknown SMC Function ID
+ *
+ * The SMC calls for EM service are forwarded from SIP Service SMC handler
+ * function with rt_svc_handle signature
+ */
+uint64_t em_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2, uint64_t x3,
+			uint64_t x4, void *cookie, void *handle, uint64_t flags)
+{
+	enum pm_ret_status ret;
+
+	switch (smc_fid & FUNCID_NUM_MASK) {
+	/* EM API Functions */
+	case EM_SET_ACTION:
+	{
+		uint32_t value;
+
+		ret = em_set_action(&value);
+		SMC_RET1(handle, (uint64_t)ret | ((uint64_t)value) << 32);
+	}
+
+	case EM_REMOVE_ACTION:
+	{
+		uint32_t value;
+
+		ret = em_remove_action(&value);
+		SMC_RET1(handle, (uint64_t)ret | ((uint64_t)value) << 32);
+	}
+
+	case EM_SEND_ERRORS:
+	{
+		uint32_t value;
+
+		ret = em_send_errors(&value);
+		SMC_RET1(handle, (uint64_t)ret | ((uint64_t)value) << 32);
+	}
+
+	default:
+		WARN("Unimplemented EM Service Call: 0x%x\n", smc_fid);
 		SMC_RET1(handle, SMC_UNK);
 	}
 }

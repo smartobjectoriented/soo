@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,15 +11,15 @@
 #include <common/debug.h>
 #include <drivers/arm/cci.h>
 #include <drivers/arm/gicv2.h>
-#include <drivers/console.h>
+#include <drivers/ti/uart/uart_16550.h>
 #include <lib/bakery_lock.h>
 #include <lib/mmio.h>
 #include <lib/psci/psci.h>
+#include <plat/arm/common/plat_arm.h>
 
 #include <mcucfg.h>
 #include <mt8173_def.h>
 #include <mt_cpuxgpt.h> /* generic_timer_backup() */
-#include <plat_arm.h>
 #include <plat_private.h>
 #include <power_tracer.h>
 #include <rtc.h>
@@ -27,6 +27,7 @@
 #include <spm_hotplug.h>
 #include <spm_mcdi.h>
 #include <spm_suspend.h>
+#include <wdt.h>
 
 #define MTK_PWR_LVL0	0
 #define MTK_PWR_LVL1	1
@@ -236,7 +237,7 @@ static void mt_platform_restore_context(unsigned long mpidr)
 
 static void plat_cpu_standby(plat_local_state_t cpu_state)
 {
-	unsigned int scr;
+	u_register_t scr;
 
 	scr = read_scr_el3();
 	write_scr_el3(scr | SCR_IRQ_BIT);
@@ -350,6 +351,7 @@ static void plat_power_domain_suspend(const psci_power_state_t *state)
 	}
 
 	if (MTK_SYSTEM_PWR_STATE(state) == MTK_LOCAL_STATE_OFF) {
+		wdt_suspend();
 		disable_scu(mpidr);
 		generic_timer_backup();
 		spm_system_suspend();
@@ -409,6 +411,7 @@ static void plat_power_domain_suspend_finish(const psci_power_state_t *state)
 		plat_arm_gic_init();
 		spm_system_suspend_finish();
 		enable_scu(mpidr);
+		wdt_resume();
 	}
 
 	/* Perform the common cluster specific operations */
@@ -455,11 +458,7 @@ static void __dead2 plat_system_reset(void)
 	/* Write the System Configuration Control Register */
 	INFO("MTK System Reset\n");
 
-	mmio_clrsetbits_32(MTK_WDT_BASE,
-		(MTK_WDT_MODE_DUAL_MODE | MTK_WDT_MODE_IRQ),
-		MTK_WDT_MODE_KEY);
-	mmio_setbits_32(MTK_WDT_BASE, (MTK_WDT_MODE_KEY | MTK_WDT_MODE_EXTEN));
-	mmio_setbits_32(MTK_WDT_SWRST, MTK_WDT_SWRST_KEY);
+	wdt_trigger_reset();
 
 	wfi();
 	ERROR("MTK System Reset: operation not handled.\n");
@@ -543,12 +542,14 @@ int plat_validate_power_state(unsigned int power_state,
 
 void mtk_system_pwr_domain_resume(void)
 {
-	console_init(MT8173_UART0_BASE, MT8173_UART_CLOCK, MT8173_BAUDRATE);
+	console_switch_state(CONSOLE_FLAG_BOOT);
 
 	/* Assert system power domain is available on the platform */
 	assert(PLAT_MAX_PWR_LVL >= MTK_PWR_LVL2);
 
 	plat_arm_gic_init();
+
+	console_switch_state(CONSOLE_FLAG_RUNTIME);
 }
 
 static const plat_psci_ops_t plat_plat_pm_ops = {

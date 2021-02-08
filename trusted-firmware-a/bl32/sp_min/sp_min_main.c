@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -19,7 +19,9 @@
 #include <context.h>
 #include <drivers/console.h>
 #include <lib/el3_runtime/context_mgmt.h>
+#include <lib/pmf/pmf.h>
 #include <lib/psci/psci.h>
+#include <lib/runtime_instr.h>
 #include <lib/utils.h>
 #include <plat/common/platform.h>
 #include <platform_sp_min.h>
@@ -28,6 +30,11 @@
 
 #include "sp_min_private.h"
 
+#if ENABLE_RUNTIME_INSTRUMENTATION
+PMF_REGISTER_SERVICE_SMC(rt_instr_svc, PMF_RT_INSTR_SVC_ID,
+	RT_INSTR_TOTAL_IDS, PMF_STORE_ENABLE)
+#endif
+
 /* Pointers to per-core cpu contexts */
 static void *sp_min_cpu_ctx_ptr[PLATFORM_CORE_COUNT];
 
@@ -35,7 +42,7 @@ static void *sp_min_cpu_ctx_ptr[PLATFORM_CORE_COUNT];
 static smc_ctx_t sp_min_smc_context[PLATFORM_CORE_COUNT];
 
 /******************************************************************************
- * Define the smccc helper library API's
+ * Define the smccc helper library APIs
  *****************************************************************************/
 void *smc_get_ctx(unsigned int security_state)
 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include <openssl/conf.h>
 #include <openssl/engine.h>
@@ -18,21 +19,12 @@
 #include <openssl/sha.h>
 #include <openssl/x509v3.h>
 
-#if USE_TBBR_DEFS
-#include <tbbr_oid.h>
-#else
-#include <platform_oid.h>
-#endif
-
 #include "cert.h"
 #include "cmd_opt.h"
 #include "debug.h"
 #include "ext.h"
 #include "key.h"
 #include "sha.h"
-#include "tbbr/tbb_cert.h"
-#include "tbbr/tbb_ext.h"
-#include "tbbr/tbb_key.h"
 
 /*
  * Helper macros to simplify the code. This macro assigns the return value of
@@ -55,7 +47,7 @@
 	do { \
 		v = OBJ_txt2nid(oid); \
 		if (v == NID_undef) { \
-			ERROR("Cannot find TBB extension %s\n", oid); \
+			ERROR("Cannot find extension %s\n", oid); \
 			exit(1); \
 		} \
 	} while (0)
@@ -69,6 +61,7 @@
 /* Global options */
 static int key_alg;
 static int hash_alg;
+static int key_size;
 static int new_keys;
 static int save_keys;
 static int print_cert;
@@ -90,7 +83,6 @@ static char *strdup(const char *str)
 
 static const char *key_algs_str[] = {
 	[KEY_ALG_RSA] = "rsa",
-	[KEY_ALG_RSA_1_5] = "rsa_1_5",
 #ifndef OPENSSL_NO_EC
 	[KEY_ALG_ECDSA] = "ecdsa"
 #endif /* OPENSSL_NO_EC */
@@ -155,6 +147,18 @@ static int get_key_alg(const char *key_alg_str)
 	return -1;
 }
 
+static int get_key_size(const char *key_size_str)
+{
+	char *end;
+	long key_size;
+
+	key_size = strtol(key_size_str, &end, 10);
+	if (*end != '\0')
+		return -1;
+
+	return key_size;
+}
+
 static int get_hash_alg(const char *hash_alg_str)
 {
 	int i;
@@ -174,10 +178,31 @@ static void check_cmd_params(void)
 	ext_t *ext;
 	key_t *key;
 	int i, j;
+	bool valid_size;
 
 	/* Only save new keys */
 	if (save_keys && !new_keys) {
 		ERROR("Only new keys can be saved to disk\n");
+		exit(1);
+	}
+
+	/* Validate key-size */
+	valid_size = false;
+	for (i = 0; i < KEY_SIZE_MAX_NUM; i++) {
+		if (key_size == KEY_SIZES[key_alg][i]) {
+			valid_size = true;
+			break;
+		}
+	}
+	if (!valid_size) {
+		ERROR("'%d' is not a valid key size for '%s'\n",
+				key_size, key_algs_str[key_alg]);
+		NOTICE("Valid sizes are: ");
+		for (i = 0; i < KEY_SIZE_MAX_NUM &&
+				KEY_SIZES[key_alg][i] != 0; i++) {
+			printf("%d ", KEY_SIZES[key_alg][i]);
+		}
+		printf("\n");
 		exit(1);
 	}
 
@@ -242,8 +267,11 @@ static const cmd_opt_t common_cmd_opt[] = {
 	},
 	{
 		{ "key-alg", required_argument, NULL, 'a' },
-		"Key algorithm: 'rsa' (default) - RSAPSS scheme as per \
-PKCS#1 v2.1, 'rsa_1_5' - RSA PKCS#1 v1.5, 'ecdsa'"
+		"Key algorithm: 'rsa' (default)- RSAPSS scheme as per PKCS#1 v2.1, 'ecdsa'"
+	},
+	{
+		{ "key-size", required_argument, NULL, 'b' },
+		"Key size (for supported algorithms)."
 	},
 	{
 		{ "hash-alg", required_argument, NULL, 's' },
@@ -286,6 +314,7 @@ int main(int argc, char *argv[])
 	/* Set default options */
 	key_alg = KEY_ALG_RSA;
 	hash_alg = HASH_ALG_SHA256;
+	key_size = -1;
 
 	/* Add common command line options */
 	for (i = 0; i < NUM_ELEM(common_cmd_opt); i++) {
@@ -306,7 +335,7 @@ int main(int argc, char *argv[])
 
 	/* Initialize the new types and register OIDs for the extensions */
 	if (ext_init() != 0) {
-		ERROR("Cannot initialize TBB extensions\n");
+		ERROR("Cannot initialize extensions\n");
 		exit(1);
 	}
 
@@ -315,7 +344,7 @@ int main(int argc, char *argv[])
 
 	while (1) {
 		/* getopt_long stores the option index here. */
-		c = getopt_long(argc, argv, "a:hknps:", cmd_opt, &opt_idx);
+		c = getopt_long(argc, argv, "a:b:hknps:", cmd_opt, &opt_idx);
 
 		/* Detect the end of the options. */
 		if (c == -1) {
@@ -327,6 +356,13 @@ int main(int argc, char *argv[])
 			key_alg = get_key_alg(optarg);
 			if (key_alg < 0) {
 				ERROR("Invalid key algorithm '%s'\n", optarg);
+				exit(1);
+			}
+			break;
+		case 'b':
+			key_size = get_key_size(optarg);
+			if (key_size <= 0) {
+				ERROR("Invalid key size '%s'\n", optarg);
 				exit(1);
 			}
 			break;
@@ -371,6 +407,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* Select a reasonable default key-size */
+	if (key_size == -1) {
+		key_size = KEY_SIZES[key_alg][0];
+	}
+
 	/* Check command line arguments */
 	check_cmd_params();
 
@@ -413,7 +454,7 @@ int main(int argc, char *argv[])
 		if (new_keys) {
 			/* Try to create a new key */
 			NOTICE("Creating new key for '%s'\n", keys[i].desc);
-			if (!key_create(&keys[i], key_alg)) {
+			if (!key_create(&keys[i], key_alg, key_size)) {
 				ERROR("Error creating key '%s'\n", keys[i].desc);
 				exit(1);
 			}
@@ -431,6 +472,11 @@ int main(int argc, char *argv[])
 	for (i = 0 ; i < num_certs ; i++) {
 
 		cert = &certs[i];
+
+		if (cert->fn == NULL) {
+			/* Certificate not requested. Skip to the next one */
+			continue;
+		}
 
 		/* Create a new stack of extensions. This stack will be used
 		 * to create the certificate */
@@ -451,7 +497,12 @@ int main(int argc, char *argv[])
 			 */
 			switch (ext->type) {
 			case EXT_TYPE_NVCOUNTER:
-				if (ext->arg) {
+				if (ext->optional && ext->arg == NULL) {
+					/* Skip this NVCounter */
+					continue;
+				} else {
+					/* Checked by `check_cmd_params` */
+					assert(ext->arg != NULL);
 					nvctr = atoi(ext->arg);
 					CHECK_NULL(cert_ext, ext_new_nvcounter(ext_nid,
 						EXT_CRIT, nvctr));
@@ -464,7 +515,7 @@ int main(int argc, char *argv[])
 						memset(md, 0x0, SHA512_DIGEST_LENGTH);
 					} else {
 						/* Do not include this hash in the certificate */
-						break;
+						continue;
 					}
 				} else {
 					/* Calculate the hash of the file */
@@ -493,9 +544,14 @@ int main(int argc, char *argv[])
 		}
 
 		/* Create certificate. Signed with corresponding key */
-		if (cert->fn && !cert_new(key_alg, hash_alg, cert, VAL_DAYS, 0, sk)) {
+		if (!cert_new(hash_alg, cert, VAL_DAYS, 0, sk)) {
 			ERROR("Cannot create %s\n", cert->cn);
 			exit(1);
+		}
+
+		for (cert_ext = sk_X509_EXTENSION_pop(sk); cert_ext != NULL;
+				cert_ext = sk_X509_EXTENSION_pop(sk)) {
+			X509_EXTENSION_free(cert_ext);
 		}
 
 		sk_X509_EXTENSION_free(sk);
@@ -535,10 +591,44 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* If we got here, then we must have filled the key array completely.
+	 * We can then safely call free on all of the keys in the array
+	 */
+	for (i = 0; i < num_keys; i++) {
+		EVP_PKEY_free(keys[i].key);
+	}
+
 #ifndef OPENSSL_NO_ENGINE
 	ENGINE_cleanup();
 #endif
 	CRYPTO_cleanup_all_ex_data();
+
+
+	/* We allocated strings through strdup, so now we have to free them */
+	for (i = 0; i < num_keys; i++) {
+		if (keys[i].fn != NULL) {
+			void *ptr = keys[i].fn;
+
+			keys[i].fn = NULL;
+			free(ptr);
+		}
+	}
+	for (i = 0; i < num_extensions; i++) {
+		if (extensions[i].arg != NULL) {
+			void *ptr = (void *)extensions[i].arg;
+
+			extensions[i].arg = NULL;
+			free(ptr);
+		}
+	}
+	for (i = 0; i < num_certs; i++) {
+		if (certs[i].fn != NULL) {
+			void *ptr = (void *)certs[i].fn;
+
+			certs[i].fn = NULL;
+			free(ptr);
+		}
+	}
 
 	return 0;
 }

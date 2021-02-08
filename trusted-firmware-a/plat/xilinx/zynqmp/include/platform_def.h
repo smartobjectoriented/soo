@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,7 +12,7 @@
 #include <drivers/arm/gic_common.h>
 #include <lib/utils_def.h>
 
-#include "../zynqmp_def.h"
+#include "zynqmp_def.h"
 
 /*******************************************************************************
  * Generic platform constants
@@ -21,8 +21,8 @@
 /* Size of cacheable stacks */
 #define PLATFORM_STACK_SIZE 0x440
 
-#define PLATFORM_CORE_COUNT		4
-#define PLAT_NUM_POWER_DOMAINS		5
+#define PLATFORM_CORE_COUNT		U(4)
+#define PLAT_NUM_POWER_DOMAINS		U(5)
 #define PLAT_MAX_PWR_LVL		U(1)
 #define PLAT_MAX_RET_STATE		U(1)
 #define PLAT_MAX_OFF_STATE		U(2)
@@ -66,9 +66,9 @@
  * BL33 specific defines.
  ******************************************************************************/
 #ifndef PRELOADED_BL33_BASE
-# define PLAT_ARM_NS_IMAGE_OFFSET	0x8000000
+# define PLAT_ARM_NS_IMAGE_BASE	0x8000000
 #else
-# define PLAT_ARM_NS_IMAGE_OFFSET	PRELOADED_BL33_BASE
+# define PLAT_ARM_NS_IMAGE_BASE	PRELOADED_BL33_BASE
 #endif
 
 /*******************************************************************************

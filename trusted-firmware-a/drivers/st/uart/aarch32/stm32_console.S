@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <asm_macros.S>
 #include <assert_macros.S>
-#define USE_FINISH_CONSOLE_REG_2
 #include <console_macros.S>
 #include <drivers/st/stm32_console.h>
 #include <drivers/st/stm32_uart_regs.h>
@@ -92,14 +91,14 @@ endfunc console_stm32_core_init
 	/* -------------------------------------------------------
 	 * int console_stm32_register(uintptr_t baseaddr,
 	 *     uint32_t clock, uint32_t baud,
-	 *     struct console_stm32 *console);
+	 *     console_t *console);
 	 * Function to initialize and register a new STM32
 	 * console. Storage passed in for the console struct
 	 * *must* be persistent (i.e. not from the stack).
 	 * In: r0 - UART register base address
 	 *     r1 - UART clock in Hz
 	 *     r2 - Baud rate
-	 *     r3 - pointer to empty console_stm32 struct
+	 *     r3 - pointer to empty console_t struct
 	 * Out: return 1 on success, 0 on error
 	 * Clobber list : r0, r1, r2
 	 * -------------------------------------------------------
@@ -109,7 +108,7 @@ func console_stm32_register
 	mov	r4, r3
 	cmp	r4, #0
 	beq	register_fail
-	str	r0, [r4, #CONSOLE_T_STM32_BASE]
+	str	r0, [r4, #CONSOLE_T_BASE]
 
 	bl console_stm32_core_init
 	cmp	r0, #0
@@ -139,34 +138,18 @@ func console_stm32_core_putc
 	/* Check the input parameter */
 	cmp	r1, #0
 	beq	putc_error
-	/* Prepend '\r' to '\n' */
-	cmp	r0, #0xA
-	bne	2f
-1:
+
 	/* Check Transmit Data Register Empty */
-txe_loop_1:
+txe_loop:
 	ldr	r2, [r1, #USART_ISR]
 	tst	r2, #USART_ISR_TXE
-	beq	txe_loop_1
-	mov	r2, #0xD
-	str	r2, [r1, #USART_TDR]
-	/* Check transmit complete flag */
-tc_loop_1:
-	ldr	r2, [r1, #USART_ISR]
-	tst	r2, #USART_ISR_TC
-	beq	tc_loop_1
-2:
-	/* Check Transmit Data Register Empty */
-txe_loop_2:
-	ldr	r2, [r1, #USART_ISR]
-	tst	r2, #USART_ISR_TXE
-	beq	txe_loop_2
+	beq	txe_loop
 	str	r0, [r1, #USART_TDR]
 	/* Check transmit complete flag */
-tc_loop_2:
+tc_loop:
 	ldr	r2, [r1, #USART_ISR]
 	tst	r2, #USART_ISR_TC
-	beq	tc_loop_2
+	beq	tc_loop
 	bx	lr
 putc_error:
 	mov	r0, #-1
@@ -174,7 +157,7 @@ putc_error:
 endfunc console_stm32_core_putc
 
 	/* ------------------------------------------------------------
-	 * int console_stm32_putc(int c, struct console_stm32 *console)
+	 * int console_stm32_putc(int c, console_t *console)
 	 * Function to output a character over the console. It
 	 * returns the character printed on success or -1 on error.
 	 * In: r0 - character to be printed
@@ -188,7 +171,7 @@ func console_stm32_putc
 	cmp	r1, #0
 	ASM_ASSERT(ne)
 #endif /* ENABLE_ASSERTIONS */
-	ldr	r1, [r1, #CONSOLE_T_STM32_BASE]
+	ldr	r1, [r1, #CONSOLE_T_BASE]
 	b	console_stm32_core_putc
 endfunc console_stm32_putc
 
@@ -210,37 +193,35 @@ func console_stm32_core_getc
 endfunc console_stm32_core_getc
 
 	/* ---------------------------------------------------------------
-	 * int console_core_flush(uintptr_t base_addr)
+	 * void console_core_flush(uintptr_t base_addr)
 	 *
 	 * Function to force a write of all buffered data that hasn't been
 	 * output.
 	 *
 	 * In : r0 - console base address
-	 * Out : return -1 on error else return 0.
+	 * Out : void.
 	 * Clobber list : r0, r1
 	 * ---------------------------------------------------------------
 	 */
 func console_stm32_core_flush
+#if ENABLE_ASSERTIONS
 	cmp	r0, #0
-	beq	flush_error
+	ASM_ASSERT(ne)
+#endif /* ENABLE_ASSERTIONS */
 	/* Check Transmit Data Register Empty */
 txe_loop_3:
 	ldr	r1, [r0, #USART_ISR]
 	tst	r1, #USART_ISR_TXE
 	beq	txe_loop_3
-	mov	r0, #0
-	bx	lr
-flush_error:
-	mov	r0, #-1
 	bx	lr
 endfunc console_stm32_core_flush
 
 	/* ------------------------------------------------------
-	 * int console_stm32_flush(struct console_stm32 *console)
+	 * void console_stm32_flush(console_t *console)
 	 * Function to force a write of all buffered
 	 * data that hasn't been output.
 	 * In : r0 - pointer to console_t structure
-	 * Out : return -1 on error else return 0.
+	 * Out : void.
 	 * Clobber list: r0, r1
 	 * ------------------------------------------------------
 	 */
@@ -249,6 +230,6 @@ func console_stm32_flush
 	cmp	r0, #0
 	ASM_ASSERT(ne)
 #endif /* ENABLE_ASSERTIONS */
-	ldr	r0, [r0, #CONSOLE_T_STM32_BASE]
+	ldr	r0, [r0, #CONSOLE_T_BASE]
 	b	console_stm32_core_flush
 endfunc console_stm32_flush

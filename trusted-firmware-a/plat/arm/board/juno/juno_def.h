@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,6 +8,11 @@
 #define JUNO_DEF_H
 
 #include <lib/utils_def.h>
+
+/******************************************************************************
+ * Definition of platform soc id
+ *****************************************************************************/
+#define JUNO_SOC_ID     1
 
 /*******************************************************************************
  * Juno memory map related constants
@@ -32,9 +37,9 @@
 /*******************************************************************************
  * Juno topology related constants
  ******************************************************************************/
-#define JUNO_CLUSTER_COUNT		2
-#define JUNO_CLUSTER0_CORE_COUNT	2
-#define JUNO_CLUSTER1_CORE_COUNT	4
+#define JUNO_CLUSTER_COUNT		U(2)
+#define JUNO_CLUSTER0_CORE_COUNT	U(2)
+#define JUNO_CLUSTER1_CORE_COUNT	U(4)
 
 /*******************************************************************************
  * TZC-400 related constants

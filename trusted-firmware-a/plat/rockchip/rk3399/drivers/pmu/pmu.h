@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -136,5 +136,6 @@ struct pmu_slpdata_s {
 extern uint32_t clst_warmboot_data[PLATFORM_CLUSTER_COUNT];
 
 extern void sram_func_set_ddrctl_pll(uint32_t pll_src);
+void pmu_power_domains_on(void);
 
 #endif /* PMU_H */

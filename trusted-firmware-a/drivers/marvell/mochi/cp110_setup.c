@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Marvell International Ltd.
+ * Copyright (C) 2018-2020 Marvell International Ltd.
  *
  * SPDX-License-Identifier:     BSD-3-Clause
  * https://spdx.org/licenses
@@ -56,11 +56,11 @@
 				(0x1 << MVEBU_AMB_IP_BRIDGE_WIN_EN_OFFSET)
 #define MVEBU_AMB_IP_BRIDGE_WIN_SIZE_OFFSET	16
 #define MVEBU_AMB_IP_BRIDGE_WIN_SIZE_MASK	\
-				(0xffff << MVEBU_AMB_IP_BRIDGE_WIN_SIZE_OFFSET)
+				(0xffffu << MVEBU_AMB_IP_BRIDGE_WIN_SIZE_OFFSET)
 
 #define MVEBU_SAMPLE_AT_RESET_REG	(0x440600)
 #define SAR_PCIE1_CLK_CFG_OFFSET	31
-#define SAR_PCIE1_CLK_CFG_MASK		(0x1 << SAR_PCIE1_CLK_CFG_OFFSET)
+#define SAR_PCIE1_CLK_CFG_MASK		(0x1u << SAR_PCIE1_CLK_CFG_OFFSET)
 #define SAR_PCIE0_CLK_CFG_OFFSET	30
 #define SAR_PCIE0_CLK_CFG_MASK		(0x1 << SAR_PCIE0_CLK_CFG_OFFSET)
 #define SAR_I2C_INIT_EN_OFFSET		24
@@ -130,6 +130,7 @@ enum axi_attr {
 #define USB3H_1_STREAM_ID_REG	(RFU_STREAM_ID_BASE + 0x10)
 #define SATA_0_STREAM_ID_REG	(RFU_STREAM_ID_BASE + 0x14)
 #define SATA_1_STREAM_ID_REG	(RFU_STREAM_ID_BASE + 0x18)
+#define SDIO_0_STREAM_ID_REG	(RFU_STREAM_ID_BASE + 0x28)
 
 #define CP_DMA_0_STREAM_ID_REG  (0x6B0010)
 #define CP_DMA_1_STREAM_ID_REG  (0x6D0010)
@@ -144,6 +145,7 @@ uintptr_t stream_id_reg[] = {
 	CP_DMA_1_STREAM_ID_REG,
 	SATA_0_STREAM_ID_REG,
 	SATA_1_STREAM_ID_REG,
+	SDIO_0_STREAM_ID_REG,
 	0
 };
 
@@ -303,7 +305,7 @@ static void cp110_axi_attr_init(uintptr_t base)
 			      DOMAIN_SYSTEM_SHAREABLE);
 }
 
-static void amb_bridge_init(uintptr_t base)
+void cp110_amb_init(uintptr_t base)
 {
 	uint32_t reg;
 
@@ -399,7 +401,7 @@ void cp110_init(uintptr_t cp110_base, uint32_t stream_id)
 	cp110_stream_id_init(cp110_base, stream_id);
 
 	/* Open AMB bridge for comphy for CP0 & CP1*/
-	amb_bridge_init(cp110_base);
+	cp110_amb_init(cp110_base);
 
 	/* Reset RTC if needed */
 	cp110_rtc_init(cp110_base);
@@ -411,7 +413,7 @@ void cp110_ble_init(uintptr_t cp110_base)
 #if PCI_EP_SUPPORT
 	INFO("%s: Initialize CPx - base = %lx\n", __func__, cp110_base);
 
-	amb_bridge_init(cp110_base);
+	cp110_amb_init(cp110_base);
 
 	/* Configure PCIe clock */
 	cp110_pcie_clk_cfg(cp110_base);

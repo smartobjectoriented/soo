@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -37,7 +37,7 @@ struct frame_record {
 	uintptr_t return_addr;
 };
 
-static const char *get_el_str(unsigned int el)
+const char *get_el_str(unsigned int el)
 {
 	if (el == 3U) {
 		return "EL3";
@@ -52,17 +52,25 @@ static const char *get_el_str(unsigned int el)
  * Returns true if the address points to a virtual address that can be read at
  * the current EL, false otherwise.
  */
-#ifdef AARCH64
+#ifdef __aarch64__
 static bool is_address_readable(uintptr_t addr)
 {
 	unsigned int el = get_current_el();
 
+#if ENABLE_PAUTH
+	/*
+	 * When pointer authentication is enabled, the LR value saved on the
+	 * stack contains a PAC. It must be stripped to retrieve the return
+	 * address.
+	 */
+	xpaci(addr);
+#endif
 	if (el == 3U) {
 		ats1e3r(addr);
 	} else if (el == 2U) {
 		ats1e2r(addr);
 	} else {
-		ats1e1r(addr);
+		AT(ats1e1r, addr);
 	}
 
 	isb();
@@ -73,7 +81,7 @@ static bool is_address_readable(uintptr_t addr)
 
 	return true;
 }
-#else /* if AARCH32 */
+#else /* !__aarch64__ */
 static bool is_address_readable(uintptr_t addr)
 {
 	unsigned int el = get_current_el();
@@ -94,7 +102,7 @@ static bool is_address_readable(uintptr_t addr)
 
 	return true;
 }
-#endif
+#endif /* __aarch64__ */
 
 /*
  * Returns true if all the bytes in a given object are in mapped memory and an
@@ -157,7 +165,7 @@ static bool is_valid_frame_record(struct frame_record *fr)
  */
 static struct frame_record *adjust_frame_record(struct frame_record *fr)
 {
-#ifdef AARCH64
+#ifdef __aarch64__
 	return fr;
 #else
 	return (struct frame_record *)((uintptr_t)fr - 4U);
@@ -201,6 +209,14 @@ static void unwind_stack(struct frame_record *fr, uintptr_t current_pc,
 		 */
 		call_site = fr->return_addr - 4U;
 
+#if ENABLE_PAUTH
+		/*
+		 * When pointer authentication is enabled, the LR value saved on
+		 * the stack contains a PAC. It must be stripped to retrieve the
+		 * return address.
+		 */
+		xpaci(call_site);
+#endif
 		/*
 		 * If the address is invalid it means that the frame record is
 		 * probably corrupted.
@@ -231,7 +247,7 @@ static void unwind_stack(struct frame_record *fr, uintptr_t current_pc,
  * Usage of the trace: addr2line can be used to map the addresses to function
  * and source code location when given the ELF file compiled with debug
  * information. The "-i" flag is highly recommended to improve display of
- * inlined function. The *.dump files generated when buildidng each image can
+ * inlined function. The *.dump files generated when building each image can
  * also be used.
  *
  * WARNING: In case of corrupted stack, this function could display security
@@ -245,7 +261,7 @@ void backtrace(const char *cookie)
 	struct frame_record *fr = __builtin_frame_address(0U);
 
 	/* Printing the backtrace may crash the system, flush before starting */
-	(void)console_flush();
+	console_flush();
 
 	fr = adjust_frame_record(fr);
 

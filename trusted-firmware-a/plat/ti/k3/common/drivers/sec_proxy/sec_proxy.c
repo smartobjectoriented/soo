@@ -51,14 +51,14 @@ struct k3_sec_proxy_desc {
 };
 
 /**
- * struct k3_sec_proxy_thread - Description of a secure proxy Thread
- * @id:		Thread ID
+ * struct k3_sec_proxy_thread - Description of a Secure Proxy Thread
+ * @name:	Thread Name
  * @data:	Thread Data path region for target
  * @scfg:	Secure Config Region for Thread
  * @rt:		RealTime Region for Thread
  */
 struct k3_sec_proxy_thread {
-	uint32_t id;
+	const char *name;
 	uintptr_t data;
 	uintptr_t scfg;
 	uintptr_t rt;
@@ -83,7 +83,7 @@ struct k3_sec_proxy_mbox {
  */
 #define SP_THREAD(_x) \
 	[_x] = { \
-		.id = _x, \
+		.name = #_x, \
 		.data = SEC_PROXY_THREAD(SEC_PROXY_DATA_BASE, _x), \
 		.scfg = SEC_PROXY_THREAD(SEC_PROXY_SCFG_BASE, _x), \
 		.rt = SEC_PROXY_THREAD(SEC_PROXY_RT_BASE, _x), \
@@ -97,11 +97,16 @@ static struct k3_sec_proxy_mbox spm = {
 		.data_end_offset = 0x3C,
 	},
 	.threads = {
+#if !K3_SEC_PROXY_LITE
 		SP_THREAD(SP_NOTIFY),
 		SP_THREAD(SP_RESPONSE),
 		SP_THREAD(SP_HIGH_PRIORITY),
 		SP_THREAD(SP_LOW_PRIORITY),
 		SP_THREAD(SP_NOTIFY_RESP),
+#else
+		SP_THREAD(SP_RESPONSE),
+		SP_THREAD(SP_HIGH_PRIORITY),
+#endif /* K3_SEC_PROXY_LITE */
 	},
 };
 
@@ -131,19 +136,19 @@ static inline int k3_sec_proxy_verify_thread(struct k3_sec_proxy_thread *spt,
 	/* Check for any errors already available */
 	if (mmio_read_32(spt->rt + RT_THREAD_STATUS) &
 	    RT_THREAD_STATUS_ERROR_MASK) {
-		ERROR("Thread %d is corrupted, cannot send data\n", spt->id);
+		ERROR("Thread %s is corrupted, cannot send data\n", spt->name);
 		return -EINVAL;
 	}
 
 	/* Make sure thread is configured for right direction */
 	if ((mmio_read_32(spt->scfg + SCFG_THREAD_CTRL) & SCFG_THREAD_CTRL_DIR_MASK)
 	    != (dir << SCFG_THREAD_CTRL_DIR_SHIFT)) {
-		if (dir)
-			ERROR("Trying to receive data on tx Thread %d\n",
-			      spt->id);
+		if (dir == THREAD_IS_TX)
+			ERROR("Trying to send data on RX Thread %s\n",
+			      spt->name);
 		else
-			ERROR("Trying to send data on rx Thread %d\n",
-			      spt->id);
+			ERROR("Trying to receive data on TX Thread %s\n",
+			      spt->name);
 		return -EINVAL;
 	}
 
@@ -151,12 +156,52 @@ static inline int k3_sec_proxy_verify_thread(struct k3_sec_proxy_thread *spt,
 	uint32_t tick_start = (uint32_t)read_cntpct_el0();
 	uint32_t ticks_per_us = SYS_COUNTER_FREQ_IN_TICKS / 1000000;
 	while (!(mmio_read_32(spt->rt + RT_THREAD_STATUS) & RT_THREAD_STATUS_CUR_CNT_MASK)) {
-		VERBOSE("Waiting for thread %d to clear\n", spt->id);
+		VERBOSE("Waiting for thread %s to %s\n",
+			spt->name, (dir == THREAD_IS_TX) ? "empty" : "fill");
 		if (((uint32_t)read_cntpct_el0() - tick_start) >
 		    (spm.desc.timeout_us * ticks_per_us)) {
-			ERROR("Timeout waiting for thread %d to clear\n", spt->id);
+			ERROR("Timeout waiting for thread %s to %s\n",
+				spt->name, (dir == THREAD_IS_TX) ? "empty" : "fill");
 			return -ETIMEDOUT;
 		}
+	}
+
+	return 0;
+}
+
+/**
+ * k3_sec_proxy_clear_rx_thread() - Clear Secure Proxy thread
+ *
+ * @id: Channel Identifier
+ *
+ * Return: 0 if all goes well, else appropriate error message
+ */
+int k3_sec_proxy_clear_rx_thread(enum k3_sec_proxy_chan_id id)
+{
+	struct k3_sec_proxy_thread *spt = &spm.threads[id];
+
+	/* Check for any errors already available */
+	if (mmio_read_32(spt->rt + RT_THREAD_STATUS) &
+	    RT_THREAD_STATUS_ERROR_MASK) {
+		ERROR("Thread %s is corrupted, cannot send data\n", spt->name);
+		return -EINVAL;
+	}
+
+	/* Make sure thread is configured for right direction */
+	if (!(mmio_read_32(spt->scfg + SCFG_THREAD_CTRL) & SCFG_THREAD_CTRL_DIR_MASK)) {
+		ERROR("Cannot clear a transmit thread %s\n", spt->name);
+		return -EINVAL;
+	}
+
+	/* Read off messages from thread until empty */
+	uint32_t try_count = 10;
+	while (mmio_read_32(spt->rt + RT_THREAD_STATUS) & RT_THREAD_STATUS_CUR_CNT_MASK) {
+		if (!(try_count--)) {
+			ERROR("Could not clear all messages from thread %s\n", spt->name);
+			return -ETIMEDOUT;
+		}
+		WARN("Clearing message from thread %s\n", spt->name);
+		mmio_read_32(spt->data + spm.desc.data_end_offset);
 	}
 
 	return 0;
@@ -178,14 +223,14 @@ int k3_sec_proxy_send(enum k3_sec_proxy_chan_id id, const struct k3_sec_proxy_ms
 
 	ret = k3_sec_proxy_verify_thread(spt, THREAD_IS_TX);
 	if (ret) {
-		ERROR("Thread %d verification failed (%d)\n", spt->id, ret);
+		ERROR("Thread %s verification failed (%d)\n", spt->name, ret);
 		return ret;
 	}
 
 	/* Check the message size */
 	if (msg->len + sizeof(secure_header) > spm.desc.max_msg_size) {
-		ERROR("Thread %d message length %lu > max msg size\n",
-		      spt->id, msg->len);
+		ERROR("Thread %s message length %lu > max msg size\n",
+		      spt->name, msg->len);
 		return -EINVAL;
 	}
 
@@ -221,11 +266,16 @@ int k3_sec_proxy_send(enum k3_sec_proxy_chan_id id, const struct k3_sec_proxy_ms
 	/*
 	 * 'data_reg' indicates next register to write. If we did not already
 	 * write on tx complete reg(last reg), we must do so for transmit
+	 * In addition, we also need to make sure all intermediate data
+	 * registers(if any required), are reset to 0 for TISCI backward
+	 * compatibility to be maintained.
 	 */
-	if (data_reg <= spm.desc.data_end_offset)
-		mmio_write_32(spt->data + spm.desc.data_end_offset, 0);
+	while (data_reg <= spm.desc.data_end_offset) {
+		mmio_write_32(spt->data + data_reg, 0);
+		data_reg += sizeof(uint32_t);
+	}
 
-	VERBOSE("Message successfully sent on thread %ud\n", id);
+	VERBOSE("Message successfully sent on thread %s\n", spt->name);
 
 	return 0;
 }
@@ -237,7 +287,7 @@ int k3_sec_proxy_send(enum k3_sec_proxy_chan_id id, const struct k3_sec_proxy_ms
  *
  * Return: 0 if all goes well, else appropriate error message
  */
-int k3_sec_proxy_recv(uint32_t id, struct k3_sec_proxy_msg *msg)
+int k3_sec_proxy_recv(enum k3_sec_proxy_chan_id id, struct k3_sec_proxy_msg *msg)
 {
 	struct k3_sec_proxy_thread *spt = &spm.threads[id];
 	union sec_msg_hdr secure_header;
@@ -246,7 +296,7 @@ int k3_sec_proxy_recv(uint32_t id, struct k3_sec_proxy_msg *msg)
 
 	ret = k3_sec_proxy_verify_thread(spt, THREAD_IS_RX);
 	if (ret) {
-		ERROR("Thread %d verification failed (%d)\n", spt->id, ret);
+		ERROR("Thread %s verification failed (%d)\n", spt->name, ret);
 		return ret;
 	}
 
@@ -285,7 +335,7 @@ int k3_sec_proxy_recv(uint32_t id, struct k3_sec_proxy_msg *msg)
 	/* TODO: Verify checksum */
 	(void)secure_header.checksum;
 
-	VERBOSE("Message successfully received from thread %ud\n", id);
+	VERBOSE("Message successfully received from thread %s\n", spt->name);
 
 	return 0;
 }

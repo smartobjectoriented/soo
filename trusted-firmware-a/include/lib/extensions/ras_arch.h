@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -151,6 +152,9 @@
 #define ERROR_STATUS_SET_UC	0x2     /* Uncontainable */
 #define ERROR_STATUS_SET_CE	0x3     /* Corrected */
 
+/* Number of architecturally-defined primary error codes */
+#define ERROR_STATUS_NUM_SERR	U(22)
+
 /* Implementation Defined Syndrome bit in ESR */
 #define SERROR_IDS_BIT		U(24)
 
@@ -178,7 +182,7 @@
 /* I/DFSC code for synchronous external abort */
 #define SYNC_EA_FSC		0x10
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <arch.h>
 #include <arch_helpers.h>
@@ -256,6 +260,6 @@ static inline void ser_sys_select_record(unsigned int idx)
 /* Library functions to probe Standard Error Record */
 int ser_probe_memmap(uintptr_t base, unsigned int size_num_k, int *probe_data);
 int ser_probe_sysreg(unsigned int idx_start, unsigned int num_idx, int *probe_data);
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 
 #endif /* RAS_ARCH_H */

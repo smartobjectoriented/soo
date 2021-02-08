@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -7,6 +7,7 @@
 #include <arch.h>
 #include <asm_macros.S>
 #include <assert_macros.S>
+#include <common/bl_common.h>
 #include <common/debug.h>
 #include <cpu_macros.S>
 #include <lib/cpus/errata_report.h>
@@ -77,6 +78,10 @@ func prepare_cpu_pwr_dwn
 	mov	x1, #CPU_PWR_DWN_OPS
 	add	x1, x1, x2, lsl #3
 	ldr	x1, [x0, x1]
+#if ENABLE_ASSERTIONS
+	cmp	x1, #0
+	ASM_ASSERT(ne)
+#endif
 	br	x1
 endfunc prepare_cpu_pwr_dwn
 
@@ -135,6 +140,13 @@ endfunc do_cpu_reg_dump
 	 * midr of the core. It reads the MIDR_EL1 and finds the matching
 	 * entry in cpu_ops entries. Only the implementation and part number
 	 * are used to match the entries.
+	 *
+	 * If cpu_ops for the MIDR_EL1 cannot be found and
+	 * SUPPORT_UNKNOWN_MPID is enabled, it will try to look for a
+	 * default cpu_ops with an MIDR value of 0.
+	 * (Implementation number 0x0 should be reseverd for software use
+	 * and therefore no clashes should happen with that default value).
+	 *
 	 * Return :
 	 *     x0 - The matching cpu_ops pointer on Success
 	 *     x0 - 0 on failure.
@@ -142,23 +154,26 @@ endfunc do_cpu_reg_dump
 	 */
 	.globl	get_cpu_ops_ptr
 func get_cpu_ops_ptr
-	/* Get the cpu_ops start and end locations */
-	adr	x4, (__CPU_OPS_START__ + CPU_MIDR)
-	adr	x5, (__CPU_OPS_END__ + CPU_MIDR)
-
-	/* Initialize the return parameter */
-	mov	x0, #0
-
 	/* Read the MIDR_EL1 */
 	mrs	x2, midr_el1
 	mov_imm	x3, CPU_IMPL_PN_MASK
 
 	/* Retain only the implementation and part number using mask */
 	and	w2, w2, w3
+
+	/* Get the cpu_ops end location */
+	adr	x5, (__CPU_OPS_END__ + CPU_MIDR)
+
+	/* Initialize the return parameter */
+	mov	x0, #0
 1:
+	/* Get the cpu_ops start location */
+	adr	x4, (__CPU_OPS_START__ + CPU_MIDR)
+
+2:
 	/* Check if we have reached end of list */
 	cmp	x4, x5
-	b.eq	error_exit
+	b.eq	search_def_ptr
 
 	/* load the midr from the cpu_ops */
 	ldr	x1, [x4], #CPU_OPS_SIZE
@@ -166,11 +181,35 @@ func get_cpu_ops_ptr
 
 	/* Check if midr matches to midr of this core */
 	cmp	w1, w2
-	b.ne	1b
+	b.ne	2b
 
 	/* Subtract the increment and offset to get the cpu-ops pointer */
 	sub	x0, x4, #(CPU_OPS_SIZE + CPU_MIDR)
+#if ENABLE_ASSERTIONS
+	cmp	x0, #0
+	ASM_ASSERT(ne)
+#endif
+#ifdef SUPPORT_UNKNOWN_MPID
+	cbnz	x2, exit_mpid_found
+	/* Mark the unsupported MPID flag */
+	adrp	x1, unsupported_mpid_flag
+	add	x1, x1, :lo12:unsupported_mpid_flag
+	str	w2, [x1]
+exit_mpid_found:
+#endif
+	ret
+
+	/*
+	 * Search again for a default pointer (MIDR = 0x0)
+	 * or return error if already searched.
+	 */
+search_def_ptr:
+#ifdef SUPPORT_UNKNOWN_MPID
+	cbz	x2, error_exit
+	mov	x2, #0
+	b	1b
 error_exit:
+#endif
 	ret
 endfunc get_cpu_ops_ptr
 
@@ -226,6 +265,27 @@ func cpu_rev_var_hs
 	ret
 endfunc cpu_rev_var_hs
 
+/*
+ * Compare the CPU's revision-variant (x0) with a given range (x1 - x2), for errata
+ * application purposes. If the revision-variant is between or includes the given
+ * values, this indicates that errata applies; otherwise not.
+ *
+ * Shall clobber: x0-x4
+ */
+	.globl	cpu_rev_var_range
+func cpu_rev_var_range
+	mov	x3, #ERRATA_APPLIES
+	mov	x4, #ERRATA_NOT_APPLIES
+	cmp	x0, x1
+	csel	x1, x3, x4, hs
+	cbz	x1, 1f
+	cmp	x0, x2
+	csel	x1, x3, x4, ls
+1:
+	mov	x0, x1
+	ret
+endfunc cpu_rev_var_range
+
 #if REPORT_ERRATA
 /*
  * void print_errata_status(void);
@@ -254,7 +314,15 @@ func print_errata_status
 	 * turn.
 	 */
 	mrs	x0, tpidr_el3
+#if ENABLE_ASSERTIONS
+	cmp	x0, #0
+	ASM_ASSERT(ne)
+#endif
 	ldr	x1, [x0, #CPU_DATA_CPU_OPS_PTR]
+#if ENABLE_ASSERTIONS
+	cmp	x1, #0
+	ASM_ASSERT(ne)
+#endif
 	ldr	x0, [x1, #CPU_ERRATA_FUNC]
 	cbz	x0, .Lnoprint
 
@@ -304,6 +372,10 @@ func check_wa_cve_2017_5715
 	ASM_ASSERT(ne)
 #endif
 	ldr	x0, [x0, #CPU_DATA_CPU_OPS_PTR]
+#if ENABLE_ASSERTIONS
+	cmp	x0, #0
+	ASM_ASSERT(ne)
+#endif
 	ldr	x0, [x0, #CPU_EXTRA1_FUNC]
 	/*
 	 * If the reserved function pointer is NULL, this CPU
@@ -337,6 +409,10 @@ func wa_cve_2018_3639_get_disable_ptr
 	ASM_ASSERT(ne)
 #endif
 	ldr	x0, [x0, #CPU_DATA_CPU_OPS_PTR]
+#if ENABLE_ASSERTIONS
+	cmp	x0, #0
+	ASM_ASSERT(ne)
+#endif
 	ldr	x0, [x0, #CPU_EXTRA2_FUNC]
 	ret
 endfunc wa_cve_2018_3639_get_disable_ptr

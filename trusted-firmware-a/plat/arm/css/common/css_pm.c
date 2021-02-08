@@ -1,23 +1,19 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <assert.h>
-#include <errno.h>
 
 #include <platform_def.h>
 
 #include <arch_helpers.h>
 #include <common/debug.h>
+#include <drivers/arm/css/css_scp.h>
 #include <lib/cassert.h>
-#include <plat/common/platform.h>
-
-#include <css_pm.h>
-#include <plat_arm.h>
-
-#include "../drivers/scp/css_scp.h"
+#include <plat/arm/common/plat_arm.h>
+#include <plat/arm/css/common/css_pm.h>
 
 /* Allow CSS platforms to override `plat_arm_psci_pm_ops` */
 #pragma weak plat_arm_psci_pm_ops
@@ -78,9 +74,6 @@ static void css_pwr_domain_on_finisher_common(
 {
 	assert(CSS_CORE_PWR_STATE(target_state) == ARM_LOCAL_STATE_OFF);
 
-	/* Enable the gic cpu interface */
-	plat_arm_gic_cpuif_enable();
-
 	/*
 	 * Perform the common cluster specific operations i.e enable coherency
 	 * if this cluster was off.
@@ -102,10 +95,21 @@ void css_pwr_domain_on_finish(const psci_power_state_t *target_state)
 	/* Assert that the system power domain need not be initialized */
 	assert(css_system_pwr_state(target_state) == ARM_LOCAL_STATE_RUN);
 
+	css_pwr_domain_on_finisher_common(target_state);
+}
+
+/*******************************************************************************
+ * Handler called when a power domain has just been powered on and the cpu
+ * and its cluster are fully participating in coherent transaction on the
+ * interconnect. Data cache must be enabled for CPU at this point.
+ ******************************************************************************/
+void css_pwr_domain_on_finish_late(const psci_power_state_t *target_state)
+{
 	/* Program the gic per-cpu distributor or re-distributor interface */
 	plat_arm_gic_pcpu_init();
 
-	css_pwr_domain_on_finisher_common(target_state);
+	/* Enable the gic cpu interface */
+	plat_arm_gic_cpuif_enable();
 }
 
 /*******************************************************************************
@@ -119,9 +123,32 @@ static void css_power_down_common(const psci_power_state_t *target_state)
 	/* Prevent interrupts from spuriously waking up this cpu */
 	plat_arm_gic_cpuif_disable();
 
+	/* Turn redistributor off */
+	plat_arm_gic_redistif_off();
+
 	/* Cluster is to be turned off, so disable coherency */
-	if (CSS_CLUSTER_PWR_STATE(target_state) == ARM_LOCAL_STATE_OFF)
+	if (CSS_CLUSTER_PWR_STATE(target_state) == ARM_LOCAL_STATE_OFF) {
 		plat_arm_interconnect_exit_coherency();
+
+#if HW_ASSISTED_COHERENCY
+		uint32_t reg;
+
+		/*
+		 * If we have determined this core to be the last man standing and we
+		 * intend to power down the cluster proactively, we provide a hint to
+		 * the power controller that cluster power is not required when all
+		 * cores are powered down.
+		 * Note that this is only an advisory to power controller and is supported
+		 * by SoCs with DynamIQ Shared Units only.
+		 */
+		reg = read_clusterpwrdn();
+
+		/* Clear and set bit 0 : Cluster power not required */
+		reg &= ~DSU_CLUSTER_PWR_MASK;
+		reg |= DSU_CLUSTER_PWR_OFF;
+		write_clusterpwrdn(reg);
+#endif
+	}
 }
 
 /*******************************************************************************
@@ -187,6 +214,9 @@ void css_pwr_domain_suspend_finish(
 		arm_system_pwr_domain_resume();
 
 	css_pwr_domain_on_finisher_common(target_state);
+
+	/* Enable the gic cpu interface */
+	plat_arm_gic_cpuif_enable();
 }
 
 /*******************************************************************************
@@ -308,6 +338,7 @@ static int css_translate_power_state_by_mpidr(u_register_t mpidr,
 plat_psci_ops_t plat_arm_psci_pm_ops = {
 	.pwr_domain_on		= css_pwr_domain_on,
 	.pwr_domain_on_finish	= css_pwr_domain_on_finish,
+	.pwr_domain_on_finish_late = css_pwr_domain_on_finish_late,
 	.pwr_domain_off		= css_pwr_domain_off,
 	.cpu_standby		= css_cpu_standby,
 	.pwr_domain_suspend	= css_pwr_domain_suspend,

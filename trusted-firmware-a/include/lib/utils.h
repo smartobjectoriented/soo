@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,7 +11,7 @@
  * C code should be put in this part of the header to avoid breaking ASM files
  * or linker scripts including it.
  */
-#if !(defined(__LINKER__) || defined(__ASSEMBLY__))
+#if !(defined(__LINKER__) || defined(__ASSEMBLER__))
 
 #include <stddef.h>
 #include <stdint.h>
@@ -79,18 +79,16 @@ void zeromem(void *mem, u_register_t length);
  * which is constant and does not depend on the execute address of the binary.
  */
 #define DEFINE_LOAD_SYM_ADDR(_name)		\
-static inline u_register_t load_addr_## _name(void)		\
-{								\
-	u_register_t v;						\
-	/* Create a void reference to silence compiler */	\
-	(void) _name;						\
-	__asm__ volatile ("ldr %0, =" #_name : "=r" (v));	\
-	return v;						\
+static inline u_register_t load_addr_## _name(void)			\
+{									\
+	u_register_t v;							\
+	__asm__ volatile ("ldr %0, =" #_name : "=r" (v) : "X" (#_name));\
+	return v;							\
 }
 
 /* Helper to invoke the function defined by DEFINE_LOAD_SYM_ADDR() */
 #define LOAD_ADDR_OF(_name)	(typeof(_name) *) load_addr_## _name()
 
-#endif /* !(defined(__LINKER__) || defined(__ASSEMBLY__)) */
+#endif /* !(defined(__LINKER__) || defined(__ASSEMBLER__)) */
 
 #endif /* UTILS_H */

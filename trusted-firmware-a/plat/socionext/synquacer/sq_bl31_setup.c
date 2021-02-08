@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -14,12 +14,15 @@
 #include <common/debug.h>
 #include <drivers/arm/pl011.h>
 #include <lib/mmio.h>
-
 #include <sq_common.h>
 
-static console_pl011_t console;
+static console_t console;
 static entry_point_info_t bl32_image_ep_info;
 static entry_point_info_t bl33_image_ep_info;
+
+IMPORT_SYM(uintptr_t, __SPM_SHIM_EXCEPTIONS_START__, SPM_SHIM_EXCEPTIONS_START);
+IMPORT_SYM(uintptr_t, __SPM_SHIM_EXCEPTIONS_END__,   SPM_SHIM_EXCEPTIONS_END);
+IMPORT_SYM(uintptr_t, __SPM_SHIM_EXCEPTIONS_LMA__,   SPM_SHIM_EXCEPTIONS_LMA);
 
 entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 {
@@ -66,8 +69,7 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 			       PLAT_SQ_BOOT_UART_CLK_IN_HZ,
 			       SQ_CONSOLE_BAUDRATE, &console);
 
-	console_set_scope(&console.console, CONSOLE_FLAG_BOOT |
-			  CONSOLE_FLAG_RUNTIME);
+	console_set_scope(&console, CONSOLE_FLAG_BOOT | CONSOLE_FLAG_RUNTIME);
 
 	/* There are no parameters from BL2 if BL31 is a reset vector */
 	assert(arg0 == 0U);
@@ -76,10 +78,10 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	/* Initialize power controller before setting up topology */
 	plat_sq_pwrc_setup();
 
-#ifdef BL32_BASE
+#ifdef SPD_opteed
 	struct draminfo di = {0};
 
-	scpi_get_draminfo(&di);
+	sq_scp_get_draminfo(&di);
 
 	/*
 	 * Check if OP-TEE has been loaded in Secure RAM allocated
@@ -98,7 +100,7 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	} else {
 		NOTICE("OP-TEE has not been loaded by SCP firmware\n");
 	}
-#endif /* BL32_BASE */
+#endif /* SPD_opteed */
 
 	/* Populate entry point information for BL33 */
 	SET_PARAM_HEAD(&bl33_image_ep_info,
@@ -150,13 +152,32 @@ void bl31_plat_runtime_setup(void)
 {
 	struct draminfo *di = (struct draminfo *)(unsigned long)DRAMINFO_BASE;
 
-	scpi_get_draminfo(di);
+	sq_scp_get_draminfo(di);
 }
 
 void bl31_plat_arch_setup(void)
 {
-	sq_mmap_setup(BL31_BASE, BL31_SIZE, NULL);
+	static const mmap_region_t secure_partition_mmap[] = {
+#if SPM_MM
+		MAP_REGION_FLAT(PLAT_SPM_BUF_BASE,
+				PLAT_SPM_BUF_SIZE,
+				MT_RW_DATA | MT_SECURE),
+		MAP_REGION_FLAT(PLAT_SQ_SP_PRIV_BASE,
+				PLAT_SQ_SP_PRIV_SIZE,
+				MT_RW_DATA | MT_SECURE),
+#endif
+		{0},
+	};
+
+	sq_mmap_setup(BL31_BASE, BL31_SIZE, secure_partition_mmap);
 	enable_mmu_el3(XLAT_TABLE_NC);
+
+#if SPM_MM
+	memcpy((void *)SPM_SHIM_EXCEPTIONS_START,
+	       (void *)SPM_SHIM_EXCEPTIONS_LMA,
+	       (uintptr_t)SPM_SHIM_EXCEPTIONS_END -
+	       (uintptr_t)SPM_SHIM_EXCEPTIONS_START);
+#endif
 }
 
 void bl31_plat_enable_mmu(uint32_t flags)

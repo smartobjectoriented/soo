@@ -78,7 +78,7 @@
 	 * Clobber: r14, r1, r2
 	 */
 	.macro get_my_mp_stack _name, _size
-	bl  plat_my_core_pos
+	bl	plat_my_core_pos
 	ldr r2, =(\_name + \_size)
 	mov r1, #\_size
 	mla r0, r0, r1, r2
@@ -95,11 +95,29 @@
 
 #if ARM_ARCH_MAJOR == 7 && !defined(ARMV7_SUPPORTS_VIRTUALIZATION)
 	/*
+	 * Macro for mitigating against speculative execution.
 	 * ARMv7 cores without Virtualization extension do not support the
 	 * eret instruction.
 	 */
-	.macro eret
+	.macro exception_return
 	movs	pc, lr
+	dsb	nsh
+	isb
+	.endm
+
+#else
+	/*
+	 * Macro for mitigating against speculative execution beyond ERET.
+	 * If possible use Speculation Barrier instruction defined in ARMv8.5
+	 */
+	.macro exception_return
+	eret
+#if ARM_ARCH_AT_LEAST(8, 5)
+	sb
+#else
+	dsb	nsh
+	isb
+#endif
 	.endm
 #endif
 
@@ -189,4 +207,31 @@
 		.endif
 	.endm
 
+	/*
+	 * Helper macro for carrying out division in software when
+	 * hardware division is not suported. \top holds the dividend
+	 * in the function call and the remainder after
+	 * the function is executed. \bot holds the divisor. \div holds
+	 * the quotient and \temp is a temporary registed used in calcualtion.
+	 * The division algorithm has been obtained from:
+	 * http://www.keil.com/support/man/docs/armasm/armasm_dom1359731155623.htm
+	 */
+	.macro	softudiv	div:req,top:req,bot:req,temp:req
+
+	mov     \temp, \bot
+	cmp     \temp, \top, lsr #1
+div1:
+	movls   \temp, \temp, lsl #1
+	cmp     \temp, \top, lsr #1
+	bls     div1
+	mov     \div, #0
+
+div2:
+	cmp     \top, \temp
+	subcs   \top, \top,\temp
+	ADC     \div, \div, \div
+	mov     \temp, \temp, lsr #1
+	cmp     \temp, \bot
+	bhs     div2
+	.endm
 #endif /* ASM_MACROS_S */

@@ -1,17 +1,19 @@
 /*
- * Copyright (c) 2013-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#include <platform_def.h>
+#include <assert.h>
 
+#include <arch_features.h>
 #include <arch_helpers.h>
 #include <bl32/tsp/tsp.h>
 #include <common/bl_common.h>
 #include <common/debug.h>
 #include <lib/spinlock.h>
 #include <plat/common/platform.h>
+#include <platform_def.h>
 #include <platform_tsp.h>
 
 #include "tsp_private.h"
@@ -38,7 +40,7 @@ work_statistics_t tsp_stats[PLATFORM_CORE_COUNT];
  * linker symbol __BL32_END__. Use these addresses to compute the TSP image
  * size.
  ******************************************************************************/
-#define BL32_TOTAL_LIMIT (unsigned long)(&__BL32_END__)
+#define BL32_TOTAL_LIMIT BL32_END
 #define BL32_TOTAL_SIZE (BL32_TOTAL_LIMIT - (unsigned long) BL32_BASE)
 
 static tsp_args_t *set_smc_args(uint64_t arg0,
@@ -69,6 +71,26 @@ static tsp_args_t *set_smc_args(uint64_t arg0,
 	write_sp_arg(pcpu_smc_args, TSP_ARG7, arg7);
 
 	return pcpu_smc_args;
+}
+
+/*******************************************************************************
+ * Setup function for TSP.
+ ******************************************************************************/
+void tsp_setup(void)
+{
+	/* Perform early platform-specific setup */
+	tsp_early_platform_setup();
+
+	/* Perform late platform-specific setup */
+	tsp_plat_arch_setup();
+
+#if ENABLE_PAUTH
+	/*
+	 * Assert that the ARMv8.3-PAuth registers are present or an access
+	 * fault will be triggered when they are being saved or restored.
+	 */
+	assert(is_armv8_3_pauth_present());
+#endif /* ENABLE_PAUTH */
 }
 
 /*******************************************************************************
@@ -251,11 +273,11 @@ tsp_args_t *tsp_cpu_resume_main(uint64_t max_off_pwrlvl,
 	spin_lock(&console_lock);
 	INFO("TSP: cpu 0x%lx resumed. maximum off power level %lld\n",
 	     read_mpidr(), max_off_pwrlvl);
-	INFO("TSP: cpu 0x%lx: %d smcs, %d erets %d cpu suspend requests\n",
+	INFO("TSP: cpu 0x%lx: %d smcs, %d erets %d cpu resume requests\n",
 		read_mpidr(),
 		tsp_stats[linear_id].smc_count,
 		tsp_stats[linear_id].eret_count,
-		tsp_stats[linear_id].cpu_suspend_count);
+		tsp_stats[linear_id].cpu_resume_count);
 	spin_unlock(&console_lock);
 #endif
 	/* Indicate to the SPD that we have completed this request */
@@ -341,48 +363,64 @@ tsp_args_t *tsp_smc_handler(uint64_t func,
 			       uint64_t arg6,
 			       uint64_t arg7)
 {
+	uint128_t service_args;
+	uint64_t service_arg0;
+	uint64_t service_arg1;
 	uint64_t results[2];
-	uint64_t service_args[2];
 	uint32_t linear_id = plat_my_core_pos();
 
 	/* Update this cpu's statistics */
 	tsp_stats[linear_id].smc_count++;
 	tsp_stats[linear_id].eret_count++;
 
+#if LOG_LEVEL >= LOG_LEVEL_INFO
+	spin_lock(&console_lock);
 	INFO("TSP: cpu 0x%lx received %s smc 0x%llx\n", read_mpidr(),
 		((func >> 31) & 1) == 1 ? "fast" : "yielding",
 		func);
 	INFO("TSP: cpu 0x%lx: %d smcs, %d erets\n", read_mpidr(),
 		tsp_stats[linear_id].smc_count,
 		tsp_stats[linear_id].eret_count);
+	spin_unlock(&console_lock);
+#endif
 
 	/* Render secure services and obtain results here */
 	results[0] = arg1;
 	results[1] = arg2;
 
 	/*
-	 * Request a service back from dispatcher/secure monitor. This call
-	 * return and thereafter resume exectuion
+	 * Request a service back from dispatcher/secure monitor.
+	 * This call returns and thereafter resumes execution.
 	 */
-	tsp_get_magic(service_args);
+	service_args = tsp_get_magic();
+	service_arg0 = (uint64_t)service_args;
+	service_arg1 = (uint64_t)(service_args >> 64U);
+
+#if CTX_INCLUDE_MTE_REGS
+	/*
+	 * Write a dummy value to an MTE register, to simulate usage in the
+	 * secure world
+	 */
+	write_gcr_el1(0x99);
+#endif
 
 	/* Determine the function to perform based on the function ID */
 	switch (TSP_BARE_FID(func)) {
 	case TSP_ADD:
-		results[0] += service_args[0];
-		results[1] += service_args[1];
+		results[0] += service_arg0;
+		results[1] += service_arg1;
 		break;
 	case TSP_SUB:
-		results[0] -= service_args[0];
-		results[1] -= service_args[1];
+		results[0] -= service_arg0;
+		results[1] -= service_arg1;
 		break;
 	case TSP_MUL:
-		results[0] *= service_args[0];
-		results[1] *= service_args[1];
+		results[0] *= service_arg0;
+		results[1] *= service_arg1;
 		break;
 	case TSP_DIV:
-		results[0] /= service_args[0] ? service_args[0] : 1;
-		results[1] /= service_args[1] ? service_args[1] : 1;
+		results[0] /= service_arg0 ? service_arg0 : 1;
+		results[1] /= service_arg1 ? service_arg1 : 1;
 		break;
 	default:
 		break;
@@ -395,7 +433,7 @@ tsp_args_t *tsp_smc_handler(uint64_t func,
 }
 
 /*******************************************************************************
- * TSP smc abort handler. This function is called when aborting a preemtped
+ * TSP smc abort handler. This function is called when aborting a preempted
  * yielding SMC request. It should cleanup all resources owned by the SMC
  * handler such as locks or dynamically allocated memory so following SMC
  * request are executed in a clean environment.

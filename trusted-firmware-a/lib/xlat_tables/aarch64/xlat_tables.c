@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,7 +10,7 @@
 #include <platform_def.h>
 
 #include <arch.h>
-#include <arch_helpers.h>
+#include <arch_features.h>
 #include <common/bl_common.h>
 #include <lib/utils.h>
 #include <lib/xlat_tables/xlat_tables.h>
@@ -79,6 +79,21 @@ static unsigned long long get_max_supported_pa(void)
 
 	return (1ULL << pa_range_bits_arr[pa_range]) - 1ULL;
 }
+
+/*
+ * Return minimum virtual address space size supported by the architecture
+ */
+static uintptr_t xlat_get_min_virt_addr_space_size(void)
+{
+	uintptr_t ret;
+
+	if (is_armv8_4_ttst_present())
+		ret = MIN_VIRT_ADDR_SPACE_SIZE_TTST;
+	else
+		ret = MIN_VIRT_ADDR_SPACE_SIZE;
+
+	return ret;
+}
 #endif /* ENABLE_ASSERTIONS */
 
 unsigned int xlat_arch_current_el(void)
@@ -104,6 +119,12 @@ void init_xlat_tables(void)
 {
 	unsigned long long max_pa;
 	uintptr_t max_va;
+
+	assert(PLAT_VIRT_ADDR_SPACE_SIZE >=
+		(xlat_get_min_virt_addr_space_size() - 1U));
+	assert(PLAT_VIRT_ADDR_SPACE_SIZE <= MAX_VIRT_ADDR_SPACE_SIZE);
+	assert(IS_POWER_OF_TWO(PLAT_VIRT_ADDR_SPACE_SIZE));
+
 	print_mmap();
 	init_xlation_table(0U, base_xlation_table, XLAT_TABLE_LEVEL_BASE,
 			   &max_va, &max_pa);
@@ -153,12 +174,12 @@ void init_xlat_tables(void)
 			/* Inner & outer non-cacheable non-shareable. */\
 			tcr = TCR_SH_NON_SHAREABLE |			\
 				TCR_RGN_OUTER_NC | TCR_RGN_INNER_NC |	\
-				(uint64_t) t0sz;			\
+				((uint64_t)t0sz << TCR_T0SZ_SHIFT);	\
 		} else {						\
 			/* Inner & outer WBWA & shareable. */		\
 			tcr = TCR_SH_INNER_SHAREABLE |			\
 				TCR_RGN_OUTER_WBA | TCR_RGN_INNER_WBA |	\
-				(uint64_t) t0sz;			\
+				((uint64_t)t0sz << TCR_T0SZ_SHIFT);	\
 		}							\
 		tcr |= _tcr_extra;					\
 		write_tcr_el##_el(tcr);					\

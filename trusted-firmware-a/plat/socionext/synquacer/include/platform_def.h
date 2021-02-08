@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,10 +11,20 @@
 #include <plat/common/common_def.h>
 
 /* CPU topology */
-#define PLAT_MAX_CORES_PER_CLUSTER	2
-#define PLAT_CLUSTER_COUNT		12
+#define PLAT_MAX_CORES_PER_CLUSTER	U(2)
+#define PLAT_CLUSTER_COUNT		U(12)
 #define PLATFORM_CORE_COUNT		(PLAT_CLUSTER_COUNT *	\
 					 PLAT_MAX_CORES_PER_CLUSTER)
+
+/* Macros to read the SQ power domain state */
+#define SQ_PWR_LVL0		MPIDR_AFFLVL0
+#define SQ_PWR_LVL1		MPIDR_AFFLVL1
+#define SQ_PWR_LVL2		MPIDR_AFFLVL2
+
+#define SQ_CORE_PWR_STATE(state)	(state)->pwr_domain_state[SQ_PWR_LVL0]
+#define SQ_CLUSTER_PWR_STATE(state)	(state)->pwr_domain_state[SQ_PWR_LVL1]
+#define SQ_SYSTEM_PWR_STATE(state)	((PLAT_MAX_PWR_LVL > SQ_PWR_LVL1) ?\
+				(state)->pwr_domain_state[SQ_PWR_LVL2] : 0)
 
 #define PLAT_MAX_PWR_LVL		U(1)
 #define PLAT_MAX_RET_STATE		U(1)
@@ -29,14 +39,18 @@
 
 #define PLAT_PHY_ADDR_SPACE_SIZE	(1ULL << 32)
 #define PLAT_VIRT_ADDR_SPACE_SIZE	(1ULL << 32)
-#define MAX_XLAT_TABLES			4
-#define MAX_MMAP_REGIONS		6
+#define MAX_XLAT_TABLES			8
+#define MAX_MMAP_REGIONS		8
 
 #define PLATFORM_STACK_SIZE		0x400
 
 #define BL31_BASE			0x04000000
 #define BL31_SIZE			0x00080000
 #define BL31_LIMIT			(BL31_BASE + BL31_SIZE)
+
+#define BL32_BASE			0xfc000000
+#define BL32_SIZE			0x03c00000
+#define BL32_LIMIT			(BL32_BASE + BL32_SIZE)
 
 #define PLAT_SQ_CCN_BASE		0x32000000
 #define PLAT_SQ_CLUSTER_TO_CCN_ID_MAP					\
@@ -78,5 +92,79 @@
 #define PLAT_SQ_GICR_BASE		0x30400000
 
 #define PLAT_SQ_GPIO_BASE		0x51000000
+
+#define PLAT_SPM_BUF_BASE		(BL32_LIMIT - 32 * PLAT_SPM_BUF_SIZE)
+#define PLAT_SPM_BUF_SIZE		ULL(0x10000)
+#define PLAT_SPM_SPM_BUF_EL0_MMAP	MAP_REGION2(PLAT_SPM_BUF_BASE, \
+						    PLAT_SPM_BUF_BASE, \
+						    PLAT_SPM_BUF_SIZE, \
+						    MT_RO_DATA | MT_SECURE | \
+						    MT_USER, PAGE_SIZE)
+
+#define PLAT_SP_IMAGE_NS_BUF_BASE	BL32_LIMIT
+#define PLAT_SP_IMAGE_NS_BUF_SIZE	ULL(0x200000)
+#define PLAT_SP_IMAGE_NS_BUF_MMAP	MAP_REGION2(PLAT_SP_IMAGE_NS_BUF_BASE, \
+						    PLAT_SP_IMAGE_NS_BUF_BASE, \
+						    PLAT_SP_IMAGE_NS_BUF_SIZE, \
+						    MT_RW_DATA | MT_NS | \
+						    MT_USER, PAGE_SIZE)
+
+#define PLAT_SP_IMAGE_STACK_PCPU_SIZE	ULL(0x10000)
+#define PLAT_SP_IMAGE_STACK_SIZE	(32 * PLAT_SP_IMAGE_STACK_PCPU_SIZE)
+#define PLAT_SP_IMAGE_STACK_BASE	(PLAT_SQ_SP_HEAP_BASE + PLAT_SQ_SP_HEAP_SIZE)
+
+#define PLAT_SQ_SP_IMAGE_SIZE		ULL(0x200000)
+#define PLAT_SQ_SP_IMAGE_MMAP		MAP_REGION2(BL32_BASE, BL32_BASE, \
+						    PLAT_SQ_SP_IMAGE_SIZE, \
+						    MT_CODE | MT_SECURE | \
+						    MT_USER, PAGE_SIZE)
+
+#define PLAT_SQ_SP_HEAP_BASE		(BL32_BASE + PLAT_SQ_SP_IMAGE_SIZE)
+#define PLAT_SQ_SP_HEAP_SIZE		ULL(0x800000)
+
+#define PLAT_SQ_SP_IMAGE_RW_MMAP	MAP_REGION2(PLAT_SQ_SP_HEAP_BASE, \
+						    PLAT_SQ_SP_HEAP_BASE, \
+						    (PLAT_SQ_SP_HEAP_SIZE + \
+						     PLAT_SP_IMAGE_STACK_SIZE), \
+						    MT_RW_DATA | MT_SECURE | \
+						    MT_USER, PAGE_SIZE)
+
+#define PLAT_SQ_SP_PRIV_BASE		(PLAT_SP_IMAGE_STACK_BASE + \
+					 PLAT_SP_IMAGE_STACK_SIZE)
+#define PLAT_SQ_SP_PRIV_SIZE		ULL(0x40000)
+
+#define PLAT_SP_PRI			0x20
+#define PLAT_PRI_BITS			2
+#define PLAT_SPM_COOKIE_0		ULL(0)
+#define PLAT_SPM_COOKIE_1		ULL(0)
+
+/* Total number of memory regions with distinct properties */
+#define PLAT_SP_IMAGE_NUM_MEM_REGIONS	6
+
+#define PLAT_SP_IMAGE_MMAP_REGIONS	30
+#define PLAT_SP_IMAGE_MAX_XLAT_TABLES	20
+#define PLAT_SP_IMAGE_XLAT_SECTION_NAME	"sp_xlat_table"
+#define PLAT_SP_IMAGE_BASE_XLAT_SECTION_NAME	"sp_xlat_table"
+
+#define PLAT_SQ_UART1_BASE		PLAT_SQ_BOOT_UART_BASE
+#define PLAT_SQ_UART1_SIZE		ULL(0x1000)
+#define PLAT_SQ_UART1_MMAP		MAP_REGION_FLAT(PLAT_SQ_UART1_BASE, \
+							PLAT_SQ_UART1_SIZE, \
+							MT_DEVICE | MT_RW | \
+							MT_NS | MT_PRIVILEGED)
+
+#define PLAT_SQ_PERIPH_BASE		0x50000000
+#define PLAT_SQ_PERIPH_SIZE		ULL(0x8000000)
+#define PLAT_SQ_PERIPH_MMAP		MAP_REGION_FLAT(PLAT_SQ_PERIPH_BASE, \
+							PLAT_SQ_PERIPH_SIZE, \
+							MT_DEVICE | MT_RW | \
+							MT_NS | MT_USER)
+
+#define PLAT_SQ_FLASH_BASE		0x08000000
+#define PLAT_SQ_FLASH_SIZE		ULL(0x8000000)
+#define PLAT_SQ_FLASH_MMAP		MAP_REGION_FLAT(PLAT_SQ_FLASH_BASE, \
+							PLAT_SQ_FLASH_SIZE, \
+							MT_DEVICE | MT_RW | \
+							MT_NS | MT_USER)
 
 #endif /* PLATFORM_DEF_H */

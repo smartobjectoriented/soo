@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -18,12 +18,12 @@
  *     unsigned denominator);
  */
 
-/* struct qr - stores qutient/remainder to handle divmod EABI interfaces. */
+/* struct qr - stores quotient/remainder to handle divmod EABI interfaces. */
 struct qr {
 	unsigned int q;		/* computed quotient */
 	unsigned int r;		/* computed remainder */
-	unsigned int q_n;	/* specficies if quotient shall be negative */
-	unsigned int r_n;	/* specficies if remainder shall be negative */
+	unsigned int q_n;	/* specifies if quotient shall be negative */
+	unsigned int r_n;	/* specifies if remainder shall be negative */
 };
 
 static void uint_div_qr(unsigned int numerator, unsigned int denominator,
@@ -33,13 +33,11 @@ static void uint_div_qr(unsigned int numerator, unsigned int denominator,
 unsigned int __aeabi_uidivmod(unsigned int numerator, unsigned int denominator);
 
 unsigned int __aeabi_uidiv(unsigned int numerator, unsigned int denominator);
-unsigned int __aeabi_uimod(unsigned int numerator, unsigned int denominator);
 
 /* returns in R0 and R1 by tail calling an asm function */
 signed int __aeabi_idivmod(signed int numerator, signed int denominator);
 
 signed int __aeabi_idiv(signed int numerator, signed int denominator);
-signed int __aeabi_imod(signed int numerator, signed int denominator);
 
 /*
  * __ste_idivmod_ret_t __aeabi_idivmod(signed numerator, signed denominator)
@@ -106,15 +104,6 @@ unsigned int __aeabi_uidiv(unsigned int numerator, unsigned int denominator)
 	return qr.q;
 }
 
-unsigned int __aeabi_uimod(unsigned int numerator, unsigned int denominator)
-{
-	struct qr qr = { .q_n = 0, .r_n = 0 };
-
-	uint_div_qr(numerator, denominator, &qr);
-
-	return qr.r;
-}
-
 unsigned int __aeabi_uidivmod(unsigned int numerator, unsigned int denominator)
 {
 	struct qr qr = { .q_n = 0, .r_n = 0 };
@@ -143,42 +132,6 @@ signed int __aeabi_idiv(signed int numerator, signed int denominator)
 	uint_div_qr(numerator, denominator, &qr);
 
 	return qr.q;
-}
-
-signed int __aeabi_imod(signed int numerator, signed int denominator)
-{
-	signed int s;
-	signed int i;
-	signed int j;
-	signed int h;
-	struct qr qr = { .q_n = 0, .r_n = 0 };
-
-	/* in case modulo of a power of 2 */
-	for (i = 0, j = 0, h = 0, s = denominator; (s != 0) || (h > 1); i++) {
-		if (s & 1) {
-			j = i;
-			h++;
-		}
-		s = s >> 1;
-	}
-	if (h == 1)
-		return numerator >> j;
-
-	if (((numerator < 0) && (denominator > 0)) ||
-	    ((numerator > 0) && (denominator < 0)))
-		qr.q_n = 1;	/* quotient shall be negate */
-
-	if (numerator < 0) {
-		numerator = -numerator;
-		qr.r_n = 1;	/* remainder shall be negate */
-	}
-
-	if (denominator < 0)
-		denominator = -denominator;
-
-	uint_div_qr(numerator, denominator, &qr);
-
-	return qr.r;
 }
 
 signed int __aeabi_idivmod(signed int numerator, signed int denominator)

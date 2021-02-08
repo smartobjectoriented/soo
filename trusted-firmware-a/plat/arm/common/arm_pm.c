@@ -1,20 +1,17 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <assert.h>
-#include <errno.h>
 
 #include <platform_def.h>
 
 #include <arch_helpers.h>
 #include <lib/psci/psci.h>
+#include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
-
-#include <arm_def.h>
-#include <plat_arm.h>
 
 /* Allow ARM Standard platforms to override these functions */
 #pragma weak plat_arm_program_trusted_mailbox
@@ -118,7 +115,7 @@ int arm_validate_ns_entrypoint(uintptr_t entrypoint)
 			(ARM_NS_DRAM1_BASE + ARM_NS_DRAM1_SIZE))) {
 		return 0;
 	}
-#ifndef AARCH32
+#ifdef __aarch64__
 	if ((entrypoint >= ARM_DRAM2_BASE) && (entrypoint <
 			(ARM_DRAM2_BASE + ARM_DRAM2_SIZE))) {
 		return 0;

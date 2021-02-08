@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <arch.h>
 #include <asm_macros.S>
+#include <cortex_a72.h>
+#include <cpu_macros.S>
 #include <platform_def.h>
 
 #define K3_BOOT_REASON_COLD_RESET 0x1
@@ -73,25 +75,41 @@ func plat_my_core_pos
 	lsr	x1, x1, #MPIDR_AFF1_SHIFT
 	and	x0, x0, #MPIDR_CPU_MASK
 
-#if K3_CLUSTER1_MSMC_PORT != UNUSED
-	cmp	x1, #K3_CLUSTER0_MSMC_PORT
+	cmp	x1, 0
 	b.eq out
 	add	x0, x0, #K3_CLUSTER0_CORE_COUNT
-#if K3_CLUSTER2_MSMC_PORT != UNUSED
-	cmp	x1, #K3_CLUSTER1_MSMC_PORT
+
+	cmp	x1, 1
 	b.eq out
 	add	x0, x0, #K3_CLUSTER1_CORE_COUNT
-#if K3_CLUSTER3_MSMC_PORT != UNUSED
-	cmp	x1, #K3_CLUSTER2_MSMC_PORT
+
+	cmp	x1, 2
 	b.eq out
 	add	x0, x0, #K3_CLUSTER2_CORE_COUNT
-#endif /* K3_CLUSTER3_MSMC_PORT != UNUSED */
-#endif /* K3_CLUSTER2_MSMC_PORT != UNUSED */
-#endif /* K3_CLUSTER1_MSMC_PORT != UNUSED */
 
 out:
 	ret
 endfunc plat_my_core_pos
+
+	/* --------------------------------------------------------------------
+	 * This handler does the following:
+	 * - Set the L2 Data RAM latency to 2 (i.e. 3 cycles) for Cortex-A72
+	 * --------------------------------------------------------------------
+	 */
+	.globl plat_reset_handler
+func plat_reset_handler
+	/* Only on Cortex-A72 */
+	jump_if_cpu_midr CORTEX_A72_MIDR, a72
+	ret
+
+	/* Cortex-A72 specific settings */
+a72:
+	mrs x0, CORTEX_A72_L2CTLR_EL1
+	orr x0, x0, #(CORTEX_A72_L2_DATA_RAM_LATENCY_3_CYCLES << CORTEX_A72_L2CTLR_DATA_RAM_LATENCY_SHIFT)
+	msr CORTEX_A72_L2CTLR_EL1, x0
+	isb
+	ret
+endfunc plat_reset_handler
 
 	/* ---------------------------------------------
 	 * int plat_crash_console_init(void)
@@ -123,10 +141,10 @@ func plat_crash_console_putc
 endfunc plat_crash_console_putc
 
 	/* ---------------------------------------------
-	 * int plat_crash_console_flush()
+	 * void plat_crash_console_flush()
 	 * Function to force a write of all buffered
 	 * data that hasn't been output.
-	 * Out : return -1 on error else return 0.
+	 * Out : void.
 	 * Clobber list : x0, x1
 	 * ---------------------------------------------
 	 */

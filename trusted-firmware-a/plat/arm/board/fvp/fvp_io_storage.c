@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,9 +11,8 @@
 #include <drivers/io/io_semihosting.h>
 #include <drivers/io/io_storage.h>
 #include <lib/semihosting.h>
+#include <plat/arm/common/plat_arm.h>
 #include <plat/common/common_def.h>
-
-#include <plat_arm.h>
 
 /* Semihosting filenames */
 #define BL2_IMAGE_NAME			"bl2.bin"
@@ -121,18 +120,22 @@ void plat_arm_io_setup(void)
 {
 	int io_result;
 
-	arm_io_setup();
+	io_result = arm_io_setup();
+	if (io_result < 0) {
+		panic();
+	}
 
 	/* Register the additional IO devices on this platform */
 	io_result = register_io_dev_sh(&sh_dev_con);
-	assert(io_result == 0);
+	if (io_result < 0) {
+		panic();
+	}
 
 	/* Open connections to devices and cache the handles */
 	io_result = io_dev_open(sh_dev_con, (uintptr_t)NULL, &sh_dev_handle);
-	assert(io_result == 0);
-
-	/* Ignore improbable errors in release builds */
-	(void)io_result;
+	if (io_result < 0) {
+		panic();
+	}
 }
 
 /*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -14,13 +14,12 @@
 #include <lib/cpus/errata_report.h>
 #include <lib/el3_runtime/cpu_data.h>
 #include <lib/spinlock.h>
-#include <lib/utils.h>
 
 #ifdef IMAGE_BL1
 # define BL_STRING	"BL1"
-#elif defined(AARCH64) && defined(IMAGE_BL31)
+#elif defined(__aarch64__) && defined(IMAGE_BL31)
 # define BL_STRING	"BL31"
-#elif defined(AARCH32) && defined(IMAGE_BL32)
+#elif !defined(__arch64__) && defined(IMAGE_BL32)
 # define BL_STRING	"BL32"
 #elif defined(IMAGE_BL2) && BL2_AT_EL3
 # define BL_STRING "BL2"

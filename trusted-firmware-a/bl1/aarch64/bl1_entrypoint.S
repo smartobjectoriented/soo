@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -30,25 +30,37 @@ func bl1_entrypoint
 		_secondary_cold_boot=!COLD_BOOT_SINGLE_CPU	\
 		_init_memory=1					\
 		_init_c_runtime=1				\
-		_exception_vectors=bl1_exceptions
+		_exception_vectors=bl1_exceptions		\
+		_pie_fixup_size=0
 
-	/* ---------------------------------------------
-	 * Architectural init. can be generic e.g.
-	 * enabling stack alignment and platform spec-
-	 * ific e.g. MMU & page table setup as per the
-	 * platform memory map. Perform the latter here
-	 * and the former in bl1_main.
-	 * ---------------------------------------------
+	/* --------------------------------------------------------------------
+	 * Perform BL1 setup
+	 * --------------------------------------------------------------------
 	 */
-	bl	bl1_early_platform_setup
-	bl	bl1_plat_arch_setup
+	bl	bl1_setup
 
-	/* --------------------------------------------------
+#if ENABLE_PAUTH
+	/* --------------------------------------------------------------------
+	 * Program APIAKey_EL1 and enable pointer authentication.
+	 * --------------------------------------------------------------------
+	 */
+	bl	pauth_init_enable_el3
+#endif /* ENABLE_PAUTH */
+
+	/* --------------------------------------------------------------------
 	 * Initialize platform and jump to our c-entry point
 	 * for this type of reset.
-	 * --------------------------------------------------
+	 * --------------------------------------------------------------------
 	 */
 	bl	bl1_main
+
+#if ENABLE_PAUTH
+	/* --------------------------------------------------------------------
+	 * Disable pointer authentication before jumping to next boot image.
+	 * --------------------------------------------------------------------
+	 */
+	bl	pauth_disable_el3
+#endif /* ENABLE_PAUTH */
 
 	/* --------------------------------------------------
 	 * Do the transition to next boot image.

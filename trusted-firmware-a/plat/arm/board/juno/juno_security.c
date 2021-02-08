@@ -1,16 +1,18 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <assert.h>
 
 #include <common/debug.h>
 #include <drivers/arm/nic_400.h>
 #include <lib/mmio.h>
+#include <platform_def.h>
+#include <plat/arm/common/plat_arm.h>
+#include <plat/arm/soc/common/soc_css.h>
+#include <plat/common/platform.h>
 
-#include <plat_arm.h>
-#include <soc_css.h>
-#include "juno_def.h"
 #include "juno_tzmp1_def.h"
 
 #ifdef JUNO_TZMP1
@@ -125,13 +127,13 @@ void plat_arm_security_setup(void)
 	init_debug_cfg();
 	/* Initialize the TrustZone Controller */
 #ifdef JUNO_TZMP1
-	arm_tzc400_setup(juno_tzmp1_tzc_regions);
+	arm_tzc400_setup(PLAT_ARM_TZC_BASE, juno_tzmp1_tzc_regions);
 	INFO("TZC protected shared memory base address for TZMP usecase: %p\n",
 	     (void *)JUNO_AP_TZC_SHARE_DRAM1_BASE);
 	INFO("TZC protected shared memory end address for TZMP usecase: %p\n",
 	     (void *)JUNO_AP_TZC_SHARE_DRAM1_END);
 #else
-	arm_tzc400_setup(NULL);
+	arm_tzc400_setup(PLAT_ARM_TZC_BASE, NULL);
 #endif
 	/* Do ARM CSS internal NIC setup */
 	css_init_nic400();
@@ -144,3 +146,13 @@ void plat_arm_security_setup(void)
 	init_v550();
 #endif
 }
+
+#if TRUSTED_BOARD_BOOT
+int plat_get_mbedtls_heap(void **heap_addr, size_t *heap_size)
+{
+	assert(heap_addr != NULL);
+	assert(heap_size != NULL);
+
+	return arm_get_mbedtls_heap(heap_addr, heap_size);
+}
+#endif

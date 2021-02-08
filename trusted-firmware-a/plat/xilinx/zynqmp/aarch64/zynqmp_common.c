@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,9 +11,10 @@
 #include <drivers/generic_delay_timer.h>
 #include <lib/mmio.h>
 #include <lib/xlat_tables/xlat_tables.h>
+#include <plat_ipi.h>
+#include <plat_private.h>
 #include <plat/common/platform.h>
 
-#include "../zynqmp_private.h"
 #include "pm_api_sys.h"
 
 /*
@@ -188,6 +189,18 @@ static const struct {
 		.id = 0x65,
 		.name = "25DR",
 	},
+	{
+		.id = 0x66,
+		.name = "39DR",
+	},
+	{
+		.id = 0x7b,
+		.name = "48DR",
+	},
+	{
+		.id = 0x7e,
+		.name = "49DR",
+	},
 };
 
 #define ZYNQMP_PL_STATUS_BIT	9
@@ -325,6 +338,9 @@ unsigned int zynqmp_get_bootmode(void)
 
 void zynqmp_config_setup(void)
 {
+	/* Configure IPI data for ZynqMP */
+	zynqmp_ipi_config_table_init();
+
 	zynqmp_print_platform_name();
 	generic_delay_timer_init();
 }
@@ -334,7 +350,7 @@ unsigned int plat_get_syscnt_freq2(void)
 	unsigned int ver = zynqmp_get_silicon_ver();
 
 	if (ver == ZYNQMP_CSU_VERSION_QEMU)
-		return 50000000;
+		return 65000000;
 	else
 		return mmio_read_32(IOU_SCNTRS_BASEFREQ);
 }

@@ -1,22 +1,13 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <arch.h>
 #include <asm_macros.S>
 #include <assert_macros.S>
-#define USE_FINISH_CONSOLE_REG_2
 #include <console_macros.S>
 #include <drivers/arm/pl011.h>
-
-#if !MULTI_CONSOLE_API
-/*
- * Pull in generic functions to provide backwards compatibility for
- * platform makefiles
- */
-#include "../../../console/aarch32/console.S"
-#endif
 
 	/*
 	 * "core" functions are low-level implementations that don't require
@@ -63,7 +54,14 @@ func console_pl011_core_init
 	/* Program the baudrate */
 	/* Divisor =  (Uart clock * 4) / baudrate */
 	lsl	r1, r1, #2
+#if (ARM_ARCH_MAJOR == 7) && !defined(ARMV7_SUPPORTS_VIRTUALIZATION)
+	push	{r0,r3}
+	softudiv	r0,r1,r2,r3
+	mov	r2, r0
+	pop	{r0,r3}
+#else
 	udiv	r2, r1, r2
+#endif
 	/* IBRD = Divisor >> 6 */
 	lsr	r1, r2, #6
 	/* Write the IBRD */
@@ -88,20 +86,19 @@ core_init_fail:
 	bx	lr
 endfunc console_pl011_core_init
 
-#if MULTI_CONSOLE_API
 	.globl console_pl011_register
 
 	/* -------------------------------------------------------
 	 * int console_pl011_register(uintptr_t baseaddr,
 	 *     uint32_t clock, uint32_t baud,
-	 *     console_pl011_t *console);
+	 *     console_t *console);
 	 * Function to initialize and register a new PL011
 	 * console. Storage passed in for the console struct
 	 * *must* be persistent (i.e. not from the stack).
 	 * In: r0 - UART register base address
 	 *     r1 - UART clock in Hz
 	 *     r2 - Baud rate
-	 *     r3 - pointer to empty console_pl011_t struct
+	 *     r3 - pointer to empty console_t struct
 	 * Out: return 1 on success, 0 on error
 	 * Clobber list : r0, r1, r2
 	 * -------------------------------------------------------
@@ -111,7 +108,7 @@ func console_pl011_register
 	mov	r4, r3
 	cmp	r4, #0
 	beq	register_fail
-	str	r0, [r4, #CONSOLE_T_PL011_BASE]
+	str	r0, [r4, #CONSOLE_T_BASE]
 
 	bl console_pl011_core_init
 	cmp	r0, #0
@@ -124,16 +121,6 @@ func console_pl011_register
 register_fail:
 	pop	{r4, pc}
 endfunc console_pl011_register
-#else
-	.globl console_core_init
-	.globl console_core_putc
-	.globl console_core_getc
-	.globl console_core_flush
-	.equ console_core_init, console_pl011_core_init
-	.equ console_core_putc, console_pl011_core_putc
-	.equ console_core_getc, console_pl011_core_getc
-	.equ console_core_flush, console_pl011_core_flush
-#endif
 
 	/* --------------------------------------------------------
 	 * int console_core_putc(int c, uintptr_t base_addr)
@@ -172,7 +159,7 @@ putc_error:
 endfunc console_pl011_core_putc
 
 	/* --------------------------------------------------------
-	 * int console_pl011_putc(int c, console_pl011_t *console)
+	 * int console_pl011_putc(int c, console_t *console)
 	 * Function to output a character over the console. It
 	 * returns the character printed on success or -1 on error.
 	 * In: r0 - character to be printed
@@ -186,7 +173,7 @@ func console_pl011_putc
 	cmp	r1, #0
 	ASM_ASSERT(ne)
 #endif /* ENABLE_ASSERTIONS */
-	ldr	r1, [r1, #CONSOLE_T_PL011_BASE]
+	ldr	r1, [r1, #CONSOLE_T_BASE]
 	b	console_pl011_core_putc
 endfunc console_pl011_putc
 
@@ -216,7 +203,7 @@ getc_error:
 endfunc console_pl011_core_getc
 
 	/* ------------------------------------------------
-	 * int console_pl011_getc(console_pl011_t *console)
+	 * int console_pl011_getc(console_t *console)
 	 * Function to get a character from the console.
 	 * It returns the character grabbed on success
 	 * or -1 if no character is available.
@@ -230,22 +217,24 @@ func console_pl011_getc
 	cmp	r0, #0
 	ASM_ASSERT(ne)
 #endif /* ENABLE_ASSERTIONS */
-	ldr	r0, [r0, #CONSOLE_T_PL011_BASE]
+	ldr	r0, [r0, #CONSOLE_T_BASE]
 	b	console_pl011_core_getc
 endfunc console_pl011_getc
 
 	/* ---------------------------------------------
-	 * int console_core_flush(uintptr_t base_addr)
+	 * void console_core_flush(uintptr_t base_addr)
 	 * Function to force a write of all buffered
 	 * data that hasn't been output.
 	 * In : r0 - console base address
-	 * Out : return -1 on error else return 0.
+	 * Out : void
 	 * Clobber list : r0, r1
 	 * ---------------------------------------------
 	 */
 func console_pl011_core_flush
+#if ENABLE_ASSERTIONS
 	cmp	r0, #0
-	beq	flush_error
+	ASM_ASSERT(ne)
+#endif /* ENABLE_ASSERTIONS */
 
 1:
 	/* Loop while the transmit FIFO is busy */
@@ -253,19 +242,15 @@ func console_pl011_core_flush
 	tst	r1, #PL011_UARTFR_BUSY
 	bne	1b
 
-	mov	r0, #0
-	bx	lr
-flush_error:
-	mov	r0, #-1
 	bx	lr
 endfunc console_pl011_core_flush
 
 	/* ---------------------------------------------
-	 * int console_pl011_flush(console_pl011_t *console)
+	 * void console_pl011_flush(console_t *console)
 	 * Function to force a write of all buffered
 	 * data that hasn't been output.
 	 * In : r0 - pointer to console_t structure
-	 * Out : return -1 on error else return 0.
+	 * Out : void
 	 * Clobber list: r0, r1
 	 * ---------------------------------------------
 	 */
@@ -274,6 +259,6 @@ func console_pl011_flush
 	cmp	r0, #0
 	ASM_ASSERT(ne)
 #endif /* ENABLE_ASSERTIONS */
-	ldr	r0, [r0, #CONSOLE_T_PL011_BASE]
+	ldr	r0, [r0, #CONSOLE_T_BASE]
 	b	console_pl011_core_flush
 endfunc console_pl011_flush

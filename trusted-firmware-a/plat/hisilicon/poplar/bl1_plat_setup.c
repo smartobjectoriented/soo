@@ -22,14 +22,13 @@
 #include <lib/mmio.h>
 #include <plat/common/platform.h>
 
-#include "../../../bl1/bl1_private.h"
 #include "hi3798cv200.h"
 #include "plat_private.h"
 
 /* Data structure which holds the extents of the trusted RAM for BL1 */
 static meminfo_t bl1_tzram_layout;
 static meminfo_t bl2_tzram_layout;
-static console_pl011_t console;
+static console_t console;
 
 /*
  * Cannot use default weak implementation in bl1_main.c because BL1 RW data is

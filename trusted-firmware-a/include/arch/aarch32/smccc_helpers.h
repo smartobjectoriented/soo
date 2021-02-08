@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -24,7 +24,7 @@
 #define SMC_CTX_PMCR		U(0x88)
 #define SMC_CTX_SIZE		U(0x90)
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <stdint.h>
 
@@ -130,6 +130,22 @@ CASSERT(SMC_CTX_SIZE == sizeof(smc_ctx_t), assert_smc_ctx_size_mismatch);
 	((smc_ctx_t *)(_h))->r3 = (_r3);	\
 	SMC_RET3(_h, (_r0), (_r1), (_r2));	\
 }
+#define SMC_RET5(_h, _r0, _r1, _r2, _r3, _r4) {	\
+	((smc_ctx_t *)(_h))->r4 = (_r4);	\
+	SMC_RET4(_h, (_r0), (_r1), (_r2), (_r3));	\
+}
+#define SMC_RET6(_h, _r0, _r1, _r2, _r3, _r4, _r5) {	\
+	((smc_ctx_t *)(_h))->r5 = (_r5);	\
+	SMC_RET5(_h, (_r0), (_r1), (_r2), (_r3), (_r4));	\
+}
+#define SMC_RET7(_h, _r0, _r1, _r2, _r3, _r4, _r5, _r6) {	\
+	((smc_ctx_t *)(_h))->r6 = (_r6);	\
+	SMC_RET6(_h, (_r0), (_r1), (_r2), (_r3), (_r4), (_r5));	\
+}
+#define SMC_RET8(_h, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7) {	\
+	((smc_ctx_t *)(_h))->r7 = (_r7);	\
+	SMC_RET7(_h, (_r0), (_r1), (_r2), (_r3), (_r4), (_r5), (_r6));	\
+}
 
 /*
  * Helper macro to retrieve the SMC parameters from smc_ctx_t.
@@ -156,6 +172,6 @@ void smc_set_next_ctx(unsigned int security_state);
 /* Get the pointer to next `smc_ctx_t` already set by `smc_set_next_ctx()`. */
 void *smc_get_next_ctx(void);
 
-#endif /*__ASSEMBLY__*/
+#endif /*__ASSEMBLER__*/
 
 #endif /* SMCCC_HELPERS_H */

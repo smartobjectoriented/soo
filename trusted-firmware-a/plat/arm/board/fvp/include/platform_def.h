@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -7,33 +7,22 @@
 #ifndef PLATFORM_DEF_H
 #define PLATFORM_DEF_H
 
-/* Enable the dynamic translation tables library. */
-#ifdef AARCH32
-# if defined(IMAGE_BL32) && RESET_TO_SP_MIN
-#  define PLAT_XLAT_TABLES_DYNAMIC     1
-# endif
-#else
-# if defined(IMAGE_BL31) && (RESET_TO_BL31 || (ENABLE_SPM && !SPM_DEPRECATED))
-#  define PLAT_XLAT_TABLES_DYNAMIC     1
-# endif
-#endif /* AARCH32 */
-
 #include <drivers/arm/tzc400.h>
 #include <lib/utils_def.h>
+#include <plat/arm/board/common/v2m_def.h>
+#include <plat/arm/common/arm_def.h>
+#include <plat/arm/common/arm_spm_def.h>
 #include <plat/common/common_def.h>
-
-#include <arm_def.h>
-#include <arm_spm_def.h>
-#include <v2m_def.h>
 
 #include "../fvp_def.h"
 
 /* Required platform porting definitions */
-#define PLATFORM_CORE_COUNT \
-	(FVP_CLUSTER_COUNT * FVP_MAX_CPUS_PER_CLUSTER * FVP_MAX_PE_PER_CPU)
+#define PLATFORM_CORE_COUNT  (U(FVP_CLUSTER_COUNT) * \
+			      U(FVP_MAX_CPUS_PER_CLUSTER) * \
+			      U(FVP_MAX_PE_PER_CPU))
 
-#define PLAT_NUM_PWR_DOMAINS		(FVP_CLUSTER_COUNT + \
-					PLATFORM_CORE_COUNT) + 1
+#define PLAT_NUM_PWR_DOMAINS (U(FVP_CLUSTER_COUNT) + \
+			      PLATFORM_CORE_COUNT + U(1))
 
 #define PLAT_MAX_PWR_LVL		ARM_PWR_LVL2
 
@@ -44,7 +33,7 @@
 /*
  * Required ARM standard platform porting definitions
  */
-#define PLAT_ARM_CLUSTER_COUNT		FVP_CLUSTER_COUNT
+#define PLAT_ARM_CLUSTER_COUNT		U(FVP_CLUSTER_COUNT)
 
 #define PLAT_ARM_TRUSTED_SRAM_SIZE	UL(0x00040000)	/* 256 KB */
 
@@ -54,36 +43,57 @@
 #define PLAT_ARM_TRUSTED_DRAM_BASE	UL(0x06000000)
 #define PLAT_ARM_TRUSTED_DRAM_SIZE	UL(0x02000000)	/* 32 MB */
 
+/*
+ * Max size of SPMC is 2MB for fvp. With SPMD enabled this value corresponds to
+ * max size of BL32 image.
+ */
+#if defined(SPD_spmd)
+#define PLAT_ARM_SPMC_BASE		PLAT_ARM_TRUSTED_DRAM_BASE
+#define PLAT_ARM_SPMC_SIZE		UL(0x200000)  /* 2 MB */
+#endif
+
 /* virtual address used by dynamic mem_protect for chunk_base */
 #define PLAT_ARM_MEM_PROTEC_VA_FRAME	UL(0xc0000000)
 
 /* No SCP in FVP */
 #define PLAT_ARM_SCP_TZC_DRAM1_SIZE	UL(0x0)
 
+#define PLAT_ARM_DRAM2_BASE		ULL(0x880000000)
 #define PLAT_ARM_DRAM2_SIZE		UL(0x80000000)
 
+#define PLAT_HW_CONFIG_DTB_BASE		ULL(0x82000000)
+#define PLAT_HW_CONFIG_DTB_SIZE		ULL(0x8000)
+
+#define ARM_DTB_DRAM_NS			MAP_REGION_FLAT(		\
+					PLAT_HW_CONFIG_DTB_BASE,	\
+					PLAT_HW_CONFIG_DTB_SIZE,	\
+					MT_MEMORY | MT_RO | MT_NS)
 /*
  * Load address of BL33 for this platform port
  */
-#define PLAT_ARM_NS_IMAGE_OFFSET	(ARM_DRAM1_BASE + UL(0x8000000))
+#define PLAT_ARM_NS_IMAGE_BASE		(ARM_DRAM1_BASE + UL(0x8000000))
 
 /*
  * PLAT_ARM_MMAP_ENTRIES depends on the number of entries in the
  * plat_arm_mmap array defined for each BL stage.
  */
 #if defined(IMAGE_BL31)
-# if ENABLE_SPM
-#  define PLAT_ARM_MMAP_ENTRIES		9
+# if SPM_MM
+#  define PLAT_ARM_MMAP_ENTRIES		10
 #  define MAX_XLAT_TABLES		9
 #  define PLAT_SP_IMAGE_MMAP_REGIONS	30
 #  define PLAT_SP_IMAGE_MAX_XLAT_TABLES	10
 # else
-#  define PLAT_ARM_MMAP_ENTRIES		8
-#  define MAX_XLAT_TABLES		5
+#  define PLAT_ARM_MMAP_ENTRIES		9
+#  if USE_DEBUGFS
+#   define MAX_XLAT_TABLES		8
+#  else
+#   define MAX_XLAT_TABLES		7
+#  endif
 # endif
 #elif defined(IMAGE_BL32)
-# define PLAT_ARM_MMAP_ENTRIES		8
-# define MAX_XLAT_TABLES		5
+# define PLAT_ARM_MMAP_ENTRIES		9
+# define MAX_XLAT_TABLES		6
 #elif !USE_ROMLIB
 # define PLAT_ARM_MMAP_ENTRIES		11
 # define MAX_XLAT_TABLES		5
@@ -105,9 +115,11 @@
 #if USE_ROMLIB
 #define PLAT_ARM_MAX_ROMLIB_RW_SIZE	UL(0x1000)
 #define PLAT_ARM_MAX_ROMLIB_RO_SIZE	UL(0xe000)
+#define FVP_BL2_ROMLIB_OPTIMIZATION UL(0x6000)
 #else
 #define PLAT_ARM_MAX_ROMLIB_RW_SIZE	UL(0)
 #define PLAT_ARM_MAX_ROMLIB_RO_SIZE	UL(0)
+#define FVP_BL2_ROMLIB_OPTIMIZATION UL(0)
 #endif
 
 /*
@@ -115,23 +127,29 @@
  * little space for growth.
  */
 #if TRUSTED_BOARD_BOOT
-# define PLAT_ARM_MAX_BL2_SIZE		UL(0x1D000)
+#if COT_DESC_IN_DTB
+# define PLAT_ARM_MAX_BL2_SIZE	(UL(0x1E000) - FVP_BL2_ROMLIB_OPTIMIZATION)
 #else
-# define PLAT_ARM_MAX_BL2_SIZE		UL(0x11000)
+# define PLAT_ARM_MAX_BL2_SIZE	(UL(0x1D000) - FVP_BL2_ROMLIB_OPTIMIZATION)
+#endif
+#else
+# define PLAT_ARM_MAX_BL2_SIZE	(UL(0x13000) - FVP_BL2_ROMLIB_OPTIMIZATION)
 #endif
 
+#if RESET_TO_BL31
+/* Size of Trusted SRAM - the first 4KB of shared memory */
+#define PLAT_ARM_MAX_BL31_SIZE		(PLAT_ARM_TRUSTED_SRAM_SIZE - \
+					 ARM_SHARED_RAM_SIZE)
+#else
 /*
  * Since BL31 NOBITS overlays BL2 and BL1-RW, PLAT_ARM_MAX_BL31_SIZE is
  * calculated using the current BL31 PROGBITS debug size plus the sizes of
  * BL2 and BL1-RW
  */
-#if ENABLE_SPM && !SPM_DEPRECATED
-#define PLAT_ARM_MAX_BL31_SIZE		UL(0x60000)
-#else
-#define PLAT_ARM_MAX_BL31_SIZE		UL(0x3B000)
-#endif
+#define PLAT_ARM_MAX_BL31_SIZE		UL(0x3D000)
+#endif /* RESET_TO_BL31 */
 
-#ifdef AARCH32
+#ifndef __aarch64__
 /*
  * Since BL32 NOBITS overlays BL2 and BL1-RW, PLAT_ARM_MAX_BL32_SIZE is
  * calculated using the current SP_MIN PROGBITS debug size plus the sizes of
@@ -147,24 +165,18 @@
 # if TRUSTED_BOARD_BOOT
 #  define PLATFORM_STACK_SIZE		UL(0x1000)
 # else
-#  define PLATFORM_STACK_SIZE		UL(0x440)
+#  define PLATFORM_STACK_SIZE		UL(0x500)
 # endif
 #elif defined(IMAGE_BL2)
 # if TRUSTED_BOARD_BOOT
 #  define PLATFORM_STACK_SIZE		UL(0x1000)
 # else
-#  define PLATFORM_STACK_SIZE		UL(0x400)
+#  define PLATFORM_STACK_SIZE		UL(0x440)
 # endif
 #elif defined(IMAGE_BL2U)
 # define PLATFORM_STACK_SIZE		UL(0x400)
 #elif defined(IMAGE_BL31)
-# if ENABLE_SPM
-#  define PLATFORM_STACK_SIZE		UL(0x600)
-# elif PLAT_XLAT_TABLES_DYNAMIC
 #  define PLATFORM_STACK_SIZE		UL(0x800)
-# else
-#  define PLATFORM_STACK_SIZE		UL(0x400)
-# endif
 #elif defined(IMAGE_BL32)
 # define PLATFORM_STACK_SIZE		UL(0x440)
 #endif
@@ -185,14 +197,11 @@
 #define PLAT_ARM_BOOT_UART_BASE		V2M_IOFPGA_UART0_BASE
 #define PLAT_ARM_BOOT_UART_CLK_IN_HZ	V2M_IOFPGA_UART0_CLK_IN_HZ
 
-#define PLAT_ARM_BL31_RUN_UART_BASE		V2M_IOFPGA_UART1_BASE
-#define PLAT_ARM_BL31_RUN_UART_CLK_IN_HZ	V2M_IOFPGA_UART1_CLK_IN_HZ
+#define PLAT_ARM_RUN_UART_BASE		V2M_IOFPGA_UART1_BASE
+#define PLAT_ARM_RUN_UART_CLK_IN_HZ	V2M_IOFPGA_UART1_CLK_IN_HZ
 
-#define PLAT_ARM_SP_MIN_RUN_UART_BASE		V2M_IOFPGA_UART1_BASE
-#define PLAT_ARM_SP_MIN_RUN_UART_CLK_IN_HZ	V2M_IOFPGA_UART1_CLK_IN_HZ
-
-#define PLAT_ARM_CRASH_UART_BASE	PLAT_ARM_BL31_RUN_UART_BASE
-#define PLAT_ARM_CRASH_UART_CLK_IN_HZ	PLAT_ARM_BL31_RUN_UART_CLK_IN_HZ
+#define PLAT_ARM_CRASH_UART_BASE	PLAT_ARM_RUN_UART_BASE
+#define PLAT_ARM_CRASH_UART_CLK_IN_HZ	PLAT_ARM_RUN_UART_CLK_IN_HZ
 
 #define PLAT_ARM_TSP_UART_BASE		V2M_IOFPGA_UART2_BASE
 #define PLAT_ARM_TSP_UART_CLK_IN_HZ	V2M_IOFPGA_UART2_CLK_IN_HZ
@@ -247,8 +256,8 @@
 
 /*
  * GIC related constants to cater for both GICv2 and GICv3 instances of an
- * FVP. They could be overriden at runtime in case the FVP implements the legacy
- * VE memory map.
+ * FVP. They could be overridden at runtime in case the FVP implements the
+ * legacy VE memory map.
  */
 #define PLAT_ARM_GICD_BASE		BASE_GICD_BASE
 #define PLAT_ARM_GICR_BASE		BASE_GICR_BASE
@@ -268,12 +277,28 @@
 
 #define PLAT_ARM_G0_IRQ_PROPS(grp)	ARM_G0_IRQ_PROPS(grp)
 
+#if SDEI_IN_FCONF
+#define PLAT_SDEI_DP_EVENT_MAX_CNT	ARM_SDEI_DP_EVENT_MAX_CNT
+#define PLAT_SDEI_DS_EVENT_MAX_CNT	ARM_SDEI_DS_EVENT_MAX_CNT
+#else
 #define PLAT_ARM_PRIVATE_SDEI_EVENTS	ARM_SDEI_PRIVATE_EVENTS
 #define PLAT_ARM_SHARED_SDEI_EVENTS	ARM_SDEI_SHARED_EVENTS
+#endif
 
-#define PLAT_ARM_SP_IMAGE_STACK_BASE	(ARM_SP_IMAGE_NS_BUF_BASE +	\
-					 ARM_SP_IMAGE_NS_BUF_SIZE)
+#define PLAT_ARM_SP_IMAGE_STACK_BASE	(PLAT_SP_IMAGE_NS_BUF_BASE +	\
+					 PLAT_SP_IMAGE_NS_BUF_SIZE)
 
 #define PLAT_SP_PRI			PLAT_RAS_PRI
+
+/*
+ * Physical and virtual address space limits for MMU in AARCH64 & AARCH32 modes
+ */
+#ifdef __aarch64__
+#define PLAT_PHY_ADDR_SPACE_SIZE	(1ULL << 36)
+#define PLAT_VIRT_ADDR_SPACE_SIZE	(1ULL << 36)
+#else
+#define PLAT_PHY_ADDR_SPACE_SIZE	(1ULL << 32)
+#define PLAT_VIRT_ADDR_SPACE_SIZE	(1ULL << 32)
+#endif
 
 #endif /* PLATFORM_DEF_H */

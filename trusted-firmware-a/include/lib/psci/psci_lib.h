@@ -9,7 +9,7 @@
 
 #include <common/ep_info.h>
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <cdefs.h>
 #include <stdint.h>
@@ -89,6 +89,8 @@ void psci_warmboot_entrypoint(void);
 void psci_register_spd_pm_hook(const spd_pm_ops_t *pm);
 void psci_prepare_next_non_secure_ctx(
 			  entry_point_info_t *next_image_info);
-#endif /* __ASSEMBLY__ */
+int psci_stop_other_cores(unsigned int wait_ms,
+			  void (*stop_func)(u_register_t mpidr));
+#endif /* __ASSEMBLER__ */
 
 #endif /* PSCI_LIB_H */

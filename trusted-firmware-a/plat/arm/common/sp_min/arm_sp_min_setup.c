@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,12 +11,10 @@
 #include <bl32/sp_min/platform_sp_min.h>
 #include <common/bl_common.h>
 #include <common/debug.h>
-#include <drivers/arm/pl011.h>
 #include <drivers/console.h>
 #include <lib/mmio.h>
+#include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
-
-#include <plat_arm.h>
 
 static entry_point_info_t bl33_image_ep_info;
 
@@ -31,10 +29,10 @@ static entry_point_info_t bl33_image_ep_info;
 					MT_MEMORY | MT_RW | MT_SECURE)
 
 /*
- * Check that BL32_BASE is above ARM_TB_FW_CONFIG_LIMIT. The reserved page
+ * Check that BL32_BASE is above ARM_FW_CONFIG_LIMIT. The reserved page
  * is required for SOC_FW_CONFIG/TOS_FW_CONFIG passed from BL2.
  */
-CASSERT(BL32_BASE >= ARM_TB_FW_CONFIG_LIMIT, assert_bl32_base_overflows);
+CASSERT(BL32_BASE >= ARM_FW_CONFIG_LIMIT, assert_bl32_base_overflows);
 
 /*******************************************************************************
  * Return a pointer to the 'entry_point_info' structure of the next image for the
@@ -169,6 +167,10 @@ void arm_sp_min_plat_runtime_setup(void)
 {
 	/* Initialize the runtime console */
 	arm_console_runtime_init();
+
+#if PLAT_RO_XLAT_TABLES
+	arm_xlat_make_tables_readonly();
+#endif
 }
 
 /*******************************************************************************
@@ -184,7 +186,7 @@ void sp_min_platform_setup(void)
 	 * Do initial security configuration to allow DRAM/device access
 	 * (if earlier BL has not already done so).
 	 */
-#if RESET_TO_SP_MIN
+#if RESET_TO_SP_MIN && !JUNO_AARCH32_EL3_RUNTIME
 	plat_arm_security_setup();
 
 #if defined(PLAT_ARM_MEM_PROT_ADDR)
@@ -194,12 +196,14 @@ void sp_min_platform_setup(void)
 #endif
 
 	/* Enable and initialize the System level generic timer */
+#ifdef ARM_SYS_CNTCTL_BASE
 	mmio_write_32(ARM_SYS_CNTCTL_BASE + CNTCR_OFF,
 			CNTCR_FCREQ(0U) | CNTCR_EN);
-
+#endif
+#ifdef ARM_SYS_TIMCTL_BASE
 	/* Allow access to the System counter timer module */
 	arm_configure_sys_timer();
-
+#endif
 	/* Initialize power controller before setting up topology */
 	plat_arm_pwrc_setup();
 }
@@ -213,7 +217,7 @@ void sp_min_plat_runtime_setup(void)
  * Perform the very early platform specific architectural setup here. At the
  * moment this only initializes the MMU
  ******************************************************************************/
-void sp_min_plat_arch_setup(void)
+void arm_sp_min_plat_arch_setup(void)
 {
 	const mmap_region_t bl_regions[] = {
 		MAP_BL_SP_MIN_TOTAL,
@@ -227,4 +231,9 @@ void sp_min_plat_arch_setup(void)
 	setup_page_tables(bl_regions, plat_arm_get_mmap());
 
 	enable_mmu_svc_mon(0);
+}
+
+void sp_min_plat_arch_setup(void)
+{
+	arm_sp_min_plat_arch_setup();
 }

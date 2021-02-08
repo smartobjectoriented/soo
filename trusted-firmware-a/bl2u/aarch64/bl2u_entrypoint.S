@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -38,12 +38,14 @@ func bl2u_entrypoint
 
 	/* ---------------------------------------------
 	 * Enable the instruction cache, stack pointer
-	 * and data access alignment checks
+	 * and data access alignment checks and disable
+	 * speculative loads.
 	 * ---------------------------------------------
 	 */
 	mov	x1, #(SCTLR_I_BIT | SCTLR_A_BIT | SCTLR_SA_BIT)
 	mrs	x0, sctlr_el1
 	orr	x0, x0, x1
+	bic	x0, x0, #SCTLR_DSSBS_BIT
 	msr	sctlr_el1, x0
 	isb
 
@@ -99,6 +101,15 @@ func bl2u_entrypoint
 	mov	x1, x21
 	bl	bl2u_early_platform_setup
 	bl	bl2u_plat_arch_setup
+
+#if ENABLE_PAUTH
+	/* ---------------------------------------------
+	 * Program APIAKey_EL1
+	 * and enable pointer authentication.
+	 * ---------------------------------------------
+	 */
+	bl	pauth_init_enable_el1
+#endif
 
 	/* ---------------------------------------------
 	 * Jump to bl2u_main function.

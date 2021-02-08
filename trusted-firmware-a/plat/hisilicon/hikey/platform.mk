@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2017-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -20,7 +20,6 @@ endif
 
 CONSOLE_BASE			:=	PL011_UART3_BASE
 CRASH_CONSOLE_BASE		:=	PL011_UART3_BASE
-MULTI_CONSOLE_API		:=	1
 PLAT_PARTITION_MAX_ENTRIES	:=	12
 PLAT_PL061_MAX_GPIOS		:=	160
 COLD_BOOT_SINGLE_CPU		:=	1
@@ -45,8 +44,7 @@ endif
 
 USE_COHERENT_MEM	:=	1
 
-PLAT_INCLUDES		:=	-Iinclude/common/tbbr			\
-				-Iplat/hisilicon/hikey/include
+PLAT_INCLUDES		:=	-Iplat/hisilicon/hikey/include
 
 PLAT_BL_COMMON_SOURCES	:=	drivers/arm/pl011/aarch64/pl011_console.S \
 				lib/xlat_tables/aarch64/xlat_tables.c	\
@@ -78,6 +76,8 @@ BL2_SOURCES		+=	common/desc_image_load.c		\
 				drivers/io/io_fip.c			\
 				drivers/io/io_storage.c			\
 				drivers/mmc/mmc.c			\
+				drivers/partition/gpt.c			\
+				drivers/partition/partition.c		\
 				drivers/synopsys/emmc/dw_mmc.c		\
 				lib/cpus/aarch64/cortex_a53.S		\
 				plat/hisilicon/hikey/aarch64/hikey_helpers.S \
@@ -126,17 +126,19 @@ include drivers/auth/mbedtls/mbedtls_x509.mk
 AUTH_SOURCES		:=	drivers/auth/auth_mod.c			\
 				drivers/auth/crypto_mod.c		\
 				drivers/auth/img_parser_mod.c		\
-				drivers/auth/tbbr/tbbr_cot.c
+				drivers/auth/tbbr/tbbr_cot_common.c
 
 BL1_SOURCES		+=	${AUTH_SOURCES}				\
 				plat/common/tbbr/plat_tbbr.c		\
 				plat/hisilicon/hikey/hikey_tbbr.c	\
-				plat/hisilicon/hikey/hikey_rotpk.S
+				plat/hisilicon/hikey/hikey_rotpk.S	\
+				drivers/auth/tbbr/tbbr_cot_bl1.c
 
 BL2_SOURCES		+=	${AUTH_SOURCES}				\
 				plat/common/tbbr/plat_tbbr.c		\
 				plat/hisilicon/hikey/hikey_tbbr.c	\
-				plat/hisilicon/hikey/hikey_rotpk.S
+				plat/hisilicon/hikey/hikey_rotpk.S	\
+				drivers/auth/tbbr/tbbr_cot_bl2.c
 
 ROT_KEY		=	$(BUILD_PLAT)/rot_key.pem
 ROTPK_HASH		=	$(BUILD_PLAT)/rotpk_sha256.bin

@@ -16,54 +16,26 @@
 
 #include <gpc.h>
 
-void imx_set_cpu_secure_entry(unsigned int core_id, uintptr_t sec_entrypoint)
-{
-	uint64_t temp_base;
-
-	temp_base = (uint64_t) sec_entrypoint;
-	temp_base >>= 2;
-
-	mmio_write_32(IMX_SRC_BASE + SRC_GPR1_OFFSET + (core_id << 3),
-		((uint32_t)(temp_base >> 22) & 0xffff));
-	mmio_write_32(IMX_SRC_BASE + SRC_GPR1_OFFSET + (core_id << 3) + 4,
-		((uint32_t)temp_base & 0x003fffff));
-}
-
 /* use wfi power down the core */
 void imx_set_cpu_pwr_off(unsigned int core_id)
 {
+	bakery_lock_get(&gpc_lock);
+
 	/* enable the wfi power down of the core */
 	mmio_setbits_32(IMX_GPC_BASE + LPCR_A53_AD, COREx_WFI_PDN(core_id) |
 			(1 << (core_id + 20)));
+
+	bakery_lock_release(&gpc_lock);
+
 	/* assert the pcg pcr bit of the core */
 	mmio_setbits_32(IMX_GPC_BASE + COREx_PGC_PCR(core_id), 0x1);
 };
 
-/* use the sw method to power up the core */
-void imx_set_cpu_pwr_on(unsigned int core_id)
-{
-	/* clear the wfi power down bit of the core */
-	mmio_clrbits_32(IMX_GPC_BASE + LPCR_A53_AD, COREx_WFI_PDN(core_id));
-	/* assert the ncpuporeset */
-	mmio_clrbits_32(IMX_SRC_BASE + SRC_A53RCR1, (1 << core_id));
-	/* assert the pcg pcr bit of the core */
-	mmio_setbits_32(IMX_GPC_BASE + COREx_PGC_PCR(core_id), 0x1);
-	/* sw power up the core */
-	mmio_setbits_32(IMX_GPC_BASE + CPU_PGC_UP_TRG, (1 << core_id));
-
-	/* wait for the power up finished */
-	while ((mmio_read_32(IMX_GPC_BASE + CPU_PGC_UP_TRG) & (1 << core_id)) != 0)
-		;
-
-	/* deassert the pcg pcr bit of the core */
-	mmio_clrbits_32(IMX_GPC_BASE + COREx_PGC_PCR(core_id), 0x1);
-	/* deassert the ncpuporeset */
-	mmio_setbits_32(IMX_SRC_BASE + SRC_A53RCR1, (1 << core_id));
-}
-
 /* if out of lpm, we need to do reverse steps */
 void imx_set_cpu_lpm(unsigned int core_id, bool pdn)
 {
+	bakery_lock_get(&gpc_lock);
+
 	if (pdn) {
 		/* enable the core WFI PDN & IRQ PUP */
 		mmio_setbits_32(IMX_GPC_BASE + LPCR_A53_AD, COREx_WFI_PDN(core_id) |
@@ -77,11 +49,8 @@ void imx_set_cpu_lpm(unsigned int core_id, bool pdn)
 		/* deassert the pcg pcr bit of the core */
 		mmio_setbits_32(IMX_GPC_BASE + COREx_PGC_PCR(core_id), 0x1);
 	}
-}
 
-void imx_set_sys_wakeup(unsigned int last_core, bool pdn)
-{
-	/* TODO */
+	bakery_lock_release(&gpc_lock);
 }
 
 void imx_pup_pdn_slot_config(int last_core, bool pdn)
@@ -103,18 +72,6 @@ void imx_pup_pdn_slot_config(int last_core, bool pdn)
 		mmio_clrsetbits_32(IMX_GPC_BASE + PGC_ACK_SEL_A53, 0xFFFFFFFF,
 			A53_DUMMY_PDN_ACK | A53_DUMMY_PUP_ACK);
 	}
-}
-
-void imx_set_cluster_standby(bool retention)
-{
-	/*
-	 * Enable BIT 6 of A53 AD register to make sure system
-	 * don't enter LPM mode.
-	 */
-	if (retention)
-		mmio_setbits_32(IMX_GPC_BASE + LPCR_A53_AD, (1 << 6));
-	else
-		mmio_clrbits_32(IMX_GPC_BASE + LPCR_A53_AD, (1 << 6));
 }
 
 void imx_set_cluster_powerdown(unsigned int last_core, uint8_t power_state)
@@ -166,50 +123,26 @@ void imx_set_cluster_powerdown(unsigned int last_core, uint8_t power_state)
 	}
 }
 
-/* config the system level power mode */
-void imx_set_sys_lpm(bool retention)
-{
-	uint32_t val;
-
-	/* set system DSM mode SLPCR(0x14) */
-	val = mmio_read_32(IMX_GPC_BASE + SLPCR);
-	val &= ~(SLPCR_EN_DSM | SLPCR_VSTBY | SLPCR_SBYOS |
-		 SLPCR_BYPASS_PMIC_READY | SLPCR_RBC_EN);
-
-	if (retention)
-		val |= (SLPCR_EN_DSM | SLPCR_VSTBY | SLPCR_SBYOS |
-			 SLPCR_BYPASS_PMIC_READY | SLPCR_RBC_EN |
-			 SLPCR_A53_FASTWUP_STOP_MODE);
-
-	mmio_write_32(IMX_GPC_BASE + SLPCR, val);
-}
-
-void imx_set_rbc_count(void)
-{
-	mmio_setbits_32(IMX_GPC_BASE + SLPCR, 0x3f << SLPCR_RBC_COUNT_SHIFT);
-}
-
-void imx_clear_rbc_count(void)
-{
-	mmio_clrbits_32(IMX_GPC_BASE + SLPCR, 0x3f << SLPCR_RBC_COUNT_SHIFT);
-}
-
 void imx_gpc_init(void)
 {
 	uint32_t val;
 	int i;
 	/* mask all the interrupt by default */
+	for (i = 0; i < 4; i++) {
+		mmio_write_32(IMX_GPC_BASE + IMR1_CORE0_A53 + i * 4, ~0x0);
+		mmio_write_32(IMX_GPC_BASE + IMR1_CORE1_A53 + i * 4, ~0x0);
+		mmio_write_32(IMX_GPC_BASE + IMR1_CORE2_A53 + i * 4, ~0x0);
+		mmio_write_32(IMX_GPC_BASE + IMR1_CORE3_A53 + i * 4, ~0x0);
+		mmio_write_32(IMX_GPC_BASE + IMR1_CORE0_M4 + i * 4, ~0x0);
+	}
 	/* Due to the hardware design requirement, need to make
 	 * sure GPR interrupt(#32) is unmasked during RUN mode to
 	 * avoid entering DSM mode by mistake.
 	 */
-	for (i = 0; i < 4; i++) {
-		mmio_write_32(IMX_GPC_BASE + IMR1_CORE0_A53 + i * 4, 0xFFFFFFFE);
-		mmio_write_32(IMX_GPC_BASE + IMR1_CORE1_A53 + i * 4, 0xFFFFFFFE);
-		mmio_write_32(IMX_GPC_BASE + IMR1_CORE2_A53 + i * 4, 0xFFFFFFFE);
-		mmio_write_32(IMX_GPC_BASE + IMR1_CORE3_A53 + i * 4, 0xFFFFFFFE);
-		mmio_write_32(IMX_GPC_BASE + IMR1_CORE0_M4 + i * 4, ~0x0);
-	}
+	mmio_write_32(IMX_GPC_BASE + IMR1_CORE0_A53, 0xFFFFFFFE);
+	mmio_write_32(IMX_GPC_BASE + IMR1_CORE1_A53, 0xFFFFFFFE);
+	mmio_write_32(IMX_GPC_BASE + IMR1_CORE2_A53, 0xFFFFFFFE);
+	mmio_write_32(IMX_GPC_BASE + IMR1_CORE3_A53, 0xFFFFFFFE);
 
 	/* use external IRQs to wakeup C0~C3 from LPM */
 	val = mmio_read_32(IMX_GPC_BASE + LPCR_A53_BSC);
@@ -242,4 +175,7 @@ void imx_gpc_init(void)
 	 */
 	mmio_clrbits_32(IMX_SRC_BASE + SRC_OTG1PHY_SCR, 0x1);
 	mmio_clrbits_32(IMX_SRC_BASE + SRC_OTG2PHY_SCR, 0x1);
+
+	/* enable all the power domain by default */
+	mmio_write_32(IMX_GPC_BASE + PU_PGC_UP_TRG, 0x3fcf);
 }

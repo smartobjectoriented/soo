@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -42,6 +42,40 @@ func cortex_a53_disable_smp
 	ret
 endfunc cortex_a53_disable_smp
 
+	/* ---------------------------------------------------
+	 * Errata Workaround for Cortex A53 Errata #819472.
+	 * This applies only to revision <= r0p1 of Cortex A53.
+	 * Due to the nature of the errata it is applied unconditionally
+	 * when built in, report it as applicable in this case
+	 * ---------------------------------------------------
+	 */
+func check_errata_819472
+#if ERRATA_A53_819472
+	mov x0, #ERRATA_APPLIES
+	ret
+#else
+	mov	x1, #0x01
+	b	cpu_rev_var_ls
+#endif
+endfunc check_errata_819472
+
+	/* ---------------------------------------------------
+	 * Errata Workaround for Cortex A53 Errata #824069.
+	 * This applies only to revision <= r0p2 of Cortex A53.
+	 * Due to the nature of the errata it is applied unconditionally
+	 * when built in, report it as applicable in this case
+	 * ---------------------------------------------------
+	 */
+func check_errata_824069
+#if ERRATA_A53_824069
+	mov x0, #ERRATA_APPLIES
+	ret
+#else
+	mov	x1, #0x02
+	b	cpu_rev_var_ls
+#endif
+endfunc check_errata_824069
+
 	/* --------------------------------------------------
 	 * Errata Workaround for Cortex A53 Errata #826319.
 	 * This applies only to revision <= r0p2 of Cortex A53.
@@ -69,6 +103,23 @@ func check_errata_826319
 	mov	x1, #0x02
 	b	cpu_rev_var_ls
 endfunc check_errata_826319
+
+	/* ---------------------------------------------------
+	 * Errata Workaround for Cortex A53 Errata #827319.
+	 * This applies only to revision <= r0p2 of Cortex A53.
+	 * Due to the nature of the errata it is applied unconditionally
+	 * when built in, report it as applicable in this case
+	 * ---------------------------------------------------
+	 */
+func check_errata_827319
+#if ERRATA_A53_827319
+	mov x0, #ERRATA_APPLIES
+	ret
+#else
+	mov	x1, #0x02
+	b	cpu_rev_var_ls
+#endif
+endfunc check_errata_827319
 
 	/* ---------------------------------------------------------------------
 	 * Disable the cache non-temporal hint.
@@ -188,6 +239,20 @@ exit_check_errata_843419:
 	ret
 endfunc check_errata_843419
 
+	/* --------------------------------------------------
+	 * Errata workaround for Cortex A53 Errata #1530924.
+	 * This applies to all revisions of Cortex A53.
+	 * --------------------------------------------------
+	 */
+func check_errata_1530924
+#if ERRATA_A53_1530924
+	mov	x0, #ERRATA_APPLIES
+#else
+	mov	x0, #ERRATA_MISSING
+#endif
+	ret
+endfunc check_errata_1530924
+
 	/* -------------------------------------------------
 	 * The CPU Ops reset function for Cortex-A53.
 	 * Shall clobber: x0-x19
@@ -228,13 +293,11 @@ endfunc cortex_a53_reset_func
 func cortex_a53_core_pwr_dwn
 	mov	x18, x30
 
-#if !TI_AM65X_WORKAROUND
 	/* ---------------------------------------------
 	 * Turn off caches.
 	 * ---------------------------------------------
 	 */
 	bl	cortex_a53_disable_dcache
-#endif
 
 	/* ---------------------------------------------
 	 * Flush L1 caches.
@@ -254,13 +317,11 @@ endfunc cortex_a53_core_pwr_dwn
 func cortex_a53_cluster_pwr_dwn
 	mov	x18, x30
 
-#if !TI_AM65X_WORKAROUND
 	/* ---------------------------------------------
 	 * Turn off caches.
 	 * ---------------------------------------------
 	 */
 	bl	cortex_a53_disable_dcache
-#endif
 
 	/* ---------------------------------------------
 	 * Flush L1 caches.
@@ -304,11 +365,15 @@ func cortex_a53_errata_report
 	 * Report all errata. The revision-variant information is passed to
 	 * checking functions of each errata.
 	 */
+	report_errata ERRATA_A53_819472, cortex_a53, 819472
+	report_errata ERRATA_A53_824069, cortex_a53, 824069
 	report_errata ERRATA_A53_826319, cortex_a53, 826319
+	report_errata ERRATA_A53_827319, cortex_a53, 827319
 	report_errata ERRATA_A53_835769, cortex_a53, 835769
 	report_errata ERRATA_A53_836870, cortex_a53, disable_non_temporal_hint
 	report_errata ERRATA_A53_843419, cortex_a53, 843419
 	report_errata ERRATA_A53_855873, cortex_a53, 855873
+	report_errata ERRATA_A53_1530924, cortex_a53, 1530924
 
 	ldp	x8, x30, [sp], #16
 	ret

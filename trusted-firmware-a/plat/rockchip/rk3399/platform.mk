@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2016-2017, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -8,9 +8,11 @@ RK_PLAT		:=	plat/rockchip
 RK_PLAT_SOC	:=	${RK_PLAT}/${PLAT}
 RK_PLAT_COMMON	:=	${RK_PLAT}/common
 
+DISABLE_BIN_GENERATION	:=	1
+
 PLAT_INCLUDES		:=	-I${RK_PLAT_COMMON}/			\
 				-I${RK_PLAT_COMMON}/include/		\
-				-I${RK_PLAT_COMMON}/pmusram		\
+				-I${RK_PLAT_COMMON}/aarch64/		\
 				-I${RK_PLAT_COMMON}/drivers/pmu/	\
 				-I${RK_PLAT_SOC}/			\
 				-I${RK_PLAT_SOC}/drivers/pmu/		\
@@ -22,18 +24,23 @@ PLAT_INCLUDES		:=	-I${RK_PLAT_COMMON}/			\
 				-I${RK_PLAT_SOC}/include/		\
 				-I${RK_PLAT_SOC}/include/shared/	\
 
-RK_GIC_SOURCES		:=	drivers/arm/gic/common/gic_common.c	\
-				drivers/arm/gic/v3/arm_gicv3_common.c	\
-				drivers/arm/gic/v3/gic500.c		\
-				drivers/arm/gic/v3/gicv3_main.c		\
-				drivers/arm/gic/v3/gicv3_helpers.c	\
+# Include GICv3 driver files
+include drivers/arm/gic/v3/gicv3.mk
+
+RK_GIC_SOURCES		:=	${GICV3_SOURCES}			\
 				plat/common/plat_gicv3.c		\
 				${RK_PLAT}/common/rockchip_gicv3.c
 
-PLAT_BL_COMMON_SOURCES	:=	lib/xlat_tables/xlat_tables_common.c	\
+PLAT_BL_COMMON_SOURCES	:=	common/desc_image_load.c			\
+				lib/bl_aux_params/bl_aux_params.c		\
+				lib/xlat_tables/xlat_tables_common.c	\
 				lib/xlat_tables/aarch64/xlat_tables.c	\
 				plat/common/aarch64/crash_console_helpers.S \
 				plat/common/plat_psci_common.c
+
+ifneq (${ENABLE_STACK_PROTECTOR},0)
+PLAT_BL_COMMON_SOURCES	+=	${RK_PLAT_COMMON}/rockchip_stack_protector.c
+endif
 
 BL31_SOURCES	+=	${RK_GIC_SOURCES}				\
 			drivers/arm/cci/cci.c				\
@@ -46,13 +53,12 @@ BL31_SOURCES	+=	${RK_GIC_SOURCES}				\
 			${RK_PLAT_COMMON}/aarch64/plat_helpers.S	\
 			${RK_PLAT_COMMON}/bl31_plat_setup.c		\
 			${RK_PLAT_COMMON}/params_setup.c		\
-			${RK_PLAT_COMMON}/pmusram/pmu_sram_cpus_on.S	\
+			${RK_PLAT_COMMON}/aarch64/pmu_sram_cpus_on.S	\
 			${RK_PLAT_COMMON}/plat_pm.c			\
 			${RK_PLAT_COMMON}/plat_topology.c		\
 			${RK_PLAT_COMMON}/aarch64/platform_common.c	\
 			${RK_PLAT_COMMON}/rockchip_sip_svc.c		\
 			${RK_PLAT_SOC}/plat_sip_calls.c			\
-			${RK_PLAT_SOC}/drivers/dp/cdn_dp.c		\
 			${RK_PLAT_SOC}/drivers/gpio/rk3399_gpio.c	\
 			${RK_PLAT_SOC}/drivers/pmu/pmu.c		\
 			${RK_PLAT_SOC}/drivers/pmu/pmu_fw.c		\
@@ -65,9 +71,8 @@ BL31_SOURCES	+=	${RK_GIC_SOURCES}				\
 			${RK_PLAT_SOC}/drivers/dram/dram_spec_timing.c	\
 			${RK_PLAT_SOC}/drivers/dram/suspend.c
 
-MULTI_CONSOLE_API	:=	1
-
 include lib/coreboot/coreboot.mk
+include lib/libfdt/libfdt.mk
 
 $(eval $(call add_define,PLAT_EXTRA_LD_SCRIPT))
 
@@ -79,21 +84,25 @@ PLAT_M0                 :=      ${PLAT}m0
 BUILD_M0		:=	${BUILD_PLAT}/m0
 
 RK3399M0FW=${BUILD_M0}/${PLAT_M0}.bin
-$(eval $(call add_define,RK3399M0FW))
+$(eval $(call add_define_val,RK3399M0FW,\"$(RK3399M0FW)\"))
 
 RK3399M0PMUFW=${BUILD_M0}/${PLAT_M0}pmu.bin
-$(eval $(call add_define,RK3399M0PMUFW))
+$(eval $(call add_define_val,RK3399M0PMUFW,\"$(RK3399M0PMUFW)\"))
+
+ifdef PLAT_RK_DP_HDCP
+BL31_SOURCES	+= ${RK_PLAT_SOC}/drivers/dp/cdn_dp.c
 
 HDCPFW=${RK_PLAT_SOC}/drivers/dp/hdcp.bin
-$(eval $(call add_define,HDCPFW))
+$(eval $(call add_define_val,HDCPFW,\"$(HDCPFW)\"))
+
+${BUILD_PLAT}/bl31/cdn_dp.o: CCACHE_EXTRAFILES=$(HDCPFW)
+${RK_PLAT_SOC}/drivers/dp/cdn_dp.c: $(HDCPFW)
+endif
 
 # CCACHE_EXTRAFILES is needed because ccache doesn't handle .incbin
 export CCACHE_EXTRAFILES
 ${BUILD_PLAT}/bl31/pmu_fw.o: CCACHE_EXTRAFILES=$(RK3399M0FW):$(RK3399M0PMUFW)
 ${RK_PLAT_SOC}/drivers/pmu/pmu_fw.c: $(RK3399M0FW)
-
-${BUILD_PLAT}/bl31/cdn_dp.o: CCACHE_EXTRAFILES=$(HDCPFW)
-${RK_PLAT_SOC}/drivers/dp/cdn_dp.c: $(HDCPFW)
 
 $(eval $(call MAKE_PREREQ_DIR,${BUILD_M0},${BUILD_PLAT}))
 .PHONY: $(RK3399M0FW)

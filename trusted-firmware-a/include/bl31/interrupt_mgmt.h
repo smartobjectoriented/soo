@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -79,7 +79,7 @@
 #define get_interrupt_src_ss(flag)	(((flag) >> INTR_SRC_SS_FLAG_SHIFT) & \
 					 INTR_SRC_SS_FLAG_MASK)
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <errno.h>
 #include <stdint.h>
@@ -134,7 +134,7 @@ typedef uint64_t (*interrupt_type_handler_t)(uint32_t id,
 /*******************************************************************************
  * Function & variable prototypes
  ******************************************************************************/
-uint32_t get_scr_el3_from_routing_model(uint32_t security_state);
+u_register_t get_scr_el3_from_routing_model(uint32_t security_state);
 int32_t set_routing_model(uint32_t type, uint32_t flags);
 int32_t register_interrupt_type_handler(uint32_t type,
 					interrupt_type_handler_t handler,
@@ -143,5 +143,5 @@ interrupt_type_handler_t get_interrupt_type_handler(uint32_t type);
 int disable_intr_rm_local(uint32_t type, uint32_t security_state);
 int enable_intr_rm_local(uint32_t type, uint32_t security_state);
 
-#endif /*__ASSEMBLY__*/
+#endif /*__ASSEMBLER__*/
 #endif /* INTERRUPT_MGMT_H */

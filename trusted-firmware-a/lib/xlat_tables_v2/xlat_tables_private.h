@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -99,7 +99,9 @@ unsigned long long xlat_arch_get_max_supported_pa(void);
  */
 bool is_mmu_enabled_ctx(const xlat_ctx_t *ctx);
 
-/* Returns true if the data cache is enabled at the current EL. */
-bool is_dcache_enabled(void);
+/*
+ * Returns minimum virtual address space size supported by the architecture
+ */
+uintptr_t xlat_get_min_virt_addr_space_size(void);
 
 #endif /* XLAT_TABLES_PRIVATE_H */

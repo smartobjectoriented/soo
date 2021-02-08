@@ -1,17 +1,15 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <drivers/arm/css/css_mhu_doorbell.h>
+#include <drivers/arm/css/scmi.h>
+#include <plat/arm/common/plat_arm.h>
+#include <plat/arm/css/common/css_pm.h>
 #include <plat/common/platform.h>
-
-#include <arm_def.h>
-#include <css_pm.h>
-#include <plat_arm.h>
-#include "juno_def.h"
-#include "../../css/drivers/scmi/scmi.h"
-#include "../../css/drivers/mhu/css_mhu_doorbell.h"
+#include <platform_def.h>
 
 #if CSS_USE_SCMI_SDS_DRIVER
 static scmi_channel_plat_info_t juno_scmi_plat_info = {
@@ -22,7 +20,7 @@ static scmi_channel_plat_info_t juno_scmi_plat_info = {
 		.ring_doorbell = &mhu_ring_doorbell,
 };
 
-scmi_channel_plat_info_t *plat_css_get_scmi_info()
+scmi_channel_plat_info_t *plat_css_get_scmi_info(int channel_id)
 {
 	return &juno_scmi_plat_info;
 }

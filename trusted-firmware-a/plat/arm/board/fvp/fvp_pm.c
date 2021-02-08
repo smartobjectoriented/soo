@@ -1,28 +1,24 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <assert.h>
-#include <errno.h>
 
 #include <arch_helpers.h>
 #include <common/debug.h>
 #include <drivers/arm/gicv3.h>
+#include <drivers/arm/fvp/fvp_pwrc.h>
 #include <lib/extensions/spe.h>
 #include <lib/mmio.h>
 #include <lib/psci/psci.h>
-#include <plat/common/platform.h>
+#include <plat/arm/common/arm_config.h>
+#include <plat/arm/common/plat_arm.h>
+#include <platform_def.h>
 
-#include <arm_config.h>
-#include <plat_arm.h>
-#include <v2m_def.h>
-
-#include "../../../../drivers/arm/gic/v3/gicv3_private.h"
-#include "drivers/pwrc/fvp_pwrc.h"
-#include "fvp_def.h"
 #include "fvp_private.h"
+#include "../drivers/arm/gic/v3/gicv3_private.h"
 
 
 #if ARM_RECOM_STATE_ID_ENC
@@ -67,6 +63,25 @@ static void fvp_cluster_pwrdwn_common(void)
 
 	/* Disable coherency if this cluster is to be turned off */
 	fvp_interconnect_disable();
+
+#if HW_ASSISTED_COHERENCY
+	uint32_t reg;
+
+	/*
+	 * If we have determined this core to be the last man standing and we
+	 * intend to power down the cluster proactively, we provide a hint to
+	 * the power controller that cluster power is not required when all
+	 * cores are powered down.
+	 * Note that this is only an advisory to power controller and is supported
+	 * by SoCs with DynamIQ Shared Units only.
+	 */
+	reg = read_clusterpwrdn();
+
+	/* Clear and set bit 0 : Cluster power not required */
+	reg &= ~DSU_CLUSTER_PWR_MASK;
+	reg |= DSU_CLUSTER_PWR_OFF;
+	write_clusterpwrdn(reg);
+#endif
 
 	/* Program the power controller to turn the cluster off */
 	fvp_pwrc_write_pcoffr(mpidr);
@@ -249,10 +264,19 @@ static void fvp_pwr_domain_on_finish(const psci_power_state_t *target_state)
 {
 	fvp_power_domain_on_finish_common(target_state);
 
-	/* Enable the gic cpu interface */
+}
+
+/*******************************************************************************
+ * FVP handler called when a power domain has just been powered on and the cpu
+ * and its cluster are fully participating in coherent transaction on the
+ * interconnect. Data cache must be enabled for CPU at this point.
+ ******************************************************************************/
+static void fvp_pwr_domain_on_finish_late(const psci_power_state_t *target_state)
+{
+	/* Program GIC per-cpu distributor or re-distributor interface */
 	plat_arm_gic_pcpu_init();
 
-	/* Program the gic per-cpu distributor or re-distributor interface */
+	/* Enable GIC CPU interface */
 	plat_arm_gic_cpuif_enable();
 }
 
@@ -274,7 +298,7 @@ static void fvp_pwr_domain_suspend_finish(const psci_power_state_t *target_state
 
 	fvp_power_domain_on_finish_common(target_state);
 
-	/* Enable the gic cpu interface */
+	/* Enable GIC CPU interface */
 	plat_arm_gic_cpuif_enable();
 }
 
@@ -399,6 +423,7 @@ plat_psci_ops_t plat_arm_psci_pm_ops = {
 	.pwr_domain_off = fvp_pwr_domain_off,
 	.pwr_domain_suspend = fvp_pwr_domain_suspend,
 	.pwr_domain_on_finish = fvp_pwr_domain_on_finish,
+	.pwr_domain_on_finish_late = fvp_pwr_domain_on_finish_late,
 	.pwr_domain_suspend_finish = fvp_pwr_domain_suspend_finish,
 	.system_off = fvp_system_off,
 	.system_reset = fvp_system_reset,

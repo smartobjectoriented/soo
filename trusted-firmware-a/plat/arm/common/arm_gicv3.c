@@ -1,18 +1,17 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <assert.h>
 #include <platform_def.h>
 
 #include <common/interrupt_props.h>
 #include <drivers/arm/gicv3.h>
 #include <lib/utils.h>
+#include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
-
-#include <arm_def.h>
-#include <plat_arm.h>
 
 /******************************************************************************
  * The following functions are defined as weak to allow a platform to override
@@ -29,6 +28,15 @@
 /* The GICv3 driver only needs to be initialized in EL3 */
 static uintptr_t rdistif_base_addrs[PLATFORM_CORE_COUNT];
 
+/* Default GICR base address to be used for GICR probe. */
+static const uintptr_t gicr_base_addrs[2] = {
+	PLAT_ARM_GICR_BASE,	/* GICR Base address of the primary CPU */
+	0U			/* Zero Termination */
+};
+
+/* List of zero terminated GICR frame addresses which CPUs will probe */
+static const uintptr_t *gicr_frames = gicr_base_addrs;
+
 static const interrupt_prop_t arm_interrupt_props[] = {
 	PLAT_ARM_G1S_IRQ_PROPS(INTR_GROUP1S),
 	PLAT_ARM_G0_IRQ_PROPS(INTR_GROUP0)
@@ -36,12 +44,11 @@ static const interrupt_prop_t arm_interrupt_props[] = {
 
 /*
  * We save and restore the GICv3 context on system suspend. Allocate the
- * data in the designated EL3 Secure carve-out memory. The `volatile`
- * is used to prevent the compiler from removing the gicv3 contexts even
- * though the DEFINE_LOAD_SYM_ADDR creates a dummy reference to it.
+ * data in the designated EL3 Secure carve-out memory. The `used` attribute
+ * is used to prevent the compiler from removing the gicv3 contexts.
  */
-static volatile gicv3_redist_ctx_t rdist_ctx __section("arm_el3_tzc_dram");
-static volatile gicv3_dist_ctx_t dist_ctx __section("arm_el3_tzc_dram");
+static gicv3_redist_ctx_t rdist_ctx __section("arm_el3_tzc_dram") __used;
+static gicv3_dist_ctx_t dist_ctx __section("arm_el3_tzc_dram") __used;
 
 /* Define accessor function to get reference to the GICv3 context */
 DEFINE_LOAD_SYM_ADDR(rdist_ctx)
@@ -69,13 +76,25 @@ static unsigned int arm_gicv3_mpidr_hash(u_register_t mpidr)
 
 static const gicv3_driver_data_t arm_gic_data __unused = {
 	.gicd_base = PLAT_ARM_GICD_BASE,
-	.gicr_base = PLAT_ARM_GICR_BASE,
+	.gicr_base = 0U,
 	.interrupt_props = arm_interrupt_props,
 	.interrupt_props_num = ARRAY_SIZE(arm_interrupt_props),
 	.rdistif_num = PLATFORM_CORE_COUNT,
 	.rdistif_base_addrs = rdistif_base_addrs,
 	.mpidr_to_core_pos = arm_gicv3_mpidr_hash
 };
+
+/*
+ * By default, gicr_frames will be pointing to gicr_base_addrs. If
+ * the platform supports a non-contiguous GICR frames (GICR frames located
+ * at uneven offset), plat_arm_override_gicr_frames function can be used by
+ * such platform to override the gicr_frames.
+ */
+void plat_arm_override_gicr_frames(const uintptr_t *plat_gicr_frames)
+{
+	assert(plat_gicr_frames != NULL);
+	gicr_frames = plat_gicr_frames;
+}
 
 void __init plat_arm_gic_driver_init(void)
 {
@@ -85,9 +104,14 @@ void __init plat_arm_gic_driver_init(void)
 	 * can use GIC system registers to manage interrupts and does
 	 * not need GIC interface base addresses to be configured.
 	 */
-#if (defined(AARCH32) && defined(IMAGE_BL32)) || \
-	(defined(IMAGE_BL31) && !defined(AARCH32))
+#if (!defined(__aarch64__) && defined(IMAGE_BL32)) || \
+	(defined(__aarch64__) && defined(IMAGE_BL31))
 	gicv3_driver_init(&arm_gic_data);
+
+	if (gicv3_rdistif_probe(gicr_base_addrs[0]) == -1) {
+		ERROR("No GICR base frame found for Primary CPU\n");
+		panic();
+	}
 #endif
 }
 
@@ -118,10 +142,29 @@ void plat_arm_gic_cpuif_disable(void)
 }
 
 /******************************************************************************
- * ARM common helper to initialize the per-cpu redistributor interface in GICv3
+ * ARM common helper function to iterate over all GICR frames and discover the
+ * corresponding per-cpu redistributor frame as well as initialize the
+ * corresponding interface in GICv3.
  *****************************************************************************/
 void plat_arm_gic_pcpu_init(void)
 {
+	int result;
+	const uintptr_t *plat_gicr_frames = gicr_frames;
+
+	do {
+		result = gicv3_rdistif_probe(*plat_gicr_frames);
+
+		/* If the probe is successful, no need to proceed further */
+		if (result == 0)
+			break;
+
+		plat_gicr_frames++;
+	} while (*plat_gicr_frames != 0U);
+
+	if (result == -1) {
+		ERROR("No GICR base frame found for CPU 0x%lx\n", read_mpidr());
+		panic();
+	}
 	gicv3_rdistif_init(plat_my_core_pos());
 }
 
@@ -152,7 +195,7 @@ void plat_arm_gic_save(void)
 	 * If an ITS is available, save its context before
 	 * the Redistributor using:
 	 * gicv3_its_save_disable(gits_base, &its_ctx[i])
-	 * Additionnaly, an implementation-defined sequence may
+	 * Additionally, an implementation-defined sequence may
 	 * be required to save the whole ITS state.
 	 */
 

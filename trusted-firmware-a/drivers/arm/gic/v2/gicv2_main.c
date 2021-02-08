@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -247,6 +247,15 @@ void gicv2_end_of_interrupt(unsigned int id)
 	assert(driver_data != NULL);
 	assert(driver_data->gicc_base != 0U);
 
+	/*
+	 * Ensure the write to peripheral registers are *complete* before the write
+	 * to GIC_EOIR.
+	 *
+	 * Note: The completion gurantee depends on various factors of system design
+	 * and the barrier is the best core can do by which execution of further
+	 * instructions waits till the barrier is alive.
+	 */
+	dsbishst();
 	gicc_write_EOIR(driver_data->gicc_base, id);
 }
 
@@ -279,16 +288,16 @@ unsigned int gicv2_get_running_priority(void)
 /*******************************************************************************
  * This function sets the GICv2 target mask pattern for the current PE. The PE
  * target mask is used to translate linear PE index (returned by platform core
- * position) to a bit mask used when targeting interrupts to a PE, viz. when
- * raising SGIs and routing SPIs.
+ * position) to a bit mask used when targeting interrupts to a PE (for example
+ * when raising SGIs and routing SPIs).
  ******************************************************************************/
 void gicv2_set_pe_target_mask(unsigned int proc_num)
 {
 	assert(driver_data != NULL);
 	assert(driver_data->gicd_base != 0U);
 	assert(driver_data->target_masks != NULL);
-	assert((unsigned int)proc_num < GICV2_MAX_TARGET_PE);
-	assert((unsigned int)proc_num < driver_data->target_masks_num);
+	assert(proc_num < GICV2_MAX_TARGET_PE);
+	assert(proc_num < driver_data->target_masks_num);
 
 	/* Return if the target mask is already populated */
 	if (driver_data->target_masks[proc_num] != 0U)
@@ -413,7 +422,8 @@ void gicv2_raise_sgi(int sgi_num, int proc_num)
 	unsigned int sgir_val, target;
 
 	assert(driver_data != NULL);
-	assert((unsigned int)proc_num < GICV2_MAX_TARGET_PE);
+	assert(proc_num >= 0);
+	assert(proc_num < (int)GICV2_MAX_TARGET_PE);
 	assert(driver_data->gicd_base != 0U);
 
 	/*
@@ -421,7 +431,7 @@ void gicv2_raise_sgi(int sgi_num, int proc_num)
 	 * should be valid.
 	 */
 	assert(driver_data->target_masks != NULL);
-	assert((unsigned int)proc_num < driver_data->target_masks_num);
+	assert(proc_num < (int)driver_data->target_masks_num);
 
 	/* Don't raise SGI if the mask hasn't been populated */
 	target = driver_data->target_masks[proc_num];
@@ -457,8 +467,9 @@ void gicv2_set_spi_routing(unsigned int id, int proc_num)
 	 * should be valid.
 	 */
 	assert(driver_data->target_masks != NULL);
-	assert((unsigned int)proc_num < GICV2_MAX_TARGET_PE);
-	assert((unsigned int)proc_num < driver_data->target_masks_num);
+	assert(proc_num < (int)GICV2_MAX_TARGET_PE);
+	assert(driver_data->target_masks_num < INT_MAX);
+	assert(proc_num < (int)driver_data->target_masks_num);
 
 	if (proc_num < 0) {
 		/* Target all PEs */

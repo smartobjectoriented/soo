@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -96,6 +96,13 @@ static void xlat_desc_print(const xlat_ctx_t *ctx, uint64_t desc)
 	}
 
 	printf(((LOWER_ATTRS(NS) & desc) != 0ULL) ? "-NS" : "-S");
+
+#ifdef __aarch64__
+	/* Check Guarded Page bit */
+	if ((desc & GP) != 0ULL) {
+		printf("-GP");
+	}
+#endif
 }
 
 static const char * const level_spacers[] = {
@@ -465,7 +472,7 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 	/*
 	 * Sanity checks.
 	 */
-	for (size_t i = 0U; i < pages_count; ++i) {
+	for (unsigned int i = 0U; i < pages_count; ++i) {
 		const uint64_t *entry;
 		uint64_t desc, attr_index;
 		unsigned int level;
@@ -490,8 +497,8 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 			(level != XLAT_TABLE_LEVEL_MAX)) {
 			WARN("Address 0x%lx is not mapped at the right granularity.\n",
 			     base_va);
-			WARN("Granularity is 0x%llx, should be 0x%x.\n",
-			     (unsigned long long)XLAT_BLOCK_SIZE(level), PAGE_SIZE);
+			WARN("Granularity is 0x%lx, should be 0x%lx.\n",
+			     XLAT_BLOCK_SIZE(level), PAGE_SIZE);
 			return -EINVAL;
 		}
 
@@ -544,7 +551,7 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 		 * before writing the new descriptor.
 		 */
 		*entry = INVALID_DESC;
-#if !(HW_ASSISTED_COHERENCY || WARMBOOT_ENABLE_DCACHE_EARLY)
+#if !HW_ASSISTED_COHERENCY
 		dccvac((uintptr_t)entry);
 #endif
 		/* Invalidate any cached copy of this mapping in the TLBs. */
@@ -555,7 +562,7 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 
 		/* Write new descriptor */
 		*entry = xlat_desc(ctx, new_attr, addr_pa, level);
-#if !(HW_ASSISTED_COHERENCY || WARMBOOT_ENABLE_DCACHE_EARLY)
+#if !HW_ASSISTED_COHERENCY
 		dccvac((uintptr_t)entry);
 #endif
 		base_va += PAGE_SIZE;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,6 +12,7 @@
 #include <bl31/interrupt_mgmt.h>
 #include <common/runtime_svc.h>
 #include <context.h>
+#include <el3_common_macros.S>
 #include <lib/el3_runtime/cpu_data.h>
 #include <lib/smccc.h>
 
@@ -44,8 +45,9 @@
 	 * instruction. When an error is thus synchronized, the handling is
 	 * delegated to platform EA handler.
 	 *
-	 * Without RAS_EXTENSION, this macro just saves x30, and unmasks
-	 * Asynchronous External Aborts.
+	 * Without RAS_EXTENSION, this macro synchronizes pending errors using
+         * a DSB, unmasks Asynchronous External Aborts and saves X30 before
+	 * setting the flag CTX_IS_IN_EL3.
 	 */
 	.macro check_and_unmask_ea
 #if RAS_EXTENSION
@@ -65,19 +67,101 @@
 	mrs	x30, DISR_EL1
 	tbz	x30, #DISR_A_BIT, 1f
 
-	/* Save GP registers and restore them afterwards */
-	bl	save_gp_registers
-	bl	handle_lower_el_ea_esb
-	bl	restore_gp_registers
+	/*
+	 * Save general purpose and ARMv8.3-PAuth registers (if enabled).
+	 * If Secure Cycle Counter is not disabled in MDCR_EL3 when
+	 * ARMv8.5-PMU is implemented, save PMCR_EL0 and disable Cycle Counter.
+	 */
+	bl	save_gp_pmcr_pauth_regs
 
+	bl	handle_lower_el_ea_esb
+
+	/* Restore general purpose, PMCR_EL0 and ARMv8.3-PAuth registers */
+	bl	restore_gp_pmcr_pauth_regs
 1:
 #else
+	/*
+	 * For SoCs which do not implement RAS, use DSB as a barrier to
+	 * synchronize pending external aborts.
+	 */
+	dsb	sy
+
 	/* Unmask the SError interrupt */
 	msr	daifclr, #DAIF_ABT_BIT
 
+	/* Use ISB for the above unmask operation to take effect immediately */
+	isb
+
+	/*
+	 * Refer Note 1. No need to restore X30 as both handle_sync_exception
+	 * and handle_interrupt_exception macro which follow this macro modify
+	 * X30 anyway.
+	 */
 	str	x30, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_LR]
+	mov 	x30, #1
+	str	x30, [sp, #CTX_EL3STATE_OFFSET + CTX_IS_IN_EL3]
+	dmb	sy
 #endif
 	.endm
+
+#if !RAS_EXTENSION
+	/*
+	 * Note 1: The explicit DSB at the entry of various exception vectors
+	 * for handling exceptions from lower ELs can inadvertently trigger an
+	 * SError exception in EL3 due to pending asynchronous aborts in lower
+	 * ELs. This will end up being handled by serror_sp_elx which will
+	 * ultimately panic and die.
+	 * The way to workaround is to update a flag to indicate if the exception
+	 * truly came from EL3. This flag is allocated in the cpu_context
+	 * structure and located at offset "CTX_EL3STATE_OFFSET + CTX_IS_IN_EL3"
+	 * This is not a bullet proof solution to the problem at hand because
+	 * we assume the instructions following "isb" that help to update the
+	 * flag execute without causing further exceptions.
+	 */
+
+	/* ---------------------------------------------------------------------
+	 * This macro handles Asynchronous External Aborts.
+	 * ---------------------------------------------------------------------
+	 */
+	.macro	handle_async_ea
+	/*
+	 * Use a barrier to synchronize pending external aborts.
+	 */
+	dsb	sy
+
+	/* Unmask the SError interrupt */
+	msr	daifclr, #DAIF_ABT_BIT
+
+	/* Use ISB for the above unmask operation to take effect immediately */
+	isb
+
+	/* Refer Note 1 */
+	str	x30, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_LR]
+	mov 	x30, #1
+	str	x30, [sp, #CTX_EL3STATE_OFFSET + CTX_IS_IN_EL3]
+	dmb	sy
+
+	b	handle_lower_el_async_ea
+	.endm
+
+	/*
+	 * This macro checks if the exception was taken due to SError in EL3 or
+	 * because of pending asynchronous external aborts from lower EL that got
+	 * triggered due to explicit synchronization in EL3. Refer Note 1.
+	 */
+	.macro check_if_serror_from_EL3
+	/* Assumes SP_EL3 on entry */
+	str	x30, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_LR]
+	ldr	x30, [sp, #CTX_EL3STATE_OFFSET + CTX_IS_IN_EL3]
+	cbnz	x30, exp_from_EL3
+
+	/* Handle asynchronous external abort from lower EL */
+	b	handle_lower_el_async_ea
+
+exp_from_EL3:
+	/* Jump to plat_handle_el3_ea which does not return */
+	.endm
+#endif
 
 	/* ---------------------------------------------------------------------
 	 * This macro handles Synchronous exceptions.
@@ -120,7 +204,19 @@
 	 * ---------------------------------------------------------------------
 	 */
 	.macro	handle_interrupt_exception label
-	bl	save_gp_registers
+
+	/*
+	 * Save general purpose and ARMv8.3-PAuth registers (if enabled).
+	 * If Secure Cycle Counter is not disabled in MDCR_EL3 when
+	 * ARMv8.5-PMU is implemented, save PMCR_EL0 and disable Cycle Counter.
+	 */
+	bl	save_gp_pmcr_pauth_regs
+
+#if ENABLE_PAUTH
+	/* Load and program APIAKey firmware key */
+	bl	pauth_load_bl31_apiakey
+#endif
+
 	/* Save the EL3 system registers needed to return from this exception */
 	mrs	x0, spsr_el3
 	mrs	x1, elr_el3
@@ -129,7 +225,7 @@
 	/* Switch to the runtime stack i.e. SP_EL0 */
 	ldr	x2, [sp, #CTX_EL3STATE_OFFSET + CTX_RUNTIME_SP]
 	mov	x20, sp
-	msr	spsel, #0
+	msr	spsel, #MODE_SP_EL0
 	mov	sp, x2
 
 	/*
@@ -195,6 +291,19 @@ vector_base runtime_exceptions
 	 * ---------------------------------------------------------------------
 	 */
 vector_entry sync_exception_sp_el0
+#ifdef MONITOR_TRAPS
+	stp x29, x30, [sp, #-16]!
+
+	mrs	x30, esr_el3
+	ubfx	x30, x30, #ESR_EC_SHIFT, #ESR_EC_LENGTH
+
+	/* Check for BRK */
+	cmp	x30, #EC_BRK
+	b.eq	brk_handler
+
+	ldp x29, x30, [sp], #16
+#endif /* MONITOR_TRAPS */
+
 	/* We don't expect any synchronous exceptions from EL3 */
 	b	report_unhandled_exception
 end_vector_entry sync_exception_sp_el0
@@ -240,6 +349,9 @@ vector_entry fiq_sp_elx
 end_vector_entry fiq_sp_elx
 
 vector_entry serror_sp_elx
+#if !RAS_EXTENSION
+	check_if_serror_from_EL3
+#endif
 	no_ret	plat_handle_el3_ea
 end_vector_entry serror_sp_elx
 
@@ -254,23 +366,31 @@ vector_entry sync_exception_aarch64
 	 * to a valid cpu context where the general purpose and system register
 	 * state can be saved.
 	 */
+	apply_at_speculative_wa
 	check_and_unmask_ea
 	handle_sync_exception
 end_vector_entry sync_exception_aarch64
 
 vector_entry irq_aarch64
+	apply_at_speculative_wa
 	check_and_unmask_ea
 	handle_interrupt_exception irq_aarch64
 end_vector_entry irq_aarch64
 
 vector_entry fiq_aarch64
+	apply_at_speculative_wa
 	check_and_unmask_ea
 	handle_interrupt_exception fiq_aarch64
 end_vector_entry fiq_aarch64
 
 vector_entry serror_aarch64
+	apply_at_speculative_wa
+#if RAS_EXTENSION
 	msr	daifclr, #DAIF_ABT_BIT
 	b	enter_lower_el_async_ea
+#else
+	handle_async_ea
+#endif
 end_vector_entry serror_aarch64
 
 	/* ---------------------------------------------------------------------
@@ -284,56 +404,40 @@ vector_entry sync_exception_aarch32
 	 * to a valid cpu context where the general purpose and system register
 	 * state can be saved.
 	 */
+	apply_at_speculative_wa
 	check_and_unmask_ea
 	handle_sync_exception
 end_vector_entry sync_exception_aarch32
 
 vector_entry irq_aarch32
+	apply_at_speculative_wa
 	check_and_unmask_ea
 	handle_interrupt_exception irq_aarch32
 end_vector_entry irq_aarch32
 
 vector_entry fiq_aarch32
+	apply_at_speculative_wa
 	check_and_unmask_ea
 	handle_interrupt_exception fiq_aarch32
 end_vector_entry fiq_aarch32
 
 vector_entry serror_aarch32
+	apply_at_speculative_wa
+#if RAS_EXTENSION
 	msr	daifclr, #DAIF_ABT_BIT
 	b	enter_lower_el_async_ea
+#else
+	handle_async_ea
+#endif
 end_vector_entry serror_aarch32
 
-
-	/* ---------------------------------------------------------------------
-	 * This macro takes an argument in x16 that is the index in the
-	 * 'rt_svc_descs_indices' array, checks that the value in the array is
-	 * valid, and loads in x15 the pointer to the handler of that service.
-	 * ---------------------------------------------------------------------
-	 */
-	.macro	load_rt_svc_desc_pointer
-	/* Load descriptor index from array of indices */
-	adr	x14, rt_svc_descs_indices
-	ldrb	w15, [x14, x16]
-
-#if SMCCC_MAJOR_VERSION == 1
-	/* Any index greater than 127 is invalid. Check bit 7. */
-	tbnz	w15, 7, smc_unknown
-#elif SMCCC_MAJOR_VERSION == 2
-	/* Verify that the top 3 bits of the loaded index are 0 (w15 <= 31) */
-	cmp	w15, #31
-	b.hi	smc_unknown
-#endif /* SMCCC_MAJOR_VERSION */
-
-	/*
-	 * Get the descriptor using the index
-	 * x11 = (base + off), w15 = index
-	 *
-	 * handler = (base + off) + (index << log2(size))
-	 */
-	adr	x11, (__RT_SVC_DESCS_START__ + RT_SVC_DESC_HANDLE)
-	lsl	w10, w15, #RT_SVC_SIZE_LOG2
-	ldr	x15, [x11, w10, uxtw]
-	.endm
+#ifdef MONITOR_TRAPS
+	.section .rodata.brk_string, "aS"
+brk_location:
+	.asciz "Error at instruction 0x"
+brk_message:
+	.asciz "Unexpected BRK instruction with value 0x"
+#endif /* MONITOR_TRAPS */
 
 	/* ---------------------------------------------------------------------
 	 * The following code handles secure monitor calls.
@@ -352,67 +456,28 @@ smc_handler32:
 	tbnz	x0, #FUNCID_CC_SHIFT, smc_prohibited
 
 smc_handler64:
+	/* NOTE: The code below must preserve x0-x4 */
+
+	/*
+	 * Save general purpose and ARMv8.3-PAuth registers (if enabled).
+	 * If Secure Cycle Counter is not disabled in MDCR_EL3 when
+	 * ARMv8.5-PMU is implemented, save PMCR_EL0 and disable Cycle Counter.
+	 */
+	bl	save_gp_pmcr_pauth_regs
+
+#if ENABLE_PAUTH
+	/* Load and program APIAKey firmware key */
+	bl	pauth_load_bl31_apiakey
+#endif
+
 	/*
 	 * Populate the parameters for the SMC handler.
 	 * We already have x0-x4 in place. x5 will point to a cookie (not used
 	 * now). x6 will point to the context structure (SP_EL3) and x7 will
 	 * contain flags we need to pass to the handler.
 	 */
-	bl	save_gp_registers
-
 	mov	x5, xzr
 	mov	x6, sp
-
-#if SMCCC_MAJOR_VERSION == 1
-
-	/* Get the unique owning entity number */
-	ubfx	x16, x0, #FUNCID_OEN_SHIFT, #FUNCID_OEN_WIDTH
-	ubfx	x15, x0, #FUNCID_TYPE_SHIFT, #FUNCID_TYPE_WIDTH
-	orr	x16, x16, x15, lsl #FUNCID_OEN_WIDTH
-
-	load_rt_svc_desc_pointer
-
-#elif SMCCC_MAJOR_VERSION == 2
-
-	/* Bit 31 must be set */
-	tbz	x0, #FUNCID_TYPE_SHIFT, smc_unknown
-
-	/*
-	 * Check MSB of namespace to decide between compatibility/vendor and
-	 * SPCI/SPRT
-	 */
-	tbz	x0, #(FUNCID_NAMESPACE_SHIFT + 1), compat_or_vendor
-
-	/* Namespace is b'10 (SPRT) or b'11 (SPCI) */
-#if ENABLE_SPM
-	tst	x0, #(1 << FUNCID_NAMESPACE_SHIFT)
-	adr	x15, spci_smc_handler
-	adr	x16, sprt_smc_handler
-	csel	x15, x15, x16, ne
-	b	prepare_enter_handler
-#else
-	b	smc_unknown
-#endif
-
-compat_or_vendor:
-
-	/* Namespace is b'00 (compatibility) or b'01 (vendor) */
-
-	/*
-	 * Add the LSB of the namespace (bit [28]) to the OEN [27:24] to create
-	 * a 5-bit index into the rt_svc_descs_indices array.
-	 *
-	 * The low 16 entries of the rt_svc_descs_indices array correspond to
-	 * OENs of the compatibility namespace and the top 16 entries of the
-	 * array are assigned to the vendor namespace descriptor.
-	 */
-	ubfx	x16, x0, #FUNCID_OEN_SHIFT, #(FUNCID_OEN_WIDTH + 1)
-
-	load_rt_svc_desc_pointer
-
-prepare_enter_handler:
-
-#endif /* SMCCC_MAJOR_VERSION */
 
 	/*
 	 * Restore the saved C runtime stack value which will become the new
@@ -422,7 +487,7 @@ prepare_enter_handler:
 	ldr	x12, [x6, #CTX_EL3STATE_OFFSET + CTX_RUNTIME_SP]
 
 	/* Switch to SP_EL0 */
-	msr	spsel, #0
+	msr	spsel, #MODE_SP_EL0
 
 	/*
 	 * Save the SPSR_EL3, ELR_EL3, & SCR_EL3 in case there is a world
@@ -440,6 +505,29 @@ prepare_enter_handler:
 
 	mov	sp, x12
 
+	/* Get the unique owning entity number */
+	ubfx	x16, x0, #FUNCID_OEN_SHIFT, #FUNCID_OEN_WIDTH
+	ubfx	x15, x0, #FUNCID_TYPE_SHIFT, #FUNCID_TYPE_WIDTH
+	orr	x16, x16, x15, lsl #FUNCID_OEN_WIDTH
+
+	/* Load descriptor index from array of indices */
+	adrp	x14, rt_svc_descs_indices
+	add	x14, x14, :lo12:rt_svc_descs_indices
+	ldrb	w15, [x14, x16]
+
+	/* Any index greater than 127 is invalid. Check bit 7. */
+	tbnz	w15, 7, smc_unknown
+
+	/*
+	 * Get the descriptor using the index
+	 * x11 = (base + off), w15 = index
+	 *
+	 * handler = (base + off) + (index << log2(size))
+	 */
+	adr	x11, (__RT_SVC_DESCS_START__ + RT_SVC_DESC_HANDLE)
+	lsl	w10, w15, #RT_SVC_SIZE_LOG2
+	ldr	x15, [x11, w10, uxtw]
+
 	/*
 	 * Call the Secure Monitor Call handler and then drop directly into
 	 * el3_exit() which will program any remaining architectural state
@@ -454,20 +542,62 @@ prepare_enter_handler:
 
 smc_unknown:
 	/*
-	 * Unknown SMC call. Populate return value with SMC_UNK, restore
-	 * GP registers, and return to caller.
+	 * Unknown SMC call. Populate return value with SMC_UNK and call
+	 * el3_exit() which will restore the remaining architectural state
+	 * i.e., SYS, GP and PAuth registers(if any) prior to issuing the ERET
+         * to the desired lower EL.
 	 */
 	mov	x0, #SMC_UNK
-	str	x0, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_X0]
-	b	restore_gp_registers_eret
+	str	x0, [x6, #CTX_GPREGS_OFFSET + CTX_GPREG_X0]
+	b	el3_exit
 
 smc_prohibited:
+	restore_ptw_el1_sys_regs
+	ldp	x28, x29, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_X28]
 	ldr	x30, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_LR]
 	mov	x0, #SMC_UNK
-	eret
+	exception_return
 
+#if DEBUG
 rt_svc_fw_critical_error:
 	/* Switch to SP_ELx */
-	msr	spsel, #1
+	msr	spsel, #MODE_SP_ELX
 	no_ret	report_unhandled_exception
+#endif
 endfunc smc_handler
+
+	/* ---------------------------------------------------------------------
+	 * The following code handles exceptions caused by BRK instructions.
+	 * Following a BRK instruction, the only real valid cause of action is
+	 * to print some information and panic, as the code that caused it is
+	 * likely in an inconsistent internal state.
+	 *
+	 * This is initially intended to be used in conjunction with
+	 * __builtin_trap.
+	 * ---------------------------------------------------------------------
+	 */
+#ifdef MONITOR_TRAPS
+func brk_handler
+	/* Extract the ISS */
+	mrs	x10, esr_el3
+	ubfx	x10, x10, #ESR_ISS_SHIFT, #ESR_ISS_LENGTH
+
+	/* Ensure the console is initialized */
+	bl	plat_crash_console_init
+
+	adr	x4, brk_location
+	bl	asm_print_str
+	mrs	x4, elr_el3
+	bl	asm_print_hex
+	bl	asm_print_newline
+
+	adr	x4, brk_message
+	bl	asm_print_str
+	mov	x4, x10
+	mov	x5, #28
+	bl	asm_print_hex_bits
+	bl	asm_print_newline
+
+	no_ret	plat_panic_handler
+endfunc brk_handler
+#endif /* MONITOR_TRAPS */

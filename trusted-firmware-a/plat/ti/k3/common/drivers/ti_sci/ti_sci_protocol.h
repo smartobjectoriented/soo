@@ -46,6 +46,7 @@
 #define TISCI_MSG_SET_PROC_BOOT_CTRL	0xc101
 #define TISCI_MSG_PROC_AUTH_BOOT_IMIAGE	0xc120
 #define TISCI_MSG_GET_PROC_BOOT_STATUS	0xc400
+#define TISCI_MSG_WAIT_PROC_BOOT_STATUS	0xc401
 
 /**
  * struct ti_sci_msg_hdr - Generic Message Header for All messages and responses
@@ -94,12 +95,15 @@ struct ti_sci_msg_resp_version {
 /**
  * struct ti_sci_msg_req_reboot - Reboot the SoC
  * @hdr:	Generic Header
+ * @domain:	Domain to be reset, 0 for full SoC reboot
  *
  * Request type is TI_SCI_MSG_SYS_RESET, responded with a generic
  * ACK/NACK message.
  */
 struct ti_sci_msg_req_reboot {
 	struct ti_sci_msg_hdr hdr;
+#define TI_SCI_DOMAIN_FULL_SOC_RESET	0x0
+	uint8_t domain;
 } __packed;
 
 /**
@@ -562,8 +566,13 @@ struct ti_sci_msg_req_set_proc_boot_config {
 	uint32_t config_flags_clear;
 } __packed;
 
+/* ARMV8 Control Flags */
+#define PROC_BOOT_CTRL_FLAG_ARMV8_ACINACTM      0x00000001
+#define PROC_BOOT_CTRL_FLAG_ARMV8_AINACTS       0x00000002
+#define PROC_BOOT_CTRL_FLAG_ARMV8_L2FLUSHREQ    0x00000100
+
 /* R5 Control Flags */
-#define PROC_BOOT_CTRL_FLAG_R5_CORE_HALT                0x00000001
+#define PROC_BOOT_CTRL_FLAG_R5_CORE_HALT        0x00000001
 
 /**
  * struct ti_sci_msg_req_set_proc_boot_ctrl - Set Processor boot control flags
@@ -617,6 +626,8 @@ struct ti_sci_msg_req_get_proc_boot_status {
 /* ARMv8 Status Flags */
 #define PROC_BOOT_STATUS_FLAG_ARMV8_WFE			0x00000001
 #define PROC_BOOT_STATUS_FLAG_ARMV8_WFI			0x00000002
+#define PROC_BOOT_STATUS_FLAG_ARMV8_L2F_DONE		0x00000010
+#define PROC_BOOT_STATUS_FLAG_ARMV8_STANDBYWFIL2	0x00000020
 
 /* R5 Status Flags */
 #define PROC_BOOT_STATUS_FLAG_R5_WFE			0x00000001
@@ -645,6 +656,54 @@ struct ti_sci_msg_resp_get_proc_boot_status {
 	uint32_t config_flags;
 	uint32_t control_flags;
 	uint32_t status_flags;
+} __packed;
+
+/**
+ * struct ti_sci_msg_req_wait_proc_boot_status - Wait for a processor boot status
+ * @hdr:			Generic Header
+ * @processor_id:		ID of processor
+ * @num_wait_iterations		Total number of iterations we will check before
+ *				we will timeout and give up
+ * @num_match_iterations	How many iterations should we have continued
+ *				status to account for status bits glitching.
+ *				This is to make sure that match occurs for
+ *				consecutive checks. This implies that the
+ *				worst case should consider that the stable
+ *				time should at the worst be num_wait_iterations
+ *				num_match_iterations to prevent timeout.
+ * @delay_per_iteration_us	Specifies how long to wait (in micro seconds)
+ *				between each status checks. This is the minimum
+ *				duration, and overhead of register reads and
+ *				checks are on top of this and can vary based on
+ *				varied conditions.
+ * @delay_before_iterations_us	Specifies how long to wait (in micro seconds)
+ *				before the very first check in the first
+ *				iteration of status check loop. This is the
+ *				minimum duration, and overhead of register
+ *				reads and checks are.
+ * @status_flags_1_set_all_wait	If non-zero, Specifies that all bits of the
+ *				status matching this field requested MUST be 1.
+ * @status_flags_1_set_any_wait	If non-zero, Specifies that at least one of the
+ *				bits matching this field requested MUST be 1.
+ * @status_flags_1_clr_all_wait	If non-zero, Specifies that all bits of the
+ *				status matching this field requested MUST be 0.
+ * @status_flags_1_clr_any_wait	If non-zero, Specifies that at least one of the
+ *				bits matching this field requested MUST be 0.
+ *
+ * Request type is TISCI_MSG_WAIT_PROC_BOOT_STATUS, response is appropriate
+ * message, or NACK in case of inability to satisfy request.
+ */
+struct ti_sci_msg_req_wait_proc_boot_status {
+	struct ti_sci_msg_hdr hdr;
+	uint8_t processor_id;
+	uint8_t num_wait_iterations;
+	uint8_t num_match_iterations;
+	uint8_t delay_per_iteration_us;
+	uint8_t delay_before_iterations_us;
+	uint32_t status_flags_1_set_all_wait;
+	uint32_t status_flags_1_set_any_wait;
+	uint32_t status_flags_1_clr_all_wait;
+	uint32_t status_flags_1_clr_any_wait;
 } __packed;
 
 #endif /* TI_SCI_PROTOCOL_H */

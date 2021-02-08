@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -13,11 +13,11 @@
 #include <common/debug.h>
 #include <common/romlib.h>
 #include <lib/mmio.h>
+#include <lib/smccc.h>
 #include <lib/xlat_tables/xlat_tables_compat.h>
+#include <services/arm_arch_svc.h>
+#include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
-#include <services/secure_partition.h>
-
-#include <plat_arm.h>
 
 /* Weak definitions may be overridden in specific ARM standard platform */
 #pragma weak plat_get_ns_image_entrypoint
@@ -27,6 +27,29 @@
  * conflicts with the definition in plat/common. */
 #pragma weak plat_get_syscnt_freq2
 
+/* Get ARM SOC-ID */
+#pragma weak plat_arm_get_soc_id
+
+/*******************************************************************************
+ * Changes the memory attributes for the region of mapped memory where the BL
+ * image's translation tables are located such that the tables will have
+ * read-only permissions.
+ ******************************************************************************/
+#if PLAT_RO_XLAT_TABLES
+void arm_xlat_make_tables_readonly(void)
+{
+	int rc = xlat_make_tables_readonly();
+
+	if (rc != 0) {
+		ERROR("Failed to make translation tables read-only at EL%u.\n",
+		      get_current_el());
+		panic();
+	}
+
+	INFO("Translation tables are now read-only at EL%u.\n",
+	     get_current_el());
+}
+#endif
 
 void arm_setup_romlib(void)
 {
@@ -41,7 +64,7 @@ uintptr_t plat_get_ns_image_entrypoint(void)
 #ifdef PRELOADED_BL33_BASE
 	return PRELOADED_BL33_BASE;
 #else
-	return PLAT_ARM_NS_IMAGE_OFFSET;
+	return PLAT_ARM_NS_IMAGE_BASE;
 #endif
 }
 
@@ -60,7 +83,7 @@ uint32_t arm_get_spsr_for_bl32_entry(void)
 /*******************************************************************************
  * Gets SPSR for BL33 entry
  ******************************************************************************/
-#ifndef AARCH32
+#ifdef __aarch64__
 uint32_t arm_get_spsr_for_bl33_entry(void)
 {
 	unsigned int mode;
@@ -74,7 +97,7 @@ uint32_t arm_get_spsr_for_bl33_entry(void)
 	 * the FIP ToC and allowing the platform to have a say as
 	 * well.
 	 */
-	spsr = SPSR_64(mode, MODE_SP_ELX, DISABLE_ALL_EXCEPTIONS);
+	spsr = SPSR_64((uint64_t)mode, MODE_SP_ELX, DISABLE_ALL_EXCEPTIONS);
 	return spsr;
 }
 #else
@@ -98,7 +121,7 @@ uint32_t arm_get_spsr_for_bl33_entry(void)
 			SPSR_E_LITTLE, DISABLE_ALL_EXCEPTIONS);
 	return spsr;
 }
-#endif /* AARCH32 */
+#endif /* __aarch64__ */
 
 /*******************************************************************************
  * Configures access to the system counter timer module.
@@ -128,12 +151,12 @@ void arm_configure_sys_timer(void)
 	 */
 	mmio_write_32(ARM_SYS_TIMCTL_BASE + CNTCTLBASE_CNTFRQ, freq_val);
 
-#ifdef PLAT_juno
+#if defined(PLAT_juno) || defined(PLAT_n1sdp)
 	/*
 	 * Initialize CNTFRQ register in Non-secure CNTBase frame.
-	 * This is only required for Juno, because it doesn't follow ARM ARM
-	 * in that the value updated in CNTFRQ is not reflected in
-	 * CNTBASEN_CNTFRQ. Hence update the value manually.
+	 * This is only required for Juno and N1SDP, because they do not
+	 * follow ARM ARM in that the value updated in CNTFRQ is not
+	 * reflected in CNTBASEN_CNTFRQ. Hence update the value manually.
 	 */
 	mmio_write_32(ARM_SYS_CNT_BASE_NS + CNTBASEN_CNTFRQ, freq_val);
 #endif
@@ -174,7 +197,7 @@ unsigned int plat_get_syscnt_freq2(void)
 int plat_sdei_validate_entry_point(uintptr_t ep, unsigned int client_mode)
 {
 	uint64_t par, pa;
-	uint32_t scr_el3;
+	u_register_t scr_el3;
 
 	/* Doing Non-secure address translation requires SCR_EL3.NS set */
 	scr_el3 = read_scr_el3();
@@ -193,7 +216,7 @@ int plat_sdei_validate_entry_point(uintptr_t ep, unsigned int client_mode)
 		 * Translate entry point to Physical Address using the EL1&0
 		 * translation regime, including stage 2.
 		 */
-		ats12e1r(ep);
+		AT(ats12e1r, ep);
 	}
 	isb();
 	par = read_par_el1();
@@ -213,3 +236,4 @@ int plat_sdei_validate_entry_point(uintptr_t ep, unsigned int client_mode)
 	return arm_validate_ns_entrypoint(pa);
 }
 #endif
+

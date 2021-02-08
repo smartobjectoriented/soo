@@ -35,8 +35,8 @@
 #define ARI_REQUEST_VALID_BIT		(1U << 8)
 #define ARI_EVT_MASK_STANDBYWFI_BIT	(1U << 7)
 
-/* default timeout (ms) to wait for ARI completion */
-#define ARI_MAX_RETRY_COUNT		2000
+/* default timeout (us) to wait for ARI completion */
+#define ARI_MAX_RETRY_COUNT		U(2000000)
 
 /*******************************************************************************
  * ARI helper functions
@@ -80,7 +80,7 @@ static inline void ari_clobber_response(uint32_t ari_base)
 static int32_t ari_request_wait(uint32_t ari_base, uint32_t evt_mask, uint32_t req,
 		uint32_t lo, uint32_t hi)
 {
-	uint32_t retries = ARI_MAX_RETRY_COUNT;
+	uint32_t retries = (uint32_t)ARI_MAX_RETRY_COUNT;
 	uint32_t status;
 	int32_t ret = 0;
 
@@ -99,9 +99,9 @@ static int32_t ari_request_wait(uint32_t ari_base, uint32_t evt_mask, uint32_t r
 		ret = 0;
 	} else {
 		/* For shutdown/reboot commands, we dont have to check for timeouts */
-		if ((req == (uint32_t)TEGRA_ARI_MISC_CCPLEX) &&
-		    ((lo == (uint32_t)TEGRA_ARI_MISC_CCPLEX_SHUTDOWN_POWER_OFF) ||
-		     (lo == (uint32_t)TEGRA_ARI_MISC_CCPLEX_SHUTDOWN_REBOOT))) {
+		if ((req == TEGRA_ARI_MISC_CCPLEX) &&
+		    ((lo == TEGRA_ARI_MISC_CCPLEX_SHUTDOWN_POWER_OFF) ||
+		     (lo == TEGRA_ARI_MISC_CCPLEX_SHUTDOWN_REBOOT))) {
 				ret = 0;
 		} else {
 			/*
@@ -115,8 +115,8 @@ static int32_t ari_request_wait(uint32_t ari_base, uint32_t evt_mask, uint32_t r
 					break;
 				}
 
-				/* delay 1 ms */
-				mdelay(1);
+				/* delay 1 us */
+				udelay(1);
 
 				/* decrement the retry count */
 				retries--;
@@ -151,7 +151,7 @@ int32_t ari_enter_cstate(uint32_t ari_base, uint32_t state, uint32_t wake_time)
 
 		/* Enter the cstate, to be woken up after wake_time (TSC ticks) */
 		ret = ari_request_wait(ari_base, ARI_EVT_MASK_STANDBYWFI_BIT,
-		TEGRA_ARI_ENTER_CSTATE, state, wake_time);
+			(uint32_t)TEGRA_ARI_ENTER_CSTATE, state, wake_time);
 	}
 
 	return ret;
@@ -161,38 +161,38 @@ int32_t ari_update_cstate_info(uint32_t ari_base, uint32_t cluster, uint32_t ccp
 	uint32_t system, uint8_t sys_state_force, uint32_t wake_mask,
 	uint8_t update_wake_mask)
 {
-	uint32_t val = 0U;
+	uint64_t val = 0U;
 
 	/* clean the previous response state */
 	ari_clobber_response(ari_base);
 
 	/* update CLUSTER_CSTATE? */
 	if (cluster != 0U) {
-		val |= (cluster & (uint32_t)CLUSTER_CSTATE_MASK) |
-			(uint32_t)CLUSTER_CSTATE_UPDATE_BIT;
+		val |= (cluster & CLUSTER_CSTATE_MASK) |
+			CLUSTER_CSTATE_UPDATE_BIT;
 	}
 
 	/* update CCPLEX_CSTATE? */
 	if (ccplex != 0U) {
-		val |= ((ccplex & (uint32_t)CCPLEX_CSTATE_MASK) << (uint32_t)CCPLEX_CSTATE_SHIFT) |
-			(uint32_t)CCPLEX_CSTATE_UPDATE_BIT;
+		val |= ((ccplex & CCPLEX_CSTATE_MASK) << CCPLEX_CSTATE_SHIFT) |
+			CCPLEX_CSTATE_UPDATE_BIT;
 	}
 
 	/* update SYSTEM_CSTATE? */
 	if (system != 0U) {
-		val |= ((system & (uint32_t)SYSTEM_CSTATE_MASK) << (uint32_t)SYSTEM_CSTATE_SHIFT) |
-		       (((uint32_t)sys_state_force << SYSTEM_CSTATE_FORCE_UPDATE_SHIFT) |
-			(uint32_t)SYSTEM_CSTATE_UPDATE_BIT);
+		val |= ((system & SYSTEM_CSTATE_MASK) << SYSTEM_CSTATE_SHIFT) |
+		       (((uint64_t)sys_state_force << SYSTEM_CSTATE_FORCE_UPDATE_SHIFT) |
+			SYSTEM_CSTATE_UPDATE_BIT);
 	}
 
 	/* update wake mask value? */
 	if (update_wake_mask != 0U) {
-		val |= (uint32_t)CSTATE_WAKE_MASK_UPDATE_BIT;
+		val |= CSTATE_WAKE_MASK_UPDATE_BIT;
 	}
 
 	/* set the updated cstate info */
-	return ari_request_wait(ari_base, 0U, TEGRA_ARI_UPDATE_CSTATE_INFO, val,
-			wake_mask);
+	return ari_request_wait(ari_base, 0U, (uint32_t)TEGRA_ARI_UPDATE_CSTATE_INFO,
+				(uint32_t)val, wake_mask);
 }
 
 int32_t ari_update_crossover_time(uint32_t ari_base, uint32_t type, uint32_t time)
@@ -208,8 +208,8 @@ int32_t ari_update_crossover_time(uint32_t ari_base, uint32_t type, uint32_t tim
 		ari_clobber_response(ari_base);
 
 		/* update crossover threshold time */
-		ret = ari_request_wait(ari_base, 0U, TEGRA_ARI_UPDATE_CROSSOVER,
-			type, time);
+		ret = ari_request_wait(ari_base, 0U,
+				(uint32_t)TEGRA_ARI_UPDATE_CROSSOVER, type, time);
 	}
 
 	return ret;
@@ -227,7 +227,8 @@ uint64_t ari_read_cstate_stats(uint32_t ari_base, uint32_t state)
 		/* clean the previous response state */
 		ari_clobber_response(ari_base);
 
-		ret = ari_request_wait(ari_base, 0U, TEGRA_ARI_CSTATE_STATS, state, 0U);
+		ret = ari_request_wait(ari_base, 0U,
+				(uint32_t)TEGRA_ARI_CSTATE_STATS, state, 0U);
 		if (ret != 0) {
 			result = EINVAL;
 		} else {
@@ -243,8 +244,8 @@ int32_t ari_write_cstate_stats(uint32_t ari_base, uint32_t state, uint32_t stats
 	ari_clobber_response(ari_base);
 
 	/* write the cstate stats */
-	return ari_request_wait(ari_base, 0U, TEGRA_ARI_WRITE_CSTATE_STATS, state,
-			stats);
+	return ari_request_wait(ari_base, 0U, (uint32_t)TEGRA_ARI_WRITE_CSTATE_STATS,
+			state, stats);
 }
 
 uint64_t ari_enumeration_misc(uint32_t ari_base, uint32_t cmd, uint32_t data)
@@ -261,7 +262,7 @@ uint64_t ari_enumeration_misc(uint32_t ari_base, uint32_t cmd, uint32_t data)
 		local_data = 0U;
 	}
 
-	ret = ari_request_wait(ari_base, 0U, TEGRA_ARI_MISC, cmd, local_data);
+	ret = ari_request_wait(ari_base, 0U, (uint32_t)TEGRA_ARI_MISC, cmd, local_data);
 	if (ret != 0) {
 		resp = (uint64_t)ret;
 	} else {
@@ -281,8 +282,8 @@ int32_t ari_is_ccx_allowed(uint32_t ari_base, uint32_t state, uint32_t wake_time
 	/* clean the previous response state */
 	ari_clobber_response(ari_base);
 
-	ret = ari_request_wait(ari_base, 0U, TEGRA_ARI_IS_CCX_ALLOWED, state & 0x7U,
-			wake_time);
+	ret = ari_request_wait(ari_base, 0U, (uint32_t)TEGRA_ARI_IS_CCX_ALLOWED,
+			state & 0x7U, wake_time);
 	if (ret != 0) {
 		ERROR("%s: failed (%d)\n", __func__, ret);
 		result = 0U;
@@ -299,18 +300,16 @@ int32_t ari_is_sc7_allowed(uint32_t ari_base, uint32_t state, uint32_t wake_time
 	int32_t ret, result;
 
 	/* check for allowed power state */
-	if ((state != TEGRA_ARI_CORE_C0) &&
-	    (state != TEGRA_ARI_CORE_C1) &&
-	    (state != TEGRA_ARI_CORE_C6) &&
-	    (state != TEGRA_ARI_CORE_C7)) {
+	if ((state != TEGRA_ARI_CORE_C0) && (state != TEGRA_ARI_CORE_C1) &&
+	    (state != TEGRA_ARI_CORE_C6) && (state != TEGRA_ARI_CORE_C7)) {
 		ERROR("%s: unknown cstate (%d)\n", __func__, state);
 		result = EINVAL;
 	} else {
 		/* clean the previous response state */
 		ari_clobber_response(ari_base);
 
-		ret = ari_request_wait(ari_base, 0U, TEGRA_ARI_IS_SC7_ALLOWED, state,
-				wake_time);
+		ret = ari_request_wait(ari_base, 0U,
+			(uint32_t)TEGRA_ARI_IS_SC7_ALLOWED, state, wake_time);
 		if (ret != 0) {
 			ERROR("%s: failed (%d)\n", __func__, ret);
 			result = 0;
@@ -325,10 +324,10 @@ int32_t ari_is_sc7_allowed(uint32_t ari_base, uint32_t state, uint32_t wake_time
 
 int32_t ari_online_core(uint32_t ari_base, uint32_t core)
 {
-	uint64_t cpu = read_mpidr() & (uint64_t)(MPIDR_CPU_MASK);
-	uint64_t cluster = (read_mpidr() & (uint64_t)(MPIDR_CLUSTER_MASK)) >>
-			   (uint64_t)(MPIDR_AFFINITY_BITS);
-	uint64_t impl = (read_midr() >> (uint64_t)MIDR_IMPL_SHIFT) & (uint64_t)MIDR_IMPL_MASK;
+	uint64_t cpu = read_mpidr() & (MPIDR_CPU_MASK);
+	uint64_t cluster = (read_mpidr() & (MPIDR_CLUSTER_MASK)) >>
+			   (MPIDR_AFFINITY_BITS);
+	uint64_t impl = (read_midr() >> MIDR_IMPL_SHIFT) & MIDR_IMPL_MASK;
 	int32_t ret;
 
 	/* construct the current CPU # */
@@ -342,14 +341,14 @@ int32_t ari_online_core(uint32_t ari_base, uint32_t core)
 		/*
 		 * The Denver cluster has 2 CPUs only - 0, 1.
 		 */
-		if ((impl == (uint32_t)DENVER_IMPL) &&
-		    ((core == 2U) || (core == 3U))) {
+		if ((impl == DENVER_IMPL) && ((core == 2U) || (core == 3U))) {
 			ERROR("%s: unknown core id (%d)\n", __func__, core);
 			ret = EINVAL;
 		} else {
 			/* clean the previous response state */
 			ari_clobber_response(ari_base);
-			ret = ari_request_wait(ari_base, 0U, TEGRA_ARI_ONLINE_CORE, core, 0U);
+			ret = ari_request_wait(ari_base, 0U,
+				(uint32_t)TEGRA_ARI_ONLINE_CORE, core, 0U);
 		}
 	}
 
@@ -377,7 +376,8 @@ int32_t ari_cc3_ctrl(uint32_t ari_base, uint32_t freq, uint32_t volt, uint8_t en
 		((volt & MCE_AUTO_CC3_VTG_MASK) << MCE_AUTO_CC3_VTG_SHIFT) |\
 		((enable != 0U) ? MCE_AUTO_CC3_ENABLE_BIT : 0U));
 
-	return ari_request_wait(ari_base, 0U, TEGRA_ARI_CC3_CTRL, val, 0U);
+	return ari_request_wait(ari_base, 0U,
+			(uint32_t)TEGRA_ARI_CC3_CTRL, val, 0U);
 }
 
 int32_t ari_reset_vector_update(uint32_t ari_base)
@@ -389,7 +389,8 @@ int32_t ari_reset_vector_update(uint32_t ari_base)
 	 * Need to program the CPU reset vector one time during cold boot
 	 * and SC7 exit
 	 */
-	(void)ari_request_wait(ari_base, 0U, TEGRA_ARI_COPY_MISCREG_AA64_RST, 0U, 0U);
+	(void)ari_request_wait(ari_base, 0U,
+			(uint32_t)TEGRA_ARI_COPY_MISCREG_AA64_RST, 0U, 0U);
 
 	return 0;
 }
@@ -399,8 +400,8 @@ int32_t ari_roc_flush_cache_trbits(uint32_t ari_base)
 	/* clean the previous response state */
 	ari_clobber_response(ari_base);
 
-	return ari_request_wait(ari_base, 0U, TEGRA_ARI_ROC_FLUSH_CACHE_TRBITS,
-			0U, 0U);
+	return ari_request_wait(ari_base, 0U,
+			(uint32_t)TEGRA_ARI_ROC_FLUSH_CACHE_TRBITS, 0U, 0U);
 }
 
 int32_t ari_roc_flush_cache(uint32_t ari_base)
@@ -408,8 +409,8 @@ int32_t ari_roc_flush_cache(uint32_t ari_base)
 	/* clean the previous response state */
 	ari_clobber_response(ari_base);
 
-	return ari_request_wait(ari_base, 0U, TEGRA_ARI_ROC_FLUSH_CACHE_ONLY,
-			0U, 0U);
+	return ari_request_wait(ari_base, 0U,
+			(uint32_t)TEGRA_ARI_ROC_FLUSH_CACHE_ONLY, 0U, 0U);
 }
 
 int32_t ari_roc_clean_cache(uint32_t ari_base)
@@ -417,8 +418,8 @@ int32_t ari_roc_clean_cache(uint32_t ari_base)
 	/* clean the previous response state */
 	ari_clobber_response(ari_base);
 
-	return ari_request_wait(ari_base, 0U, TEGRA_ARI_ROC_CLEAN_CACHE_ONLY,
-			0U, 0U);
+	return ari_request_wait(ari_base, 0U,
+			(uint32_t)TEGRA_ARI_ROC_CLEAN_CACHE_ONLY, 0U, 0U);
 }
 
 uint64_t ari_read_write_mca(uint32_t ari_base, uint64_t cmd, uint64_t *data)
@@ -435,7 +436,7 @@ uint64_t ari_read_write_mca(uint32_t ari_base, uint64_t cmd, uint64_t *data)
 	ari_write_32(ari_base, (uint32_t)cmd, ARI_RESPONSE_DATA_LO);
 	ari_write_32(ari_base, (uint32_t)(cmd >> 32U), ARI_RESPONSE_DATA_HI);
 
-	ret = ari_request_wait(ari_base, 0U, TEGRA_ARI_MCA,
+	ret = ari_request_wait(ari_base, 0U, (uint32_t)TEGRA_ARI_MCA,
 			       (uint32_t)mca_arg_data,
 			       (uint32_t)(mca_arg_data >> 32U));
 	if (ret == 0) {
@@ -465,7 +466,7 @@ int32_t ari_update_ccplex_gsc(uint32_t ari_base, uint32_t gsc_idx)
 {
 	int32_t ret = 0;
 	/* sanity check GSC ID */
-	if (gsc_idx > (uint32_t)TEGRA_ARI_GSC_VPR_IDX) {
+	if (gsc_idx > TEGRA_ARI_GSC_VPR_IDX) {
 		ret = EINVAL;
 	} else {
 		/* clean the previous response state */
@@ -476,7 +477,8 @@ int32_t ari_update_ccplex_gsc(uint32_t ari_base, uint32_t gsc_idx)
 		 * the ID, from the MC registers and update the internal GSC registers
 		 * of the CCPLEX.
 		 */
-		(void)ari_request_wait(ari_base, 0U, TEGRA_ARI_UPDATE_CCPLEX_GSC, gsc_idx, 0U);
+		(void)ari_request_wait(ari_base, 0U,
+				(uint32_t)TEGRA_ARI_UPDATE_CCPLEX_GSC, gsc_idx, 0U);
 	}
 
 	return ret;
@@ -490,17 +492,18 @@ void ari_enter_ccplex_state(uint32_t ari_base, uint32_t state_idx)
 	/*
 	 * The MCE will shutdown or restart the entire system
 	 */
-	(void)ari_request_wait(ari_base, 0U, TEGRA_ARI_MISC_CCPLEX, state_idx, 0U);
+	(void)ari_request_wait(ari_base, 0U,
+			(uint32_t)TEGRA_ARI_MISC_CCPLEX, state_idx, 0U);
 }
 
 int32_t ari_read_write_uncore_perfmon(uint32_t ari_base, uint64_t req,
 		uint64_t *data)
 {
 	int32_t ret, result;
-	uint32_t val;
-	uint8_t req_cmd, req_status;
+	uint32_t val, req_status;
+	uint8_t req_cmd;
 
-	req_cmd = (uint8_t)(req >> UNCORE_PERFMON_CMD_SHIFT);
+	req_cmd = (uint8_t)(req & UNCORE_PERFMON_CMD_MASK);
 
 	/* clean the previous response state */
 	ari_clobber_response(ari_base);
@@ -517,20 +520,20 @@ int32_t ari_read_write_uncore_perfmon(uint32_t ari_base, uint64_t req,
 		val = (req_cmd == UNCORE_PERFMON_CMD_WRITE) ?
 			(uint32_t)*data : 0U;
 
-		ret = ari_request_wait(ari_base, 0U, TEGRA_ARI_PERFMON, val,
-				       (uint32_t)req);
+		ret = ari_request_wait(ari_base, 0U,
+			(uint32_t)TEGRA_ARI_PERFMON, val, (uint32_t)req);
 		if (ret != 0) {
 			result = ret;
 		} else {
 			/* read the command status value */
-			req_status = (uint8_t)ari_get_response_high(ari_base) &
+			req_status = ari_get_response_high(ari_base) &
 					 UNCORE_PERFMON_RESP_STATUS_MASK;
 
 			/*
 			 * For "read" commands get the data from the uncore
 			 * perfmon registers
 			 */
-			req_status >>= UNCORE_PERFMON_RESP_STATUS_SHIFT;
+			req_status &= UNCORE_PERFMON_RESP_STATUS_MASK;
 			if ((req_status == 0U) && (req_cmd == UNCORE_PERFMON_CMD_READ)) {
 				*data = ari_get_response_low(ari_base);
 			}
@@ -555,6 +558,7 @@ void ari_misc_ccplex(uint32_t ari_base, uint32_t index, uint32_t value)
 	} else {
 		/* clean the previous response state */
 		ari_clobber_response(ari_base);
-		(void)ari_request_wait(ari_base, 0U, TEGRA_ARI_MISC_CCPLEX, index, value);
+		(void)ari_request_wait(ari_base, 0U,
+			(uint32_t)TEGRA_ARI_MISC_CCPLEX, index, value);
 	}
 }

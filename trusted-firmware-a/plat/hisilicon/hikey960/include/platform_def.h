@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -25,12 +25,12 @@
 #define FIRMWARE_WELCOME_STR		"Booting Trusted Firmware\n"
 
 #define PLATFORM_CACHE_LINE_SIZE	64
-#define PLATFORM_CLUSTER_COUNT		2
-#define PLATFORM_CORE_COUNT_PER_CLUSTER	4
+#define PLATFORM_CLUSTER_COUNT		U(2)
+#define PLATFORM_CORE_COUNT_PER_CLUSTER	U(4)
 #define PLATFORM_CORE_COUNT		(PLATFORM_CLUSTER_COUNT * \
 					 PLATFORM_CORE_COUNT_PER_CLUSTER)
 #define PLAT_MAX_PWR_LVL		MPIDR_AFFLVL2
-#define PLAT_NUM_PWR_DOMAINS		(PLATFORM_CORE_COUNT + \
+#define PLAT_NUM_PWR_DOMAINS	(PLATFORM_CORE_COUNT + \
 					 PLATFORM_CLUSTER_COUNT + 1)
 
 #define PLAT_MAX_RET_STATE		U(1)
@@ -95,7 +95,7 @@
 #endif
 
 /* BL32 is mandatory in AArch32 */
-#ifndef AARCH32
+#ifdef __aarch64__
 #ifdef SPD_none
 #undef BL32_BASE
 #endif /* SPD_none */
@@ -122,11 +122,7 @@
 #endif
 
 #ifdef IMAGE_BL2
-#ifdef SPD_opteed
 #define MAX_XLAT_TABLES			4
-#else
-#define MAX_XLAT_TABLES			3
-#endif
 #endif
 
 #define MAX_MMAP_REGIONS		16

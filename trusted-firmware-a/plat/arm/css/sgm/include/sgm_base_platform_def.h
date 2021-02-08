@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,17 +9,16 @@
 
 #include <drivers/arm/tzc400.h>
 #include <drivers/arm/tzc_common.h>
+#include <plat/arm/board/common/board_css_def.h>
+#include <plat/arm/board/common/v2m_def.h>
+#include <plat/arm/common/arm_def.h>
+#include <plat/arm/css/common/css_def.h>
+#include <plat/arm/soc/common/soc_css_def.h>
 #include <plat/common/common_def.h>
 
-#include <arm_def.h>
-#include <board_css_def.h>
-#include <css_def.h>
-#include <soc_css_def.h>
-#include <v2m_def.h>
-
 /* CPU topology */
-#define PLAT_ARM_CLUSTER_COUNT		1
-#define PLAT_ARM_CLUSTER_CORE_COUNT	8
+#define PLAT_ARM_CLUSTER_COUNT		U(1)
+#define PLAT_ARM_CLUSTER_CORE_COUNT	U(8)
 #define PLATFORM_CORE_COUNT		PLAT_ARM_CLUSTER_CORE_COUNT
 
 #define PLAT_MAX_PWR_LVL		ARM_PWR_LVL2
@@ -52,7 +51,7 @@
 
 /* Platform ID address */
 #define SSC_VERSION                     (SSC_REG_BASE + SSC_VERSION_OFFSET)
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 /* SSC_VERSION related accessors */
 /* Returns the part number of the platform */
 #define GET_PLAT_PART_NUM                                       \
@@ -60,7 +59,7 @@
 /* Returns the configuration number of the platform */
 #define GET_PLAT_CONFIG_NUM                                     \
 		GET_SSC_VERSION_CONFIG(mmio_read_32(SSC_VERSION))
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 
 
 /*************************************************************************
@@ -134,21 +133,14 @@
 #endif
 
 /*
- * tspd support is conditional so enable this for CSS sgm platforms.
+ * SCP_BL2 uses up whatever remaining space is available as it is loaded before
+ * anything else in this memory region and is handed over to the SCP before
+ * BL31 is loaded over the top.
  */
-#define SPD_tspd
+#define PLAT_CSS_MAX_SCP_BL2_SIZE \
+	((SCP_BL2_LIMIT - ARM_FW_CONFIG_LIMIT) & ~PAGE_SIZE_MASK)
 
-/*
- * PLAT_CSS_MAX_SCP_BL2_SIZE is calculated using the current
- * SCP_BL2 size plus a little space for growth.
- */
-#define PLAT_CSS_MAX_SCP_BL2_SIZE	0x15000
-
-/*
- * PLAT_CSS_MAX_SCP_BL2U_SIZE is calculated using the current
- * SCP_BL2U size plus a little space for growth.
- */
-#define PLAT_CSS_MAX_SCP_BL2U_SIZE	0x15000
+#define PLAT_CSS_MAX_SCP_BL2U_SIZE	PLAT_CSS_MAX_SCP_BL2_SIZE
 
 /*
  * Most platform porting definitions provided by included headers
@@ -197,7 +189,7 @@
 #if TRUSTED_BOARD_BOOT
 # define PLAT_ARM_MAX_BL2_SIZE		0x1D000
 #else
-# define PLAT_ARM_MAX_BL2_SIZE		0x11000
+# define PLAT_ARM_MAX_BL2_SIZE		0x12000
 #endif
 
 /*
@@ -243,5 +235,8 @@
 
 /* System power domain level */
 #define CSS_SYSTEM_PWR_DMN_LVL		ARM_PWR_LVL2
+
+/* Number of SCMI channels on the platform */
+#define PLAT_ARM_SCMI_CHANNEL_COUNT	U(1)
 
 #endif /* SGM_BASE_PLATFORM_DEF_H */

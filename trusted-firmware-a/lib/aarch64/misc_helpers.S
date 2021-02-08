@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2021, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -7,55 +7,23 @@
 #include <arch.h>
 #include <asm_macros.S>
 #include <assert_macros.S>
+#include <common/bl_common.h>
 #include <lib/xlat_tables/xlat_tables_defs.h>
 
-#if !ERROR_DEPRECATED
-	.globl	get_afflvl_shift
-	.globl	mpidr_mask_lower_afflvls
-	.globl	eret
-#endif /* ERROR_DEPRECATED */
 	.globl	smc
 
 	.globl	zero_normalmem
 	.globl	zeromem
-	.globl	zeromem16
 	.globl	memcpy16
 
 	.globl	disable_mmu_el1
 	.globl	disable_mmu_el3
 	.globl	disable_mmu_icache_el1
 	.globl	disable_mmu_icache_el3
-
 	.globl	fixup_gdt_reloc
-
 #if SUPPORT_VFP
 	.globl	enable_vfp
 #endif
-
-#if !ERROR_DEPRECATED
-func get_afflvl_shift
-	cmp	x0, #3
-	cinc	x0, x0, eq
-	mov	x1, #MPIDR_AFFLVL_SHIFT
-	lsl	x0, x0, x1
-	ret
-endfunc get_afflvl_shift
-
-func mpidr_mask_lower_afflvls
-	cmp	x1, #3
-	cinc	x1, x1, eq
-	mov	x2, #MPIDR_AFFLVL_SHIFT
-	lsl	x2, x1, x2
-	lsr	x0, x0, x2
-	lsl	x0, x0, x2
-	ret
-endfunc mpidr_mask_lower_afflvls
-
-
-func eret
-	eret
-endfunc eret
-#endif /* ERROR_DEPRECATED */
 
 func smc
 	smc	#0
@@ -518,26 +486,32 @@ endfunc enable_vfp
  * arguments (which is usually the limits of the relocable BL image).
  *   x0 -  the start of the fixup region
  *   x1 -  the limit of the fixup region
- * These addresses have to be page (4KB aligned).
+ * These addresses have to be 4KB page aligned.
  * ---------------------------------------------------------------------------
  */
+
+/* Relocation codes */
+#define	R_AARCH64_NONE		0
+#define	R_AARCH64_RELATIVE	1027
+
 func fixup_gdt_reloc
 	mov	x6, x0
 	mov	x7, x1
 
-	/* Test if the limits are 4K aligned */
 #if ENABLE_ASSERTIONS
+	/* Test if the limits are 4KB aligned */
 	orr	x0, x0, x1
-	tst	x0, #(PAGE_SIZE - 1)
+	tst	x0, #(PAGE_SIZE_MASK)
 	ASM_ASSERT(eq)
 #endif
 	/*
 	 * Calculate the offset based on return address in x30.
-	 * Assume that this funtion is called within a page of the start of
-	 * of fixup region.
+	 * Assume that this function is called within a page at the start of
+	 * fixup region.
 	 */
-	and	x2, x30, #~(PAGE_SIZE - 1)
-	sub	x0, x2, x6	/* Diff(S) = Current Address - Compiled Address */
+	and	x2, x30, #~(PAGE_SIZE_MASK)
+	subs	x0, x2, x6	/* Diff(S) = Current Address - Compiled Address */
+	b.eq	3f		/* Diff(S) = 0. No relocation needed */
 
 	adrp	x1, __GOT_START__
 	add	x1, x1, :lo12:__GOT_START__
@@ -550,31 +524,32 @@ func fixup_gdt_reloc
 	 * The new_addr is the address currently the binary is executing from
 	 * and old_addr is the address at compile time.
 	 */
-1:
-	ldr	x3, [x1]
+1:	ldr	x3, [x1]
+
 	/* Skip adding offset if address is < lower limit */
 	cmp	x3, x6
 	b.lo	2f
+
 	/* Skip adding offset if address is >= upper limit */
 	cmp	x3, x7
-	b.ge	2f
+	b.hs	2f
 	add	x3, x3, x0
 	str	x3, [x1]
-2:
-	add	x1, x1, #8
+
+2:	add	x1, x1, #8
 	cmp	x1, x2
 	b.lo	1b
 
 	/* Starting dynamic relocations. Use adrp/adr to get RELA_START and END */
-	adrp	x1, __RELA_START__
+3:	adrp	x1, __RELA_START__
 	add	x1, x1, :lo12:__RELA_START__
 	adrp	x2, __RELA_END__
 	add	x2, x2, :lo12:__RELA_END__
+
 	/*
 	 * According to ELF-64 specification, the RELA data structure is as
 	 * follows:
-	 *	typedef struct
-	 * 	{
+	 *	typedef struct {
 	 *		Elf64_Addr r_offset;
 	 *		Elf64_Xword r_info;
 	 *		Elf64_Sxword r_addend;
@@ -582,16 +557,19 @@ func fixup_gdt_reloc
 	 *
 	 * r_offset is address of reference
 	 * r_info is symbol index and type of relocation (in this case
-	 * 0x403 which corresponds to R_AARCH64_RELATIV).
+	 * code 1027 which corresponds to R_AARCH64_RELATIVE).
 	 * r_addend is constant part of expression.
 	 *
 	 * Size of Elf64_Rela structure is 24 bytes.
 	 */
-1:
-	/* Assert that the relocation type is R_AARCH64_RELATIV */
+
+	/* Skip R_AARCH64_NONE entry with code 0 */
+1:	ldr	x3, [x1, #8]
+	cbz	x3, 2f
+
 #if ENABLE_ASSERTIONS
-	ldr	x3, [x1, #8]
-	cmp	x3, #0x403
+	/* Assert that the relocation type is R_AARCH64_RELATIVE */
+	cmp	x3, #R_AARCH64_RELATIVE
 	ASM_ASSERT(eq)
 #endif
 	ldr	x3, [x1]	/* r_offset */
@@ -601,9 +579,10 @@ func fixup_gdt_reloc
 	/* Skip adding offset if r_addend is < lower limit */
 	cmp	x4, x6
 	b.lo	2f
+
 	/* Skip adding offset if r_addend entry is >= upper limit */
 	cmp	x4, x7
-	b.ge	2f
+	b.hs	2f
 
 	add	x4, x0, x4	/* Diff(S) + r_addend */
 	str	x4, [x3]
@@ -611,6 +590,5 @@ func fixup_gdt_reloc
 2:	add	x1, x1, #24
 	cmp	x1, x2
 	b.lo	1b
-
 	ret
 endfunc fixup_gdt_reloc

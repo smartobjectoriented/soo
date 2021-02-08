@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,11 +10,6 @@
 #include <platform_def.h>
 
 	.weak	plat_report_exception
-#if !ERROR_DEPRECATED
-	.weak	plat_crash_console_init
-	.weak	plat_crash_console_putc
-	.weak	plat_crash_console_flush
-#endif
 	.weak	plat_reset_handler
 	.weak	plat_disable_acp
 	.weak	bl1_plat_prepare_exit
@@ -26,8 +21,6 @@
 	.weak	plat_handle_double_fault
 	.weak	plat_handle_el3_ea
 
-	.globl	platform_get_core_pos
-
 #define MPIDR_RES_BIT_MASK	0xff000000
 
 	/* -----------------------------------------------------
@@ -38,21 +31,6 @@
 func plat_report_exception
 	ret
 endfunc plat_report_exception
-
-#if !ERROR_DEPRECATED
-func plat_crash_console_init
-	mov	x0, #0
-	ret
-endfunc plat_crash_console_init
-
-func plat_crash_console_putc
-	ret
-endfunc plat_crash_console_putc
-
-func plat_crash_console_flush
-	ret
-endfunc plat_crash_console_flush
-#endif /* ERROR_DEPRECATED */
 
 	/* -----------------------------------------------------
 	 * Placeholder function which should be redefined by

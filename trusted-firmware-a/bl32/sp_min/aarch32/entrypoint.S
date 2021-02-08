@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,6 +10,9 @@
 #include <common/runtime_svc.h>
 #include <context.h>
 #include <el3_common_macros.S>
+#include <lib/el3_runtime/cpu_data.h>
+#include <lib/pmf/aarch32/pmf_asm_macros.S>
+#include <lib/runtime_instr.h>
 #include <lib/xlat_tables/xlat_tables_defs.h>
 #include <smccc_helpers.h>
 #include <smccc_macros.S>
@@ -164,6 +167,20 @@ func sp_min_handle_smc
 	/* On SMC entry, `sp` points to `smc_ctx_t`. Save `lr`. */
 	str	lr, [sp, #SMC_CTX_LR_MON]
 
+#if ENABLE_RUNTIME_INSTRUMENTATION
+	/*
+	 * Read the timestamp value and store it on top of the C runtime stack.
+	 * The value will be saved to the per-cpu data once the C stack is
+	 * available, as a valid stack is needed to call _cpu_data()
+	 */
+	strd	r0, r1, [sp, #SMC_CTX_GPREG_R0]
+	ldcopr16 r0, r1, CNTPCT_64
+	ldr	lr, [sp, #SMC_CTX_SP_MON]
+	strd	r0, r1, [lr, #-8]!
+	str	lr, [sp, #SMC_CTX_SP_MON]
+	ldrd	r0, r1, [sp, #SMC_CTX_GPREG_R0]
+#endif
+
 	smccc_save_gp_mode_regs
 
 	clrex_on_monitor_entry
@@ -175,6 +192,23 @@ func sp_min_handle_smc
 	mov	r2, sp				/* handle */
 	ldr	sp, [r2, #SMC_CTX_SP_MON]
 
+#if ENABLE_RUNTIME_INSTRUMENTATION
+	/* Save handle to a callee saved register */
+	mov	r6, r2
+
+	/*
+	 * Restore the timestamp value and store it in per-cpu data. The value
+	 * will be extracted from per-cpu data by the C level SMC handler and
+	 * saved to the PMF timestamp region.
+	 */
+	ldrd	r4, r5, [sp], #8
+	bl	_cpu_data
+	strd	r4, r5, [r0, #CPU_DATA_PMF_TS0_OFFSET]
+
+	/* Restore handle */
+	mov	r2, r6
+#endif
+
 	ldr	r0, [r2, #SMC_CTX_SCR]
 	and	r3, r0, #SCR_NS_BIT		/* flags */
 
@@ -182,15 +216,6 @@ func sp_min_handle_smc
 	bic	r0, #SCR_NS_BIT
 	stcopr	r0, SCR
 	isb
-
-	/*
-	 * Set PMCR.DP to 1 to prohibit cycle counting whilst in Secure Mode.
-	 * Also, the PMCR.LC field has an architecturally UNKNOWN value on reset
-	 * and so set to 1 as ARM has deprecated use of PMCR.LC=0.
-	 */
-	ldcopr	r0, PMCR
-	orr	r0, r0, #(PMCR_LC_BIT | PMCR_DP_BIT)
-	stcopr	r0, PMCR
 
 	ldr	r0, [r2, #SMC_CTX_GPREG_R0]	/* smc_fid */
 	/* Check whether an SMC64 is issued */
@@ -236,15 +261,6 @@ func sp_min_handle_fiq
 	stcopr	r0, SCR
 	isb
 
-	/*
-	 * Set PMCR.DP to 1 to prohibit cycle counting whilst in Secure Mode.
-	 * Also, the PMCR.LC field has an architecturally UNKNOWN value on reset
-	 * and so set to 1 as ARM has deprecated use of PMCR.LC=0.
-	 */
-	ldcopr	r0, PMCR
-	orr	r0, r0, #(PMCR_LC_BIT | PMCR_DP_BIT)
-	stcopr	r0, PMCR
-
 	push	{r2, r3}
 	bl	sp_min_fiq
 	pop	{r0, r3}
@@ -257,6 +273,16 @@ endfunc sp_min_handle_fiq
  * The Warm boot entrypoint for SP_MIN.
  */
 func sp_min_warm_entrypoint
+#if ENABLE_RUNTIME_INSTRUMENTATION
+	/*
+	 * This timestamp update happens with cache off.  The next
+	 * timestamp collection will need to do cache maintenance prior
+	 * to timestamp update.
+	 */
+	pmf_calc_timestamp_addr rt_instr_svc, RT_INSTR_EXIT_HW_LOW_PWR
+	ldcopr16 r2, r3, CNTPCT_64
+	strd	r2, r3, [r0]
+#endif
 	/*
 	 * On the warm boot path, most of the EL3 initialisations performed by
 	 * 'el3_entrypoint_common' must be skipped:
@@ -313,6 +339,30 @@ func sp_min_warm_entrypoint
 	bl	smc_get_next_ctx
 	/* r0 points to `smc_ctx_t` */
 	/* The PSCI cpu_context registers have been copied to `smc_ctx_t` */
+
+#if ENABLE_RUNTIME_INSTRUMENTATION
+	/* Save smc_ctx_t */
+	mov	r5, r0
+
+	pmf_calc_timestamp_addr rt_instr_svc, RT_INSTR_EXIT_PSCI
+	mov	r4, r0
+
+	/*
+	 * Invalidate before updating timestamp to ensure previous timestamp
+	 * updates on the same cache line with caches disabled are properly
+	 * seen by the same core. Without the cache invalidate, the core might
+	 * write into a stale cache line.
+	 */
+	mov	r1, #PMF_TS_SIZE
+	bl	inv_dcache_range
+
+	ldcopr16 r0, r1, CNTPCT_64
+	strd	r0, r1, [r4]
+
+	/* Restore smc_ctx_t */
+	mov	r0, r5
+#endif
+
 	b	sp_min_exit
 endfunc sp_min_warm_entrypoint
 

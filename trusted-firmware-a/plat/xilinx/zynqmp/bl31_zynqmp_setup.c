@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,12 +11,13 @@
 #include <common/bl_common.h>
 #include <common/debug.h>
 #include <drivers/console.h>
-#include <plat_arm.h>
+#include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
+#include <lib/mmio.h>
 
-#include "zynqmp_private.h"
-
-#define BL31_END (unsigned long)(&__BL31_END__)
+#include <plat_startup.h>
+#include <plat_private.h>
+#include <zynqmp_def.h>
 
 static entry_point_info_t bl32_image_ep_info;
 static entry_point_info_t bl33_image_ep_info;
@@ -31,8 +32,9 @@ entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 {
 	assert(sec_state_is_valid(type));
 
-	if (type == NON_SECURE)
+	if (type == NON_SECURE) {
 		return &bl33_image_ep_info;
+	}
 
 	return &bl32_image_ep_info;
 }
@@ -59,9 +61,15 @@ static inline void bl31_set_default_config(void)
 void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 				u_register_t arg2, u_register_t arg3)
 {
-	/* Initialize the console to provide early debug support */
-	console_init(ZYNQMP_UART_BASE, zynqmp_get_uart_clk(),
-		     ZYNQMP_UART_BAUDRATE);
+	uint64_t atf_handoff_addr;
+	/* Register the console to provide early debug support */
+	static console_t bl31_boot_console;
+	(void)console_cdns_register(ZYNQMP_UART_BASE,
+				       zynqmp_get_uart_clk(),
+				       ZYNQMP_UART_BAUDRATE,
+				       &bl31_boot_console);
+	console_set_scope(&bl31_boot_console,
+			  CONSOLE_FLAG_RUNTIME | CONSOLE_FLAG_BOOT);
 
 	/* Initialize the platform config for future decision making */
 	zynqmp_config_setup();
@@ -83,20 +91,27 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	SET_PARAM_HEAD(&bl33_image_ep_info, PARAM_EP, VERSION_1, 0);
 	SET_SECURITY_STATE(bl33_image_ep_info.h.attr, NON_SECURE);
 
+	atf_handoff_addr = mmio_read_32(PMU_GLOBAL_GEN_STORAGE6);
+
 	if (zynqmp_get_bootmode() == ZYNQMP_BOOTMODE_JTAG) {
 		bl31_set_default_config();
 	} else {
 		/* use parameters from FSBL */
 		enum fsbl_handoff ret = fsbl_atf_handover(&bl32_image_ep_info,
-							  &bl33_image_ep_info);
-		if (ret == FSBL_HANDOFF_NO_STRUCT)
+							  &bl33_image_ep_info,
+							  atf_handoff_addr);
+		if (ret == FSBL_HANDOFF_NO_STRUCT) {
 			bl31_set_default_config();
-		else if (ret != FSBL_HANDOFF_SUCCESS)
+		} else if (ret != FSBL_HANDOFF_SUCCESS) {
 			panic();
+		}
 	}
-
-	NOTICE("BL31: Secure code at 0x%lx\n", bl32_image_ep_info.pc);
-	NOTICE("BL31: Non secure code at 0x%lx\n", bl33_image_ep_info.pc);
+	if (bl32_image_ep_info.pc) {
+		VERBOSE("BL31: Secure code at 0x%lx\n", bl32_image_ep_info.pc);
+	}
+	if (bl33_image_ep_info.pc) {
+		VERBOSE("BL31: Non secure code at 0x%lx\n", bl33_image_ep_info.pc);
+	}
 }
 
 /* Enable the test setup */
@@ -124,12 +139,14 @@ static interrupt_type_handler_t type_el3_interrupt_table[MAX_INTR_EL3];
 int request_intr_type_el3(uint32_t id, interrupt_type_handler_t handler)
 {
 	/* Validate 'handler' and 'id' parameters */
-	if (!handler || id >= MAX_INTR_EL3)
+	if (!handler || id >= MAX_INTR_EL3) {
 		return -EINVAL;
+	}
 
 	/* Check if a handler has already been registered */
-	if (type_el3_interrupt_table[id])
+	if (type_el3_interrupt_table[id]) {
 		return -EALREADY;
+	}
 
 	type_el3_interrupt_table[id] = handler;
 
@@ -144,8 +161,9 @@ static uint64_t rdo_el3_interrupt_handler(uint32_t id, uint32_t flags,
 
 	intr_id = plat_ic_get_pending_interrupt_id();
 	handler = type_el3_interrupt_table[intr_id];
-	if (handler != NULL)
+	if (handler != NULL) {
 		handler(intr_id, flags, handle, cookie);
+	}
 
 	return 0;
 }
@@ -168,8 +186,9 @@ void bl31_plat_runtime_setup(void)
 	set_interrupt_rm_flag(flags, NON_SECURE);
 	rc = register_interrupt_type_handler(INTR_TYPE_EL3,
 					     rdo_el3_interrupt_handler, flags);
-	if (rc)
+	if (rc) {
 		panic();
+	}
 #endif
 }
 

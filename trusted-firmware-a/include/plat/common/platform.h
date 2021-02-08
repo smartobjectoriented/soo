@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,6 +10,9 @@
 #include <stdint.h>
 
 #include <lib/psci/psci.h>
+#if defined(SPD_spmd)
+ #include <services/spm_core_manifest.h>
+#endif
 
 /*******************************************************************************
  * Forward declarations
@@ -22,8 +25,9 @@ struct image_desc;
 struct bl_load_info;
 struct bl_params;
 struct mmap_region;
-struct secure_partition_boot_info;
+struct spm_mm_boot_info;
 struct sp_res_desc;
+enum fw_enc_status_t;
 
 /*******************************************************************************
  * plat_get_rotpk_info() flags
@@ -32,6 +36,15 @@ struct sp_res_desc;
 /* Flag used to skip verification of the certificate ROTPK while the platform
    ROTPK is not deployed */
 #define ROTPK_NOT_DEPLOYED		(1 << 1)
+
+/*******************************************************************************
+ * plat_get_enc_key_info() flags
+ ******************************************************************************/
+/*
+ * Flag used to notify caller that information provided in key buffer is an
+ * identifier rather than an actual key.
+ */
+#define ENC_KEY_IS_IDENTIFIER		(1 << 0)
 
 /*******************************************************************************
  * Function declarations
@@ -47,6 +60,7 @@ int plat_get_image_source(unsigned int image_id,
 uintptr_t plat_get_ns_image_entrypoint(void);
 unsigned int plat_my_core_pos(void);
 int plat_core_pos_by_mpidr(u_register_t mpidr);
+int plat_get_mbedtls_heap(void **heap_addr, size_t *heap_size);
 
 #if STACK_PROTECTOR_ENABLED
 /*
@@ -97,13 +111,12 @@ uintptr_t plat_get_my_stack(void);
 void plat_report_exception(unsigned int exception_type);
 int plat_crash_console_init(void);
 int plat_crash_console_putc(int c);
-int plat_crash_console_flush(void);
+void plat_crash_console_flush(void);
 void plat_error_handler(int err) __dead2;
 void plat_panic_handler(void) __dead2;
 const char *plat_log_get_prefix(unsigned int log_level);
 void bl2_plat_preload_setup(void);
 int plat_try_next_boot_source(void);
-int plat_get_mbedtls_heap(void **heap_addr, size_t *heap_size);
 
 /*******************************************************************************
  * Mandatory BL1 functions
@@ -119,6 +132,7 @@ struct meminfo *bl1_plat_sec_mem_layout(void);
 
 /* SDEI platform functions */
 #if SDEI_SUPPORT
+void plat_sdei_setup(void);
 int plat_sdei_validate_entry_point(uintptr_t ep, unsigned int client_mode);
 void plat_sdei_handle_masked_trigger(uint64_t mpidr, unsigned int intr);
 #endif
@@ -161,6 +175,14 @@ __dead2 void bl1_plat_fwu_done(void *client_cookie, void *reserved);
 int bl1_plat_handle_pre_image_load(unsigned int image_id);
 int bl1_plat_handle_post_image_load(unsigned int image_id);
 
+#if MEASURED_BOOT
+/*
+ * Calculates and writes BL2 hash data to the platform's defined location.
+ * For ARM platforms the data are written to TB_FW_CONFIG DTB.
+ */
+void bl1_plat_set_bl2_hash(const image_desc_t *image_desc);
+#endif
+
 /*******************************************************************************
  * Mandatory BL2 functions
  ******************************************************************************/
@@ -176,11 +198,13 @@ struct meminfo *bl2_plat_sec_mem_layout(void);
 int bl2_plat_handle_pre_image_load(unsigned int image_id);
 int bl2_plat_handle_post_image_load(unsigned int image_id);
 
-
 /*******************************************************************************
  * Optional BL2 functions (may be overridden)
  ******************************************************************************/
-
+#if MEASURED_BOOT
+/* Read TCG_DIGEST_SIZE bytes of BL2 hash data */
+void bl2_plat_get_hash(void *data);
+#endif
 
 /*******************************************************************************
  * Mandatory BL2 at EL3 functions: Must be implemented if BL2_AT_EL3 image is
@@ -189,7 +213,6 @@ int bl2_plat_handle_post_image_load(unsigned int image_id);
 void bl2_el3_early_platform_setup(u_register_t arg0, u_register_t arg1,
 				  u_register_t arg2, u_register_t arg3);
 void bl2_el3_plat_arch_setup(void);
-
 
 /*******************************************************************************
  * Optional BL2 at EL3 functions (may be overridden)
@@ -237,7 +260,7 @@ void plat_psci_stat_accounting_start(const psci_power_state_t *state_info);
 void plat_psci_stat_accounting_stop(const psci_power_state_t *state_info);
 u_register_t plat_psci_stat_get_residency(unsigned int lvl,
 			const psci_power_state_t *state_info,
-			int last_cpu_idx);
+			unsigned int last_cpu_idx);
 plat_local_state_t plat_get_target_pwr_state(unsigned int lvl,
 			const plat_local_state_t *states,
 			unsigned int ncpu);
@@ -261,17 +284,24 @@ int plat_get_nv_ctr(void *cookie, unsigned int *nv_ctr);
 int plat_set_nv_ctr(void *cookie, unsigned int nv_ctr);
 int plat_set_nv_ctr2(void *cookie, const struct auth_img_desc_s *img_desc,
 		unsigned int nv_ctr);
+int get_mbedtls_heap_helper(void **heap_addr, size_t *heap_size);
+int plat_get_enc_key_info(enum fw_enc_status_t fw_enc_status, uint8_t *key,
+			  size_t *key_len, unsigned int *flags,
+			  const uint8_t *img_id, size_t img_id_len);
 
 /*******************************************************************************
  * Secure Partitions functions
  ******************************************************************************/
 const struct mmap_region *plat_get_secure_partition_mmap(void *cookie);
-const struct secure_partition_boot_info *plat_get_secure_partition_boot_info(
+const struct spm_mm_boot_info *plat_get_secure_partition_boot_info(
 		void *cookie);
 int plat_spm_sp_rd_load(struct sp_res_desc *rd, const void *ptr, size_t size);
 int plat_spm_sp_get_next_address(void **sp_base, size_t *sp_size,
 				 void **rd_base, size_t *rd_size);
-
+#if defined(SPD_spmd)
+int plat_spm_core_manifest_load(spmc_manifest_attribute_t *manifest,
+				const void *pm_addr);
+#endif
 /*******************************************************************************
  * Mandatory BL image load functions(may be overridden).
  ******************************************************************************/
@@ -300,5 +330,20 @@ void plat_flush_next_bl_params(void);
  * have the compatibility layer disabled.
  */
 unsigned int platform_core_pos_helper(unsigned long mpidr);
+
+/*
+ * Optional function to get SOC version
+ */
+int32_t plat_get_soc_version(void);
+
+/*
+ * Optional function to get SOC revision
+ */
+int32_t plat_get_soc_revision(void);
+
+/*
+ * Optional function to check for SMCCC function availability for platform
+ */
+int32_t plat_is_smccc_feature_available(u_register_t fid);
 
 #endif /* PLATFORM_H */

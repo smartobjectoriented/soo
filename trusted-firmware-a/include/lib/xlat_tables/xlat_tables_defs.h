@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -62,6 +62,11 @@
 #define OSH			(U(0x2) << 6)
 #define ISH			(U(0x3) << 6)
 
+#ifdef __aarch64__
+/* Guarded Page bit */
+#define GP			(ULL(1) << 50)
+#endif
+
 #define TABLE_ADDR_MASK		ULL(0x0000FFFFFFFFF000)
 
 /*
@@ -69,11 +74,15 @@
  * 64KB. However, only 4KB are supported at the moment.
  */
 #define PAGE_SIZE_SHIFT		FOUR_KB_SHIFT
-#define PAGE_SIZE		(U(1) << PAGE_SIZE_SHIFT)
-#define PAGE_SIZE_MASK		(PAGE_SIZE - U(1))
+#define PAGE_SIZE		(UL(1) << PAGE_SIZE_SHIFT)
+#define PAGE_SIZE_MASK		(PAGE_SIZE - UL(1))
 #define IS_PAGE_ALIGNED(addr)	(((addr) & PAGE_SIZE_MASK) == U(0))
 
-#define XLAT_ENTRY_SIZE_SHIFT	U(3) /* Each MMU table entry is 8 bytes (1 << 3) */
+#if (ARM_ARCH_MAJOR == 7) && !ARMV7_SUPPORTS_LARGE_PAGE_ADDRESSING
+#define XLAT_ENTRY_SIZE_SHIFT	U(2)	/* Each MMU table entry is 4 bytes */
+#else
+#define XLAT_ENTRY_SIZE_SHIFT	U(3)	/* Each MMU table entry is 8 bytes */
+#endif
 #define XLAT_ENTRY_SIZE		(U(1) << XLAT_ENTRY_SIZE_SHIFT)
 
 #define XLAT_TABLE_SIZE_SHIFT	PAGE_SIZE_SHIFT /* Size of one complete table */

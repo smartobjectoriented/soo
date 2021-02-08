@@ -1,32 +1,35 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
 #include <arch.h>
 #include <asm_macros.S>
 #include <assert_macros.S>
-#include <cpu_macros.S>
-#include <cortex_a53.h>
 #include <cortex_a57.h>
+#include <cpu_macros.S>
+
 #include <platform_def.h>
 #include <tegra_def.h>
+#include <tegra_platform.h>
 
 #define MIDR_PN_CORTEX_A57		0xD07
 
 /*******************************************************************************
  * Implementation defined ACTLR_EL3 bit definitions
  ******************************************************************************/
-#define ACTLR_EL3_L2ACTLR_BIT		(1 << 6)
-#define ACTLR_EL3_L2ECTLR_BIT		(1 << 5)
-#define ACTLR_EL3_L2CTLR_BIT		(1 << 4)
-#define ACTLR_EL3_CPUECTLR_BIT		(1 << 1)
-#define ACTLR_EL3_CPUACTLR_BIT		(1 << 0)
-#define ACTLR_EL3_ENABLE_ALL_ACCESS	(ACTLR_EL3_L2ACTLR_BIT | \
-					 ACTLR_EL3_L2ECTLR_BIT | \
-					 ACTLR_EL3_L2CTLR_BIT | \
-					 ACTLR_EL3_CPUECTLR_BIT | \
-					 ACTLR_EL3_CPUACTLR_BIT)
+#define ACTLR_ELx_L2ACTLR_BIT		(U(1) << 6)
+#define ACTLR_ELx_L2ECTLR_BIT		(U(1) << 5)
+#define ACTLR_ELx_L2CTLR_BIT		(U(1) << 4)
+#define ACTLR_ELx_CPUECTLR_BIT		(U(1) << 1)
+#define ACTLR_ELx_CPUACTLR_BIT		(U(1) << 0)
+#define ACTLR_ELx_ENABLE_ALL_ACCESS	(ACTLR_ELx_L2ACTLR_BIT | \
+					 ACTLR_ELx_L2ECTLR_BIT | \
+					 ACTLR_ELx_L2CTLR_BIT | \
+					 ACTLR_ELx_CPUECTLR_BIT | \
+					 ACTLR_ELx_CPUACTLR_BIT)
 
 	/* Global functions */
 	.globl	plat_is_my_cpu_primary
@@ -37,6 +40,7 @@
 	.globl	plat_crash_console_init
 	.globl	plat_crash_console_putc
 	.globl	plat_crash_console_flush
+	.weak	plat_core_pos_by_mpidr
 	.globl	tegra_secure_entrypoint
 	.globl	plat_reset_handler
 
@@ -45,7 +49,6 @@
 	.globl	ns_image_entrypoint
 	.globl	tegra_bl31_phys_base
 	.globl	tegra_console_base
-	.globl	tegra_enable_l2_ecc_parity_prot
 
 	/* ---------------------
 	 * Common CPU init code
@@ -87,23 +90,14 @@
 	 * Enable L2 and CPU ECTLR RW access from non-secure world
 	 * -------------------------------------------------------
 	 */
-	mov	x0, #ACTLR_EL3_ENABLE_ALL_ACCESS
+	mrs	x0, actlr_el3
+	mov	x1, #ACTLR_ELx_ENABLE_ALL_ACCESS
+	orr	x0, x0, x1
 	msr	actlr_el3, x0
+	mrs	x0, actlr_el2
+	mov	x1, #ACTLR_ELx_ENABLE_ALL_ACCESS
+	orr	x0, x0, x1
 	msr	actlr_el2, x0
-	isb
-
-	/* -------------------------------------------------------
-	 * Enable L2 ECC and Parity Protection
-	 * -------------------------------------------------------
-	 */
-	adr	x0, tegra_enable_l2_ecc_parity_prot
-	ldr	x0, [x0]
-	cbz	x0, 1f
-	mrs	x0, CORTEX_A57_L2CTLR_EL1
-	and	x1, x0, #CORTEX_A57_L2_ECC_PARITY_PROTECTION_BIT
-	cbnz	x1, 1f
-	orr	x0, x0, #CORTEX_A57_L2_ECC_PARITY_PROTECTION_BIT
-	msr	CORTEX_A57_L2CTLR_EL1, x0
 	isb
 
 	/* --------------------------------
@@ -144,18 +138,18 @@ func plat_is_my_cpu_primary
 	ret
 endfunc plat_is_my_cpu_primary
 
-	/* -----------------------------------------------------
+	/* ----------------------------------------------------------
 	 * unsigned int plat_my_core_pos(void);
 	 *
-	 * result: CorePos = CoreId + (ClusterId << 2)
-	 * -----------------------------------------------------
+	 * result: CorePos = CoreId + (ClusterId * cpus per cluster)
+	 * Registers clobbered: x0, x8
+	 * ----------------------------------------------------------
 	 */
 func plat_my_core_pos
+	mov	x8, x30
 	mrs	x0, mpidr_el1
-	and	x1, x0, #MPIDR_CPU_MASK
-	and	x0, x0, #MPIDR_CLUSTER_MASK
-	add	x0, x1, x0, LSR #6
-	ret
+	bl	plat_core_pos_by_mpidr
+	ret	x8
 endfunc plat_my_core_pos
 
 	/* -----------------------------------------------------
@@ -172,20 +166,6 @@ func plat_get_my_entrypoint
 	ldr	x0, [x1]
 	ret
 endfunc plat_get_my_entrypoint
-
-	/* -----------------------------------------------------
-	 * int platform_get_core_pos(int mpidr);
-	 *
-	 * With this function: CorePos = (ClusterId * 4) +
-	 *                                CoreId
-	 * -----------------------------------------------------
-	 */
-func platform_get_core_pos
-	and	x1, x0, #MPIDR_CPU_MASK
-	and	x0, x0, #MPIDR_CLUSTER_MASK
-	add	x0, x1, x0, LSR #6
-	ret
-endfunc platform_get_core_pos
 
 	/* -----------------------------------------------------
 	 * void plat_secondary_cold_boot_setup (void);
@@ -212,49 +192,6 @@ func platform_mem_init
 	ret
 endfunc platform_mem_init
 
-	/* ---------------------------------------------
-	 * int plat_crash_console_init(void)
-	 * Function to initialize the crash console
-	 * without a C Runtime to print crash report.
-	 * Clobber list : x0 - x4
-	 * ---------------------------------------------
-	 */
-func plat_crash_console_init
-	mov	x0, #0
-	adr	x1, tegra_console_base
-	ldr	x1, [x1]
-	cbz	x1, 1f
-	mov	w0, #1
-1:	ret
-endfunc plat_crash_console_init
-
-	/* ---------------------------------------------
-	 * int plat_crash_console_putc(void)
-	 * Function to print a character on the crash
-	 * console without a C Runtime.
-	 * Clobber list : x1, x2
-	 * ---------------------------------------------
-	 */
-func plat_crash_console_putc
-	adr	x1, tegra_console_base
-	ldr	x1, [x1]
-	b	console_core_putc
-endfunc plat_crash_console_putc
-
-	/* ---------------------------------------------
-	 * int plat_crash_console_flush()
-	 * Function to force a write of all buffered
-	 * data that hasn't been output.
-	 * Out : return -1 on error else return 0.
-	 * Clobber list : x0, x1
-	 * ---------------------------------------------
-	 */
-func plat_crash_console_flush
-	adr	x0, tegra_console_base
-	ldr	x0, [x0]
-	b	console_core_flush
-endfunc plat_crash_console_flush
-
 	/* ---------------------------------------------------
 	 * Function to handle a platform reset and store
 	 * input parameters passed by BL2.
@@ -278,7 +215,8 @@ func plat_reset_handler
 	 */
 	mov	x0, x17
 	mov	x1, x18
-	mov	x2, #BL31_SIZE
+	adr	x2, __RELA_END__
+	sub	x2, x2, x18
 _loop16:
 	cmp	x2, #16
 	b.lo	_loop1
@@ -318,6 +256,42 @@ _end:	mov	x0, x20
 	ret
 endfunc plat_reset_handler
 
+	/* ------------------------------------------------------
+	 * int32_t plat_core_pos_by_mpidr(u_register_t mpidr)
+	 *
+	 * This function implements a part of the critical
+	 * interface between the psci generic layer and the
+	 * platform that allows the former to query the platform
+	 * to convert an MPIDR to a unique linear index. An error
+	 * code (-1) is returned in case the MPIDR is invalid.
+	 *
+	 * Clobbers: x0-x3
+	 * ------------------------------------------------------
+	 */
+func plat_core_pos_by_mpidr
+	lsr	x1, x0, #MPIDR_AFF0_SHIFT
+	and	x1, x1, #MPIDR_AFFLVL_MASK /* core id */
+	lsr	x2, x0, #MPIDR_AFF1_SHIFT
+	and	x2, x2, #MPIDR_AFFLVL_MASK /* cluster id */
+
+	/* core_id >= PLATFORM_MAX_CPUS_PER_CLUSTER */
+	mov	x0, #-1
+	cmp	x1, #(PLATFORM_MAX_CPUS_PER_CLUSTER - 1)
+	b.gt	1f
+
+	/* cluster_id >= PLATFORM_CLUSTER_COUNT */
+	cmp	x2, #(PLATFORM_CLUSTER_COUNT - 1)
+	b.gt	1f
+
+	/* CorePos = CoreId + (ClusterId * cpus per cluster) */
+	mov	x3, #PLATFORM_MAX_CPUS_PER_CLUSTER
+	mul	x3, x3, x2
+	add	x0, x1, x3
+
+1:
+	ret
+endfunc plat_core_pos_by_mpidr
+
 	/* ----------------------------------------
 	 * Secure entrypoint function for CPU boot
 	 * ----------------------------------------
@@ -325,6 +299,23 @@ endfunc plat_reset_handler
 func tegra_secure_entrypoint _align=6
 
 #if ERRATA_TEGRA_INVALIDATE_BTB_AT_BOOT
+
+	/* --------------------------------------------------------
+	 * Skip the invalidate BTB workaround for Tegra210B01 SKUs.
+	 * --------------------------------------------------------
+	 */
+	mov	x0, #TEGRA_MISC_BASE
+	add	x0, x0, #HARDWARE_REVISION_OFFSET
+	ldr	w1, [x0]
+	lsr	w1, w1, #CHIP_ID_SHIFT
+	and	w1, w1, #CHIP_ID_MASK
+	cmp	w1, #TEGRA_CHIPID_TEGRA21	/* T210? */
+	b.ne	2f
+	ldr	w1, [x0]
+	lsr	w1, w1, #MAJOR_VERSION_SHIFT
+	and	w1, w1, #MAJOR_VERSION_MASK
+	cmp	w1, #0x02			/* T210 B01? */
+	b.eq	2f
 
 	/* -------------------------------------------------------
 	 * Invalidate BTB along with I$ to remove any stale
@@ -382,7 +373,7 @@ func tegra_secure_entrypoint _align=6
 	.rept	65
 	nop
 	.endr
-
+2:
 	/* --------------------------------------------------
 	 * Do not insert instructions here
 	 * --------------------------------------------------
@@ -396,31 +387,6 @@ func tegra_secure_entrypoint _align=6
 restore_oslock:
 	mov	x0, #1
 	msr	oslar_el1, x0
-
-	cpu_init_common
-
-	/* ---------------------------------------------------------------------
-	 * The initial state of the Architectural feature trap register
-	 * (CPTR_EL3) is unknown and it must be set to a known state. All
-	 * feature traps are disabled. Some bits in this register are marked as
-	 * Reserved and should not be modified.
-	 *
-	 * CPTR_EL3.TCPAC: This causes a direct access to the CPACR_EL1 from EL1
-	 *  or the CPTR_EL2 from EL2 to trap to EL3 unless it is trapped at EL2.
-	 * CPTR_EL3.TTA: This causes access to the Trace functionality to trap
-	 *  to EL3 when executed from EL0, EL1, EL2, or EL3. If system register
-	 *  access to trace functionality is not supported, this bit is RES0.
-	 * CPTR_EL3.TFP: This causes instructions that access the registers
-	 *  associated with Floating Point and Advanced SIMD execution to trap
-	 *  to EL3 when executed from any exception level, unless trapped to EL1
-	 *  or EL2.
-	 * ---------------------------------------------------------------------
-	 */
-	mrs	x1, cptr_el3
-	bic	w1, w1, #TCPAC_BIT
-	bic	w1, w1, #TTA_BIT
-	bic	w1, w1, #TFP_BIT
-	msr	cptr_el3, x1
 
 	/* --------------------------------------------------
 	 * Get secure world's entry point and jump to it
@@ -459,11 +425,4 @@ tegra_bl31_phys_base:
 	 * --------------------------------------------------
 	 */
 tegra_console_base:
-	.quad	0
-
-	/* --------------------------------------------------
-	 * Enable L2 ECC and Parity Protection
-	 * --------------------------------------------------
-	 */
-tegra_enable_l2_ecc_parity_prot:
 	.quad	0

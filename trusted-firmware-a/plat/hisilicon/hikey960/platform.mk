@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2017-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -17,17 +17,18 @@ else
   $(error "Currently unsupported HIKEY960_TSP_RAM_LOCATION value")
 endif
 
-MULTI_CONSOLE_API		:=	1
 CRASH_CONSOLE_BASE		:=	PL011_UART6_BASE
 COLD_BOOT_SINGLE_CPU		:=	1
-PLAT_PL061_MAX_GPIOS		:=	176
+PLAT_PL061_MAX_GPIOS		:=	232
 PROGRAMMABLE_RESET_ADDRESS	:=	1
 ENABLE_SVE_FOR_NS		:=	0
+PLAT_PARTITION_BLOCK_SIZE	:=	4096
 
 # Process flags
 $(eval $(call add_define,HIKEY960_TSP_RAM_LOCATION_ID))
 $(eval $(call add_define,CRASH_CONSOLE_BASE))
 $(eval $(call add_define,PLAT_PL061_MAX_GPIOS))
+$(eval $(call add_define,PLAT_PARTITION_BLOCK_SIZE))
 
 # Add the build options to pack Trusted OS Extra1 and Trusted OS Extra2 images
 # in the FIP if the platform requires.
@@ -40,8 +41,7 @@ endif
 
 USE_COHERENT_MEM	:=	1
 
-PLAT_INCLUDES		:=	-Iinclude/common/tbbr			\
-				-Iplat/hisilicon/hikey960/include
+PLAT_INCLUDES		:=	-Iplat/hisilicon/hikey960/include
 
 PLAT_BL_COMMON_SOURCES	:=	drivers/arm/pl011/aarch64/pl011_console.S \
 				drivers/delay_timer/delay_timer.c	\
@@ -77,6 +77,8 @@ BL2_SOURCES		+=	common/desc_image_load.c		\
 				drivers/io/io_block.c			\
 				drivers/io/io_fip.c			\
 				drivers/io/io_storage.c			\
+				drivers/partition/gpt.c			\
+				drivers/partition/partition.c		\
 				drivers/synopsys/ufs/dw_ufs.c		\
 				drivers/ufs/ufs.c			\
 				lib/cpus/aarch64/cortex_a53.S		\
@@ -93,12 +95,15 @@ BL2_SOURCES		+=	lib/optee/optee_utils.c
 endif
 
 BL31_SOURCES		+=	drivers/arm/cci/cci.c			\
+				drivers/arm/pl061/pl061_gpio.c		\
+				drivers/gpio/gpio.c			\
 				lib/cpus/aarch64/cortex_a53.S           \
 				lib/cpus/aarch64/cortex_a72.S		\
 				lib/cpus/aarch64/cortex_a73.S		\
 				plat/common/plat_psci_common.c  \
 				plat/hisilicon/hikey960/aarch64/hikey960_helpers.S \
 				plat/hisilicon/hikey960/hikey960_bl31_setup.c \
+				plat/hisilicon/hikey960/hikey960_bl_common.c \
 				plat/hisilicon/hikey960/hikey960_pm.c	\
 				plat/hisilicon/hikey960/hikey960_topology.c \
 				plat/hisilicon/hikey960/drivers/pwrc/hisi_pwrc.c \
@@ -113,17 +118,19 @@ include drivers/auth/mbedtls/mbedtls_x509.mk
 AUTH_SOURCES		:=	drivers/auth/auth_mod.c			\
 				drivers/auth/crypto_mod.c		\
 				drivers/auth/img_parser_mod.c		\
-				drivers/auth/tbbr/tbbr_cot.c
+				drivers/auth/tbbr/tbbr_cot_common.c
 
 BL1_SOURCES		+=	${AUTH_SOURCES}				\
 				plat/common/tbbr/plat_tbbr.c		\
 				plat/hisilicon/hikey960/hikey960_tbbr.c	\
-				plat/hisilicon/hikey960/hikey960_rotpk.S
+				plat/hisilicon/hikey960/hikey960_rotpk.S \
+				drivers/auth/tbbr/tbbr_cot_bl1.c
 
 BL2_SOURCES		+=	${AUTH_SOURCES}				\
 				plat/common/tbbr/plat_tbbr.c		\
 				plat/hisilicon/hikey960/hikey960_tbbr.c	\
-				plat/hisilicon/hikey960/hikey960_rotpk.S
+				plat/hisilicon/hikey960/hikey960_rotpk.S \
+				drivers/auth/tbbr/tbbr_cot_bl2.c
 
 ROT_KEY		=	$(BUILD_PLAT)/rot_key.pem
 ROTPK_HASH		=	$(BUILD_PLAT)/rotpk_sha256.bin

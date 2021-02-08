@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,10 +8,9 @@
 #define BOARD_CSS_DEF_H
 
 #include <lib/utils_def.h>
+#include <plat/arm/board/common/v2m_def.h>
+#include <plat/arm/soc/common/soc_css_def.h>
 #include <plat/common/common_def.h>
-
-#include <soc_css_def.h>
-#include <v2m_def.h>
 
 /*
  * Definitions common to all ARM CSS-based development platforms
@@ -30,7 +29,7 @@
 #define BOARD_CSS_PLAT_TYPE_EMULATOR		0x02
 #define BOARD_CSS_PLAT_TYPE_FVP			0x03
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <lib/mmio.h>
 
@@ -38,7 +37,7 @@
 	((mmio_read_32(addr) & BOARD_CSS_PLAT_ID_REG_ID_MASK)		\
 	>> BOARD_CSS_PLAT_ID_REG_ID_SHIFT)
 
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 
 
 #define MAX_IO_DEVICES			3
@@ -51,25 +50,18 @@
 #define PLAT_ARM_NVM_BASE		V2M_FLASH0_BASE
 #define PLAT_ARM_NVM_SIZE		(V2M_FLASH0_SIZE - V2M_FLASH_BLOCK_SIZE)
 
-/*
- * Required platform porting definitions common to all ARM CSS-based
- * development platforms
- */
-
-#define PLAT_ARM_DRAM2_SIZE			ULL(0x180000000)
-
 /* UART related constants */
 #define PLAT_ARM_BOOT_UART_BASE			SOC_CSS_UART0_BASE
 #define PLAT_ARM_BOOT_UART_CLK_IN_HZ		SOC_CSS_UART0_CLK_IN_HZ
 
-#define PLAT_ARM_BL31_RUN_UART_BASE		SOC_CSS_UART1_BASE
-#define PLAT_ARM_BL31_RUN_UART_CLK_IN_HZ	SOC_CSS_UART1_CLK_IN_HZ
+#define PLAT_ARM_RUN_UART_BASE		SOC_CSS_UART1_BASE
+#define PLAT_ARM_RUN_UART_CLK_IN_HZ	SOC_CSS_UART1_CLK_IN_HZ
 
 #define PLAT_ARM_SP_MIN_RUN_UART_BASE		SOC_CSS_UART1_BASE
 #define PLAT_ARM_SP_MIN_RUN_UART_CLK_IN_HZ	SOC_CSS_UART1_CLK_IN_HZ
 
-#define PLAT_ARM_CRASH_UART_BASE		PLAT_ARM_BL31_RUN_UART_BASE
-#define PLAT_ARM_CRASH_UART_CLK_IN_HZ		PLAT_ARM_BL31_RUN_UART_CLK_IN_HZ
+#define PLAT_ARM_CRASH_UART_BASE		PLAT_ARM_RUN_UART_BASE
+#define PLAT_ARM_CRASH_UART_CLK_IN_HZ		PLAT_ARM_RUN_UART_CLK_IN_HZ
 
 #define PLAT_ARM_TSP_UART_BASE			V2M_IOFPGA_UART0_BASE
 #define PLAT_ARM_TSP_UART_CLK_IN_HZ		V2M_IOFPGA_UART0_CLK_IN_HZ

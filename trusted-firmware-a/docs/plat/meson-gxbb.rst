@@ -1,5 +1,5 @@
-Trusted Firmware-A for Amlogic Meson S905 (GXBB)
-================================================
+Amlogic Meson S905 (GXBB)
+=========================
 
 The Amlogic Meson S905 is a SoC with a quad core Arm Cortex-A53 running at
 1.5Ghz. It also contains a Cortex-M3 used as SCP.
@@ -15,7 +15,7 @@ and Linux:
 
 In order to build it:
 
-::
+.. code:: shell
 
     CROSS_COMPILE=aarch64-linux-gnu- make DEBUG=1 PLAT=gxbb bl31
 
@@ -23,4 +23,4 @@ This port has been tested in a ODROID-C2. After building it, follow the
 instructions in the `U-Boot repository`_, replacing the mentioned **bl31.bin**
 by the one built from this port.
 
-.. _U-Boot repository: https://github.com/u-boot/u-boot/blob/master/board/amlogic/odroid-c2/README
+.. _U-Boot repository: https://gitlab.denx.de/u-boot/u-boot/-/blob/master/board/amlogic/p200/README.odroid-c2

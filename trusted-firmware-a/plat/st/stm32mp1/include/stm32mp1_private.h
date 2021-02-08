@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,16 +9,19 @@
 
 #include <stdint.h>
 
-void stm32mp1_io_setup(void);
 void configure_mmu(void);
 
 void stm32mp1_arch_security_setup(void);
 void stm32mp1_security_setup(void);
 
-void stm32mp1_save_boot_ctx_address(uintptr_t address);
-uintptr_t stm32mp1_get_boot_ctx_address(void);
-
 void stm32mp1_gic_pcpu_init(void);
 void stm32mp1_gic_init(void);
 
+void stm32mp1_syscfg_init(void);
+void stm32mp1_syscfg_enable_io_compensation(void);
+void stm32mp1_syscfg_disable_io_compensation(void);
+
+uint32_t stm32mp_get_ddr_ns_size(void);
+
+void stm32mp1_init_scmi_server(void);
 #endif /* STM32MP1_PRIVATE_H */

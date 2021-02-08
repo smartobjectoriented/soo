@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -15,8 +15,8 @@
 #include <drivers/partition/mbr.h>
 #include <plat/common/platform.h>
 
-static uint8_t mbr_sector[PARTITION_BLOCK_SIZE];
-partition_entry_list_t list;
+static uint8_t mbr_sector[PLAT_PARTITION_BLOCK_SIZE];
+static partition_entry_list_t list;
 
 #if LOG_LEVEL >= LOG_LEVEL_VERBOSE
 static void dump_entries(int num)
@@ -57,15 +57,15 @@ static int load_mbr_header(uintptr_t image_handle, mbr_entry_t *mbr_entry)
 		return result;
 	}
 	result = io_read(image_handle, (uintptr_t)&mbr_sector,
-			 PARTITION_BLOCK_SIZE, &bytes_read);
+			 PLAT_PARTITION_BLOCK_SIZE, &bytes_read);
 	if (result != 0) {
 		WARN("Failed to read data (%i)\n", result);
 		return result;
 	}
 
 	/* Check MBR boot signature. */
-	if ((mbr_sector[PARTITION_BLOCK_SIZE - 2] != MBR_SIGNATURE_FIRST) ||
-	    (mbr_sector[PARTITION_BLOCK_SIZE - 1] != MBR_SIGNATURE_SECOND)) {
+	if ((mbr_sector[LEGACY_PARTITION_BLOCK_SIZE - 2] != MBR_SIGNATURE_FIRST) ||
+	    (mbr_sector[LEGACY_PARTITION_BLOCK_SIZE - 1] != MBR_SIGNATURE_SECOND)) {
 		return -ENOENT;
 	}
 	offset = (uintptr_t)&mbr_sector + MBR_PRIMARY_ENTRY_OFFSET;
@@ -75,7 +75,7 @@ static int load_mbr_header(uintptr_t image_handle, mbr_entry_t *mbr_entry)
 
 /*
  * Load GPT header and check the GPT signature.
- * If partiton numbers could be found, check & update it.
+ * If partition numbers could be found, check & update it.
  */
 static int load_gpt_header(uintptr_t image_handle)
 {
@@ -102,6 +102,57 @@ static int load_gpt_header(uintptr_t image_handle)
 	if (list.entry_count > PLAT_PARTITION_MAX_ENTRIES) {
 		list.entry_count = PLAT_PARTITION_MAX_ENTRIES;
 	}
+	return 0;
+}
+
+static int load_mbr_entry(uintptr_t image_handle, mbr_entry_t *mbr_entry,
+			int part_number)
+{
+	size_t bytes_read;
+	uintptr_t offset;
+	int result;
+
+	assert(mbr_entry != NULL);
+	/* MBR partition table is in LBA0. */
+	result = io_seek(image_handle, IO_SEEK_SET, MBR_OFFSET);
+	if (result != 0) {
+		WARN("Failed to seek (%i)\n", result);
+		return result;
+	}
+	result = io_read(image_handle, (uintptr_t)&mbr_sector,
+			 PLAT_PARTITION_BLOCK_SIZE, &bytes_read);
+	if (result != 0) {
+		WARN("Failed to read data (%i)\n", result);
+		return result;
+	}
+
+	/* Check MBR boot signature. */
+	if ((mbr_sector[LEGACY_PARTITION_BLOCK_SIZE - 2] != MBR_SIGNATURE_FIRST) ||
+	    (mbr_sector[LEGACY_PARTITION_BLOCK_SIZE - 1] != MBR_SIGNATURE_SECOND)) {
+		return -ENOENT;
+	}
+	offset = (uintptr_t)&mbr_sector +
+		MBR_PRIMARY_ENTRY_OFFSET +
+		MBR_PRIMARY_ENTRY_SIZE * part_number;
+	memcpy(mbr_entry, (void *)offset, sizeof(mbr_entry_t));
+
+	return 0;
+}
+
+static int load_mbr_entries(uintptr_t image_handle)
+{
+	mbr_entry_t mbr_entry;
+	int i;
+
+	list.entry_count = MBR_PRIMARY_ENTRY_NUMBER;
+
+	for (i = 0; i < list.entry_count; i++) {
+		load_mbr_entry(image_handle, &mbr_entry, i);
+		list.list[i].start = mbr_entry.first_lba * 512;
+		list.list[i].length = mbr_entry.sector_nums * 512;
+		list.list[i].name[0] = mbr_entry.type;
+	}
+
 	return 0;
 }
 
@@ -175,11 +226,9 @@ int load_partition_table(unsigned int image_id)
 		assert(result == 0);
 		result = verify_partition_gpt(image_handle);
 	} else {
-		/* MBR type isn't supported yet. */
-		result = -EINVAL;
-		goto exit;
+		result = load_mbr_entries(image_handle);
 	}
-exit:
+
 	io_close(image_handle);
 	return result;
 }

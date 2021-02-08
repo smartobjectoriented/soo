@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include <arch.h>
+#include <arch_features.h>
 #include <arch_helpers.h>
 #include <common/bl_common.h>
 #include <common/debug.h>
@@ -49,99 +50,13 @@ static int dyn_is_auth_disabled(void)
 uintptr_t page_align(uintptr_t value, unsigned dir)
 {
 	/* Round up the limit to the next page boundary */
-	if ((value & (PAGE_SIZE - 1U)) != 0U) {
-		value &= ~(PAGE_SIZE - 1U);
+	if ((value & PAGE_SIZE_MASK) != 0U) {
+		value &= ~PAGE_SIZE_MASK;
 		if (dir == UP)
 			value += PAGE_SIZE;
 	}
 
 	return value;
-}
-
-/******************************************************************************
- * Determine whether the memory region delimited by 'addr' and 'size' is free,
- * given the extents of free memory.
- * Return 1 if it is free, 0 if it is not free or if the input values are
- * invalid.
- *****************************************************************************/
-int is_mem_free(uintptr_t free_base, size_t free_size,
-		uintptr_t addr, size_t size)
-{
-	uintptr_t free_end, requested_end;
-
-	/*
-	 * Handle corner cases first.
-	 *
-	 * The order of the 2 tests is important, because if there's no space
-	 * left (i.e. free_size == 0) but we don't ask for any memory
-	 * (i.e. size == 0) then we should report that the memory is free.
-	 */
-	if (size == 0)
-		return 1;	/* A zero-byte region is always free */
-	if (free_size == 0)
-		return 0;
-
-	/*
-	 * Check that the end addresses don't overflow.
-	 * If they do, consider that this memory region is not free, as this
-	 * is an invalid scenario.
-	 */
-	if (check_uptr_overflow(free_base, free_size - 1))
-		return 0;
-	free_end = free_base + (free_size - 1);
-
-	if (check_uptr_overflow(addr, size - 1))
-		return 0;
-	requested_end = addr + (size - 1);
-
-	/*
-	 * Finally, check that the requested memory region lies within the free
-	 * region.
-	 */
-	return (addr >= free_base) && (requested_end <= free_end);
-}
-
-/* Generic function to return the size of an image */
-size_t get_image_size(unsigned int image_id)
-{
-	uintptr_t dev_handle;
-	uintptr_t image_handle;
-	uintptr_t image_spec;
-	size_t image_size = 0U;
-	int io_result;
-
-	/* Obtain a reference to the image by querying the platform layer */
-	io_result = plat_get_image_source(image_id, &dev_handle, &image_spec);
-	if (io_result != 0) {
-		WARN("Failed to obtain reference to image id=%u (%i)\n",
-			image_id, io_result);
-		return 0;
-	}
-
-	/* Attempt to access the image */
-	io_result = io_open(dev_handle, image_spec, &image_handle);
-	if (io_result != 0) {
-		WARN("Failed to access image id=%u (%i)\n",
-			image_id, io_result);
-		return 0;
-	}
-
-	/* Find the size of the image */
-	io_result = io_size(image_handle, &image_size);
-	if ((io_result != 0) || (image_size == 0U)) {
-		WARN("Failed to determine the size of the image id=%u (%i)\n",
-			image_id, io_result);
-	}
-	io_result = io_close(image_handle);
-	/* Ignore improbable/unrecoverable error in 'close' */
-
-	/* TODO: Consider maintaining open device connection from this
-	 * bootloader stage
-	 */
-	io_result = io_dev_close(dev_handle);
-	/* Ignore improbable/unrecoverable error in 'dev_close' */
-
-	return image_size;
 }
 
 /*******************************************************************************
@@ -228,26 +143,45 @@ exit:
 	return io_result;
 }
 
-static int load_auth_image_internal(unsigned int image_id,
+/*
+ * Load an image and flush it out to main memory so that it can be executed
+ * later by any CPU, regardless of cache and MMU state.
+ */
+static int load_image_flush(unsigned int image_id,
+			    image_info_t *image_data)
+{
+	int rc;
+
+	rc = load_image(image_id, image_data);
+	if (rc == 0) {
+		flush_dcache_range(image_data->image_base,
+				   image_data->image_size);
+	}
+
+	return rc;
+}
+
+
+#if TRUSTED_BOARD_BOOT
+/*
+ * This function uses recursion to authenticate the parent images up to the root
+ * of trust.
+ */
+static int load_auth_image_recursive(unsigned int image_id,
 				    image_info_t *image_data,
 				    int is_parent_image)
 {
 	int rc;
+	unsigned int parent_id;
 
-#if TRUSTED_BOARD_BOOT
-	if (dyn_is_auth_disabled() == 0) {
-		unsigned int parent_id;
-
-		/* Use recursion to authenticate parent images */
-		rc = auth_mod_get_parent_id(image_id, &parent_id);
-		if (rc == 0) {
-			rc = load_auth_image_internal(parent_id, image_data, 1);
-			if (rc != 0) {
-				return rc;
-			}
+	/* Use recursion to authenticate parent images */
+	rc = auth_mod_get_parent_id(image_id, &parent_id);
+	if (rc == 0) {
+		rc = load_auth_image_recursive(parent_id, image_data, 1);
+		if (rc != 0) {
+			return rc;
 		}
 	}
-#endif /* TRUSTED_BOARD_BOOT */
 
 	/* Load the image */
 	rc = load_image(image_id, image_data);
@@ -255,36 +189,43 @@ static int load_auth_image_internal(unsigned int image_id,
 		return rc;
 	}
 
-#if TRUSTED_BOARD_BOOT
-	if (dyn_is_auth_disabled() == 0) {
-		/* Authenticate it */
-		rc = auth_mod_verify_img(image_id,
-					 (void *)image_data->image_base,
-					 image_data->image_size);
-		if (rc != 0) {
-			/* Authentication error, zero memory and flush it right away. */
-			zero_normalmem((void *)image_data->image_base,
+	/* Authenticate it */
+	rc = auth_mod_verify_img(image_id,
+				 (void *)image_data->image_base,
+				 image_data->image_size);
+	if (rc != 0) {
+		/* Authentication error, zero memory and flush it right away. */
+		zero_normalmem((void *)image_data->image_base,
 			       image_data->image_size);
-			flush_dcache_range(image_data->image_base,
-					   image_data->image_size);
-			return -EAUTH;
-		}
+		flush_dcache_range(image_data->image_base,
+				   image_data->image_size);
+		return -EAUTH;
 	}
-#endif /* TRUSTED_BOARD_BOOT */
 
 	/*
 	 * Flush the image to main memory so that it can be executed later by
-	 * any CPU, regardless of cache and MMU state. If TBB is enabled, then
-	 * the file has been successfully loaded and authenticated and flush
-	 * only for child images, not for the parents (certificates).
+	 * any CPU, regardless of cache and MMU state. This is only needed for
+	 * child images, not for the parents (certificates).
 	 */
 	if (is_parent_image == 0) {
 		flush_dcache_range(image_data->image_base,
 				   image_data->image_size);
 	}
 
-
 	return 0;
+}
+#endif /* TRUSTED_BOARD_BOOT */
+
+static int load_auth_image_internal(unsigned int image_id,
+				    image_info_t *image_data)
+{
+#if TRUSTED_BOARD_BOOT
+	if (dyn_is_auth_disabled() == 0) {
+		return load_auth_image_recursive(image_id, image_data, 0);
+	}
+#endif
+
+	return load_image_flush(image_id, image_data);
 }
 
 /*******************************************************************************
@@ -292,14 +233,14 @@ static int load_auth_image_internal(unsigned int image_id,
  * loaded by calling the 'load_image()' function. Therefore, it returns the
  * same error codes if the loading operation failed, or -EAUTH if the
  * authentication failed. In addition, this function uses recursion to
- * authenticate the parent images up to the root of trust.
+ * authenticate the parent images up to the root of trust (if TBB is enabled).
  ******************************************************************************/
 int load_auth_image(unsigned int image_id, image_info_t *image_data)
 {
 	int err;
 
 	do {
-		err = load_auth_image_internal(image_id, image_data, 0);
+		err = load_auth_image_internal(image_id, image_data);
 	} while ((err != 0) && (plat_try_next_boot_source() != 0));
 
 	return err;
@@ -321,7 +262,7 @@ void print_entry_point_info(const entry_point_info_t *ep_info)
 	PRINT_IMAGE_ARG(1);
 	PRINT_IMAGE_ARG(2);
 	PRINT_IMAGE_ARG(3);
-#ifndef AARCH32
+#ifdef __aarch64__
 	PRINT_IMAGE_ARG(4);
 	PRINT_IMAGE_ARG(5);
 	PRINT_IMAGE_ARG(6);

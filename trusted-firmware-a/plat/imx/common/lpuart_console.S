@@ -1,12 +1,11 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <arch.h>
 #include <asm_macros.S>
-#define USE_FINISH_CONSOLE_REG_2
 #include <console_macros.S>
 #include <assert_macros.S>
 #include "imx8_lpuart.h"
@@ -15,19 +14,20 @@
 	.globl	console_lpuart_init
 	.globl	console_lpuart_putc
 	.globl	console_lpuart_getc
+	.globl	console_lpuart_flush
 
 func console_lpuart_register
 	mov	x7, x30
 	mov	x6, x3
 	cbz	x6, register_fail
-	str	x0, [x6, #CONSOLE_T_DRVDATA]
+	str	x0, [x6, #CONSOLE_T_BASE]
 
 	bl	console_lpuart_init
 	cbz	x0, register_fail
 
 	mov	x0, x6
 	mov	x30, x7
-	finish_console_register lpuart putc=1, getc=1
+	finish_console_register lpuart putc=1, getc=1, flush=1
 
 register_fail:
 	ret	x7
@@ -39,7 +39,7 @@ func console_lpuart_init
 endfunc console_lpuart_init
 
 func console_lpuart_putc
-	ldr	x1, [x1, #CONSOLE_T_DRVDATA]
+	ldr	x1, [x1, #CONSOLE_T_BASE]
 	cbz	x1, putc_error
 	/* Prepare '\r' to '\n' */
 	cmp	w0, #0xA
@@ -62,7 +62,7 @@ putc_error:
 endfunc console_lpuart_putc
 
 func console_lpuart_getc
-	ldr	x0, [x0, #CONSOLE_T_DRVDATA]
+	ldr	x0, [x0, #CONSOLE_T_BASE]
 	cbz	x0, getc_error
 	/* Check if the receive FIFO state */
 	ret
@@ -70,3 +70,7 @@ getc_error:
 	mov	w0, #-1
 	ret
 endfunc console_lpuart_getc
+
+func console_lpuart_flush
+	ret
+endfunc console_lpuart_flush

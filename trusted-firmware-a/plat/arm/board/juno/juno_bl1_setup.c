@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,12 +9,12 @@
 #include <common/bl_common.h>
 #include <common/debug.h>
 #include <common/tbbr/tbbr_img_def.h>
+#include <drivers/arm/css/sds.h>
 #include <drivers/arm/sp805.h>
+#include <plat/arm/common/plat_arm.h>
+#include <plat/arm/common/arm_def.h>
 #include <plat/common/platform.h>
-
-#include <plat_arm.h>
-#include <sds.h>
-#include <v2m_def.h>
+#include <platform_def.h>
 
 void juno_reset_to_aarch32_state(void);
 
@@ -60,17 +60,13 @@ static int is_watchdog_reset(void)
  * The following function checks if Firmware update is needed,
  * by checking if TOC in FIP image is valid or watchdog reset happened.
  ******************************************************************************/
-int plat_arm_bl1_fwu_needed(void)
+bool plat_arm_bl1_fwu_needed(void)
 {
-	const uint32_t *nv_flags_ptr = (const uint32_t *)V2M_SYS_NVFLAGS_ADDR;
+	const int32_t *nv_flags_ptr = (const int32_t *)V2M_SYS_NVFLAGS_ADDR;
 
 	/* Check if TOC is invalid or watchdog reset happened. */
-	if ((arm_io_is_toc_valid() != 1) ||
-		(((*nv_flags_ptr == -EAUTH) || (*nv_flags_ptr == -ENOENT))
-		&& is_watchdog_reset()))
-		return 1;
-
-	return 0;
+	return (!arm_io_is_toc_valid() || (((*nv_flags_ptr == -EAUTH) ||
+		(*nv_flags_ptr == -ENOENT)) && is_watchdog_reset()));
 }
 
 /*******************************************************************************
@@ -98,7 +94,10 @@ __dead2 void bl1_plat_fwu_done(void *client_cookie, void *reserved)
 	/* Clear the NV flags register. */
 	*nv_flags_clr = *nv_flags_ptr;
 
-	while (1)
+	/* Setup the watchdog to reset the system as soon as possible */
+	sp805_refresh(ARM_SP805_TWDG_BASE, 1U);
+
+	while (true)
 		wfi();
 }
 
@@ -113,3 +112,13 @@ void bl1_plat_prepare_exit(entry_point_info_t *ep_info)
 	juno_reset_to_aarch32_state();
 }
 #endif /* JUNO_AARCH32_EL3_RUNTIME */
+
+void plat_arm_secure_wdt_start(void)
+{
+	sp805_start(ARM_SP805_TWDG_BASE, ARM_TWDG_LOAD_VAL);
+}
+
+void plat_arm_secure_wdt_stop(void)
+{
+	sp805_stop(ARM_SP805_TWDG_BASE);
+}

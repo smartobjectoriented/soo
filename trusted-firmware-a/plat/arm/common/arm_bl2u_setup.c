@@ -12,10 +12,8 @@
 #include <arch_helpers.h>
 #include <common/bl_common.h>
 #include <drivers/generic_delay_timer.h>
+#include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
-
-#include <arm_def.h>
-#include <plat_arm.h>
 
 /* Weak definitions may be overridden in specific ARM standard platform */
 #pragma weak bl2u_platform_setup
@@ -85,10 +83,10 @@ void arm_bl2u_plat_arch_setup(void)
 
 	setup_page_tables(bl_regions, plat_arm_get_mmap());
 
-#ifdef AARCH32
-	enable_mmu_svc_mon(0);
-#else
+#ifdef __aarch64__
 	enable_mmu_el1(0);
+#else
+	enable_mmu_svc_mon(0);
 #endif
 	arm_setup_romlib();
 }

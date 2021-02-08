@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -34,7 +34,7 @@ void bl2u_main(void)
 	int rc;
 	/* Load the subsequent bootloader images */
 	rc = bl2u_plat_handle_scp_bl2u();
-	if (rc) {
+	if (rc != 0) {
 		ERROR("Failed to load SCP_BL2U (%i)\n", rc);
 		panic();
 	}
@@ -45,14 +45,14 @@ void bl2u_main(void)
 
 	console_flush();
 
-#ifdef AARCH32
+#ifndef __aarch64__
 	/*
 	 * For AArch32 state BL1 and BL2U share the MMU setup.
 	 * Given that BL2U does not map BL1 regions, MMU needs
 	 * to be disabled in order to go back to BL1.
 	 */
 	disable_mmu_icache_secure();
-#endif /* AARCH32 */
+#endif /* !__aarch64__ */
 
 	/*
 	 * Indicate that BL2U is done and resume back to
