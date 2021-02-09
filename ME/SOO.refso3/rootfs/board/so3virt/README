@@ -1,3 +1,0 @@
-This is the location for the (ramfs) rootfs. 
-The image can be simply created using ./create_ramfs.sh script in rootfs/
-
