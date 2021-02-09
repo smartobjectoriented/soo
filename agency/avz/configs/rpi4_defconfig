@@ -1,0 +1,30 @@
+#
+# Automatically generated make config: don't edit
+# SO3 Configuration
+#
+
+#
+# General
+#
+CONFIG_CROSS_COMPILE="arm-linux-gnueabihf-"
+
+#
+# Platform
+#
+# CONFIG_VEXPRESS is not set
+# CONFIG_MERIDAv2 is not set
+# CONFIG_BPI is not set
+CONFIG_RPI4=y
+# CONFIG_BCM2835 is not set
+CONFIG_RAM_BASE=0x00000000
+CONFIG_RAM_SIZE=0x3ff00000
+
+#
+# Kernel & CPU features
+#
+# CONFIG_PSCI is not set
+CONFIG_HZ=100
+CONFIG_SCHED_FLIP_SCHEDFREQ=30
+CONFIG_HYPERVISOR_VIRT_ADDR=0xff000000
+# CONFIG_DW_APB_UART is not set
+CONFIG_BCM283x_MU_UART=y

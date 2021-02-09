@@ -1,0 +1,5 @@
+
+config HYPERVISOR_VIRT_ADDR
+	hex "Virtual base address of the hypervisor"
+	default 0xff000000
+
