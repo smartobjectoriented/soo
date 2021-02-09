@@ -1,0 +1,10 @@
+#
+# SOO Mobile Entity configuration
+#
+
+menu "SOO Mobile Entity - Smart Object Oriented subsystem"
+
+source "soo/me/Kconfig"
+source "soo/drivers/Kconfig"
+
+endmenu

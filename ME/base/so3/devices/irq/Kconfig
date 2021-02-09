@@ -1,0 +1,9 @@
+
+config GIC
+	bool "Generic IRQ Controller"
+
+config VIRQ 
+	bool "Virtual IRQ Controller"
+	
+	
+
