@@ -2,8 +2,7 @@
 # SOO device configuration
 #
 
-
-menu "vnet frontend
+menu "vnet frontend"
 
 config VNET_FRONT_DHCP
     bool "Use DHCP"
