@@ -1,0 +1,1 @@
+obj-y += asf.o asf_test.o

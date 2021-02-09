@@ -1,0 +1,11 @@
+menu "SOO Framework and subsystems"
+
+config SOO_CORE_ASF
+	bool "Enabling the security framework capabilities"
+	depends on ARM_PSCI
+
+source "soo/dcm/Kconfig"
+source "soo/soolink/Kconfig"
+source "soo/drivers/Kconfig"
+
+endmenu # SOO
