@@ -50,6 +50,14 @@ config VFB_BACKEND
 	  This driver enabled to deal with a virtualized interface for a framebuffer
 	  in the Mobile Entity.
 
+config VNET_BACKEND
+    bool "vnet network access"
+    default n
+    help
+      This driver implements the backend of the network driver of the SOO environment.
+
+source "soo/drivers/vnetback/Kconfig"
+
 endmenu
 	
 

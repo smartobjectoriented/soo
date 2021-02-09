@@ -93,8 +93,6 @@ void *concat_img(unsigned char *img_ptr, char *img_name) {
  * <version> ...] type can be: -k: itb -u: uboot -r: rootfs
  */
 int main(int argc, char **argv) {
-	printf("-- %s %s -- Generation of the update image...\n", argv[0], VERSION);
-
 	char *components_filename[UPGRADABLE_COMPONENTS];
 	bool components_to_upgrade[UPGRADABLE_COMPONENTS] = {false};
 	uint32_t components_version[UPGRADABLE_COMPONENTS] = {0};
@@ -116,6 +114,8 @@ int main(int argc, char **argv) {
 	int c, ret, i;
 	bool ok = false;
 	component_type_t type;
+
+	printf("-- %s %s -- Generation of the update image...\n", argv[0], VERSION);
 
 	if (argc < 4 || argc % 3 != 1) {
 		printf("Usage: %s TYPE PATH VERSION [TYPE PATH VERSION ...]\n", argv[0]);

@@ -1,0 +1,5 @@
+
+The script deploy.sh in this directory should *not* be called directly from here.
+It is called from the main deploy.sh script in agency/ directory.
+
+

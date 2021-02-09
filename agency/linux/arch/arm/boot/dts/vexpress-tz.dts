@@ -386,7 +386,10 @@
 				compatible = "vuihandler,backend";
 				status = "disabled";
 			};
-		
+			vnet {
+				compatible = "vnet,backend";
+				status = "ok";
+			};
 		};
 	};
 

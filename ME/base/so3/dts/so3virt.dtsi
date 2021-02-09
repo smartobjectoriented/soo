@@ -69,7 +69,7 @@
 		
 			vdummy {
 				compatible = "vdummy,frontend";
-				status = "ok";
+				status = "disabled";
 			};
 	
 			vuihandler {
@@ -79,12 +79,19 @@
     
 			vuart {
 				compatible = "vuart,frontend";
-				status = "ok";
+				status = "disabled";
 			};
-		};
-	
-		features {
-			realtime = <0>;
+			
+			vdoga12v6nm {
+            	compatible = "vdoga12v6nm,frontend";
+            	status = "disabled";
+            };
+            
+            vweather {
+            	compatible = "vweather,frontend";
+            	status = "disabled";
+        	};
+			
 		};
 	
 	};

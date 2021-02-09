@@ -14,7 +14,7 @@ launch_qemu() {
     echo -e "\033[01;36mMAC addr: " ${QEMU_MAC_ADDR} "\033[0;37m"
     echo -e "\033[01;36mGDB port: " ${GDB_PORT} "\033[0;37m"
 
-    sudo qemu/arm-softmmu/qemu-system-arm $@ ${USR_OPTION} \
+    sudo qemu/build/arm-softmmu/qemu-system-arm $@ ${USR_OPTION} \
   	-smp 4 \
 	-serial mon:stdio  \
 	-M vexpress-a15,secure=on -cpu cortex-a15 \

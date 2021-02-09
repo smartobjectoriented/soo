@@ -1,7 +1,0 @@
-
-menu "SO3 Applications"
-
-	config APP_DEFAULT
-		bool "Default application with thread environment"
-	
-endmenu

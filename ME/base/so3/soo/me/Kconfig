@@ -4,17 +4,36 @@ choice
 	prompt "SOO Mobile Entity environment"
 	
 	config SOO_REFSO3
-			bool "SO3 ME Reference"
+		bool "SO3 ME Reference"
+		help
+			The SO3 ME is a reference mobile entity which is used for debugging and testing purposes.
+			It helps in the test & debug of interactions between the Agency and the ME for example.
 
 	config SOO_BLIND
-		    bool "SOO.blind Mobile Entity"
+		bool "SOO.blind Mobile Entity"
+		help
+		   	SOO.blind is devoted to the handling of a "standard" blind which provides
+		   	the user with features such as putting the blinds up or down, but the ME
+		   	can also perform synergies with SOO.outdoor for example to decide how
+		   	to manipulate the blinds, according to the weather condition.
 		
 	config SOO_OUTDOOR
-			bool "SOO.outdoor Mobile Entity"
+		bool "SOO.outdoor Mobile Entity"
+		help
+			SOO.outdoor is able to manage the data coming from various sensors embedded
+			in a weather station.
 	
 	config SOO_AGENCY
-			bool "SOO.agency Mobile Entity"
+		bool "SOO.agency Mobile Entity"
+		help
+			SOO.agency enables the upgrade of agency image within a smart object. The ME
+			has an embedded of the new version of agency.
 			
+	config SOO_NET
+		bool "SOO.net Mobile Entity"
+		help
+			SOO.net is an example of ME which can interact with the network.
+			The ME is configured with a simple ramfs which contains basic applications
 		
 endchoice
 
