@@ -20,50 +20,56 @@
 
 / {
 	description = "SOO Agency components for vExpress environment";
-	#address-cells = <0>;
-	#size-cells = <0>;
 
 	images {
-                #address-cells = <0>;
-		#size-cells = <0>;
         
-                avz {
+    	avz {
 			description = "AVZ Hypervisor (32-bit)";
-                        data = /incbin/("../../avz/avz.bin");
+            data = /incbin/("../avz/avz.bin");
 			type = "kernel";
-                        os = "linux";
+            os = "linux";
 			arch = "arm";
 			compression = "none";
 			load = <0x80008000>;
 			entry = <0x80008000>;
 		};
         
-		agency {
+		linux {
 			description = "Agency Linux kernel";
-			data = /incbin/("../../linux/arch/arm/boot/Image");
-			type = "kernel";
+			data = /incbin/("../linux/arch/arm/boot/Image");
+			type = "agency";
 			arch = "arm";
 			os = "linux";
 			compression = "none";
-			load = <0x80c08000>;
-			entry = <0x80c08000>;
-            
-			#address-cells = <0>;
-			#size-cells = <0>;
+			load = <0x81008000>;
+			entry = <0x81008000>;
 
 			hash {
 				algo = "crc32";
 			};
 		};
 			
-       fdt {
+        fdt_tz {
 			description = "SOO Agency device tree blob";
-			data = /incbin/("../../linux/arch/arm/boot/dts/vexpress-notz.dtb");
+			data = /incbin/("../linux/arch/arm/boot/dts/vexpress-tz.dtb");
 			type = "flat_dt";
 			arch = "arm";
 			compression = "none";
 			
-			load = <0x9e000000>;
+			load = <0x90a00000>;
+			hash {
+				algo = "crc32";
+			};
+		};
+		
+		fdt_notz {
+			description = "SOO Agency device tree blob";
+			data = /incbin/("../linux/arch/arm/boot/dts/vexpress-notz.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			
+			load = <0x90a00000>;
 			hash {
 				algo = "crc32";
 			};
@@ -71,12 +77,12 @@
 	
 		initrd {
 			description = "Agency initial rootfs (initrd)";
-			data = /incbin/("../../rootfs/board/vexpress/initrd.cpio");
+			data = /incbin/("../rootfs/board/vexpress/initrd.cpio");
 			type = "ramdisk";
 			arch = "arm";
 			os = "linux";
 			compression = "none";
-			load = <0x9f000000>;
+			load = <0x90c00000>;
 			
 			hash {
 				algo = "crc32";
@@ -85,13 +91,23 @@
 	};
 	
 	configurations {
-		default = "conf";
-		conf {
+		default = "agency_tz";
+		
+		agency_tz {
 			description = "SOO Agency on vExpress";
-            loadables = "agency";
+            loadables = "linux";
             kernel = "avz";
-            fdt = "fdt";
+            fdt = "fdt_tz";
             ramdisk = "initrd";
 		};
+		
+		agency_notz {
+			description = "SOO Agency on vExpress";
+            loadables = "linux";
+            kernel = "avz";
+            fdt = "fdt_notz";
+            ramdisk = "initrd";
+		};
+		
 	};
 };

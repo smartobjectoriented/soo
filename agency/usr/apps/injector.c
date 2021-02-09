@@ -164,11 +164,12 @@ void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size) {
 /**
  * Restore the snapshot of a ME.
  */
-void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer) {
+void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer, size_t size) {
 	agency_tx_args_t args;
 
 	args.ME_slotID = slotID;
 	args.buffer = ME_buffer;
+	args.value = size;
 
 	if (ioctl(fd_migration, AGENCY_IOCTL_WRITE_SNAPSHOT, &args) < 0) {
 		printf("%s: (ioctl) failed to write snapshot.\n", __func__);
