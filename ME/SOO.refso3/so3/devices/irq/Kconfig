@@ -1,7 +1,0 @@
-
-
-config VIRQ 
-	bool "Virtual IRQ Controller"
-	
-	
-
