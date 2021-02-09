@@ -1,0 +1,223 @@
+/*
+ * Copyright (C) 2014-2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
+
+#include <common.h>
+#include <memory.h>
+#include <heap.h>
+#include <initcall.h>
+
+#include <asm/cacheflush.h>
+#include <asm/mmu.h>
+
+#include <soo/hypervisor.h>
+#include <soo/avz.h>
+#include <soo/evtchn.h>
+#include <soo/soo.h>
+#include <soo/console.h>
+#include <soo/gnttab.h>
+
+#include <soo/debug/logbool.h>
+
+/* Avoid large area on stack (limited to 1024 bytes */
+
+unsigned char vectors_tmp[PAGE_SIZE];
+
+/* Force the variable to be stored in .data section so that the BSS can be freely cleared.
+ * The value is set during the head.S execution before clear_bss().
+ */
+start_info_t *avz_start_info = (start_info_t *) 0xbeef;
+uint32_t avz_guest_phys_offset;
+
+volatile uint32_t *HYPERVISOR_hypercall_addr;
+volatile shared_info_t *HYPERVISOR_shared_info;
+
+void *__guestvectors = NULL;
+
+int do_presetup_adjust_variables(void *arg)
+{
+	struct DOMCALL_presetup_adjust_variables_args *args = arg;
+
+	/* We begin to configure this ME as a target-personality */
+	soo_set_personality(SOO_PERSONALITY_TARGET);
+
+	/* Normally, avz_start_info virt address is retrieved from r12 at guest bootstrap (head.S)
+	 * We need to readjust this address after migration.
+	 */
+	avz_start_info = args->start_info_virt;
+
+	avz_guest_phys_offset = avz_start_info->min_mfn << PAGE_SHIFT;
+
+	mem_info.phys_base = avz_guest_phys_offset;
+
+	HYPERVISOR_hypercall_addr = (uint32_t *) avz_start_info->hypercall_addr;
+
+	__printch = avz_start_info->printch;
+
+	/* Adjust timer information */
+	postmig_adjust_timer();
+
+	return 0;
+}
+
+void vectors_setup(void) {
+
+ 	/* Make a copy of the existing vectors. The L2 pagetable was allocated by AVZ and cannot be used as such by the guest.
+ 	 * Therefore, we will make our own mapping in the guest for this vector page.
+ 	 */
+ 	memcpy(vectors_tmp, (void *) VECTOR_VADDR, PAGE_SIZE);
+
+ 	/* Reset the L1 PTE used for the vector page. */
+ 	clear_l1pte(NULL, VECTOR_VADDR);
+
+ 	create_mapping(NULL, VECTOR_VADDR, __pa((uint32_t) __guestvectors), PAGE_SIZE, true);
+
+ 	memcpy((void *) VECTOR_VADDR, vectors_tmp, PAGE_SIZE);
+
+	/* We need to add handling of swi/svc software interrupt instruction for syscall processing.
+	 * Such an exception is fully processed by the SO3 domain.
+	 */
+	inject_syscall_vector();
+
+	flush_dcache_range(VECTOR_VADDR, VECTOR_VADDR + PAGE_SIZE);
+	invalidate_icache_all();
+}
+
+int do_postsetup_adjust_variables(void *arg)
+{
+	struct DOMCALL_postsetup_adjust_variables_args *args = arg;
+
+	/* Updating pfns where used. */
+	readjust_io_map(args->pfn_offset);
+
+	vectors_setup();
+
+	return 0;
+}
+
+/*
+ * Map the vbstore shared page with the agency.
+ */
+static void map_vbstore_page(unsigned long vbstore_pfn, bool clear)
+{
+
+	/* Reset the L1 PTE so that we are ready to allocate a page for vbstore. */
+	clear_l1pte(NULL, HYPERVISOR_VBSTORE_VADDR);
+
+	/* Re-map the new vbstore page */
+	create_mapping(NULL, HYPERVISOR_VBSTORE_VADDR, pfn_to_phys(vbstore_pfn), PAGE_SIZE, true);
+
+}
+
+int do_sync_domain_interactions(void *arg)
+{
+	struct DOMCALL_sync_domain_interactions_args *args = arg;
+	pcb_t *pcb;
+	uint32_t *l1pte, *l1pte_current;
+
+	HYPERVISOR_shared_info = args->shared_info_page;
+
+	map_vbstore_page(args->vbstore_pfn, false);
+
+	l1pte_current = l1pte_offset(__sys_l1pgtable, HYPERVISOR_VBSTORE_VADDR);
+
+	list_for_each_entry(pcb, &proc_list, list)
+	{
+		clear_l1pte(pcb->pgtable, HYPERVISOR_VBSTORE_VADDR);
+		l1pte = l1pte_offset(pcb->pgtable, HYPERVISOR_VBSTORE_VADDR);
+
+		*l1pte = *l1pte_current;
+
+		flush_pte_entry((void *) l1pte);
+	}
+
+
+	postmig_vbstore_setup(args);
+
+	return 0;
+}
+
+void avz_setup(void) {
+	int ret;
+
+	mem_info.phys_base = avz_guest_phys_offset;
+	mem_info.size = avz_start_info->nr_pages << PAGE_SHIFT;
+
+	__printch = avz_start_info->printch;
+	avz_guest_phys_offset = avz_start_info->min_mfn << PAGE_SHIFT;
+
+	/* Immediately prepare for hypercall processing */
+	HYPERVISOR_hypercall_addr = (uint32_t *) avz_start_info->hypercall_addr;
+
+	lprintk("SOO Agency Virtualizer (avz) Start info :\n");
+	lprintk("Hypercall addr: %x\n", (uint32_t) HYPERVISOR_hypercall_addr);
+	lprintk("Shared info page addr: %x\n", (uint32_t) avz_start_info->shared_info);
+
+	mem_info.size = avz_start_info->nr_pages * PAGE_SIZE;
+	mem_info.phys_base = avz_guest_phys_offset;
+
+	__ht_set = (ht_set_t) avz_start_info->logbool_ht_set_addr;
+
+	lprintk("SO3 ME Domain phys base: %x for a size of 0x%x bytes.\n", mem_info.phys_base, mem_info.size);
+
+	/* At this point, we are ready to set up the virtual addresses
+ 	   to access the shared info page */
+	HYPERVISOR_shared_info = (shared_info_t *) avz_start_info->shared_info;
+
+	DBG("Set HYPERVISOR_set_callbacks at %lx\n", (unsigned long) linux0_hypervisor_callback);
+
+	ret = hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_vector_callback, (unsigned long) domcall, 0, 0);
+	BUG_ON(ret < 0);
+
+	virq_init();
+}
+
+void pre_irq_init_setup(void) {
+
+	/* Create a private vector page for the guest vectors */
+	 __guestvectors = memalign(PAGE_SIZE, PAGE_SIZE);
+	BUG_ON(!__guestvectors);
+
+	vectors_setup();
+}
+
+void post_init_setup(void) {
+
+
+	printk("VBstore shared page with agency at pfn 0x%x\n", avz_start_info->store_mfn);
+	map_vbstore_page(avz_start_info->store_mfn, false);
+
+	printk("SOO Mobile Entity booting ...\n");
+
+	soo_guest_activity_init();
+
+	callbacks_init();
+
+	/* Initialize the Vbus subsystem */
+	vbus_init();
+
+	gnttab_init();
+
+	vbstore_init_dev_populate();
+
+	printk("SO3  Operating System -- Copyright (c) 2016-2020 REDS Institute (HEIG-VD)\n\n");
+
+	DBG("ME running as domain %d\n", ME_domID());
+}
+
+REGISTER_PRE_IRQ_INIT(pre_irq_init_setup)
+REGISTER_POSTINIT(post_init_setup)
