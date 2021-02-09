@@ -66,7 +66,8 @@ void vdoga12v6nm_set_rotation_direction(uint8_t direction);
 void vdoga12v6nm_register_interrupts(vdoga_interrupt_t up, vdoga_interrupt_t down);
 
 typedef struct {
-    vdevfront_t vdevfront;
+
+	struct vbus_device	*dev;
 
 	vdoga12v6nm_cmd_front_ring_t cmd_ring;
 	grant_ref_t	cmd_ring_ref;
@@ -86,11 +87,7 @@ typedef struct {
 
 } vdoga12v6nm_t;
 
-// extern vdoga12v6nm_t vdoga12v6nm;
-static inline vdoga12v6nm_t *to_vdoga12v6nm(struct vbus_device *vdev) {
-	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
-	return container_of(vdevback, vdoga12v6nm_t, vdevfront);
-}
+extern vdoga12v6nm_t vdoga12v6nm;
 
 /* ISRs associated to the ring and notifications */
 irq_return_t vdoga12v6nm_cmd_interrupt(int irq, void *dev_id);
@@ -105,19 +102,19 @@ void up_interrupt(void);
 void down_interrupt(void);
 
 /* State management */
-// void vdoga12v6nm_probe(void);
-// void vdoga12v6nm_closed(void);
-// void vdoga12v6nm_suspend(void);
-// void vdoga12v6nm_resume(void);
-// void vdoga12v6nm_connected(void);
-// void vdoga12v6nm_reconfiguring(void);
-// void vdoga12v6nm_shutdown(void);
+void vdoga12v6nm_probe(void);
+void vdoga12v6nm_closed(void);
+void vdoga12v6nm_suspend(void);
+void vdoga12v6nm_resume(void);
+void vdoga12v6nm_connected(void);
+void vdoga12v6nm_reconfiguring(void);
+void vdoga12v6nm_shutdown(void);
 
-// void vdoga12v6nm_vbus_init(void);
+void vdoga12v6nm_vbus_init(void);
 
-// /* Processing and connected state management */
-// void vdoga12v6nm_start(void);
-// void vdoga12v6nm_end(void);
-// bool vdoga12v6nm_is_connected(void);
+/* Processing and connected state management */
+void vdoga12v6nm_start(void);
+void vdoga12v6nm_end(void);
+bool vdoga12v6nm_is_connected(void);
 
 #endif /* VDOGA12V6NM_H */

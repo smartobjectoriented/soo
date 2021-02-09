@@ -24,6 +24,7 @@
 #include <soo/soo.h>
 #include <soo/ring.h>
 #include <soo/grant_table.h>
+#include <soo/vdevfront.h>
 
 #define VUIHANDLER_NAME		"vuihandler"
 #define VUIHANDLER_PREFIX	"[" VUIHANDLER_NAME "] "
@@ -92,35 +93,38 @@ typedef struct {
 	struct list_head	list;
 } vuihandler_connected_app_t;
 
-bool vuihandler_ready(void);
 
 typedef struct {
+    vdevfront_t vdevfront;
 
-	struct vbus_device	*dev;
+    vuihandler_tx_front_ring_t tx_ring;
+    unsigned int tx_irq;
+    grant_ref_t tx_ring_ref;
+	grant_handle_t tx_handle;
+	uint32_t tx_evtchn;
 
-	vuihandler_tx_front_ring_t	tx_ring;
-	grant_ref_t	tx_ring_ref;
-	grant_handle_t	tx_handle;
-	uint32_t	tx_evtchn;
-	uint32_t	tx_irq;
+    
+    vuihandler_rx_front_ring_t rx_ring;
+    unsigned int rx_irq;
+    grant_ref_t rx_ring_ref;
+	grant_handle_t rx_handle;
+	uint32_t rx_evtchn;
 
-	vuihandler_rx_front_ring_t	rx_ring;
-	grant_ref_t 	rx_ring_ref;
-	grant_handle_t	rx_handle;
-	uint32_t	rx_evtchn;
-	uint32_t	rx_irq;
-
-	char		*tx_data;
+    char		*tx_data;
 	unsigned int	tx_pfn;
 
 	char		*rx_data;
 	unsigned int	rx_pfn;
-
-	struct vbus_watch	app_watch;
-
+    
 } vuihandler_t;
 
-extern vuihandler_t vuihandler;
+static inline vuihandler_t *to_vuihandler(struct vbus_device *vdev) {
+	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
+	return container_of(vdevback, vuihandler_t, vdevfront);
+}
+
+
+bool vuihandler_ready(void);
 
 typedef void(*ui_update_spid_t)(uint8_t *);
 typedef void(*ui_interrupt_t)(char *data, size_t size);
@@ -130,38 +134,5 @@ void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_interrupt_
 void vuihandler_send(void *data, size_t size);
 
 void vuihandler_get_app_spid(uint8_t spid[SPID_SIZE]);
-
-/* ISRs associated to the rings */
-irq_return_t vuihandler_tx_interrupt(int irq, void *dev_id);
-irq_return_t vuihandler_rx_interrupt(int irq, void *dev_id);
-
-void vuihandler_app_watch_fn(struct vbus_watch *watch);
-
-/*
- * Interface with the client.
- * These functions must be provided in the applicative part.
- */
-void ui_update_app_spid(uint8_t *spid);
-void ui_interrupt(char *data, size_t size);
-
-/* Shared buffer setup */
-int vuihandler_set_shared_buffer(void *data, size_t size);
-int vuihandler_setup_shared_buffer(void);
-
-/* State management */
-void vuihandler_probe(void);
-void vuihandler_closed(void);
-void vuihandler_suspend(void);
-void vuihandler_resume(void);
-void vuihandler_connected(void);
-void vuihandler_reconfiguring(void);
-void vuihandler_shutdown(void);
-
-void vuihandler_vbus_init(void);
-
-/* Processing and connected state management */
-void vuihandler_start(void);
-void vuihandler_end(void);
-bool vuihandler_is_connected(void);
 
 #endif /* VUIHANDLER_H */

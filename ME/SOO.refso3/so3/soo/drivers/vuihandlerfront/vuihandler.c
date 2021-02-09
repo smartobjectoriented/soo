@@ -35,13 +35,25 @@
 
 #include <soo/dev/vuihandler.h>
 
-vuihandler_t vuihandler;
+// vuihandler_t vuihandler;
 
 ui_update_spid_t __ui_update_spid = NULL;
 ui_interrupt_t __ui_interrupt = NULL;
 
 /* Sent BT packet count */
 static uint32_t send_count = 0;
+
+/* Used to pack the vdev and the completion to pass it to the send thread */
+// struct send_params {
+// 	struct vbus_device *vdev;
+// 	completion_t *send_completion;
+// };
+
+static completion_t *send_compl;
+
+/* Global pointer */
+vuihandler_t *__vuihandler;
+
 
 /* In lib/vsprintf.c */
 unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
@@ -82,48 +94,50 @@ static void get_app_spid(uint8_t spid[SPID_SIZE]) {
  * Function called when the connected application ME SPID changes. This allows the detection
  * of the remote application running on the tablet.
  */
-void vuihandler_app_watch_fn(struct vbus_watch *watch) {
-	uint8_t spid[SPID_SIZE];
+// void vuihandler_app_watch_fn(struct vbus_watch *watch) {
+// 	uint8_t spid[SPID_SIZE];
 
-	vuihandler_start();
+// 	vuihandler_tx_start();
 
-	get_app_spid(spid);
+// 	get_app_spid(spid);
 
-#ifdef DEBUG
-	DBG(VUIHANDLER_PREFIX "ME SPID: ");
-	lprintk_buffer(spid, SPID_SIZE);
-#endif /* DEBUG */
+// #ifdef DEBUG
+// 	DBG(VUIHANDLER_PREFIX "ME SPID: ");
+// 	lprintk_buffer(spid, SPID_SIZE);
+// #endif /* DEBUG */
 
-	if (__ui_update_spid)
-		(*__ui_update_spid)(spid);
+// 	if (__ui_update_spid)
+// 		(*__ui_update_spid)(spid);
 
-	vuihandler_end();
-}
+// 	vuihandler_end();
+// }
 
 /**
  * Process pending responses in the tx_ It should not be used in this direction.
  */
-static void process_pending_tx_rsp(void) {
+static void process_pending_tx_rsp(struct vbus_device *vdev) {
 	RING_IDX i, rp;
-
-	rp = vuihandler.tx_ring.sring->rsp_prod;
+	vuihandler_t *vuihandler = to_vuihandler(vdev);
+	rp = vuihandler->tx_ring.sring->rsp_prod;
 	dmb();
 
-	for (i = vuihandler.tx_ring.sring->rsp_cons; i != rp; i++) {
+	for (i = vuihandler->tx_ring.sring->rsp_cons; i != rp; i++) {
 		/* Do nothing */
 	}
 
-	vuihandler.tx_ring.sring->rsp_cons = i;
+	vuihandler->tx_ring.sring->rsp_cons = i;
 }
 
 /**
  * tx_ring interrupt. It should not be used in this direction.
  */
 irq_return_t vuihandler_tx_interrupt(int irq, void *dev_id) {
-	if (!vuihandler_is_connected())
-		return IRQ_COMPLETED;
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	// vuihandler_t *vuihandler = to_vuihandler(vdev);
+	// if (!vuihandler_is_connected())
+	// 	return IRQ_COMPLETED;
 
-	process_pending_tx_rsp();
+	process_pending_tx_rsp(vdev);
 
 	return IRQ_COMPLETED;
 }
@@ -131,31 +145,41 @@ irq_return_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 /**
  * Process pending responses in the rx_
  */
-static void process_pending_rx_rsp(void) {
+static void process_pending_rx_rsp(struct vbus_device *vdev) {
 	RING_IDX i, rp;
 	vuihandler_rx_response_t *ring_rsp;
+	vuihandler_t *vuihandler = to_vuihandler(vdev);
 
-	rp = vuihandler.rx_ring.sring->rsp_prod;
+	rp = vuihandler->rx_ring.sring->rsp_prod;
 	dmb();
 
-	for (i = vuihandler.rx_ring.sring->rsp_cons; i != rp; i++) {
-		ring_rsp = RING_GET_RESPONSE(&vuihandler.rx_ring, i);
+	// for (i = vuihandler.rx_ring.sring->rsp_cons; i != rp; i++) {
+	// 	ring_rsp = RING_GET_RESPONSE(&vuihandler.rx_ring, i);
+
+	// 	if (__ui_interrupt)
+	// 		(*__ui_interrupt)(vuihandler.rx_data + (ring_rsp->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_rsp->size);
+	// }
+
+	while ((ring_rsp = vuihandler_rx_ring_response(&vuihandler->rx_ring)) != NULL) {
 
 		if (__ui_interrupt)
-			(*__ui_interrupt)(vuihandler.rx_data + (ring_rsp->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_rsp->size);
+			(*__ui_interrupt)(vuihandler->rx_data + (ring_rsp->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_rsp->size);
+	
 	}
 
-	vuihandler.rx_ring.sring->rsp_cons = i;
+	vuihandler->rx_ring.sring->rsp_cons = i;
 }
 
 /**
  * rx_ring interrupt.
  */
 irq_return_t vuihandler_rx_interrupt(int irq, void *dev_id) {
-	if (!vuihandler_is_connected())
-		return IRQ_COMPLETED;
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	vuihandler_t *vuihandler = to_vuihandler(vdev);
+	// if (!vuihandler_is_connected())
+	// 	return IRQ_COMPLETED;
 
-	process_pending_rx_rsp();
+	process_pending_rx_rsp(vdev);
 
 	return IRQ_COMPLETED;
 }
@@ -163,64 +187,125 @@ irq_return_t vuihandler_rx_interrupt(int irq, void *dev_id) {
 /**
  * Send a packet to the tablet/smartphone.
  */
+// void vuihandler_send(void *data, size_t size) {
+// 	vuihandler_tx_request_t *ring_req;
+
+// 	vuihandler_tx_start();
+
+// 	DBG(VUIHANDLER_PREFIX "0x%08x %d\n", (unsigned int) data, size);
+
+// 	ring_req = RING_GET_REQUEST(&vuihandler.tx_ring, vuihandler.tx_ring.req_prod_pvt);
+
+// 	ring_req->id = send_count;
+// 	ring_req->size = size;
+
+// 	memcpy(vuihandler.tx_data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, data, size);
+
+// 	dmb();
+
+// 	vuihandler.tx_ring.req_prod_pvt++;
+
+// 	RING_PUSH_REQUESTS(&vuihandler.tx_ring);
+
+// 	notify_remote_via_irq(vuihandler.tx_irq);
+
+// 	send_count++;
+
+// 	vuihandler_tx_end();
+// }
+
+struct send_param {
+	void *data;
+	size_t size;
+};
+
+static struct send_param sp;
+
 void vuihandler_send(void *data, size_t size) {
-	vuihandler_tx_request_t *ring_req;
+	sp.data = data;
+	sp.size = size;
+	complete(send_compl);
+	// vuihandler_tx_start();
 
-	vuihandler_start();
-
-	DBG(VUIHANDLER_PREFIX "0x%08x %d\n", (unsigned int) data, size);
-
-	ring_req = RING_GET_REQUEST(&vuihandler.tx_ring, vuihandler.tx_ring.req_prod_pvt);
-
-	ring_req->id = send_count;
-	ring_req->size = size;
-
-	memcpy(vuihandler.tx_data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, data, size);
-
-	dmb();
-
-	vuihandler.tx_ring.req_prod_pvt++;
-
-	RING_PUSH_REQUESTS(&vuihandler.tx_ring);
-
-	notify_remote_via_irq(vuihandler.tx_irq);
-
-	send_count++;
-
-	vuihandler_end();
+	// vuihandler_tx_end();
 }
 
-void vuihandler_probe(void) {
+int vuihandler_send_fn(void *arg) {
+	// struct send_params *sp = (struct send_params *) arg;
+	struct vbus_device *vdev = (struct vbus_device *) arg;
+	vuihandler_tx_request_t *ring_req;
+
+	vuihandler_t *vuihandler = to_vuihandler(vdev);
+
+	while(1) {
+		wait_for_completion(send_compl);
+		DBG(VUIHANDLER_PREFIX "0x%08x %d\n", (unsigned int) data, size);
+		ring_req = RING_GET_REQUEST(&vuihandler->tx_ring, vuihandler->tx_ring.req_prod_pvt);
+
+		ring_req->id = send_count;
+		ring_req->size = sp.size;
+
+		memcpy(vuihandler->tx_data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, sp.data, sp.size);
+
+		dmb();
+
+		vuihandler->tx_ring.req_prod_pvt++;
+
+		RING_PUSH_REQUESTS(&vuihandler->tx_ring);
+
+		notify_remote_via_irq(vuihandler->tx_irq);
+
+		send_count++;
+
+	}
+
+	return 0;
+}
+
+void vuihandler_probe(struct vbus_device *vdev) {
 	DBG0(VUIHANDLER_PREFIX "Frontend probe\n");
 }
 
-void vuihandler_suspend(void) {
+void vuihandler_suspend(struct vbus_device *vdev) {
 	DBG0(VUIHANDLER_PREFIX "Frontend suspend\n");
 }
 
-void vuihandler_resume(void) {
+void vuihandler_resume(struct vbus_device *vdev) {
 	DBG0(VUIHANDLER_PREFIX "Frontend resume\n");
 
-	process_pending_rx_rsp();
+	process_pending_rx_rsp(vdev);
 }
 
-void vuihandler_connected(void) {
+void vuihandler_connected(struct vbus_device *vdev) {
+	vuihandler_t *vuihandler = to_vuihandler(vdev);
+
+
+	send_compl = malloc(sizeof(completion_t));
+	
+	// sp->vdev = vdev;
+	// sp->send_completion = send_compl;
+
+
 	DBG0(VUIHANDLER_PREFIX "Frontend connected\n");
 
 	/* Force the processing of pending requests, if any */
-	notify_remote_via_irq(vuihandler.tx_irq);
-	notify_remote_via_irq(vuihandler.rx_irq);
+	notify_remote_via_irq(vuihandler->tx_irq);
+	notify_remote_via_irq(vuihandler->rx_irq);
+
+	init_completion(send_compl);
+
+	kernel_thread(vuihandler_send_fn, "vuihandler_send_fn", (void *) vdev, 0);
 }
 
-void vuihandler_reconfiguring(void) {
+void vuihandler_reconfiguring(struct vbus_device *vdev) {
 	DBG0(VUIHANDLER_PREFIX "Frontend reconfiguring\n");
 }
 
-void vuihandler_shutdown(void) {
+void vuihandler_shutdown(struct vbus_device *vdev) {
 	DBG0(VUIHANDLER_PREFIX "Frontend shutdown\n");
 }
 
-void vuihandler_closed(void) {
+void vuihandler_closed(struct vbus_device *vdev) {
 	DBG0(VUIHANDLER_PREFIX "Frontend close\n");
 }
 
@@ -229,9 +314,19 @@ void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_interrupt_
 	__ui_interrupt = ui_interrupt;
 }
 
+vdrvfront_t vuihandlerdrv = {
+	.probe = vuihandler_probe,
+	.reconfiguring = vuihandler_reconfiguring,
+	.shutdown = vuihandler_shutdown,
+	.closed = vuihandler_closed,
+	.suspend = vuihandler_suspend,
+	.resume = vuihandler_resume,
+	.connected = vuihandler_connected
+};
+
 static int vuihandler_init(dev_t *dev) {
 
-	vuihandler_vbus_init();
+	vdevfront_init(VUIHANDLER_NAME, &vuihandlerdrv);
 
 	return 0;
 }
