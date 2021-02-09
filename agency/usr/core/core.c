@@ -75,7 +75,6 @@ static void sig_agency_start(int sig) {
 int main(int argc, char *argv[]) {
 	uint32_t i;
 	uint32_t neigh_bitmap = -1;
-	char *token;
 	int rc;
 	uint8_t val;
 
@@ -112,29 +111,6 @@ int main(int argc, char *argv[]) {
 		if (!strcmp(argv[i], "-nosend"))
 			opt_nosend = true;
 
-		/* -n option is to activate only a number of neighbours.
-		 * For instance -n 1,3,4 means that the first neighbour,
-		 * third and fourth neighbours of the discovery list
-		 * will be considered, other will be ignored.
-		 * Neighbour starts at 1.
-		 */
-
-		if (!strcmp(argv[i], "-n")) {
-			neigh_bitmap = 0;
-			token = strtok(argv[i+1], ",");
-			while (token != NULL) {
-				neigh_bitmap |= 1 << (atoi(token)-1);
-				token = strtok(NULL, ",");
-			}
-
-			if ((rc = ioctl(fd_dcm, DCM_IOCTL_CONFIGURE_NEIGHBOURHOOD, &neigh_bitmap)) < 0) {
-				printf("Failed to access the neighbourhood (%d)\n", rc);
-				BUG();
-			}
-
-			close(fd_dcm);
-			exit(0);
-		}
 
 		if (!strcmp(argv[i], "-w")) {
 			printf("Agency: waiting to start via SIGUSR1...\n");
@@ -144,7 +120,7 @@ int main(int argc, char *argv[]) {
 
 		if (!strcmp(argv[i], "-d")) {
 			neigh_bitmap = -1;
-			if ((rc = ioctl(fd_dcm, DCM_IOCTL_CONFIGURE_NEIGHBOURHOOD, &neigh_bitmap)) < 0) {
+			if ((rc = ioctl(fd_dcm, DCM_IOCTL_DUMP_NEIGHBOURHOOD, &neigh_bitmap)) < 0) {
 				printf("Failed to access the neighbourhood (%d)\n", rc);
 				BUG();
 			}
@@ -153,15 +129,6 @@ int main(int argc, char *argv[]) {
 			exit(0);
 		}
 
-		if (!strcmp(argv[i], "-r")) {
-			if ((rc = ioctl(fd_dcm, DCM_IOCTL_RESET_NEIGHBOURHOOD, 0)) < 0) {
-				printf("Failed to reset the neighbourhood (%d)\n", rc);
-				BUG();
-			}
-
-			close(fd_dcm);
-			exit(0);
-		}
 	}
 
 	/* ASF initializations has to be performed before any thing else.  */
@@ -169,7 +136,7 @@ int main(int argc, char *argv[]) {
 
 	/* Display the agencyUID and visible neighbours at this time. */
 	neigh_bitmap = -1;
-	ioctl(fd_dcm, DCM_IOCTL_CONFIGURE_NEIGHBOURHOOD, &neigh_bitmap);
+	ioctl(fd_dcm, DCM_IOCTL_DUMP_NEIGHBOURHOOD, &neigh_bitmap);
 
 	signal(SIGINT, sig_agency_exit);
 	signal(SIGKILL, sig_agency_exit);
@@ -181,9 +148,6 @@ int main(int argc, char *argv[]) {
 	/* Initialize the LED Interface */
 	leds_init();
 #endif
-
-	/* Initialzation of the DCM subsystem */
-	dcm_init();
 
 	migration_init();
 
