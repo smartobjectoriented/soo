@@ -24,18 +24,19 @@
 	/* 4 MB is enough */
 	domain-size = <0x400000>;
 	
-	/* Enabling the console */
-	vuart {
-		status = "okay";
-	};
+	frontends {
+		/* Enabling the console */
+		vuart {
+			status = "ok";
+		};
 	
-	vweather {
-		status = "okay";
-	};
+		vweather {
+			status = "ok";
+		};
 	  
-	vuihandler {
-		status = "okay";
+		vuihandler {
+			status = "ok";
+		};
 	};
-	
 };
 	

@@ -58,16 +58,17 @@ __start:
 	.globl	\name
 \name:
 
-  stmfd sp!, {r7, r10, r11}
+  stmfd sp!, {r7, r10, ip}
 
   mov	r7, #\number
+
   ldr	r10, =errno
-  mov	r11, #0
-  str	r11, [r10]
+  mov	ip, #0
+  str	ip, [r10]
 
   swi	0
 
-  ldmfd sp!, {r7, r10, r11}
+  ldmfd sp!, {r7, r10, ip}
 
   mov pc, lr
 
@@ -110,10 +111,15 @@ SYSCALLSTUB sys_mmap, 			syscallMmap
 SYSCALLSTUB sys_ptrace,  		syscallPtrace
 SYSCALLSTUB sys_send,	 		syscallSend
 SYSCALLSTUB sys_recv, 			syscallRecv
+SYSCALLSTUB sys_recvfrom, 		syscallRecvfrom
+SYSCALLSTUB sys_setsockopt, 	syscallSetsockopt
 SYSCALLSTUB sys_sendto, 		syscallSendTo
 SYSCALLSTUB sys_getpid,			syscallGetpid
+
 SYSCALLSTUB sys_gettimeofday,	syscallGetTimeOfDay
 SYSCALLSTUB sys_settimeofday,	syscallSetTimeOfDay
+SYSCALLSTUB sys_clock_gettime,  syscallClockGetTime
+
 SYSCALLSTUB sys_sbrk,			syscallSbrk
 SYSCALLSTUB sys_info,	    	syscallSysinfo
 
