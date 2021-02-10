@@ -25,9 +25,12 @@
 	/* 64 MB is required since an agency image will be embedded into the ME. */
 	domain-size = <0x4000000>;
 	
-	/* Enabling the console */
-	vuart {
-		status = "okay";
+	frontends {
+	
+		/* Enabling the console */
+		vuart {
+			status = "ok";
+		};
 	};
 	
 };

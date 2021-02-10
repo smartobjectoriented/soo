@@ -57,7 +57,9 @@ $(LVGL_DIR)/$(LVGL_LIB):
 	make -C lvgl all
 
 # Generic targets
-clean:
-	find . -name "*.o" | xargs -r rm
-	find . -name "*.a" | xargs -r rm
-	find out -name "*.elf" | xargs -r rm
+clean: 
+	find . -name "*.o" | xargs rm
+	find . -name "*.a" | xargs rm
+	rm out/*.elf
+	
+	

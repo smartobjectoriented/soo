@@ -21,16 +21,18 @@
 #include "so3virt.dtsi"
 
 &ME {
-	domain-size = <0x1000000>;
+	domain-size = <0x400000>;
 	
-	/* Enabling vdummy for testing purposes */
-	vdummy {
-		status = "okay";
-	};
+	frontends {
+		/* Enabling vdummy for testing purposes */
+		vdummy {
+			status = "ok";
+		};
 
-	/* Enabling the console */
-	vuart {
-		status = "okay";
+		/* Enabling the console */
+		vuart {
+			status = "ok";
+		};
 	};
 };
 			

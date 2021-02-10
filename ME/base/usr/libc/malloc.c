@@ -61,6 +61,7 @@ static struct mem_chunk *quick_list;
 void heap_init(void)
 {
 	quick_list = (mem_chunk_t *) sbrk(0);
+
 	quick_list->next_list = NULL;
 	quick_list->next_chunk = NULL;
 	quick_list->head = quick_list;
@@ -344,6 +345,7 @@ static void *__malloc(size_t requested, unsigned int alignment)
 	mem_chunk_t tmp_memchunk; /* Used for possible shifting of the structure */
 	void *addr = NULL, *tmp_addr;
 
+
 #ifdef DEBUG
 	dump_heap(__func__);
 #endif
@@ -352,6 +354,7 @@ static void *__malloc(size_t requested, unsigned int alignment)
                 heap_init();
                 is_heap_init = 1;
         }
+
 
 	DBG("[malloc] requested size = %d, mem_chunk_size = %d bytes\n", requested, sizeof(mem_chunk_t));
 
