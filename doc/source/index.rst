@@ -1,10 +1,10 @@
 .. doc Documentation master file.
 
-Welcome to doc's Documentation
-##############################
+Smart Object Oriented (SOO) Documentation
+#########################################
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    
 
 Indices and tables
