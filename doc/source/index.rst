@@ -1,22 +1,29 @@
 .. doc Documentation master file.
 
 .. image:: img/SOO_logo.jpg
-
-###########################
-Smart Object Oriented (SOO)
-###########################
+   :align: center
+   :width: 170px
+   :height: 150px
 
 .. toctree::
    :maxdepth: 4
- 
+   :numbered:
+   :hidden:
+  
+   setup
+   
+===========================
+Smart Object Oriented (SOO)
+===========================
+
 For any information and discussions related to the SOO framework, please
 visit our main discussion forum at https://discourse.heig-vd.ch/c/soo
 
 Setup, Build and Usage
 ======================
 
--  `Initial Build and First
-   Test <setup>`__
+-  :ref:`Initial Build and First Test <setup>`
+  
 -  `Logging system <Logging%20system>`__
 
 Architecture and Main Components

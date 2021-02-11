@@ -1,4 +1,10 @@
+.. _setup:
 
+
+=======================================
+Infrastructure Setup, Build and Testing
+=======================================   
+   
 The installation should work in any Ubuntu/Kubuntu installation superior
 to ``16.10``. It is assumed that you are running an x86_64 version.
 
@@ -150,6 +156,7 @@ commands (from the soo directory):
    make vexpress_defconfig
    make -j8
 
+
 SOO Components
 ==============
 
@@ -161,8 +168,8 @@ The following components are built in the **agency/** directory.
 The main Agency rootfs (root filesystem)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In the code below, you have to replace ``MYARCH`` with the selected
-architecture. All available configurations (*_defconfig) are placed in
+In the code below, you have to replace ``MYARCH`` with the selected architecture. 
+All available configurations (*_defconfig) are placed in
 the ``configs/`` directory.
 
 -  If the chosen architecture is ``vexpress``, *MYARCH* should be
