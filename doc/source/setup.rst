@@ -169,17 +169,15 @@ The main Agency rootfs (root filesystem)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the code below, you have to replace ``MYARCH`` with the selected architecture. 
-All available configurations (*_defconfig) are placed in
+All available configurations (\*_defconfig) are placed in
 the ``configs/`` directory.
 
--  If the chosen architecture is ``vexpress``, *MYARCH* should be
-   *vexpress*.
--  If the chosen architecture is ``Raspberry Pi 4``: *MYARCH* should be
-   *rpi4* .
+-  If the chosen architecture is ``vexpress``, *MYARCH* should be *vexpress*.
+-  If the chosen architecture is ``Raspberry Pi 4``: *MYARCH* should be *rpi4* .
 -  etc.
 
-The following commands first retrieve all packages in a first step, then
-it compiles everything. It may take quite a long time… Be patient!
+The following commands first retrieve all packages in a first step, then it compiles everything. 
+It may take quite a long time… Be patient!
 
 From the agency’s directory:
 
@@ -190,9 +188,8 @@ From the agency’s directory:
    make source
    make
 
-In the agency/ directory, the file ``build.conf`` contains the
-``PLATFORM`` (and eventually ``TYPE``) variables to select the target
-platform. The build of the agency including **AVZ** and **Linux** is
+In the agency/ directory, the file ``build.conf`` contains the ``PLATFORM`` (and eventually ``TYPE``) variables 
+to select the target platform. The build of the agency including **AVZ** and **Linux** is
 done by doing simply a make in the ``agency/`` root directory.
 
 .. code:: bash

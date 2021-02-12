@@ -11,6 +11,7 @@
    :hidden:
   
    setup
+   aarch64
    
 ===========================
 Smart Object Oriented (SOO)
