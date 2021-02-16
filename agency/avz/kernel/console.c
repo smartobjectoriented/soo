@@ -28,6 +28,7 @@
 #include <memory.h>
 #include <types.h>
 #include <string.h>
+#include <version.h>
 
 #include <device/serial.h>
 
@@ -57,7 +58,7 @@ void serial_puts(const char *s)
  */
 void console_init_post(void)
 {
-	__uart_vaddr = (addr_t) ioremap(UART_BASE, PAGE_SIZE);
+	__uart_vaddr = (addr_t) io_map(UART_BASE, PAGE_SIZE);
 }
 
 static void sercon_puts(const char *s)
@@ -189,7 +190,7 @@ void console_init(void)
 {
 	__putstr(AVZ_BANNER);
 
-	printk(" SOO Agency Virtualizer -- v2020.2.0\n");
+	printk(" SOO Agency Virtualizer -- %s\n", AVZ_KERNEL_VERSION);
 
 	printk(" Copyright (c) 2014-2020 HEIG-VD - REDS Institute, Switzerland / Smart Object Oriented technology\n");
 	printk("\n\n\n");

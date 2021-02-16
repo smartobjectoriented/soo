@@ -17,11 +17,12 @@
  */
 
 #include <string.h>
-#include <xmalloc.h>
+#include <heap.h>
 #include <console.h>
 #include <keyhandler.h>
 #include <sched.h>
 #include <common.h>
+#include <limits.h>
 
 #include <soo/uapi/logbool.h>
 
@@ -36,11 +37,11 @@ void *ht_create(int size) {
 	int i;
 
 	/* Allocate the table itself. */
-	if ((hashtable = xmalloc(logbool_hashtable_t)) == NULL)
+	if ((hashtable = malloc(sizeof(logbool_hashtable_t))) == NULL)
 		BUG();
 
 	/* Allocate pointers to the head nodes. */
-	if ((hashtable->table = xmalloc_array(entryp_t, size)) == NULL)
+	if ((hashtable->table = malloc(size * sizeof(entryp_t))) == NULL)
 		BUG();
 
 	for (i = 0; i < size; i++)
@@ -71,7 +72,7 @@ int ht_hash(logbool_hashtable_t *hashtable, char *key) {
 entry_t *ht_newpair(char *key, logbool_t value) {
 	entry_t *newpair;
 
-	if ((newpair = xmalloc(entry_t)) == NULL)
+	if ((newpair = malloc(sizeof(entry_t))) == NULL)
 		return NULL;
 
 	if ((newpair->key = strdup(key)) == NULL)
@@ -150,8 +151,8 @@ logbool_t *ht_get(logbool_hashtable_t *hashtable, char *key) {
 void ht_destroy(logbool_hashtable_t *hashtable) {
 	BUG_ON(!hashtable->table);
 
-	xfree(hashtable->table);
-	xfree(hashtable);
+	free(hashtable->table);
+	free(hashtable);
 }
 
 void dump_logbool(logbool_hashtable_t *ht) {

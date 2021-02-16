@@ -253,7 +253,7 @@ __CMPXCHG_CASE(w, h, 2)
 __CMPXCHG_CASE(w,  , 4)
 __CMPXCHG_CASE( ,  , 8)
 
-static always_inline bool __int_cmpxchg(volatile void *ptr, unsigned long *old,
+static inline bool __int_cmpxchg(volatile void *ptr, unsigned long *old,
 					unsigned long new, int size,
 					bool timeout, unsigned int max_try)
 {
@@ -270,9 +270,10 @@ static always_inline bool __int_cmpxchg(volatile void *ptr, unsigned long *old,
 		BUG();
 	}
 
+	return false;
 }
 
-static always_inline unsigned long __cmpxchg(volatile void *ptr,
+static inline unsigned long __cmpxchg(volatile void *ptr,
 					     unsigned long old,
 					     unsigned long new,
 					     int size)

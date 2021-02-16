@@ -3,6 +3,77 @@
 
 #include <types.h>
 
+unsigned long find_first_bit(const unsigned long *addr, unsigned long size);
+unsigned long find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offset);
+
+static inline unsigned long __fls(unsigned long word)
+{
+	int num = BITS_PER_LONG - 1;
+
+#if BITS_PER_LONG == 64
+	if (!(word & (~0ul << 32))) {
+		num -= 32;
+		word <<= 32;
+	}
+#endif
+	if (!(word & (~0ul << (BITS_PER_LONG-16)))) {
+		num -= 16;
+		word <<= 16;
+	}
+	if (!(word & (~0ul << (BITS_PER_LONG-8)))) {
+		num -= 8;
+		word <<= 8;
+	}
+	if (!(word & (~0ul << (BITS_PER_LONG-4)))) {
+		num -= 4;
+		word <<= 4;
+	}
+	if (!(word & (~0ul << (BITS_PER_LONG-2)))) {
+		num -= 2;
+		word <<= 2;
+	}
+	if (!(word & (~0ul << (BITS_PER_LONG-1))))
+		num -= 1;
+	return num;
+}
+
+/**
+ * __ffs - find first bit in word.
+ * @word: The word to search
+ *
+ * Undefined if no bit exists, so code should check against 0 first.
+ */
+static inline unsigned long __ffs(unsigned long word)
+{
+	int num = 0;
+
+#if BITS_PER_LONG == 64
+	if ((word & 0xffffffff) == 0) {
+		num += 32;
+		word >>= 32;
+	}
+#endif
+	if ((word & 0xffff) == 0) {
+		num += 16;
+		word >>= 16;
+	}
+	if ((word & 0xff) == 0) {
+		num += 8;
+		word >>= 8;
+	}
+	if ((word & 0xf) == 0) {
+		num += 4;
+		word >>= 4;
+	}
+	if ((word & 0x3) == 0) {
+		num += 2;
+		word >>= 2;
+	}
+	if ((word & 0x1) == 0)
+		num += 1;
+	return num;
+}
+
 /*
  * ffs: find first bit set. This is defined the same way as
  * the libc and compiler builtin ffs routines, therefore
@@ -78,19 +149,11 @@ static __inline__ int generic_fls(int x)
 #include <asm/bitops.h>
 
 
-static inline int generic_fls64(__u64 x)
-{
-    __u32 h = x >> 32;
-    if (h)
-        return fls(x) + 32;
-    return fls(x);
-}
-
 static __inline__ int get_bitmask_order(unsigned int count)
 {
     int order;
     
-    order = fls(count);
+    order = __fls(count);
     return order;   /* We could be slightly more clever with -1 here... */
 }
 
@@ -98,7 +161,7 @@ static __inline__ int get_count_order(unsigned int count)
 {
     int order;
 
-    order = fls(count) - 1;
+    order = __fls(count) - 1;
     if (count & (count - 1))
         order++;
     return order;

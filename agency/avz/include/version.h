@@ -1,6 +1,7 @@
+
 /*
- * Copyright (C) 2020 Daniel Rossier <daniel.rossier@soo.tech>
- *
+ * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -16,11 +17,11 @@
  *
  */
 
-#ifndef MACH_UART_H
-#define MACH_UART_H
+#ifndef VERSION_H
 
-#define UART_BASE 0x9000000
+#define AVZ_KERNEL_VERSION "2021.3.0"
 
-#endif /* MACH_UART_H */
+
+#endif /* VERSION_H */
 
 

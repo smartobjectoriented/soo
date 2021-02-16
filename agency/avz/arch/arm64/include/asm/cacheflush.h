@@ -39,6 +39,8 @@ static inline void flush_pte_entry(void *pte)
 	smp_mb();
 }
 
+void mmu_page_table_flush(unsigned long start, unsigned long stop);
+
 void __asm_invalidate_tlb_all(void);
 void __asm_dcache_level(int level);
 void __asm_invalidate_dcache_range(addr_t start, addr_t end);

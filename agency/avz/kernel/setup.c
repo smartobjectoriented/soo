@@ -86,7 +86,7 @@ extern void setup_arch(char **);
 
 void kernel_start(void)
 {
-#if 0
+
 	char *command_line;
 	int i;
 
@@ -96,16 +96,15 @@ void kernel_start(void)
 
 	initialize_keytable();
 
-	loadAgency();
-
-	percpu_init_areas();
-
 	/* We initialize the console device(s) very early so we can get debugging. */
 	console_init();
 
-	pagealloc_init();
-
 	memory_init();
+
+#if 0
+	loadAgency();
+
+	percpu_init_areas();
 
 	softirq_init();
 

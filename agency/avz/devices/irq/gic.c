@@ -372,7 +372,7 @@ void ll_entry_irq(void)
 	} while (true);
 }
 
-void gic_init(unsigned int gic_nr, unsigned int irq_start, void *dist_base, void *cpu_base)
+void gic_init(unsigned int gic_nr, unsigned int irq_start, addr_t *dist_base, addr_t *cpu_base)
 {
 	struct gic_chip_data *gic;
 	int i;
@@ -451,5 +451,5 @@ void smp_cross_call(int target_cpu, unsigned int irq)
 }
 
 void init_gic(void) {
-	gic_init(0, 29, ioremap(GIC_DIST_PHYS, GIC_DIST_SIZE), ioremap(GIC_CPU_PHYS, GIC_CPU_SIZE));
+	gic_init(0, 29, (addr_t *) io_map(GIC_DIST_PHYS, GIC_DIST_SIZE), (addr_t *) io_map(GIC_CPU_PHYS, GIC_CPU_SIZE));
 }

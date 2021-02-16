@@ -26,13 +26,24 @@
 
 #include <sizes.h>
 
+#define	SZ_256G		(256UL * SZ_1G)
+
 /* PAGE_SHIFT determines the page size */
 #define PAGE_SHIFT	12
 #define PAGE_SIZE       (1 << PAGE_SHIFT)
 #define PAGE_MASK       (~(PAGE_SIZE-1))
 
-#define PAGE_OFFSET		UL(0xffff700000000000)
+#define PAGE_OFFSET	UL(0xffff700000000000)
 #define L_PAGE_OFFSET	UL(0xffff800010000000)
+
+/* Order of size which makes sense in block mapping */
+#define BLOCK_256G_OFFSET	(SZ_256G - 1)
+#define BLOCK_1G_OFFSET		(SZ_1G - 1)
+#define BLOCK_2M_OFFSET		(SZ_2M - 1)
+
+#define BLOCK_256G_MASK		(~BLOCK_256G_OFFSET)
+#define BLOCK_1G_MASK		(~BLOCK_1G_OFFSET)
+#define BLOCK_2M_MASK		(~BLOCK_2M_OFFSET)
 
 /*
  * We add two functions for retrieving virt and phys address relative to
@@ -62,9 +73,9 @@
  *   |_______|_______|_______|_______|_______|_______|
  *     63-48   47-39   38-30   29-21   20-12   11-00
  *
- *             mask        page size
+ *             mask        block size
  *
- *    L0: FF8000000000       --
+ *    L0: FF8000000000       512GB
  *    L1:   7FC0000000       1G
  *    L2:     3FE00000       2M
  *    L3:       1FF000       4K
@@ -108,7 +119,7 @@
 #define MT_DEVICE_NGNRE		1
 #define MT_DEVICE_GRE		2
 #define MT_NORMAL_NC		3
-#define MT_NORMAL			4
+#define MT_NORMAL		4
 
 #define MEMORY_ATTRIBUTES	((0x00 << (MT_DEVICE_NGNRNE * 8)) |	\
 				(0x04 << (MT_DEVICE_NGNRE * 8))   |	\
@@ -138,36 +149,36 @@
  */
 #define PTE_BLOCK_MEMTYPE(x)	((x) << 2)
 #define PTE_BLOCK_NS            (1 << 5)
-#define PTE_BLOCK_AP1			(1 << 6)
-#define PTE_BLOCK_AP2			(1 << 7)
-#define PTE_BLOCK_NON_SHARE		(0 << 8)
+#define PTE_BLOCK_AP1		(1 << 6)
+#define PTE_BLOCK_AP2		(1 << 7)
+#define PTE_BLOCK_NON_SHARE	(0 << 8)
 #define PTE_BLOCK_OUTER_SHARE	(2 << 8)
 #define PTE_BLOCK_INNER_SHARE	(3 << 8)
-#define PTE_BLOCK_AF			(1 << 10)
-#define PTE_BLOCK_NG			(1 << 11)
-#define PTE_BLOCK_PXN			(UL(1) << 53)
-#define PTE_BLOCK_UXN			(UL(1) << 54)
+#define PTE_BLOCK_AF		(1 << 10)
+#define PTE_BLOCK_NG		(1 << 11)
+#define PTE_BLOCK_PXN		(UL(1) << 53)
+#define PTE_BLOCK_UXN		(UL(1) << 54)
 
 /*
  * TCR flags.
  */
-#define TCR_T0SZ(x)			((64 - (x)) << 0)
-#define TCR_IRGN_NC			(0 << 8)
+#define TCR_T0SZ(x)		((64 - (x)) << 0)
+#define TCR_IRGN_NC		(0 << 8)
 #define TCR_IRGN_WBWA		(1 << 8)
-#define TCR_IRGN_WT			(2 << 8)
+#define TCR_IRGN_WT		(2 << 8)
 #define TCR_IRGN_WBNWA		(3 << 8)
 #define TCR_IRGN_MASK		(3 << 8)
-#define TCR_ORGN_NC			(0 << 10)
+#define TCR_ORGN_NC		(0 << 10)
 #define TCR_ORGN_WBWA		(1 << 10)
-#define TCR_ORGN_WT			(2 << 10)
+#define TCR_ORGN_WT		(2 << 10)
 #define TCR_ORGN_WBNWA		(3 << 10)
 #define TCR_ORGN_MASK		(3 << 10)
 #define TCR_SHARED_NON		(0 << 12)
 #define TCR_SHARED_OUTER	(2 << 12)
 #define TCR_SHARED_INNER	(3 << 12)
-#define TCR_TG0_4K			(0 << 14)
-#define TCR_TG0_64K			(1 << 14)
-#define TCR_TG0_16K			(2 << 14)
+#define TCR_TG0_4K		(0 << 14)
+#define TCR_TG0_64K		(1 << 14)
+#define TCR_TG0_16K		(2 << 14)
 #define TCR_EPD1_DISABLE	(1 << 23)
 
 #define TCR_EL1_RSVD		(1 << 31)
@@ -208,14 +219,30 @@
 
 #define pte_index_to_vaddr(i0, i1, i2, i3) ((i0 << TTB_I0_SHIFT) | i1 << TTB_I1_SHIFT) | (i2 << TTB_I2_SHIFT) | (i3 << TTB_I3_SHIFT))
 
-#define l0pte_offset(pgtable, addr)     (pgtable + l0pte_index(addr))
-#define l1pte_offset(l0pte, addr)		((addr_t *) (__va(*l0pte & TTB_L0_TABLE_ADDR_MASK)) + l1pte_index(addr))
-#define l2pte_offset(l1pte, addr)		((addr_t *) (__va(*l1pte & TTB_L1_TABLE_ADDR_MASK)) + l2pte_index(addr))
-#define l3pte_offset(l2pte, addr)		((addr_t *) (__va(*l2pte & TTB_L2_TABLE_ADDR_MASK)) + l3pte_index(addr))
+#define l0pte_offset(pgtable, addr)     ((u64 *) (pgtable + l0pte_index(addr)))
+#define l1pte_offset(l0pte, addr)	((u64 *) (__va(*l0pte & TTB_L0_TABLE_ADDR_MASK)) + l1pte_index(addr))
+#define l2pte_offset(l1pte, addr)	((u64 *) (__va(*l1pte & TTB_L1_TABLE_ADDR_MASK)) + l2pte_index(addr))
+#define l3pte_offset(l2pte, addr)	((u64 *) (__va(*l2pte & TTB_L2_TABLE_ADDR_MASK)) + l3pte_index(addr))
 
-#define l1pte_first(l0pte)		((addr_t *) __va(*l0pte & TTB_L0_TABLE_ADDR_MASK))
-#define l2pte_first(l1pte)		((addr_t *) __va(*l1pte & TTB_L1_TABLE_ADDR_MASK))
-#define l3pte_first(l2pte)		((addr_t *) __va(*l2pte & TTB_L2_TABLE_ADDR_MASK))
+#define l1pte_first(l0pte)		((u64 *) __va(*l0pte & TTB_L0_TABLE_ADDR_MASK))
+#define l2pte_first(l1pte)		((u64 *) __va(*l1pte & TTB_L1_TABLE_ADDR_MASK))
+#define l3pte_first(l2pte)		((u64 *) __va(*l2pte & TTB_L2_TABLE_ADDR_MASK))
+
+#define l0_addr_end(addr, end)                                         \
+ ({      unsigned long __boundary = ((addr) + SZ_256G) & BLOCK_256G_MASK;  \
+         (__boundary - 1 < (end) - 1) ? __boundary: (end);                \
+ })
+
+#define l1_addr_end(addr, end)                                         \
+ ({      unsigned long __boundary = ((addr) + SZ_1G) & BLOCK_1G_MASK;  \
+         (__boundary - 1 < (end) - 1) ? __boundary: (end);                \
+ })
+
+#define l2_addr_end(addr, end)                                         \
+ ({      unsigned long __boundary = ((addr) + SZ_2M) & BLOCK_2M_MASK;  \
+         (__boundary - 1 < (end) - 1) ? __boundary: (end);                \
+ })
+
 
 #define clear_page(page)	memset((void *)(page), 0, PAGE_SIZE)
 
@@ -303,13 +330,15 @@ static inline void set_sctlr(unsigned int val)
 }
 
 extern addr_t __sys_l0pgtable[], __sys_idmap_l1pgtable[], __sys_linearmap_l1pgtable[];
+
 void set_pte(addr_t *pte, enum dcache_option option);
 
 extern void __mmu_switch(uint32_t l1pgtable_phys);
 
 void pgtable_copy_kernel_area(uint32_t *l1pgtable);
 
-void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base, uint32_t size, bool nocache);
+void create_mapping(addr_t *l0pgtable, addr_t virt_base, addr_t phys_base, u64 size, bool nocache);
+void release_mapping(addr_t *pgtable, addr_t virt_base, addr_t size);
 
 uint32_t *new_l1pgtable(void);
 void reset_l1pgtable(uint32_t *l1pgtable, bool remove);

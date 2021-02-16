@@ -27,7 +27,7 @@
 #include <timer.h>
 #include <keyhandler.h>
 #include <percpu.h>
-#include <xmalloc.h>
+#include <heap.h>
 
 #include <asm/backtrace.h>
 

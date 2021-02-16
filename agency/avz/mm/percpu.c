@@ -17,6 +17,7 @@
  */
 
 #include <memory.h>
+#include <heap.h>
 #include <errno.h>
 #include <string.h>
 
@@ -44,7 +45,7 @@ int init_percpu_area(unsigned int cpu)
     if (__per_cpu_offset[cpu] != INVALID_PERCPU_AREA)
         BUG();
 
-    if ((p = alloc_heap_pages(PERCPU_ORDER, 0)) == NULL)
+    if ((p = memalign(PAGE_SIZE, PAGE_SIZE)) == NULL)
         BUG();
 
     memset(p, 0, __per_cpu_data_end - __per_cpu_start);

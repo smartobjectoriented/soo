@@ -22,7 +22,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <common.h>
-#include <xmalloc.h>
+#include <heap.h>
 
 #include <memory.h>
 #include <string_helpers.h>
@@ -1914,7 +1914,7 @@ char *kvasprintf(const char *fmt, va_list ap)
         len = vsnprintf(NULL, 0, fmt, aq);
         va_end(aq);
 
-        p = xmalloc_array(char, len+1);
+        p = malloc(len+1);
         if (!p)
                 BUG();
 

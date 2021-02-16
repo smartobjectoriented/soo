@@ -98,7 +98,7 @@
 
 extern void *gic_cpu_base_addr;
 
-void gic_init(unsigned int, unsigned int, void *, void *);
+void gic_init(unsigned int, unsigned int, addr_t *, addr_t *);
 void gic_secondary_init(unsigned int);
 void gic_raise_softirq(int cpu, unsigned int irq);
 

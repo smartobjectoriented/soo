@@ -18,7 +18,7 @@ obj-y += time.o
 #obj-y += dom_mig_transfer.o dom_mig_restore.o
 #obj-y += soo_activity.o
 
-#obj-y += bitmap.o
+obj-y += bitmap.o
 #obj-y += domctl.o
 obj-y += event_channel.o
 obj-y += keyhandler.o

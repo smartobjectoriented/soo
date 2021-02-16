@@ -146,4 +146,8 @@ void invalidate_icache_all(void)
 	__asm_invalidate_icache_all();
 }
 
+void mmu_page_table_flush(unsigned long start, unsigned long stop) {
+	flush_dcache_range(start, stop);
+	__asm_invalidate_tlb_all();
+}
 

@@ -12,7 +12,8 @@ ENTRY(__start)
  * Indeed a user thread (running in the user space) will also involve kernel activities
  * with syscalls and other.
  */
-SVC_STACK_SIZE = 32*1024;  /* Initial system stack */
+SVC_STACK_SIZE = 32 * 1024;  		/* Initial system stack */
+HEAP_SIZE = 2 * 1024 * 1024;    /* 2 MB dedicated to kernel heap */
  
 SECTIONS
 {
@@ -77,12 +78,17 @@ SECTIONS
     
     . += 4096;
     
-    /* Finally, another L1 system page table required for the (first) linear mapping */
+    /* Another L1 system page table required for the (first) linear mapping */
     __sys_linearmap_l1pgtable = .;
     
     . += 4096;
-        
-    . = ALIGN(4096);
+  
+    .heap :
+    {
+      __heap_base_addr = . ;
 
+      . += HEAP_SIZE;
+    }
+ 
     __end = .;
 }

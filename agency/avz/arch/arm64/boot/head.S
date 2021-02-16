@@ -90,13 +90,7 @@ mmu_setup:
   adrp	x0, cpu0_stack
   mov	sp, x0
 
-  // Refer to the 1st-level page table
-  adrp	x0, __sys_l0pgtable
-  adrp  x1,	__sys_idmap_l1pgtable
-  adrp  x2, __sys_linearmap_l1pgtable
-
-  mov	x3, x9 // fdt addr
-
+  mov	x0, x9 // fdt addr
   bl 	mmu_configure
 
   // Readjust the stack
