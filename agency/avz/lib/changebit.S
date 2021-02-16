@@ -1,4 +1,5 @@
-#include <asm/linkage.h>
+#include <linkage.h>
+
 #include <asm/processor.h>
 
 		.text

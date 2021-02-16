@@ -19,6 +19,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <generated/autoconf.h>
+
 #define	NR_CPUS			4
 
 /*

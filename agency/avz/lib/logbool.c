@@ -186,8 +186,10 @@ void dump_all_logbool(unsigned char key) {
 	}
 }
 
-struct keyhandler dump_logbool_keyhandler = { .diagnostic = 1,
-		.u.fn = dump_all_logbool, .desc = "dump logbool hashtable" };
+struct keyhandler dump_logbool_keyhandler = {
+		.fn = dump_all_logbool,
+		.desc = "dump logbool hashtable"
+};
 
 
 void logbool_init(void) {

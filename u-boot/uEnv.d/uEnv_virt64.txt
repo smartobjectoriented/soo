@@ -1,0 +1,7 @@
+fdt_high=ffffffffffffffff
+initrd_high=ffffffffffffffff
+soo=fatload mmc 0 0xb0000000 vexpress.itb; bootm 0xb0000000
+start=run soo
+
+
+

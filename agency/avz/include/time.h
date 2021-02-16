@@ -21,8 +21,6 @@
 
 #include <device/irq.h>
 
-#include <asm/div64.h>
-
 /* clocksource cycle base type */
 typedef u64 cycle_t;
 struct clocksource;

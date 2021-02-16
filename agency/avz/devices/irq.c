@@ -34,8 +34,6 @@
 
 #include <device/arch/gic.h>
 
-#include <asm/linkage.h>
-
 #include <soo/arch-arm.h>
 
 #include <soo/uapi/event_channel.h>

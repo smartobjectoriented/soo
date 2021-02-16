@@ -1,5 +1,9 @@
+
+#include <linkage.h>
+
 #include <asm/processor.h>
-#include <asm/linkage.h>
+
+#include <generated/autoconf.h>
 
 		.text
 

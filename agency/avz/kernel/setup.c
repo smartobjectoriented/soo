@@ -32,7 +32,6 @@
 #include <asm/processor.h>
 #include <asm/percpu.h>
 #include <asm/io.h>
-#include <asm/div64.h>
 #include <asm/vfp.h>
 
 #include <soo/soo.h>
@@ -44,7 +43,7 @@
 extern void startup_cpu_idle_loop(void);
 
 struct domain *idle_domain[NR_CPUS];
-
+#if 0
 long do_set_callbacks(unsigned long event, unsigned long domcall)
 {
 	struct domain *d = current;
@@ -83,9 +82,11 @@ void init_idle_domain(void)
 }
 
 extern void setup_arch(char **);
+#endif
 
 void kernel_start(void)
 {
+#if 0
 	char *command_line;
 	int i;
 
@@ -180,6 +181,6 @@ void kernel_start(void)
 	set_current(idle_domain[smp_processor_id()]);
 
 	startup_cpu_idle_loop();
-
+#endif
 }
 

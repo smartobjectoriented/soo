@@ -12,7 +12,7 @@
  *  published by the Free Software Foundation.
  */
 
-#include <asm/linkage.h>
+#include <linkage.h>
 
 #ifdef __ARMEB__
 #define xh r0

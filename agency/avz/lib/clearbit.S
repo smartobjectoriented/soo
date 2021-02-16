@@ -1,8 +1,8 @@
 
 #include <config.h>
+#include <linkage.h>
 
 #include <asm/processor.h>
-#include <asm/linkage.h>
 
 .text
 

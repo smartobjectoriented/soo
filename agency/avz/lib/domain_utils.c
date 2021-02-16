@@ -69,7 +69,7 @@ void loadAgency(void)
 
 	/* Set the memslot base address to a section boundary */
 	memslot[MEMSLOT_AGENCY].base_paddr = (dom_addr & ~(SZ_1M - 1));
-	memslot[MEMSLOT_AGENCY].fdt_paddr = (unsigned int) __fdt_addr;
+	memslot[MEMSLOT_AGENCY].fdt_paddr = (addr_t) __fdt_addr;
 	memslot[MEMSLOT_AGENCY].size = fdt_getprop_u32_default(fdt_vaddr, "/agency", "domain-size", 0);
 	
 	/* Fixup the agency device tree */
@@ -109,12 +109,14 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 
 	pgtable_from = (uint32_t *) __lva(current_addrspace->pgtable_paddr);
 
+#warning to be revisited...
+#if 0
 	/* Get the visibility on the domain image stored in the agency user space area */
 	for (section_nr = 0x0; section_nr < 0xc00; section_nr++)
 		__sys_l1pgtable[section_nr] = pgtable_from[section_nr];
 
 	flush_dcache_all();
-
+#endif
 	/* Look for a node of ME type in the fit image */
 	nodeoffset = 0;
 	depth = 0;

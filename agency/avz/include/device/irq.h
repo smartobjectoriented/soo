@@ -236,11 +236,6 @@ void enable_irq(unsigned int);
 int set_irq_type(unsigned int irq, unsigned int type);
 int setup_irq(unsigned int, struct irqaction *);
 
-int pirq_bind(struct vcpu *v, int irq);
-void pirq_unbind(unsigned int irq);
-void pirq_unbind_domain(struct domain *d, unsigned int irq);
-
-
 /* IRQ action dispatcher */
 void handle_fasteoi_irq(unsigned int irq, struct irqdesc *desc);
 

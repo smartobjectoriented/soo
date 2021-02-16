@@ -247,7 +247,7 @@ static void gic_dist_init(struct gic_chip_data *gic, unsigned int irq_start)
 	for (i = 32; i < gic_irqs; i++)
 		irq_set_affinity(i, AGENCY_CPU);
 
-	dmb();
+	smp_mb();
 }
 
 void gic_cpu_config(void *base)
@@ -335,7 +335,7 @@ void ll_entry_irq(void)
 		irqstat = readl(cpu_base + GIC_CPU_INTACK);
 		irqnr = irqstat & GICC_IAR_INT_ID_MASK;
 
-		dmb();
+		smp_mb();
 
 		BUG_ON((smp_processor_id() == AGENCY_CPU) || (smp_processor_id() == AGENCY_RT_CPU));
 
@@ -442,7 +442,7 @@ void smp_cross_call(int target_cpu, unsigned int irq)
 	 * Ensure that stores to Normal memory are visible to the
 	 * other CPUs before they observe us issuing the IPI.
 	 */
-	dmb(ishst);
+	smp_mb();
 
 	/* This always happens on GIC0 */
 	writel((1 << target_cpu) << 16 | irq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);

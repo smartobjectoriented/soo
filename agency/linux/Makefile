@@ -359,8 +359,11 @@ include scripts/subarch.include
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 
 # (SOO.tech) Usual toolchains for our systems
-ARCH		?= arm
-CROSS_COMPILE	?= arm-linux-gnueabihf-
+#ARCH		?= arm
+ARCH	?= arm64
+
+#CROSS_COMPILE	?= arm-linux-gnueabihf-
+CROSS_COMPILE ?= aarch64-linux-gnu-
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)

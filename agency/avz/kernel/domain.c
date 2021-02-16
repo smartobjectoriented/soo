@@ -51,7 +51,7 @@
 struct domain *domains[MAX_DOMAINS];
 
 struct domain *agency;
-
+#if 0
 DEFINE_PER_CPU(struct vcpu *, curr_vcpu);
 
 struct cpu_info {
@@ -59,11 +59,14 @@ struct cpu_info {
 	ulong saved_regs[2];
 };
 
+#endif
+
 int current_domain_id(void)
 {
 	return current->domain_id;
 }
 
+#if 0
 /*
  * Creation of new domain context associated to the agency or a Mobile Entity.
  *
@@ -184,6 +187,8 @@ void domain_destroy(struct domain *d)
 	complete_domain_destroy(d);
 }
 
+#endif
+
 void vcpu_pause(struct domain *d)
 {
 	ASSERT(d != current);
@@ -226,7 +231,7 @@ void domain_pause_by_systemcontroller(struct domain *d) {
 		domain_pause(d);
 }
 
-
+#if 0
 void domain_unpause_by_systemcontroller(struct domain *d)
 {
 	if (test_and_clear_bool(d->is_paused_by_controller))
@@ -252,11 +257,13 @@ struct domain *alloc_domain_struct(void)
 		memset(d, 0, sizeof(*d));
 	return d;
 }
+#endif
 
 void context_switch(struct domain *prev, struct domain *next)
 {
 	local_irq_disable();
 
+#if 0
 	if (!is_idle_domain(current)) {
 
 		prep_switch_domain();
@@ -278,18 +285,20 @@ void context_switch(struct domain *prev, struct domain *next)
 	switch_mm(next, &next->addrspace);
 
 	/* Clear running flag /after/ writing context to memory. */
-	dmb();
+	smp_mb();
 
 	prev->is_running = 0;
 
 	/* Check for migration request /after/ clearing running flag. */
-	dmb();
+	smp_mb();
 
 	spin_unlock(&prev->sched->sched_data.schedule_lock);
 
 	switch_to(prev, next, prev);
-
+#endif
 }
+
+#if 0
 
 extern void ret_to_user(void);
 extern void pre_ret_to_user(void);
@@ -417,3 +426,4 @@ int domain_call(struct domain *target_dom, int cmd, void *arg)
 	return rc;
 }
 
+#endif

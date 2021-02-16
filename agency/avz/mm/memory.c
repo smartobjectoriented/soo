@@ -29,12 +29,10 @@
 #include <memory.h>
 #include <memslot.h>
 #include <common.h>
+#include <linkage.h>
 
-#include <asm/linkage.h>
 #include <asm/cacheflush.h>
-
 #include <asm/processor.h>
-
 #include <asm/mmu.h>
 
 #include <soo/arch-arm.h>
@@ -65,7 +63,7 @@ unsigned long total_pages;
 unsigned long heap_phys_start, heap_phys_end;
 
 unsigned int io_map_current_base;
-
+#if 0
 /*
  * Perform basic memory initialization, i.e. the existing memory slot.
  */
@@ -86,7 +84,6 @@ void early_memory_init(void) {
 	for (i = 0; i < MAX_ME_DOMAINS; i++)
 		memslot[i+2].busy = false;
 
-	__sys_l1pgtable = (void *) (CONFIG_HYPERVISOR_VIRT_ADDR + TTB_L1_SYS_OFFSET);
 }
 
 extern unsigned long __bss_start, __bss_end;
@@ -349,11 +346,11 @@ void switch_mm(struct domain *d, addrspace_t *next_addrspace) {
 
 	mmu_switch(next_addrspace);
 }
-
-void *ioremap(unsigned long phys_addr, unsigned int size) {
+#endif
+void *ioremap(addr_t phys_addr, unsigned int size) {
 	uint32_t vaddr;
 	unsigned int offset;
-
+#if 0
 	/* Make sure the virtual address will be correctly aligned (either section or page aligned). */
 
 	io_map_current_base = ALIGN_UP(io_map_current_base, ((size < SZ_1M) ? PAGE_SIZE : SZ_1M));
@@ -366,7 +363,7 @@ void *ioremap(unsigned long phys_addr, unsigned int size) {
 	create_mapping(NULL, (unsigned long) io_map_current_base, phys_addr, size, true);
 
 	io_map_current_base += size;
-
+#endif
 	return (void *) (vaddr + offset);
 
 }

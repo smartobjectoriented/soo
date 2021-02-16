@@ -73,7 +73,7 @@ static void arch_timer_reg_write(int access, enum arch_timer_reg reg, u32 val, s
 			break;
 		}
 	} else {
-		arch_timer_reg_write_cp15(access, reg, val);
+		//arch_timer_reg_write_cp15(access, reg, val);
 	}
 }
 
@@ -103,7 +103,7 @@ static inline u32 arch_timer_reg_read(int access, enum arch_timer_reg reg, struc
 			break;
 		}
 	} else {
-		val = arch_timer_reg_read_cp15(access, reg);
+		//val = arch_timer_reg_read_cp15(access, reg);
 	}
 
 	return val;
@@ -264,7 +264,7 @@ static struct clock_event_device arm_timer_clockevent = {
 
 static struct clocksource arm_clocksource = {
 		.name		= "sys_clocksource",
-		.read		= arch_counter_get_cntvct,
+//		.read		= arch_counter_get_cntvct,
 		.mask		= CLOCKSOURCE_MASK(56),
 		.flags		= CLOCK_SOURCE_IS_CONTINUOUS | CLOCK_SOURCE_SUSPEND_NONSTOP,
 };
@@ -277,7 +277,7 @@ void init_timer(int cpu)
 	/* System clocksource */
 	system_timer_clocksource = &arm_clocksource;
 
-	system_timer_clocksource->rate = arch_timer_get_cntfrq();
+	//system_timer_clocksource->rate = arch_timer_get_cntfrq();
 	printk("%s: detected frequency of clocksource on CPU %d: %u\n", __func__, smp_processor_id(), system_timer_clocksource->rate);
 
 	clocks_calc_mult_shift(&system_timer_clocksource->mult, &system_timer_clocksource->shift, system_timer_clocksource->rate, NSEC_PER_SEC, 3600);

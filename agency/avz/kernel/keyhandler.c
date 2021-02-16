@@ -28,21 +28,20 @@
 #include <sched.h>
 
 #include <asm/backtrace.h>
-#include <asm/div64.h>
 #include <asm/processor.h>
 
 static struct keyhandler *key_table[256];
 
 char keyhandler_scratch[1024];
 
-void handle_keypress(unsigned char key, struct cpu_user_regs *regs)
+void handle_keypress(unsigned char key)
 {
 	struct keyhandler *h;
 
 	if ((h = key_table[key]) == NULL)
 		return;
 
-	h->irq_callback ? (*h->u.irq_fn)(key, regs) : (*h->u.fn)(key);
+	h->fn(key);
 
 }
 
@@ -63,11 +62,11 @@ static void show_handlers(unsigned char key)
 }
 
 static struct keyhandler show_handlers_keyhandler = {
-	.u.fn = show_handlers,
+	.fn = show_handlers,
 	.desc = "show this message"
 };
 
-static void dump_registers(unsigned char key, struct cpu_user_regs *regs)
+static void dump_registers(unsigned char key)
 {
 	printk("'%c' pressed -> dumping registers\n", key);
 
@@ -76,20 +75,18 @@ static void dump_registers(unsigned char key, struct cpu_user_regs *regs)
 
 	dump_execution_state();
 	printk("*** Dumping CPU%d guest state: ***\n", smp_processor_id());
+
+#if 0
 	if (is_idle_domain(current))
 		printk("No guest context (CPU is idle).\n");
 	else
 		show_execution_state(&current->arch.guest_context.user_regs);
-
-
-
+#endif
 	printk("\n");
 }
 
 static struct keyhandler dump_registers_keyhandler = {
-	.irq_callback = 1,
-	.diagnostic = 1,
-	.u.irq_fn = dump_registers,
+	.fn = dump_registers,
 	.desc = "dump registers"
 };
 
@@ -105,8 +102,7 @@ static void dump_agency_registers(unsigned char key)
 }
 
 static struct keyhandler dump_agency_registers_keyhandler = {
-	.diagnostic = 1,
-	.u.fn = dump_agency_registers,
+	.fn = dump_agency_registers,
 	.desc = "dump agency registers"
 };
 
@@ -145,8 +141,7 @@ static void dump_domains(unsigned char key)
 }
 
 static struct keyhandler dump_domains_keyhandler = {
-	.diagnostic = 1,
-	.u.fn = dump_domains,
+	.fn = dump_domains,
 	.desc = "dump domain (and guest debug) info"
 };
 

@@ -63,7 +63,7 @@ void spin_debug_disable(void)
 void _spin_lock(spinlock_t *lock)
 {
     check_lock(&lock->debug);
-    while ( unlikely(!_raw_spin_trylock(&lock->raw)) )
+    while (unlikely(!_raw_spin_trylock(&lock->raw)))
     {
         while ( likely(_raw_spin_is_locked(&lock->raw)) )
             cpu_relax();
@@ -140,9 +140,9 @@ void _spin_barrier(spinlock_t *lock)
 {
 
 	check_lock(&lock->debug);
-	do { dmb(); } while ( _raw_spin_is_locked(&lock->raw) );
+	do { smp_mb(); } while ( _raw_spin_is_locked(&lock->raw) );
 
-	dmb();
+	smp_mb();
 }
 
 void _spin_barrier_irq(spinlock_t *lock)
@@ -182,101 +182,4 @@ void _spin_unlock_recursive(spinlock_t *lock)
     }
 }
 
-void _read_lock(rwlock_t *lock)
-{
-    check_lock(&lock->debug);
-    _raw_read_lock(&lock->raw);
-}
-
-void _read_lock_irq(rwlock_t *lock)
-{
-    ASSERT(local_irq_is_enabled());
-    local_irq_disable();
-    check_lock(&lock->debug);
-    _raw_read_lock(&lock->raw);
-}
-
-unsigned long _read_lock_irqsave(rwlock_t *lock)
-{
-    unsigned long flags;
-    local_irq_save(flags);
-    check_lock(&lock->debug);
-    _raw_read_lock(&lock->raw);
-    return flags;
-}
-
-void _read_unlock(rwlock_t *lock)
-{
-    _raw_read_unlock(&lock->raw);
-}
-
-void _read_unlock_irq(rwlock_t *lock)
-{
-    _raw_read_unlock(&lock->raw);
-    local_irq_enable();
-}
-
-void _read_unlock_irqrestore(rwlock_t *lock, unsigned long flags)
-{
-    _raw_read_unlock(&lock->raw);
-    local_irq_restore(flags);
-}
-
-void _write_lock(rwlock_t *lock)
-{
-    check_lock(&lock->debug);
-    _raw_write_lock(&lock->raw);
-}
-
-void _write_lock_irq(rwlock_t *lock)
-{
-    ASSERT(local_irq_is_enabled());
-    local_irq_disable();
-    check_lock(&lock->debug);
-    _raw_write_lock(&lock->raw);
-}
-
-unsigned long _write_lock_irqsave(rwlock_t *lock)
-{
-    unsigned long flags;
-    local_irq_save(flags);
-    check_lock(&lock->debug);
-    _raw_write_lock(&lock->raw);
-    return flags;
-}
-
-int _write_trylock(rwlock_t *lock)
-{
-    check_lock(&lock->debug);
-    return _raw_write_trylock(&lock->raw);
-}
-
-void _write_unlock(rwlock_t *lock)
-{
-    _raw_write_unlock(&lock->raw);
-}
-
-void _write_unlock_irq(rwlock_t *lock)
-{
-    _raw_write_unlock(&lock->raw);
-    local_irq_enable();
-}
-
-void _write_unlock_irqrestore(rwlock_t *lock, unsigned long flags)
-{
-    _raw_write_unlock(&lock->raw);
-    local_irq_restore(flags);
-}
-
-int _rw_is_locked(rwlock_t *lock)
-{
-    check_lock(&lock->debug);
-    return _raw_rw_is_locked(&lock->raw);
-}
-
-int _rw_is_write_locked(rwlock_t *lock)
-{
-    check_lock(&lock->debug);
-    return _raw_rw_is_write_locked(&lock->raw);
-}
 

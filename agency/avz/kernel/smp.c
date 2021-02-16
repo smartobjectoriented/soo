@@ -41,6 +41,8 @@ DEFINE_PER_CPU(spinlock_t, softint_lock);
 extern void startup_cpu_idle_loop(void);
 extern void init_idle_domain(void);
 
+#if 0
+
 /*
  * control for which core is the next to come out of the secondary
  * boot "holding pen"
@@ -55,19 +57,20 @@ volatile int pen_release = -1;
 void write_pen_release(int val)
 {
 	pen_release = val;
-	dmb();
+	smp_mb();
 
 	flush_dcache_all();
 }
 
 int read_pen_release(void) {
-	dmb();
+	smp_mb();
 
 	flush_dcache_all();
 
 	return pen_release;
 }
 
+#endif
 
 void smp_trigger_event(int target_cpu)
 {
@@ -120,7 +123,7 @@ void handle_IPI(int ipinr)
 void secondary_start_kernel(void)
 {
 	unsigned int cpu = smp_processor_id();
-
+#if 0
 	cpu_init();
 
 	printk("CPU%u: Booted secondary processor\n", cpu);
@@ -135,7 +138,7 @@ void secondary_start_kernel(void)
 
 	init_timer(cpu);
 
-	dmb();
+	smp_mb();
 
 	booted[cpu] = 1;
 
@@ -152,9 +155,9 @@ void secondary_start_kernel(void)
 	startup_cpu_idle_loop();
 
 	/* Never returned at this point ... */
-
+#endif
 }
-
+#if 0
 extern void vcpu_periodic_timer_start(struct vcpu *v);
 
 void cpu_up(unsigned int cpu)
@@ -229,3 +232,4 @@ void smp_init(void)
 }
 
 
+#endif

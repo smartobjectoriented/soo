@@ -364,7 +364,7 @@ static int evtchn_set_pending(struct domain *d, int evtchn) {
 	d->shared_info->evtchn_pending[evtchn] = true;
 	d->shared_info->evtchn_upcall_pending = 1;
 
-	dmb();
+	smp_mb();
 
 	if (smp_processor_id() != d->processor)
 		smp_trigger_event(d->processor);
@@ -614,8 +614,10 @@ static void dump_evtchn_info(unsigned char key) {
 
 }
 
-static struct keyhandler dump_evtchn_info_keyhandler = { .diagnostic = 1,
-		.u.fn = dump_evtchn_info, .desc = "dump evtchn info" };
+static struct keyhandler dump_evtchn_info_keyhandler = {
+		.fn = dump_evtchn_info,
+		.desc = "dump evtchn info"
+};
 
 void event_channel_init(void) {
 	register_keyhandler('e', &dump_evtchn_info_keyhandler);

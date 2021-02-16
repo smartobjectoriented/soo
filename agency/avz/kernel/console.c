@@ -34,7 +34,6 @@
 #include <soo/uapi/console.h>
 
 #include <asm/io.h>
-#include <asm/div64.h>
 
 #include <mach/uart.h>
 
@@ -43,7 +42,7 @@
 DEFINE_SPINLOCK(console_lock);
 
 /* To manage the final virtual address of the UART */
-extern uint32_t __uart_vaddr;
+extern addr_t __uart_vaddr;
 
 void serial_puts(const char *s)
 {
@@ -58,7 +57,7 @@ void serial_puts(const char *s)
  */
 void console_init_post(void)
 {
-	__uart_vaddr = (uint32_t) ioremap(UART_BASE, PAGE_SIZE);
+	__uart_vaddr = (addr_t) ioremap(UART_BASE, PAGE_SIZE);
 }
 
 static void sercon_puts(const char *s)
@@ -68,46 +67,7 @@ static void sercon_puts(const char *s)
 
 /* (DRE) Perform hypercall to process char addressed to the keyhandler mechanism */
 void process_char(char ch) {
-
-	struct cpu_user_regs regs;
-
-	register unsigned int r0 __asm__("r0");
-	register unsigned int r1 __asm__("r1");
-	register unsigned int r2 __asm__("r2");
-	register unsigned int r3 __asm__("r3");
-	register unsigned int r4 __asm__("r4");
-	register unsigned int r5 __asm__("r5");
-	register unsigned int r6 __asm__("r6");
-	register unsigned int r7 __asm__("r7");
-	register unsigned int r8 __asm__("r8");
-	register unsigned int r9 __asm__("r9");
-	register unsigned int r10 __asm__("r10");
-	register unsigned int r11 __asm__("r11");
-	register unsigned int r12 __asm__("r12");
-	register unsigned int r13 __asm__("r13");
-	register unsigned int r14 __asm__("r14");
-	register unsigned int r15;
-
-	asm("mov %0, pc":"=r"(r15));
-
-	regs.r0 = r0;
-	regs.r1 = r1;
-	regs.r2 = r2;
-	regs.r3 = r3;
-	regs.r4 = r4;
-	regs.r5 = r5;
-	regs.r6 = r6;
-	regs.r7 = r7;
-	regs.r8 = r8;
-	regs.r9 = r9;
-	regs.r10 = r10;
-	regs.r11 = r11;
-	regs.r12 = r12;
-	regs.r13 = r13;
-	regs.r14 = r14;
-	regs.r15 = r15;
-
-	handle_keypress(ch, &regs);
+	handle_keypress(ch);
 }
 
 long do_console_io(int cmd, int count, char *buffer)

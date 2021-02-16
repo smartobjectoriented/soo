@@ -42,7 +42,7 @@ struct vcpu;
 #define pfn_valid(_pfn)     (((_pfn) >= min_page) && ((_pfn) <= max_page))
 
 /* Boot-time allocator. Turns into generic allocator after bootstrap. */
-void init_boot_pages(paddr_t ps, paddr_t pe);
+void init_boot_pages(addr_t ps, addr_t pe);
 unsigned long alloc_boot_pages(unsigned long nr_pfns, unsigned long pfn_align);
 void end_boot_allocator(void);
 
@@ -51,7 +51,7 @@ void *malloc(size_t size);
 void free(void *ptr);
 
 /* AVZ suballocator. These functions are interrupt-safe. */
-void init_heap_pages(paddr_t ps, paddr_t pe);
+void init_heap_pages(addr_t ps, addr_t pe);
 void *alloc_heap_pages(unsigned int order, unsigned int memflags);
 void free_heap_pages(void *v, unsigned int order);
 #define alloc_heap_page() (alloc_heap_pages(0,0))
@@ -115,7 +115,7 @@ struct page_info
          */
         struct list_head list;
         /* For non-pinnable shadows, a higher entry that points at us. */
-        paddr_t up;
+        addr_t up;
 
     };
 
@@ -191,9 +191,9 @@ void get_current_addrspace(addrspace_t *addrspace);
 bool is_addrspace_equal(addrspace_t *addrspace1, addrspace_t *addrspace2);
 void switch_mm(struct domain *d, addrspace_t *next_addrspace);
 
-void *ioremap(unsigned long phys_addr, unsigned int size);
+void *ioremap(addr_t phys_addr, unsigned int size);
 
-static inline int get_order_from_bytes(paddr_t size)
+static inline int get_order_from_bytes(addr_t size)
 {
 	int order;
 
