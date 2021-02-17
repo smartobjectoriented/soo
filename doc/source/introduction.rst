@@ -58,9 +58,6 @@ Mobile Entity
 ~~~~~~~~~~~~~
 
 
-
-
-
 .. _REDS: http://www.reds.ch
 .. _HEIG-VD: http://www.heig-vd.ch
 .. _SOO_blog: https://blog.reds.ch/?p=1020
