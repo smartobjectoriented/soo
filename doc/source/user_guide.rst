@@ -1,9 +1,8 @@
-.. _setup:
+.. _user_guide:
 
-
-=======================================
-Infrastructure Setup, Build and Testing
-=======================================   
+ 
+User Guide
+==========
    
 The installation should work in any Ubuntu/Kubuntu installation superior
 to ``16.10``. It is assumed that you are running an x86_64 version.
@@ -17,7 +16,7 @@ Additionally, the *vExpress* target is also configured with TrustZone
 support.
 
 Pre-requisite
-=============
+-------------
 
 We need to run some i386 executables, and we need to install some i386
 libraries too.
@@ -46,7 +45,7 @@ prevent annoying warnings:
    sudo apt-get install bison flex
 
 Toolchain
----------
+~~~~~~~~~
 
 The toolchain has been created by Linaro, with the version 2018-05. It
 includes an arm-linux-gnueabihf GCC 6.4.1 compiler. For now, nothing has
@@ -76,14 +75,14 @@ The output should look like:
    gcc version 6.4.1 20180425 [linaro-6.4-2018.05 revision 7b15d0869c096fe39603ad63dc19ab7cf035eb70] (Linaro GCC 6.4-2018.05)
 
 Basic Components
-================
+----------------
 
 Currently, the framework contains all what is required to get a full
 functional environment. It includes the QEMU emulator, ARM TrustZone
 components, U-boot bootlader, etc.
 
 QEMU
-----
+~~~~
 
 Currently QEMU is version *5.2* QEMU requires the additional package to
 be installed:
@@ -137,7 +136,7 @@ cipher/uncipher the ME, discovery beacons, etc.
    ./build.sh
 
 U-boot
-======
+------
 
 The bootloader used by SOO is **U-boot**. In the sub-directory, there
 are also various environment files used by the bootloader.
@@ -158,15 +157,15 @@ commands (from the soo directory):
 
 
 SOO Components
-==============
+--------------
 
 Agency
-------
+~~~~~~
 
 The following components are built in the **agency/** directory.
 
 The main Agency rootfs (root filesystem)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In the code below, you have to replace ``MYARCH`` with the selected architecture. 
 All available configurations (\*_defconfig) are placed in
@@ -198,7 +197,7 @@ done by doing simply a make in the ``agency/`` root directory.
    make
 
 Agency User Applications
-~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 In addition to the ``rootfs``, the Agency has its own applications that
 can be found in ``agency/usr``. The build system of this part relies on
@@ -210,7 +209,7 @@ CMake. The build is achieved with the following script:
    ./build.sh
 
 Agency Filesystem
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 Once all main Agency components have been built, they will be put in a
 virtual disk image as it is possible to attach such a virtual SD-Card
@@ -225,7 +224,7 @@ The creation of the virtual disk image is done as follows:
    ./create_img.sh vexpress
 
 Deployment into the storage device
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Finally, the deployment of all Agency components (including the
 bootloader in some configurations) is achieved with the following script
@@ -240,7 +239,7 @@ The script has different options (try simply ``./deploy.sh`` to get all
 options).
 
 Yeahhh!… Now it is time to make a try by launching the SOO Agency with
-the following script, in the :sub:`root` directory.
+the following script, in the ``root/`` directory.
 
 .. code:: bash
 
@@ -255,13 +254,13 @@ should get a prompt entitled:
    `agency ~ #`
 
 Mobile Entity (ME)
-------------------
+~~~~~~~~~~~~~~~~~~
 
 For a quick test, it is proposed to build and to deploy the SOO.refso3
 reference Mobile Entity.
 
 ME Build
-~~~~~~~~
+^^^^^^^^
 
 The main ``ME``\ directory is amazingly ``ME`` at the root. The
 ``ME/base`` directory contains all the source code and related files of
@@ -324,7 +323,7 @@ used in SO3 in this context.
    ./deploy.sh so3virt
 
 Final Deployment
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 The ME ITB is produced with the following deployment script:
 
@@ -345,7 +344,7 @@ of the (virtual) SD-card found in the Agency.
    ./deploy.sh -m SOO.refso3
 
 ME Injection from the Agency
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 It’s time to test the new ME in the running environment. To do that,
 simply start the framework. The agency process which is started

@@ -28,7 +28,7 @@
 #include <apps/eco_stability.h>
 
 /* Cooperation with SOO.outdoor */
-#include <apps/outdoor.h>
+#include <me/outdoor/outdoor.h>
 
 #define APP_NAME "blind"
 
