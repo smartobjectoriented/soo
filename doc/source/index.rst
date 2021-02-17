@@ -38,9 +38,18 @@ Setup and Envronment
 SOO Subsystems and functional blocks
 ====================================
 
--  `SOO Agency <SOO_Agency>`__
--  `SOO Mobile Entity (ME) <SOO%20ME>`__
--  `Specifications <https://gitlab.com/smartobject/soo/-/wikis/Specifications>`__
+Agency
+------
+
+-  `Core subsystem <agency_core>`
+-  `DCM (Dedicated Communication Module) subsystem <agency_dcm>`
+-  `SOOlink subsystem`
+
+Mobile Entity (ME)
+------------------
+
+-  SO3 Enhanced Interactions <ME_so3>
+-  Behavioural Patterns <ME_behaviour>
 
 Development flow
 ================
