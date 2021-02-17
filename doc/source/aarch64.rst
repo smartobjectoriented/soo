@@ -5,6 +5,11 @@ Configuration for AArch64 64-bit architecture
 
 This chapter is devoted to the AArch64 64-bit configuration.
 
+.. warning::
+   
+   This is a ongoing work... and should be placed in a branch.
+  
+
 QEMU target
 -----------
 
@@ -72,12 +77,13 @@ Virtual addresses are 48-bit
 Constants:
 
 - TEXT_OFFSET = 0x800000
+- PHYS_OFFSET = 0x40000000
 
 ~~~~~~~~~
 Bootstrap
 ~~~~~~~~~
 
-- U-boot prepare the image header as expected by Linux:
+- The kernel image must have a valid header (used by U-boot) as follows:
 
 .. code-block:: c
 
@@ -94,7 +100,43 @@ Bootstrap
       uint32_t res5;
    };
 
-- Start physical address: 0x40080000  (determined by U-boot probably)
- 
+The structure above is mapped at the beginning of the image, i.e. the first instructions located
+at the ``_head`` label. *code0* and *code1* are the location of the two first instructions in *head.S* 
+(mainly a branch instruction, encoded on 32-bit as any aarch64 instructions).
 
+Possible kernel flags are::
+
+   Bit 0: Kernel endianness.  1 if BE, 0 if LE.
+   Bit 1-2:  Kernel Page size.
+         0 - Unspecified.
+         1 - 4K
+         2 - 16K
+         3 - 64K
+   Bit 3: Kernel physical placement
+         0 - 2MB aligned base should be as close as possible
+             to the base of DRAM, since memory below it is not
+             accessible via the linear mapping
+         1 - 2MB aligned base may be anywhere in physical
+             memory
+   Bits 4-63:   Reserved.
+
+Current configuration is:
+- Kernel Page size unspecified, 2MB aligned base as close as possible to the base of DRAM
+  
+
+- Start physical address: 0x40000000 (DRAM base for emulated virt machine in QEMU)
+
+ 
+~~~~~~~~~~~~~~~~~~~
+MMU and Page Tables
+~~~~~~~~~~~~~~~~~~~
+
+- The configuration in Linux is 4 KB page size with 4 levels of translation
+- Each table as 512 entries, hence with 64-bit entries and is stored in a 4 KB page.
+- Bit 63 tells which TTBR0/1 is used (1 -> kernel, 0 -> user space)
+
+AVZ Hypervisor
+--------------
+
+- The hypervisor will be located at 0xffff700000000000
 
