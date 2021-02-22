@@ -60,6 +60,8 @@ int put_ME_slot(unsigned int ME_slotID);
 void early_memory_init(void);
 void memory_init(void);
 
+uint32_t get_kernel_size(void);
+
 void get_current_addrspace(addrspace_t *addrspace);
 bool is_addrspace_equal(addrspace_t *addrspace1, addrspace_t *addrspace2);
 void switch_mm(struct domain *d, addrspace_t *next_addrspace);

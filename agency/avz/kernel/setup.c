@@ -33,6 +33,7 @@
 #include <asm/percpu.h>
 #include <asm/io.h>
 #include <asm/vfp.h>
+#include <asm/setup.h>
 
 #include <soo/soo.h>
 
@@ -43,7 +44,7 @@
 extern void startup_cpu_idle_loop(void);
 
 struct domain *idle_domain[NR_CPUS];
-#if 0
+
 long do_set_callbacks(unsigned long event, unsigned long domcall)
 {
 	struct domain *d = current;
@@ -81,8 +82,6 @@ void init_idle_domain(void)
 
 }
 
-extern void setup_arch(char **);
-#endif
 
 void kernel_start(void)
 {
@@ -101,7 +100,6 @@ void kernel_start(void)
 
 	memory_init();
 
-#if 0
 	loadAgency();
 
 	percpu_init_areas();
@@ -113,7 +111,7 @@ void kernel_start(void)
 		init_percpu_area(i);
 
 	/* Initialization of the machine. */
-	setup_arch(&command_line);
+	setup_arch();
 
 	/* Prepare to adapt the serial virtual address at a better location in the I/O space. */
 	console_init_post();
@@ -131,7 +129,7 @@ void kernel_start(void)
 
 	timer_init();
 	init_time();
-
+#if 0
 	/* create idle domain */
 	init_idle_domain();
 
@@ -141,6 +139,7 @@ void kernel_start(void)
 
 	/* Deal with secondary processors.  */
 	printk("spinning up at most %d total processors ...\n", NR_CPUS);
+
 
 	/* Create initial domain 0. */
 	domains[DOMID_AGENCY] = domain_create(DOMID_AGENCY, AGENCY_CPU);
@@ -174,12 +173,12 @@ void kernel_start(void)
 
 	/* Enabling VFP module on this CPU */
 	vfp_enable();
-
+#endif
 	domain_unpause_by_systemcontroller(agency);
 
 	set_current(idle_domain[smp_processor_id()]);
 
 	startup_cpu_idle_loop();
-#endif
+
 }
 

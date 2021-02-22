@@ -21,27 +21,12 @@
 
 #include <asm/processor.h>
 
-/*
- *	flush_pte_entry
- *
- *	Flush a PTE entry (word aligned, or double-word aligned) to
- *	RAM if the TLB for the CPU we are running on requires this.
- *	This is typically used when we are creating or removing PTE entries.
- *
- */
-static inline void flush_pte_entry(void *pte)
-{
-#if 0
-	do {
-		asm("mcr p15, 0, %0, c7, c10, 1   @ flush pte" : : "r" (pte) : "cc");
-	} while (0);
-#endif
-	smp_mb();
-}
+void flush_pte_entry(addr_t va, u64 *pte);
 
 void mmu_page_table_flush(unsigned long start, unsigned long stop);
 
 void __asm_invalidate_tlb_all(void);
+void __asm_invalidate_tlb(addr_t va);
 void __asm_dcache_level(int level);
 void __asm_invalidate_dcache_range(addr_t start, addr_t end);
 void __asm_flush_dcache_range(addr_t start, addr_t end);
@@ -51,6 +36,8 @@ void __asm_flush_dcache_all(int invalidate_only);
 void __asm_invalidate_dcache_all(int invalidate_only);
 
 void invalidate_dcache_all(void);
+void invalidate_icache_all(void);
+inline void flush_dcache_all(void);
 
 void cache_enable(uint32_t cache_bit);
 void cache_disable(uint32_t cache_bit);

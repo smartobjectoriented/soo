@@ -39,7 +39,7 @@
  */
 void loadAgency(void)
 {
-	uint32_t dom_addr;
+	addr_t dom_addr;
 	int nodeoffset, next_node;
 	uint8_t tmp[16];
 	u64 base, size;
@@ -52,7 +52,13 @@ void loadAgency(void)
 		next_node = fdt_next_node(fdt_vaddr, nodeoffset, &depth);
 		ret = fdt_property_read_string(fdt_vaddr, nodeoffset, "type", &propstring);
 		if ((ret != -1) && (!strcmp(propstring, "agency"))) {
-			ret = fdt_property_read_u32(fdt_vaddr, nodeoffset, "load-addr", &dom_addr);
+
+#if BITS_PER_LONG == 32
+			ret = fdt_property_read_u32(fdt_vaddr, nodeoffset, "load-addr", (u32 *) &dom_addr);
+#else
+			ret = fdt_property_read_u64(fdt_vaddr, nodeoffset, "load-addr", (u64 *) &dom_addr);
+#endif
+
 			if (ret == -1) {
 				lprintk("!! Missing load-addr in the agency node !!\n");
 				BUG();

@@ -79,9 +79,9 @@ struct vcpu_guest_context {
 	cpu_user_regs_t user_regs;         /* User-level CPU registers  */
 	cpu_sys_regs_t	sys_regs;
 
-	__u32		event_callback;
-	__u32		domcall;
-	__u32		prep_switch_domain_callback;	/* Address of prepare_switch callback */
+	addr_t	event_callback;
+	addr_t	domcall;
+	addr_t	prep_switch_domain_callback;	/* Address of prepare_switch callback */
 };
 
 typedef struct vcpu_guest_context vcpu_guest_context_t;

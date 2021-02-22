@@ -978,6 +978,7 @@ do {                                                                    \
          __switch_to(prev, &prev->arch.guest_context, &next->arch.guest_context);   \
 } while (0)
 
+void cpu_do_idle(void);
 
 #endif /* __ASSEMBLY__ */
 

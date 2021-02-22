@@ -36,6 +36,8 @@
 #include <asm/processor.h>
 #include <asm/mmu.h>
 
+#include <mach/uart.h>
+
 #include <soo/arch-arm.h>
 
 #define ME_MEMCHUNK_SIZE	2 * 1024 * 1024
@@ -60,6 +62,9 @@ static uint32_t kernel_size;
 uint32_t io_mapping_current;
 struct list_head io_maplist;
 
+extern unsigned long __bss_start, __bss_end;
+extern unsigned long __vectors_start, __vectors_end;
+
 /*
  * Perform basic memory initialization, i.e. the existing memory slot.
  */
@@ -80,10 +85,9 @@ void early_memory_init(void) {
 	for (i = 0; i < MAX_ME_DOMAINS; i++)
 		memslot[i+2].busy = false;
 
-}
+	kernel_size = __pa(&__end) - CONFIG_RAM_BASE;
 
-extern unsigned long __bss_start, __bss_end;
-extern unsigned long __vectors_start, __vectors_end;
+}
 
 /*
  * Clear the .bss section in the kernel memory layout.
@@ -94,6 +98,60 @@ void clear_bss(void) {
 	/* Zero out BSS */
 	while (cp < (unsigned char *) &__bss_end)
 		*cp++ = 0;
+}
+
+uint32_t get_kernel_size(void) {
+	return kernel_size;
+}
+
+/*
+ * Main memory init function
+ */
+
+void memory_init(void) {
+	u64  *__new_sys_pgtable;
+	addr_t vectors_paddr;
+	addrspace_t __addrspace;
+
+	/* Initialize the list of I/O virt/phys maps */
+	INIT_LIST_HEAD(&io_maplist);
+
+	/* Initialize the kernel heap */
+	heap_init();
+
+	init_io_mapping();
+
+	/* Re-setup a system page table with a better granularity */
+	__new_sys_pgtable = new_sys_pgtable();
+
+	create_mapping(__new_sys_pgtable, CONFIG_HYPERVISOR_VIRT_ADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
+
+	/* Mapping uart I/O for debugging purposes */
+	create_mapping(__new_sys_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true);
+
+	/*
+	 * Switch to the temporary page table in order to re-configure the original system page table
+	 * Warning !! After the switch, we do not have ttany mapped I/O until the driver core gets initialized.
+	 */
+
+	__addrspace.ttbr1[smp_processor_id()] = __pa(__new_sys_pgtable);
+	mmu_switch(&__addrspace);
+
+	/* Re-configuring the original system page table */
+	memcpy((void *) __sys_l0pgtable, (unsigned char *) __new_sys_pgtable, TTB_L1_SIZE);
+
+	/* Finally, switch back to the original location of the system page table */
+	__addrspace.ttbr1[smp_processor_id()] = __pa(__sys_l0pgtable);
+	mmu_switch(&__addrspace);
+
+#if 0
+	/* Finally, prepare the vector page at its correct location */
+	vectors_paddr = get_free_page();
+
+	create_mapping(NULL, VECTOR_VADDR, vectors_paddr, PAGE_SIZE, true);
+
+	memcpy((void *) VECTOR_VADDR, (void *) &__vectors_start, (void *) &__vectors_end - (void *) &__vectors_start);
+#endif
 }
 
 /*

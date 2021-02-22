@@ -33,7 +33,7 @@
  */
 
 /* to activate the MMU we need to set up virtual memory */
-void mmu_setup(addr_t *pgtable)
+void mmu_setup(u64 *pgtable)
 {
 	u64 attr, tcr;
 
@@ -79,8 +79,6 @@ void invalidate_dcache_all(void)
  */
 inline void flush_dcache_all(void)
 {
-	int ret;
-
 	__asm_flush_dcache_all(0);
 }
 
@@ -98,6 +96,15 @@ void invalidate_dcache_range(unsigned long start, unsigned long stop)
 void flush_dcache_range(unsigned long start, unsigned long stop)
 {
 	__asm_flush_dcache_range(start, stop);
+}
+
+/*
+ * Flush an individual PTE entry
+ */
+void flush_pte_entry(addr_t va, u64 *pte) {
+	__asm_invalidate_tlb(va);
+	invalidate_dcache_range((u64) pte, (u64) (pte+1));
+
 }
 
 void dcache_enable(void)

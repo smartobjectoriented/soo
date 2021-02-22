@@ -209,7 +209,7 @@
 
 #define TTB_L3_PAGE_ADDR_SHIFT		12
 #define TTB_L3_PAGE_ADDR_OFFSET		(1 << TTB_L3_PAGE_ADDR_SHIFT)
-#define TTB_L3_PAGE_ADDR_MASK		((~(TTB_L3_TABLE_ADDR_OFFSET - 1)) & ((1UL << 48) - 1))
+#define TTB_L3_PAGE_ADDR_MASK		((~(TTB_L3_PAGE_ADDR_OFFSET - 1)) & ((1UL << 48) - 1))
 
 /* Given a virtual address, get an entry offset into a page table. */
 #define l0pte_index(a) ((((addr_t) a) >> TTB_I0_SHIFT) & (TTB_L0_ENTRIES - 1))
@@ -230,17 +230,17 @@
 
 #define l0_addr_end(addr, end)                                         \
  ({      unsigned long __boundary = ((addr) + SZ_256G) & BLOCK_256G_MASK;  \
-         (__boundary - 1 < (end) - 1) ? __boundary: (end);                \
+         (__boundary - 1 < (end) - 1) ? __boundary : (end);                \
  })
 
 #define l1_addr_end(addr, end)                                         \
  ({      unsigned long __boundary = ((addr) + SZ_1G) & BLOCK_1G_MASK;  \
-         (__boundary - 1 < (end) - 1) ? __boundary: (end);                \
+         (__boundary - 1 < (end) - 1) ? __boundary : (end);                \
  })
 
 #define l2_addr_end(addr, end)                                         \
  ({      unsigned long __boundary = ((addr) + SZ_2M) & BLOCK_2M_MASK;  \
-         (__boundary - 1 < (end) - 1) ? __boundary: (end);                \
+         (__boundary - 1 < (end) - 1) ? __boundary : (end);                \
  })
 
 
@@ -259,7 +259,7 @@ enum dcache_option {
 	DCACHE_WRITEALLOC = MT_NORMAL,
 };
 
-static inline void set_pte_block(addr_t *pte, enum dcache_option option)
+static inline void set_pte_block(u64 *pte, enum dcache_option option)
 {
 	u64 attrs = PTE_BLOCK_MEMTYPE(option);
 
@@ -267,7 +267,7 @@ static inline void set_pte_block(addr_t *pte, enum dcache_option option)
 	*pte |= attrs;
 }
 
-static inline void set_pte_table(addr_t *pte, enum dcache_option option)
+static inline void set_pte_table(u64 *pte, enum dcache_option option)
 {
 	u64 attrs = PTE_TABLE_NS;
 
@@ -275,7 +275,7 @@ static inline void set_pte_table(addr_t *pte, enum dcache_option option)
 	*pte |= attrs;
 }
 
-static inline void set_pte_page(addr_t *pte, enum dcache_option option)
+static inline void set_pte_page(u64 *pte, enum dcache_option option)
 {
 	u64 attrs = PTE_BLOCK_MEMTYPE(option);
 
@@ -301,7 +301,7 @@ typedef struct {
 #define cpu_get_l1pgtable()	\
 ({						\
 	unsigned long ttbr;			\
-	__asm__("mrc	p15, 0, %0, c2, c0, 0"	\
+	__asm__("mrs	%0, ttbr1_el1"	\
 		 : "=r" (ttbr) : : "cc");	\
 	ttbr &= TTBR0_BASE_ADDR_MASK;		\
 })
@@ -309,7 +309,7 @@ typedef struct {
 #define cpu_get_ttbr0() \
 ({						\
 	unsigned long ttbr;			\
-	__asm__("mrc	p15, 0, %0, c2, c0, 0"	\
+	__asm__("mrs	%0, ttbr1_el1"	\
 		 : "=r" (ttbr) : : "cc");		\
 	ttbr;					\
 })
@@ -329,7 +329,7 @@ static inline void set_sctlr(unsigned int val)
 	asm volatile("isb");
 }
 
-extern addr_t __sys_l0pgtable[], __sys_idmap_l1pgtable[], __sys_linearmap_l1pgtable[];
+extern u64 __sys_l0pgtable[], __sys_idmap_l1pgtable[], __sys_linearmap_l1pgtable[];
 
 void set_pte(addr_t *pte, enum dcache_option option);
 
@@ -337,10 +337,10 @@ extern void __mmu_switch(uint32_t l1pgtable_phys);
 
 void pgtable_copy_kernel_area(uint32_t *l1pgtable);
 
-void create_mapping(addr_t *l0pgtable, addr_t virt_base, addr_t phys_base, u64 size, bool nocache);
-void release_mapping(addr_t *pgtable, addr_t virt_base, addr_t size);
+void create_mapping(u64 *l0pgtable, addr_t virt_base, addr_t phys_base, u64 size, bool nocache);
+void release_mapping(u64 *pgtable, addr_t virt_base, addr_t size);
 
-uint32_t *new_l1pgtable(void);
+u64 *new_sys_pgtable(void);
 void reset_l1pgtable(uint32_t *l1pgtable, bool remove);
 
 void clear_l1pte(uint32_t *l1pgtable, uint32_t vaddr);
@@ -350,7 +350,7 @@ void dump_pgtable(uint32_t *l1pgtable);
 
 void dump_current_pgtable(void);
 
-void mmu_setup(addr_t *pgtable);
+void mmu_setup(u64 *pgtable);
 
 void vectors_init(void);
 

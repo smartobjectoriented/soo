@@ -10,6 +10,21 @@
 
 #include <asm/processor.h>
 
+
+/*
+ * Invalidate the TLB entry corresponding to a VA (stored in x0)
+ */
+ENTRY(__asm_invalidate_tlb)
+
+	dsb ish         	// Barrier instructions
+	tlbi vaae1is, x0	// Invalidate VA specified by X0, in EL0/1
+                     	// virtual address space for all ASIDs
+	dsb ish	            // Barrier instructions - not covered in this guide
+	isb					// Synchronize context on this processor
+
+	ret
+
+
 /*
  * void __asm_invalidate_tlb_all(void)
  *

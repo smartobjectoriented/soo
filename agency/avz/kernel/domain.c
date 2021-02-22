@@ -32,6 +32,7 @@
 #include <softirq.h>
 #include <sched-if.h>
 #include <memory.h>
+#include <heap.h>
 
 #include <soo/soo.h>
 
@@ -66,7 +67,7 @@ int current_domain_id(void)
 	return current->domain_id;
 }
 
-#if 0
+
 /*
  * Creation of new domain context associated to the agency or a Mobile Entity.
  *
@@ -77,10 +78,11 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 {
 	struct domain *d;
 
-	if ((d = alloc_domain_struct()) == NULL)
-		return NULL;
+	d = malloc(sizeof(struct domain));
+	BUG_ON(!d);
 
-	memset(d, 0, sizeof(*d));
+	memset(d, 0, sizeof(struct domain));
+
 	d->domain_id = domid;
 
 	if (!is_idle_domain(d)) {
@@ -91,7 +93,7 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 			BUG();
 	}
 
-	d->shared_info = alloc_heap_page();
+	d->shared_info = memalign(PAGE_SIZE, PAGE_SIZE);
 	BUG_ON(!d);
 
 	clear_page(d->shared_info);
@@ -101,23 +103,10 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 	if (d->shared_info->logbool_ht == NULL)
 		BUG();
 
-	/* Will be used during the context_switch (cf kernel/entry-armv.S */
-
-	d->arch.guest_context.sys_regs.vdacr = domain_val(DOMAIN_USER, DOMAIN_MANAGER) | domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) |
-		domain_val(DOMAIN_IO, DOMAIN_MANAGER);
-
-	d->arch.guest_context.sys_regs.vusp = 0x0; /* svc stack hypervisor at the beginning */
+	__arch_domain_create(d);
 
 	d->arch.guest_context.event_callback = 0;
 	d->arch.guest_context.domcall = 0;
-
-	if (is_idle_domain(d)) {
-		d->addrspace.pgtable_paddr = (CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET);
-		d->addrspace.pgtable_vaddr = (CONFIG_HYPERVISOR_VIRT_ADDR + TTB_L1_SYS_OFFSET);
-
-		d->addrspace.ttbr0[cpu_id] = cpu_get_ttbr0() & ~TTBR0_BASE_ADDR_MASK;
-		d->addrspace.ttbr0[cpu_id] |= d->addrspace.pgtable_paddr;
-	}
 
 	d->processor = cpu_id;
 
@@ -172,11 +161,11 @@ static void complete_domain_destroy(struct domain *d)
 
 	/* Free start_info structure */
 
-	free_heap_page((void *) d->vstartinfo_start);
-	free_heap_page((void *) d->shared_info);
-	free_heap_pages((void *) d->domain_stack, STACK_ORDER);
+	free((void *) d->vstartinfo_start);
+	free((void *) d->shared_info);
+	free((void *) d->domain_stack);
 
-	free_domain_struct(d);
+	free(d);
 }
 
 /* Release resources belonging to a domain */
@@ -187,7 +176,7 @@ void domain_destroy(struct domain *d)
 	complete_domain_destroy(d);
 }
 
-#endif
+
 
 void vcpu_pause(struct domain *d)
 {
@@ -231,33 +220,11 @@ void domain_pause_by_systemcontroller(struct domain *d) {
 		domain_pause(d);
 }
 
-#if 0
 void domain_unpause_by_systemcontroller(struct domain *d)
 {
 	if (test_and_clear_bool(d->is_paused_by_controller))
 		domain_unpause(d);
 }
-
-void free_domain_struct(struct domain *d)
-{
-	free_heap_pages(d, get_order_from_bytes(sizeof(*d)));
-}
-
-struct domain *alloc_domain_struct(void)
-{
-	struct domain *d;
-	/*
-	 * We pack the PDX of the domain structure into a 32-bit field within
-	 * the page_info structure. Hence the MEMF_bits() restriction.
-	 */
-	unsigned int bits = 32 + PAGE_SHIFT;
-
-	d = alloc_heap_pages(get_order_from_bytes(sizeof(*d)), MEMF_bits(bits));
-	if (d != NULL)
-		memset(d, 0, sizeof(*d));
-	return d;
-}
-#endif
 
 void context_switch(struct domain *prev, struct domain *next)
 {
@@ -299,7 +266,6 @@ void context_switch(struct domain *prev, struct domain *next)
 }
 
 #if 0
-
 extern void ret_to_user(void);
 extern void pre_ret_to_user(void);
 
@@ -351,7 +317,7 @@ void new_thread(struct domain *d, unsigned long start_pc, unsigned long fdt, uns
 	regs->r13 = (unsigned long) domain_frame;
 	regs->r14 = (unsigned long) pre_ret_to_user;
 }
-
+#endif
 static void continue_cpu_idle_loop(void)
 {
 	while (1) {
@@ -426,4 +392,4 @@ int domain_call(struct domain *target_dom, int cmd, void *arg)
 	return rc;
 }
 
-#endif
+

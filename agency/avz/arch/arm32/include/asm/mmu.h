@@ -171,7 +171,7 @@
 static inline bool l1pte_is_sect(uint32_t l1pte) {
 
 	/* Check if the L1 pte is for mapping of section or not */
-	return (l1pte & 0x2);
+	return (l1pte & TTB_L1_SECT);
 }
 
 

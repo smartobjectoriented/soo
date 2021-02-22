@@ -93,7 +93,7 @@ static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long en
 
 	}
 
-	l2pgtable = (uint32_t *) __va((*l1pte & TTB_L1_PAGE_ADDR_MASK));
+	l2pgtable = (uint32_t *) __va(*l1pte & TTB_L1_PAGE_ADDR_MASK);
 
 	l2pte = l2pte_offset(l1pte, addr);
 
@@ -183,6 +183,25 @@ void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base,
 	} while (l1pte++, addr != end);
 
 	mmu_page_table_flush((uint32_t) l1pgtable, (uint32_t) (l1pgtable + TTB_L1_ENTRIES));
+}
+
+/*
+ * Allocate a new L1 page table. Return NULL if it fails.
+ * The page table must be 16-KB aligned.
+ */
+uint32_t *new_l1pgtable(void) {
+	uint32_t *pgtable;
+
+	pgtable = memalign(4 * TTB_L1_ENTRIES, SZ_16K);
+	if (!pgtable) {
+		printk("%s: heap overflow...\n", __func__);
+		kernel_panic();
+	}
+
+	/* Empty the page table */
+	memset(pgtable, 0, 4 * TTB_L1_ENTRIES);
+
+	return pgtable;
 }
 
 /*

@@ -53,6 +53,8 @@ extern int prep_switch_domain(void);
 
 void machine_halt(void);
 
+void __arch_domain_create(struct domain *d);
+
 void vcpu_reset(struct vcpu *v);
 
 /*
