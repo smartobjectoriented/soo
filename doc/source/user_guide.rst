@@ -39,7 +39,7 @@ Various other packages are required:
    
 The OP-TEE environment requires the following python packages:
 
-.. code:: bask
+.. code:: bash
 
    pip3 install pycryptdome
    sudo apt install python3-pyelftools
