@@ -388,7 +388,7 @@
 			};
 			vnet {
 				compatible = "vnet,backend";
-				status = "ok";
+				status = "disabled";
 			};
 		};
 	};
