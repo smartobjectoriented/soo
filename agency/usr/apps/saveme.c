@@ -23,7 +23,6 @@
 #include <stdio.h>
 
 #include <sys/ioctl.h>
-#include <sys/reboot.h>
 
 #include <uapi/soo.h>
 

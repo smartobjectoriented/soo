@@ -27,7 +27,7 @@ environments which are visiting smart objects.
 The SOO technology strongly relies on various low-level operating system concepts and embedded virtualization technics which 
 play a fundamental role in this framework. In this context, Linux and XEN have been a source of inspiration at many levels.
 
-Prof. Rossier's team was in the first people who tried to port the XEN hypervisor on an ARM embedded system; at the same time,
+Prof. Rossier's team was among the first people who tried to port XEN hypervisor on an ARM embedded system; at the same time,
 Samsung also started such a work with an emphasis on security aspects (they run XEN on Freescale iMX21 boards). 
 REDS published in 2012 its `EmbeddedXEN framework <_EmbeddedXEN>`__ including results from a `joint collaboration with Logitech 
 <EMBX_Logitech_>`__ which consisted to deploy two OS on an HTC smartphone, an Android OS and the SqueezeBox Touch operating 
@@ -41,7 +41,7 @@ The migrating environment - aka *ME - Mobile Entity* - is now based on SO3, a li
 REDS Institute. 
 
 As we can see, embedded virtualization on ARM devices still remains a hot research topic inside REDS, with the perspective
-to promote and to develop higly decentralized and automous systems with a major concern on wireless communication and security.
+to promote and to develop fully decentralized and automous systems with a major concern on wireless communication and security.
 
 Further details can also be found in this `blog dedicated to SOO <SOO_blog_>`__.
 

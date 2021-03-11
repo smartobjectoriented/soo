@@ -38,8 +38,6 @@
 #include <stdarg.h>
 #include <linux/kthread.h>
 
-#include <soo/vdevback.h>
-
 #include <soo/dev/vdummy.h>
 
 void vdummy_notify(struct vbus_device *vdev)
@@ -82,7 +80,7 @@ irqreturn_t vdummy_interrupt(int irq, void *dev_id)
 void vdummy_probe(struct vbus_device *vdev) {
 	vdummy_t *vdummy;
 
-	vdummy = kzalloc(sizeof(vdummy_t), GFP_ATOMIC);
+	vdummy = kzalloc(sizeof(vdummy_t), GFP_KERNEL);
 	BUG_ON(!vdummy);
 
 	dev_set_drvdata(&vdev->dev, &vdummy->vdevback);

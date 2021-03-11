@@ -36,6 +36,13 @@ Various other packages are required:
    sudo apt-get install pkg-config libgtk2.0-dev bridge-utils
    sudo apt-get install unzip bc
    sudo apt-get install elfutils u-boot-tools
+   
+The OP-TEE environment requires the following python packages:
+
+.. code:: bask
+
+   pip3 install pycryptdome
+   sudo apt install python3-pyelftools
 
 The following packets are not mandatory, but they can be installed to
 prevent annoying warnings:
