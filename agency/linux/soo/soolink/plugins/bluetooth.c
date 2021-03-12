@@ -35,102 +35,50 @@
 
 #include <soo/core/device_access.h>
 
-static spinlock_t send_lock;
-static spinlock_t recv_lock;
+static uint8_t mac_null_addr[ETH_ALEN] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-static volatile plugin_send_args_t plugin_send_args;
-static volatile plugin_recv_args_t plugin_recv_args;
+typedef struct {
+	plugin_desc_t plugin_bt_desc;
+} soo_plugin_bt_t;
 
-#if defined(CONFIG_BT_RFCOMM)
 /* Interface with the RFCOMM subsystem */
 int rfcomm_tty_write_sl_plugin(const unsigned char *buf, int count);
-#endif /* CONFIG_BT_RFCOMM */
 
-/**
- * Send a packet on the Bluetooth interface.
- * This function has to be called in a non-RT context.
- */
-static void plugin_bluetooth_tx(sl_desc_t *sl_desc, void *data, size_t size) {
-	/* Discard Iamasoo (Discovery) beacons */
-	if (unlikely(sl_desc->req_type == SL_REQ_DISCOVERY))
-		return ;
-
-	spin_lock(&send_lock);
-
-	plugin_send_args.sl_desc = sl_desc;
-	plugin_send_args.data = data;
-	plugin_send_args.size = size;
-
-	do_sync_dom(DOMID_AGENCY, DC_PLUGIN_BLUETOOTH_SEND);
-}
-
-void propagate_plugin_bluetooth_send(void) {
-	plugin_send_args_t __plugin_send_args;
-
-	__plugin_send_args = plugin_send_args;
-
-	spin_unlock(&send_lock);
+void plugin_bt_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 	/* The packet has to be forwarded to the RFCOMM layer */
-	rfcomm_tty_write_sl_plugin(__plugin_send_args.data, __plugin_send_args.size);
+	rfcomm_tty_write_sl_plugin(data, size);
 }
 
-int propagate_plugin_bluetooth_send_fn(void *args) {
-	propagate_plugin_bluetooth_send();
-
-	return 0;
-}
-
-static plugin_desc_t plugin_bluetooth_desc = {
-	.tx_callback	= plugin_bluetooth_tx,
-	.if_type	= SL_IF_BT
-};
 
 /**
  * Receive a packet from the Bluetooth interface.
- * This function has to be called in a non-RT context.
+ * For example, called from net/bluetooth/rfcomm/tty.c
  */
-void sl_plugin_bluetooth_rx(struct sk_buff *skb) {
-	req_type_t req_type;
+void sl_plugin_bt_rx(struct sk_buff *skb) {
+	soo_plugin_bt_t *soo_plugin_bt;
 
-	req_type = get_sl_req_type_from_protocol(ntohs(skb->protocol));
+	soo_plugin_bt = container_of(current_soo_plugin->__intf[SL_IF_BT], soo_plugin_bt_t, plugin_bt_desc);
 
-	spin_lock(&recv_lock);
+	plugin_rx(&soo_plugin_bt->plugin_bt_desc,
+		  get_sl_req_type_from_protocol(ntohs(skb->protocol)), mac_null_addr, skb->data, skb->len);
 
-	plugin_recv_args.req_type = req_type;
-	plugin_recv_args.data = skb->data;
-	plugin_recv_args.size = skb->len;
-
-	do_sync_dom(DOMID_AGENCY_RT, DC_PLUGIN_BLUETOOTH_RECV);
-
-	/* Do not free the skb here, it is freed in the RFCOMM layer */
+	kfree_skb(skb);
 }
 
 /**
- * This function has to be called in a realtime context, from the directcomm RT thread.
+ * This function must be executed in the non-RT domain.
  */
-void rtdm_propagate_sl_plugin_bluetooth_rx(void) {
-	plugin_recv_args_t __plugin_recv_args;
+void plugin_bt_init(void) {
+	soo_plugin_bt_t *soo_plugin_bt;
 
-	__plugin_recv_args.req_type = plugin_recv_args.req_type;
-	__plugin_recv_args.data = plugin_recv_args.data;
-	__plugin_recv_args.size = plugin_recv_args.size;
-	memcpy(__plugin_recv_args.mac, (void *) plugin_recv_args.mac, ETH_ALEN);
+	lprintk("SOOlink: Bluetooth (BT) Plugin init...\n");
 
-	spin_unlock(&recv_lock);
+	soo_plugin_bt = (soo_plugin_bt_t *) kzalloc(sizeof(soo_plugin_bt_t), GFP_KERNEL);
+	BUG_ON(!soo_plugin_bt);
 
-	plugin_rx(&plugin_bluetooth_desc, __plugin_recv_args.req_type, __plugin_recv_args.data, __plugin_recv_args.size, __plugin_recv_args.mac);
+	soo_plugin_bt->plugin_bt_desc.tx_callback = plugin_bt_tx;
+	soo_plugin_bt->plugin_bt_desc.if_type = SL_IF_BT;
+
+	transceiver_plugin_register(&soo_plugin_bt->plugin_bt_desc);
 }
-
-static int plugin_bluetooth_init(void) {
-	lprintk("Soolink: Bluetooth Plugin init...\n");
-
-	spin_lock_init(&send_lock);
-	spin_lock_init(&recv_lock);
-
-	transceiver_plugin_register(&plugin_bluetooth_desc);
-
-	return 0;
-}
-
-late_initcall(plugin_bluetooth_init);

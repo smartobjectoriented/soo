@@ -47,18 +47,11 @@ typedef struct {
 	uint8_t *mac_addr;
 } sim_packet_t;
 
-struct soo_plugin_sim_env {
-
+typedef struct {
 	bool plugin_ready;
-
 	uint8_t mac[ETH_ALEN];
-
-	medium_rx_back_ring_t rx_ring;
-
-	plugin_desc_t simulation_desc;
-};
-
-#define current_soo_plugin_sim     ((struct soo_plugin_sim_env *) current_soo->soo_plugin->priv)
+	plugin_desc_t plugin_sim_desc;
+} soo_plugin_sim_t;
 
 /*
  * Low-level function for sending to a smart object according to the MAC address of the destination.
@@ -66,6 +59,9 @@ struct soo_plugin_sim_env {
 static bool sendto(soo_env_t *soo, void *args) {
 	medium_rx_t *medium_rx, *rsp;
 	bool broadcast, peer;
+	soo_plugin_sim_t *soo_plugin_sim;
+
+	soo_plugin_sim = container_of(current_soo_plugin->__int[SL_IF_SIM], plugin_sim_desc, soo_plugin_wlan_t);
 
 	medium_rx = (medium_rx_t *) args;
 
@@ -84,12 +80,12 @@ static bool sendto(soo_env_t *soo, void *args) {
 
 		soo_log(" sending to %s (%d bytes)\n", soo->name, medium_rx->size);
 
-		while (RING_RSP_FULL(&soo->soo_plugin->sim->rx_ring))
+		while (RING_RSP_FULL(&soo->soo_plugin->rx_ring))
 			schedule();
 
-		rsp = medium_rx_new_ring_response(&soo->soo_plugin->sim->rx_ring);
+		rsp = medium_rx_new_ring_response(&soo->soo_plugin->rx_ring_back);
 
-		rsp->plugin_desc = &soo->soo_plugin->sim->simulation_desc;
+		rsp->plugin_desc = &soo->soo_plugin->__intf[SL_IF_SIM];
 		rsp->req_type = medium_rx->req_type;
 
 		rsp->size = medium_rx->size;
@@ -104,9 +100,9 @@ static bool sendto(soo_env_t *soo, void *args) {
 		rsp->mac_src = kzalloc(ETH_ALEN, GFP_KERNEL);
 		BUG_ON(!rsp->mac_src);
 
-		memcpy(rsp->mac_src, current_soo_plugin_sim->mac, ETH_ALEN);
+		memcpy(rsp->mac_src, soo_plugin_sim->mac, ETH_ALEN);
 
-		medium_rx_ring_response_ready(&soo->soo_plugin->sim->rx_ring);
+		medium_rx_ring_response_ready(&soo->soo_plugin->rx_ring_back);
 
 		complete(&soo->soo_plugin->rx_event);
 
@@ -157,35 +153,31 @@ void plugin_simulation_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 /**
  * This function must be executed in the non-RT domain.
  */
-int plugin_simulation_init(void) {
+void plugin_simulation_init(void) {
+	soo_plugin_sim_t *soo_plugin_sim;
 
 	lprintk("(%s) SOOlink simulation plugin initializing ...\n", current_soo->name);
 
-	current_soo->soo_plugin->priv = (struct soo_plugin_sim_env *) kzalloc(sizeof(struct soo_plugin_sim_env), GFP_KERNEL);
+	soo_plugin_sim = (soo_plugin_sim_t *) kzalloc(sizeof(soo_plugin_sim_t), GFP_KERNEL);
 	BUG_ON(!current_soo->soo_plugin->priv);
 
-	current_soo_plugin_sim->simulation_desc.tx_callback = plugin_simulation_tx;
-	current_soo_plugin_sim->simulation_desc.if_type = SL_IF_SIMULATION;
+	soo_plugin_sim->plugin_sim_desc.tx_callback = plugin_simulation_tx;
+	soo_plugin_sim->plugin_sim_desc.if_type = SL_IF_SIM;
 
-	transceiver_plugin_register(&current_soo_plugin_sim->simulation_desc);
+	transceiver_plugin_register(&soo_plugin_sim->plugin_sim_desc);
 
-	current_soo_plugin_sim->plugin_ready = true;
+	soo_plugin_sim->plugin_ready = true;
 
 	/* Assign a (virtual) MAC address */
-	memset(current_soo_plugin_sim->mac, 0, ETH_ALEN);
-	current_soo_plugin_sim->mac[4] = 0x12;
-	current_soo_plugin_sim->mac[5] = current_soo->id;
+	memset(soo_plugin_sim->mac, 0, ETH_ALEN);
+	soo_plugin_sim->mac[4] = 0x12;
+	soo_plugin_sim->mac[5] = current_soo->id;
 
 	lprintk("--> On SOO %s, UID: ", current_soo->name);
-	lprintk_buffer(&current_soo->agencyUID, 5);
+	lprintk_buffer(&soo_plugin_sim->agencyUID, 5);
 	lprintk(" / assigning MAC address :");
-	lprintk_buffer(current_soo_plugin_priv->mac, ETH_ALEN);
+	lprintk_buffer(soo_plugin_sim->mac, ETH_ALEN);
 	lprintk("\n");
-
-	/* Initialize the backend shared ring for RX packet */
-	BACK_RING_INIT(&current_soo_plugin_sim->rx_ring, current_soo_plugin->rx_ring.sring, 32 * PAGE_SIZE);
-
-	return 0;
 }
 
 

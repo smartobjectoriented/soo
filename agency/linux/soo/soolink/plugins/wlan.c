@@ -24,6 +24,8 @@
 #include <linux/if_ether.h>
 #include <linux/kthread.h>
 
+#include <soo/netsimul.h>
+
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/plugin.h>
 #include <soo/soolink/plugin/wlan.h>
@@ -39,15 +41,13 @@
 #include <soo/debug/dbgvar.h>
 #include <soo/debug/gpio.h>
 
-#if defined(CONFIG_MARVELL_MWIFIEX_MLAN)
-extern int woal_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
-#endif /* CONFIG_MARVELL_MWIFIEX_MLAN */
-
-static struct net_device *net_dev = NULL;
-
-static bool plugin_ready = false;
-
 static uint8_t broadcast_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+
+typedef struct {
+	bool plugin_ready;
+	struct net_device *net_dev;
+	plugin_desc_t plugin_wlan_desc;
+} soo_plugin_wlan_t;
 
 /*
  * Transmit on the WLAN interface from the RT domain.
@@ -56,27 +56,28 @@ static uint8_t broadcast_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }
 void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	struct sk_buff *skb;
 	__be16 proto;
-	uint8_t *__data;
 	const uint8_t *dest;
 	int cpu;
 	struct netdev_queue *txq;
+	soo_plugin_wlan_t *soo_plugin_wlan;
 
-	if (!plugin_ready)
-			return ;
+	soo_plugin_wlan = container_of(current_soo_plugin->__intf[SL_IF_WLAN], soo_plugin_wlan_t, plugin_wlan_desc);
+
+	if (unlikely(!soo_plugin_wlan->plugin_ready))
+		return;
 
 	DBG("Requester type: %d\n", __plugin_send_args.sl_desc->req_type);
 
 	/* Abort if the net device is not ready */
-	if (unlikely(!plugin_ready))
+	if (unlikely(!soo_plugin_wlan->net_dev))
 		return ;
 
-	skb = alloc_skb(ETH_HLEN + size + LL_RESERVED_SPACE(net_dev), GFP_ATOMIC);
+	skb = alloc_skb(ETH_HLEN + size + LL_RESERVED_SPACE(soo_plugin_wlan->net_dev), GFP_KERNEL);
 	BUG_ON(skb == NULL);
 
-	skb_reserve(skb, LL_RESERVED_SPACE(net_dev));
+	skb_reserve(skb, ETH_HLEN);
 
 	proto = get_protocol_from_sl_req_type(sl_desc->req_type);
-
 
 	/* If no valid recipient agency UID is given, broadcast the packet */
 	if (!agencyUID_is_valid(&sl_desc->agencyUID_to))
@@ -84,60 +85,61 @@ void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	else
 		dest = get_mac_addr(&sl_desc->agencyUID_to);
 
-	__data = skb_put(skb, size);
-	memcpy(__data, data, size);
+	if (dest == NULL)
+		return ;
 
-	dev_hard_header(skb, net_dev, proto, dest, net_dev->dev_addr, skb->len);
-	if ((!netif_running(net_dev)) || (!netif_device_present(net_dev))) {
+	memcpy(skb->data, data, size);
+
+	skb_put(skb, size);
+
+	dev_hard_header(skb, soo_plugin_wlan->net_dev, proto, dest, soo_plugin_wlan->net_dev->dev_addr, skb->len);
+	if ((!netif_running(soo_plugin_wlan->net_dev)) || (!netif_device_present(soo_plugin_wlan->net_dev))) {
 		kfree_skb(skb);
 		return;
 	}
 
-	skb->dev = net_dev;
-	skb->protocol = htons(proto);
-
-	txq = skb_get_tx_queue(net_dev, skb);
+	txq = skb_get_tx_queue(soo_plugin_wlan->net_dev, skb);
 
 	local_bh_disable();
 	cpu = smp_processor_id();
 
-	HARD_TX_LOCK(net_dev, txq, cpu);
+	HARD_TX_LOCK(soo_plugin_wlan->net_dev, txq, cpu);
 
 	/* Normally, this should never happen,
 	 * but in case of overspeed...
 	 */
 	while (netif_xmit_stopped(txq))
 	{
-		HARD_TX_UNLOCK(net_dev, txq);
+		HARD_TX_UNLOCK(soo_plugin_wlan->net_dev, txq);
 		local_bh_enable();
 
 		msleep(100);
 
 		local_bh_disable();
-		HARD_TX_LOCK(net_dev, txq, cpu);
+		HARD_TX_LOCK(soo_plugin_wlan->net_dev, txq, cpu);
 	}
 
-	netdev_start_xmit(skb, net_dev, txq, 0);
+	netdev_start_xmit(skb, soo_plugin_wlan->net_dev, txq, 0);
 
-	HARD_TX_UNLOCK(net_dev, txq);
-
+	HARD_TX_UNLOCK(soo_plugin_wlan->net_dev, txq);
 	local_bh_enable();
 
 }
 
-static plugin_desc_t plugin_wlan_desc = {
-	.tx_callback = plugin_wlan_tx,
-	.if_type = SL_IF_WLAN
-};
-
 /*
  * This function has to be called in a non-realtime context.
- * Called from drivers/net/wireless/marvell/mlinux/moal_shim.c
+ * For example, called from drivers/net/wireless/broadcom/brcm80211/brfmfmac/core.c
  */
 void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src) {
-	req_type_t req_type;
+	soo_plugin_wlan_t *soo_plugin_wlan;
 
-	req_type = get_sl_req_type_from_protocol(ntohs(skb->protocol));
+	soo_plugin_wlan = container_of(current_soo_plugin->__intf[SL_IF_WLAN], soo_plugin_wlan_t, plugin_wlan_desc);
+
+	plugin_rx(&soo_plugin_wlan->plugin_wlan_desc,
+		  get_sl_req_type_from_protocol(ntohs(skb->protocol)), mac_src, skb->data, skb->len);
+
+	kfree_skb(skb);
+
 
 #if 0 /* Debugging purpose for measure bandwidth */
 	{
@@ -146,7 +148,7 @@ void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *ma
 		static int total;
 		static s64 start, end;
 
-		if (!lock && (req_type == SL_REQ_DCM)) {
+		if (!lock && (rsp->req_type == SL_REQ_DCM)) {
 
 			lock = true;
 			start = ktime_to_ns(ktime_get());
@@ -154,7 +156,7 @@ void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *ma
 			total = 0;
 		}
 
-		if (lock && (req_type == SL_REQ_DCM)) {
+		if (lock && (rsp->req_type == SL_REQ_DCM)) {
 			ii++;
 			total += skb->len;
 			if (ii == 1400) {
@@ -170,9 +172,6 @@ void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *ma
 	}
 #endif
 
-	plugin_rx(&plugin_wlan_desc, req_type, skb->data, skb->len, mac_src);
-
-	kfree_skb(skb);
 }
 
 #if 0 /* Debugging purpose for bandwidth assessment */
@@ -243,15 +242,18 @@ static int streampacket(void *args) {
 /**
  * As the plugin is initialized before the net device, the plugin cannot be used until the net dev
  * is properly initialized. The net device detection thread loops until the interface is initialized.
- * In the case of the WLAN plugin, the net dev is not initialized until the join operation is successful.
  */
 static int net_dev_detect(void *args) {
-	while (!net_dev) {
+	soo_plugin_wlan_t *soo_plugin_wlan;
+
+	soo_plugin_wlan = container_of(current_soo_plugin->__intf[SL_IF_WLAN], soo_plugin_wlan_t, plugin_wlan_desc);
+
+	while (!soo_plugin_wlan->net_dev) {
 		msleep(NET_DEV_DETECT_DELAY);
-		net_dev = dev_get_by_name(&init_net, WLAN_NET_DEV_NAME);
+		soo_plugin_wlan->net_dev = dev_get_by_name(&init_net, WLAN_NET_DEV_NAME);
 	}
 
-	plugin_ready = true;
+	soo_plugin_wlan->plugin_ready = true;
 
 #if 0 /* Debugging purpose */
 	kthread_run(streampacket, NULL, "streampacket");
@@ -263,16 +265,31 @@ static int net_dev_detect(void *args) {
 /**
  * This function must be executed in the non-RT domain.
  */
-static int plugin_wlan_init(void) {
-	lprintk("SOOlink plugin Wlan initializing ...\n");
+void plugin_wlan_init(void) {
+	struct task_struct *__ts;
+	soo_plugin_wlan_t *soo_plugin_wlan;
 
-	transceiver_plugin_register(&plugin_wlan_desc);
+	lprintk("SOOlink: WLAN Plugin init...\n");
 
-	/* This works only if the mwifiex driver is active */
+	soo_plugin_wlan = (soo_plugin_wlan_t *) kzalloc(sizeof(soo_plugin_wlan_t), GFP_KERNEL);
+	BUG_ON(!soo_plugin_wlan);
 
-	kthread_run(net_dev_detect, NULL, "wlan_detect");
+	soo_plugin_wlan->plugin_wlan_desc.tx_callback = plugin_wlan_tx;
+	soo_plugin_wlan->plugin_wlan_desc.if_type = SL_IF_WLAN;
 
-	return 0;
+	soo_plugin_wlan->plugin_ready = false;
+	soo_plugin_wlan->net_dev = NULL;
+
+	transceiver_plugin_register(&soo_plugin_wlan->plugin_wlan_desc);
+
+#if 0
+	transceiver_plugin_register(&plugin_tcp_desc);
+#endif
+
+	__ts = kthread_create(net_dev_detect, NULL, "wlan_detect");
+	BUG_ON(!__ts);
+
+	add_thread(current_soo, __ts->pid);
+	wake_up_process(__ts);
 }
 
-soolink_plugin_initcall(plugin_wlan_init);

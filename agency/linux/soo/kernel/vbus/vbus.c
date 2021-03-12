@@ -1006,33 +1006,6 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	case DC_LOCALINFO_UPDATE:
 	case DC_TRIGGER_DEV_PROBE:
 
-	/* At SOOlink core API level, the requester can send a command for send/recv from the non-RT domain */
-	case DC_SL_WLAN_SEND:
-	case DC_SL_WLAN_RECV:
-	case DC_SL_ETH_SEND:
-	case DC_SL_ETH_RECV:
-	case DC_SL_TCP_SEND:
-	case DC_SL_TCP_RECV:
-	case DC_SL_BT_SEND:
-	case DC_SL_BT_RECV:
-	case DC_SL_LOOP_SEND:
-	case DC_SL_LOOP_RECV:
-
-	case DC_PLUGIN_WLAN_SEND:
-	case DC_PLUGIN_ETHERNET_SEND:
-	case DC_PLUGIN_TCP_SEND:
-	case DC_PLUGIN_BLUETOOTH_SEND:
-	case DC_PLUGIN_LOOPBACK_SEND:
-
-	/* The following events are present as reply to a sync-dom operation (tell_dc_stable).
-	 * It will not invoke perform_task.
-	 */
-	case DC_PLUGIN_BLUETOOTH_RECV:
-	case DC_PLUGIN_TCP_RECV:
-	case DC_PLUGIN_ETHERNET_RECV:
-	case DC_PLUGIN_WLAN_RECV:
-	case DC_PLUGIN_LOOPBACK_RECV:
-
 		/* Check if it is the response to a dc_event. Can be done immediately in the top half. */
 		if (atomic_read(&dc_outgoing_domID[dc_event]) != -1) {
 

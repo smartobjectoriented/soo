@@ -19,7 +19,6 @@
 #include <smp.h>
 #include <io.h>
 #include <spinlock.h>
-#include <lib.h>
 #include <memory.h>
 
 #include <asm/cacheflush.h>
@@ -34,7 +33,7 @@ extern void secondary_startup(void);
 
 void smp_prepare_cpus(unsigned int max_cpus)
 {
-	/* Nothing to do for Rpi4 */
+	/* Nothing to do for RPi4 */
 }
 
 void smp_boot_secondary(unsigned int cpu)

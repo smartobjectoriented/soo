@@ -23,56 +23,56 @@
 
 	images {
         
-                avz {
-                        description = "AVZ Hypervisor (32-bit)";
-                        data = /incbin/("../../avz/avz.bin");
-                        type = "kernel";
-                        os = "linux";
-                        arch = "arm";
-                        compression = "none";
-                        load = <0x00008000>;
-                        entry = <0x00008000>;
-                };
+   		avz {
+        	description = "AVZ Hypervisor (32-bit)";
+        	data = /incbin/("../avz/avz.bin");
+        	type = "kernel";
+        	os = "linux";
+        	arch = "arm";
+        	compression = "none";
+        	load = <0x00008000>;
+        	entry = <0x00008000>;
+        };
         
-                agency {
-                        description = "Agency Linux kernel";
-                        data = /incbin/("../../linux/arch/arm/boot/Image");
-                        type = "kernel";
-                        arch = "arm";
-                        os = "linux";
-                        compression = "none";
-                        load = <0x00c08000>;
-                        entry = <0x00c08000>;
-                };
+		linux {
+			description = "Agency Linux kernel";
+			data = /incbin/("../linux/arch/arm/boot/Image");
+			type = "agency";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x01008000>;
+			entry = <0x01008000>;
+		};
 
-                fdt {
-                        description = "SOO Agency device tree blob";
-                        data = /incbin/("../../linux/arch/arm/boot/dts/bcm2711-rpi-4-b.dtb");
-                        type = "flat_dt";
-                        arch = "arm";
-                        compression = "none";
-                        load = <0x0a000000>;
-                };
-	
-                initrd {
-                        description = "Agency initial rootfs (initrd)";
-                        data = /incbin/("../../rootfs/board/rpi4/initrd.cpio");
-                        type = "ramdisk";
-                        arch = "arm";
-                        os = "linux";
-                        compression = "none";
-                        load = <0x0b000000>;
-                };
+        fdt {
+        	description = "SOO Agency device tree blob";
+            data = /incbin/("../linux/arch/arm/boot/dts/bcm2711-rpi-4-b.dtb");
+            type = "flat_dt";
+            arch = "arm";
+            compression = "none";
+            load = <0x10a00000>;
         };
 	
-        configurations {
-		default = "conf";
-		conf {
+        initrd {
+        	description = "Agency initial rootfs (initrd)";
+            data = /incbin/("../rootfs/board/rpi4/initrd.cpio");
+            type = "ramdisk";
+            arch = "arm";
+            os = "linux";
+            compression = "none";
+            load = <0x10c00000>;
+        };
+    };
+	
+    configurations {
+		default = "agency_rpi4";
+		agency_rpi4 {
 			description = "SOO Agency on Raspberry Pi 4 B";
-                        loadables = "agency";
-                        kernel = "avz";
-                        fdt = "fdt";
-                        ramdisk = "initrd";
+        	loadables = "linux";
+        	kernel = "avz";
+        	fdt = "fdt";
+        	ramdisk = "initrd";
 		};
 	};
 };

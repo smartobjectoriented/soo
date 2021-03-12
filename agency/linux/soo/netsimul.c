@@ -276,9 +276,21 @@ int soo_env_fn(void *args) {
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	plugin_simulation_init();
-#else
+#endif
+
+#ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
 	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
 	plugin_ethernet_init();
+#endif
+
+#ifdef CONFIG_SOOLINK_PLUGIN_WLAN
+	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	plugin_wlan_init();
+#endif
+
+#ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
+	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	plugin_bt_init();
 #endif
 
 	/* Initializing the Discovery and Datalink functional blocks. */
