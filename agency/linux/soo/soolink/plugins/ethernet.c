@@ -42,18 +42,11 @@
 
 static uint8_t broadcast_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
-struct soo_plugin_ethernet {
-
+typedef struct {
 	bool plugin_ready;
-
 	struct net_device *net_dev;
-
-	medium_rx_back_ring_t rx_ring;
-
-	plugin_desc_t plugin_ethernet_desc;
-};
-
-#define current_soo_plugin_eth     ((struct soo_plugin_ethernet *) current_soo->soo_plugin->priv)
+	plugin_desc_t plugin_eth_desc;
+} soo_plugin_eth_t;
 
 static void plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	struct sk_buff *skb;
@@ -61,17 +54,20 @@ static void plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	__be16 proto;
 	const uint8_t *dest;
 	int cpu;
+	soo_plugin_eth_t *soo_plugin_eth;
 
-	if (unlikely(!current_soo_plugin_eth->plugin_ready))
+	soo_plugin_eth = container_of(current_soo_plugin->__intf[SL_IF_ETH], soo_plugin_eth_t, plugin_eth_desc);
+
+	if (unlikely(!soo_plugin_eth->plugin_ready))
 		return;
 
 	DBG("Requester type: %d\n", sl_desc->req_type);
 
 	/* Abort if the net device is not ready */
-	if (unlikely(!current_soo_plugin_eth->plugin_ready))
+	if (unlikely(!soo_plugin_eth->net_dev))
 		return ;
 
-	skb = alloc_skb(ETH_HLEN + size + LL_RESERVED_SPACE(current_soo_plugin_eth->net_dev), GFP_KERNEL);
+	skb = alloc_skb(ETH_HLEN + size + LL_RESERVED_SPACE(soo_plugin_eth->net_dev), GFP_KERNEL);
 	BUG_ON(skb == NULL);
 
 	skb_reserve(skb, ETH_HLEN);
@@ -94,36 +90,36 @@ static void plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 	skb_put(skb, size);
 
-	dev_hard_header(skb, current_soo_plugin_eth->net_dev, proto, dest, current_soo_plugin_eth->net_dev->dev_addr, skb->len);
-	if ((!netif_running(current_soo_plugin_eth->net_dev)) || (!netif_device_present(current_soo_plugin_eth->net_dev))) {
+	dev_hard_header(skb, soo_plugin_eth->net_dev, proto, dest, soo_plugin_eth->net_dev->dev_addr, skb->len);
+	if ((!netif_running(soo_plugin_eth->net_dev)) || (!netif_device_present(soo_plugin_eth->net_dev))) {
 		kfree_skb(skb);
 		return;
 	}
 
-	txq = skb_get_tx_queue(current_soo_plugin_eth->net_dev, skb);
+	txq = skb_get_tx_queue(soo_plugin_eth->net_dev, skb);
 
 	local_bh_disable();
 	cpu = smp_processor_id();
 
-	HARD_TX_LOCK(current_soo_plugin_eth->net_dev, txq, cpu);
+	HARD_TX_LOCK(soo_plugin_eth->net_dev, txq, cpu);
 
 	/* Normally, this should never happen,
 	 * but in case of overspeed...
 	 */
 	while (netif_xmit_stopped(txq))
 	{
-		HARD_TX_UNLOCK(current_soo_plugin_eth->net_dev, txq);
+		HARD_TX_UNLOCK(soo_plugin_eth->net_dev, txq);
 		local_bh_enable();
 
 		msleep(100);
 
 		local_bh_disable();
-		HARD_TX_LOCK(current_soo_plugin_eth->net_dev, txq, cpu);
+		HARD_TX_LOCK(soo_plugin_eth->net_dev, txq, cpu);
 	}
 
-	netdev_start_xmit(skb, current_soo_plugin_eth->net_dev, txq, 0);
+	netdev_start_xmit(skb, soo_plugin_eth->net_dev, txq, 0);
 
-	HARD_TX_UNLOCK(current_soo_plugin_eth->net_dev, txq);
+	HARD_TX_UNLOCK(soo_plugin_eth->net_dev, txq);
 	local_bh_enable();
 }
 
@@ -132,34 +128,15 @@ static void plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size) {
  * Called from drivers/net/ethernet/smsc/smsc911x.c
  */
 void plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src) {
-	medium_rx_t *rsp;
 
-	/* Prepare to propagate the data to the plugin block */
-	while (RING_RSP_FULL(&current_soo_plugin_eth->rx_ring))
-		schedule();
+	soo_plugin_eth_t *soo_plugin_eth;
 
-	rsp = medium_rx_new_ring_response(&current_soo_plugin_eth->rx_ring);
+	soo_plugin_eth = container_of(current_soo_plugin->__intf[SL_IF_ETH], soo_plugin_eth_t, plugin_eth_desc);
 
-	rsp->plugin_desc = &current_soo_plugin_eth->plugin_ethernet_desc;
-	rsp->req_type = get_sl_req_type_from_protocol(ntohs(skb->protocol));;
-
-	rsp->size = skb->len;
-
-	rsp->data = kzalloc(rsp->size, GFP_KERNEL);
-	BUG_ON(!rsp->data);
-
-	memcpy(rsp->data, skb->data, rsp->size);
-
-	rsp->mac_src = kzalloc(ETH_ALEN, GFP_KERNEL);
-	BUG_ON(!rsp->mac_src);
-
-	memcpy(rsp->mac_src, mac_src, ETH_ALEN);
+	plugin_rx(&soo_plugin_eth->plugin_eth_desc,
+		  get_sl_req_type_from_protocol(ntohs(skb->protocol)), mac_src, skb->data, skb->len);
 
 	kfree_skb(skb);
-
-	medium_rx_ring_response_ready(&current_soo_plugin_eth->rx_ring);
-
-	complete(&current_soo->soo_plugin->rx_event);
 
 }
 
@@ -202,42 +179,38 @@ void plugin_tcp_rx(void *data, size_t size) {
  * is properly initialized. The net device detection thread loops until the interface is initialized.
  */
 static int net_dev_detect(void *args) {
-	while (!current_soo_plugin_eth->net_dev) {
+	soo_plugin_eth_t *soo_plugin_eth;
+
+	soo_plugin_eth = container_of(current_soo_plugin->__intf[SL_IF_ETH], soo_plugin_eth_t, plugin_eth_desc);
+
+	while (!soo_plugin_eth->net_dev) {
 		msleep(NET_DEV_DETECT_DELAY);
-		current_soo_plugin_eth->net_dev = dev_get_by_name(&init_net, ETHERNET_NET_DEV_NAME);
+		soo_plugin_eth->net_dev = dev_get_by_name(&init_net, ETHERNET_NET_DEV_NAME);
 	}
 
-	current_soo_plugin_eth->plugin_ready = true;
+	soo_plugin_eth->plugin_ready = true;
 
 	return 0;
 }
 /*
  * This function must be executed in the non-RT domain.
  */
-int plugin_ethernet_init(void) {
+void plugin_ethernet_init(void) {
 	struct task_struct *__ts;
+	soo_plugin_eth_t *soo_plugin_eth;
 
-	lprintk("Soolink: Ethernet Plugin init...\n");
+	lprintk("SOOlink: Ethernet Plugin init...\n");
 
-	current_soo->soo_plugin->priv = (struct soo_plugin_ethernet *) kzalloc(sizeof(struct soo_plugin_ethernet), GFP_KERNEL);
-	BUG_ON(!current_soo->soo_plugin->priv);
+	soo_plugin_eth = (soo_plugin_eth_t *) kzalloc(sizeof(soo_plugin_eth_t), GFP_KERNEL);
+	BUG_ON(!soo_plugin_eth);
 
-	current_soo_plugin_eth->plugin_ethernet_desc.tx_callback = plugin_ethernet_tx;
-	current_soo_plugin_eth->plugin_ethernet_desc.if_type = SL_IF_ETH;
+	soo_plugin_eth->plugin_eth_desc.tx_callback = plugin_ethernet_tx;
+	soo_plugin_eth->plugin_eth_desc.if_type = SL_IF_ETH;
 
-	transceiver_plugin_register(&current_soo_plugin_eth->plugin_ethernet_desc);
+	soo_plugin_eth->plugin_ready = false;
+	soo_plugin_eth->net_dev = NULL;
 
-	current_soo_plugin_eth->plugin_ready = false;
-	current_soo_plugin_eth->net_dev = NULL;
-
-	/*
-	 * Initialize the backend shared ring for RX packet.
-	 * The shared ring is initialized by the plugin block as frontend, so we need to use
-	 * this ring.
-	 */
-	BACK_RING_INIT(&current_soo_plugin_eth->rx_ring, current_soo_plugin->rx_ring.sring, 32 * PAGE_SIZE);
-
-	transceiver_plugin_register(&current_soo_plugin_eth->plugin_ethernet_desc);
+	transceiver_plugin_register(&soo_plugin_eth->plugin_eth_desc);
 
 #if 0
 	transceiver_plugin_register(&plugin_tcp_desc);
@@ -248,7 +221,5 @@ int plugin_ethernet_init(void) {
 
 	add_thread(current_soo, __ts->pid);
 	wake_up_process(__ts);
-
-	return 0;
 }
 

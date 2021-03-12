@@ -77,27 +77,6 @@ void __init avz_setup(void)
 
 	fixup_pv_table(&__pv_table_begin, (&__pv_table_end - &__pv_table_begin) << 2);
 
-	/*
-	 * We changing not only the virtual to physical mapping, but also
-	 * the physical addresses used to access memory.  We need to flush
-	 * all levels of cache in the system with caching disabled to
-	 * ensure that all data is written back, and nothing is prefetched
-	 * into the caches.  We also need to prevent the TLB walkers
-	 * allocating into the caches too.  Note that this is ARMv7 LPAE
-	 * specific.
-	 */
-	cr = get_cr();
-	set_cr(cr & ~(CR_I | CR_C));
-	asm("mrc p15, 0, %0, c2, c0, 2" : "=r" (ttbcr));
-	asm volatile("mcr p15, 0, %0, c2, c0, 2"
-		: : "r" (ttbcr & ~(3 << 8 | 3 << 10)));
-
-	flush_cache_all();
-
-	/* Re-enable the caches and cacheable TLB walks */
-	asm volatile("mcr p15, 0, %0, c2, c0, 2" : : "r" (ttbcr));
-	set_cr(cr);
-
 	/* Get the shared info page, and keep it as a separate reference */
 	HYPERVISOR_shared_info = avz_start_info->shared_info;
 

@@ -359,6 +359,8 @@ void arm_init_domains(void);
 
 #define FP_SIZE 35
 
+#define sev()		asm volatile("sev" : : : "memory")
+
 #define processor_mode(regs) \
 	((regs)->psr & PSR_MODE_MASK)
 

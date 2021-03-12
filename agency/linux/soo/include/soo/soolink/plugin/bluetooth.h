@@ -24,9 +24,6 @@
 
 #include <soo/soolink/soolink.h>
 
-void sl_plugin_bluetooth_rx(struct sk_buff *skb);
-void propagate_plugin_bluetooth_send(void);
-void rtdm_propagate_sl_plugin_bluetooth_rx(void);
-void plugin_bluetooth_delete_remote(agencyUID_t *agencyUID);
+void sl_plugin_bt_rx(struct sk_buff *skb);
 
 #endif /* PLUGIN_BLUETOOTH_H */
