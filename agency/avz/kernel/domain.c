@@ -279,7 +279,7 @@ void *setup_dom_stack(struct domain *d) {
 	 */
 	domain_stack = memalign(STACK_SIZE, STACK_SIZE);
 	BUG_ON(!domain_stack);
-lprintk("-->%lx\n", domain_stack);
+
 	d->domain_stack = (unsigned long) domain_stack;
 
 	ci = (struct cpu_info *) domain_stack;

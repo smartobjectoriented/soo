@@ -30,9 +30,9 @@
 	func(VIRTIO, virtio, 0) \
 	func(DHCP, dhcp, na)
 
+#if 0 /* SOO.tech */
 #include <config_distro_bootcmd.h>
 
-#if 0 /* SOO.tech */
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	"fdt_high=0xffffffff\0" \
 	"initrd_high=0xffffffff\0" \
@@ -44,9 +44,10 @@
 	BOOTENV
 #endif /* 0 */
 
-#define CONFIG_EXTRA_ENV_SETTINGS \
-	"linux=load virtio 0 0x50000000 virt64.itb; bootm 0x50000000\0"
-
+#define CONFIG_BOOTCOMMAND \
+        "load virtio 0 0x40000000 uEnv.txt; env import 0x40000000; run start\0" \
+         "bootdelay=0\0"
+            
 #define CONFIG_SYS_CBSIZE 512
 
 #define CONFIG_SYS_MONITOR_BASE		CONFIG_SYS_TEXT_BASE

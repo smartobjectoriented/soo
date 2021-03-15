@@ -34,18 +34,18 @@
 			entry = <0x40000000>;
 		};
 
-/*
+
 		linux {
 			description = "Linux kernel";
 			data = /incbin/("../linux/arch/arm64/boot/Image");
-			type = "kernel";
+			type = "agency";
 			arch = "arm";
 			os = "linux";
 			compression = "none";
-			load = <0x40080000>;
-			entry = <0x40080000>;
+			load = <0x41080000>;
+			entry = <0x41080000>;
 		};
-*/
+
         fdt_tz {
 			description = "Linux device tree blob";
 			data = /incbin/("../linux/arch/arm64/boot/dts/arm/virt64.dtb");
@@ -54,20 +54,17 @@
 			compression = "none";
 			load = <0x48000000>;
 		};
-/*
+
 		initrd {
 			description = "Initial rootfs (initrd)";
-			data = /incbin/("../rootfs/board/vexpress/initrd.cpio");
+			data = /incbin/("../rootfs/board/virt64/initrd.cpio");
 			type = "ramdisk";
 			arch = "arm";
 			os = "linux";			
 			compression = "none";
-			load = <0x5f000000>;
+			load = <0x4a000000>;
 		};
-*/
-
 	};
-	
 
 	configurations {
 		default = "agency_tz";
@@ -75,9 +72,9 @@
 		agency_tz {
 			description = "SOO Agency on vExpress";
 		    kernel = "avz";
-        /*    loadables = "linux"; */
+            loadables = "linux"; 
              fdt = "fdt_tz"; 
-            /* ramdisk = "initrd"; */
+             ramdisk = "initrd"; 
 		};
 		
 	};
