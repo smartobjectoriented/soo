@@ -44,16 +44,12 @@
 
 #include <asm/ipipe_base.h>
 
-#ifdef CONFIG_ARM
-#include <asm/mach/map.h>
-#endif
-
 #include <asm/memory.h>
 
 #include <soo/vbus.h>
 #include <soo/vbstore.h>
-
 #include <soo/hypervisor.h>
+#include <soo/paging.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/event_channel.h>
@@ -437,15 +433,8 @@ void vbstore_init(void) {
 		}
 
 		/* Make sure the page will not be cached */
-#ifdef CONFIG_ARM
-		vbstore_intf[i] = (struct vbstore_domain_interface *) __arm_ioremap(virt_to_phys(__vbstore_vaddr[i]), PAGE_SIZE, MT_MEMORY_RWX_NONCACHED);
-#else
-		vbstore_intf[i] = ioremap_nocache(virt_to_phys(__vbstore_vaddr[i]), PAGE_SIZE);
-#endif
-		if (!vbstore_intf[i]) {
-			lprintk("Re-mapping of vbstore page failed.\n");
-			BUG();
-		}
+		vbstore_intf[i] = (struct vbstore_domain_interface *) paging_remap(virt_to_phys(__vbstore_vaddr[i]), PAGE_SIZE);
+
 	}
 
 	/* Set our local interface to vbstore */

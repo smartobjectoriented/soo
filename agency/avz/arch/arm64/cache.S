@@ -11,6 +11,14 @@
 #include <asm/processor.h>
 
 
+ENTRY(__flush_tlb_all)
+
+	dsb 	nshst
+	tlbi 	vmalle1
+	dsb		nsh
+	isb
+
+
 /*
  * Invalidate the TLB entry corresponding to a VA (stored in x0)
  */

@@ -578,13 +578,6 @@ void get_ME_spid(unsigned int slotID, unsigned char *spid) {
 	memcpy(spid, ME_desc.spid, SPID_SIZE);
 }
 
-void cache_flush_all(void)
-{
-	/* Flush all cache */
-	flush_cache_all();
-	flush_tlb_all();
-}
-
 void soo_guest_activity_init(void)
 {
 	unsigned int i;

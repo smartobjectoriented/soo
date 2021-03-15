@@ -47,11 +47,8 @@ struct xnclock {
 	struct xntimerdata *timerdata;
 	int id;
 
-#ifdef CONFIG_SMP
 	/** Possible CPU affinity of clock beat. */
 	cpumask_t affinity;
-#endif
-
 };
 
 extern struct xnclock nkclock;
@@ -78,7 +75,7 @@ xnticks_t xnclock_core_read_monotonic(void);
 
 static inline xnticks_t xnclock_core_read_raw(void)
 {
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 	return arch_timer_get_kvm_info()->timecounter.cc->read(arch_timer_get_kvm_info()->timecounter.cc);
 #else /* x86 */
 	return rdtsc();
@@ -100,7 +97,7 @@ extern u64 native_sched_clock_from_tsc(u64 tsc);
 
 static inline u64 cyc2ns(u64 cycles)
 {
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 	return ((u64) cycles * arch_timer_get_kvm_info()->timecounter.cc->mult) >> arch_timer_get_kvm_info()->timecounter.cc->shift;
 #else
 	return native_sched_clock_from_tsc(cycles);

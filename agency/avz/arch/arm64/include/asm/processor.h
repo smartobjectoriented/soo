@@ -25,6 +25,8 @@
 #include <stringify.h>
 #include <linkage.h>
 
+#include <asm/mmu.h>
+
 #define BIT(nr)                 (1UL << (nr))
 
 #define sev()           asm volatile("sev" : : : "memory")
@@ -771,7 +773,73 @@
 /* Safe value for MPIDR_EL1: Bit31:RES1, Bit30:U:0, Bit24:MT:0 */
 #define SYS_MPIDR_SAFE_VAL	(BIT(31))
 
+#define S_FRAME_SIZE	0x110
+
+/* 34 registers */
+
+#define S_PSTATE	0x108
+#define S_PC    	0x100
+#define S_SP		0xf8
+#define S_LR		0xf0
+#define S_X29		0xe8
+#define S_X28		0xe0
+#define S_X27		0xd8
+#define S_X26		0xd0
+#define S_X25		0xc8
+#define S_X24		0xc0
+#define S_X23		0xb8
+#define S_X22		0xb0
+#define S_X21		0xa8
+#define S_X20		0xa0
+#define S_X19   	0x98
+#define S_X18   	0x90
+#define S_X17   	0x88
+#define S_X16   	0x80
+#define S_X15   	0x78
+#define S_X14   	0x70
+#define S_X13   	0x68
+#define S_X12   	0x60
+#define S_X11   	0x58
+#define S_X10   	0x50
+#define S_X9    	0x48
+#define S_X8    	0x40
+#define S_X7    	0x38
+#define S_X6    	0x30
+#define S_X5   		0x28
+#define S_X4    	0x20
+#define S_X3    	0x18
+#define S_X2    	0x10
+#define S_X1    	0x8
+#define S_X0    	0x0
+
 #ifdef __ASSEMBLY__
+
+.macro current_cpu reg
+	mrs \reg, mpidr_el1 	// read Multiprocessor ID register reg
+	and \reg, \reg, #0x3 	// mask on CPU ID bits
+.endm
+
+.macro	vcpu	rd, tmp
+
+	// Compute the address of the stack bottom where cpu_info is located.
+	ldr	\rd, =(~(STACK_SIZE - 1))
+	mov	\tmp, sp
+	and	\rd, \tmp, \rd
+
+	// Get the address of the domain descriptor
+	ldr	\rd, [\rd]
+.endm
+
+.macro disable_irq
+	msr	daifset, #2		// arch_local_irq_disable
+	nop
+.endm
+
+.macro enable_irq
+	msr	daifclr, #2		// arch_local_irq_enable
+	nop
+.endm
+
 
 	.irp	num,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30
 	.equ	.L__reg_num_x\num, \num
@@ -968,15 +1036,55 @@ static inline void cpu_relax(void)
 	asm volatile("yield" ::: "memory");
 }
 
+typedef struct cpu_user_regs {
+	u64 x0;
+	u64 x1;
+	u64 x2;
+	u64 x3;
+	u64 x4;
+	u64 x5;
+	u64 x6;
+	u64 x7;
+	u64 x8;
+	u64 x9;
+	u64 x10;
+	u64 x11;
+	u64 x12;
+	u64 x13;
+	u64 x14;
+	u64 x15;
+	u64 x16;
+	u64 x17;
+	u64 x18;
+	u64 x19;
+	u64 x20;
+	u64 x21;
+	u64 x22;
+	u64 x23;
+	u64 x24;
+	u64 x25;
+	u64 x26;
+	u64 x27;
+	u64 x28;
+	u64 fp;
+	u64 lr;
+	u64 sp;
+	u64 pc;
+	u64 pstate;
+} cpu_user_regs_t;
+
+typedef struct cpu_sys_regs {
+	u64   vksp;
+	u64   vusp;
+} cpu_sys_regs_t;
+
+
 struct vcpu_guest_context;
 struct domain;
 
-void __switch_to( struct domain *, struct vcpu_guest_context *, struct vcpu_guest_context *);
-
-#define switch_to(prev,next,last)                                       \
-do {                                                                    \
-         __switch_to(prev, &prev->arch.guest_context, &next->arch.guest_context);   \
-} while (0)
+void __switch_to(struct vcpu_guest_context *prev, struct vcpu_guest_context *next);
+void ret_to_user(void);
+void pre_ret_to_user(void);
 
 void cpu_do_idle(void);
 

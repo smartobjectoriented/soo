@@ -19,13 +19,10 @@
 #ifndef __ARCH_ARM_H__
 #define __ARCH_ARM_H__
 
-#ifdef __AVZ__
 #include <types.h>
 #include <config.h>
-#else
-#include <asm/types.h>
-#endif
 
+#include <asm/processor.h>
 
 /*
  * Virtual addresses beyond this are not modifiable by guest OSes. The
@@ -34,45 +31,8 @@
 
 /* Actually, the following constants are not relevant since machine_to_phys_mapping is calculated in hypervisor/memory.c */
 
-
-
-#ifndef __ASSEMBLY__
-extern unsigned long *machine_phys_mapping;
-#define machine_to_phys_mapping  (machine_phys_mapping)
-#endif
-
 #ifndef __ASSEMBLY__
 
-/* User-accessible registers */
-/* This structure should NOT be modified !! */
-
-typedef struct cpu_user_regs {
-	__u32   r0;
-	__u32   r1;
-	__u32   r2;
-	__u32   r3;
-	__u32   r4;
-	__u32   r5;
-	__u32   r6;
-	__u32   r7;
-	__u32   r8;
-	__u32   r9;
-	__u32   r10;
-	__u32   r11;
-	__u32   r12;
-	__u32   r13;
-	__u32   r14;
-	__u32   r15;
-	__u32   psr;
-	__u32   ctx;
-} cpu_user_regs_t;
-
-typedef struct cpu_sys_regs {
-	__u32   vpsr;
-	__u32   vksp;
-	__u32   vusp;
-	__u32   vdacr;
-} cpu_sys_regs_t;
 
 /* ONLY used to communicate with dom0! See also struct exec_domain. */
 struct vcpu_guest_context {

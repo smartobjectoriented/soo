@@ -78,6 +78,12 @@ extern void (*__smp_cross_call)(const struct cpumask *, unsigned int);
  */
 asmlinkage void secondary_start_kernel(void);
 
+/* SOO.tech */
+void __ipipe_ipis_request(void);
+void smp_kick_rt_agency_for_task_create(void);
+void smp_kick_rt_agency_for_wakeup(void);
+void smp_trigger_tick(void);
+
 /*
  * Initial data for bringing up a secondary CPU.
  * @stack  - sp for the secondary CPU

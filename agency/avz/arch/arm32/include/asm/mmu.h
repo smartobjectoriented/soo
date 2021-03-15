@@ -84,7 +84,7 @@
 
 #define l1sect_addr_end(addr, end)                                         \
  ({      unsigned long __boundary = ((addr) + TTB_SECT_SIZE) & TTB_SECT_MASK;  \
-         (__boundary - 1 < (end) - 1) ? __boundary: (end);                \
+         (__boundary - 1 < (end) - 1) ? __boundary : (end);                \
  })
 
 /* Short-Descriptor Translation Table Level 1 Bits */

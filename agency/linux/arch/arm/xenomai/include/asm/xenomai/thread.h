@@ -79,9 +79,6 @@ struct xnarchtcb {
 
 void xnarch_switch_to(struct xnthread *out, struct xnthread *in);
 
-static inline void xnarch_enter_root(struct xnthread *root) { }
-
-
 #if defined(CONFIG_XENO_ARCH_FPU) && defined(CONFIG_VFP)
 
 
@@ -128,8 +125,6 @@ register unsigned long current_stack_pointer asm ("sp");
 
 /* Standard Linux RT task stack size */
 #define XNTHREAD_STACK_SIZE 	(THREAD_SIZE)
-
-#define XNTHREAD_START_SP  	(XNTHREAD_STACK_SIZE - 8)
 
 void xnarch_cleanup_thread(struct xnthread *thread);
 void xnarch_init_thread(struct xnthread *thread);

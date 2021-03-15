@@ -287,33 +287,6 @@
 .endm
 
 /*
- * Save the current IRQ state and disable IRQs.  Note that this macro
- * assumes FIQs are enabled, and that the processor is in SVC mode.
- */
-.macro	save_and_disable_irqs, oldcpsr
-	mrs	\oldcpsr, cpsr
-	disable_irq
-.endm
-
-.macro	save_and_disable_irqs_notrace, oldcpsr
-	mrs	\oldcpsr, cpsr
-	disable_irq_notrace
-.endm
-
-/*
- * Restore interrupt state previously stored in a register.  We don't
- * guarantee that this will preserve the flags.
- */
-.macro	restore_irqs_notrace, oldcpsr
-	msr	cpsr_c, \oldcpsr
-.endm
-
-.macro restore_irqs, oldcpsr
-	tst	\oldcpsr, #PSR_I_BIT
-	restore_irqs_notrace \oldcpsr
-.endm
-
-/*
  * Build a return instruction for this processor type.
  */
 #define RETINSTR(instr, regs...)\
@@ -328,7 +301,7 @@ tbl     .req    r8              @ syscall table pointer
 /*
 * Stack format (ensured by USER_* and SVC_*)
 */
-#define S_FRAME_SIZE    72
+
 #define S_CONTEXT	68
 #define S_PSR           64
 #define S_PC            60
@@ -414,6 +387,32 @@ typedef struct cpu_regs {
 	__u32   lr_usr;
 	__u32   padding;  /* padding to keep 8-bytes alignment */
 } cpu_regs_t;
+
+typedef struct cpu_user_regs {
+	__u32   r0;
+	__u32   r1;
+	__u32   r2;
+	__u32   r3;
+	__u32   r4;
+	__u32   r5;
+	__u32   r6;
+	__u32   r7;
+	__u32   r8;
+	__u32   r9;
+	__u32   r10;
+	__u32   r11;
+	__u32   r12;
+	__u32   r13;
+	__u32   r14;
+	__u32   r15;
+	__u32   psr;
+} cpu_user_regs_t;
+
+typedef struct cpu_sys_regs {
+	__u32   vksp;
+	__u32   vusp;
+	__u32   vdacr;
+} cpu_sys_regs_t;
 
 #define cpu_relax()	barrier()
 
@@ -572,12 +571,9 @@ static inline void set_dacr(unsigned int val)
 struct vcpu_guest_context;
 struct domain;
 
-void __switch_to( struct domain *, struct vcpu_guest_context *, struct vcpu_guest_context *);
-
-#define switch_to(prev,next,last)                                       \
-do {                                                                    \
-         __switch_to(prev, &prev->arch.guest_context, &next->arch.guest_context);   \
-} while (0)
+void __switch_to(struct vcpu_guest_context *prev, struct vcpu_guest_context *next);
+void ret_to_user(void);
+void pre_ret_to_user(void);
 
 void cpu_do_idle(void);
 

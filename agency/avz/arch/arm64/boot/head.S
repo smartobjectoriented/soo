@@ -54,7 +54,6 @@ __pre_head:
 	.ascii	__HEAD_MAGIC		// Magic number
 	.long	0					// reserved
 
-
 __start:
 
 	// Preserve the fdt addr (device tree) which is stored in x0 by U-boot
@@ -67,15 +66,22 @@ __start:
     adrp	x0, cpu0_stack
     mov		sp, x0
 
+	/* Clear the BSS */
+
+	adrp	x0, __bss_start
+	adrp	x1, __bss_end
+1:
+	strb	wzr, [x0], #1
+
+	cmp		x0, x1
+	b.cc	1b
+
     // Up to here, a stack should be initialized
 
 	// Set up the MMU
     b		mmu_setup
 
 __kernel_main:
-
-	ldr	x0, =__fdt_addr
-	str	x9, [x0]
 
 	// C main entry point
 	b 	kernel_start
@@ -380,7 +386,7 @@ __secondary_data:
 .ltorg
 
 __fdt_addr:
-  .long 	0
+  .quad 	0
 
 .LCvirt_entry:
   .quad __kernel_main

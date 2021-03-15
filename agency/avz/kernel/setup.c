@@ -82,11 +82,8 @@ void init_idle_domain(void)
 
 }
 
-
 void kernel_start(void)
 {
-
-	char *command_line;
 	int i;
 
 	local_irq_disable();
@@ -129,13 +126,15 @@ void kernel_start(void)
 
 	timer_init();
 	init_time();
-#if 0
+
 	/* create idle domain */
 	init_idle_domain();
 
 	event_channel_init();
 
+#ifdef CONFIG_ARCH_ARM32
 	soo_activity_init();
+#endif
 
 	/* Deal with secondary processors.  */
 	printk("spinning up at most %d total processors ...\n", NR_CPUS);
@@ -171,9 +170,11 @@ void kernel_start(void)
 
 	smp_init();
 
+#ifdef CONFIG_ARCH_ARM32
 	/* Enabling VFP module on this CPU */
 	vfp_enable();
 #endif
+
 	domain_unpause_by_systemcontroller(agency);
 
 	set_current(idle_domain[smp_processor_id()]);

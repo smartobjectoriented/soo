@@ -129,7 +129,7 @@ int set_irq_chip_data(unsigned int irq, void *data)
 	unsigned long flags;
 
 	if (irq >= NR_IRQS) {
-		printk(KERN_ERR "Trying to install controller data for IRQ%d\n", irq);
+		printk("Trying to install controller data for IRQ%d\n", irq);
 		return -EINVAL;
 	}
 
@@ -145,13 +145,13 @@ void set_irq_base(unsigned int irq, unsigned int irq_base) {
 	unsigned long flags;
 
 	if (irq >= NR_IRQS) {
-		printk(KERN_ERR "Trying to install controller data for IRQ%d\n", irq);
+		printk("Trying to install controller data for IRQ%d\n", irq);
 	}
 
 	desc = irq_desc + irq;
 
 	if (desc->chip == NULL) {
-		printk(KERN_ERR "Trying to set up chip data with no associated chip yet for IRQ: %d\n", irq);
+		printk("Trying to set up chip data with no associated chip yet for IRQ: %d\n", irq);
 	}
 
 	spin_lock_irqsave(&desc->lock, flags);
@@ -164,13 +164,13 @@ void set_irq_reg_base(unsigned int irq, void *reg_base) {
 	unsigned long flags;
 
 	if (irq >= NR_IRQS) {
-		printk(KERN_ERR "Trying to install controller data for IRQ%d\n", irq);
+		printk("Trying to install controller data for IRQ%d\n", irq);
 	}
 
 	desc = irq_desc + irq;
 
 	if (desc->chip == NULL) {
-		printk(KERN_ERR "Trying to set up chip data with no associated chip yet for IRQ: %d\n", irq);
+		printk("Trying to set up chip data with no associated chip yet for IRQ: %d\n", irq);
 	}
 
 	spin_lock_irqsave(&desc->lock, flags);

@@ -90,16 +90,16 @@
 #define TTB_L3_ORDER      9
 
 #define TTB_I0_SHIFT	  39
-#define TTB_I0_MASK	  	  (~((1 << TTB_I0_SHIFT)-1))
+#define TTB_I0_MASK	  (~((1 << TTB_I0_SHIFT)-1))
 
 #define TTB_I1_SHIFT	  30
-#define TTB_I1_MASK	  	  (~((1 << TTB_I1_SHIFT)-1))
+#define TTB_I1_MASK	  (~((1 << TTB_I1_SHIFT)-1))
 
 #define TTB_I2_SHIFT	  21
-#define TTB_I2_MASK	  	  (~((1 << TTB_I2_SHIFT)-1))
+#define TTB_I2_MASK	  (~((1 << TTB_I2_SHIFT)-1))
 
 #define TTB_I3_SHIFT	  12
-#define TTB_I3_MASK	  	  (~((1 << TTB_I3_SHIFT)-1))
+#define TTB_I3_MASK	  (~((1 << TTB_I3_SHIFT)-1))
 
 #define TTB_L0_ENTRIES    (1 << TTB_L0_ORDER)
 #define TTB_L1_ENTRIES    (1 << TTB_L1_ORDER)
@@ -346,7 +346,7 @@ void reset_l1pgtable(uint32_t *l1pgtable, bool remove);
 void clear_l1pte(uint32_t *l1pgtable, uint32_t vaddr);
 
 void mmu_switch(addrspace_t *addrspace);
-void dump_pgtable(uint32_t *l1pgtable);
+void dump_pgtable(u64 *l1pgtable);
 
 void dump_current_pgtable(void);
 

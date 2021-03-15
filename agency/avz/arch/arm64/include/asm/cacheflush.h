@@ -34,10 +34,12 @@ void __asm_invalidate_icache_all(void);
 
 void __asm_flush_dcache_all(int invalidate_only);
 void __asm_invalidate_dcache_all(int invalidate_only);
+void __flush_tlb_all(void);
 
 void invalidate_dcache_all(void);
 void invalidate_icache_all(void);
 inline void flush_dcache_all(void);
+void flush_tlb_all(void);
 
 void cache_enable(uint32_t cache_bit);
 void cache_disable(uint32_t cache_bit);

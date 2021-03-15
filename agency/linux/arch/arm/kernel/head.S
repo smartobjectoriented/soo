@@ -46,15 +46,12 @@
 #endif
 
 /* SOO.tech */
-	.extern swapper_pg_dir
 	.extern avz_setup
 	.extern guest_phys_offset
 	.extern __atags_pointer
 
-#if 0 /* SOO.tech */
 	.globl	swapper_pg_dir
 	.equ	swapper_pg_dir, KERNEL_RAM_VADDR - PG_DIR_SIZE
-#endif /* 0 */
 
 	.macro	pgtbl, rd, phys
 	add	\rd, \phys, #TEXT_OFFSET
@@ -88,7 +85,7 @@ ENTRY(stext)
 /* SOO.tech */
 /* swapper_pg_dir is now defined in arch/arm/kernel/setup.c */
 .type   _start, %function
-.section ".init.avzguest_start", "ax"
+.section ".init.fromavz_start", "ax"
 ENTRY(_start)
 
  THUMB(	badr	r9, 1f		)	@ Kernel is always entered in ARM.

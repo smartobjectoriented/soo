@@ -19,6 +19,8 @@
 #ifndef ASM_SETUP_H
 #define ASM_SETUP_H
 
+#define L_TEXT_OFFSET	0x8000
+
 /*
  * Memory map description
  */

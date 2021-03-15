@@ -698,16 +698,6 @@ static inline void ipi_timer(void)
 
 #endif
 
-#define IPIPE_IPI_BASE	IPIPE_VIRQ_BASE
-
-unsigned __ipipe_first_ipi;
-EXPORT_SYMBOL_GPL(__ipipe_first_ipi);
-
-void  __ipipe_do_IPI(unsigned ipinr, void *cookie)
-{
-	handle_IPI(ipinr, raw_cpu_ptr(&ipipe_percpu.tick_regs));
-}
-
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
 void tick_broadcast(const struct cpumask *mask)
@@ -852,6 +842,7 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		break;
 
 /* SOO.tech */
+#warning to be checked if it is still used...
 #ifdef CONFIG_ARCH_BCM2835
 	case IPI_IRQ_HANDLE:
 		BUG_ON(smp_processor_id() != AGENCY_RT_CPU);

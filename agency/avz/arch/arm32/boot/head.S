@@ -86,6 +86,16 @@ _start:
 
   @ Up to here, a stack should be initialized
 
+  @ prepare to clear bss and zero fp
+  ldr	r6, =__bss_start
+  ldr	r7, =__bss_end
+
+  mov	fp, #0			@ Clear BSS (and zero fp)
+1:
+  cmp	r6, r7
+  strcc	fp, [r6], #4
+  bcc	1b
+
   @ Set up the MMU
   b		mmu_setup
 

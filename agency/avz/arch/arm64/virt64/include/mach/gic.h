@@ -19,11 +19,11 @@
 #ifndef MACH_GIC_H
 #define MACH_GIC_H
 
-#define GIC_DIST_PHYS 	0x2c001000
-#define GIC_DIST_SIZE   0x1000
+#define GIC_DIST_PHYS 	0x08000000
+#define GIC_DIST_SIZE   0x10000
 
-#define GIC_CPU_PHYS 	0x2c002000
-#define GIC_CPU_SIZE	0x1000
+#define GIC_CPU_PHYS 	0x08010000
+#define GIC_CPU_SIZE	0x10000
 
 
 #endif /* MACH_GIC_H */

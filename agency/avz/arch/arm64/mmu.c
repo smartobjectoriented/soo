@@ -53,268 +53,170 @@ bool is_addrspace_equal(addrspace_t *addrspace1, addrspace_t *addrspace2) {
 	return (addrspace1->pgtable_paddr == addrspace2->pgtable_paddr);
 }
 
-#if 0
-
-/* Reference to the system 1st-level page table */
-static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long end, unsigned long pfn, bool nocache)
+static void alloc_init_l3(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, bool nocache)
 {
-	uint32_t *l2pte, *l2pgtable;
-	uint32_t size;
-
-	size = TTB_L2_ENTRIES * sizeof(uint32_t);
-	
-	if (!*l1pte) {
-
-		l2pte = get_l2_pgtable();
-		ASSERT(l2pte != NULL);
-		 
-		memset(l2pte, 0, size);
-
-		*l1pte =__pa((uint32_t) l2pte);
-
-		set_l1_pte_page_dcache(l1pte, (nocache ? L1_PAGE_DCACHE_OFF : L1_PAGE_DCACHE_WRITEALLOC));
-
-		flush_pte_entry(l1pte);
-
-		DBG("Allocating a L2 page table at %p in l1pte: %p with contents: %x\n", l2pte, l1pte, *l1pte);
-
-	}
-
-	l2pgtable = (uint32_t *) __va((*l1pte & TTB_L1_PAGE_ADDR_MASK));
-
-	l2pte = l2pte_offset(l1pte, addr);
-
-	do {
-
-		*l2pte = pfn << PAGE_SHIFT;
-
-		set_l2_pte_dcache(l2pte, (nocache ? L2_DCACHE_OFF : L2_DCACHE_WRITEALLOC));
-
-		flush_pte_entry(l2pte);
-
-		DBG("Setting l2pte %p with contents: %x\n", l2pte, *l2pte);
-
-		pfn++;
-
-	} while (l2pte++, addr += PAGE_SIZE, addr != end);
-
-	mmu_page_table_flush((uint32_t) l2pgtable, (uint32_t) (l2pgtable + TTB_L2_ENTRIES));
-}
-
-/*
- * Allocate a section (only L1 PTE) or page table (L1 & L2 page tables)
- * @nocache indicates if the page can be cache or not (true means no support for cached page)
- */
-static void alloc_init_section(uint32_t *l1pte, uint32_t addr, uint32_t end, uint32_t phys, bool nocache)
-{
-	/*
-	 * Try a section mapping - end, addr and phys must all be aligned
-	 * to a section boundary.
-	 */
-
-	if (((addr | end | phys) & ~TTB_SECT_MASK) == 0) {
-
-		do {
-			*l1pte = phys;
-
-			set_l1_pte_sect_dcache(l1pte, (nocache ? L1_SECT_DCACHE_OFF : L1_SECT_DCACHE_WRITEALLOC));
-			DBG("Allocating a section at l1pte: %p content: %x\n", l1pte, *l1pte);
-
-			flush_pte_entry(l1pte);
-
-			phys += TTB_SECT_SIZE;
-
-		} while (l1pte++, addr += TTB_SECT_SIZE, addr != end);
-
-	} else {
-		/*
-		 * No need to loop; L2 pte's aren't interested in the
-		 * individual L1 entries.
-		 */
-		alloc_init_pte(l1pte, addr, end, phys >> PAGE_SHIFT, nocache);
-	}
-}
-
-/*
- * Create a static mapping between a virtual range and a physical range
- * @l1pgtable refers to the level 1 page table - if NULL, the system page table is used
- * @virt_base is the virtual address considered for this mapping
- * @phys_base is the physical address to be mapped
- * @size is the number of bytes to be mapped
- * @nocache is true if no cache (TLB) must be used (typically for I/O)
- */
-void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base, uint32_t size, bool nocache) {
-
-	uint32_t addr, end, length, next;
-	uint32_t *l1pte;
-
-	/* If l1pgtable is NULL, we consider the system page table */
-	if (l1pgtable == NULL)
-		l1pgtable = __sys_l1pgtable;
-
-	addr = virt_base & PAGE_MASK;
-	length = ALIGN_UP(size + (virt_base & ~PAGE_MASK), PAGE_SIZE);
-
-	l1pte = l1pte_offset(l1pgtable, addr);
-
-	end = addr + length;
-
-	do {
-		next = l1sect_addr_end(addr, end);
-
-		alloc_init_section(l1pte, addr, next, phys_base, nocache);
-
-		phys_base += next - addr;
-		addr = next;
-
-	} while (l1pte++, addr != end);
-
-	mmu_page_table_flush((uint32_t) l1pgtable, (uint32_t) (l1pgtable + TTB_L1_ENTRIES));
-}
-
-#endif
-
-static void alloc_init_l3(u64 *l2pte, addr_t addr, addr_t end, addr_t phys, bool nocache)
-{
-	u64 *l3pte, *pte;
+	u64 *l0pte, *l1pte, *l2pte, *l3pte;
 	u64 *l3pgtable;
 
-	/* L3 page table already exist? */
-	if (!*l2pte) {
+	/* These PTEs must exist. */
+	l0pte = l0pte_offset(l0pgtable, addr);
+	BUG_ON(!*l0pte);
 
-		/* A L1 table must be created */
-		l3pgtable = (u64 *) memalign(TTB_L3_SIZE, PAGE_SIZE);
-		BUG_ON(!l3pgtable);
-
-		memset(l3pgtable, 0, TTB_L3_SIZE);
-
-		/* Attach the L2 PTE to this L3 page table */
-		*l2pte = __pa((addr_t) l3pgtable)  & TTB_L2_TABLE_ADDR_MASK;
-
-		set_pte_table(l2pte, DCACHE_WRITEALLOC);
-
-		DBG("Allocating a L3 page table at %p in l2pte: %p with contents: %x\n", l3pte, l2pte, *l2pte);
-	}
-
-	l3pte = l3pte_offset(l2pte, addr);
+	l1pte = l1pte_offset(l0pte, addr);
+	BUG_ON(!*l1pte);
 
 	do {
+		l2pte = l2pte_offset(l1pte, addr);
+
+		/* L2 page table already exist? */
+		if (!*l2pte) {
+
+			/* A L1 table must be created */
+			l3pgtable = (u64 *) memalign(TTB_L3_SIZE, PAGE_SIZE);
+			BUG_ON(!l3pgtable);
+
+			memset(l3pgtable, 0, TTB_L3_SIZE);
+
+			/* Attach the L1 PTE to this L2 page table */
+			*l2pte = __pa((addr_t) l3pgtable)  & TTB_L2_TABLE_ADDR_MASK;
+
+			set_pte_table(l2pte, DCACHE_WRITEALLOC);
+
+			DBG("Allocating a L3 page table at %p in l1pte: %p with contents: %lx\n", l3pgtable, l2pte, *l2pte);
+		}
+
+		l3pte = l3pte_offset(l2pte, addr);
+
 		*l3pte = phys & TTB_L3_PAGE_ADDR_MASK;
 
 		set_pte_page(l3pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
-		DBG("Setting the PTE at (l3pte): %p content: %x\n", l3pte, *l3pte);
+		DBG("Allocating a 4 KB page at l2pte: %p content: %lx\n", l3pte, *l3pte);
 
 		flush_pte_entry(addr, l3pte);
 
 		phys += PAGE_SIZE;
+		addr += PAGE_SIZE;
 
-	} while (l3pte++, addr += PAGE_SIZE, addr != end);
+
+	} while (addr != end);
+
 }
 
-static void alloc_init_l2(u64 *l1pte, addr_t addr, addr_t end, addr_t phys, bool nocache)
+static void alloc_init_l2(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, bool nocache)
 {
-	u64 *l2pte, *l3pte;
+	u64 *l0pte, *l1pte, *l2pte;
 	u64 *l2pgtable;
 	addr_t next;
+	int count = 0;
 
-	/* L2 page table already exist? */
-	if (!*l1pte) {
-
-		/* A L1 table must be created */
-		l2pgtable = (u64 *) memalign(TTB_L2_SIZE, PAGE_SIZE);
-		BUG_ON(!l2pgtable);
-
-		memset(l2pgtable, 0, TTB_L2_SIZE);
-
-		/* Attach the L1 PTE to this L2 page table */
-		*l1pte = __pa((addr_t) l2pgtable)  & TTB_L1_TABLE_ADDR_MASK;
-
-		set_pte_table(l1pte, DCACHE_WRITEALLOC);
-
-		DBG("Allocating a L2 page table at %p in l1pte: %p with contents: %x\n", l2pte, l1pte, *l1pte);
-	}
-
-	l2pte = l2pte_offset(l1pte, addr);
+	/* We are sure this pte exists */
+	l0pte = l0pte_offset(l0pgtable, addr);
+	BUG_ON(!*l0pte);
 
 	do {
+		l1pte = l1pte_offset(l0pte, addr);
+
+		/* L1 page table already exist? */
+		if (!*l1pte) {
+
+			/* A L1 table must be created */
+			l2pgtable = (u64 *) memalign(TTB_L2_SIZE, PAGE_SIZE);
+			BUG_ON(!l2pgtable);
+
+			memset(l2pgtable, 0, TTB_L2_SIZE);
+
+			/* Attach the L1 PTE to this L2 page table */
+			*l1pte = __pa((addr_t) l2pgtable)  & TTB_L1_TABLE_ADDR_MASK;
+
+			set_pte_table(l1pte, DCACHE_WRITEALLOC);
+
+			DBG("Allocating a L2 page table at %p in l1pte: %p with contents: %lx\n", l2pgtable, l1pte, *l1pte);
+		}
+
+		l2pte = l2pte_offset(l1pte, addr);
+
+		/* Get the next address to the boundary of a 2 GB block.
+		 * <addr> - <end> is <= 1 GB (L1)
+		 */
 		next = l2_addr_end(addr, end);
 
 		if (((addr | next | phys) & ~BLOCK_2M_MASK) == 0) {
 
-			do {
-				*l2pte = phys & TTB_L2_BLOCK_ADDR_MASK;
+			*l2pte = phys & TTB_L2_BLOCK_ADDR_MASK;
 
-				set_pte_block(l2pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
+			set_pte_block(l2pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
-				DBG("Allocating a 2MB block at l2pte: %p content: %x\n", l2pte, *l2pte);
+			DBG("Allocating a 2 MB block at l2pte: %p content: %lx\n", l2pte, *l2pte);
 
-				flush_pte_entry(addr, l2pte);
+			flush_pte_entry(addr, l2pte);
 
-				phys += SZ_2M;
+			phys += SZ_2M;
+			addr += SZ_2M;
 
-			} while (l2pte++, addr += SZ_2M, addr != next);
+		} else {
+			alloc_init_l3(l0pgtable, addr, next, phys, nocache);
+			phys += next - addr;
+			addr = next;
+		}
 
-		} else
-			alloc_init_l3(l2pte, addr, next, phys, nocache);
-
-		phys += next - addr;
-		addr = next;
-
-	} while (l2pte++, addr != end);
+	} while (addr != end);
 
 }
 
-static void alloc_init_l1(u64 *l0pte, addr_t addr, addr_t end, addr_t phys, bool nocache)
+static void alloc_init_l1(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, bool nocache)
 {
-	u64 *l1pte, *l2pte;
+	u64 *l0pte, *l1pte;
 	u64 *l1pgtable;
 	addr_t next;
 
-	/* L1 page table already exist? */
-	if (!*l0pte) {
-
-		/* A L1 table must be created */
-		l1pgtable = (u64 *) memalign(TTB_L1_SIZE, PAGE_SIZE);
-		BUG_ON(!l1pgtable);
-
-		memset(l1pgtable, 0, TTB_L1_SIZE);
-
-		/* Attach the L0 PTE to this L1 page table */
-		*l0pte = __pa((addr_t) l1pgtable)  & TTB_L0_TABLE_ADDR_MASK;
-
-		set_pte_table(l0pte, DCACHE_WRITEALLOC);
-
-		DBG("Allocating a L1 page table at %p in l0pte: %p with contents: %x\n", l1pgtable, l0pte, *l0pte);
-	}
-
-	l1pte = l1pte_offset(l0pte, addr);
-
 	do {
+		l0pte = l0pte_offset(l0pgtable, addr);
+
+		/* L1 page table already exist? */
+		if (!*l0pte) {
+
+			/* A L1 table must be created */
+			l1pgtable = (u64 *) memalign(TTB_L1_SIZE, PAGE_SIZE);
+			BUG_ON(!l1pgtable);
+
+			memset(l1pgtable, 0, TTB_L1_SIZE);
+
+			/* Attach the L0 PTE to this L1 page table */
+			*l0pte = __pa((addr_t) l1pgtable)  & TTB_L0_TABLE_ADDR_MASK;
+
+			set_pte_table(l0pte, DCACHE_WRITEALLOC);
+
+			DBG("Allocating a L1 page table at %p in l0pte: %p with contents: %lx\n", l1pgtable, l0pte, *l0pte);
+		}
+
+		l1pte = l1pte_offset(l0pte, addr);
+
+		/* Get the next address to the boundary of a 1 GB block.
+		 * <addr> - <end> is <= 256 GB (L0)
+		 */
 		next = l1_addr_end(addr, end);
 
 		if (((addr | next | phys) & ~BLOCK_1G_MASK) == 0) {
 
-			do {
-				*l1pte = phys & TTB_L1_BLOCK_ADDR_MASK;
+			*l1pte = phys & TTB_L1_BLOCK_ADDR_MASK;
 
-				set_pte_block(l1pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
+			set_pte_block(l1pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
-				DBG("Allocating a 1 GB block at l1pte: %p content: %x\n", l1pte, *l1pte);
+			DBG("Allocating a 1 GB block at l1pte: %p content: %lx\n", l1pte, *l1pte);
 
-				flush_pte_entry(addr, l1pte);
+			flush_pte_entry(addr, l1pte);
 
-				phys += SZ_1G;
+			phys += SZ_1G;
+			addr += SZ_1G;
 
-			} while (l1pte++, addr += SZ_1G, addr != next);
+		} else {
+			alloc_init_l2(l0pgtable, addr, next, phys, nocache);
+			phys += next - addr;
+			addr = next;
+		}
 
-		} else
-			alloc_init_l2(l1pte, addr, next, phys, nocache);
-
-		phys += next - addr;
-		addr = next;
-
-	} while (l1pte++, addr != end);
+	} while (addr != end);
 
 }
 
@@ -339,22 +241,22 @@ void create_mapping(u64 *l0pgtable, addr_t virt_base, addr_t phys_base, u64 size
 	if (l0pgtable == NULL)
 		l0pgtable = __sys_l0pgtable;
 
+	BUG_ON(!size);
+
 	addr = virt_base & PAGE_MASK;
 	length = ALIGN_UP(size + (virt_base & ~PAGE_MASK), PAGE_SIZE);
-
-	l0pte = l0pte_offset(l0pgtable, addr);
 
 	end = addr + length;
 
 	do {
 		next = l0_addr_end(addr, end);
 
-		alloc_init_l1(l0pte, addr, next, phys_base, nocache);
+		alloc_init_l1(l0pgtable, addr, next, phys_base, nocache);
 
 		phys_base += next - addr;
 		addr = next;
 
-	} while (l0pte++, addr != end);
+	} while (addr != end);
 
 	mmu_page_table_flush((addr_t) l0pgtable, (addr_t) (l0pgtable + TTB_L0_ENTRIES));
 }
@@ -435,19 +337,6 @@ void mmu_configure(addr_t fdt_addr) {
 		__sys_idmap_l1pgtable[l1pte_index(CONFIG_RAM_BASE)] = CONFIG_RAM_BASE & TTB_L1_BLOCK_ADDR_MASK;
 		set_pte_block(&__sys_idmap_l1pgtable[l1pte_index(CONFIG_RAM_BASE)], DCACHE_WRITEALLOC);
 
-#if 0
-
-		/* Now, create a virtual mapping in the kernel space */
-
-		for (vaddr = L_PAGE_OFFSET, paddr = CONFIG_RAM_BASE; ((vaddr < L_PAGE_OFFSET + CONFIG_RAM_SIZE) && (vaddr < CONFIG_HYPERVISOR_VIRT_ADDR));
-				vaddr += TTB_SECT_SIZE, paddr += TTB_SECT_SIZE)
-		{
-			*l1pte_offset(__pgtable, vaddr) = paddr;
-			set_l1_pte_sect_dcache(l1pte_offset(__pgtable, vaddr), L1_SECT_DCACHE_WRITEALLOC);
-
-		}
-#endif
-
 		/* Create the mapping of the hypervisor code area. */
 
 		__sys_l0pgtable[l0pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)] = (u64) __sys_linearmap_l1pgtable & TTB_L0_TABLE_ADDR_MASK;
@@ -468,8 +357,10 @@ void mmu_configure(addr_t fdt_addr) {
 	icache_enable();
 
 	if (smp_processor_id() == AGENCY_CPU) {
+		__fdt_addr = (addr_t*) fdt_addr;
+
 		/* The device tree is visible in the L_PAGE_OFFSET area */
-		fdt_vaddr = (uint32_t *) __lva(fdt_addr);
+		fdt_vaddr = (addr_t *) __lva(fdt_addr);
 	}
 }
 
@@ -507,6 +398,62 @@ void mmu_switch(addrspace_t *aspace) {
 	invalidate_icache_all();
 	__asm_invalidate_tlb_all();
 
+}
+
+void dump_pgtable(u64 *l0pgtable) {
+
+	u64 i, j, k, l;
+	u64 *l0pte, *l1pte, *l2pte, *l3pte;
+
+	lprintk("           ***** Page table dump *****\n");
+
+	for (i = 0; i < TTB_L0_ENTRIES; i++) {
+		l0pte = l0pgtable + i;
+		if ((i != 0xe0) && *l0pte) {
+
+			lprintk("  - L0 pte@%lx (idx %x) mapping %lx content: %lx\n", l0pgtable+i, i, i << TTB_I0_SHIFT, *l0pte);
+			BUG_ON(pte_type(l0pte) != PTE_TYPE_TABLE);
+
+			/* Walking through the blocks/table entries */
+			for (j = 0; j < TTB_L1_ENTRIES; j++) {
+				l1pte = ((u64 *) __va(*l0pte & TTB_L0_TABLE_ADDR_MASK)) + j;
+				if (*l1pte) {
+					if (pte_type(l1pte) == PTE_TYPE_TABLE) {
+						lprintk("    (TABLE) L1 pte@%lx (idx %x) mapping %lx content: %lx\n", l1pte, j,
+								(i << TTB_I0_SHIFT) + (j << TTB_I1_SHIFT), *l1pte);
+
+						for (k = 0; k < TTB_L2_ENTRIES; k++) {
+							l2pte = ((u64 *) __va(*l1pte & TTB_L1_TABLE_ADDR_MASK)) + k;
+							if (*l2pte) {
+								if (pte_type(l2pte) == PTE_TYPE_TABLE) {
+									lprintk("    (TABLE) L2 pte@%lx (idx %x) mapping %lx content: %lx\n", l2pte, k,
+											(i << TTB_I0_SHIFT) + (j << TTB_I1_SHIFT) + (k << TTB_I2_SHIFT), *l2pte);
+
+									for (l = 0; l < TTB_L3_ENTRIES; l++) {
+										l3pte = ((u64 *) __va(*l2pte & TTB_L2_TABLE_ADDR_MASK)) + l;
+										if (*l3pte)
+											lprintk("      (PAGE) L3 pte@%lx (idx %x) mapping %lx content: %lx\n", l3pte, l,
+													(i << TTB_I0_SHIFT) + (j << TTB_I1_SHIFT) + (k << TTB_I2_SHIFT) + (l << TTB_I3_SHIFT), *l3pte);
+									}
+								} else {
+									/* Necessary of BLOCK type */
+									BUG_ON(pte_type(l2pte) != PTE_TYPE_BLOCK);
+									lprintk("      (PAGE) L2 pte@%lx (idx %x) mapping %lx content: %lx\n", l2pte, k,
+											(i << TTB_I0_SHIFT) + (j << TTB_I1_SHIFT) + (k << TTB_I2_SHIFT), *l2pte);
+								}
+							}
+						}
+					} else {
+						/* Necessary of BLOCK type */
+						BUG_ON(pte_type(l1pte) != PTE_TYPE_BLOCK);
+
+						lprintk("      (PAGE) L1 pte@%lx (idx %x) mapping %lx content: %lx\n", l1pte, j, (i << TTB_I0_SHIFT) + (j << TTB_I1_SHIFT), *l1pte);
+					}
+				}
+			}
+
+		}
+	}
 }
 
 #if 0

@@ -14,6 +14,7 @@ ENTRY(_start)
  * with syscalls and other.
  */
 SVC_STACK_SIZE = 32*1024;  /* Initial system stack */
+HEAP_SIZE = 2 * 1024 * 1024;    /* 2 MB dedicated to kernel heap */
 
 /*
  * The system (1st-level) page table is located at 0xc000'4000 and occupies 16 KB (4096 32-bit entries)
@@ -67,7 +68,13 @@ SECTIONS
    
     	__bss_end = .;  
     }
-        
+    
+    .heap :
+    {
+      __heap_base_addr = . ;
+
+      . += HEAP_SIZE;
+    }
     . = ALIGN(4096);
 
     __end = .;

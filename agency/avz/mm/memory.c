@@ -59,10 +59,9 @@ unsigned int memchunk_bitmap[ME_MEMCHUNK_NR/32];
 static uint32_t kernel_size;
 
 /* Current available I/O range address */
-uint32_t io_mapping_current;
+addr_t io_mapping_base;
 struct list_head io_maplist;
 
-extern unsigned long __bss_start, __bss_end;
 extern unsigned long __vectors_start, __vectors_end;
 
 /*
@@ -70,8 +69,6 @@ extern unsigned long __vectors_start, __vectors_end;
  */
 void early_memory_init(void) {
 	unsigned int i;
-
-	clear_bss();
 
 	/* Hypervisor */
 	memslot[0].base_paddr = CONFIG_RAM_BASE;
@@ -89,17 +86,6 @@ void early_memory_init(void) {
 
 }
 
-/*
- * Clear the .bss section in the kernel memory layout.
- */
-void clear_bss(void) {
-	unsigned char *cp = (unsigned char *) &__bss_start;
-
-	/* Zero out BSS */
-	while (cp < (unsigned char *) &__bss_end)
-		*cp++ = 0;
-}
-
 uint32_t get_kernel_size(void) {
 	return kernel_size;
 }
@@ -110,7 +96,7 @@ uint32_t get_kernel_size(void) {
 
 void memory_init(void) {
 	u64  *__new_sys_pgtable;
-	addr_t vectors_paddr;
+	addr_t vectors_vaddr;
 	addrspace_t __addrspace;
 
 	/* Initialize the list of I/O virt/phys maps */
@@ -129,9 +115,14 @@ void memory_init(void) {
 	/* Mapping uart I/O for debugging purposes */
 	create_mapping(__new_sys_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true);
 
+	/* Finally, create the Linux kernel area to be ready for the Agency domain, and for being able
+	 * to read the device tree.
+	 */
+	create_mapping(__new_sys_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false);
+
 	/*
 	 * Switch to the temporary page table in order to re-configure the original system page table
-	 * Warning !! After the switch, we do not have ttany mapped I/O until the driver core gets initialized.
+	 * Warning !! After the switch, we do not have any mapped I/O until the driver core gets initialized.
 	 */
 
 	__addrspace.ttbr1[smp_processor_id()] = __pa(__new_sys_pgtable);
@@ -144,11 +135,13 @@ void memory_init(void) {
 	__addrspace.ttbr1[smp_processor_id()] = __pa(__sys_l0pgtable);
 	mmu_switch(&__addrspace);
 
-#if 0
-	/* Finally, prepare the vector page at its correct location */
-	vectors_paddr = get_free_page();
+#ifdef CONFIG_ARCH_ARM32
 
-	create_mapping(NULL, VECTOR_VADDR, vectors_paddr, PAGE_SIZE, true);
+	/* Finally, prepare the vector page at its correct location */
+	vectors_vaddr = memalign(PAGE_SIZE, PAGE_SIZE);
+	BUG_ON(!vectors_vaddr);
+
+	create_mapping(NULL, VECTOR_VADDR, __pa(vectors_vaddr), PAGE_SIZE, true);
 
 	memcpy((void *) VECTOR_VADDR, (void *) &__vectors_start, (void *) &__vectors_end - (void *) &__vectors_start);
 #endif
@@ -160,7 +153,11 @@ void memory_init(void) {
 
 /* Init the I/O address space */
 void init_io_mapping(void) {
-	io_mapping_current = IO_MAPPING_BASE;
+
+	/* I/O mapping will be achieved at __end position which is
+	 * assumed to be PAGE_SIZE aligned.
+	 */
+	io_mapping_base = (addr_t) &__end;
 }
 
 void dump_io_maplist(void) {
@@ -178,15 +175,20 @@ void dump_io_maplist(void) {
 	}
 }
 
-/* Map a I/O address range to its physical range */
+/*
+ * Map a I/O address range to its physical range.
+ * The I/O virtual address area is just after the __end of our kernel.
+ * After __end, there is no data/instr. and this space can be used
+ * for I/O maps.
+ */
 addr_t io_map(addr_t phys, size_t size) {
 	io_map_t *io_map;
 	struct list_head *pos;
 	io_map_t *cur = NULL;
-	uint32_t target, offset;
+	addr_t target, offset;
 
 	/* Sometimes, it may happen than drivers try to map several devices which are located within the same page,
-	 * i.e. the 4-KB page offset is not null.
+	 * i.e. the 4-KB page offset is not null. It is a rudimentary test.
 	 */
 	offset = phys & (PAGE_SIZE - 1);
 	phys = phys & PAGE_MASK;
@@ -200,7 +202,7 @@ addr_t io_map(addr_t phys, size_t size) {
 	}
 
 	/* We are looking for a free region in the virtual address space */
-	target = IO_MAPPING_BASE;
+	target = io_mapping_base;
 
 	/* Re-adjust the address according to the alignment */
 
@@ -210,15 +212,16 @@ addr_t io_map(addr_t phys, size_t size) {
 			break;
 		else {
 			target = cur->vaddr + cur->size;
-			target = ALIGN_UP(target, ((size < SZ_1M) ? PAGE_SIZE : SZ_1M));
+			target = ALIGN_UP(target, PAGE_SIZE);
 
 			/* If we reach the end of the list, we can detect it. */
 			cur = NULL;
 		}
 	}
 
+	/* Create a I/O map entry which will be inserted in the I/O-map list */
 	io_map = (io_map_t *) malloc(sizeof(io_map_t));
-	ASSERT(io_map != NULL);
+	BUG_ON(!io_map);
 
 	io_map->vaddr = target;
 	io_map->paddr = phys;
@@ -244,9 +247,9 @@ addr_t io_map(addr_t phys, size_t size) {
 }
 
 /*
- * Try to find an io_map entry corresponding to a specific pvaddr .
+ * Try to find an io_map entry corresponding to a specific paddr .
  */
-io_map_t *find_io_map_by_paddr(uint32_t paddr) {
+io_map_t *find_io_map_by_paddr(addr_t paddr) {
 	struct list_head *pos;
 	io_map_t *io_map;
 
@@ -262,7 +265,7 @@ io_map_t *find_io_map_by_paddr(uint32_t paddr) {
 /*
  * Remove a mapping.
  */
-void io_unmap(uint32_t vaddr) {
+void io_unmap(addr_t vaddr) {
 	io_map_t *cur = NULL;
 	struct list_head *pos, *q;
 
@@ -433,23 +436,22 @@ void switch_mm(struct domain *d, addrspace_t *next_addrspace) {
 	mmu_switch(next_addrspace);
 }
 
-void *ioremap(addr_t phys_addr, unsigned int size) {
-	addr_t vaddr;
-	unsigned int offset;
-#if 0
-	/* Make sure the virtual address will be correctly aligned (either section or page aligned). */
+void dump_page(unsigned int pfn) {
 
-	io_map_current_base = ALIGN_UP(io_map_current_base, ((size < SZ_1M) ? PAGE_SIZE : SZ_1M));
+	int i, j;
+	unsigned int addr;
 
-	/* Preserve a possible offset */
-	offset = phys_addr & 0xfff;
+	addr = (pfn << 12);
 
-	vaddr = (unsigned long) io_map_current_base;
+	printk("%s: pfn %x\n\n", __func__,  pfn);
 
-	create_mapping(NULL, (unsigned long) io_map_current_base, phys_addr, size, true);
-
-	io_map_current_base += size;
-#endif
-	return (void *) (vaddr + offset);
-
+	for (i = 0; i < PAGE_SIZE; i += 16) {
+		printk(" [%x]: ", i);
+		for (j = 0; j < 16; j++) {
+			printk("%02x ", *((unsigned char *) __lva(addr)));
+			addr++;
+		}
+		printk("\n");
+	}
 }
+

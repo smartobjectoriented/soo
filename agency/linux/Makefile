@@ -459,7 +459,9 @@ LINUXINCLUDE    := \
 		$(if $(building_out_of_srctree),-I$(srctree)/include) \
 		-I$(objtree)/include \
 		$(USERINCLUDE) \
-		-Isoo/include
+		-Isoo/include \
+		-Iarch/$(SRCARCH)/xenomai/include -Iinclude/xenomai
+
 
 KBUILD_AFLAGS   := -D__ASSEMBLY__ -fno-PIE
 KBUILD_CFLAGS   := -Wall -Wundef -Werror=strict-prototypes -Wno-trigraphs \
@@ -1026,7 +1028,8 @@ ifeq ($(KBUILD_EXTMOD),)
 core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/
 
 # (SOO.tech) SOO subsystems and drivers
-core-y		+= soo/
+core-y	 += soo/
+core-y	 += arch/$(SRCARCH)/xenomai/
 
 
 vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, $(init-y) $(init-m) \

@@ -41,7 +41,6 @@ void do_softirq(void)
 
 		spin_lock(&softirq_pending_lock);
 
-
 		for (i = 0; i < NR_SOFTIRQS; i++)
 			if (softirq_stat[cpu][i])
 				break;

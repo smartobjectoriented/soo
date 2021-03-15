@@ -25,10 +25,6 @@
 #include <asm/mmu.h>
 #include <asm/bitops.h>
 
-#define VECTORS_BASE	0xffff0000
-
-#define IO_MAPPING_BASE		0xe0000000
-
 struct domain;
 struct page_info;
 struct vcpu;
@@ -37,8 +33,8 @@ extern struct list_head io_maplist;
 
 /* Manage the io_maplist. The list is sorted by ascending vaddr. */
 typedef struct {
-	uint32_t vaddr;	/* Virtual address of the mapped I/O range */
-	uint32_t paddr; /* Physical address of this mapping */
+	addr_t vaddr;	/* Virtual address of the mapped I/O range */
+	addr_t paddr; 	/* Physical address of this mapping */
 	size_t size;	/* Size in bytes */
 
 	struct list_head list;
@@ -46,8 +42,8 @@ typedef struct {
 
 void init_io_mapping(void);
 addr_t io_map(addr_t phys, size_t size);
-void io_unmap(uint32_t vaddr);
-io_map_t *find_io_map_by_paddr(uint32_t paddr);
+void io_unmap(addr_t vaddr);
+io_map_t *find_io_map_by_paddr(addr_t paddr);
 void dump_io_maplist(void);
 
 extern int __irq_safe[];
@@ -65,6 +61,7 @@ uint32_t get_kernel_size(void);
 void get_current_addrspace(addrspace_t *addrspace);
 bool is_addrspace_equal(addrspace_t *addrspace1, addrspace_t *addrspace2);
 void switch_mm(struct domain *d, addrspace_t *next_addrspace);
+void dump_page(unsigned int pfn);
 
 static inline int get_order_from_bytes(addr_t size)
 {

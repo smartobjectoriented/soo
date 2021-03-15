@@ -89,6 +89,8 @@ SECTIONS
 
       . += HEAP_SIZE;
     }
- 
+    
+    . = ALIGN(4096);
+    
     __end = .;
 }

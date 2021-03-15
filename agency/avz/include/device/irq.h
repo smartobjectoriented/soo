@@ -37,7 +37,7 @@
 #define IRQ_TYPE_NONE		0x00000000	/* Default, unspecified type */
 #define IRQ_TYPE_EDGE_RISING	0x00000001	/* Edge rising type */
 #define IRQ_TYPE_EDGE_FALLING	0x00000002	/* Edge falling type */
-#define IRQ_TYPE_EDGE_BOTH (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING)
+#define IRQ_TYPE_EDGE_BOTH 	(IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING)
 #define IRQ_TYPE_LEVEL_HIGH	0x00000004	/* Level high type */
 #define IRQ_TYPE_LEVEL_LOW	0x00000008	/* Level low type */
 #define IRQ_TYPE_SENSE_MASK	0x0000000f	/* Mask of the above */
@@ -45,17 +45,17 @@
 
 #define IRQ_ARCH_ARM_TIMER	27
 
-#define NR_IRQS	256
+#define NR_IRQS			1020
 
-#define NR_VECTORS	NR_IRQS
+#define NR_VECTORS		NR_IRQS
 
-#define IRQF_VALID			0x00000010
+#define IRQF_VALID		0x00000010
 #define IRQF_SHARABLE		0x00000040
-#define IRQF_ONESHOT        0x00002000
+#define IRQF_ONESHOT        	0x00002000
 #define IRQF_NOAUTOEN   	(1 << 2)
-#define IRQF_PROBE          (1 << 1)
+#define IRQF_PROBE          	(1 << 1)
 
-#define IRQ_INPROGRESS			0x00000100
+#define IRQ_INPROGRESS		0x00000100
 
 /* Internal flags */
 #define IRQ_DISABLED            0x00000200      /* IRQ disabled - do not enter! */

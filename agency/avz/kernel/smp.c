@@ -122,8 +122,9 @@ void handle_IPI(int ipinr)
  */
 void secondary_start_kernel(void)
 {
+#ifndef CONFIG_ARCH_ARM64
 	unsigned int cpu = smp_processor_id();
-#if 0
+
 	cpu_init();
 
 	printk("CPU%u: Booted secondary processor\n", cpu);
@@ -157,7 +158,9 @@ void secondary_start_kernel(void)
 	/* Never returned at this point ... */
 #endif
 }
-#if 0
+
+#ifndef CONFIG_ARCH_ARM64
+
 extern void vcpu_periodic_timer_start(struct vcpu *v);
 
 void cpu_up(unsigned int cpu)
@@ -209,18 +212,23 @@ void cpu_up(unsigned int cpu)
 	secondary_data.pgdir = 0;
 }
 
+#endif /* CONFIG_ARCH_ARM64 */
+
 /******************************************************************************/
 /* From linux kernel/smp.c */
 
 /* Called by boot processor to activate the rest. */
 void smp_init(void)
 {
-	printk(KERN_INFO "CPU #%d is the second CPU reserved for Agency realtime activity.\n", AGENCY_RT_CPU);
+	printk("CPU #%d is the second CPU reserved for Agency realtime activity.\n", AGENCY_RT_CPU);
 
 	/* Since the RT domain is never scheduled, we set the current domain bound to
 	 * CPU #1 to this unique domain.
 	 */
 	per_cpu(current_domain, AGENCY_RT_CPU) = domains[DOMID_AGENCY_RT];
+
+/* CONFIG_ARM64 not yet supported at this point. */
+#ifndef CONFIG_ARCH_ARM64
 
 #ifndef CONFIG_PSCI
 	smp_prepare_cpus(NR_CPUS);
@@ -228,8 +236,11 @@ void smp_init(void)
 
 	cpu_up(ME_CPU);
 
-	printk(KERN_INFO "Brought secondary CPUs for AVZ (CPU #2 and CPU #3)\n");
+	printk("Brought secondary CPUs for AVZ (CPU #2 and CPU #3)\n");
+
+#endif /* CONFIG_ARCH_ARM64 */
+
 }
 
 
-#endif
+

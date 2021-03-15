@@ -53,7 +53,7 @@ SECTIONS
 		_text = .;
 
 		/* SOO.tech */
-		*(.init.avzguest_start)
+		*(.init.fromavz_start)
 
 		HEAD_TEXT
 	}

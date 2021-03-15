@@ -52,15 +52,13 @@
 struct domain *domains[MAX_DOMAINS];
 
 struct domain *agency;
-#if 0
+
 DEFINE_PER_CPU(struct vcpu *, curr_vcpu);
 
 struct cpu_info {
 	struct domain *d;
 	ulong saved_regs[2];
 };
-
-#endif
 
 int current_domain_id(void)
 {
@@ -103,7 +101,7 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 	if (d->shared_info->logbool_ht == NULL)
 		BUG();
 
-	__arch_domain_create(d);
+	arch_domain_create(d, cpu_id);
 
 	d->arch.guest_context.event_callback = 0;
 	d->arch.guest_context.domcall = 0;
@@ -230,22 +228,24 @@ void context_switch(struct domain *prev, struct domain *next)
 {
 	local_irq_disable();
 
-#if 0
 	if (!is_idle_domain(current)) {
 
 		prep_switch_domain();
 
 		local_irq_disable();  /* Again, if the guest re-enables the IRQ */
 
+#ifdef CONFIG_ARCH_ARM32
 		/* Save the VFP context */
 		vfp_save_state(prev);
+#endif
 	}
 
 	if (!is_idle_domain(next)) {
 
+#ifdef CONFIG_ARCH_ARM32
 		/* Restore the VFP context of the next guest */
 		vfp_restore_state(next);
-
+#endif
 	}
 
 	get_current_addrspace(&prev->addrspace);
@@ -261,13 +261,9 @@ void context_switch(struct domain *prev, struct domain *next)
 
 	spin_unlock(&prev->sched->sched_data.schedule_lock);
 
-	switch_to(prev, next, prev);
-#endif
-}
+	__switch_to(&prev->arch.guest_context, &next->arch.guest_context);
 
-#if 0
-extern void ret_to_user(void);
-extern void pre_ret_to_user(void);
+}
 
 /*
  * Initialize the domain stack used by the hypervisor.
@@ -277,11 +273,13 @@ void *setup_dom_stack(struct domain *d) {
 	unsigned char *domain_stack;
 	struct cpu_info *ci;
 
-	domain_stack = alloc_heap_pages(STACK_ORDER, MEMF_bits(32));
-
-	if (domain_stack == NULL)
-	  return NULL;
-
+	/* The stack must be aligned at STACK_SIZE bytes so that it is
+	 * possible to retrieve the cpu_info structure at the bottom
+	 * of the stack with a simple operation on the current stack pointer value.
+	 */
+	domain_stack = memalign(STACK_SIZE, STACK_SIZE);
+	BUG_ON(!domain_stack);
+lprintk("-->%lx\n", domain_stack);
 	d->domain_stack = (unsigned long) domain_stack;
 
 	ci = (struct cpu_info *) domain_stack;
@@ -294,30 +292,20 @@ void *setup_dom_stack(struct domain *d) {
 }
 
 /*
- * Set up the first thread of a domain (associated to vcpu *v)
+ * Set up the first thread of a domain.
  */
-void new_thread(struct domain *d, unsigned long start_pc, unsigned long fdt, unsigned long start_stack, unsigned long start_info)
+void new_thread(struct domain *d, addr_t start_pc, addr_t fdt_addr, addr_t start_stack, addr_t start_info)
 {
 	struct cpu_user_regs *domain_frame;
-	struct cpu_user_regs *regs = &d->arch.guest_context.user_regs;
 
 	domain_frame = (struct cpu_user_regs *) setup_dom_stack(d);
 
 	if (domain_frame == NULL)
 	  panic("Could not set up a new domain stack.n");
 
-	domain_frame->r2 = fdt;
-	domain_frame->r12 = start_info;
-
-	domain_frame->r13 = start_stack;
-	domain_frame->r15 = start_pc;
-
-	domain_frame->psr = 0x93;  /* IRQs disabled initially */
-
-	regs->r13 = (unsigned long) domain_frame;
-	regs->r14 = (unsigned long) pre_ret_to_user;
+	arch_setup_domain_frame(d, domain_frame, fdt_addr, start_info, start_stack, start_pc);
 }
-#endif
+
 static void continue_cpu_idle_loop(void)
 {
 	while (1) {

@@ -35,7 +35,7 @@
 
 #define NR_DEMANDS		4096
 
-extern unsigned long __heap_base_addr;
+extern addr_t __heap_base_addr;
 
 static DEFINE_SPINLOCK(heap_lock);
 
@@ -539,7 +539,7 @@ next_list:
 	if (!victim) {
 		/* not enough free space left */
 		/* FIXME: do sbrk() here to request more space. Request less space in init() */
-		printk("[malloc] Not enough free space");
+		printk("[malloc] Not enough free space, requested = %x\n", requested);
 
 		spin_unlock_irqrestore(&heap_lock, flags);
 

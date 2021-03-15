@@ -284,6 +284,7 @@ void xnarch_init_thread(struct xnthread *thread) {
 			THREADINFO_GFP,
 			PAGE_KERNEL,
 			0, 0, __builtin_return_address(0));
+	BUG_ON(!thread_stack);
 
 	memset(thread_stack, 0, XNTHREAD_STACK_SIZE);
 
@@ -306,7 +307,6 @@ void xnarch_init_thread(struct xnthread *thread) {
 	childregs = task_pt_regs(p);
 
 	childregs->ARM_r0 = 0;
-	childregs->ARM_sp = thread->tcb.sp;
 
 	/* Not really used, but stay consistent. */
 	thread->tcb.ti->cpu_context.pc = (unsigned long)thread->tcb.start_pc;
@@ -316,6 +316,7 @@ void xnarch_init_thread(struct xnthread *thread) {
 
 	/* Keep the same sp position for our purpose. */
 	thread->tcb.sp = thread->tcb.ti->cpu_context.sp;
+	childregs->ARM_sp = thread->tcb.sp;
 
 	/* XNFPU is always set */
 	xnthread_set_state(thread, XNFPU);

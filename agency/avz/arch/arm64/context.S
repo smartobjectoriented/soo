@@ -33,7 +33,8 @@ ENTRY(__mmu_switch)
 	dsb   sy                     /* Ensure the flushes happen before continuing */
     isb                          /* Ensure synchronization with previous changes to text */
 
-    msr    TTBR0_EL1, x0
+    // At the hypervisor level, we take care about TTBR1 page table only.
+    msr    TTBR1_EL1, x0
 
     isb
 

@@ -14,7 +14,7 @@ config VUART_BACKEND
 	
 config VINPUT_BACKEND
     tristate "vinput input (keyboard/mouse) backend on SOO device"
-    default y
+    default n
     help
       This driver implements the backend of the input (keyboard/mouse) driver of the SOO environment.
 	

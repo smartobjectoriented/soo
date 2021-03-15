@@ -59,6 +59,7 @@ void serial_puts(const char *s)
 void console_init_post(void)
 {
 	__uart_vaddr = (addr_t) io_map(UART_BASE, PAGE_SIZE);
+	BUG_ON(!__uart_vaddr);
 }
 
 static void sercon_puts(const char *s)

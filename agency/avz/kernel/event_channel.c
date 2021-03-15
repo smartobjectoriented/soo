@@ -35,16 +35,14 @@
 
 #define ERROR_EXIT(_errno)                                          \
 		do {                                                            \
-			gdprintk(KERN_ERR,                                    \
-					"EVTCHNOP failure: error %d\n",                     \
+			printk("EVTCHNOP failure: error %d\n",                     \
 					(_errno));                                          \
 					rc = (_errno);                                              \
 					BUG();                                                   \
 		} while ( 0 )
 #define ERROR_EXIT_DOM(_errno, _dom)                                \
 		do {                                                            \
-			gdprintk(KERN_ERR,                                    \
-					"EVTCHNOP failure: domain %d, error %d\n",          \
+			printk("EVTCHNOP failure: domain %d, error %d\n",          \
 					(_dom)->domain_id, (_errno));                       \
 					rc = (_errno);                                              \
 					BUG();                                                   \

@@ -39,11 +39,11 @@
  * Describes how domains are mapped in physical memory
  */
 typedef struct {
-	unsigned long base_paddr;  /* Kernel physical start address */
+	addr_t base_paddr;  /* Kernel physical start address */
 	unsigned int size;
 	unsigned int busy; /* Indicate if a memslot is available or not */
 
-	unsigned int fdt_paddr; /* Device Tree */
+	addr_t fdt_paddr; /* Device Tree */
 
 } memslot_entry_t;
 

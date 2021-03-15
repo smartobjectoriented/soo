@@ -21,6 +21,8 @@
 
 #include <soo/debug/meminfo.h>
 
+#ifdef CONFIG_ARM
+
 /* To get the address of the L2 page table from a L1 descriptor */
 #define L1DESC_L2PT_BASE_ADDR_SHIFT	10
 #define L1DESC_L2PT_BASE_ADDR_OFFSET	(1 << L1DESC_L2PT_BASE_ADDR_SHIFT)
@@ -41,7 +43,7 @@
 
 /* Dumping page tables */
 
-void dump_pgtable(uint32_t *l1pgtable) {
+void dump_pgtable(unsigned long *l1pgtable) {
 
 	int i, j;
 	uint32_t *l1pte, *l2pte;
@@ -67,82 +69,127 @@ void dump_pgtable(uint32_t *l1pgtable) {
 		}
 	}
 }
+#endif
+
+#ifdef CONFIG_ARM64
+
+#define TTB_L0_ORDER      9
+#define TTB_L1_ORDER      9
+#define TTB_L2_ORDER      9
+#define TTB_L3_ORDER      9
+
+#define TTB_I0_SHIFT	  39
+#define TTB_I0_MASK	  (~((1 << TTB_I0_SHIFT)-1))
+
+#define TTB_I1_SHIFT	  30
+#define TTB_I1_MASK	  (~((1 << TTB_I1_SHIFT)-1))
+
+#define TTB_I2_SHIFT	  21
+#define TTB_I2_MASK	  (~((1 << TTB_I2_SHIFT)-1))
+
+#define TTB_I3_SHIFT	  12
+#define TTB_I3_MASK	  (~((1 << TTB_I3_SHIFT)-1))
+
+#define TTB_L0_ENTRIES    (1 << TTB_L0_ORDER)
+#define TTB_L1_ENTRIES    (1 << TTB_L1_ORDER)
+#define TTB_L2_ENTRIES    (1 << TTB_L2_ORDER)
+#define TTB_L3_ENTRIES    (1 << TTB_L3_ORDER)
+
+/* Block related */
+#define TTB_L1_BLOCK_ADDR_SHIFT		30
+#define TTB_L1_BLOCK_ADDR_OFFSET	(1 << TTB_L1_BLOCK_ADDR_SHIFT)
+#define TTB_L1_BLOCK_ADDR_MASK		((~(TTB_L1_BLOCK_ADDR_OFFSET - 1)) & ((1UL << 48) - 1))
+
+#define TTB_L2_BLOCK_ADDR_SHIFT		21
+#define TTB_L2_BLOCK_ADDR_OFFSET	(1 << TTB_L2_BLOCK_ADDR_SHIFT)
+#define TTB_L2_BLOCK_ADDR_MASK		((~(TTB_L2_BLOCK_ADDR_OFFSET - 1)) & ((1UL << 48) - 1))
+
+/* Table related */
+#define TTB_L0_TABLE_ADDR_SHIFT		12
+#define TTB_L0_TABLE_ADDR_OFFSET	(1 << TTB_L0_TABLE_ADDR_SHIFT)
+#define TTB_L0_TABLE_ADDR_MASK		((~(TTB_L0_TABLE_ADDR_OFFSET - 1)) & ((1UL << 48) - 1))
+
+#define TTB_L1_TABLE_ADDR_SHIFT		TTB_L0_TABLE_ADDR_SHIFT
+#define TTB_L1_TABLE_ADDR_OFFSET	TTB_L0_TABLE_ADDR_OFFSET
+#define TTB_L1_TABLE_ADDR_MASK		TTB_L0_TABLE_ADDR_MASK
+
+#define TTB_L2_TABLE_ADDR_SHIFT		TTB_L0_TABLE_ADDR_SHIFT
+#define TTB_L2_TABLE_ADDR_OFFSET	TTB_L0_TABLE_ADDR_OFFSET
+#define TTB_L2_TABLE_ADDR_MASK		TTB_L0_TABLE_ADDR_MASK
+
+#define TTB_L3_PAGE_ADDR_SHIFT		12
+#define TTB_L3_PAGE_ADDR_OFFSET		(1 << TTB_L3_PAGE_ADDR_SHIFT)
+#define TTB_L3_PAGE_ADDR_MASK		((~(TTB_L3_PAGE_ADDR_OFFSET - 1)) & ((1UL << 48) - 1))
+
+#define PTE_TYPE_FAULT		(0 << 0)
+#define PTE_TYPE_TABLE		(3 << 0)
+#define PTE_TYPE_BLOCK		(1 << 0)
+#define PTE_TYPE_VALID		(1 << 0)
 
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0))
-
-int debug_meminfo_proc_show(void)
+static inline int pte_type(unsigned long *pte)
 {
-	struct sysinfo i;
-	struct vmalloc_info vmi;
-	long cached;
-	long available;
-	unsigned long pagecache;
-	unsigned long wmark_low = 0;
-	unsigned long pages[NR_LRU_LISTS];
-	struct zone *zone;
-	int lru;
+	return *pte & PTE_TYPE_MASK;
+}
 
-/*
- * display in kilobytes.
- */
-#define K(x) ((x) << (PAGE_SHIFT - 10))
-	si_meminfo(&i);
-	si_swapinfo(&i);
-	//committed = percpu_counter_read_positive(&vm_committed_as);
 
-	cached = global_page_state(NR_FILE_PAGES) -
-			total_swapcache_pages() - i.bufferram;
-	if (cached < 0)
-		cached = 0;
+void dump_pgtable(unsigned long *l0pgtable) {
 
-	get_vmalloc_info(&vmi);
+	unsigned long i, j, k, l;
+	unsigned long *l0pte, *l1pte, *l2pte, *l3pte;
 
-	for (lru = LRU_BASE; lru < NR_LRU_LISTS; lru++)
-		pages[lru] = global_page_state(NR_LRU_BASE + lru);
+	lprintk("           ***** Page table dump *****\n");
 
-	for_each_zone(zone)
-		wmark_low += zone->watermark[WMARK_LOW];
+	for (i = 0; i < TTB_L0_ENTRIES; i++) {
+		l0pte = l0pgtable + i;
+		if (*l0pte) {
 
-	/*
-	 * Estimate the amount of memory available for userspace allocations,
-	 * without causing swapping.
-	 *
-	 * Free memory cannot be taken below the low watermark, before the
-	 * system starts swapping.
-	 */
-	available = i.freeram - wmark_low;
+			lprintk("  - L0 pte@%lx (idx %x) mapping %lx content: %lx\n", l0pgtable+i, i, i << TTB_I0_SHIFT, *l0pte);
+			BUG_ON(pte_type(l0pte) != PTE_TYPE_TABLE);
 
-	/*
-	 * Not all the page cache can be freed, otherwise the system will
-	 * start swapping. Assume at least half of the page cache, or the
-	 * low watermark worth of cache, needs to stay.
-	 */
-	pagecache = pages[LRU_ACTIVE_FILE] + pages[LRU_INACTIVE_FILE];
-	pagecache -= min(pagecache / 2, wmark_low);
-	available += pagecache;
+			/* Walking through the blocks/table entries */
+			for (j = 0; j < TTB_L1_ENTRIES; j++) {
+				l1pte = ((unsigned long *) __va(*l0pte & TTB_L0_TABLE_ADDR_MASK)) + j;
+				if (*l1pte) {
+					if (pte_type(l1pte) == PTE_TYPE_TABLE) {
+						lprintk("    (TABLE) L1 pte@%lx (idx %x) mapping %lx content: %lx\n", l1pte, j,
+								(i << TTB_I0_SHIFT) + (j << TTB_I1_SHIFT), *l1pte);
 
-	/*
-	 * Part of the reclaimable slab consists of items that are in use,
-	 * and cannot be freed. Cap this estimate at the low watermark.
-	 */
-	available += global_page_state(NR_SLAB_RECLAIMABLE) -
-		     min(global_page_state(NR_SLAB_RECLAIMABLE) / 2, wmark_low);
+						for (k = 0; k < TTB_L2_ENTRIES; k++) {
+							l2pte = ((unsigned long *) __va(*l1pte & TTB_L1_TABLE_ADDR_MASK)) + k;
+							if (*l2pte) {
+								if (pte_type(l2pte) == PTE_TYPE_TABLE) {
+									lprintk("    (TABLE) L2 pte@%lx (idx %x) mapping %lx content: %lx\n", l2pte, k,
+											(i << TTB_I0_SHIFT) + (j << TTB_I1_SHIFT) + (k << TTB_I2_SHIFT), *l2pte);
 
-	if (available < 0)
-		available = 0;
+									for (l = 0; l < TTB_L3_ENTRIES; l++) {
+										l3pte = ((unsigned long *) __va(*l2pte & TTB_L2_TABLE_ADDR_MASK)) + l;
+										if (*l3pte)
+											lprintk("      (PAGE) L3 pte@%lx (idx %x) mapping %lx content: %lx\n", l3pte, l,
+													(i << TTB_I0_SHIFT) + (j << TTB_I1_SHIFT) + (k << TTB_I2_SHIFT) + (l << TTB_I3_SHIFT), *l3pte);
+									}
+								} else {
+									/* Necessary of BLOCK type */
+									BUG_ON(pte_type(l2pte) != PTE_TYPE_BLOCK);
+									lprintk("      (PAGE) L2 pte@%lx (idx %x) mapping %lx content: %lx\n", l2pte, k,
+											(i << TTB_I0_SHIFT) + (j << TTB_I1_SHIFT) + (k << TTB_I2_SHIFT), *l2pte);
+								}
+							}
+						}
+					} else {
+						/* Necessary of BLOCK type */
+						BUG_ON(pte_type(l1pte) != PTE_TYPE_BLOCK);
 
-	/*
-	 * Tagged format, for easy grepping and expansion.
-	 */
-	lprintk("(ME) MemFree:        %8lu kB\n"
-		"(ME) MemAvailable:   %8lu kB\n",
-		K(i.freeram),
-		K(available));
+						lprintk("      (PAGE) L1 pte@%lx (idx %x) mapping %lx content: %lx\n", l1pte, j, (i << TTB_I0_SHIFT) + (j << TTB_I1_SHIFT), *l1pte);
+					}
+				}
+			}
 
-	return 0;
-#undef K
+		}
+	}
 }
 
 #endif
+
+
 

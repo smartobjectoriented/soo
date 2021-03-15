@@ -17,6 +17,9 @@
 #include <linux/irqdomain.h>
 #include <linux/sysfs.h>
 
+/* SOO.tech */
+#include <asm/ipipe.h>
+
 #include "internals.h"
 
 /*
@@ -663,7 +666,13 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 	unsigned int irq = hwirq;
 	int ret = 0;
 
+	if (smp_processor_id() == AGENCY_RT_CPU) {
+		__ipipe_grab_irq(irq, false);
+		return 0;
+	}
+
 	irq_enter();
+
 
 #ifdef CONFIG_IRQ_DOMAIN
 	if (lookup)

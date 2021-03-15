@@ -20,6 +20,15 @@
 #ifndef SOO_H
 #define SOO_H
 
+#define MAX_ME_DOMAINS		5
+
+/* We include the (non-RT & RT) agency domain */
+#define MAX_DOMAINS	    (2 + MAX_ME_DOMAINS)
+
+#define AGENCY_CPU	        	0
+#define AGENCY_RT_CPU	 		1
+
+#ifndef __ASSEMBLY__
 #ifdef __KERNEL__
 
 /* For struct list_head */
@@ -45,12 +54,6 @@ struct work_struct;
 struct semaphore;
 
 typedef uint16_t domid_t;
-
-#define MAX_ME_DOMAINS		5
-
-/* We include the (non-RT & RT) agency domain */
-#define MAX_DOMAINS	    (2 + MAX_ME_DOMAINS)
-
 
 /*
  * Directcomm event management
@@ -351,7 +354,7 @@ typedef struct {
 typedef struct agency_tx_args {
 	void	*buffer; /* IN/OUT */
 	int	ME_slotID;
-	int	value;   /* IN/OUT */
+	long	value;   /* IN/OUT */
 } agency_tx_args_t;
 
 
@@ -466,9 +469,6 @@ typedef struct {
 #define DMA_COMPLETE_WORK_TASK_PRIO	50
 #define FWEH_EVENT_WORK_TASK_PRIO 	50
 #define SDIO_EVENT_WORK_TASK_PRIO 	50
-
-#define AGENCY_CPU	        	0
-#define AGENCY_RT_CPU	 		1
 
 #ifndef __ASSEMBLY__
 
@@ -750,5 +750,6 @@ void shutdown_ME(unsigned int ME_slotID);
 void cache_flush_all(void);
 
 #endif /* __KERNEL__ */
+#endif /* __ASSEMBLY__ */
 
 #endif /* SOO_H */

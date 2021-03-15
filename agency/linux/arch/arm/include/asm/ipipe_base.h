@@ -26,11 +26,6 @@
 
 #include <asm/irq.h>		/* For NR_IRQS */
 
-#ifdef CONFIG_IPIPE
-
-
-extern unsigned __ipipe_first_ipi;
-
 #define ipipe_processor_id() raw_smp_processor_id()
 
 #define IPIPE_ARCH_HAVE_VIRQ_IPI
@@ -50,30 +45,6 @@ extern unsigned __ipipe_first_ipi;
 
 #ifndef __ASSEMBLY__
 
-#ifdef CONFIG_SMP
-
-void ipipe_stall_root(void);
-
-unsigned long ipipe_test_and_stall_root(void);
-
-unsigned long ipipe_test_root(void);
-
-#else /* !CONFIG_SMP */
-
-#include <asm/irqflags.h>
-
-#if __GNUC__ >= 4
-/* Alias to ipipe_root_cpudom_var(status) */
-extern unsigned long __ipipe_root_status;
-#else
-extern unsigned long *const __ipipe_root_status_addr;
-#define __ipipe_root_status	(*__ipipe_root_status_addr)
-#endif
-
-#endif	/* !CONFIG_SMP */
-
 #endif /* !__ASSEMBLY__ */
-
-#endif /* CONFIG_IPIPE */
 
 #endif /* __ASM_ARM_IPIPE_BASE_H */

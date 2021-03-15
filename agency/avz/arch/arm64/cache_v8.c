@@ -83,6 +83,13 @@ inline void flush_dcache_all(void)
 }
 
 /*
+ * Flush all TLBs on local CPU
+ */
+inline void flush_tlb_all(void) {
+	__flush_tlb_all();
+}
+
+/*
  * Invalidates range in all levels of D-cache/unified cache
  */
 void invalidate_dcache_range(unsigned long start, unsigned long stop)
@@ -155,6 +162,7 @@ void invalidate_icache_all(void)
 
 void mmu_page_table_flush(unsigned long start, unsigned long stop) {
 	flush_dcache_range(start, stop);
+	flush_tlb_all();
 	__asm_invalidate_tlb_all();
 }
 

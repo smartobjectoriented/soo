@@ -283,7 +283,7 @@ static void gic_cpu_if_up(void)
 	writel(bypass | GICC_ENABLE, cpu_base + GIC_CPU_CTRL);
 }
 
-static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
+static void gic_cpu_init(struct gic_chip_data *gic)
 {
 	void *dist_base = gic->dist_base;
 	void *base = gic->cpu_base;

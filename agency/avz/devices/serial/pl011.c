@@ -24,7 +24,7 @@
 
 #include <asm/io.h>
 
-void *__uart_vaddr = (void *) UART_BASE;
+volatile void *__uart_vaddr = (void *) UART_BASE;
 
 int printch(char c) {
 

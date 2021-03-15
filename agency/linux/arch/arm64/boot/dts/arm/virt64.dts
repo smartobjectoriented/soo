@@ -6,6 +6,14 @@
 	#address-cells = <0x02>;
 	compatible = "linux,dummy-virt";
 
+	chosen {
+	        	bootargs = "root=/dev/ram rw slub_debug=PUZ"; 
+	       		/*  bootargs = "console=ttyAMA0,115200n8 root=/dev/mmcblk0p1 rw slub_debug=PUZ";  */
+	        	stdout-path = "/pl011@9000000";			 
+	        	/* bootargs = "console=ttyAMA0,115200n8 root=/dev/ram rw initcall_debug=1"; */
+	        	/* bootargs = "console=ttyAMA0,115200n8 root=/dev/mmcblk0p2 rw earlyprintk"; */
+		};
+	
 	psci {
 		migrate = <0xc4000005>;
 		cpu_on = <0xc4000003>;
@@ -264,16 +272,15 @@
 		compatible = "gpio-keys";
 
 		poweroff {
-			gpios = <0x8003 0x03 0x00>;
+			gpios = <&pl061 0x03 0x00>;
 			linux,code = <0x74>;
 			label = "GPIO Key Poweroff";
 		};
 	};
 
-	pl061@9030000 {
-		phandle = <0x8003>;
+	pl061: pl061@9030000 {
 		clock-names = "apb_pclk";
-		clocks = <0x8000>;
+		clocks = <&apb_clk>;
 		interrupts = <0x00 0x07 0x04>;
 		gpio-controller;
 		#gpio-cells = <0x02>;
@@ -287,7 +294,7 @@
 		#interrupt-cells = <0x01>;
 		ranges = <0x1000000 0x00 0x00 0x00 0x3eff0000 0x00 0x10000 0x2000000 0x00 0x10000000 0x00 0x10000000 0x00 0x2eff0000 0x3000000 0x80 0x00 0x80 0x00 0x80 0x00>;
 		reg = <0x40 0x10000000 0x00 0x10000000>;
-		msi-parent = <0x8002>;
+		msi-parent = <&v2m>;
 		dma-coherent;
 		bus-range = <0x00 0xff>;
 		linux,pci-domain = <0x00>;
@@ -299,7 +306,7 @@
 
 	pl031@9010000 {
 		clock-names = "apb_pclk";
-		clocks = <0x8000>;
+		clocks = <&apb_clk>;
 		interrupts = <0x00 0x02 0x04>;
 		reg = <0x00 0x9010000 0x00 0x1000>;
 		compatible = "arm,pl031\0arm,primecell";
@@ -307,7 +314,7 @@
 
 	pl011@9000000 {
 		clock-names = "uartclk\0apb_pclk";
-		clocks = <0x8000 0x8000>;
+		clocks = <&apb_clk &apb_clk>;
 		interrupts = <0x00 0x01 0x04>;
 		reg = <0x00 0x9000000 0x00 0x1000>;
 		compatible = "arm,pl011\0arm,primecell";
@@ -328,8 +335,7 @@
 		interrupt-controller;
 		#interrupt-cells = <0x03>;
 
-		v2m@8020000 {
-			phandle = <0x8002>;
+		v2m: v2m@8020000 {
 			reg = <0x00 0x8020000 0x00 0x1000>;
 			msi-controller;
 			compatible = "arm,gic-v2m-frame";
@@ -381,16 +387,40 @@
 		compatible = "arm,armv8-timer\0arm,armv7-timer";
 	};
 
-	apb-pclk {
-		phandle = <0x8000>;
+	apb_clk: apb-pclk {
 		clock-output-names = "clk24mhz";
 		clock-frequency = <0x16e3600>;
 		#clock-cells = <0x00>;
 		compatible = "fixed-clock";
 	};
+	
+	agency {
+		domain-size = <0x20000000>; /* 512 MB */	
+	
+		/* Backends */
 
-	chosen {
-		stdout-path = "/pl011@9000000";
-		kaslr-seed = <0xbd7fd66b 0x9a3f16b6>;
+		backends {
+
+			vdummy {
+				compatible = "vdummy,backend";
+				status = "ok";
+			};
+	
+			vuart {
+				compatible = "vuart,backend";
+				status = "ok";
+			};
+		
+			vuihandler {
+				compatible = "vuihandler,backend";
+				status = "disabled";
+			};
+			vnet {
+				compatible = "vnet,backend";
+				status = "disabled";
+			};
+		};
 	};
+
+
 };

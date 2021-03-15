@@ -46,18 +46,20 @@ void loadAgency(void)
 	int len, depth, ret;
 	const char *propstring;
 
+	ret = fdt_check_header(fdt_vaddr);
+	if (ret) {
+		lprintk("!! Bad device tree: ret = %x\n", ret);
+		BUG();
+	}
 	nodeoffset = 0;
 	depth = 0;
 	while (nodeoffset >= 0) {
 		next_node = fdt_next_node(fdt_vaddr, nodeoffset, &depth);
 		ret = fdt_property_read_string(fdt_vaddr, nodeoffset, "type", &propstring);
+
 		if ((ret != -1) && (!strcmp(propstring, "agency"))) {
 
-#if BITS_PER_LONG == 32
 			ret = fdt_property_read_u32(fdt_vaddr, nodeoffset, "load-addr", (u32 *) &dom_addr);
-#else
-			ret = fdt_property_read_u64(fdt_vaddr, nodeoffset, "load-addr", (u64 *) &dom_addr);
-#endif
 
 			if (ret == -1) {
 				lprintk("!! Missing load-addr in the agency node !!\n");
@@ -73,8 +75,8 @@ void loadAgency(void)
 		BUG();
 	}
 
-	/* Set the memslot base address to a section boundary */
-	memslot[MEMSLOT_AGENCY].base_paddr = (dom_addr & ~(SZ_1M - 1));
+	/* Set the memslot base address to a 2 MB block boundary */
+	memslot[MEMSLOT_AGENCY].base_paddr = dom_addr & ~(SZ_2M - 1);
 	memslot[MEMSLOT_AGENCY].fdt_paddr = (addr_t) __fdt_addr;
 	memslot[MEMSLOT_AGENCY].size = fdt_getprop_u32_default(fdt_vaddr, "/agency", "domain-size", 0);
 	

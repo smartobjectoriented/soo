@@ -148,8 +148,6 @@ ENTRY(do_upcall)
 	@ r0 contains a reference to the stack pointer
 	mov		r0, sp
 
-	ldr		r1, [sp, #S_R1]
-
 	mov		pc, lr
 
 ENTRY(restore)
@@ -196,7 +194,7 @@ restore_svc:
 
 .align 5
 
-	.macro	svc_entry, stack_hole=0
+.macro	svc_entry, stack_hole=0
 	sub	sp, sp, #(S_FRAME_SIZE + \stack_hole)
  	tst	sp, #4
  	bicne	sp, sp, #4
@@ -221,9 +219,9 @@ restore_svc:
 	@  r4 - orig_r0 (see pt_regs definition in ptrace.h)
 	@
 	stmia	r5, {r0 - r4}
-	.endm
+.endm
 
-	.macro	usr_entry
+.macro	usr_entry
 	sub	sp, sp, #S_FRAME_SIZE
  	stmib	sp, {r1 - r12}
 
@@ -246,7 +244,7 @@ restore_svc:
 	stmia	r0, {r2 - r4}
  	stmdb	r0, {sp, lr}^
 
-	.endm
+.endm
 
 
 .align 5
@@ -405,36 +403,33 @@ __out_prep_switch:
 
 
 /*
- * Register switch for ARMv3 and ARMv4 processors
- * r0 = previous vcpu, r1 = previous vcpu_guest_context, r2 = next vcpu_guest_context
+ * r0 = previous vcpu_guest_context, r1 = next vcpu_guest_context
  * previous and next are guaranteed not to be the same.
  *
- * OFFSET_SYS_REGS = offsetof(struct vcpu_guest_context, sys_regs)
- * OFFSET_USER_REGS = offsetof(struct vcpu_guest_context, usr_regs)
  */
 ENTRY(__switch_to)
 	disable_irq 				@ ensure IRQs are disabled
 
-	str		sp, [r1, #(OFFSET_SYS_REGS + OFFSET_VUSP)]  @ save hyp. stack (SVC)
-	add     ip, r1, #(OFFSET_USER_REGS + OFFSET_R4)
+	str		sp, [r0, #(OFFSET_SYS_REGS + OFFSET_VUSP)]  @ save hyp. stack (SVC)
+	add     ip, r0, #(OFFSET_USER_REGS + OFFSET_R4)
 save_ctx:
     stmia   ip, {r4 - sl, fp, ip, sp, lr}      @ Store most regs on stack
 
 	current_cpu r6
 
 	mrc		p15, 0, r4, c3, c0, 0
-	str		r4, [r1, #(OFFSET_SYS_REGS + OFFSET_VDACR)]
+	str		r4, [r0, #(OFFSET_SYS_REGS + OFFSET_VDACR)]
 
 load_ctx:
 	ldr		r4, .LChypervisor_stack
-	ldr		r5, [r2, #(OFFSET_SYS_REGS + OFFSET_VUSP)]	@ Retrieve hyp stack
+	ldr		r5, [r1, #(OFFSET_SYS_REGS + OFFSET_VUSP)]	@ Retrieve hyp stack
 	str		r5, [r4, r6, lsl #2]
 
 
-	ldr		r4, [r2, #(OFFSET_SYS_REGS + OFFSET_VDACR)]
+	ldr		r4, [r1, #(OFFSET_SYS_REGS + OFFSET_VDACR)]
 	mcr		p15, 0, r4, c3, c0, 0
 
-	add		ip, r2, #(OFFSET_USER_REGS + OFFSET_R4)
+	add		ip, r1, #(OFFSET_USER_REGS + OFFSET_R4)
 
     ldmia   ip,  {r4 - sl, fp, ip, sp, pc}       @ Load all regs saved previously
 
@@ -626,7 +621,7 @@ __vectors_end:
 pseudo_usr_mode:
 	.space NR_CPUS * 4
 
-@Hypervisor stack is used for the *current* (running) vcpu svc stack address
+@ Hypervisor stack is used for the *current* (running) vcpu svc stack address
 hypervisor_stack:
 	.space NR_CPUS * 4
 

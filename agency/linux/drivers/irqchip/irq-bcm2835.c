@@ -189,7 +189,7 @@ static struct irq_chip armctrl_chip = {
 	.irq_mask = armctrl_mask_irq,
 	.irq_unmask = armctrl_unmask_irq,
 #ifdef CONFIG_ARM64
-	.irq_ack    = armctrl_ack_irq
+	.irq_ack    = armctrl_ack_irq,
 #endif
 	/* SOO.tech */
 	.irq_set_affinity = armctrl_set_affinity_irq,
@@ -403,7 +403,7 @@ static void bcm2836_chained_handle_irq(struct irq_desc *desc)
 		if (cpumask_test_cpu(AGENCY_RT_CPU, (const struct cpumask *) (&irqdescs[hwirq].common_data.affinity))) {
 			__irq_in_process = hwirq;
 
-			dmb();
+			smp_mb();
 
 			smp_irq_handle(AGENCY_RT_CPU);
 			BUG_ON(!irqs_disabled());

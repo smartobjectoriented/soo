@@ -186,10 +186,12 @@ static void rt_task3_fn(void *args) {
 	while (1) {
 
 		lprintk("## T3 i: %d\n", i++);
-		lprintk("### before wait...\n");
-		rtdm_event_wait(&rt_event);
-		lprintk("### after wait...\n");
-
+		//lprintk("### before wait...\n");
+		//rtdm_event_wait(&rt_event);
+		//lprintk("### after wait...\n");
+		if (i == 5)
+			return ;
+		rtdm_task_wait_period(NULL);
 	}
 }
 
@@ -222,7 +224,7 @@ static void my_rt_task(void *args) {
 }
 #endif
 
-#if 0
+#if 1
 int rt_dummy_interrupt(rtdm_irq_t *dummy) {
 
 	lprintk("### Got the interrupt on CPU: %d\n", smp_processor_id());
@@ -290,48 +292,6 @@ static void rt_task_1_fct(void *args) {
 }
 #endif
 
-#if 0
-static void rt_task_dcevt_fct(void *args) {
-	while (1) {
-		if (enable_dc_event_gen) {
-			ll_gpio_set(2, 1);
-			rtdm_do_sync_agency(DC_INT_BT_RT);
-			ll_gpio_set(2, 0);
-		}
-
-		rtdm_task_wait_period(NULL);
-	}
-}
-
-static int nort_task_dcevt_fct(void *arg) {
-	while (1) {
-		if (!enable_dc_event_gen) {
-			msleep(100);
-			continue;
-		}
-
-		udelay(500);
-
-		ll_gpio_set(3, 1);
-		do_sync_dom(DOMID_AGENCY_RT, DC_MMC_IO_RT);
-		ll_gpio_set(3, 0);
-	}
-
-	return NULL;
-}
-#endif
-
-void propagate_interrupt_from_rt(void) {
-
-	lprintk("}");
-
-}
-
-void propagate_interrupt_from_nonrt(void)  {
-
-	lprintk("{");
-
-}
 
 void rt_timer_fn(rtdm_timer_t *rt_timer) {
 
@@ -381,7 +341,6 @@ void async_event_test(dc_event_t dc_event) {
 
 }
 
-
 int rtapp_main(void *args) {
 
 	unsigned int *pgdir;
@@ -426,10 +385,10 @@ int rtapp_main(void *args) {
 	rtdm_event_init(&rt_event, 0);
 	//rtdm_timer_init(&rt_timer, rt_timer_fn);
 
-	rtdm_task_init(&rt_task1, "rt_task_discovery", rt_task_discovery_fn, NULL, 50, SECONDS(1));
+	//rtdm_task_init(&rt_task1, "rt_task_discovery", rt_task_discovery_fn, NULL, 50, SECONDS(1));
 
-	rtdm_task_init(&rt_task2, "rt_task_2", rt_task2_fn, NULL, 50, MILLISECS(30));
-	rtdm_task_init(&rt_task3, "rt_task_3", rt_task3_fn, NULL, 50, MILLISECS(50));
+	rtdm_task_init(&rt_task2, "rt_task_2", rt_task2_fn, NULL, 50, SECONDS(1));
+	rtdm_task_init(&rt_task3, "rt_task_3", rt_task3_fn, NULL, 50, MILLISECS(500));
 
 	//rtdm_task_init(&rt_task4, "rt_task_4", rt_task_1_fct, NULL, 50, MILLISECS(50));
 	//rtdm_task_init(&rt_task2, "rt_task_2", my_rt_task, NULL, 50, 2000000000);
