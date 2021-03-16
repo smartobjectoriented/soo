@@ -290,9 +290,6 @@ void xnarch_init_thread(struct xnthread *thread) {
 
 	thread->tcb.pc = thread->tcb.start_pc;
 
-	/* Put the address of the xnthread at the bottom of the stack. */
-	*((unsigned long *) thread_stack) = (unsigned long) thread;
-
 	/* shortcut */
 	p = thread->tcb.task;
 
@@ -307,16 +304,17 @@ void xnarch_init_thread(struct xnthread *thread) {
 	childregs = task_pt_regs(p);
 
 	childregs->ARM_r0 = 0;
+	childregs->ARM_pc = (unsigned long)thread->tcb.start_pc;
+	childregs->ARM_sp = (uint32_t) p->stack + XNTHREAD_STACK_SIZE;
 
 	/* Not really used, but stay consistent. */
 	thread->tcb.ti->cpu_context.pc = (unsigned long)thread->tcb.start_pc;
 
 	/* Current position on the stack. */
-	thread->tcb.ti->cpu_context.sp = (unsigned long)childregs;
+	thread->tcb.ti->cpu_context.sp = childregs->ARM_sp;
 
 	/* Keep the same sp position for our purpose. */
 	thread->tcb.sp = thread->tcb.ti->cpu_context.sp;
-	childregs->ARM_sp = thread->tcb.sp;
 
 	/* XNFPU is always set */
 	xnthread_set_state(thread, XNFPU);
@@ -339,5 +337,19 @@ void xnarch_cleanup_thread(struct xnthread *thread) {
 
 void xnarch_switch_to(struct xnthread *out, struct xnthread *in)
 {
+	BUG_ON(!irqs_disabled());
+
+	/* Update the current thread */
+	__xnthread_current = in;
+
+	/*
+	 * Complete any pending TLB or cache maintenance on this CPU in case
+	 * the thread migrates to a different CPU.
+	 * This full barrier is also required by the membarrier system
+	 * call.
+	 */
+	dsb(ish);
+
 	__asm_thread_switch(&out->tcb, &in->tcb);
+
 }

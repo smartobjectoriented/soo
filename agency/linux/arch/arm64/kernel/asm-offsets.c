@@ -131,7 +131,7 @@ int main(void)
 #endif
 
   /* SOO.tech */
-  DEFINE(AVZ_GUEST_PHYS_OFFSET, offsetof(start_info_t, dom_phys_offset));
+  DEFINE(AVZ_DOM_PHYS_OFFSET, offsetof(start_info_t, dom_phys_offset));
   DEFINE(AVZ_PT_VADDR, offsetof(start_info_t, pt_vaddr));
 
   return 0;

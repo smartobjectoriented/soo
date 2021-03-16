@@ -191,7 +191,6 @@ extern int _find_next_bit_le(const unsigned long *p, int size, int offset);
 #define NONATOMIC_BITOP(name,nr,p)		\
 	(____nonatomic_##name(nr, p))
 
-
 /*
  * These are the little endian, atomic definitions.
  */
@@ -201,10 +200,6 @@ extern int _find_next_bit_le(const unsigned long *p, int size, int offset);
 #define test_and_set_bit(nr,p)		ATOMIC_BITOP_LE(test_and_set_bit,nr,p)
 #define test_and_clear_bit(nr,p)	ATOMIC_BITOP_LE(test_and_clear_bit,nr,p)
 #define test_and_change_bit(nr,p)	ATOMIC_BITOP_LE(test_and_change_bit,nr,p)
-#define find_first_zero_bit(p,sz)	_find_first_zero_bit_le(p,sz)
-#define find_next_zero_bit(p,sz,off)	_find_next_zero_bit_le(p,sz,off)
-#define find_first_bit(p,sz)		_find_first_bit_le(p,sz)
-#define find_next_bit(p,sz,off)		_find_next_bit_le(p,sz,off)
 
 #define WORD_BITOFF_TO_LE(x)		((x))
 
@@ -237,29 +232,5 @@ static inline int constant_fls(int x)
 	}
 	return r;
 }
-
-/*
- * On ARMv5 and above those functions can be implemented around
- * the clz instruction for much better code efficiency.
- */
-
-#define fls(x) \
-	( __builtin_constant_p(x) ? constant_fls(x) : \
-	  ({ int __r; asm("clz\t%0, %1" : "=r"(__r) : "r"(x) : "cc"); 32-__r; }) )
-#define ffs(x) ({ unsigned long __t = (x); fls(__t & -__t); })
-#define __ffs(x) (ffs(x) - 1)
-#define ffz(x) __ffs( ~(x) )
-
-static inline int fls64(__u64 x)
-{
-        __u32 h = x >> 32;
-        if (h)
-                return fls(h) + 32;
-        return fls(x);
-}
-
-#define find_first_set_bit(word) (ffs(word)-1)
-
-#define hweight32(x) generic_hweight32(x)
 
 #endif /* _ARM_BITOPS_H */

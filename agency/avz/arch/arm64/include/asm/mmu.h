@@ -337,7 +337,7 @@ extern void __mmu_switch(uint32_t l1pgtable_phys);
 
 void pgtable_copy_kernel_area(uint32_t *l1pgtable);
 
-void create_mapping(u64 *l0pgtable, addr_t virt_base, addr_t phys_base, u64 size, bool nocache);
+void create_mapping(u64 *l0pgtable, addr_t virt_base, addr_t phys_base, size_t size, bool nocache);
 void release_mapping(u64 *pgtable, addr_t virt_base, addr_t size);
 
 u64 *new_sys_pgtable(void);
@@ -353,6 +353,9 @@ void dump_current_pgtable(void);
 void mmu_setup(u64 *pgtable);
 
 void vectors_init(void);
+
+void set_current_pgtable(uint64_t *pgtable);
+void replace_current_pgtable_with(uint64_t *pgtable);
 
 #endif
 

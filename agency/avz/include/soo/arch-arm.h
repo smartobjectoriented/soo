@@ -34,7 +34,7 @@
 #ifndef __ASSEMBLY__
 
 
-/* ONLY used to communicate with dom0! See also struct exec_domain. */
+/* Used for interactions with the agency domain. */
 struct vcpu_guest_context {
 	cpu_user_regs_t user_regs;         /* User-level CPU registers  */
 	cpu_sys_regs_t	sys_regs;

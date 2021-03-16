@@ -27,7 +27,16 @@
 void *paging_remap(uint32_t paddr, size_t size) {
 	void *vaddr;
 
-	vaddr = __arm_ioremap(paddr, size,  get_mem_type(MT_MEMORY_RWX_NONCACHED));
-a
+	vaddr = __arm_ioremap(paddr, size, MT_MEMORY_RWX_NONCACHED);
+
 	return vaddr;
 }
+
+void paging_remap_page_range(unsigned long addr, unsigned long end, phys_addr_t physaddr) {
+	int ret;
+
+	ret = ioremap_page(addr, addr + end, get_mem_type(MT_MEMORY_RWX_NONCACHED));
+	BUG_ON(ret);
+
+}
+

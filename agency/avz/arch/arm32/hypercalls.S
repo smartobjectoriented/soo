@@ -107,7 +107,8 @@ __do_hypercall_from_avz:
 __end_hypercall_from_avz:
 
 	@ Load and skip r0 since it has the return value
-	ldr		lr, [sp, #S_PC], #4
+	ldr		lr, [sp, #S_PC]
+	add		sp, sp, #4
 
 	ldmia	sp, {r1 - r12}
 	add		sp, sp, #S_FRAME_SIZE

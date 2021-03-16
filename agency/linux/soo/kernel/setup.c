@@ -36,10 +36,6 @@ unsigned long avz_guest_phys_offset;
 
 volatile unsigned long *HYPERVISOR_hypercall_addr;
 
-#ifdef CONFIG_ARM
-pgd_t *swapper_pg_dir;
-#endif
-
 volatile shared_info_t *HYPERVISOR_shared_info;
 
 extern unsigned long __pv_phys_pfn_offset;
@@ -49,6 +45,9 @@ void __init avz_setup(void)
 {
 	int ret;
 
+#ifdef CONFIG_ARM
+	unsigned int cr, ttbcr;
+#endif
 	__printch = avz_start_info->printch;
 
 	/* Immediately prepare for hypercall processing */
@@ -66,10 +65,8 @@ void __init avz_setup(void)
 
 #ifdef CONFIG_ARM
 
-	init_mm.pgd = swapper_pg_dir;
-
-	__pv_phys_pfn_offset = avz_start_info->min_mfn;
-	__pv_offset = (u64) (avz_guest_phys_offset - PAGE_OFFSET);
+	__pv_phys_pfn_offset = avz_start_info->dom_phys_offset >> PAGE_SHIFT;
+	__pv_offset = (u64) (avz_start_info->dom_phys_offset - PAGE_OFFSET);
 
 	fixup_pv_table(&__pv_table_begin, (&__pv_table_end - &__pv_table_begin) << 2);
 

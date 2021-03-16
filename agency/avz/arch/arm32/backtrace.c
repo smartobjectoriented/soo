@@ -52,13 +52,13 @@ void show_registers(struct cpu_user_regs *regs)
 
 	printk("CPU: %d\n", smp_processor_id());
 
-	printk("PC is at %08lx\n", (unsigned long) regs->r15);
-	printk("LR is at %08lx\n", (unsigned long) regs->r14);
+	printk("PC is at %08lx\n", (unsigned long) regs->pc);
+	printk("LR is at %08lx\n", (unsigned long) regs->lr);
 	printk("pc : [<%08lx>]    lr : [<%08lx>]    \n"
 	       "sp : %08lx  ip : %08lx  fp : %08lx\n",
-		(unsigned long) regs->r15,
-		(unsigned long) regs->r14, (unsigned long) regs->r13,
-		(unsigned long) regs->r12, (unsigned long) regs->r11);
+		(unsigned long) regs->pc,
+		(unsigned long) regs->lr, (unsigned long) regs->sp,
+		(unsigned long) regs->ip, (unsigned long) regs->fp);
 	printk("r10: %08lx  r9 : %08lx  r8 : %08lx\n",
 		(unsigned long) regs->r10, (unsigned long) regs->r9,
 		(unsigned long) regs->r8);
@@ -130,11 +130,11 @@ void dump_execution_state(void)
 	regs.r8 = r8;
 	regs.r9 = r9;
 	regs.r10 = r10;
-	regs.r11 = r11;
-	regs.r12 = r12;
-	regs.r13 = r13;
-	regs.r14 = r14;
-	regs.r15 = r15;
+	regs.fp = r11;
+	regs.ip = r12;
+	regs.sp = r13;
+	regs.lr = r14;
+	regs.pc = r15;
 
 	__asm__ __volatile__("mrs %0, cpsr " : "=r" (regs.psr) : : "memory", "cc");
 

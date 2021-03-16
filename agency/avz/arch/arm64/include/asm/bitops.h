@@ -200,12 +200,6 @@ extern int _test_and_change_bit_le(int nr, volatile unsigned long * p);
 #define test_and_clear_bit(nr,p)	ATOMIC_BITOP_LE(test_and_clear_bit,nr,p)
 #define test_and_change_bit(nr,p)	ATOMIC_BITOP_LE(test_and_change_bit,nr,p)
 
-#define WORD_BITOFF_TO_LE(x)		((x))
-
-#define find_first_set_bit(word) (ffs(word)-1)
-
-#define hweight32(x) generic_hweight32(x)
-
 #endif /*__ASSEMBLY__ */
 
 #endif /* ASM_BITOPS_H */

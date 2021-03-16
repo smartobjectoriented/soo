@@ -116,9 +116,9 @@ void smp_prepare_cpus(unsigned int max_cpus)
 {
 	unsigned int sysreg_base;
 
-	sysreg_base = (unsigned int) ioremap(VEXPRESS_SYSREG_BASE, VEXPRESS_SYSREG_SIZE);
+	sysreg_base = (unsigned int) io_map(VEXPRESS_SYSREG_BASE, VEXPRESS_SYSREG_SIZE);
 	if (!sysreg_base) {
-		printk(KERN_WARNING "!!!! BOOTUP jump vectors can't be used !!!!\n");
+		printk("!!!! BOOTUP jump vectors can't be used !!!!\n");
 		BUG();
 	}
 

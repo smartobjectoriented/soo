@@ -216,6 +216,8 @@ int setup_irq(unsigned int irq, struct irqaction *new)
 
 	*p = new;
 
+	irq_set_affinity(irq, smp_processor_id());
+
 	/* Reset broken irq detection when installing new handler */
 	desc->irq_count = 0;
 

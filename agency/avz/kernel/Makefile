@@ -9,7 +9,8 @@ obj-y	+= console.o
 obj-$(CONFIG_PSCI) += psci_smp.o
 
 obj-y += domctl.o 
-obj-y += agency_build.o # ME_build.o
+obj-y += agency_build.o 
+obj-$(CONFIG_ARCH_ARM32) += ME_build.o
 obj-y += domain.o
 obj-y += physdev.o
 obj-y += setup.o

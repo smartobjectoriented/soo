@@ -108,7 +108,6 @@ static void alloc_init_l2(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
 	u64 *l0pte, *l1pte, *l2pte;
 	u64 *l2pgtable;
 	addr_t next;
-	int count = 0;
 
 	/* We are sure this pte exists */
 	l0pte = l0pte_offset(l0pgtable, addr);
@@ -233,9 +232,8 @@ static void alloc_init_l1(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
  * Mapping of blocks at L0 level is not allowed with 4 KB granule (AArch64).
  *
  */
-void create_mapping(u64 *l0pgtable, addr_t virt_base, addr_t phys_base, u64 size, bool nocache) {
+void create_mapping(u64 *l0pgtable, addr_t virt_base, addr_t phys_base, size_t size, bool nocache) {
 	addr_t addr, end, length, next;
-	u64 *l0pte;
 
 	/* If l0pgtable is NULL, we consider the system page table */
 	if (l0pgtable == NULL)
@@ -308,13 +306,45 @@ u64 *new_sys_pgtable(void) {
 	return pgtable;
 }
 
+void set_current_pgtable(uint64_t *pgtable) {
+	addrspace_t __addrspace;
+
+	__addrspace.ttbr1[smp_processor_id()] = __pa(pgtable);
+	mmu_switch(&__addrspace);
+}
+
+/**
+ * Replace the current page table with a new one. This is used
+ * typically during the initialization to have a better granulated
+ * memory mapping.
+ *
+ * @param pgtable
+ */
+void replace_current_pgtable_with(uint64_t *pgtable) {
+	addrspace_t __addrspace;
+
+	/*
+	 * Switch to the temporary page table in order to re-configure the original system page table
+	 * Warning !! After the switch, we do not have any mapped I/O until the driver core gets initialized.
+	 */
+
+	set_current_pgtable(pgtable);
+
+	__addrspace.ttbr1[smp_processor_id()] = __pa(pgtable);
+	mmu_switch(&__addrspace);
+
+	/* Re-configuring the original system page table */
+	memcpy((void *) __sys_l0pgtable, (unsigned char *) pgtable, TTB_L1_SIZE);
+
+	/* Finally, switch back to the original location of the system page table */
+	set_current_pgtable(__sys_l0pgtable);
+}
+
+
 /*
  * Initial configuration of system page table
  */
 void mmu_configure(addr_t fdt_addr) {
-	addr_t vaddr, paddr;
-	unsigned int i;
-	int temp;
 
 	icache_disable();
 	dcache_disable();

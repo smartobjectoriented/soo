@@ -83,7 +83,7 @@ ENTRY(stext)
  ARM_BE8(setend	be )			@ ensure we are in BE8 mode
 
 /* SOO.tech */
-/* swapper_pg_dir is now defined in arch/arm/kernel/setup.c */
+
 .type   _start, %function
 .section ".init.fromavz_start", "ax"
 ENTRY(_start)
@@ -139,8 +139,9 @@ ENTRY(_start)
 	ldr r2, =__atags_pointer
 	ldr r2, [r2]
 
-	ldr	r8, =avz_guest_phys_offset
-	ldr r8, [r8]
+	ldr r11, =avz_start_info
+	ldr r11, [r11]
+	ldr	r8, [r11, #AVZ_DOM_PHYS_OFFSET]
 
 	ldr r4, =swapper_pg_dir
 
@@ -177,7 +178,7 @@ ENTRY(_start)
 .LCcr_alignment:
     .long   cr_alignment
 
-    __init_sp:
+__init_sp:
     .long   init_thread_union+8192          @ sp
 
 

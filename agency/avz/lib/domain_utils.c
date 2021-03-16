@@ -108,7 +108,11 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 	size_t size, fdt_size, initrd_size;
 	void *fdt_vaddr, *initrd_vaddr;
 	void *dest_ME_vaddr;
+
+#ifdef CONFIG_ARCH_ARM32
 	int section_nr;
+#endif
+
 	uint32_t *pgtable_from;
 	uint32_t initrd_start, initrd_end;
 	int nodeoffset, next_node, depth = 0;
@@ -118,7 +122,7 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 	pgtable_from = (uint32_t *) __lva(current_addrspace->pgtable_paddr);
 
 #warning to be revisited...
-#if 0
+#ifdef CONFIG_ARCH_ARM32
 	/* Get the visibility on the domain image stored in the agency user space area */
 	for (section_nr = 0x0; section_nr < 0xc00; section_nr++)
 		__sys_l1pgtable[section_nr] = pgtable_from[section_nr];

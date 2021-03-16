@@ -466,6 +466,8 @@ asmlinkage void secondary_start_kernel(void)
 	cpumask_set_cpu(cpu, mm_cpumask(mm));
 #endif /* 0 */
 
+	__xnthread_current = &__root_task;
+
 	cpu_init();
 
 #ifndef CONFIG_MMU

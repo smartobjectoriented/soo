@@ -34,12 +34,20 @@
 
 __mmu_switch:
 
-	dsb
+dsb
 	isb
 
 	@ So far, we do not use ASID/Context ID
 
-	mcr	p15, 0, r0, c2, c0, 0		@ set TTBR0
+	mrc p15, 0, r1, c2, c0, 0
+	isb
+
+	ldr	r2, =TTBR0_BASE_ADDR_MASK
+	bic r1, r1, r2
+
+	orr r1, r1, r0
+
+	mcr	p15, 0, r1, c2, c0, 0		@ set TTBR0
 
 	mov r0, #0
 	mcr p15, 0, r0, c7, c5, 0		@ I+BTB cache invalidate

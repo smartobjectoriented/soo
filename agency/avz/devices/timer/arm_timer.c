@@ -24,6 +24,8 @@
 #include <device/irq.h>
 #include <device/arch/arm_timer.h>
 
+#include <asm/arm_timer.h>
+
 #include <soo/uapi/physdev.h>
 
 static unsigned long clkevt_reload;
@@ -49,80 +51,23 @@ static unsigned long clkevt_reload;
 struct clocksource *system_timer_clocksource;
 struct clock_event_device *system_timer_clockevent;
 
-static void arch_timer_reg_write(int access, enum arch_timer_reg reg, u32 val, struct clock_event_device *clk)
-{
-	if (access == ARCH_TIMER_MEM_PHYS_ACCESS) {
-
-		switch (reg) {
-		case ARCH_TIMER_REG_CTRL:
-			writel(val, clk->base + CNTP_CTL);
-			break;
-
-		case ARCH_TIMER_REG_TVAL:
-			writel(val, clk->base + CNTP_TVAL);
-			break;
-		}
-	} else if (access == ARCH_TIMER_MEM_VIRT_ACCESS) {
-
-		switch (reg) {
-		case ARCH_TIMER_REG_CTRL:
-			writel(val, clk->base + CNTV_CTL);
-			break;
-		case ARCH_TIMER_REG_TVAL:
-			writel(val, clk->base + CNTV_TVAL);
-			break;
-		}
-	} else {
-		//arch_timer_reg_write_cp15(access, reg, val);
-	}
-}
-
-static inline u32 arch_timer_reg_read(int access, enum arch_timer_reg reg, struct clock_event_device *clk)
-{
-	u32 val;
-
-	if (access == ARCH_TIMER_MEM_PHYS_ACCESS) {
-
-		switch (reg) {
-		case ARCH_TIMER_REG_CTRL:
-			val = readl(clk->base + CNTP_CTL);
-			break;
-		case ARCH_TIMER_REG_TVAL:
-			val = readl(clk->base + CNTP_TVAL);
-			break;
-		}
-
-	} else if (access == ARCH_TIMER_MEM_VIRT_ACCESS) {
-
-		switch (reg) {
-		case ARCH_TIMER_REG_CTRL:
-			val = readl(clk->base + CNTV_CTL);
-			break;
-		case ARCH_TIMER_REG_TVAL:
-			val = readl(clk->base + CNTV_TVAL);
-			break;
-		}
-	} else {
-		//val = arch_timer_reg_read_cp15(access, reg);
-	}
-
-	return val;
-}
-
-static inline irqreturn_t timer_handler(const int access, struct clock_event_device *evt)
+static irqreturn_t timer_handler(int irq, void *dev_id)
 {
 	unsigned long ctrl;
 
-	ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL, evt);
+	ctrl = arch_timer_reg_read(ARCH_TIMER_REG_CTRL);
 
 	if (ctrl & ARCH_TIMER_CTRL_IT_STAT) {
+
 		ctrl |= ARCH_TIMER_CTRL_IT_MASK;
-		arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, evt);
+		arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
 
 		if (smp_processor_id() == ME_CPU) {
+
 			/* Periodic timer */
 			system_timer_clockevent->set_next_event(clkevt_reload, system_timer_clockevent);
 			timer_interrupt(true);
+
 		} else
 			timer_interrupt(false);
 	}
@@ -130,121 +75,46 @@ static inline irqreturn_t timer_handler(const int access, struct clock_event_dev
 	return IRQ_HANDLED;
 }
 
-
-static irqreturn_t arch_timer_handler_virt(int irq, void *dev_id)
-{
-	struct clock_event_device *evt = dev_id;
-
-	return timer_handler(ARCH_TIMER_VIRT_ACCESS, evt);
-}
-
-#if 0
-static irqreturn_t arch_timer_handler_phys(int irq, void *dev_id)
-{
-	struct clock_event_device *evt = dev_id;
-
-	return timer_handler(ARCH_TIMER_PHYS_ACCESS, evt);
-}
-
-static irqreturn_t arch_timer_handler_phys_mem(int irq, void *dev_id)
-{
-	struct clock_event_device *evt = dev_id;
-
-	return timer_handler(ARCH_TIMER_MEM_PHYS_ACCESS, evt);
-}
-
-static irqreturn_t arch_timer_handler_virt_mem(int irq, void *dev_id)
-{
-	struct clock_event_device *evt = dev_id;
-
-	return timer_handler(ARCH_TIMER_MEM_VIRT_ACCESS, evt);
-}
-#endif /* 0 */
-
-static inline void timer_set_mode(const int access, int mode, struct clock_event_device *clk)
+static inline void timer_set_mode(int mode, struct clock_event_device *clk)
 {
 	unsigned long ctrl;
+
 	switch (mode) {
+
 	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_SHUTDOWN:
-		ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL, clk);
+		ctrl = arch_timer_reg_read(ARCH_TIMER_REG_CTRL);
 		ctrl &= ~ARCH_TIMER_CTRL_ENABLE;
-		arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, clk);
+		arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
 		break;
 	default:
 		break;
 	}
 }
 
-static void arch_timer_set_mode_virt(enum clock_event_mode mode,
-				     struct clock_event_device *clk)
+static void arch_timer_set_mode_virt(enum clock_event_mode mode, struct clock_event_device *clk)
 {
-	timer_set_mode(ARCH_TIMER_VIRT_ACCESS, mode, clk);
+	timer_set_mode(mode, clk);
 }
 
-#if 0 /* Not used at the moment */
-static void arch_timer_set_mode_phys(enum clock_event_mode mode,
-				     struct clock_event_device *clk)
-{
-	timer_set_mode(ARCH_TIMER_PHYS_ACCESS, mode, clk);
-}
-
-static void arch_timer_set_mode_virt_mem(enum clock_event_mode mode,
-					 struct clock_event_device *clk)
-{
-	timer_set_mode(ARCH_TIMER_MEM_VIRT_ACCESS, mode, clk);
-}
-
-static void arch_timer_set_mode_phys_mem(enum clock_event_mode mode,
-					 struct clock_event_device *clk)
-{
-	timer_set_mode(ARCH_TIMER_MEM_PHYS_ACCESS, mode, clk);
-}
-#endif /* 0 */
-
-
-static inline void set_next_event(const int access, unsigned long evt, struct clock_event_device *clk)
+static inline void set_next_event(unsigned long evt, struct clock_event_device *clk)
 {
 	unsigned long ctrl;
 
-	ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL, clk);
+	ctrl = arch_timer_reg_read(ARCH_TIMER_REG_CTRL);
 	ctrl |= ARCH_TIMER_CTRL_ENABLE;
 	ctrl &= ~ARCH_TIMER_CTRL_IT_MASK;
-	arch_timer_reg_write(access, ARCH_TIMER_REG_TVAL, evt, clk);
-	arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, clk);
+
+	arch_timer_reg_write(ARCH_TIMER_REG_TVAL, evt);
+	arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
 }
 
-static int arch_timer_set_next_event_virt(unsigned long evt,
-					  struct clock_event_device *clk)
+static int arch_timer_set_next_event_virt(unsigned long evt, struct clock_event_device *clk)
 {
-	set_next_event(ARCH_TIMER_VIRT_ACCESS, evt, clk);
+	set_next_event(evt, clk);
 
 	return 0;
 }
-
-#if 0 /* Not used at the moment */
-
-static int arch_timer_set_next_event_phys(unsigned long evt,
-					  struct clock_event_device *clk)
-{
-	set_next_event(ARCH_TIMER_PHYS_ACCESS, evt, clk);
-	return 0;
-}
-
-static int arch_timer_set_next_event_virt_mem(unsigned long evt,
-					      struct clock_event_device *clk)
-{
-	set_next_event(ARCH_TIMER_MEM_VIRT_ACCESS, evt, clk);
-	return 0;
-}
-
-static int arch_timer_set_next_event_phys_mem(unsigned long evt,
-					      struct clock_event_device *clk)
-{
-	set_next_event(ARCH_TIMER_MEM_PHYS_ACCESS, evt, clk);
-	return 0;
-}
-#endif /* 0 */
 
 /******* clockevent ********/
 
@@ -255,7 +125,7 @@ static struct clock_event_device arm_timer_clockevent = {
 		.__irqaction = {
 				.name = "arm_timer",
 				.dev_id = &arm_timer_clockevent,
-				.handler = arch_timer_handler_virt
+				.handler = timer_handler,
 		}
 };
 
@@ -264,7 +134,7 @@ static struct clock_event_device arm_timer_clockevent = {
 
 static struct clocksource arm_clocksource = {
 		.name		= "sys_clocksource",
-//		.read		= arch_counter_get_cntvct,
+		.read		= arch_counter_get_cntvct,
 		.mask		= CLOCKSOURCE_MASK(56),
 		.flags		= CLOCK_SOURCE_IS_CONTINUOUS | CLOCK_SOURCE_SUSPEND_NONSTOP,
 };
@@ -274,12 +144,16 @@ static struct clocksource arm_clocksource = {
  */
 void init_timer(int cpu)
 {
+	BUG_ON((cpu == AGENCY_CPU) || (cpu == AGENCY_RT_CPU));
+
 	/* System clocksource */
 	system_timer_clocksource = &arm_clocksource;
 
-	//system_timer_clocksource->rate = arch_timer_get_cntfrq();
-	printk("%s: detected frequency of clocksource on CPU %d: %u\n", __func__, smp_processor_id(), system_timer_clocksource->rate);
+	system_timer_clocksource->rate = arch_timer_get_cntfrq();
 
+	printk("%s: detected frequency of clocksource on CPU %d: %u\n", __func__, cpu, system_timer_clocksource->rate);
+
+	/* Currently, should be the same for all CPUs (should be placed in a per_cpu variable. */
 	clocks_calc_mult_shift(&system_timer_clocksource->mult, &system_timer_clocksource->shift, system_timer_clocksource->rate, NSEC_PER_SEC, 3600);
 
 	/*
@@ -304,6 +178,5 @@ void init_timer(int cpu)
 
 	/* First event */
 	system_timer_clockevent->set_next_event(clkevt_reload, system_timer_clockevent);
-
 }
 

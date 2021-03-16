@@ -93,8 +93,9 @@ void dump_stack(void)
 
 void dump_execution_state(void)
 {
-    struct cpu_user_regs regs;
 #if 0
+    struct cpu_user_regs regs;
+
 	register unsigned int r0 __asm__("r0");
 	register unsigned int r1 __asm__("r1");
 	register unsigned int r2 __asm__("r2");

@@ -464,7 +464,7 @@ __primary_switched:
 	bl	avz_setup
 
 	// Set new PHYS_OFFSET in x0
-	ldr		x0, [x22, AVZ_GUEST_PHYS_OFFSET]
+	ldr		x0, [x22, AVZ_DOM_PHYS_OFFSET]
 
 	ldr_l	x4, kimage_vaddr			// Save the offset between
 	sub		x4, x4, x0					// the kernel virtual and

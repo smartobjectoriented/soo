@@ -95,9 +95,11 @@ uint32_t get_kernel_size(void) {
  */
 
 void memory_init(void) {
-	u64  *__new_sys_pgtable;
+	void *__new_sys_pgtable;
+
+#ifdef CONFIG_ARCH_ARM32
 	addr_t vectors_vaddr;
-	addrspace_t __addrspace;
+#endif
 
 	/* Initialize the list of I/O virt/phys maps */
 	INIT_LIST_HEAD(&io_maplist);
@@ -108,7 +110,7 @@ void memory_init(void) {
 	init_io_mapping();
 
 	/* Re-setup a system page table with a better granularity */
-	__new_sys_pgtable = new_sys_pgtable();
+	__new_sys_pgtable = (void *) new_sys_pgtable();
 
 	create_mapping(__new_sys_pgtable, CONFIG_HYPERVISOR_VIRT_ADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
 
@@ -118,27 +120,14 @@ void memory_init(void) {
 	/* Finally, create the Linux kernel area to be ready for the Agency domain, and for being able
 	 * to read the device tree.
 	 */
-	create_mapping(__new_sys_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false);
+	create_mapping(__new_sys_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, AGENCY_DOM_SIZE_MAX, false);
 
-	/*
-	 * Switch to the temporary page table in order to re-configure the original system page table
-	 * Warning !! After the switch, we do not have any mapped I/O until the driver core gets initialized.
-	 */
-
-	__addrspace.ttbr1[smp_processor_id()] = __pa(__new_sys_pgtable);
-	mmu_switch(&__addrspace);
-
-	/* Re-configuring the original system page table */
-	memcpy((void *) __sys_l0pgtable, (unsigned char *) __new_sys_pgtable, TTB_L1_SIZE);
-
-	/* Finally, switch back to the original location of the system page table */
-	__addrspace.ttbr1[smp_processor_id()] = __pa(__sys_l0pgtable);
-	mmu_switch(&__addrspace);
+	replace_current_pgtable_with(__new_sys_pgtable);
 
 #ifdef CONFIG_ARCH_ARM32
 
 	/* Finally, prepare the vector page at its correct location */
-	vectors_vaddr = memalign(PAGE_SIZE, PAGE_SIZE);
+	vectors_vaddr = (addr_t) memalign(PAGE_SIZE, PAGE_SIZE);
 	BUG_ON(!vectors_vaddr);
 
 	create_mapping(NULL, VECTOR_VADDR, __pa(vectors_vaddr), PAGE_SIZE, true);

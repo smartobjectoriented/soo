@@ -25,6 +25,7 @@
 #include <domain.h>
 #include <errno.h>
 #include <libelf.h>
+#include <heap.h>
 
 #include <asm/processor.h>
 
@@ -36,10 +37,6 @@
 
 #define L_TEXT_OFFSET	0x8000
 
-/*
- * setup_page_table_guestOS() is setting up the 1st-level page table within the domain.
- */
-extern int setup_page_table_guestOS(struct domain *d, unsigned long v_start, unsigned long map_size, unsigned long p_start, unsigned long vpt_start);
 extern char hypercall_start[];
 
 /*
@@ -57,7 +54,7 @@ int construct_ME(struct domain *d) {
 
 	slotID = d->domain_id;
 
-	printk("***************************** Loading Mobile Entity (ME) *****************************\n");
+	printk(	"***************************** Loading Mobile Entity (ME) *****************************\n");
 
 	if (memslot[slotID].size == 0)
 		panic("No domU image supplied\n");
@@ -65,7 +62,8 @@ int construct_ME(struct domain *d) {
 	/* We are already on the swapper_pg_dir page table to have full access to RAM */
 
 	/* The following page will contain start_info information */
-	vstartinfo_start = (unsigned long) alloc_heap_page();
+	vstartinfo_start = (unsigned long) memalign(PAGE_SIZE, PAGE_SIZE);
+	BUG_ON(!vstartinfo_start);
 
 	d->max_pages = ~0U;
 	d->tot_pages = 0;
@@ -84,9 +82,9 @@ int construct_ME(struct domain *d) {
 
 	v_start = L_PAGE_OFFSET;
 
-	vpt_start = v_start + TTB_L1_SYS_OFFSET;  /* Location of the system page table (see head.S). */
+	vpt_start = v_start + TTB_L1_SYS_OFFSET; /* Location of the system page table (see head.S). */
 
-	setup_page_table_guestOS(d, v_start, memslot[slotID].size, (alloc_spfn << PAGE_SHIFT), vpt_start);
+	__setup_dom_pgtable(d, v_start, memslot[slotID].size, (alloc_spfn << PAGE_SHIFT));
 
 	/* Lets switch to the page table of our new domain - required for sharing page info */
 	get_current_addrspace(&prev_addrspace);
@@ -96,14 +94,14 @@ int construct_ME(struct domain *d) {
 
 	mmu_switch(&d->addrspace);
 
-	si = (start_info_t *) vstartinfo_start;
+	si = (start_info_t*) vstartinfo_start;
 
 	memset(si, 0, PAGE_SIZE);
 
 	si->domID = d->domain_id;
 
 	si->nr_pages = d->tot_pages;
-	si->min_mfn = alloc_spfn;
+	si->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
 
 	si->shared_info = d->shared_info;
 	si->hypercall_addr = (unsigned long) hypercall_start;
@@ -116,14 +114,15 @@ int construct_ME(struct domain *d) {
 
 	si->printch = printch;
 
-	si->pt_base = vpt_start;
+	si->pt_vaddr = d->addrspace.pgtable_vaddr;
 
 	mmu_switch(&prev_addrspace);
 
 	d->vstartinfo_start = vstartinfo_start;
 
 	/* Create the first thread associated to this domain. */
-	new_thread(d, L_PAGE_OFFSET + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
+	new_thread(d, L_PAGE_OFFSET + L_TEXT_OFFSET, si->fdt_paddr,
+			v_start + memslot[slotID].size, vstartinfo_start);
 
 	return 0;
 }

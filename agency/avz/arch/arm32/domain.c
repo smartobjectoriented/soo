@@ -17,23 +17,27 @@
  *
  */
 
-#include <domain.h>
+#include <sched.h>
+#include <sizes.h>
+#include <types.h>
 
 #include <asm/processor.h>
+#include <asm/mmu.h>
+#include <asm/cacheflush.h>
 
 void arch_setup_domain_frame(struct domain *d, struct cpu_user_regs *domain_frame, addr_t fdt_addr, addr_t start_info, addr_t start_stack, addr_t start_pc) {
 	struct cpu_user_regs *regs = &d->arch.guest_context.user_regs;
 
 	domain_frame->r2 = fdt_addr;
-	domain_frame->r12 = start_info;
+	domain_frame->ip = start_info;
 
-	domain_frame->r13 = start_stack;
-	domain_frame->r15 = start_pc;
+	domain_frame->sp = start_stack;
+	domain_frame->pc = start_pc;
 
 	domain_frame->psr = 0x93;  /* IRQs disabled initially */
 
-	regs->r13 = (unsigned long) domain_frame;
-	regs->r14 = (unsigned long) pre_ret_to_user;
+	regs->sp = (unsigned long) domain_frame;
+	regs->lr = (unsigned long) pre_ret_to_user;
 }
 
 /*
@@ -41,7 +45,7 @@ void arch_setup_domain_frame(struct domain *d, struct cpu_user_regs *domain_fram
  */
 void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_size, addr_t p_start) {
 	uint32_t vaddr, *new_pt;
-	addr_t vpt_start = vstart + TTB_L1_SYS_OFFSET;
+	addr_t vpt_start = v_start + TTB_L1_SYS_OFFSET;
 
 	ASSERT(d);
 
@@ -83,7 +87,7 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 	mmu_page_table_flush((uint32_t) new_pt, ((uint32_t) new_pt) + TTB_L1_SIZE);
 }
 
-void __arch_domain_create(struct domain *d, int cpu_id) {
+void arch_domain_create(struct domain *d, int cpu_id) {
                 
 	/* Will be used during the context_switch (cf kernel/entry-armv.S */
 

@@ -22,12 +22,6 @@
 #include <types.h>
 
 #include <asm/processor.h>
-#include <asm/arm_timer.h>
-
-#define ARCH_TIMER_PHYS_ACCESS		0
-#define ARCH_TIMER_VIRT_ACCESS		1
-#define ARCH_TIMER_MEM_PHYS_ACCESS	2
-#define ARCH_TIMER_MEM_VIRT_ACCESS	3
 
 #define ARCH_TIMER_CTRL_ENABLE		(1 << 0)
 #define ARCH_TIMER_CTRL_IT_MASK		(1 << 1)
@@ -37,10 +31,6 @@ enum arch_timer_reg {
 	ARCH_TIMER_REG_CTRL,
 	ARCH_TIMER_REG_TVAL,
 };
-
-void arm_timer_init(int cpu);
-
-void init_arm_timer(void);
 
 #endif /* ARM_TIMER_H */
 

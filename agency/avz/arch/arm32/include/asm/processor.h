@@ -246,6 +246,8 @@
 
 #define domain_val(dom,type)	((type) << 2*(dom))
 
+#define VECTORS_BASE	0xffff0000
+
 #ifdef __ASSEMBLY__
 
 .irp	c,,eq,ne,cs,cc,mi,pl,vs,vc,hi,ls,ge,lt,gt,le,hs,lo
@@ -332,6 +334,8 @@ void arm_init_domains(void);
 
 #define FP_SIZE 35
 
+#define sev()		asm volatile("sev" : : : "memory")
+
 #define processor_mode(regs) \
 	((regs)->psr & PSR_MODE_MASK)
 
@@ -365,7 +369,7 @@ union fp_state {
  * CPU regs matches with the stack frame layout.
  * It has to be 8 bytes aligned.
  */
-typedef struct cpu_regs {
+typedef struct cpu_user_regs {
 	__u32   r0;
 	__u32   r1;
 	__u32   r2;
@@ -386,32 +390,12 @@ typedef struct cpu_regs {
 	__u32	sp_usr;
 	__u32   lr_usr;
 	__u32   padding;  /* padding to keep 8-bytes alignment */
-} cpu_regs_t;
-
-typedef struct cpu_user_regs {
-	__u32   r0;
-	__u32   r1;
-	__u32   r2;
-	__u32   r3;
-	__u32   r4;
-	__u32   r5;
-	__u32   r6;
-	__u32   r7;
-	__u32   r8;
-	__u32   r9;
-	__u32   r10;
-	__u32   r11;
-	__u32   r12;
-	__u32   r13;
-	__u32   r14;
-	__u32   r15;
-	__u32   psr;
 } cpu_user_regs_t;
 
 typedef struct cpu_sys_regs {
-	__u32   vksp;
-	__u32   vusp;
-	__u32   vdacr;
+	u32   vksp;
+	u32   vusp;
+	u32   vdacr;
 } cpu_sys_regs_t;
 
 #define cpu_relax()	barrier()

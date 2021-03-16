@@ -29,5 +29,4 @@ void devices_init(void) {
 
 	/* Interrupt device initialization */
 	init_irq();
-
 }

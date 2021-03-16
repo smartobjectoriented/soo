@@ -220,7 +220,7 @@ typedef struct {
 ({						\
 	unsigned long ttbr;			\
 	__asm__("mrc	p15, 0, %0, c2, c0, 0"	\
-		 : "=r" (ttbr) : : "cc");		\
+		 : "=r" (ttbr) : : "cc");	\
 	ttbr;					\
 })
 
@@ -232,7 +232,8 @@ extern void __mmu_switch(uint32_t l1pgtable_phys);
 
 void pgtable_copy_kernel_area(uint32_t *l1pgtable);
 
-void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base, uint32_t size, bool nocache);
+void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base, size_t size, bool nocache);
+void release_mapping(uint32_t *pgtable, addr_t virt_base, size_t size);
 
 uint32_t *new_l1pgtable(void);
 void reset_l1pgtable(uint32_t *l1pgtable, bool remove);
@@ -244,6 +245,8 @@ void dump_pgtable(uint32_t *l1pgtable);
 
 void dump_current_pgtable(void);
 
+uint32_t *new_sys_pgtable(void);
+
 void set_l1_pte_sect_dcache(uint32_t *l1pte, enum ttb_l1_sect_dcache_option option);
 void set_l1_pte_page_dcache(uint32_t *l1pte, enum ttb_l1_page_dcache_option option);
 void set_l2_pte_dcache(uint32_t *l2pte, enum ttb_l2_dcache_option option);
@@ -251,6 +254,9 @@ void set_l2_pte_dcache(uint32_t *l2pte, enum ttb_l2_dcache_option option);
 void mmu_setup(uint32_t *pgtable);
 
 void vectors_init(void);
+
+void set_current_pgtable(uint32_t *pgtable);
+void replace_current_pgtable_with(uint32_t *pgtable);
 
 #endif
 

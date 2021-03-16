@@ -170,6 +170,7 @@ struct clock_event_device {
 	unsigned int features;
 
 	void *base; /* virt address to access the timer */
+
 	u32 timer_nr;	/* If multiple timer can be accessed from the same base address */
 	unsigned int rate;
 	unsigned int prescale;

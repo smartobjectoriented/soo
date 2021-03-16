@@ -337,10 +337,16 @@ void ll_entry_irq(void)
 
 		smp_mb();
 
-		BUG_ON((smp_processor_id() == AGENCY_CPU) || (smp_processor_id() == AGENCY_RT_CPU));
-
-		if (likely((irqnr > 31) && (irqnr < 1021))) /* SPIs 32-irqmax */
+		if ((smp_processor_id() == AGENCY_CPU) || (smp_processor_id() == AGENCY_RT_CPU)){
+			printk("## GIC failure: getting IRQ %d on CPU %d\n", irqnr, smp_processor_id());
 			BUG();
+		}
+
+		/* SPIs 32-irqmax */
+		if (likely((irqnr > 31) && (irqnr < 1021))) {
+			printk("## GIC failure: unexpected IRQ : %d\n", irqnr);
+			BUG();
+		}
 
 		if (irqnr < 16) {
 			/* IPI are end-of-interrupt'ed like this. */

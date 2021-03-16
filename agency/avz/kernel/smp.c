@@ -23,6 +23,7 @@
 #include <domain.h>
 #include <event.h>
 #include <smp.h>
+#include <sizes.h>
 
 #include <device/irq.h>
 #include <device/timer.h>
@@ -40,8 +41,6 @@ DEFINE_PER_CPU(spinlock_t, softint_lock);
 
 extern void startup_cpu_idle_loop(void);
 extern void init_idle_domain(void);
-
-#if 0
 
 /*
  * control for which core is the next to come out of the secondary
@@ -69,8 +68,6 @@ int read_pen_release(void) {
 
 	return pen_release;
 }
-
-#endif
 
 void smp_trigger_event(int target_cpu)
 {
@@ -165,6 +162,11 @@ extern void vcpu_periodic_timer_start(struct vcpu *v);
 
 void cpu_up(unsigned int cpu)
 {
+
+	/* We re-create a small identity mapping to allow the hypervisor
+	 * to bootstrap correctly on other CPUs.
+	 */
+	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_1M, false);
 
 	/*
 	 * We need to tell the secondary core where to find

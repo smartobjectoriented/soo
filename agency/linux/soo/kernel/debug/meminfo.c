@@ -46,7 +46,7 @@
 void dump_pgtable(unsigned long *l1pgtable) {
 
 	int i, j;
-	uint32_t *l1pte, *l2pte;
+	unsigned long *l1pte, *l2pte;
 
 	lprintk("           ***** Page table dump *****\n");
 
@@ -61,7 +61,7 @@ void dump_pgtable(unsigned long *l1pgtable) {
 			if ((*l1pte & L1DESC_TYPE_MASK) == L1DESC_TYPE_PT) {
 				if ((i < 0xf80) || (i > 0xffc))
 					for (j = 0; j < 256; j++) {
-						l2pte = ((uint32_t *) __va(*l1pte & L1DESC_L2PT_BASE_ADDR_MASK)) + j;
+						l2pte = ((unsigned long *) __va(*l1pte & L1DESC_L2PT_BASE_ADDR_MASK)) + j;
 						if (*l2pte)
 							lprintk("      - L2 pte@%p (i2=%x) mapping %x  content: %x\n", l2pte, j, (i << 20) | (j << 12), *l2pte);
 					}

@@ -141,7 +141,6 @@ extern void migrate_irqs(void);
 #endif
 
 struct irqaction;
-struct pt_regs;
 struct irqdesc;
 struct seq_file;
 struct cpu_user_regs;
@@ -235,6 +234,8 @@ void disable_irq(unsigned int);
 void enable_irq(unsigned int);
 int set_irq_type(unsigned int irq, unsigned int type);
 int setup_irq(unsigned int, struct irqaction *);
+
+int irq_set_affinity(unsigned int irq, int cpu);
 
 /* IRQ action dispatcher */
 void handle_fasteoi_irq(unsigned int irq, struct irqdesc *desc);

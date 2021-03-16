@@ -317,7 +317,7 @@ __irq_svc:
  */
 
 #if (S_FRAME_SIZE & 7)
-#error "sizeof(struct pt_regs) must be a multiple of 8"
+#error "S_FRAME_SIZE must be a multiple of 8"
 #endif
 
 __irq_usr:
