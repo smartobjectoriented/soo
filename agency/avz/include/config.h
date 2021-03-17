@@ -56,8 +56,6 @@
 #define HYPERVISOR_SIZE		UL(0x00c00000)  /* 12 MB */
 #define HYPERVISOR_PHYS_START 	CONFIG_RAM_BASE
 
-#define AGENCY_DOM_SIZE_MAX	UL(0x20000000)  /* 512 MB visible */
-
 #ifndef __ASSEMBLY__
 
 #include <compiler.h>

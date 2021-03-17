@@ -120,7 +120,7 @@ void memory_init(void) {
 	/* Finally, create the Linux kernel area to be ready for the Agency domain, and for being able
 	 * to read the device tree.
 	 */
-	create_mapping(__new_sys_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, AGENCY_DOM_SIZE_MAX, false);
+	create_mapping(__new_sys_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false);
 
 	replace_current_pgtable_with(__new_sys_pgtable);
 

@@ -433,7 +433,7 @@ static int ioctl_read_snapshot(unsigned long arg) {
 	 * The buffer must be free'd once it has been sent out (by the DCM).
 	 */
 
-	ME_buffer = __vmalloc(ME_desc.size + ME_EXTRA_BUFFER_SIZE, GFP_HIGHUSER | __GFP_ZERO, PAGE_SHARED);
+	ME_buffer = __vmalloc(ME_desc.size + ME_EXTRA_BUFFER_SIZE, GFP_HIGHUSER | __GFP_ZERO, PAGE_KERNEL);
 	BUG_ON(ME_buffer == NULL);
 
 	/* Beginning of the ME buffer to transmit - We start with the information transfer. */

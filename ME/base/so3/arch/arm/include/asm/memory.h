@@ -34,15 +34,15 @@
 #define HYPERVISOR_VBSTORE_VADDR	0xffe01000
 
 #ifdef __ASSEMBLY__
-.extern avz_guest_phys_offset
+.extern avz_dom_phys_offset
 #else
 #include <types.h>
 #include <list.h>
-extern uint32_t avz_guest_phys_offset;
+extern uint32_t avz_dom_phys_offset;
 
 #endif /* __ASSEMBLY__ */
 
-#define CONFIG_RAM_BASE		(avz_guest_phys_offset)
+#define CONFIG_RAM_BASE		(avz_dom_phys_offset)
 
 #endif /* CONFIG_SO3VIRT */
 #ifndef __ASSEMBLY__

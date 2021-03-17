@@ -21,7 +21,8 @@
 #include "so3virt.dtsi"
 
 &ME {
-	domain-size = <0x400000>;
+	/* 8 MB should be enough for major cases. */
+	domain-size = <0x800000>;
 	
 	frontends {
 		/* Enabling vdummy for testing purposes */

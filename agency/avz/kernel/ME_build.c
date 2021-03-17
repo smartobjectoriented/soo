@@ -121,8 +121,7 @@ int construct_ME(struct domain *d) {
 	d->vstartinfo_start = vstartinfo_start;
 
 	/* Create the first thread associated to this domain. */
-	new_thread(d, L_PAGE_OFFSET + L_TEXT_OFFSET, si->fdt_paddr,
-			v_start + memslot[slotID].size, vstartinfo_start);
+	new_thread(d, L_PAGE_OFFSET + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
 
 	return 0;
 }

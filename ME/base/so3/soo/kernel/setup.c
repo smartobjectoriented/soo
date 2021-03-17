@@ -40,8 +40,8 @@ unsigned char vectors_tmp[PAGE_SIZE];
 /* Force the variable to be stored in .data section so that the BSS can be freely cleared.
  * The value is set during the head.S execution before clear_bss().
  */
-start_info_t *avz_start_info = (start_info_t *) 0xbeef;
-uint32_t avz_guest_phys_offset;
+start_info_t *avz_start_info;
+uint32_t avz_dom_phys_offset;
 
 volatile uint32_t *HYPERVISOR_hypercall_addr;
 volatile shared_info_t *HYPERVISOR_shared_info;
@@ -60,9 +60,9 @@ int do_presetup_adjust_variables(void *arg)
 	 */
 	avz_start_info = args->start_info_virt;
 
-	avz_guest_phys_offset = avz_start_info->min_mfn << PAGE_SHIFT;
+	avz_dom_phys_offset = avz_start_info->dom_phys_offset;
 
-	mem_info.phys_base = avz_guest_phys_offset;
+	mem_info.phys_base = avz_dom_phys_offset;
 
 	HYPERVISOR_hypercall_addr = (uint32_t *) avz_start_info->hypercall_addr;
 
@@ -154,21 +154,22 @@ int do_sync_domain_interactions(void *arg)
 void avz_setup(void) {
 	int ret;
 
-	mem_info.phys_base = avz_guest_phys_offset;
+	mem_info.phys_base = avz_dom_phys_offset;
 	mem_info.size = avz_start_info->nr_pages << PAGE_SHIFT;
 
 	__printch = avz_start_info->printch;
-	avz_guest_phys_offset = avz_start_info->min_mfn << PAGE_SHIFT;
+	avz_dom_phys_offset = avz_start_info->dom_phys_offset;
 
 	/* Immediately prepare for hypercall processing */
 	HYPERVISOR_hypercall_addr = (uint32_t *) avz_start_info->hypercall_addr;
 
-	lprintk("SOO Agency Virtualizer (avz) Start info :\n");
-	lprintk("Hypercall addr: %x\n", (uint32_t) HYPERVISOR_hypercall_addr);
-	lprintk("Shared info page addr: %x\n", (uint32_t) avz_start_info->shared_info);
+	lprintk("SOO Agency Virtualizer (avz) Start info :\n\n");
+	lprintk("- Hypercall addr: %x\n", (uint32_t) HYPERVISOR_hypercall_addr);
+	lprintk("- Shared info page addr: %x\n", (uint32_t) avz_start_info->shared_info);
+	lprintk("- Dom phys offset: %x\n\n", (uint32_t) avz_dom_phys_offset);
 
 	mem_info.size = avz_start_info->nr_pages * PAGE_SIZE;
-	mem_info.phys_base = avz_guest_phys_offset;
+	mem_info.phys_base = avz_dom_phys_offset;
 
 	__ht_set = (ht_set_t) avz_start_info->logbool_ht_set_addr;
 
