@@ -61,7 +61,7 @@ static inline u32 arch_timer_reg_read(enum arch_timer_reg reg)
 
 static inline u32 arch_timer_get_cntfrq(void)
 {
-	u32 val;
+	u32 val = 0;
 
 	//asm volatile("mrc p15, 0, %0, c14, c0, 0" : "=r" (val));
 
@@ -70,7 +70,7 @@ static inline u32 arch_timer_get_cntfrq(void)
 
 static inline u64 arch_counter_get_cntvct(void)
 {
-	u64 cval;
+	u64 cval = 0;
 
 	isb();
 	//asm volatile("mrrc p15, 1, %Q0, %R0, c14" : "=r" (cval));
