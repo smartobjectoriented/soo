@@ -114,7 +114,7 @@ static int lz4_decompress_data(void **data_decompressed, compressor_data_t *data
 	size_t decompressed_size = data->decompressed_size;
 	void *alloc_buffer;
 
-	alloc_buffer = __vmalloc(decompressed_size, GFP_HIGHUSER | __GFP_ZERO, PAGE_SHARED | PAGE_KERNEL);
+	alloc_buffer = __vmalloc(decompressed_size, GFP_HIGHUSER | __GFP_ZERO, PAGE_KERNEL);
 	BUG_ON(alloc_buffer == NULL);
 
 	if (LZ4_decompress_fast(data->payload, alloc_buffer, decompressed_size) < 0) {

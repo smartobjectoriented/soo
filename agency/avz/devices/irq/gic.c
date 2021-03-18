@@ -247,7 +247,7 @@ static void gic_dist_init(struct gic_chip_data *gic, unsigned int irq_start)
 	for (i = 32; i < gic_irqs; i++)
 		irq_set_affinity(i, AGENCY_CPU);
 
-	dmb();
+	smp_mb();
 }
 
 void gic_cpu_config(void *base)
@@ -283,7 +283,7 @@ static void gic_cpu_if_up(void)
 	writel(bypass | GICC_ENABLE, cpu_base + GIC_CPU_CTRL);
 }
 
-static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
+static void gic_cpu_init(struct gic_chip_data *gic)
 {
 	void *dist_base = gic->dist_base;
 	void *base = gic->cpu_base;
@@ -335,12 +335,18 @@ void ll_entry_irq(void)
 		irqstat = readl(cpu_base + GIC_CPU_INTACK);
 		irqnr = irqstat & GICC_IAR_INT_ID_MASK;
 
-		dmb();
+		smp_mb();
 
-		BUG_ON((smp_processor_id() == AGENCY_CPU) || (smp_processor_id() == AGENCY_RT_CPU));
-
-		if (likely((irqnr > 31) && (irqnr < 1021))) /* SPIs 32-irqmax */
+		if ((smp_processor_id() == AGENCY_CPU) || (smp_processor_id() == AGENCY_RT_CPU)){
+			printk("## GIC failure: getting IRQ %d on CPU %d\n", irqnr, smp_processor_id());
 			BUG();
+		}
+
+		/* SPIs 32-irqmax */
+		if (likely((irqnr > 31) && (irqnr < 1021))) {
+			printk("## GIC failure: unexpected IRQ : %d\n", irqnr);
+			BUG();
+		}
 
 		if (irqnr < 16) {
 			/* IPI are end-of-interrupt'ed like this. */
@@ -372,7 +378,7 @@ void ll_entry_irq(void)
 	} while (true);
 }
 
-void gic_init(unsigned int gic_nr, unsigned int irq_start, void *dist_base, void *cpu_base)
+void gic_init(unsigned int gic_nr, unsigned int irq_start, addr_t *dist_base, addr_t *cpu_base)
 {
 	struct gic_chip_data *gic;
 	int i;
@@ -442,7 +448,7 @@ void smp_cross_call(int target_cpu, unsigned int irq)
 	 * Ensure that stores to Normal memory are visible to the
 	 * other CPUs before they observe us issuing the IPI.
 	 */
-	dmb(ishst);
+	smp_mb();
 
 	/* This always happens on GIC0 */
 	writel((1 << target_cpu) << 16 | irq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
@@ -451,5 +457,5 @@ void smp_cross_call(int target_cpu, unsigned int irq)
 }
 
 void init_gic(void) {
-	gic_init(0, 29, ioremap(GIC_DIST_PHYS, GIC_DIST_SIZE), ioremap(GIC_CPU_PHYS, GIC_CPU_SIZE));
+	gic_init(0, 29, (addr_t *) io_map(GIC_DIST_PHYS, GIC_DIST_SIZE), (addr_t *) io_map(GIC_CPU_PHYS, GIC_CPU_SIZE));
 }

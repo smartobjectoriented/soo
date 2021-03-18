@@ -128,6 +128,8 @@ void add_thread(soo_env_t *soo, unsigned int pid) {
 
 }
 
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
 static int soo_stream_task_rx_fn(void *args) {
 	uint32_t size;
 	void *data;
@@ -158,7 +160,6 @@ void stream_count_read(char *str) {
 	sprintf(str, "%d", current_soo_simul->recv_count);
 }
 
-
 /*
  * Testing RT task to send a stream to a specific smart object.
  * This is mainly used for debugging purposes and performance assessment.
@@ -166,15 +167,7 @@ void stream_count_read(char *str) {
 static int soo_stream_task_tx_fn(void *args) {
 	int i;
 
-#if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
-	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
-#elif defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
-	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_ETH, SL_MODE_UNIBROAD);
-#elif defined(CONFIG_SOOLINK_PLUGIN_SIMULATION)
 	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIMULATION, SL_MODE_UNIBROAD);
-#else
-#error !! You must specify a plugin interface in the kernel configuration !!
-#endif
 
 	for (i = 0; i < BUFFER_SIZE; i++)
 		current_soo_simul->buffer[i] = i;
@@ -206,13 +199,18 @@ static int soo_stream_task_tx_fn(void *args) {
 	return 0;
 }
 
+#endif /* CONFIG_SOOLINK_PLUGIN_SIMULATION */
+
 /*
  * Thread function dedicated to a smart object (SOO).
  */
 int soo_env_fn(void *args) {
-	struct task_struct *__ts;
 	soo_env_t *soo_env;
+
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	int i;
+	struct task_struct *__ts;
+#endif
 
 	soo_env = kzalloc(sizeof(soo_env_t), GFP_KERNEL);
 	BUG_ON(!soo_env);
@@ -316,7 +314,7 @@ int soo_env_fn(void *args) {
 
 	current_soo_simul->recv_count = 0;
 
-#if 0
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	__ts = kthread_create(soo_stream_task_tx_fn, NULL, "soo_stream_task_tx");
 	BUG_ON(!__ts);
 

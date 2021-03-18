@@ -29,6 +29,6 @@
 #include <soo/uapi/debug.h>
 
 int debug_meminfo_proc_show(void);
-void dump_pgtable(uint32_t *l1pgtable);
+void dump_pgtable(unsigned long *l1pgtable);
 
 #endif /* __MEMINFO_H__ */

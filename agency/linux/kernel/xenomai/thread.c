@@ -59,6 +59,8 @@ struct xnthread *__thread_in_init = NULL;
 
 static unsigned int current_pid = 0;
 
+volatile struct xnthread *__xnthread_current = NULL;
+
 static DEFINE_SPINLOCK(pidlock);
 
 uint32_t get_new_pid(void) {

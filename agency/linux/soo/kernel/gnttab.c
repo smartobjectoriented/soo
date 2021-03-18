@@ -28,25 +28,20 @@
 #include <linux/list.h>
 #include <linux/delay.h>
 
-#ifdef CONFIG_ARM
-#include <asm/mach/map.h>
-#endif
-
 #include <asm/memory.h>
-#include <asm/cacheflush.h>
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
 #include <asm/io.h>
 
 #include <soo/vbus.h>
 #include <soo/gnttab.h>
+#include <soo/paging.h>
+
 #include <soo/uapi/debug.h>
 #include <soo/hypervisor.h>	/* hypercall defs */
 #include <soo/vbstore.h>
 #include <soo/uapi/console.h>
 
-extern const struct mem_type *get_mem_type(unsigned int type);
-extern int remap_area_pages(unsigned long start, unsigned long pfn, size_t size, const struct mem_type *type);
 extern void unmap_kernel_range(unsigned long addr, unsigned long size);
 
 #ifdef DEBUG
@@ -430,8 +425,6 @@ static bool gnttab_update_peer(unsigned int domID) {
 	if (gnttab_ME[domID] != NULL) {
 		iounmap(gnttab_ME[domID]);
 		gnttab_ME[domID] = NULL;
-
-		cache_flush_all();
 	}
 
 	ret = vbus_scanf(VBT_NIL, path, "pfn", "%x", &pfn);
@@ -440,19 +433,9 @@ static bool gnttab_update_peer(unsigned int domID) {
 
 	if (ret) /* If such entries exist */
 	{
-#ifdef CONFIG_ARM
-		gnttab_ME[domID] = __arm_ioremap(pfn << PAGE_SHIFT, NR_GRANT_FRAMES * PAGE_SIZE, MT_MEMORY_RWX_NONCACHED);
-#else
-		gnttab_ME[domID] = ioremap_nocache(pfn << PAGE_SHIFT, NR_GRANT_FRAMES * PAGE_SIZE);
-#endif
-		if (!gnttab_ME[domID]) {
-			lprintk("%s - line %d: Re-mapping forein page for domain %d failed.\n", __func__, __LINE__, domID);
-			BUG();
-		}
+		gnttab_ME[domID] = paging_remap(pfn << PAGE_SHIFT, NR_GRANT_FRAMES * PAGE_SIZE);
 		 
 		DBG("gnttab_ME[%d]=%08x\n", domID, gnttab_ME[domID]);
-
-		cache_flush_all();
 
 		return true;
 	} else
@@ -480,7 +463,6 @@ static void gnttab_register_peer(struct vbus_watch *watch)
 
 int gnttab_map(struct gnttab_map_grant_ref *op) {
 	unsigned long addr;
-	int err = 0;
 	bool gnttab_ME_ok;
 	struct handle_grant *handle;
 
@@ -509,18 +491,7 @@ int gnttab_map(struct gnttab_map_grant_ref *op) {
 	gnttab_dump();
 #endif
 
-#ifdef CONFIG_ARM
-	err = ioremap_page(addr, __pfn_to_phys(gnttab_ME[op->dom][op->ref].frame), get_mem_type(MT_MEMORY_RWX_NONCACHED));
-#else
-	err = ioremap_page_range((addr, addr + PAGE_SIZE - 1, __pfn_to_phys(gnttab_ME[op->dom][op->ref].frame), cachemode2pgprot(_PAGE_CACHE_MODE_UC));
-#endif
-	if (err) {
-		printk("%s failed\n", __func__);
-		return -1;
-	}
-
-	/* Flush all cache */
-	cache_flush_all();
+	paging_remap_page_range(addr, addr + PAGE_SIZE, __pfn_to_phys(gnttab_ME[op->dom][op->ref].frame));
 
 	op->status = 0;
 
@@ -570,18 +541,7 @@ int gnttab_copy(struct gnttab_copy *op) {
 		DBG("Processing COPY_dest_gref: %lx handle: %lx pfn_to_map: %lx\n", __func__, gref, op->handle, pfn_to_map);
 	}
 
-#ifdef CONFIG_ARM
-	vaddr_foreign = __arm_ioremap(pfn_to_map << PAGE_SHIFT, PAGE_SIZE, MT_MEMORY_RWX_NONCACHED);
-#else
-	vaddr_foreign  = ioremap_nocache(pfn_to_map << PAGE_SHIFT,  PAGE_SIZE);
-#endif
-	if (vaddr_foreign == NULL) {
-		printk("_arm_ioremap() in %s failed\n", __func__);
-		return -1;
-	}
-
-	/* Flush all cache */
-	cache_flush_all();
+	vaddr_foreign = paging_remap(pfn_to_map << PAGE_SHIFT, PAGE_SIZE);
 
 	if (op->flags & GNTCOPY_source_gref) {
 

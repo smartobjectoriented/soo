@@ -178,11 +178,7 @@ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 extern struct page *empty_zero_page;
 #define ZERO_PAGE(vaddr)	(empty_zero_page)
 
-/* SOO.tech */
-#if 0
 extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
-#endif /* 0 */
-extern pgd_t *swapper_pg_dir;
 
 /* to find an entry in a page-table-directory */
 #define pgd_index(addr)		((addr) >> PGDIR_SHIFT)

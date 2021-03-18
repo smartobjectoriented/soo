@@ -222,8 +222,7 @@ typedef unsigned char bool_t;
 #define ALIGN_UP(addr,size) (((addr)+((size)-1))&(~((size)-1)))
 #define ALIGN_DOWN(addr,size) ((addr)&(~((size)-1)))
 
-typedef uint32_t paddr_t;
-typedef uint32_t 	phys_addr_t;
+typedef unsigned long addr_t;
 
 /*
  * Fast implementation of tolower() for internal usage. Do not use in your

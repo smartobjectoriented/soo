@@ -75,20 +75,32 @@
 
 _start:
 
+ @ prepare to clear bss and zero fp
+  ldr	r5, =.LCbss
+  ldr	r6, [r5], #4	@ __bss_start
+  ldr 	r7, [r5]		@ __bss_end
+
+  mov	fp, #0			@ Clear BSS (and zero fp)
+1:
+  cmp	r6, r7
+  strcc	fp, [r6], #4
+  bcc	1b
+
   @ r1 = machine id
   @ r2 = dtb address
 
-  @ Make sure we start in SVC mode
 #ifdef CONFIG_SO3VIRT
 
   ldr	r10, =avz_start_info
   str 	r12, [r10]
 
 #else /* !CONFIG_SO3VIRT */
+
   safe_svcmode_maskall r9
 
-  msr  	cpsr_c, #PSR_F_BIT | PSR_I_BIT | PSR_SVC_MODE @ ensure svc mode and irqs disabled
+  @ Make sure we start in SVC mode
 
+  msr  	cpsr_c, #PSR_F_BIT | PSR_I_BIT | PSR_SVC_MODE @ ensure svc mode and irqs disabled
 
   @ Configure address of the vector table
   ldr 	r1, =.LCvectors
@@ -115,17 +127,6 @@ _start:
 #endif /* CONFIG_MMU */
 
 __kernel_main:
-
-  @ prepare to clear bss and zero fp
-  ldr	r5, =.LCbss
-  ldr	r6, [r5], #4	@ __bss_start
-  ldr 	r7, [r5]		@ __bss_end
-
-  mov	fp, #0			@ Clear BSS (and zero fp)
-1:
-  cmp	r6, r7
-  strcc	fp, [r6], #4
-  bcc	1b
 
   ldr	r0, =__fdt_addr
   str	r9, [r0]

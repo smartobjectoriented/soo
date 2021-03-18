@@ -38,6 +38,8 @@
 #include <stdarg.h>
 #include <linux/kthread.h>
 
+#include <soo/vdevback.h>
+
 #include <soo/dev/vuart.h>
 
 /*
@@ -57,7 +59,7 @@ struct list_head vdev_consoles;
 void add_console(struct vbus_device *vdev_console) {
 	struct vdev_console *console;
 
-	console = kzalloc(sizeof(vdev_console), GFP_KERNEL);
+	console = kzalloc(sizeof(vdev_console), GFP_ATOMIC);
 	BUG_ON(!console);
 
 	console->vdev_console = vdev_console;

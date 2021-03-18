@@ -46,7 +46,7 @@ static bool log_soo_soolink_plugin = false;
 
 extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
-void (*__printch)(char c);
+void (*__printch)(char c) = NULL;
 
 void __lprintk(const char *format, va_list va) {
 	char buf[CONSOLEIO_BUFFER_SIZE];

@@ -111,16 +111,6 @@ static const struct file_operations __ipipe_info_proc_ops = {
 	.release	= single_release,
 };
 
-
-void __ipipe_init_proc(void)
-{
-	ipipe_proc_root = proc_mkdir("ipipe", NULL);
-	proc_create("version", 0444, ipipe_proc_root, &__ipipe_version_proc_ops);
-
-	__ipipe_init_tracer();
-}
-
-
 void  __ipipe_init_early(void)
 {
 	int i;
@@ -143,7 +133,7 @@ void  __ipipe_init_early(void)
  * in the boot process during device initcalls, we have to postpone this initialization.
  */
 void __ipipe_init_post(void) {
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 	irqdescs[__xntimer_rt->irq].irq = __xntimer_rt->irq;
 	ipipe_assign_chip(&irqdescs[__xntimer_rt->irq]);
 #endif
@@ -186,7 +176,7 @@ void __ipipe_dispatch_irq(unsigned int irq, bool reset) {
 	 */
 	if (unlikely(!__cobalt_ready)) {
 
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 		if (irq == __xntimer_rt->irq)
 			__ipipe_timer_handler(__xntimer_rt->irq, NULL);
 #endif
@@ -217,7 +207,7 @@ void __ipipe_dispatch_irq(unsigned int irq, bool reset) {
 		chip->irq_eoi(&irqdescs[irq].irq_data);
 
 	/* Now we are safe to process the tick handler leading to potential context switching. */
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 	if (irq == __xntimer_rt->irq)
 		xnintr_core_clock_handler();
 #endif

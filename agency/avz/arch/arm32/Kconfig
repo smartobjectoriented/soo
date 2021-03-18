@@ -1,0 +1,35 @@
+
+if ARCH_ARM32
+
+menu "Platform"
+
+choice
+  prompt "Target"
+	
+	config VEXPRESS
+    		bool "Vexpress"
+	
+	config MERIDAv2
+		bool "Merida V2"
+	
+	config BPI
+		bool "BananaPi M2 Zero"
+    
+    config RPI4    	
+    	bool "Raspberry Pi 4 Model B support"
+    
+	config BCM2835
+		bool "ARM Broadcomm 2835 Raspberry Pi 3 Model B support"
+	    
+   
+endchoice
+
+
+source "arch/arm32/vexpress/Kconfig"
+source "arch/arm32/merida/Kconfig"
+source "arch/arm32/bpi/Kconfig"
+source "arch/arm32/rpi4/Kconfig"
+
+endmenu
+
+endif

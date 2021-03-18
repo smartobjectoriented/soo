@@ -70,7 +70,7 @@ typedef uint16_t domid_t;
 #define DOMID_INVALID (0x7FF4U)
 
 /*
- * 1024 event channels per domain
+ * 128 event channels per domain
  */
 #define NR_EVTCHN 128
 
@@ -100,6 +100,7 @@ struct shared_info {
 	 * Each event channel is assigned a bit in evtchn_pending and its modification has to be
 	 * kept atomic.
 	 */
+
 	volatile bool evtchn_pending[NR_EVTCHN];
 
 	atomic_t dc_event;
@@ -132,6 +133,7 @@ extern int hypercall_trampoline(int hcall, long a0, long a2, long a3, long a4);
 struct start_info {
 
     int	domID;
+
     unsigned long nr_pages;     /* Total pages allocated to this domain.  */
 
     shared_info_t *shared_info;  /* AVZ virtual address of the shared info page */
@@ -144,10 +146,10 @@ struct start_info {
 
     unsigned long store_mfn;    /* MACHINE page number of shared page.    */
 
-    unsigned long pt_base;      /* VIRTUAL address of page directory.     */
     unsigned long nr_pt_frames; /* Number of bootstrap p.t. frames.       */
+    unsigned long dom_phys_offset;
 
-    unsigned long min_mfn;
+    unsigned long pt_vaddr;  /* Virtual address of the page table used when the domain is bootstraping */
 
     unsigned long logbool_ht_set_addr;  /* Address of the logbool ht_set function which can be used in the domain. */
 

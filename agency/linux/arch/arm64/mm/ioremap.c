@@ -21,7 +21,9 @@
 static void __iomem *__ioremap_caller(phys_addr_t phys_addr, size_t size,
 				      pgprot_t prot, void *caller)
 {
+#if 0 /* SOO.tech */
 	unsigned long last_addr;
+#endif
 	unsigned long offset = phys_addr & ~PAGE_MASK;
 	int err;
 	unsigned long addr;
@@ -34,6 +36,14 @@ static void __iomem *__ioremap_caller(phys_addr_t phys_addr, size_t size,
 	phys_addr &= PAGE_MASK;
 	size = PAGE_ALIGN(size + offset);
 
+	/* SOO.tech */
+	/*
+	 * We authorize to use ioremap() for RAM pages as long as these pages are used
+	 * for shared pages between domains, and not really for I/O purposes. The page should be allocated
+	 * using __get_free_page(), and the returned address should *NEVER* be used as such.
+	 * You have to use the address returned by ioremap() only.
+	 */
+#if 0
 	/*
 	 * Don't allow wraparound, zero size or outside PHYS_MASK.
 	 */
@@ -46,6 +56,7 @@ static void __iomem *__ioremap_caller(phys_addr_t phys_addr, size_t size,
 	 */
 	if (WARN_ON(pfn_valid(__phys_to_pfn(phys_addr))))
 		return NULL;
+#endif /* 0 */
 
 	area = get_vm_area_caller(size, VM_IOREMAP, caller);
 	if (!area)

@@ -392,14 +392,12 @@ static void dump_vbstore(unsigned char key)
 
 
 static struct keyhandler dump_backtrace_keyhandler = {
-		.diagnostic = 1,
-		.u.fn = dump_backtrace,
+		.fn = dump_backtrace,
 		.desc = "dump backtrace"
 };
 
 static struct keyhandler dump_vbstore_keyhandler = {
-		.diagnostic = 1,
-		.u.fn = dump_vbstore,
+		.fn = dump_vbstore,
 		.desc = "dump vbstore"
 };
 

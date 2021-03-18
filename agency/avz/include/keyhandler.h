@@ -21,31 +21,11 @@
 
 #include <soo/arch-arm.h>
 
-typedef void keyhandler_fn_t(
-    unsigned char key);
-typedef void irq_keyhandler_fn_t(
-    unsigned char key, struct cpu_user_regs *regs);
+typedef void keyhandler_fn_t(unsigned char key);
 
 struct keyhandler {
-    /*
-     * If TRUE then u.irq_fn is called in hardirq context with interrupts
-     * disabled. The @regs callback parameter points at the interrupted
-     * register context. 
-     * If FALSE then u.fn is called in softirq context with no locks held and
-     * interrupts enabled.
-     */
-    bool_t irq_callback;
 
-    /*
-     * If TRUE then the keyhandler will be included in the "dump everything"
-     * keyhandler, so must not have any side-effects.
-     */
-    bool_t diagnostic;
-
-    union {
-        keyhandler_fn_t *fn;
-        irq_keyhandler_fn_t *irq_fn;
-    } u;
+    keyhandler_fn_t *fn;
 
     /* The string is not copied by register_keyhandler(), so must persist. */
     char *desc;
@@ -61,7 +41,7 @@ extern void initialize_keytable(void);
 extern void register_keyhandler(unsigned char key, struct keyhandler *handler);
 
 /* Inject a keypress into the key-handling subsystem. */
-extern void handle_keypress(unsigned char key, struct cpu_user_regs *regs);
+extern void handle_keypress(unsigned char key);
 
 /* Scratch space is available for use of any keyhandler. */
 extern char keyhandler_scratch[1024];

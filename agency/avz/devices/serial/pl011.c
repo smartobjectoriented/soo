@@ -24,13 +24,13 @@
 
 #include <asm/io.h>
 
-void *__uart_vaddr = (void *) UART_BASE;
+volatile void *__uart_vaddr = (void *) UART_BASE;
 
 int printch(char c) {
 
-	while ((ioread16(((uint32_t) __uart_vaddr) + UART01x_FR) & UART01x_FR_TXFF)) ;
+	while ((ioread16(((addr_t) __uart_vaddr) + UART01x_FR) & UART01x_FR_TXFF)) ;
 
-	iowrite16(((uint32_t) __uart_vaddr) + UART01x_DR, c);
+	iowrite16(((addr_t) __uart_vaddr) + UART01x_DR, c);
 
 	return 1;
 }

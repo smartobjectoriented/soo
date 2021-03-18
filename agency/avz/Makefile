@@ -10,7 +10,6 @@
 # o  print "Entering directory ...";
 MAKEFLAGS += -rR --no-print-directory
 
-
 # To put more focus on warnings, be less verbose as default
 # Use 'make V=1' to see the full commands
 
@@ -98,9 +97,6 @@ VPATH		:= $(srctree)
 
 export srctree objtree VPATH
 
-#CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
-CROSS_COMPILE = arm-linux-gnueabihf-
-
 KCONFIG_CONFIG	?= .config
 export KCONFIG_CONFIG
 
@@ -162,59 +158,14 @@ MAKEFLAGS += --include-dir=$(srctree)
 $(srctree)/scripts/Kbuild.include: ;
 include $(srctree)/scripts/Kbuild.include
 
-# Make variables (CC, etc...)
+dAWK		= awk
+PERL	= perl
+LEX		= flex
+YACC	= bison
 
-AS		= $(CROSS_COMPILE)as
-LD		= $(CROSS_COMPILE)ld
-CC		= $(CROSS_COMPILE)gcc
-CPP		= $(CC) -E
-AR		= $(CROSS_COMPILE)ar
-NM		= $(CROSS_COMPILE)nm
-STRIP		= $(CROSS_COMPILE)strip
-OBJCOPY		= $(CROSS_COMPILE)objcopy
-OBJDUMP		= $(CROSS_COMPILE)objdump
-AWK		= awk
-INSTALLKERNEL  := installkernel
-PERL		= perl
+export LEX YACC
+export HOSTCXX HOSTCXXFLAGS HOSTCC HOSTCFLAGS
 
-
-# Use LINUXINCLUDE when you must reference the include/ directory.
-# Needed to be compatible with the O= option
-
-gccincdir := $(shell $(CC) -print-file-name=include)
-
-LINUXINCLUDE    := -Iinclude  -I.  \
-                   $(if $(KBUILD_SRC), -I$(srctree)/include) \
-                   -include include/generated/autoconf.h
-
-KBUILD_CPPFLAGS := -D__KERNEL__ -D__AVZ__ -DCONFIG_ARM
-
-KBUILD_CPPFLAGS += -I$(TOPDIR)include
-KBUILD_CPPFLAGS += -fno-builtin -ffreestanding -nostdinc -isystem $(gccincdir)  
-
-KBUILD_CFLAGS   := -g  -O0 -fno-common  -marm  -mno-thumb-interwork -march=armv7-a -Wall -Wstrict-prototypes $(KBUILD_CPPFLAGS)
-KBUILD_CFLAGS	:= -mabi=aapcs-linux -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -fno-PIE -fno-dwarf2-cfi-asm -fno-ipa-sra -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -march=armv7-a -Uarm -fno-delete-null-pointer-checks -Wno-frame-address --param=allow-store-data-races=0 -Wframe-larger-than=1024 -fno-stack-protector -Wno-unused-but-set-variable -Wno-unused-const-variable -fomit-frame-pointer -fno-var-tracking-assignments -g -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fno-merge-all-constants -fmerge-constants -fno-stack-check -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes -Werror=date-time -Werror=incompatible-pointer-types -Werror=designated-init -fno-function-sections -fno-data-sections -DBITS_PER_LONG=32
-
-KBUILD_AFLAGS_KERNEL := -I. 
-KBUILD_CFLAGS_KERNEL := -I. -I./lib/libfdt 
-KBUILD_AFLAGS   := -g -D__ASSEMBLY__ -mlittle-endian -fno-PIE -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -march=armv7-a  -Wa,-gdwarf-2
-
-# Read KERNELRELEASE from include/config/kernel.release (if it exists)
-KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
-KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
-
-export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
-export CPP AR NM STRIP OBJCOPY OBJDUMP
-export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
-export HOSTCXX HOSTCXXFLAGS
-
-export KBUILD_CPPFLAGS NOSTDINC_FLAGS LINUXINCLUDE OBJCOPYFLAGS LDFLAGS
-export KBUILD_CFLAGS CFLAGS_KERNEL
-export KBUILD_AFLAGS AFLAGS_KERNEL
-export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
-export KBUILD_ARFLAGS
-export TARGET CONFIG_BIN CONFIG_ELF
- 
 # Files to ignore in find ... statements
 
 RCS_FIND_IGNORE := \( -name SCCS -o -name BitKeeper -o -name .svn -o -name CVS -o -name .pc -o -name .hg -o -name .git \) -prune -o
@@ -302,32 +253,96 @@ config: scripts_basic outputmakefile FORCE
 
 else
 
+# Read in dependencies to all Kconfig* files, make sure to run syncconfig if
+# changes are detected. This should be included after arch/$(SRCARCH)/Makefile
+# because some architectures define CROSS_COMPILE there.
+include include/config/auto.conf.cmd
 
-ifeq ($(dot-config),1)
-# Read in config
--include include/config/auto.conf
+$(KCONFIG_CONFIG):
+	@echo >&2 '***'
+	@echo >&2 '*** Configuration file "$@" not found!'
+	@echo >&2 '***'
+	@echo >&2 '*** Please run some configurator (e.g. "make oldconfig" or'
+	@echo >&2 '*** "make menuconfig" or "make xconfig").'
+	@echo >&2 '***'
+	@/bin/false
+
+# The actual configuration files used during the build are stored in
+# include/generated/ and include/config/. Update them if .config is newer than
+# include/config/auto.conf (which mirrors .config).
+#
+# This exploits the 'multi-target pattern rule' trick.
+# The syncconfig should be executed only once to make all the targets.
+%/auto.conf %/auto.conf.cmd %/tristate.conf: $(KCONFIG_CONFIG)
+	$(Q)$(MAKE) -f $(srctree)/Makefile syncconfig
+
+include include/config/auto.conf
+
+# From here, we can rely CONFIG_* variables stored in .config 
+CROSS_COMPILE = $(CONFIG_CROSS_COMPILE)
 
 
-# Read in dependencies to all Kconfig* files, make sure to run
-# oldconfig if changes are detected.
--include include/config/auto.conf.cmd
+# Make variables (CC, etc...)
 
-# To avoid any implicit rule to kick in, define an empty command
-$(KCONFIG_CONFIG) include/config/auto.conf.cmd: ;
+AS		= $(CROSS_COMPILE)as
+LD		= $(CROSS_COMPILE)ld
+CC		= $(CROSS_COMPILE)gcc
+CPP		= $(CC) -E
+AR		= $(CROSS_COMPILE)ar
+NM		= $(CROSS_COMPILE)nm
+STRIP		= $(CROSS_COMPILE)strip
+OBJCOPY		= $(CROSS_COMPILE)objcopy
+OBJDUMP		= $(CROSS_COMPILE)objdump
 
-# If .config is newer than include/config/auto.conf, someone tinkered
-# with it and forgot to run make oldconfig.
-# if auto.conf.cmd is missing then we are probably in a cleaned tree so
-# we execute the config step to be sure to catch updated Kconfig files
-include/config/%.conf: $(KCONFIG_CONFIG) include/config/auto.conf.cmd
-	$(Q)$(MAKE) -f $(srctree)/Makefile silentoldconfig
+# Use AVZINCLUDE when you must reference the include/ directory.
+# Needed to be compatible with the O= option
 
+gccincdir := $(shell $(CC) -print-file-name=include)
 
-else
-# Dummy target needed, because used as prerequisite
-include/config/auto.conf: ;
-endif # $(dot-config)
+AVZINCLUDE    := -Iinclude  -I.  \
+                  $(if $(KBUILD_SRC), -I$(srctree)/include) \
+                  -include include/generated/autoconf.h
 
+KBUILD_CPPFLAGS := -D__KERNEL__ -D__AVZ__
+
+KBUILD_CPPFLAGS += -I$(TOPDIR)include
+KBUILD_CPPFLAGS += -fno-builtin -ffreestanding -nostdinc -isystem $(gccincdir)  
+
+KBUILD_CFLAGS   := -g  -O0 -fno-common  -Wall -Wstrict-prototypes $(KBUILD_CPPFLAGS)
+KBUILD_CFLAGS	:= -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -fno-PIE -fno-dwarf2-cfi-asm -fno-ipa-sra -funwind-tables -fno-delete-null-pointer-checks -Wno-frame-address --param=allow-store-data-races=0 -Wframe-larger-than=1024 \
+				   -fno-stack-protector -Wno-unused-but-set-variable -Wno-unused-const-variable -fomit-frame-pointer -fno-var-tracking-assignments -g -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fno-merge-all-constants -fmerge-constants -fno-stack-check -fconserve-stack \
+				   -Werror=implicit-int -Werror=strict-prototypes -Werror=date-time -Werror=incompatible-pointer-types -Werror=designated-init -fno-function-sections -fno-data-sections
+
+KBUILD_AFLAGS_KERNEL := -I. 
+KBUILD_CFLAGS_KERNEL := -I. -I./lib/libfdt 
+KBUILD_AFLAGS   := -g -D__ASSEMBLY__ -mlittle-endian -fno-PIE -funwind-tables -Wa,-gdwarf-2
+
+# Specific CFLAGS/AFLAGS according to ARCH
+
+SRCARCH := $(patsubst "%",%,$(CONFIG_ARCH))
+
+ifeq ($(CONFIG_ARCH_ARM32),y)
+KBUILD_CFLAGS	+= -mabi=aapcs-linux -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -march=armv7-a -Uarm -DBITS_PER_LONG=32
+KBUILD_AFLAGS   += -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -march=armv7-a  -Wa,-gdwarf-2
+endif
+ 
+ifeq ($(CONFIG_ARCH_ARM64),y)
+KBUILD_CFLAGS	+= -DBITS_PER_LONG=64
+KBUILD_AFLAGS   += 
+endif
+
+# Read KERNELRELEASE from include/config/kernel.release (if it exists)
+KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
+KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
+
+export ARCH SRCARCH CONFIG_SHELL CROSS_COMPILE AS LD CC
+export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
+export CPP AR NM STRIP OBJCOPY OBJDUMP
+
+export KBUILD_CPPFLAGS NOSTDINC_FLAGS AVZINCLUDE OBJCOPYFLAGS LDFLAGS
+export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
+export KBUILD_ARFLAGS
+export TARGET CONFIG_BIN CONFIG_ELF
 
 ifeq ($(CONFIG_VEXPRESS),y)
 TARGET = vexpress
@@ -341,6 +356,10 @@ endif
 ifeq ($(CONFIG_RPI4),y)
 TARGET = rpi4
 endif
+ifeq ($(CONFIG_VIRT64),y)
+TARGET = virt64
+endif
+
 
 # The all: target is the default when no target is given on the
 # command line.
@@ -352,16 +371,16 @@ BIN	= avz.bin
 
 include scripts/Makefile.build
  
-all: $(BIN) 
+all:  $(BIN)  
 
-objs-y		:= kernel mm arch/arm devices  
+objs-y		:= kernel mm arch/$(SRCARCH) devices  
 libs-y		:= lib
 libs-y 		+= lib/libfdt
 
 avz-dirs	:= $(objs-y) $(libs-y)
 avz-objs	:= $(patsubst %,%/built-in.o, $(objs-y))
 avz-libs	:= $(patsubst %,%/lib.a, $(libs-y))
-avz-all	:= $(avz-objs) $(avz-libs)
+avz-all		:= $(avz-objs) $(avz-libs)
 
 # Do modpost on a prelinked vmlinux. The finally linked vmlinux has
 # relevant sections renamed as per the linker script.
@@ -371,16 +390,19 @@ avz-all	:= $(avz-objs) $(avz-libs)
 LIBGCC_PATH := $(shell dirname `$(CC) -print-libgcc-file-name`)
 
 quiet_cmd_avz = LD      $@
-     cmd_avz = $(LD) --defsym=ENTRY_ADDR=$(CONFIG_HYPERVISOR_VIRT_ADDR) -T arch/arm/avz.lds -o $@ $^ -L $(LIBGCC_PATH) -lgcc
+     cmd_avz = $(LD) --defsym=ENTRY_ADDR=$(CONFIG_HYPERVISOR_VIRT_ADDR) -T arch/$(SRCARCH)/avz.lds -o $@ $(avz-all) -L $(LIBGCC_PATH) -lgcc
 
 	 
-KBUILD_CFLAGS_KERNEL += -Iarch/arm/include/ -Iarch/arm/$(TARGET)/include/	
-KBUILD_AFLAGS_KERNEL += -Iarch/arm/include/ -Iarch/arm/$(TARGET)/include/
+KBUILD_CFLAGS_KERNEL += -Iarch/$(SRCARCH)/include/ -Iarch/$(SRCARCH)/$(TARGET)/include/	
+KBUILD_AFLAGS_KERNEL += -Iarch/$(SRCARCH)/include/ -Iarch/$(SRCARCH)/$(TARGET)/include/
+
+export KBUILD_CFLAGS CFLAGS_KERNEL
+export KBUILD_AFLAGS AFLAGS_KERNEL
 
 $(BIN): $(ELF)
 	$(OBJCOPY) --set-section-flags .bss=alloc,load,contents -O binary $< $@ 2>/dev/null
 	
-$(ELF): $(avz-all)
+$(ELF): $(avz-all) arch/$(SRCARCH)/avz.lds
 	$(call if_changed,avz)
 
 # The actual objects are generated when descending, 
@@ -412,7 +434,7 @@ $(avz-dirs): prepare scripts_basic
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  +=
-CLEAN_FILES +=	avz avz.bin
+CLEAN_FILES +=	avz avz.bin dts/*.dtb
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated

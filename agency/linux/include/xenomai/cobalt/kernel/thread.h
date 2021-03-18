@@ -297,6 +297,8 @@ void __xnthread_test_cancel(struct xnthread *curr);
 
 void __xnthread_cleanup(struct xnthread *curr);
 
+extern volatile struct xnthread *__xnthread_current;
+
 /**
  * @fn struct xnthread *xnthread_current(void)
  * @brief Retrieve the current Cobalt core TCB.
@@ -314,11 +316,7 @@ void __xnthread_cleanup(struct xnthread *curr);
  */
 static inline struct xnthread *xnthread_current(void)
 {
-	return ((struct xnthread *) (*((unsigned long *) (current_stack_pointer & ~(XNTHREAD_STACK_SIZE - 1)))));
-}
-
-static inline struct task_struct *xnthread_current_task(void) {
-	return xnthread_current()->tcb.task;
+	return (struct xnthread *) __xnthread_current;
 }
 
 static inline struct xnarchtcb *xnthread_archtcb(struct xnthread *thread)

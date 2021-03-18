@@ -53,6 +53,14 @@ extern int prep_switch_domain(void);
 
 void machine_halt(void);
 
+void arch_domain_create(struct domain *d, int cpu_id);
+void arch_setup_domain_frame(struct domain *d, struct cpu_user_regs *domain_frame, addr_t fdt_addr, addr_t start_info, addr_t start_stack, addr_t start_pc);
+
+/*
+ * setup_page_table_guestOS() is setting up the 1st-level and 2nd-level page tables within the domain.
+ */
+void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_size, addr_t p_start);
+
 void vcpu_reset(struct vcpu *v);
 
 /*
@@ -68,8 +76,6 @@ struct vcpu *alloc_vcpu_struct(struct domain *d);
 
 void free_vcpu_struct(struct vcpu *v);
 void vcpu_destroy(struct vcpu *v);
-
-int arch_domain_create(struct domain *d);
 
 void arch_domain_destroy(struct domain *d);
 

@@ -148,10 +148,10 @@ struct start_info {
 
     unsigned long store_mfn;    /* MACHINE page number of shared page.    */
 
-    unsigned long pt_base;      /* VIRTUAL address of page directory.     */
     unsigned long nr_pt_frames; /* Number of bootstrap p.t. frames.       */
+    unsigned long dom_phys_offset;
 
-    unsigned long min_mfn;
+    unsigned long pt_vaddr;  /* Virtual address of the page table used when the domain is bootstraping */
 
     unsigned long logbool_ht_set_addr;  /* Address of the logbool ht_set function which can be used in the domain. */
 

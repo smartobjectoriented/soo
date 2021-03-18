@@ -154,14 +154,6 @@ asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
 	if (per_cpu(in_upcall_progress, smp_processor_id()))
 		return ;
 
-	/* Check if the (local) IRQs are off. In this case, pending events are not processed at this time,
-	 * but will be once the local IRQs will be re-enabled (either by the GIC loop or an active assert
-	 * of the IRQ line).
-	 */
-
-	if (irqs_disabled_flags(regs->uregs[16])) /* uregs[16] matches with SPSR */
-		return ;
-
 	per_cpu(in_upcall_progress, smp_processor_id()) = true;
 
 retry:
@@ -187,7 +179,7 @@ retry:
 
 		clear_evtchn(evtchn_from_virq(virq));
 
-		asm_do_IRQ(VIRQ_BASE + virq, regs);
+		__handle_domain_irq(NULL, VIRQ_BASE + virq, false, regs);
 
 		BUG_ON(!hard_irqs_disabled());
 	};

@@ -45,13 +45,16 @@ void ll_bandwidth_collect_delay(uint32_t index) {
 }
 
 void ll_bandwidth_show(uint32_t index, size_t size) {
+#ifdef CONFIG_ARM
 	uint32_t div, result;
 
 	kernel_neon_begin();
 	ll_bandwidth_compute(delays[index], size, &div, &result);
 	kernel_neon_end();
 
+
 	lprintk("%d: %lld ns, %dMBps\n", index, delays[index], result);
+#endif /* CONFIG_ARM */
 }
 
 

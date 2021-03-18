@@ -20,6 +20,15 @@
 #ifndef SOO_H
 #define SOO_H
 
+#define MAX_ME_DOMAINS		5
+
+/* We include the (non-RT & RT) agency domain */
+#define MAX_DOMAINS	    (2 + MAX_ME_DOMAINS)
+
+#define AGENCY_CPU	        	0
+#define AGENCY_RT_CPU	 		1
+
+#ifndef __ASSEMBLY__
 #ifdef __KERNEL__
 
 /* For struct list_head */
@@ -45,12 +54,6 @@ struct work_struct;
 struct semaphore;
 
 typedef uint16_t domid_t;
-
-#define MAX_ME_DOMAINS		5
-
-/* We include the (non-RT & RT) agency domain */
-#define MAX_DOMAINS	    (2 + MAX_ME_DOMAINS)
-
 
 /*
  * Directcomm event management
@@ -111,24 +114,22 @@ extern soo_personality_t soo_get_personality(void);
 /*
  * IOCTL codes
  */
-#define AGENCY_IOCTL_SET_PERSONALITY		_IOWR(0x05000000, 0, char)
-#define AGENCY_IOCTL_INIT_MIGRATION		_IOWR(0x05000000, 1, char)
-#define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR(0x05000000, 2, char)
-#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR(0x05000000, 3, char)
-#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOWR(0x05000000, 4, char)
-#define AGENCY_IOCTL_FINAL_MIGRATION    	_IOWR(0x05000000, 5, char)
-#define AGENCY_IOCTL_FORCE_TERMINATE		_IOWR(0x05000000, 6, char)
-#define AGENCY_IOCTL_LOCALINFO_UPDATE		_IOWR(0x05000000, 7, char)
-#define AGENCY_IOCTL_INJECT_ME			_IOWR(0x05000000, 8, char)
-#define AGENCY_IOCTL_DUMP			_IOWR(0x05000000, 9, char)
-#define AGENCY_IOCTL_PICK_NEXT_UEVENT		_IOWR(0x05000000, 10, char)
-#define AGENCY_IOCTL_READY			_IOWR(0x05000000, 11, char)
-#define AGENCY_IOCTL_RESET_BOARD		_IOWR(0x05000000, 12, char)
-#define AGENCY_IOCTL_GET_ME_DESC		_IOWR(0x05000000, 13, char)
-#define AGENCY_IOCTL_GET_PERSONALITY		_IOWR(0x05000000, 14, char)
-#define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOWR(0x05000000, 15, char)
-#define AGENCY_IOCTL_STORE_VERSIONS	 	_IOWR(0x05000000, 16, char)
-#define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR(0x05000000, 17, char)
+#define AGENCY_IOCTL_SET_PERSONALITY		_IOW('S', 0, agency_tx_args_t)
+#define AGENCY_IOCTL_INIT_MIGRATION		_IOWR('S', 1, agency_tx_args_t)
+#define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR('S', 2, agency_tx_args_t)
+#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 3, agency_tx_args_t)
+#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 4, agency_tx_args_t)
+#define AGENCY_IOCTL_FINAL_MIGRATION    	_IOW('S', 5, agency_tx_args_t)
+#define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 6, unsigned int)
+#define AGENCY_IOCTL_LOCALINFO_UPDATE		_IOW('S', 7, unsigned int)
+#define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 8, agency_tx_args_t)
+#define AGENCY_IOCTL_PICK_NEXT_UEVENT		_IO('S', 9)
+#define AGENCY_IOCTL_READY			_IO('S', 10)
+#define AGENCY_IOCTL_GET_ME_DESC		_IOWR('S', 11, agency_tx_args_t)
+#define AGENCY_IOCTL_GET_PERSONALITY		_IOR('S', 12, agency_tx_args_t)
+#define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOR('S', 13, upgrader_ioctl_recv_args_t)
+#define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW('S', 14, upgrade_versions_args_t)
+#define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 15, agency_tx_args_t)
 
 #define ME_IOCTL_FORCE_TERMINATE		100
 #define ME_IOCTL_PICK_NEXT_UEVENT		101
@@ -327,7 +328,7 @@ typedef struct {
 typedef struct agency_tx_args {
 	void	*buffer; /* IN/OUT */
 	int	ME_slotID;
-	int	value;   /* IN/OUT */
+	long	value;   /* IN/OUT */
 } agency_tx_args_t;
 
 
@@ -442,9 +443,6 @@ typedef struct {
 #define DMA_COMPLETE_WORK_TASK_PRIO	50
 #define FWEH_EVENT_WORK_TASK_PRIO 	50
 #define SDIO_EVENT_WORK_TASK_PRIO 	50
-
-#define AGENCY_CPU	        	0
-#define AGENCY_RT_CPU	 		1
 
 #ifndef __ASSEMBLY__
 
@@ -726,5 +724,6 @@ void shutdown_ME(unsigned int ME_slotID);
 void cache_flush_all(void);
 
 #endif /* __KERNEL__ */
+#endif /* __ASSEMBLY__ */
 
 #endif /* SOO_H */

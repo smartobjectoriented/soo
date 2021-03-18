@@ -49,11 +49,13 @@
 #include <asm/io.h>
 #include <asm/uaccess.h>
 
+#ifndef CONFIG_X86
 #ifdef CONFIG_ARM
 #include <asm/mach/map.h>
+#else
+#include <asm/pgtable-prot.h>
 #endif
-
-#include <asm/cacheflush.h>
+#endif
 
 #include <soo/netsimul.h>
 
@@ -65,6 +67,7 @@
 #include <soo/hypervisor.h>
 #include <soo/vbstore.h>
 #include <soo/vbus.h>
+#include <soo/paging.h>
 
 #include <soo/core/sysfs.h>
 #include <soo/core/core.h>
@@ -83,7 +86,7 @@
 /* Fixed size for the header of the ME buffer frame (max.) */
 #define ME_EXTRA_BUFFER_SIZE (1024 * 1024)
 
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 
 /*
  * Used to store ioctl args/buffers
@@ -129,30 +132,11 @@ ME_state_t force_terminate(unsigned int ME_slotID) {
 	return get_ME_state(ME_slotID);
 }
 
-#endif /* CONFIG_ARM */
+#endif /* !CONFIG_X86 */
 
 /* Agency ctl domcalls operations */
 
-/*
- * Dump a memory page based on a physical address belonging to
- * the linear address space of the kernel.
- */
-void dumpPage(unsigned int phys_addr, unsigned int size) {
-	int i, j;
-
-	lprintk("%s: phys_addr: %x\n\n", __func__, phys_addr);
-
-	for (i = 0; i < size; i += 16) {
-		lprintk(" [%x]: ", i);
-		for (j = 0; j < 16; j++) {
-			lprintk("%02x ", *((unsigned char *) __va(phys_addr)));
-			phys_addr++;
-		}
-		lprintk("\n");
-	}
-}
-
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 
 /*
  * Set the personality.
@@ -167,7 +151,7 @@ static int ioctl_set_personality(unsigned long arg) {
 		BUG();
 	}
 
-	pers = (soo_personality_t)args.value;
+	pers = (soo_personality_t) args.value;
 
 	if ((pers != SOO_PERSONALITY_INITIATOR) && (pers != SOO_PERSONALITY_TARGET) &&
 	    (pers != SOO_PERSONALITY_SELFREFERENT)) {
@@ -320,7 +304,7 @@ static int ioctl_get_ME_free_slot(unsigned long arg) {
 /**
  * Retrieve the ME descriptor including the SPID, the state and the SPAD.
  */
-static int ioctl_get_ME_desc(unsigned int arg) {
+static int ioctl_get_ME_desc(unsigned long arg) {
 	int rc;
 	agency_tx_args_t args;
 	ME_desc_t ME_desc;
@@ -380,7 +364,8 @@ static int ioctl_write_snapshot(unsigned long arg) {
 	}
 
 	/* We got the pfn of the local destination for this ME, therefore... */
-	target = __arm_ioremap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size, MT_MEMORY_RWX_NONCACHED);
+
+	target = paging_remap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
 	BUG_ON(target == NULL);
 
 	/* Finally, perform the copy */
@@ -388,8 +373,6 @@ static int ioctl_write_snapshot(unsigned long arg) {
 
 	/* Relase the map used to copy the ME to its final location */
 	iounmap(target);
-
-	cache_flush_all();
 
 	/* Release the buffer */
 
@@ -449,7 +432,8 @@ static int ioctl_read_snapshot(unsigned long arg) {
 	 * Prepare a buffer to store the ME and additional header information like migration structure and transfer information.
 	 * The buffer must be free'd once it has been sent out (by the DCM).
 	 */
-	ME_buffer = __vmalloc(ME_desc.size + ME_EXTRA_BUFFER_SIZE, GFP_HIGHUSER | __GFP_ZERO, PAGE_SHARED | PAGE_KERNEL);
+
+	ME_buffer = __vmalloc(ME_desc.size + ME_EXTRA_BUFFER_SIZE, GFP_HIGHUSER | __GFP_ZERO, PAGE_KERNEL);
 	BUG_ON(ME_buffer == NULL);
 
 	/* Beginning of the ME buffer to transmit - We start with the information transfer. */
@@ -474,8 +458,6 @@ static int ioctl_read_snapshot(unsigned long arg) {
 	memcpy(ME_buffer + sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure, source, ME_desc.size);
 
 	iounmap(source);
-
-	cache_flush_all();
 
 	/* Compute the crc32 of the snapshot */
 
@@ -520,7 +502,7 @@ static int ioctl_finalize_migration(unsigned long arg) {
 		 * During the unpause operation, we take the opportunity to pass the pfn of the shared page used for exchange
 		 * between the ME and VBstore.
 		 */
-		avz_ME_unpause(ME_slotID, virt_to_pfn((unsigned int) __vbstore_vaddr[ME_slotID]));
+		avz_ME_unpause(ME_slotID, virt_to_pfn((unsigned long) __vbstore_vaddr[ME_slotID]));
 
 		/*
 		 * Now, we must wait for the ME to set its state to ME_state_preparing to pause it. We'll then be able
@@ -567,7 +549,7 @@ static int ioctl_finalize_migration(unsigned long arg) {
 			DBG("Unpause the ME and waiting boot completion...\n");
 
 			/* Unpause the ME */
-			avz_ME_unpause(ME_slotID, virt_to_pfn((unsigned int) __vbstore_vaddr[ME_slotID]));
+			avz_ME_unpause(ME_slotID, virt_to_pfn((unsigned long) __vbstore_vaddr[ME_slotID]));
 
 			/* Wait for all backend/frontend initialized. */
 			wait_for_completion(&backend_initialized);
@@ -675,7 +657,7 @@ int agency_release(struct inode *inode, struct file *filp) {
 	return 0;
 }
 
-#endif /* CONFIG_ARM */
+#endif /* !CONFIG_X86 */
 
 #if 0 /* Debugging */
 /*
@@ -736,16 +718,10 @@ u32 virt_to_phys_pt(u32 vaddr) {
 }
 #endif /* 0 */
 
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 
 long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	int rc = 0;
-	unsigned int i1, i2;
-	unsigned int *ptr;
-	pte_t *pte;
-	struct task_struct *p;
-	unsigned int phys_addr;
-	dump_page_t dump_page;
 	unsigned int ME_slotID;
 
 	switch (cmd) {
@@ -853,47 +829,6 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		up(&usr_feedback);
 		break;
 
-	case AGENCY_IOCTL_DUMP:
-		/* Get arguments from user space */
-		if (copy_from_user(&dump_page, (const void *) arg, sizeof(dump_page_t)) != 0) {
-			printk("SOO Agency: %s failed to get args from userspace!\n", __func__);
-			return -EFAULT;
-		}
-
-		lprintk("%s: PID: %d\n", __func__, dump_page.pid);
-		lprintk("%s: addr = %x\n", __func__, dump_page.addr);
-
-		if (dump_page.pid == 0) {
-			/* Ask the hypervisor to display the memory page */
-			avz_dump_page(dump_page.addr >> 12);
-		} else {
-
-			for_each_process(p) {
-
-				if (p->mm == NULL)
-					continue;
-
-				if (p->pid == dump_page.pid) {
-
-					i1 = dump_page.addr >> 20;
-					ptr = (unsigned int *) p->mm->pgd[0];
-
-					lprintk(" pmd [%d] = %x\n", i1, ptr[i1]);
-					pte = __va(pmd_val(ptr[i1]) & ~((1 << 10) - 1));
-
-					i2 = (dump_page.addr & 0xfffff) >> 12; /* Take the 8 bits for 2nd index */
-					lprintk("   pte [%x] = %x    -512: %x\n", i2, pte[i2], ((pte[i2-512])));
-
-					phys_addr = pte[i2] & 0xfffff000;
-
-					lprintk("   phys_addr: %x\n", phys_addr);
-
-					dumpPage(phys_addr, 4096);
-				}
-			}
-		}
-
-		break;
 	case AGENCY_IOCTL_GET_UPGRADE_IMG:
 		rc = ioctl_get_upgrade_image(arg);
 		break;
@@ -1089,7 +1024,7 @@ static struct device soo_dev = {
     .groups = soo_dev_groups
 };
 
-#endif /* CONFIG_ARM */
+#endif /* !CONFIG_X86 */
 
 int evtchn;
 
@@ -1152,7 +1087,7 @@ int agency_late_init_fn(void *args) {
 }
 
 int agency_init(void) {
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 	int rc;
 #endif
 
@@ -1162,7 +1097,7 @@ int agency_init(void) {
 
 	soo_guest_activity_init();
 
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 
 	rc = subsys_system_register(&soo_subsys, NULL);
 	if (rc < 0) {

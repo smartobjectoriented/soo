@@ -33,10 +33,6 @@
 
 #include <asm/io.h>
 
-#ifdef CONFIG_ARM
-#include <asm/mach/map.h>
-#endif
-
 /* For the upgrade */
 uint32_t upgrade_buffer_pfn = 0;
 uint32_t upgrade_buffer_size = 0;

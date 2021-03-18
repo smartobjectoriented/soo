@@ -1,0 +1,18 @@
+
+if ARCH_ARM64
+
+menu "Platform"
+
+	choice
+  		prompt "Target"
+	
+		config VIRT64
+    		bool "Generic QEMU virt64 model"
+	
+	endchoice
+		
+source "arch/arm64/virt64/Kconfig"
+
+endmenu
+
+endif
