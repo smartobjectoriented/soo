@@ -31,24 +31,6 @@
 #include <asm/xenomai/calibration.h>
 #include <trace/events/cobalt-core.h>
 
-static struct xnarch_u32frac bln_frac;
-
-unsigned long long xnclock_divrem_billion(unsigned long long value,
-					  unsigned long *rem)
-{
-	unsigned long long q;
-	unsigned r;
-
-	q = xnarch_nodiv_ullimd(value, bln_frac.frac, bln_frac.integ);
-	r = value - q * 1000000000;
-	if (r >= 1000000000) {
-		++q;
-		r -= 1000000000;
-	}
-	*rem = r;
-	return q;
-}
-
 void xnclock_core_local_shot(struct xnsched *sched)
 {
 	struct xntimer *timer;
@@ -259,8 +241,6 @@ EXPORT_SYMBOL_GPL(nkclock);
 
 int xnclock_init(void)
 {
-
-	xnarch_init_u32frac(&bln_frac, 1, 1000000000);
 
 	xnclock_register(&nkclock, &xnsched_realtime_cpus);
 

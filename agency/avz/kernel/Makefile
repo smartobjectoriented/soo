@@ -4,22 +4,21 @@
 
 # Object file lists.
 
-obj-y	+= vfp.o
 obj-y	+= console.o
 
 obj-$(CONFIG_PSCI) += psci_smp.o
-obj-$(CONFIG_PSCI) += smccc-call.o
 
-obj-y += backtrace.o
 obj-y += domctl.o 
-obj-y += agency_build.o ME_build.o
+obj-y += agency_build.o 
+obj-$(CONFIG_ARCH_ARM32) += ME_build.o
 obj-y += domain.o
 obj-y += physdev.o
 obj-y += setup.o
 obj-y += smp.o 
 obj-y += time.o
-obj-y += dom_mig_transfer.o dom_mig_restore.o
-obj-y += soo_activity.o
+
+obj-$(CONFIG_ARCH_ARM32) += dom_mig_transfer.o dom_mig_restore.o
+obj-$(CONFIG_ARCH_ARM32) += soo_activity.o
 
 obj-y += bitmap.o
 obj-y += domctl.o

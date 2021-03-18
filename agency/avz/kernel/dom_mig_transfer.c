@@ -27,7 +27,7 @@
 #include <console.h>
 #include <migration.h>
 #include <domain.h>
-#include <xmalloc.h>
+#include <heap.h>
 
 #include <device/irq.h>
 
@@ -252,7 +252,7 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 	me->tot_pages = memslot[ME_slotID].size >> PAGE_SHIFT;
 
 	/* Restore start_info structure (allocated in the heap of hypervisor) */
-	vstartinfo_start = (unsigned long) alloc_heap_page();
+	vstartinfo_start = (unsigned long) memalign(PAGE_SIZE, PAGE_SIZE);
 
 	memcpy((struct start_info *) vstartinfo_start, mig_info->start_info_page, PAGE_SIZE);
 	si = (start_info_t *) vstartinfo_start;
@@ -264,10 +264,10 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 	me->shared_info->dom_desc.u.ME.pfn = phys_to_pfn(memslot[ME_slotID].base_paddr);
 
 	/* start pfn can differ from the initiator according to the physical memory layout */
-	si->min_mfn = phys_to_pfn(memslot[ME_slotID].base_paddr);
+	si->dom_phys_offset = memslot[ME_slotID].base_paddr;
 	si->nr_pages = me->tot_pages;
 
-	pfn_offset = si->min_mfn - mig_info->start_pfn;
+	pfn_offset = (si->dom_phys_offset >> PAGE_SHIFT) - mig_info->start_pfn;
 
 	si->hypercall_addr = (unsigned long) hypercall_start;
 

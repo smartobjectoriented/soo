@@ -268,64 +268,6 @@ xnarch_generic_nodiv_imuldiv_ceil(unsigned op, const struct xnarch_u32frac f)
 	xnarch_generic_nodiv_imuldiv_ceil((op),(f))
 #endif /* xnarch_nodiv_imuldiv_ceil */
 
-#ifndef xnarch_nodiv_ullimd
-
-#ifndef xnarch_add96and64
-#error "xnarch_add96and64 must be implemented."
-#endif
-
-static inline __attribute__((__const__)) unsigned long long
-xnarch_mul64by64_high(const unsigned long long op, const unsigned long long m)
-{
-	/* Compute high 64 bits of multiplication 64 bits x 64 bits. */
-	register unsigned long long t0, t1, t2, t3;
-	register unsigned int oph, opl, mh, ml, t0h, t0l, t1h, t1l, t2h, t2l, t3h, t3l;
-
-	xnarch_u64tou32(op, oph, opl);
-	xnarch_u64tou32(m, mh, ml);
-	t0 = xnarch_ullmul(opl, ml);
-	xnarch_u64tou32(t0, t0h, t0l);
-	t3 = xnarch_ullmul(oph, mh);
-	xnarch_u64tou32(t3, t3h, t3l);
-	xnarch_add96and64(t3h, t3l, t0h, 0, t0l >> 31);
-	t1 = xnarch_ullmul(oph, ml);
-	xnarch_u64tou32(t1, t1h, t1l);
-	xnarch_add96and64(t3h, t3l, t0h, t1h, t1l);
-	t2 = xnarch_ullmul(opl, mh);
-	xnarch_u64tou32(t2, t2h, t2l);
-	xnarch_add96and64(t3h, t3l, t0h, t2h, t2l);
-
-	return xnarch_u64fromu32(t3h, t3l);
-}
-
-static inline unsigned long long
-xnarch_generic_nodiv_ullimd(const unsigned long long op,
-			    const unsigned long long frac,
-			    unsigned int integ)
-{
-	return xnarch_mul64by64_high(op, frac) + integ * op;
-}
-#define xnarch_nodiv_ullimd(op, f, i)  xnarch_generic_nodiv_ullimd((op),(f), (i))
-#endif /* !xnarch_nodiv_ullimd */
-
-#ifndef xnarch_nodiv_llimd
-static inline __attribute__((__const__)) long long
-xnarch_generic_nodiv_llimd(long long op, unsigned long long frac,
-			   unsigned int integ)
-{
-	long long ret;
-	int sign = 0;
-
-	if (op < 0LL) {
-		sign = 1;
-		op = -op;
-	}
-	ret = xnarch_nodiv_ullimd(op, frac, integ);
-
-	return sign ? -ret : ret;
-}
-#define xnarch_nodiv_llimd(ll,frac,integ) xnarch_generic_nodiv_llimd((ll),(frac),(integ))
-#endif /* !xnarch_nodiv_llimd */
 
 #endif /* XNARCH_HAVE_NODIV_LLIMD */
 

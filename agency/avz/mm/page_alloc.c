@@ -71,7 +71,7 @@ static void bootmem_region_add(unsigned long s, unsigned long e)
 	nr_bootmem_regions++;
 }
 
-void init_boot_pages(paddr_t ps, paddr_t pe)
+void init_boot_pages(addr_t ps, addr_t pe)
 {
 	ps = round_pgup(ps);
 	pe = round_pgdown(pe);
@@ -317,7 +317,7 @@ unsigned long total_free_pages(void)
 	return total_avail_pages;
 }
 
-void init_heap_pages(paddr_t ps, paddr_t pe)
+void init_heap_pages(addr_t ps, addr_t pe)
 {
 	ps = round_pgup(ps);
 	pe = round_pgdown(pe);
@@ -366,8 +366,7 @@ static void pagealloc_info(unsigned char key)
 }
 
 static struct keyhandler pagealloc_info_keyhandler = {
-		.diagnostic = 1,
-		.u.fn = pagealloc_info,
+		.fn = pagealloc_info,
 		.desc = "memory info"
 };
 
@@ -387,8 +386,7 @@ static void dump_heap(unsigned char key)
 }
 
 static struct keyhandler dump_heap_keyhandler = {
-	.diagnostic = 1,
-	.u.fn = dump_heap,
+	.fn = dump_heap,
 	.desc = "dump heap info"
 };
 

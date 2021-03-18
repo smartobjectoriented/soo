@@ -27,7 +27,7 @@
 #include <timer.h>
 #include <keyhandler.h>
 #include <percpu.h>
-#include <xmalloc.h>
+#include <heap.h>
 
 #include <asm/backtrace.h>
 
@@ -275,8 +275,10 @@ static void dump_timerq(unsigned char key) {
 	spin_unlock(&ts->lock);
 }
 
-static struct keyhandler dump_timerq_keyhandler = { .diagnostic = 1, .u.fn =
-		dump_timerq, .desc = "dump timer queues" };
+static struct keyhandler dump_timerq_keyhandler = {
+		.fn = dump_timerq,
+		.desc = "dump timer queues"
+};
 
 void timer_init(void) {
 

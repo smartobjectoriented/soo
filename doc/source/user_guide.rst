@@ -169,10 +169,37 @@ SOO Components
 Agency
 ~~~~~~
 
-The following components are built in the **agency/** directory.
+This section presents the different components which are required to be
+built in the **agency/** directory. Different configurations are possible.
 
-The main Agency rootfs (root filesystem)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Target platforms
+^^^^^^^^^^^^^^^^
+The file ``build.conf`` in ``agency/`` contains the ``PLATFORM`` (and eventually ``TYPE``) variables 
+to select the target platform.
+
+Possible platforms and types are:
+
++------------+-------------------------------------+
+| Name       |                                     |
++============+=====================================+
+| *vexpress* | Basic QEMU/vExpress 32-bit platform |
++------------+-------------------------------------+
+| *virt64*   | QEMU/virt 64-bit platform           |
++------------+-------------------------------------+
+| *rpi4*     | Raspberry Pi 4 in 32-bit mode       |
++------------+-------------------------------------+
+| *rpi4_64*  | Raspberry Pi 4 in 64-bit mode       |
++------------+-------------------------------------+
+
+If *vexpress* is selected, it is (still) necessary to add a TYPE. Only, ``tz`` type
+is supported.
+
+.. note::
+
+   The ``TYPE`` variable is useless and will be removed soon.
+
+Main root filesystem (**rootfs**)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In the code below, you have to replace ``MYARCH`` with the selected architecture. 
 All available configurations (\*_defconfig) are placed in
@@ -194,8 +221,7 @@ From the agency’s directory:
    make source
    make
 
-In the agency/ directory, the file ``build.conf`` contains the ``PLATFORM`` (and eventually ``TYPE``) variables 
-to select the target platform. The build of the agency including **AVZ** and **Linux** is
+The build of the agency including **AVZ** and **Linux** is
 done by doing simply a make in the ``agency/`` root directory.
 
 .. code:: bash
@@ -203,7 +229,28 @@ done by doing simply a make in the ``agency/`` root directory.
    cd agency
    make
 
-Agency User Applications
+Initial ramfs (initrd) filesystem
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In the agency, there is an ``initrd`` filesystem which is embedded in
+the *ITB* image file. In order to access the content of this *initrd*, 
+a script in ``agency/rootfs`` is available. For example, to access
+the content of the *vexpress* board:
+
+.. code:: bash
+
+   cd rootfs
+   ./mount_initrd.sh vexpress
+   cd fs
+
+Unmounting the filesystem is done with:
+
+.. code:: bash
+   
+   cd rootfs
+   ./umount_initrd.sh vexpress
+
+Agency user applications
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 In addition to the ``rootfs``, the Agency has its own applications that
@@ -215,7 +262,7 @@ CMake. The build is achieved with the following script:
    cd agency/usr
    ./build.sh
 
-Agency Filesystem
+Agency filesystem
 ^^^^^^^^^^^^^^^^^
 
 Once all main Agency components have been built, they will be put in a

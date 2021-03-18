@@ -10,7 +10,8 @@
 #ifndef __ASM_ARM_HARDWARE_GIC_H
 #define __ASM_ARM_HARDWARE_GIC_H
 
-#include <compiler.h>
+#define ICC_SRE_EL2_SRE			(1 << 0)
+#define ICC_SRE_EL2_ENABLE		(1 << 3)
 
 #define GIC_CPU_CTRL			0x00
 #define GIC_CPU_PRIMASK			0x04
@@ -97,7 +98,7 @@
 
 extern void *gic_cpu_base_addr;
 
-void gic_init(unsigned int, unsigned int, void *, void *);
+void gic_init(unsigned int, unsigned int, addr_t *, addr_t *);
 void gic_secondary_init(unsigned int);
 void gic_raise_softirq(int cpu, unsigned int irq);
 

@@ -32,8 +32,8 @@
 #include <asm/processor.h>
 #include <asm/percpu.h>
 #include <asm/io.h>
-#include <asm/div64.h>
 #include <asm/vfp.h>
+#include <asm/setup.h>
 
 #include <soo/soo.h>
 
@@ -82,11 +82,8 @@ void init_idle_domain(void)
 
 }
 
-extern void setup_arch(char **);
-
 void kernel_start(void)
 {
-	char *command_line;
 	int i;
 
 	local_irq_disable();
@@ -95,16 +92,14 @@ void kernel_start(void)
 
 	initialize_keytable();
 
-	loadAgency();
-
-	percpu_init_areas();
-
 	/* We initialize the console device(s) very early so we can get debugging. */
 	console_init();
 
-	pagealloc_init();
-
 	memory_init();
+
+	loadAgency();
+
+	percpu_init_areas();
 
 	softirq_init();
 
@@ -113,7 +108,7 @@ void kernel_start(void)
 		init_percpu_area(i);
 
 	/* Initialization of the machine. */
-	setup_arch(&command_line);
+	setup_arch();
 
 	/* Prepare to adapt the serial virtual address at a better location in the I/O space. */
 	console_init_post();
@@ -137,10 +132,13 @@ void kernel_start(void)
 
 	event_channel_init();
 
+#ifdef CONFIG_ARCH_ARM32
 	soo_activity_init();
+#endif
 
 	/* Deal with secondary processors.  */
 	printk("spinning up at most %d total processors ...\n", NR_CPUS);
+
 
 	/* Create initial domain 0. */
 	domains[DOMID_AGENCY] = domain_create(DOMID_AGENCY, AGENCY_CPU);
@@ -172,8 +170,10 @@ void kernel_start(void)
 
 	smp_init();
 
+#ifdef CONFIG_ARCH_ARM32
 	/* Enabling VFP module on this CPU */
 	vfp_enable();
+#endif
 
 	domain_unpause_by_systemcontroller(agency);
 

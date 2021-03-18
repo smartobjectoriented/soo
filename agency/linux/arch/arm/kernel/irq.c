@@ -77,14 +77,8 @@ void handle_IRQ(unsigned int irq, struct pt_regs *regs)
 asmlinkage void __exception_irq_entry
 asm_do_IRQ(unsigned int irq, struct pt_regs *regs)
 {
-#if 0 /*SOO.tech */
-	handle_IRQ(irq, regs);
-#endif /* 0 */
 
-	if (smp_processor_id() == AGENCY_RT_CPU)
-		__ipipe_grab_irq(irq, false);
-	else
-		handle_IRQ(irq, regs);
+	handle_IRQ(irq, regs);
 }
 
 void __init init_IRQ(void)

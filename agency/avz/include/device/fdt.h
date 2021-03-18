@@ -61,8 +61,8 @@
 #define MAX_SUBNODE		4
 
 /* Reference to the current device tree */
-extern uint32_t *__fdt_addr;
-extern uint32_t *fdt_vaddr;
+extern addr_t *__fdt_addr;
+extern addr_t *fdt_vaddr;
 
 int fdt_find_compatible_node(void *fdt_addr, char *compat);
 const struct fdt_property *fdt_find_property(void *fdt_addr, int offset, const char *propname);
@@ -70,6 +70,7 @@ int fdt_find_node_by_name(void *fdt_addr, int parent, const char *nodename);
 
 int fdt_property_read_string(void *fdt_addr, int offset, const char *propname, const char **out_string);
 int fdt_property_read_u32(void *fdt_addr, int offset, const char *propname, u32 *out_value);
+int fdt_property_read_u64(void *fdt_addr, int offset, const char *propname, u64 *out_value);
 
 int fdt_pack_reg(const void *fdt, void *buf, u64 *address, u64 *size);
 int fdt_find_or_add_subnode(void *fdt, int parentoffset, const char *name);

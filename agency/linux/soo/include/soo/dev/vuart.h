@@ -22,7 +22,6 @@
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
-#include <soo/vdevback.h>
 
 #include <linux/vt_kern.h>
 

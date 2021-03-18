@@ -1688,6 +1688,9 @@ source "drivers/cpufreq/Kconfig"
 
 endmenu
 
+# SOO.tech
+source "kernel/ipipe/Kconfig"
+
 source "drivers/firmware/Kconfig"
 
 source "drivers/acpi/Kconfig"

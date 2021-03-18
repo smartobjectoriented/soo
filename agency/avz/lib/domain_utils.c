@@ -39,20 +39,28 @@
  */
 void loadAgency(void)
 {
-	uint32_t dom_addr;
+	addr_t dom_addr;
 	int nodeoffset, next_node;
 	uint8_t tmp[16];
 	u64 base, size;
 	int len, depth, ret;
 	const char *propstring;
 
+	ret = fdt_check_header(fdt_vaddr);
+	if (ret) {
+		lprintk("!! Bad device tree: ret = %x\n", ret);
+		BUG();
+	}
 	nodeoffset = 0;
 	depth = 0;
 	while (nodeoffset >= 0) {
 		next_node = fdt_next_node(fdt_vaddr, nodeoffset, &depth);
 		ret = fdt_property_read_string(fdt_vaddr, nodeoffset, "type", &propstring);
+
 		if ((ret != -1) && (!strcmp(propstring, "agency"))) {
-			ret = fdt_property_read_u32(fdt_vaddr, nodeoffset, "load-addr", &dom_addr);
+
+			ret = fdt_property_read_u32(fdt_vaddr, nodeoffset, "load-addr", (u32 *) &dom_addr);
+
 			if (ret == -1) {
 				lprintk("!! Missing load-addr in the agency node !!\n");
 				BUG();
@@ -67,9 +75,9 @@ void loadAgency(void)
 		BUG();
 	}
 
-	/* Set the memslot base address to a section boundary */
-	memslot[MEMSLOT_AGENCY].base_paddr = (dom_addr & ~(SZ_1M - 1));
-	memslot[MEMSLOT_AGENCY].fdt_paddr = (unsigned int) __fdt_addr;
+	/* Set the memslot base address to a 2 MB block boundary */
+	memslot[MEMSLOT_AGENCY].base_paddr = dom_addr & ~(SZ_2M - 1);
+	memslot[MEMSLOT_AGENCY].fdt_paddr = (addr_t) __fdt_addr;
 	memslot[MEMSLOT_AGENCY].size = fdt_getprop_u32_default(fdt_vaddr, "/agency", "domain-size", 0);
 	
 	/* Fixup the agency device tree */
@@ -100,7 +108,11 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 	size_t size, fdt_size, initrd_size;
 	void *fdt_vaddr, *initrd_vaddr;
 	void *dest_ME_vaddr;
+
+#ifdef CONFIG_ARCH_ARM32
 	int section_nr;
+#endif
+
 	uint32_t *pgtable_from;
 	uint32_t initrd_start, initrd_end;
 	int nodeoffset, next_node, depth = 0;
@@ -109,12 +121,14 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 
 	pgtable_from = (uint32_t *) __lva(current_addrspace->pgtable_paddr);
 
+#warning to be revisited...
+#ifdef CONFIG_ARCH_ARM32
 	/* Get the visibility on the domain image stored in the agency user space area */
 	for (section_nr = 0x0; section_nr < 0xc00; section_nr++)
 		__sys_l1pgtable[section_nr] = pgtable_from[section_nr];
 
 	flush_dcache_all();
-
+#endif
 	/* Look for a node of ME type in the fit image */
 	nodeoffset = 0;
 	depth = 0;

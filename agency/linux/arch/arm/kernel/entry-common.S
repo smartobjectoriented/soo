@@ -144,10 +144,6 @@ no_work_pending:
 ENDPROC(ret_to_user_from_irq)
 ENDPROC(ret_to_user)
 
-/* SOO.tech */
-.LChypercall_addr:
-   .long HYPERVISOR_hypercall_addr
-
 /*
  * This is how we return from a fork.
  */
@@ -193,7 +189,7 @@ ENTRY(hypercall_trampoline)
 
     mrs r11, cpsr
 
-    ldr r5, .LChypercall_addr
+    ldr r5, =HYPERVISOR_hypercall_addr
     ldr r5, [r5]
 
     bl  __trampoline

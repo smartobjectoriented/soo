@@ -21,18 +21,17 @@
 #include <types.h>
 #include <asm/processor.h>
 
+/* Not needed on 64bit architectures */
+#if BITS_PER_LONG == 32
+
 extern uint32_t __div64_32(uint64_t *dividend, uint32_t divisor);
 
 /* The unnecessary pointer compare is there
  * to check for type safety (n must be 64bit)
  */
-#ifdef __ARMEB__
-#define __xh "r0"
-#define __xl "r1"
-#else
+
 #define __xl "r0"
 #define __xh "r1"
-#endif
 
 #define do_div(n,base)						\
 ({								\
@@ -73,5 +72,32 @@ static inline uint64_t lldiv(uint64_t dividend, uint32_t divisor)
 	do_div(__res, divisor);
 	return(__res);
 }
+
+#elif BITS_PER_LONG == 64
+
+
+/**
+ * do_div - returns 2 values: calculate remainder and update new dividend
+ * @n: uint64_t dividend (will be updated)
+ * @base: uint32_t divisor
+ *
+ * Summary:
+ * ``uint32_t remainder = n % base;``
+ * ``n = n / base;``
+ *
+ * Return: (uint32_t)remainder
+ *
+ * NOTE: macro parameter @n is evaluated multiple times,
+ * beware of side effects!
+ */
+# define do_div(n,base) ({					\
+	uint32_t __base = (base);				\
+	uint32_t __rem;						\
+	__rem = ((uint64_t)(n)) % __base;			\
+	(n) = ((uint64_t)(n)) / __base;				\
+	__rem;							\
+ })
+
+#endif
 
 #endif /* ASM_GENERIC_DIV64_H */

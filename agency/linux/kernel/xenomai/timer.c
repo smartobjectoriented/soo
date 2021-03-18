@@ -438,40 +438,6 @@ unsigned long long xntimer_get_overruns(struct xntimer *timer, xnticks_t now)
 }
 EXPORT_SYMBOL_GPL(xntimer_get_overruns);
 
-char *xntimer_format_time(xnticks_t ns, char *buf, size_t bufsz)
-{
-	unsigned long ms, us, rem;
-	int len = (int)bufsz;
-	char *p = buf;
-	xnticks_t sec;
-
-	if (ns == 0 && bufsz > 1) {
-		strcpy(buf, "-");
-		return buf;
-	}
-
-	sec = xnclock_divrem_billion(ns, &rem);
-	us = rem / 1000;
-	ms = us / 1000;
-	us %= 1000;
-
-	if (sec) {
-		p += ksformat(p, bufsz, "%Lus", sec);
-		len = bufsz - (p - buf);
-	}
-
-	if (len > 0 && (ms || (sec && us))) {
-		p += ksformat(p, bufsz - (p - buf), "%lums", ms);
-		len = bufsz - (p - buf);
-	}
-
-	if (len > 0 && us)
-		p += ksformat(p, bufsz - (p - buf), "%luus", us);
-
-	return buf;
-}
-EXPORT_SYMBOL_GPL(xntimer_format_time);
-
 /**
  * @internal
  * @fn static int program_htick_shot(unsigned long delay, struct clock_event_device *cdev)

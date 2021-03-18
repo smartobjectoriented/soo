@@ -23,6 +23,7 @@
 #include <domain.h>
 #include <event.h>
 #include <smp.h>
+#include <sizes.h>
 
 #include <device/irq.h>
 #include <device/timer.h>
@@ -55,19 +56,18 @@ volatile int pen_release = -1;
 void write_pen_release(int val)
 {
 	pen_release = val;
-	dmb();
+	smp_mb();
 
 	flush_dcache_all();
 }
 
 int read_pen_release(void) {
-	dmb();
+	smp_mb();
 
 	flush_dcache_all();
 
 	return pen_release;
 }
-
 
 void smp_trigger_event(int target_cpu)
 {
@@ -119,6 +119,7 @@ void handle_IPI(int ipinr)
  */
 void secondary_start_kernel(void)
 {
+#ifndef CONFIG_ARCH_ARM64
 	unsigned int cpu = smp_processor_id();
 
 	cpu_init();
@@ -135,7 +136,7 @@ void secondary_start_kernel(void)
 
 	init_timer(cpu);
 
-	dmb();
+	smp_mb();
 
 	booted[cpu] = 1;
 
@@ -152,13 +153,20 @@ void secondary_start_kernel(void)
 	startup_cpu_idle_loop();
 
 	/* Never returned at this point ... */
-
+#endif
 }
+
+#ifndef CONFIG_ARCH_ARM64
 
 extern void vcpu_periodic_timer_start(struct vcpu *v);
 
 void cpu_up(unsigned int cpu)
 {
+
+	/* We re-create a small identity mapping to allow the hypervisor
+	 * to bootstrap correctly on other CPUs.
+	 */
+	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_1M, false);
 
 	/*
 	 * We need to tell the secondary core where to find
@@ -206,18 +214,23 @@ void cpu_up(unsigned int cpu)
 	secondary_data.pgdir = 0;
 }
 
+#endif /* CONFIG_ARCH_ARM64 */
+
 /******************************************************************************/
 /* From linux kernel/smp.c */
 
 /* Called by boot processor to activate the rest. */
 void smp_init(void)
 {
-	printk(KERN_INFO "CPU #%d is the second CPU reserved for Agency realtime activity.\n", AGENCY_RT_CPU);
+	printk("CPU #%d is the second CPU reserved for Agency realtime activity.\n", AGENCY_RT_CPU);
 
 	/* Since the RT domain is never scheduled, we set the current domain bound to
 	 * CPU #1 to this unique domain.
 	 */
 	per_cpu(current_domain, AGENCY_RT_CPU) = domains[DOMID_AGENCY_RT];
+
+/* CONFIG_ARM64 not yet supported at this point. */
+#ifndef CONFIG_ARCH_ARM64
 
 #ifndef CONFIG_PSCI
 	smp_prepare_cpus(NR_CPUS);
@@ -225,7 +238,11 @@ void smp_init(void)
 
 	cpu_up(ME_CPU);
 
-	printk(KERN_INFO "Brought secondary CPUs for AVZ (CPU #2 and CPU #3)\n");
+	printk("Brought secondary CPUs for AVZ (CPU #2 and CPU #3)\n");
+
+#endif /* CONFIG_ARCH_ARM64 */
+
 }
+
 
 

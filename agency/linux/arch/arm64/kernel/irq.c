@@ -22,6 +22,11 @@
 #include <asm/daifflags.h>
 #include <asm/vmap_stack.h>
 
+/* SOO.tech */
+#include <soo/uapi/soo.h>
+
+#include <soo/evtchn.h>
+
 unsigned long irq_err_count;
 
 /* Only access this in an NMI enter/exit */
@@ -46,6 +51,11 @@ static void init_irq_stacks(void)
 		p = arch_alloc_vmap_stack(IRQ_STACK_SIZE, cpu_to_node(cpu));
 		per_cpu(irq_stack_ptr, cpu) = p;
 	}
+
+	/* SOO.tech */
+	/* The RT CPU is not visible as possible CPU but needs a IRQ_STACK as well. */
+	p = arch_alloc_vmap_stack(IRQ_STACK_SIZE, cpu_to_node(AGENCY_RT_CPU));
+	per_cpu(irq_stack_ptr, AGENCY_RT_CPU) = p;
 }
 #else
 /* irq stack only needs to be 16 byte aligned - not IRQ_STACK_SIZE aligned. */
@@ -62,6 +72,10 @@ static void init_irq_stacks(void)
 
 void __init init_IRQ(void)
 {
+
+	/* SOO.tech */
+	virq_init();
+
 	init_irq_stacks();
 	irqchip_init();
 	if (!handle_arch_irq)

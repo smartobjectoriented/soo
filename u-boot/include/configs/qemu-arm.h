@@ -30,6 +30,7 @@
 	func(VIRTIO, virtio, 0) \
 	func(DHCP, dhcp, na)
 
+#if 0 /* SOO.tech */
 #include <config_distro_bootcmd.h>
 
 #define CONFIG_EXTRA_ENV_SETTINGS \
@@ -41,7 +42,12 @@
 	"kernel_addr_r=0x40400000\0" \
 	"ramdisk_addr_r=0x44000000\0" \
 	BOOTENV
+#endif /* 0 */
 
+#define CONFIG_BOOTCOMMAND \
+        "load virtio 0 0x40000000 uEnv.txt; env import 0x40000000; run start\0" \
+         "bootdelay=0\0"
+            
 #define CONFIG_SYS_CBSIZE 512
 
 #define CONFIG_SYS_MONITOR_BASE		CONFIG_SYS_TEXT_BASE
@@ -53,5 +59,8 @@
 #define CONFIG_SYS_MAX_FLASH_BANKS	2
 #endif
 #define CONFIG_SYS_MAX_FLASH_SECT	256 /* Sector: 256K, Bank: 64M */
+
+/* SOO.tech */
+#define CONFIG_SYS_BOOTM_LEN		SZ_64M
 
 #endif /* __CONFIG_H */

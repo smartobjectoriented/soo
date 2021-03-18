@@ -655,11 +655,14 @@ static void rfcomm_dev_data_ready(struct rfcomm_dlc *dlc, struct sk_buff *skb)
 	 */
 #if defined(CONFIG_SOOLINK_PLUGIN_BLUETOOTH)
 
+
 	/* Force the protocol of the SKB to ETH_P_SOOLINK_BT */
 	skb->protocol = htons(ETH_P_SOOLINK_BT);
 
 	/* Binding with Soolink */
-	sl_plugin_bt_rx(skb);
+	sl_plugin_bluetooth_rx(skb);
+
+	kfree_skb(skb);
 
 	return ;
 #else

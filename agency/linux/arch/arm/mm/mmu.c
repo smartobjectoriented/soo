@@ -397,9 +397,7 @@ void __init early_fixmap_init(void)
 		     != FIXADDR_TOP >> PMD_SHIFT);
 
 	pmd = fixmap_pmd(FIXADDR_TOP);
-#if 0 /* SOO.tech */
 	pmd_populate_kernel(&init_mm, pmd, bm_pte);
-#endif
 
 	pte_offset_fixmap = pte_offset_early_fixmap;
 }
@@ -1339,33 +1337,11 @@ void __init arm_mm_memblock_reserve(void)
  * Any other function or debugging method which may touch any device _will_
  * crash the kernel.
  */
-
-/* SOO.tech */
-#ifdef CONFIG_MACH_SUN50I
-
-extern int map_ll_uart(struct map_desc *map);
-extern int map_ll_gpio(struct map_desc *map);
-extern int map_ll_timer(struct map_desc *map);
-
-#endif
-
 static void __init devicemaps_init(const struct machine_desc *mdesc)
 {
 	struct map_desc map;
 	unsigned long addr;
 	void *vectors;
-
-	/* SOO.tech */
-#ifdef CONFIG_MACH_SUN50I
-
-	struct map_desc debug_map[3];
-	int debug_map_count = 0;
-#endif
-
- 	/* SOO.tech */
-	pmd_clear(pmd_off_k(0xffff0000));
-
-	local_flush_tlb_all();
 
 	/*
 	 * Allocate the vector page early.
@@ -1388,12 +1364,6 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 
 	for (addr = FIXADDR_START; addr < (FIXADDR_TOP & PMD_MASK); addr += PMD_SIZE)
 		pmd_clear(pmd_off_k(addr));
-
-/* SOO.tech */
-#ifdef CONFIG_MACH_SUN50I
-	debug_map_count += map_ll_gpio(&debug_map[debug_map_count]);
-	iotable_init(debug_map, debug_map_count);
-#endif
 
 
 	/*

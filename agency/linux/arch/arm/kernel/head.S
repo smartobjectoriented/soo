@@ -46,15 +46,12 @@
 #endif
 
 /* SOO.tech */
-	.extern swapper_pg_dir
 	.extern avz_setup
 	.extern guest_phys_offset
 	.extern __atags_pointer
 
-#if 0 /* SOO.tech */
 	.globl	swapper_pg_dir
 	.equ	swapper_pg_dir, KERNEL_RAM_VADDR - PG_DIR_SIZE
-#endif /* 0 */
 
 	.macro	pgtbl, rd, phys
 	add	\rd, \phys, #TEXT_OFFSET
@@ -86,9 +83,9 @@ ENTRY(stext)
  ARM_BE8(setend	be )			@ ensure we are in BE8 mode
 
 /* SOO.tech */
-/* swapper_pg_dir is now defined in arch/arm/kernel/setup.c */
+
 .type   _start, %function
-.section ".init.avzguest_start", "ax"
+.section ".init.fromavz_start", "ax"
 ENTRY(_start)
 
  THUMB(	badr	r9, 1f		)	@ Kernel is always entered in ARM.
@@ -142,8 +139,9 @@ ENTRY(_start)
 	ldr r2, =__atags_pointer
 	ldr r2, [r2]
 
-	ldr	r8, =avz_guest_phys_offset
-	ldr r8, [r8]
+	ldr r11, =avz_start_info
+	ldr r11, [r11]
+	ldr	r8, [r11, #AVZ_DOM_PHYS_OFFSET]
 
 	ldr r4, =swapper_pg_dir
 
@@ -180,7 +178,7 @@ ENTRY(_start)
 .LCcr_alignment:
     .long   cr_alignment
 
-    __init_sp:
+__init_sp:
     .long   init_thread_union+8192          @ sp
 
 

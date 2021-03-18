@@ -13,7 +13,7 @@ fi
 sudo rm -rf fs/*
 mkdir -p fs
  
-if [ "$PLATFORM" == "vexpress" -o "$PLATFORM" = "merida" ]; then
+if [ "$PLATFORM" == "vexpress" -o "$PLATFORM" = "merida" -o "$PLATFORM" == "virt64" ]; then
     devname=$(sudo losetup --partscan --find --show sdcard.img.${PLATFORM})
     FS_IMG=sdcard.img.${PLATFORM}
 
@@ -34,6 +34,6 @@ if [[ "$devname" = *[0-9] ]]; then
     export devname="${devname}p"
 fi
 
-if [ "$PLATFORM" == "rpi3" -o "$PLATFORM" == "bpi" -o "$PLATFORM" == "rpi4" ]; then
+if [ "$PLATFORM" == "rpi4" -o "$PLATFORM" == "virt64" ]; then
     sudo mount /dev/"${devname}"$1 fs
 fi

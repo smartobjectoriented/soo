@@ -418,8 +418,7 @@ struct xnthread *xnsched_findq(struct list_head *q, int prio)
 	return NULL;
 }
 
-static inline void switch_context(struct xnsched *sched,
-				  struct xnthread *prev, struct xnthread *next)
+static inline void switch_context(struct xnthread *prev, struct xnthread *next)
 {
 
 	xnarch_switch_to(prev, next);
@@ -508,7 +507,7 @@ reschedule:
 	lprintk("### xenomai changing thread from %s to %s ...\n", prev->name, next->name);
 #endif
 
-	switch_context(sched, prev, next);
+	switch_context(prev, next);
 
 	/* Check if the previous thread was terminated.
 	 * If another thread was joining the prev thread, it has been already woken up and

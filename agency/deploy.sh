@@ -85,7 +85,7 @@ export PLATFORM_TYPE
 # and ${PLATFORM_TYPE} to be used when the type is required.
 # Note that ${PLATFORM_TYPE} can be equal to ${PLATFORM} if no type is specified.
 
-if [ "$PLATFORM" != "vexpress" -a "$PLATFORM" != "merida" ]; then
+if [ "$PLATFORM" != "vexpress" -a "$PLATFORM" != "virt64" -a "$PLATFORM" != "merida" ]; then
     echo "Specify the device name of MMC (ex: sdb or mmcblk0 or other...)"
     read devname
     export devname="$devname"
@@ -105,7 +105,7 @@ if [ "$deploy_boot" == "y" ]; then
     sudo cp ../upgrade/root_flag fs/
     sudo cp ../../u-boot/uEnv.d/uEnv_${PLATFORM}.txt fs/uEnv.txt
 
-    if [ "$PLATFORM" == "vexpress" ]; then
+    if [ "$PLATFORM" == "vexpress" -o "$PLATFORM" == "virt64" ]; then
 	# Nothing else ...
         ./umount.sh
         cd ..

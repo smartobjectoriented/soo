@@ -230,13 +230,13 @@ void ipipe_timer_start(void (*tick_handler)(void), set_state_fn_t set_periodic, 
 {
 	struct clock_event_device *evtdev;
 	struct ipipe_timer *timer;
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 	unsigned long flags;
 #endif
 	timer = per_cpu(percpu_timer, cpu);
 	evtdev = timer->host_timer;
 
-#ifdef CONFIG_ARM
+#ifndef CONFIG_X86
 	local_irq_save(flags);
 	ipipe_request_irq(timer->irq, __ipipe_timer_handler, NULL);
 	local_irq_restore(flags);

@@ -114,6 +114,22 @@ rtdm_task_t *get_dc_isr(void) {
 }
 
 /*
+ * Proceed with the dc_event family dedeicated to the SL desc management.
+ */
+void rtdm_dc_sl_fn(dc_event_t dc_event) {
+
+	switch (dc_event) {
+
+
+	default:
+		lprintk("%s: failure on dc_event %d\n", __func__, dc_event);
+		BUG();
+
+	}
+
+}
+
+/*
  * IRQs off
  */
 static int rtdm_dc_isr(rtdm_irq_t *unused) {

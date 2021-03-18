@@ -24,8 +24,6 @@
 #include <vcpu.h>
 #include <sched.h>
 
-#include <device/arch/arm_timer.h>
-
 static DEFINE_SPINLOCK(timer_access);
 
 u64 sys_time;

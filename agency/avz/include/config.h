@@ -19,6 +19,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <generated/autoconf.h>
+
 #define	NR_CPUS			4
 
 /*
@@ -32,9 +34,6 @@
 #define AGENCY_RT_CPU     	1
 
 #define ME_CPU		 	3
-
-/* (DRE) Define the top of usable memory by the hypervisor and guest... */
-#define	TOP_PHYS_MEMORY		(CONFIG_RAM_BASE + CONFIG_RAM_SIZE - 1)
 
 /*
  * Allow for constants defined here to be used from assembly code
@@ -54,32 +53,13 @@
 #define STACK_ORDER 1
 #define STACK_SIZE  (PAGE_SIZE << STACK_ORDER)
 
-#define HEAP_MAX_SIZE_MB 	(2)
-
-#define HYPERVISOR_SIZE	0x00c00000  /* 12 MB */
-#define HYPERVISOR_PHYS_START CONFIG_RAM_BASE
-
-#define EXPORT_SYMBOL(var)
-#define EXPORT_SYMBOL_GPL(var)
-
-#define KERN_ERR       "<Error>"
-#define KERN_CRIT      "<Critical>"
-#define KERN_EMERG     "<Emergency>"
-#define KERN_WARNING   "<Warning>"
-#define KERN_NOTICE    "<Notice>"
-#define KERN_INFO      "<Info>"
-#define KERN_DEBUG     "<Debug>"
+#define HYPERVISOR_SIZE		UL(0x00c00000)  /* 12 MB */
+#define HYPERVISOR_PHYS_START 	CONFIG_RAM_BASE
 
 #ifndef __ASSEMBLY__
 
-int current_domain_id(void);
-#define dprintk(_l, _f, _a...)                              \
-    printk(_l "%s:%d: " _f, __FILE__ , __LINE__ , ## _a )
-#define gdprintk(_l, _f, _a...)                             \
-    printk(_l "%s:%d:d%d " _f, __FILE__,       \
-           __LINE__, current_domain_id() , ## _a )
-
 #include <compiler.h>
+#include <types.h>
 
 #endif /* !__ASSEMBLY__ */
 
@@ -88,25 +68,16 @@ int current_domain_id(void);
 
 #ifndef __ASSEMBLY__
 
-/* Turn a plain number into a C unsigned long constant. */
-#define __mk_unsigned_long(x) x ## UL
-#define mk_unsigned_long(x) __mk_unsigned_long(x)
+int current_domain_id(void);
+
 /*
  * Pseudo-usr mode allows the hypervisor to switch back to the right stack (G-stach/H-stack) depending on whether
  * the guest issued a hypercall or if an interrupt occurred during some processing in the hypervisor.
  * 0 means we are in some hypervisor code, 1 means we are in some guest code.
  */
-extern int pseudo_usr_mode[];
+extern addr_t pseudo_usr_mode[];
 
-#else /* __ASSEMBLY__ */
-
-/* In assembly code we cannot use C numeric constant suffixes. */
-#define mk_unsigned_long(x) x
 #endif /* !__ASSEMBLY__ */
-
-#define fastcall
-#define __cpuinitdata
-#define __cpuinit
 
 
 #endif /* CONFIG_H */

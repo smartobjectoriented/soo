@@ -50,6 +50,11 @@ struct fault_info {
 static const struct fault_info fault_info[];
 static struct fault_info debug_fault_info[];
 
+/* SOO.tech */
+void __stack_alignment_fault(void) {
+	panic("### wrong stack alignment (16-bytes not respected) !! ###");
+}
+
 static inline const struct fault_info *esr_to_fault_info(unsigned int esr)
 {
 	return fault_info + (esr & ESR_ELx_FSC);

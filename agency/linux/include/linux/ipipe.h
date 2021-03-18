@@ -41,13 +41,6 @@ void __ipipe_set_irq_pending(struct ipipe_domain *ipd, unsigned int irq);
 		local_irq_disable();		\
 	} while(0)
 
- 
-static inline bool __ipipe_hrclock_ok(void)
-{
-	return __ipipe_hrclock_freq != 0;
-}
-
-
 
 void ipipe_request_irq(unsigned int irq, ipipe_irq_handler_t handler, void *cookie);
 

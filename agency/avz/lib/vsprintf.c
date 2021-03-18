@@ -22,7 +22,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <common.h>
-#include <xmalloc.h>
+#include <heap.h>
 
 #include <memory.h>
 #include <string_helpers.h>
@@ -958,8 +958,8 @@ static char *address_val(char *buf, char *end, const void *addr,
 	switch (fmt[1]) {
 	case 'p':
 	default:
-		num = *(const phys_addr_t *)addr;
-		spec.field_width = sizeof(phys_addr_t) * 2 + 2;
+		num = *(const addr_t *)addr;
+		spec.field_width = sizeof(addr_t) * 2 + 2;
 		break;
 	}
 
@@ -1914,7 +1914,7 @@ char *kvasprintf(const char *fmt, va_list ap)
         len = vsnprintf(NULL, 0, fmt, aq);
         va_end(aq);
 
-        p = xmalloc_array(char, len+1);
+        p = malloc(len+1);
         if (!p)
                 BUG();
 
