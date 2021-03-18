@@ -240,10 +240,18 @@ export	HOSTARCH HOSTOS
 #########################################################################
 
 # set default to nothing for native builds
-#ifeq ($(HOSTARCH),$(ARCH))
-#CROSS_COMPILE ?= arm-linux-gnueabihf-
-CROSS_COMPILE ?= aarch64-linux-gnu-
-#endif
+# (SOO.tech) Usual toolchains for our systems
+include ../agency/build.conf
+
+ifeq ($(PLATFORM),$(filter $(PLATFORM),rpi4_64 virt64))
+ARCH	= arm64
+CROSS_COMPILE = aarch64-linux-gnu-
+endif
+
+ifeq ($(PLATFORM),$(filter $(PLATFORM),vexpress rpi4))
+ARCH = arm
+CROSS_COMPILE = arm-linux-gnueabihf-
+endif
 
 KCONFIG_CONFIG	?= .config
 export KCONFIG_CONFIG
