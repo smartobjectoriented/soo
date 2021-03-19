@@ -15,6 +15,7 @@
    user_guide
    logging
    aarch64
+   virt_interfaces/vuihandler
    
 ======================================
 Smart Object Oriented (SOO) Technology
