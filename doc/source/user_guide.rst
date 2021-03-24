@@ -196,7 +196,7 @@ to select the target platform.
 Possible platforms and types are:
 
 +------------+-------------------------------------+
-| Name       |                                     |
+| Name       | Platform                            |
 +============+=====================================+
 | *vexpress* | Basic QEMU/vExpress 32-bit platform |
 +------------+-------------------------------------+
