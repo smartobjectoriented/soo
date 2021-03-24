@@ -27,7 +27,7 @@
 #endif
 
 /*
- * The heap size is defined in arch/arm/so3.lds
+ * The heap size is defined in the linker script (avz.lds)
  * The value must be strictly the same.
 */
 #define HEAP_SIZE 	(2 * SZ_1M)

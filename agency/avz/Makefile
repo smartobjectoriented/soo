@@ -347,14 +347,11 @@ export TARGET CONFIG_BIN CONFIG_ELF
 ifeq ($(CONFIG_VEXPRESS),y)
 TARGET = vexpress
 endif
-ifeq ($(CONFIG_MERIDAv2),y)
-TARGET = merida
-endif
-ifeq ($(CONFIG_BPI),y)
-TARGET = bpi
-endif
 ifeq ($(CONFIG_RPI4),y)
 TARGET = rpi4
+endif
+ifeq ($(CONFIG_RPI4_64),y)
+TARGET = rpi4_64
 endif
 ifeq ($(CONFIG_VIRT64),y)
 TARGET = virt64

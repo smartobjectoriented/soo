@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# SO3 Configuration
+# AVZ Configuration
 #
 CONFIG_ARCH_ARM32=y
 # CONFIG_ARCH_ARM64 is not set
