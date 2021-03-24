@@ -18,7 +18,7 @@ HEAP_SIZE = 2 * 1024 * 1024;    /* 2 MB dedicated to kernel heap */
 SECTIONS
 {
    
-     . = ENTRY_ADDR;      
+     . = ENTRY_ADDR + 0x80000;
 
     .head.text :
     {

@@ -148,6 +148,7 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 	secondary_data.task = idle;
 	secondary_data.stack = task_stack_page(idle) + THREAD_SIZE;
 #endif
+
 	xnarch_init_thread(&__root_task);
 
 	secondary_data.task = __root_task.tcb.task;
@@ -288,11 +289,17 @@ asmlinkage notrace void secondary_start_kernel(void)
 	 */
 	notify_cpu_starting(cpu);
 
-#if 0
 	/* SOO.tech */
-	if (smp_processor_id() == AGENCY_RT_CPU)
-		__smp_vfp_enable();
-#endif
+	if (smp_processor_id() == AGENCY_RT_CPU) {
+
+		/* Enable SVE */
+		if (system_supports_sve()) {
+			printk("## Cobalt: system supports SVE.\n");
+			sve_kernel_enable(NULL);
+		} else
+			printk("## Cobalt: system does NOT support SVE.\n");
+
+	}
 
 	store_cpu_topology(cpu);
 	numa_add_cpu(cpu);
