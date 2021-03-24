@@ -16,7 +16,7 @@
  *
  */
 
-@ SO3 Kernel entry point
+@ AVZ Kernel entry point
 
 #include <config.h>
 #include <linkage.h>

@@ -229,13 +229,13 @@ ssize_t dbgvar_store(struct device *dev, struct device_attribute *attr, const ch
  */
 void dbgvar_register_fct(char key, dbgvar_fct_t fct) {
 	if (fct_array[(int) key]) {
-		lprintk(DBGVAR_PREFIX "Key already registered: '%c', %08x\n", key, (uint32_t) fct);
+		lprintk(DBGVAR_PREFIX "Key already registered: '%c', %08x\n", key, (unsigned long) fct);
 		return ;
 	}
 
 	fct_array[(int) key] = fct;
 
-	lprintk(DBGVAR_PREFIX "Key successfully registered: '%c', %08x\n", key, (uint32_t) fct);
+	lprintk(DBGVAR_PREFIX "Key successfully registered: '%c', %08x\n", key, (unsigned long) fct);
 }
 
 /**

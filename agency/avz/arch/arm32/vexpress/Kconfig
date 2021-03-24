@@ -5,6 +5,6 @@ config RAM_BASE
 
 config RAM_SIZE
         depends on VEXPRESS
-        hex "RAM memory size (1 GB -1 MB)"
-        default 0x3ff00000
+        hex "RAM memory size (Up to the hypervisor)"
+        default 0x3f000000
         

@@ -1,6 +1,6 @@
 
 
-mainmenu "SO3 Configuration"
+mainmenu "AVZ Hypervisor configuration"
  
 source "arch/Kconfig"
 

@@ -12,9 +12,6 @@ usage()
   echo "  -m    Deploy MEs according to the deploy script in ME partition."
   echo "  -t    Deploy Trused Application"
   echo "  -c    Remove all MEs from the third partition."
-  echo "  -f    Deploy via fastboot transfer and flash on eMMC."
-  echo "  -g    Deploy via fastboot and boot directly."
-  echo "  -e    Deploy via sunxi FEL mode."
   echo ""
   echo "ME_NAME is used with -a or -m and correspond to the <ME_NAME> in the ME path to be deployed."
   echo "Examples are:"
@@ -23,7 +20,7 @@ usage()
   exit 1
 }
 
-while getopts "abcerumfgt" o; do
+while getopts "abrumtc" o; do
   case "$o" in
     a)
       deploy_rootfs=y
@@ -49,15 +46,6 @@ while getopts "abcerumfgt" o; do
       ;;
     t)
       deploy_ta=y
-      ;;
-    f)
-      deploy_transfer=y
-      ;;
-    e)
-      deploy_fel=y
-      ;;
-    g)
-      deploy_fastboot=y
       ;;
     *)
       usage
@@ -85,7 +73,7 @@ export PLATFORM_TYPE
 # and ${PLATFORM_TYPE} to be used when the type is required.
 # Note that ${PLATFORM_TYPE} can be equal to ${PLATFORM} if no type is specified.
 
-if [ "$PLATFORM" != "vexpress" -a "$PLATFORM" != "virt64" -a "$PLATFORM" != "merida" ]; then
+if [ "$PLATFORM" != "vexpress" -a "$PLATFORM" != "virt64" ]; then
     echo "Specify the device name of MMC (ex: sdb or mmcblk0 or other...)"
     read devname
     export devname="$devname"
@@ -111,35 +99,16 @@ if [ "$deploy_boot" == "y" ]; then
         cd ..
     fi
 
-    if [ "$PLATFORM" == "merida" ]; then
-         ./umount.sh
-
-        # Deploy SPL in the image
-        echo Deploying SPL ...
-        dd if=../../u-boot/spl/sunxi-spl.bin of=sdcard.img.${PLATFORM} bs=1k seek=8 conv=notrunc
-
-        # ATF bl31.bin
-        echo Deploying ATF bl31.bin
-        dd if=../../trusted-firmware-a/build/sun50i_a64/debug/bl31.bin of=sdcard.img.${PLATFORM} bs=512 seek=10000 conv=notrunc
-
-        # OP-TEE OS
-        echo Deploying OP-TEE OS
-        dd if=../../optee_os/out/arm-plat-sunxi/core/tee-pager_v2.bin of=sdcard.img.${PLATFORM} bs=512 seek=10100 conv=notrunc
-
-        # U-boot uEnv.txt
-        echo Deploying uEnv.txt for U-boot environment
-        dd if=../../u-boot/uEnv.d/uEnv_merida.txt of=sdcard.img.${PLATFORM} bs=512 seek=11000 conv=notrunc
-
-        # U-Boot
-        echo Deploying u-boot with its dtb
-        dd if=../../u-boot/u-boot-dtb.bin of=sdcard.img.${PLATFORM} bs=512 seek=11001 conv=notrunc
-
-        cd ..
-    fi
-
     if [ "$PLATFORM" == "rpi4" ]; then
         sudo cp -r ../../bsp/rpi4/* fs/
         sudo cp ../../u-boot/u-boot.bin fs/kernel7.img
+        ./umount.sh
+        cd ..
+    fi
+    
+    if [ "$PLATFORM" == "rpi4_64" ]; then
+        sudo cp -r ../../bsp/rpi4/* fs/
+        sudo cp ../../u-boot/u-boot.bin fs/kernel8.img
         ./umount.sh
         cd ..
     fi
@@ -183,46 +152,4 @@ if [ "$clean_me" == "y" ]; then
     cd ../ME
     ./deploy.sh clean
     cd ../agency
-fi
-
-if [ "$deploy_transfer" == "y" ]; then
-
-    # Deploy on the board using fastboot (Merida use case)
-     ../bsp/merida/fastboot/build/fastboot/fastboot flash agency filesystem/sdcard.img.${PLATFORM}
-     ../bsp/merida/fastboot/build/fastboot/fastboot continue
-
-fi
-
-if [ "$deploy_fel" == "y" ]; then
-
-    echo "Deploying U-boot SPL..."
-    sudo ../bsp/merida/sunxi-tools/sunxi-fel -v spl ../u-boot/spl/sunxi-spl.bin
-
-    echo "Deploying Trusted Firmware"
-    sudo ../bsp/merida/sunxi-tools/sunxi-fel -p write 0x44000 ../trusted-firmware-a/build/sun50i_a64/debug/bl31.bin
-
-    echo "Deploying OPTEE"
-    sudo ../bsp/merida/sunxi-tools/sunxi-fel -p write 0x40000000 ../optee_os/out/arm-plat-sunxi/core/tee-pager_v2.bin
-
-    echo "Deploying U-boot"
-    sudo ../bsp/merida/sunxi-tools/sunxi-fel -p write 0x4a000000 ../u-boot/u-boot-dtb.bin
-
-    echo "Deploying uEnv.txt"
-    sudo ../bsp/merida/sunxi-tools/sunxi-fel -p write 0x4b000000 ../u-boot/uEnv.d/uEnv_merida.txt
-
-    #echo "Deploying Kernel"
-   # sudo ../bsp/merida/sunxi-tools/sunxi-fel -p write 0x52000000 target/${PLATFORM}/${PLATFORM_TYPE}
-
-    echo "Starting U-boot..."
-    sudo ../bsp/merida/sunxi-tools/sunxi-fel exe 0x4a000000
-
-    echo "Done."
-
-fi
-
-if [ "$deploy_fastboot" == "y" ]; then
-
-    # Deploy on the board using fastboot (Merida use case)
-    ../bsp/merida/fastboot/build/fastboot/fastboot boot target/${PLATFORM}.itb
-
 fi

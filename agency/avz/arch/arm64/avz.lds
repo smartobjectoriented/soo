@@ -1,5 +1,5 @@
 /*
- * Linker script for so3 kernel 
+ * Linker script for the avz hypervisor 
  */
 
 OUTPUT_ARCH(aarch64)
@@ -17,8 +17,11 @@ HEAP_SIZE = 2 * 1024 * 1024;    /* 2 MB dedicated to kernel heap */
  
 SECTIONS
 {
-   
-     . = ENTRY_ADDR;      
+     /* We start at the same entry point than Linux */
+     /* to avoid issues on boards like Raspberry Pi 4 */
+     /* where some firmware code is placed at 0x00000000 with a size of 0x1000 */
+     
+     . = ENTRY_ADDR + 0x80000;
 
     .head.text :
     {

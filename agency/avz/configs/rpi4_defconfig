@@ -1,6 +1,6 @@
 #
 # Automatically generated make config: don't edit
-# SO3 Configuration
+# AVZ Configuration
 #
 
 #
@@ -17,7 +17,7 @@ CONFIG_CROSS_COMPILE="arm-linux-gnueabihf-"
 CONFIG_RPI4=y
 # CONFIG_BCM2835 is not set
 CONFIG_RAM_BASE=0x00000000
-CONFIG_RAM_SIZE=0x3ff00000
+CONFIG_RAM_SIZE=0x3f000000
 
 #
 # Kernel & CPU features

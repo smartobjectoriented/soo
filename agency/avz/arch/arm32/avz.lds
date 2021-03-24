@@ -1,5 +1,5 @@
 /*
- * Linker script for so3 kernel 
+ * Linker script for the avz hypervisor 
  */
 
 OUTPUT_FORMAT(elf32-littlearm)

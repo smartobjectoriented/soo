@@ -76,6 +76,9 @@ __start:
 	cmp		x0, x1
 	b.cc	1b
 
+	mov	x0, #3 << 20
+	msr	cpacr_el1, x0			// Enable FP/ASIMD
+
     // Up to here, a stack should be initialized
 
 	// Set up the MMU
