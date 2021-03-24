@@ -36,29 +36,50 @@
 
 #include <soo/uapi/console.h>
 
+/*
+ * Save the FPU context which consists in FPSIMD and Scalable Vector Extension context.
+ */
 void xnarch_save_fpu(struct xnthread *thread)
 {
+	struct thread_struct *ts;
 
+	ts = &thread->tcb.task->thread;
+
+	if (system_supports_sve())
+		sve_save_state(ts->sve_state + sve_ffr_offset(ts->sve_vl), &ts->uw.fpsimd_state.fpsr);
+
+	fpsimd_save_state(&ts->uw.fpsimd_state);
 }
 
-void xnarch_switch_fpu(struct xnthread *from, struct xnthread *to)
+/*
+ * Restore the FPU context
+ */
+void xnarch_restore_fpu(struct xnthread *thread)
 {
+	struct thread_struct *ts;
 
+	ts = &thread->tcb.task->thread;
+
+	if (system_supports_sve())
+		sve_load_state(ts->sve_state + sve_ffr_offset(ts->sve_vl),
+			       &ts->uw.fpsimd_state.fpsr, sve_vq_from_vl(ts->sve_vl) - 1);
+
+	fpsimd_load_state(&ts->uw.fpsimd_state);
 }
 
 /* To be completed later on */
 void xnarch_init_thread(struct xnthread *thread) {
 	void *thread_stack;
 	struct task_struct *p;
-	struct pt_regs *childregs;
 
 	/* Underlying Linux task struct for various purposes like current() in stack_strace function */
 	thread->tcb.task = kmalloc(sizeof(struct task_struct), GFP_ATOMIC);
 	BUG_ON(!thread->tcb.task);
+
 	memset(thread->tcb.task, 0, sizeof(struct task_struct));
 
 	/* Init the xnthread stack within the VMALLOC area of Linux. */
-	thread_stack = __vmalloc_node_range(THREAD_SIZE, THREAD_ALIGN,
+	thread_stack = __vmalloc_node_range(XNTHREAD_STACK_SIZE, THREAD_ALIGN,
 					     VMALLOC_START, VMALLOC_END,
 					     __GFP_ATOMIC,
 					     PAGE_KERNEL,
@@ -80,14 +101,7 @@ void xnarch_init_thread(struct xnthread *thread) {
 	 * will be simpler to handle (context switch, FPU, etc.).
 	 */
 
-	childregs = task_pt_regs(p);
-
-	childregs->orig_x0 = 0;
-
-	childregs->pc = (unsigned long)thread->tcb.start_pc;
-	childregs->sp = (u64) p->stack + XNTHREAD_STACK_SIZE;
-
-	thread->tcb.sp = childregs->sp;
+	thread->tcb.sp = (u64) p->stack + XNTHREAD_STACK_SIZE;
 
 	thread->tcb.task->thread.cpu_context.sp = thread->tcb.sp;
 	thread->tcb.task->thread.cpu_context.pc = thread->tcb.pc;
@@ -96,6 +110,12 @@ void xnarch_init_thread(struct xnthread *thread) {
 
 	/* XNFPU is always set */
 	xnthread_set_state(thread, XNFPU);
+
+	/* Initialize the FPU/SVE context */
+	if (system_supports_sve()) {
+		thread->tcb.task->thread.sve_vl = __SVE_VL_MAX;
+		sve_alloc(thread->tcb.task);
+	}
 }
 
 /*
@@ -118,22 +138,13 @@ void xnarch_switch_to(struct xnthread *out, struct xnthread *in)
 {
 	BUG_ON(!hard_irqs_disabled());
 
+	barrier();
 
-#if 0
-	tls_thread_switch(next);
-	hw_breakpoint_thread_switch(next);
-	contextidr_thread_switch(next);
-#endif
-	// Do not use the IRQ stack on CPU #1, because there may be scheduling
-	// after the top half processing, but before the stack switch of the normal
-	// return path.
-
-	//entry_task_switch(in->tcb.task);
-#if 0
-	uao_thread_switch(next);
-	ptrauth_thread_switch(next);
-	ssbs_thread_switch(next);
-#endif
+	/*
+	 * Save the FPSIMD and SVE context
+	 *
+	 */
+	xnarch_save_fpu(out);
 
 	/* Update the current thread */
 	__xnthread_current = in;
@@ -148,4 +159,8 @@ void xnarch_switch_to(struct xnthread *out, struct xnthread *in)
 
 	cpu_switch_to(out->tcb.task, in->tcb.task);
 
+	/*
+	 * Restore the FPSIMD and SVE context
+	 */
+	xnarch_restore_fpu(in);
 }

@@ -9,3 +9,5 @@ obj-y   += dcm/
 obj-y 	+= soolink/
 
 obj-$(CONFIG_XENOMAI) += rtapp.o
+
+CFLAGS_REMOVE_rtapp.o = -mgeneral-regs-only
