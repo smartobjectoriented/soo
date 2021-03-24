@@ -1,5 +1,5 @@
 /*
- * Linker script for the avz hypervisor 
+ * Linker script for so3 kernel 
  */
 
 OUTPUT_ARCH(aarch64)
