@@ -342,7 +342,6 @@ void async_event_test(dc_event_t dc_event) {
 }
 
 int rtapp_main(void *args) {
-
 	unsigned int *pgdir;
 
 	lprintk("RT Agency ready\n");
