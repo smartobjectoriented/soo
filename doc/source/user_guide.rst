@@ -162,6 +162,22 @@ commands (from the soo directory):
    make vexpress_defconfig
    make -j8
 
+The following configurations are available:
+
++-----------------------+-------------------------------------+
+| Name                  | Platform                            |
++=======================+=====================================+
+| *vexpress_defconfig*  | Basic QEMU/vExpress 32-bit platform |
++-----------------------+-------------------------------------+
+| *virt64_defconfig*    | QEMU/virt 64-bit platform           |
++-----------------------+-------------------------------------+
+| *rpi_3_32b_defconfig* | Raspberry Pi 4 in 32-bit mode       |
++-----------------------+-------------------------------------+
+| *rpi4_defconfig*      | Raspberry Pi 4 in 64-bit mode       |
++-----------------------+-------------------------------------+
+
+(The last one is a custom configuration and is to be used as replacemenent
+of rpi_4_defconfig)
 
 SOO Components
 --------------
