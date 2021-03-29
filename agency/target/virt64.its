@@ -70,7 +70,7 @@
 		default = "agency_tz";
 		
 		agency_tz {
-			description = "SOO Agency on vExpress";
+			description = "SOO Agency on virt64";
 		    kernel = "avz";
             loadables = "linux"; 
              fdt = "fdt_tz"; 
