@@ -158,7 +158,7 @@ MAKEFLAGS += --include-dir=$(srctree)
 $(srctree)/scripts/Kbuild.include: ;
 include $(srctree)/scripts/Kbuild.include
 
-dAWK		= awk
+AWK		= awk
 PERL	= perl
 LEX		= flex
 YACC	= bison

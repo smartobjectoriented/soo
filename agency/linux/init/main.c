@@ -108,9 +108,7 @@
 
 #include <soo/evtchn.h>
 
-#ifdef CONFIG_XENOMAI
 #include <xenomai/rtdm/driver.h>
-#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/initcall.h>

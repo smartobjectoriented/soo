@@ -543,6 +543,7 @@ void forget_RT_cpu(void) {
 
 void showup_RT_cpu(void) {
 	set_cpu_possible(AGENCY_RT_CPU, true);
+	set_cpu_present(AGENCY_RT_CPU, true);
 }
 
 
