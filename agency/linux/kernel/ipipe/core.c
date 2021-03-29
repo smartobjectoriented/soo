@@ -58,6 +58,9 @@ void (*ipipe_assign_chip)(ipipe_irqdesc_t *irqdesc) = NULL;
 
 ipipe_irqdesc_t irqdescs[NR_PIRQS + NR_VIRQS];
 
+extern struct irq_chip bcm2835_gpio_irq_chip;
+extern struct gpio_chip bcm2835_gpio_chip;
+
 DEFINE_PER_CPU(struct ipipe_percpu_data, ipipe_percpu) = {
 	.hrtimer_irq = -1,
 #ifdef CONFIG_IPIPE_DEBUG_CONTEXT
@@ -111,6 +114,7 @@ static const struct file_operations __ipipe_info_proc_ops = {
 	.release	= single_release,
 };
 
+
 void  __ipipe_init_early(void)
 {
 	int i;
@@ -123,7 +127,7 @@ void  __ipipe_init_early(void)
 
 	for (i = 16; i < NR_PIRQS + NR_VIRQS; i++) {
 		irqdescs[i].irq = i;
-
+		raw_spin_lock_init(&irqdescs[i].lock);
 		ipipe_assign_chip(&irqdescs[i]);
 	}
 }
@@ -199,8 +203,11 @@ void __ipipe_dispatch_irq(unsigned int irq, bool reset) {
 
 	BUG_ON(!hard_irqs_disabled());
 
-	if (chip)
+	if (chip) {
 		chip->irq_unmask(&irqdescs[irq].irq_data);
+		if (chip->irq_ack)
+			chip->irq_ack(&irqdescs[irq].irq_data);
+	}
 
 	/* An IPI does not have an eoi routine. */
 	if (chip && (chip->irq_eoi)) /* There is no eoi function for VIRQ */
@@ -225,6 +232,16 @@ void __ipipe_dispatch_irq(unsigned int irq, bool reset) {
 
 	return ;
 
+}
+
+ipipe_irqdesc_t *ipipe_irq_to_desc(unsigned int irq)
+{
+	return &irqdescs[irq];
+}
+
+struct irq_chip *ipipe_irq_desc_get_chip(ipipe_irqdesc_t *desc)
+{
+	return desc->irq_data.chip;
 }
 
 #define __ipipe_preempt_schedule_irq()	do { } while (0)

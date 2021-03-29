@@ -29,8 +29,8 @@ SOO Concepts and Architecture
 - :ref:`Introduction to SOO <introduction>`
 - :ref:`Architecture <architecture>`
 
-Setup and Envronment
-====================
+Setup and Environment
+=====================
 
 -  :ref:`User Guide <user_guide>`
 -  `Logging system <logging>`__
