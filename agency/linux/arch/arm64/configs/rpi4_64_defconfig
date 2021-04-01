@@ -4,10 +4,10 @@
 #
 
 #
-# Compiler: aarch64-linux-gnu-gcc (GNU Toolchain for the A-profile Architecture 8.3-2019.03 (arm-rel-8.36)) 8.3.0
+# Compiler: aarch64-none-linux-gnu-gcc (GNU Toolchain for the A-profile Architecture 10.2-2020.11 (arm-10.16)) 10.2.1 20201103
 #
 CONFIG_CC_IS_GCC=y
-CONFIG_GCC_VERSION=80300
+CONFIG_GCC_VERSION=100201
 CONFIG_CLANG_VERSION=0
 CONFIG_CC_CAN_LINK=y
 CONFIG_CC_HAS_ASM_GOTO=y
@@ -388,6 +388,8 @@ CONFIG_ARM64_SVE=y
 CONFIG_ARM64_MODULE_PLTS=y
 # CONFIG_ARM64_PSEUDO_NMI is not set
 # CONFIG_RANDOMIZE_BASE is not set
+CONFIG_CC_HAVE_STACKPROTECTOR_SYSREG=y
+CONFIG_STACKPROTECTOR_PER_TASK=y
 # end of Kernel Features
 
 #
@@ -928,7 +930,33 @@ CONFIG_NET_FLOW_LIMIT=y
 
 # CONFIG_HAMRADIO is not set
 # CONFIG_CAN is not set
-# CONFIG_BT is not set
+CONFIG_BT=y
+CONFIG_BT_BREDR=y
+CONFIG_BT_RFCOMM=y
+CONFIG_BT_RFCOMM_TTY=y
+# CONFIG_BT_BNEP is not set
+# CONFIG_BT_HIDP is not set
+CONFIG_BT_HS=y
+CONFIG_BT_LE=y
+# CONFIG_BT_LEDS is not set
+# CONFIG_BT_SELFTEST is not set
+CONFIG_BT_DEBUGFS=y
+
+#
+# Bluetooth device drivers
+#
+# CONFIG_BT_HCIBTUSB is not set
+# CONFIG_BT_HCIBTSDIO is not set
+# CONFIG_BT_HCIUART is not set
+# CONFIG_BT_HCIBCM203X is not set
+# CONFIG_BT_HCIBPA10X is not set
+# CONFIG_BT_HCIBFUSB is not set
+# CONFIG_BT_HCIVHCI is not set
+# CONFIG_BT_MRVL is not set
+# CONFIG_BT_MTKSDIO is not set
+# CONFIG_BT_MTKUART is not set
+# end of Bluetooth device drivers
+
 # CONFIG_AF_RXRPC is not set
 # CONFIG_AF_KCM is not set
 CONFIG_FIB_RULES=y
@@ -3639,7 +3667,7 @@ CONFIG_CRYPTO_ECB=y
 #
 # Hash modes
 #
-# CONFIG_CRYPTO_CMAC is not set
+CONFIG_CRYPTO_CMAC=y
 CONFIG_CRYPTO_HMAC=y
 # CONFIG_CRYPTO_XCBC is not set
 # CONFIG_CRYPTO_VMAC is not set
@@ -4092,6 +4120,7 @@ CONFIG_STRICT_DEVMEM=y
 #
 # CONFIG_SOOLINK_PLUGIN_WLAN is not set
 CONFIG_SOOLINK_PLUGIN_ETHERNET=y
+CONFIG_SOOLINK_PLUGIN_BLUETOOTH=y
 # CONFIG_SOOLINK_PLUGIN_LOOPBACK is not set
 # CONFIG_SOOLINK_PLUGIN_SIMULATION is not set
 # end of Soolink plugins

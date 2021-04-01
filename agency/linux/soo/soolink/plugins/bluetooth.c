@@ -55,7 +55,7 @@ void plugin_bt_tx(sl_desc_t *sl_desc, void *data, size_t size) {
  * Receive a packet from the Bluetooth interface.
  * For example, called from net/bluetooth/rfcomm/tty.c
  */
-void sl_plugin_bt_rx(struct sk_buff *skb) {
+void plugin_bt_rx(struct sk_buff *skb) {
 	soo_plugin_bt_t *soo_plugin_bt;
 
 	soo_plugin_bt = container_of(current_soo_plugin->__intf[SL_IF_BT], soo_plugin_bt_t, plugin_bt_desc);
