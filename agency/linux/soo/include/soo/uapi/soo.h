@@ -229,7 +229,10 @@ extern agencyUID_t null_agencyUID;
  * Species Aptitude Descriptor (SPAD)
  */
 typedef struct {
-	bool		valid; /* True means that the ME accepts to collaborate with other ME */
+
+	/* Indicate if the ME accepts to collaborate with other ME */
+	bool		valid;
+
 	unsigned char	caps[SPAD_CAPS_SIZE];
 } spad_t;
 
