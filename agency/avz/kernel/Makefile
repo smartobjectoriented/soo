@@ -18,7 +18,7 @@ obj-y += smp.o
 obj-y += time.o
 
 obj-$(CONFIG_ARCH_ARM32) += dom_mig_transfer.o dom_mig_restore.o
-obj-$(CONFIG_ARCH_ARM32) += soo_activity.o
+obj-y += soo_activity.o
 
 obj-y += bitmap.o
 obj-y += domctl.o

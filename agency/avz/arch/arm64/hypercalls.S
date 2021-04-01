@@ -264,10 +264,7 @@ __hypercall_start:
 	.quad do_physdev_op
 	.quad do_sched_op
 	.quad do_domctl
-
-#ifdef CONFIG_ARCH_ARM32
 	.quad do_soo_hypercall
-#endif
 
 __hypercall_end:
 
