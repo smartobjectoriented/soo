@@ -19,7 +19,6 @@
 #include <smp.h>
 #include <io.h>
 #include <spinlock.h>
-#include <lib.h>
 #include <memory.h>
 
 #include <asm/cacheflush.h>
@@ -44,7 +43,7 @@ void smp_boot_secondary(unsigned int cpu)
 
 	printk("%s: booting CPU: %d...\n", __func__, cpu);
 
-	intc_vaddr = ioremap(LOCAL_INTC_PHYS, LOCAL_INTC_SIZE);
+	intc_vaddr = io_map(LOCAL_INTC_PHYS, LOCAL_INTC_SIZE);
 
 	writel(secondary_startup_phys, intc_vaddr + LOCAL_MAILBOX3_SET0 + 16 * cpu);
 
