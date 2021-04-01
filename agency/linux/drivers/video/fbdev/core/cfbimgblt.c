@@ -28,11 +28,6 @@
  *
  *  Also need to add code to deal with cards endians that are different than
  *  the native cpu endians. I also need to deal with MSB position in the word.
- *  Modified by Harm Hanemaaijer (fgenfb@yahoo.com) 2013:
- *  - Provide optimized versions of fast_imageblit for 16 and 32bpp that are
- *    significantly faster than the previous implementation.
- *  - Simplify the fast/slow_imageblit selection code, avoiding integer
- *    divides.
  */
 #include <linux/module.h>
 #include <linux/string.h>
@@ -267,6 +262,7 @@ static inline void fast_imageblit(const struct fb_image *image, struct fb_info *
 	}
 }	
 	
+/* SOO.tech */
 /*
  * Optimized fast_imageblit for bpp == 16. ppw = 2, bit_mask = 3 folded
  * into the code, main loop unrolled.
@@ -426,21 +422,11 @@ void cfb_imageblit(struct fb_info *p, const struct fb_image *image)
 			bgcolor = image->bg_color;
 		}	
 		
-		if (!start_index && !pitch_index) {
-			if (bpp == 32)
-				fast_imageblit32(image, p, dst1, fgcolor,
-						 bgcolor);
-			else if (bpp == 16 && (width & 1) == 0)
-				fast_imageblit16(image, p, dst1, fgcolor,
-						 bgcolor);
-			else if (bpp == 8 && (width & 3) == 0)
-				fast_imageblit(image, p, dst1, fgcolor,
-					       bgcolor);
-			else
-				slow_imageblit(image, p, dst1, fgcolor,
-					       bgcolor,
-					       start_index, pitch_index);
-		} else
+		if (32 % bpp == 0 && !start_index && !pitch_index && 
+		    ((width & (32/bpp-1)) == 0) &&
+		    bpp >= 8 && bpp <= 32) 			
+			fast_imageblit(image, p, dst1, fgcolor, bgcolor);
+		else 
 			slow_imageblit(image, p, dst1, fgcolor, bgcolor,
 					start_index, pitch_index);
 	} else

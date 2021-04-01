@@ -279,29 +279,6 @@ TRACE_EVENT(cobalt_thread_resume,
 		  __entry->thread, __entry->mask)
 );
 
-TRACE_EVENT(cobalt_thread_fault,
-	TP_PROTO(struct xnthread *thread, struct ipipe_trap_data *td),
-	TP_ARGS(thread, td),
-
-	TP_STRUCT__entry(
-		__field(struct xnthread *, thread)
-		__string(name, thread->name)
-		__field(void *,	ip)
-		__field(unsigned int, type)
-	),
-
-	TP_fast_assign(
-		__entry->thread = thread;
-		__assign_str(name, thread->name);
-		__entry->ip = (void *)xnarch_fault_pc(td);
-		__entry->type = xnarch_fault_trap(td);
-	),
-
-	TP_printk("thread=%p(%s) ip=%p type=%x",
-		  __entry->thread, __get_str(name), __entry->ip,
-		  __entry->type)
-);
-
 DEFINE_EVENT(thread_event, cobalt_thread_start,
 	TP_PROTO(struct xnthread *thread),
 	TP_ARGS(thread)

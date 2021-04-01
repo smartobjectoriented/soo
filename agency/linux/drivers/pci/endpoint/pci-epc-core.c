@@ -120,6 +120,7 @@ const struct pci_epc_features *pci_epc_get_features(struct pci_epc *epc,
 						    u8 func_no)
 {
 	const struct pci_epc_features *epc_features;
+	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions)
 		return NULL;
@@ -127,9 +128,9 @@ const struct pci_epc_features *pci_epc_get_features(struct pci_epc *epc,
 	if (!epc->ops->get_features)
 		return NULL;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	epc_features = epc->ops->get_features(epc, func_no);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 
 	return epc_features;
 }
@@ -143,12 +144,14 @@ EXPORT_SYMBOL_GPL(pci_epc_get_features);
  */
 void pci_epc_stop(struct pci_epc *epc)
 {
+	unsigned long flags;
+
 	if (IS_ERR(epc) || !epc->ops->stop)
 		return;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	epc->ops->stop(epc);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 }
 EXPORT_SYMBOL_GPL(pci_epc_stop);
 
@@ -161,6 +164,7 @@ EXPORT_SYMBOL_GPL(pci_epc_stop);
 int pci_epc_start(struct pci_epc *epc)
 {
 	int ret;
+	unsigned long flags;
 
 	if (IS_ERR(epc))
 		return -EINVAL;
@@ -168,9 +172,9 @@ int pci_epc_start(struct pci_epc *epc)
 	if (!epc->ops->start)
 		return 0;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	ret = epc->ops->start(epc);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 
 	return ret;
 }
@@ -189,6 +193,7 @@ int pci_epc_raise_irq(struct pci_epc *epc, u8 func_no,
 		      enum pci_epc_irq_type type, u16 interrupt_num)
 {
 	int ret;
+	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions)
 		return -EINVAL;
@@ -196,9 +201,9 @@ int pci_epc_raise_irq(struct pci_epc *epc, u8 func_no,
 	if (!epc->ops->raise_irq)
 		return 0;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	ret = epc->ops->raise_irq(epc, func_no, type, interrupt_num);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 
 	return ret;
 }
@@ -214,6 +219,7 @@ EXPORT_SYMBOL_GPL(pci_epc_raise_irq);
 int pci_epc_get_msi(struct pci_epc *epc, u8 func_no)
 {
 	int interrupt;
+	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions)
 		return 0;
@@ -221,9 +227,9 @@ int pci_epc_get_msi(struct pci_epc *epc, u8 func_no)
 	if (!epc->ops->get_msi)
 		return 0;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	interrupt = epc->ops->get_msi(epc, func_no);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 
 	if (interrupt < 0)
 		return 0;
@@ -246,6 +252,7 @@ int pci_epc_set_msi(struct pci_epc *epc, u8 func_no, u8 interrupts)
 {
 	int ret;
 	u8 encode_int;
+	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions ||
 	    interrupts > 32)
@@ -256,9 +263,9 @@ int pci_epc_set_msi(struct pci_epc *epc, u8 func_no, u8 interrupts)
 
 	encode_int = order_base_2(interrupts);
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	ret = epc->ops->set_msi(epc, func_no, encode_int);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 
 	return ret;
 }
@@ -274,6 +281,7 @@ EXPORT_SYMBOL_GPL(pci_epc_set_msi);
 int pci_epc_get_msix(struct pci_epc *epc, u8 func_no)
 {
 	int interrupt;
+	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions)
 		return 0;
@@ -281,9 +289,9 @@ int pci_epc_get_msix(struct pci_epc *epc, u8 func_no)
 	if (!epc->ops->get_msix)
 		return 0;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	interrupt = epc->ops->get_msix(epc, func_no);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 
 	if (interrupt < 0)
 		return 0;
@@ -297,15 +305,13 @@ EXPORT_SYMBOL_GPL(pci_epc_get_msix);
  * @epc: the EPC device on which MSI-X has to be configured
  * @func_no: the endpoint function number in the EPC device
  * @interrupts: number of MSI-X interrupts required by the EPF
- * @bir: BAR where the MSI-X table resides
- * @offset: Offset pointing to the start of MSI-X table
  *
  * Invoke to set the required number of MSI-X interrupts.
  */
-int pci_epc_set_msix(struct pci_epc *epc, u8 func_no, u16 interrupts,
-		     enum pci_barno bir, u32 offset)
+int pci_epc_set_msix(struct pci_epc *epc, u8 func_no, u16 interrupts)
 {
 	int ret;
+	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions ||
 	    interrupts < 1 || interrupts > 2048)
@@ -314,9 +320,9 @@ int pci_epc_set_msix(struct pci_epc *epc, u8 func_no, u16 interrupts,
 	if (!epc->ops->set_msix)
 		return 0;
 
-	mutex_lock(&epc->lock);
-	ret = epc->ops->set_msix(epc, func_no, interrupts - 1, bir, offset);
-	mutex_unlock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
+	ret = epc->ops->set_msix(epc, func_no, interrupts - 1);
+	spin_unlock_irqrestore(&epc->lock, flags);
 
 	return ret;
 }
@@ -333,15 +339,17 @@ EXPORT_SYMBOL_GPL(pci_epc_set_msix);
 void pci_epc_unmap_addr(struct pci_epc *epc, u8 func_no,
 			phys_addr_t phys_addr)
 {
+	unsigned long flags;
+
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions)
 		return;
 
 	if (!epc->ops->unmap_addr)
 		return;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	epc->ops->unmap_addr(epc, func_no, phys_addr);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 }
 EXPORT_SYMBOL_GPL(pci_epc_unmap_addr);
 
@@ -359,6 +367,7 @@ int pci_epc_map_addr(struct pci_epc *epc, u8 func_no,
 		     phys_addr_t phys_addr, u64 pci_addr, size_t size)
 {
 	int ret;
+	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions)
 		return -EINVAL;
@@ -366,9 +375,9 @@ int pci_epc_map_addr(struct pci_epc *epc, u8 func_no,
 	if (!epc->ops->map_addr)
 		return 0;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	ret = epc->ops->map_addr(epc, func_no, phys_addr, pci_addr, size);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 
 	return ret;
 }
@@ -385,6 +394,8 @@ EXPORT_SYMBOL_GPL(pci_epc_map_addr);
 void pci_epc_clear_bar(struct pci_epc *epc, u8 func_no,
 		       struct pci_epf_bar *epf_bar)
 {
+	unsigned long flags;
+
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions ||
 	    (epf_bar->barno == BAR_5 &&
 	     epf_bar->flags & PCI_BASE_ADDRESS_MEM_TYPE_64))
@@ -393,9 +404,9 @@ void pci_epc_clear_bar(struct pci_epc *epc, u8 func_no,
 	if (!epc->ops->clear_bar)
 		return;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	epc->ops->clear_bar(epc, func_no, epf_bar);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 }
 EXPORT_SYMBOL_GPL(pci_epc_clear_bar);
 
@@ -411,6 +422,7 @@ int pci_epc_set_bar(struct pci_epc *epc, u8 func_no,
 		    struct pci_epf_bar *epf_bar)
 {
 	int ret;
+	unsigned long irq_flags;
 	int flags = epf_bar->flags;
 
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions ||
@@ -425,9 +437,9 @@ int pci_epc_set_bar(struct pci_epc *epc, u8 func_no,
 	if (!epc->ops->set_bar)
 		return 0;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, irq_flags);
 	ret = epc->ops->set_bar(epc, func_no, epf_bar);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, irq_flags);
 
 	return ret;
 }
@@ -448,6 +460,7 @@ int pci_epc_write_header(struct pci_epc *epc, u8 func_no,
 			 struct pci_epf_header *header)
 {
 	int ret;
+	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions)
 		return -EINVAL;
@@ -455,9 +468,9 @@ int pci_epc_write_header(struct pci_epc *epc, u8 func_no,
 	if (!epc->ops->write_header)
 		return 0;
 
-	mutex_lock(&epc->lock);
+	spin_lock_irqsave(&epc->lock, flags);
 	ret = epc->ops->write_header(epc, func_no, header);
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 
 	return ret;
 }
@@ -474,8 +487,7 @@ EXPORT_SYMBOL_GPL(pci_epc_write_header);
  */
 int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf)
 {
-	u32 func_no;
-	int ret = 0;
+	unsigned long flags;
 
 	if (epf->epc)
 		return -EBUSY;
@@ -483,30 +495,16 @@ int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf)
 	if (IS_ERR(epc))
 		return -EINVAL;
 
-	mutex_lock(&epc->lock);
-	func_no = find_first_zero_bit(&epc->function_num_map,
-				      BITS_PER_LONG);
-	if (func_no >= BITS_PER_LONG) {
-		ret = -EINVAL;
-		goto ret;
-	}
+	if (epf->func_no > epc->max_functions - 1)
+		return -EINVAL;
 
-	if (func_no > epc->max_functions - 1) {
-		dev_err(&epc->dev, "Exceeding max supported Function Number\n");
-		ret = -EINVAL;
-		goto ret;
-	}
-
-	set_bit(func_no, &epc->function_num_map);
-	epf->func_no = func_no;
 	epf->epc = epc;
 
+	spin_lock_irqsave(&epc->lock, flags);
 	list_add_tail(&epf->list, &epc->pci_epf);
+	spin_unlock_irqrestore(&epc->lock, flags);
 
-ret:
-	mutex_unlock(&epc->lock);
-
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(pci_epc_add_epf);
 
@@ -519,14 +517,15 @@ EXPORT_SYMBOL_GPL(pci_epc_add_epf);
  */
 void pci_epc_remove_epf(struct pci_epc *epc, struct pci_epf *epf)
 {
+	unsigned long flags;
+
 	if (!epc || IS_ERR(epc) || !epf)
 		return;
 
-	mutex_lock(&epc->lock);
-	clear_bit(epf->func_no, &epc->function_num_map);
+	spin_lock_irqsave(&epc->lock, flags);
 	list_del(&epf->list);
 	epf->epc = NULL;
-	mutex_unlock(&epc->lock);
+	spin_unlock_irqrestore(&epc->lock, flags);
 }
 EXPORT_SYMBOL_GPL(pci_epc_remove_epf);
 
@@ -540,29 +539,18 @@ EXPORT_SYMBOL_GPL(pci_epc_remove_epf);
  */
 void pci_epc_linkup(struct pci_epc *epc)
 {
+	unsigned long flags;
+	struct pci_epf *epf;
+
 	if (!epc || IS_ERR(epc))
 		return;
 
-	atomic_notifier_call_chain(&epc->notifier, LINK_UP, NULL);
+	spin_lock_irqsave(&epc->lock, flags);
+	list_for_each_entry(epf, &epc->pci_epf, list)
+		pci_epf_linkup(epf);
+	spin_unlock_irqrestore(&epc->lock, flags);
 }
 EXPORT_SYMBOL_GPL(pci_epc_linkup);
-
-/**
- * pci_epc_init_notify() - Notify the EPF device that EPC device's core
- *			   initialization is completed.
- * @epc: the EPC device whose core initialization is completeds
- *
- * Invoke to Notify the EPF device that the EPC device's initialization
- * is completed.
- */
-void pci_epc_init_notify(struct pci_epc *epc)
-{
-	if (!epc || IS_ERR(epc))
-		return;
-
-	atomic_notifier_call_chain(&epc->notifier, CORE_INIT, NULL);
-}
-EXPORT_SYMBOL_GPL(pci_epc_init_notify);
 
 /**
  * pci_epc_destroy() - destroy the EPC device
@@ -622,9 +610,8 @@ __pci_epc_create(struct device *dev, const struct pci_epc_ops *ops,
 		goto err_ret;
 	}
 
-	mutex_init(&epc->lock);
+	spin_lock_init(&epc->lock);
 	INIT_LIST_HEAD(&epc->pci_epf);
-	ATOMIC_INIT_NOTIFIER_HEAD(&epc->notifier);
 
 	device_initialize(&epc->dev);
 	epc->dev.class = pci_epc_class;

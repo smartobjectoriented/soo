@@ -257,3 +257,5 @@ obj-$(CONFIG_MFD_ROHM_BD718XX)	+= rohm-bd718x7.o
 obj-$(CONFIG_MFD_STMFX) 	+= stmfx.o
 obj-$(CONFIG_MFD_RPISENSE_CORE)	+= rpisense-core.o
 
+# SOO.tech
+obj-$(CONFIG_MFD_RPISENSE_CORE)	+= rpisense-core.o

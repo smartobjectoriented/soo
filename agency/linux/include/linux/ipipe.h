@@ -80,6 +80,17 @@ static inline void ipipe_disable_irq(unsigned int irq)
 		chip->irq_mask(&desc->irq_data);
 }
 
+static inline void ipipe_handle_demuxed_irq(unsigned int cascade_irq)
+{
+	__ipipe_grab_irq(cascade_irq, false);
+}
+
+void ipipe_set_gic_enable(unsigned int irq);
+
+
+ipipe_irqdesc_t *ipipe_irq_to_desc(unsigned int irq);
+
+struct irq_chip *ipipe_irq_desc_get_chip(ipipe_irqdesc_t *desc);
 
 void xnintr_core_clock_handler(void);
 

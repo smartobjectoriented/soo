@@ -236,6 +236,7 @@ void of_pci_check_probe_only(void)
 }
 EXPORT_SYMBOL_GPL(of_pci_check_probe_only);
 
+#if defined(CONFIG_OF_ADDRESS)
 /**
  * devm_of_pci_get_host_bridge_resources() - Resource-managed parsing of PCI
  *                                           host bridge resources from DT
@@ -254,7 +255,7 @@ EXPORT_SYMBOL_GPL(of_pci_check_probe_only);
  * It returns zero if the range parsing has been successful or a standard error
  * value if it failed.
  */
-static int devm_of_pci_get_host_bridge_resources(struct device *dev,
+int devm_of_pci_get_host_bridge_resources(struct device *dev,
 			unsigned char busno, unsigned char bus_max,
 			struct list_head *resources,
 			struct list_head *ib_resources,
@@ -355,6 +356,7 @@ static int devm_of_pci_get_host_bridge_resources(struct device *dev,
 		 * If we failed translation or got a zero-sized region
 		 * then skip this range
 		 */
+		
 		if (((range.flags & IORESOURCE_TYPE_BITS) != IORESOURCE_MEM) ||
 		    range.cpu_addr == OF_BAD_ADDR || range.size == 0)
 			continue;
@@ -362,7 +364,6 @@ static int devm_of_pci_get_host_bridge_resources(struct device *dev,
 		dev_info(dev, "  %6s %#012llx..%#012llx -> %#012llx\n",
 			 "IB MEM", range.cpu_addr,
 			 range.cpu_addr + range.size - 1, range.pci_addr);
-
 
 		err = of_pci_range_to_resource(&range, dev_node, &tmp_res);
 		if (err)
@@ -389,6 +390,8 @@ failed:
 	pci_free_resource_list(resources);
 	return err;
 }
+EXPORT_SYMBOL_GPL(devm_of_pci_get_host_bridge_resources);
+#endif /* CONFIG_OF_ADDRESS */
 
 #if IS_ENABLED(CONFIG_OF_IRQ)
 /**
@@ -574,7 +577,6 @@ int pci_parse_request_of_pci_ranges(struct device *dev,
 	pci_free_resource_list(resources);
 	return err;
 }
-EXPORT_SYMBOL_GPL(pci_parse_request_of_pci_ranges);
 
 #endif /* CONFIG_PCI */
 

@@ -16,7 +16,6 @@
 #include <linux/reset.h>
 #include <linux/resource.h>
 #include <linux/types.h>
-#include <linux/phy/phy.h>
 
 #include "pcie-designware.h"
 
@@ -66,6 +65,7 @@
 #define PORT_CLK_RATE			100000000UL
 #define MAX_PAYLOAD_SIZE		256
 #define MAX_READ_REQ_SIZE		256
+#define MESON_PCIE_PHY_POWERUP		0x1c
 #define PCIE_RESET_DELAY		500
 #define PCIE_SHARED_RESET		1
 #define PCIE_NORMAL_RESET		0
@@ -80,15 +80,18 @@ enum pcie_data_rate {
 struct meson_pcie_mem_res {
 	void __iomem *elbi_base;
 	void __iomem *cfg_base;
+	void __iomem *phy_base;
 };
 
 struct meson_pcie_clk_res {
 	struct clk *clk;
+	struct clk *mipi_gate;
 	struct clk *port_clk;
 	struct clk *general_clk;
 };
 
 struct meson_pcie_rc_reset {
+	struct reset_control *phy;
 	struct reset_control *port;
 	struct reset_control *apb;
 };
@@ -99,7 +102,6 @@ struct meson_pcie {
 	struct meson_pcie_clk_res clk_res;
 	struct meson_pcie_rc_reset mrst;
 	struct gpio_desc *reset_gpio;
-	struct phy *phy;
 };
 
 static struct reset_control *meson_pcie_get_reset(struct meson_pcie *mp,
@@ -120,6 +122,11 @@ static struct reset_control *meson_pcie_get_reset(struct meson_pcie *mp,
 static int meson_pcie_get_resets(struct meson_pcie *mp)
 {
 	struct meson_pcie_rc_reset *mrst = &mp->mrst;
+
+	mrst->phy = meson_pcie_get_reset(mp, "phy", PCIE_SHARED_RESET);
+	if (IS_ERR(mrst->phy))
+		return PTR_ERR(mrst->phy);
+	reset_control_deassert(mrst->phy);
 
 	mrst->port = meson_pcie_get_reset(mp, "port", PCIE_NORMAL_RESET);
 	if (IS_ERR(mrst->port))
@@ -146,6 +153,22 @@ static void __iomem *meson_pcie_get_mem(struct platform_device *pdev,
 	return devm_ioremap_resource(dev, res);
 }
 
+static void __iomem *meson_pcie_get_mem_shared(struct platform_device *pdev,
+					       struct meson_pcie *mp,
+					       const char *id)
+{
+	struct device *dev = mp->pci.dev;
+	struct resource *res;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, id);
+	if (!res) {
+		dev_err(dev, "No REG resource %s\n", id);
+		return ERR_PTR(-ENXIO);
+	}
+
+	return devm_ioremap(dev, res->start, resource_size(res));
+}
+
 static int meson_pcie_get_mems(struct platform_device *pdev,
 			       struct meson_pcie *mp)
 {
@@ -157,40 +180,27 @@ static int meson_pcie_get_mems(struct platform_device *pdev,
 	if (IS_ERR(mp->mem_res.cfg_base))
 		return PTR_ERR(mp->mem_res.cfg_base);
 
-	return 0;
-}
-
-static int meson_pcie_power_on(struct meson_pcie *mp)
-{
-	int ret = 0;
-
-	ret = phy_init(mp->phy);
-	if (ret)
-		return ret;
-
-	ret = phy_power_on(mp->phy);
-	if (ret) {
-		phy_exit(mp->phy);
-		return ret;
-	}
+	/* Meson SoC has two PCI controllers use same phy register*/
+	mp->mem_res.phy_base = meson_pcie_get_mem_shared(pdev, mp, "phy");
+	if (IS_ERR(mp->mem_res.phy_base))
+		return PTR_ERR(mp->mem_res.phy_base);
 
 	return 0;
 }
 
-static void meson_pcie_power_off(struct meson_pcie *mp)
+static void meson_pcie_power_on(struct meson_pcie *mp)
 {
-	phy_power_off(mp->phy);
-	phy_exit(mp->phy);
+	writel(MESON_PCIE_PHY_POWERUP, mp->mem_res.phy_base);
 }
 
-static int meson_pcie_reset(struct meson_pcie *mp)
+static void meson_pcie_reset(struct meson_pcie *mp)
 {
 	struct meson_pcie_rc_reset *mrst = &mp->mrst;
-	int ret = 0;
 
-	ret = phy_reset(mp->phy);
-	if (ret)
-		return ret;
+	reset_control_assert(mrst->phy);
+	udelay(PCIE_RESET_DELAY);
+	reset_control_deassert(mrst->phy);
+	udelay(PCIE_RESET_DELAY);
 
 	reset_control_assert(mrst->port);
 	reset_control_assert(mrst->apb);
@@ -198,8 +208,6 @@ static int meson_pcie_reset(struct meson_pcie *mp)
 	reset_control_deassert(mrst->port);
 	reset_control_deassert(mrst->apb);
 	udelay(PCIE_RESET_DELAY);
-
-	return 0;
 }
 
 static inline struct clk *meson_pcie_probe_clock(struct device *dev,
@@ -242,6 +250,10 @@ static int meson_pcie_probe_clocks(struct meson_pcie *mp)
 	if (IS_ERR(res->port_clk))
 		return PTR_ERR(res->port_clk);
 
+	res->mipi_gate = meson_pcie_probe_clock(dev, "mipi", 0);
+	if (IS_ERR(res->mipi_gate))
+		return PTR_ERR(res->mipi_gate);
+
 	res->general_clk = meson_pcie_probe_clock(dev, "general", 0);
 	if (IS_ERR(res->general_clk))
 		return PTR_ERR(res->general_clk);
@@ -275,9 +287,9 @@ static inline void meson_cfg_writel(struct meson_pcie *mp, u32 val, u32 reg)
 
 static void meson_pcie_assert_reset(struct meson_pcie *mp)
 {
-	gpiod_set_value_cansleep(mp->reset_gpio, 1);
-	udelay(500);
 	gpiod_set_value_cansleep(mp->reset_gpio, 0);
+	udelay(500);
+	gpiod_set_value_cansleep(mp->reset_gpio, 1);
 }
 
 static void meson_pcie_init_dw(struct meson_pcie *mp)
@@ -525,12 +537,6 @@ static int meson_pcie_probe(struct platform_device *pdev)
 	pci->dev = dev;
 	pci->ops = &dw_pcie_ops;
 
-	mp->phy = devm_phy_get(dev, "pcie");
-	if (IS_ERR(mp->phy)) {
-		dev_err(dev, "get phy failed, %ld\n", PTR_ERR(mp->phy));
-		return PTR_ERR(mp->phy);
-	}
-
 	mp->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(mp->reset_gpio)) {
 		dev_err(dev, "get reset gpio failed\n");
@@ -549,22 +555,13 @@ static int meson_pcie_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = meson_pcie_power_on(mp);
-	if (ret) {
-		dev_err(dev, "phy power on failed, %d\n", ret);
-		return ret;
-	}
-
-	ret = meson_pcie_reset(mp);
-	if (ret) {
-		dev_err(dev, "reset failed, %d\n", ret);
-		goto err_phy;
-	}
+	meson_pcie_power_on(mp);
+	meson_pcie_reset(mp);
 
 	ret = meson_pcie_probe_clocks(mp);
 	if (ret) {
 		dev_err(dev, "init clock resources failed, %d\n", ret);
-		goto err_phy;
+		return ret;
 	}
 
 	platform_set_drvdata(pdev, mp);
@@ -572,22 +569,15 @@ static int meson_pcie_probe(struct platform_device *pdev)
 	ret = meson_add_pcie_port(mp, pdev);
 	if (ret < 0) {
 		dev_err(dev, "Add PCIe port failed, %d\n", ret);
-		goto err_phy;
+		return ret;
 	}
 
 	return 0;
-
-err_phy:
-	meson_pcie_power_off(mp);
-	return ret;
 }
 
 static const struct of_device_id meson_pcie_of_match[] = {
 	{
 		.compatible = "amlogic,axg-pcie",
-	},
-	{
-		.compatible = "amlogic,g12a-pcie",
 	},
 	{},
 };
