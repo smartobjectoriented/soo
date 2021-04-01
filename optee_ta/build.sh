@@ -43,7 +43,7 @@ fi
 
 if [ "$PLATFORM" == "merida" ]; then
 	echo "Building Trusted Applications for platform on MERIDA"
-	CROSS_COMPILE=aarch64-linux-gnu-
+	CROSS_COMPILE=aarch64-none-linux-gnu-
 	PLATFORM=sunxi-sun50i_a64
 	TA_DEV_KIT_DIR=$OPTEE_OS_PATH/out/arm-plat-sunxi/export-ta_arm64/
 fi
