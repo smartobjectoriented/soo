@@ -24,6 +24,6 @@
 
 #include <soo/soolink/soolink.h>
 
-void sl_plugin_bt_rx(struct sk_buff *skb);
+void plugin_bt_rx(struct sk_buff *skb);
 
 #endif /* PLUGIN_BLUETOOTH_H */
