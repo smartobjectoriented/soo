@@ -41,11 +41,15 @@
 		 *   BCM2711-specific peripherals
 		 *   ARM-local peripherals
 		 */
-		ranges = <0x7e000000  0x0 0xfe000000  0x01800000>,
-			 <0x7c000000  0x0 0xfc000000  0x02000000>,
-			 <0x40000000  0x0 0xff800000  0x00800000>;
+		 
+		 ranges = <0x7e000000 0x00 0xfe000000 0x1800000 
+		 		   0x7c000000 0x00 0xfc000000 0x2000000 
+		 		   0x40000000 0x00 0xff800000 0x800000>;
+		dma-ranges = <0xc0000000 0x00 0x00 0x3c000000>;
+		 
+		 
 		/* Emulate a contiguous 30-bit address range for DMA */
-		dma-ranges = <0xc0000000  0x0 0x00000000  0x40000000>;
+		/* dma-ranges = <0xc0000000  0x0 0x00000000  0x40000000>; */
 
 		/*
 		 * This node is the provider for the enable-method for
@@ -54,36 +58,6 @@
 		local_intc: local_intc@40000000 {
 			compatible = "brcm,bcm2836-l1-intc";
 			reg = <0x40000000 0x100>;
-		};
-
-		dma: dma@7e007000 {
-			compatible = "brcm,bcm2835-dma";
-			reg = <0x7e007000 0xb00>;
-			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>,
-				     /* DMA lite 7 - 10 */
-				     <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "dma0",
-					  "dma1",
-					  "dma2",
-					  "dma3",
-					  "dma4",
-					  "dma5",
-					  "dma6",
-					  "dma7",
-					  "dma8",
-					  "dma9",
-					  "dma10";
-			#dma-cells = <1>;
-			brcm,dma-channel-mask = <0x07f5>;
 		};
 
 		pm: watchdog@7e100000 {
@@ -242,16 +216,31 @@
 			status = "disabled";
 		};
 
+		hvs@7e400000 {
+			interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
+		};
+	};
+
+	/*
+	 * emmc2 has different DMA constraints based on SoC revisions. It was
+	 * moved into its own bus, so as for RPi4's firmware to update them.
+	 * The firmware will find whether the emmc2bus alias is defined, and if
+	 * so, it'll edit the dma-ranges property below accordingly.
+	 */
+	emmc2bus: emmc2bus {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <1>;
+
+		ranges = <0x0 0x7e000000  0x0 0xfe000000  0x01800000>;
+		dma-ranges = <0x0 0xc0000000  0x0 0x00000000  0x40000000>;
+
 		emmc2: emmc2@7e340000 {
 			compatible = "brcm,bcm2711-emmc2";
-			reg = <0x7e340000 0x100>;
+			reg = <0x0 0x7e340000 0x100>;
 			interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clocks BCM2711_CLOCK_EMMC2>;
 			status = "disabled";
-		};
-
-		hvs@7e400000 {
-			interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
@@ -261,10 +250,7 @@
 			<GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
-		    interrupt-affinity = <&cpu0>, <&cpu1>;
-#if 0 /* SOO.tech */
 		interrupt-affinity = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
-#endif
 	};
 
 	timer {
@@ -302,7 +288,6 @@
 			cpu-release-addr = <0x0 0x000000e0>;
 		};
 
-#if 0 /* SOO.tech */
 		cpu2: cpu@2 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a72";
@@ -318,10 +303,51 @@
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x000000f0>;
 		};
-#endif /* SOO.tech */
 	};
 
+	scb {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
 
+		ranges = <0x00 0x7c000000 0x00 0xfc000000 0x0 0x3800000 
+		  		  0x00 0x40000000 0x00 0xff800000 0x0 0x800000 
+		  		  0x06 0x00 0x06 0x00 0x0 0x40000000 
+		  		  0x00 0x00 0x00 0x00 0x00 0xfc000000>;
+		  		  		
+		/* dma-ranges = <0x00 0x00 0x00 0x00 0xfc000000>; */
+
+
+		pcie0: pcie@7d500000 {
+			compatible = "brcm,bcm2711-pcie";
+			reg = <0x0 0x7d500000  0x0 0x9310>;
+			device_type = "pci";
+			#address-cells = <3>;
+			#interrupt-cells = <1>;
+			#size-cells = <2>;
+			interrupts = <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "pcie", "msi";
+			interrupt-map-mask = <0x0 0x0 0x0 0x7>;
+			interrupt-map = <0 0 0 1 &gicv2 GIC_SPI 143
+							IRQ_TYPE_LEVEL_HIGH>;
+			msi-controller;
+			msi-parent = <&pcie0>;
+			
+			max-link-speed = <0x02>;
+			tot-num-pcie = <0x01>;
+			
+			ranges = <0x02000000 0x0 0xf8000000 0x6 0x00000000
+				  0x0 0x04000000>;
+			/*
+			 * The wrapper around the PCIe block has a bug
+			 * preventing it from accessing beyond the first 3GB of
+			 * memory.
+			 */
+			dma-ranges = <0x2000000 0x00 0x00 0x00 0x00 0x01 0x00>;
+			brcm,enable-ssc;
+		};
+	};
 };
 
 &clk_osc {

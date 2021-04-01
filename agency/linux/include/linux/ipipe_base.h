@@ -40,6 +40,7 @@ typedef struct {
 	struct irq_common_data common_data;
 	void *data;
 	void *xnintr;
+	raw_spinlock_t lock;
 } ipipe_irqdesc_t;
 
 extern ipipe_irqdesc_t irqdescs[NR_PIRQS + NR_VIRQS];

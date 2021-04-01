@@ -13,7 +13,7 @@
  	   /*  bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=serial0,115200 console=tty1 root=/dev/ram elevator=deadline fsck.repair=yes rootwait"; */
 	bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=ttyS0,115200 root=/dev/ram elevator=deadline fsck.repair=yes rootwait";
 
-#if 0 /* SOO.tech */ 
+#if 0 /* SOO.tech */
 		/* 8250 auxiliary UART instead of pl011 */
 		stdout-path = "serial1:115200n8";
 #endif
@@ -37,6 +37,7 @@
 		/delete-property/ ethernet;
 		/delete-property/ intc;
 		ethernet0 = &genet;
+		pcie0 = &pcie0;
 	};
 
 	leds {
@@ -309,14 +310,14 @@
 	};
 };
 
- 
+
 /* EMMC2 is used to drive the SD card */
 &emmc2 {
 	vqmmc-supply = <&sd_io_1v8_reg>;
 	broken-cd;
 	status = "okay";
 };
- 
+
 /* uart0 communicates with the BT module */
 &uart0 {
 	pinctrl-names = "default";
@@ -338,6 +339,82 @@
 	status = "okay";
 };
 
+/* OpenCN */
+&spi {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins &spi0_cs_pins>;
+	cs-gpios = <&gpio 8 1>, <&gpio 7 1>;
+
+	eth1: enc28j60@0{
+		compatible = "microchip,enc28j60";
+		reg = <0>; /* CE0 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&eth1_pins>;
+		interrupt-parent = <&gpio>;
+		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
+		spi-max-frequency = <12000000>;
+		status = "okay";
+	};
+};
+
+/* OpenCN */
+&spi1 {
+	status = "ok";
+	pinctrl-names = "default";
+
+	pinctrl-0 = <&spi1_pins &spi1_cs_pins>;
+	cs-gpios = <&gpio 18 0>;
+
+	eth2: enc28j60@0{
+		compatible = "microchip,enc28j60";
+		reg = <0>; /* CE0 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&eth2_pins>;
+		interrupt-parent = <&gpio>;
+		interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
+		spi-max-frequency = <12000000>;
+		status = "okay";
+	};
+};
+
+/* OpenCN */
+&gpio {
+	spi0_pins: spi0_pins {
+		brcm,pins = <9 10 11>;
+		brcm,function = <BCM2835_FSEL_ALT0>;
+	};
+
+	spi0_cs_pins: spi0_cs_pins {
+		brcm,pins = <8 7>;
+		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
+        // brcm,function = <BCM2835_FSEL_ALT0>;
+	};
+
+	spi1_pins: spi1_pins {
+		brcm,pins = <19 20 21>;
+		brcm,function = <BCM2835_FSEL_ALT4>;
+	};
+
+	spi1_cs_pins: spi1_cs_pins {
+		brcm,pins = <18>;
+		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
+	};
+
+	eth1_pins: eth1_pins {
+		brcm,pins = <22>;
+		brcm,function = <0>; /* in */
+		brcm,pull = <0>; /* none */
+	};
+
+	eth2_pins: eth2_pins {
+		brcm,pins = <25>;
+		brcm,function = <0>; /* in */
+		brcm,pull = <0>; /* none */
+	};
+};
+
+#if 0 /* opencn */
 
 &i2c1 {
     compatible = "brcm,bcm2711-i2c", "brcm,bcm2835-i2c";
@@ -383,7 +460,10 @@
 		status = "okay";
 	};
 };
+#endif /* 0 */
 
 &vchiq {
 	interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 };
+
+

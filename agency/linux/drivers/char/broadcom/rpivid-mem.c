@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /**
  * rpivid-mem.c - character device access to the RPiVid decoder registers
  *
@@ -67,7 +66,6 @@ static int rpivid_mem_open(struct inode *inode, struct file *file)
 	int dev = iminor(inode);
 	int ret = 0;
 	struct rpivid_mem_priv *priv;
-
 	if (dev != DEVICE_MINOR && dev != DEVICE_MINOR + 1)
 		ret = -ENXIO;
 
@@ -100,7 +98,6 @@ static int rpivid_mem_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct rpivid_mem_priv *priv;
 	unsigned long pages;
-	unsigned long len;
 
 	priv = file->private_data;
 	pages = priv->regs_phys >> PAGE_SHIFT;
@@ -108,13 +105,14 @@ static int rpivid_mem_mmap(struct file *file, struct vm_area_struct *vma)
 	 * The address decode is far larger than the actual number of registers.
 	 * Just map the whole lot in.
 	 */
-	len = min(vma->vm_end - vma->vm_start, priv->mem_window_len);
-	vma->vm_page_prot = phys_mem_access_prot(file, pages, len,
+	vma->vm_page_prot = phys_mem_access_prot(file, pages,
+						 priv->mem_window_len,
 						 vma->vm_page_prot);
 	vma->vm_ops = &rpivid_mem_vm_ops;
 	if (remap_pfn_range(vma, vma->vm_start,
-			    pages, len,
-			    vma->vm_page_prot)) {
+			pages,
+			priv->mem_window_len,
+			vma->vm_page_prot)) {
 		return -EAGAIN;
 	}
 	return 0;
@@ -132,10 +130,13 @@ static const struct of_device_id rpivid_mem_of_match[];
 static int rpivid_mem_probe(struct platform_device *pdev)
 {
 	int err;
+	void *ptr_err;
 	const struct of_device_id *id;
 	struct device *dev = &pdev->dev;
+	struct device *rpivid_mem_dev;
 	struct resource *ioresource;
 	struct rpivid_mem_priv *priv;
+
 
 	/* Allocate buffers and instance data */
 
@@ -156,7 +157,7 @@ static int rpivid_mem_probe(struct platform_device *pdev)
 	ioresource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (ioresource) {
 		priv->regs_phys = ioresource->start;
-		priv->mem_window_len = (ioresource->end + 1) - ioresource->start;
+		priv->mem_window_len = ioresource->end - ioresource->start;
 	} else {
 		dev_err(priv->dev, "failed to get IO resource");
 		err = -ENOENT;
@@ -182,15 +183,29 @@ static int rpivid_mem_probe(struct platform_device *pdev)
 	/* Create sysfs entries */
 
 	priv->class = class_create(THIS_MODULE, priv->name);
-	if (IS_ERR(priv->class)) {
-		err = PTR_ERR(priv->class);
+	ptr_err = priv->class;
+	if (IS_ERR(ptr_err))
 		goto failed_class_create;
-	}
 
-	dev = device_create(priv->class, NULL, priv->devid, NULL, priv->name);
-	if (IS_ERR(dev)) {
-		err = PTR_ERR(dev);
+	rpivid_mem_dev = device_create(priv->class, NULL,
+					priv->devid, NULL,
+					priv->name);
+	ptr_err = rpivid_mem_dev;
+	if (IS_ERR(ptr_err))
 		goto failed_device_create;
+
+	/* Legacy alias */
+	{
+		char *oldname = kstrdup(priv->name, GFP_KERNEL);
+
+		oldname[1] = 'a';
+		oldname[2] = 'r';
+		oldname[3] = 'g';
+		oldname[4] = 'o';
+		oldname[5] = 'n';
+		(void)device_create(priv->class, NULL, priv->devid + 1, NULL,
+				       oldname + 1);
+		kfree(oldname);
 	}
 
 	dev_info(priv->dev, "%s initialised: Registers at 0x%08lx length 0x%08lx",
@@ -202,13 +217,14 @@ failed_device_create:
 	class_destroy(priv->class);
 failed_class_create:
 	cdev_del(&priv->rpivid_mem_cdev);
+	err = PTR_ERR(ptr_err);
 failed_cdev_add:
 	unregister_chrdev_region(priv->devid, 1);
 failed_alloc_chrdev:
 failed_get_resource:
 	kfree(priv);
 failed_inst_alloc:
-	dev_err(&pdev->dev, "could not load rpivid_mem");
+	dev_err(priv->dev, "could not load rpivid_mem");
 	return err;
 }
 

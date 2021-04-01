@@ -321,7 +321,13 @@
 #endif /* SOO.tech */
 	};
 
+	scb {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <1>;
 
+		ranges = <0x0 0x7c000000  0x0 0xfc000000  0x03800000>;
+	};
 };
 
 &clk_osc {
