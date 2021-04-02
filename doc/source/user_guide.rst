@@ -173,7 +173,7 @@ The following configurations are available:
 +-----------------------+-------------------------------------+
 | *rpi_3_32b_defconfig* | Raspberry Pi 4 in 32-bit mode       |
 +-----------------------+-------------------------------------+
-| *rpi4_defconfig*      | Raspberry Pi 4 in 64-bit mode       |
+| *rpi4_64_defconfig*   | Raspberry Pi 4 in 64-bit mode       |
 +-----------------------+-------------------------------------+
 
 (The last one is a custom configuration and is to be used as replacemenent
