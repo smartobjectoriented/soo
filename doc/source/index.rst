@@ -1,20 +1,28 @@
 .. doc Documentation master file.
 
+.. image:: img/heigvd-reds.png
+   :align: right
+   :width: 290px
+   :height: 160px
+   :target: http://reds.heig-vd.ch/en/rad
+   
 .. image:: img/SOO_logo.jpg
    :align: center
    :width: 170px
    :height: 150px
+  
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 5
    :numbered:
    :hidden:
   
    introduction
-   architecture
+   architecture/architecture
    user_guide
    logging
    aarch64
+   glossary
    
 ======================================
 Smart Object Oriented (SOO) Technology

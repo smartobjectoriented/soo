@@ -240,6 +240,9 @@ typedef struct {
 
 /*
  * ME descriptor
+ *
+ * WARNING !! Be careful when modifying this structure. It *MUST* be aligned with
+ * the same structure used in the ME.
  */
 typedef struct {
 	ME_state_t	state;
