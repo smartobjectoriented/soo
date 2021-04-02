@@ -1,8 +1,8 @@
 .. _user_guide:
 
- 
+##########
 User Guide
-==========
+##########
    
 The installation should work in any Ubuntu/Kubuntu installation superior
 to ``16.10``. It is assumed that you are running an x86_64 version.
@@ -15,8 +15,9 @@ clone, build.conf is configured for QEMU *vExpress* platform.
 Additionally, the *vExpress* target is also configured with TrustZone
 support.
 
+*************
 Pre-requisite
--------------
+*************
 
 We need to run some i386 executables, and we need to install some i386
 libraries too.
@@ -78,8 +79,9 @@ For the 64-bit version (virt & RPi4), the AArch-64 (ARM 64-bit) toolchain can be
    $ sudo mv gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu aarch64-none-linux-gnu_10.2
    $ sudo echo 'export PATH="${PATH}:/opt/toolchains/aarch64-none-linux-gnu_10.2/bin"' > /etc/profile.d/02-toolchains.sh
 
+****************
 Basic Components
-----------------
+****************
 
 Currently, the framework contains all what is required to get a full
 functional environment. It includes the QEMU emulator, ARM TrustZone
@@ -139,8 +141,9 @@ cipher/uncipher the ME, discovery beacons, etc.
    cd optee_ta
    ./build.sh
 
+******
 U-boot
-------
+******
 
 The bootloader used by SOO is **U-boot**. In the sub-directory, there
 are also various environment files used by the bootloader.
@@ -176,8 +179,9 @@ The following configurations are available:
 (The last one is a custom configuration and is to be used as replacemenent
 of rpi_4_defconfig)
 
+**************
 SOO Components
---------------
+**************
 
 Agency
 ~~~~~~
