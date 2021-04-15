@@ -171,7 +171,7 @@ The following configurations are available:
 +-----------------------+-------------------------------------+
 | *virt64_defconfig*    | QEMU/virt 64-bit platform           |
 +-----------------------+-------------------------------------+
-| *rpi_3_32b_defconfig* | Raspberry Pi 4 in 32-bit mode       |
+| *rpi_4_32b_defconfig* | Raspberry Pi 4 in 32-bit mode       |
 +-----------------------+-------------------------------------+
 | *rpi4_64_defconfig*   | Raspberry Pi 4 in 64-bit mode       |
 +-----------------------+-------------------------------------+
