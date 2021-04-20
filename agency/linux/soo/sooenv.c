@@ -17,7 +17,13 @@
  */
 
 /*
- * SOO ecosystem environment management
+ * SOO Ecosystem environment management
+ *
+ * Of course, a smart object must handle a set of state/general variables which
+ * are very specific to a specific SOO instance.
+ *
+ * In the case of a simulated environment, it is possible to start several SOO instances
+ * so that interactions between smart objects can be investigated.
  */
 
 #include <linux/types.h>
@@ -26,7 +32,7 @@
 #include <linux/delay.h>
 #include <linux/mutex.h>
 
-#include <soo/netsimul.h>
+#include <soo/sooenv.h>
 #include <soo/hypervisor.h>
 
 #include <soo/dcm/dcm.h>
@@ -48,7 +54,9 @@ struct list_head soo_environment;
 static int count = 0;
 static struct mutex env_lock;
 
-/* Simulation environment */
+/**
+ *  Simulation environment
+ */
 struct soo_simul_env {
 	sl_desc_t *sl_desc;
 
@@ -57,6 +65,10 @@ struct soo_simul_env {
 
 };
 
+/**
+ * Get a reference to the current SOO environment.
+ * @return the address soo_env
+ */
 soo_env_t *__current_soo(void) {
 	soo_env_t *soo;
 	soo_env_thread_t *soo_thread;
@@ -78,9 +90,13 @@ soo_env_t *__current_soo(void) {
 	 */
 
 	return list_first_entry(&soo_environment, soo_env_t, list);
-
 }
 
+/**
+ * Get a reference to the SOO environment by its name.
+ * @param name (SOO name)
+ * @return the address of the soo_env
+ */
 soo_env_t *get_soo_by_name(char *name) {
 	soo_env_t *soo;
 
@@ -93,6 +109,11 @@ soo_env_t *get_soo_by_name(char *name) {
 	return NULL;
 }
 
+/**
+ * Perform a call to <fn> on each known instance of SOO.
+ * @param fn Function callback to execute
+ * @param args Reference to args as passed to the iterator.
+ */
 void iterate_on_other_soo(soo_iterator_t fn, void *args) {
 	soo_env_t *soo;
 	bool cont;
@@ -136,6 +157,7 @@ static int soo_stream_task_rx_fn(void *args) {
 	int i;
 
 	while (true){
+
 		size = sl_recv(current_soo_simul->sl_desc, &data);
 
 		for (i = 0; i < BUFFER_SIZE; i++)
@@ -167,7 +189,7 @@ void stream_count_read(char *str) {
 static int soo_stream_task_tx_fn(void *args) {
 	int i;
 
-	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIMULATION, SL_MODE_UNIBROAD);
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIM, SL_MODE_UNIBROAD);
 
 	for (i = 0; i < BUFFER_SIZE; i++)
 		current_soo_simul->buffer[i] = i;
@@ -175,25 +197,19 @@ static int soo_stream_task_tx_fn(void *args) {
 	soo_sysfs_register(stream_count, stream_count_read, NULL);
 
 	while (true) {
+		if (discovery_neighbour_count() > 0) {
+			lprintk("*** (%s) sending buffer ****\n", current_soo->name);
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
 
-		//if (!strcmp(current_soo->name, "SOO-1")) {
+			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
 
-			if (discovery_neighbour_count() > 0) {
-				lprintk("*** (%s) sending buffer ****\n", current_soo->name);
-				sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			lprintk("*** (%s) End. ***\n", current_soo->name);
 
-				lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
-				sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			//msleep(1000);
 
-				lprintk("*** (%s) End. ***\n", current_soo->name);
-
-				//msleep(1000);
-
-			} else
-				schedule();
-
-		//} else
-		//	schedule();
+		} else
+			schedule();
 	}
 
 	return 0;
@@ -226,9 +242,11 @@ int soo_env_fn(void *args) {
 
 	mutex_unlock(&env_lock);
 
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	strcpy(soo_env->name, (char *) args);
-
+#else
 	devaccess_get_soo_name(soo_env->name);
+#endif
 
 	/* Adding ourself (the current thread) to this environment. */
 	add_thread(soo_env, current->pid);
@@ -301,8 +319,11 @@ int soo_env_fn(void *args) {
 	/* Transcoder initialization */
 	transcoder_init();
 
+	/* In simulation mode, we do not manage several instances of DCM yet. */
+#ifndef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	/* Ready to initializing the DCM subsystem */
 	dcm_init();
+#endif
 
 	lprintk("[soo:core] Now, starting simulation threads...\n");
 

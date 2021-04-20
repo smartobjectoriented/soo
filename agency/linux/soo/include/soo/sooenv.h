@@ -16,8 +16,8 @@
  *
  */
 
-#ifndef NETSIMUL_H
-#define NETSIMUL_H
+#ifndef SOOENV_H
+#define SOOENV_H
 
 #include <linux/list.h>
 
@@ -63,8 +63,9 @@ soo_env_t *__current_soo(void);
 
 typedef bool(*soo_iterator_t)(soo_env_t *, void *args);
 
-#define current_soo	__current_soo()
+#define current_soo		__current_soo()
 
+/* Used for the simulated environment */
 #define current_soo_simul	(current_soo->soo_simul)
 
 #define current_soo_soolink	(current_soo->soo_soolink)
@@ -83,4 +84,4 @@ void dump_soo(void);
 
 soo_env_t *get_soo_by_name(char *name);
 
-#endif /* NETSIMUL_H */
+#endif /* SOOENV_H */

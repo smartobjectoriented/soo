@@ -1,5 +1,5 @@
 
-obj-y   += netsimul.o
+obj-y   += sooenv.o
 
 obj-y	+= kernel/
 obj-y 	+= drivers/
@@ -8,6 +8,6 @@ obj-y   += dcm/
 
 obj-y 	+= soolink/
 
-obj-$(CONFIG_XENOMAI) += rtapp.o
+obj-y   += rtapp.o
 
 CFLAGS_REMOVE_rtapp.o = -mgeneral-regs-only

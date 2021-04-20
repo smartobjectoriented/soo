@@ -130,7 +130,7 @@ void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src) {
 
 	/* Sanity check */
 	if (!memcmp(agencyUID, &current_soo->agencyUID, SOO_AGENCY_UID_SIZE)) {
-		lprintk("!! We are trying to a remote SOO with the same agency UID as us !!\n");
+		lprintk("!! Hacker bip! We are trying to attach a remote SOO with the same agency UID as us !!\n");
 		BUG();
 	}
 
@@ -211,6 +211,7 @@ void plugin_rx(plugin_desc_t *plugin_desc, req_type_t req_type, uint8_t *mac_src
 
 	rsp->size = size;
 
+	/* Allocate the payload which will be freed in the rx processing thread. */
 	rsp->data = kzalloc(rsp->size, GFP_KERNEL);
 	BUG_ON(!rsp->data);
 

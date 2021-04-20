@@ -28,7 +28,7 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
-#include <soo/netsimul.h>
+#include <soo/sooenv.h>
 
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/transceiver.h>
@@ -49,7 +49,13 @@ typedef struct {
 	req_type_t req_type;
 	void *data;
 	size_t size;
+
+	/* MAC address of the sender */
 	uint8_t *mac_src;
+
+	/* Also determine if it is broadcast or not */
+	uint8_t *mac_dst;
+
 } medium_rx_t;
 
 DEFINE_RING_TYPES(medium_rx, medium_rx_t, medium_rx_t);
@@ -62,7 +68,7 @@ struct soo_plugin_env {
 
 	/*
 	 * We keep an array of possible plugins according to the interfaces.
-	 * It is much more efficient to do this way insteadreds
+	 * It is much more efficient to do this way instead
 	 * of handling a list of plugin. On RX path, the interface plugin can then access
 	 * directly its specific fields.
 	 */

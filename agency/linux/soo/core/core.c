@@ -57,7 +57,7 @@
 #endif
 #endif
 
-#include <soo/netsimul.h>
+#include <soo/sooenv.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/console.h>

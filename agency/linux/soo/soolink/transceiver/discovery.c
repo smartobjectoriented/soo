@@ -21,7 +21,7 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 
-#include <soo/netsimul.h>
+#include <soo/sooenv.h>
 
 #include <soo/soolink/discovery.h>
 #include <soo/soolink/transceiver.h>
@@ -449,6 +449,7 @@ static void send_beacon(void) {
 	}
 
 	iamasoo_pkt = kzalloc(size, GFP_ATOMIC);
+	BUG_ON(!iamasoo_pkt);
 
 	/* Copy the agency UID and the name of this Smart Object into the beacon packet */
 	memcpy(&iamasoo_pkt->agencyUID, get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
@@ -529,7 +530,6 @@ static int iamasoo_task_fn(void *args) {
 		send_beacon();
 
 		mutex_lock(&current_soo_discovery->discovery_listener_lock);
-
 
 		/* Increment the missing_tick, over the neighbours */
 		list_for_each(cur, &current_soo_discovery->neighbour_list) {
@@ -768,7 +768,7 @@ void discovery_init(void) {
 #elif defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
 	current_soo_discovery->discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_ETH, SL_MODE_BROADCAST);
 #elif defined(CONFIG_SOOLINK_PLUGIN_SIMULATION)
-	current_soo_discovery->discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_SIMULATION, SL_MODE_BROADCAST);
+	current_soo_discovery->discovery_sl_desc = sl_register(SL_REQ_DISCOVERY, SL_IF_SIM, SL_MODE_BROADCAST);
 #else
 #error !! You must specify a plugin interface in the kernel configuration !!
 #endif

@@ -4,8 +4,8 @@
 export WIFI_SSID="soo-domotics"
 export WIFI_CHANNEL=40
 export WIFI_BANDWIDTH=""
-export SOO_NAME="rpi4"
-export BT_NAME="soo-rpi4"
+export SOO_NAME="SOO-rpi4"
+export BT_NAME="SOO-rpi4-BT"
 
 echo ${SOO_NAME} > /sys/devices/system/soo/soo0/soo_name
 echo ${BT_NAME} > /etc/hostname
