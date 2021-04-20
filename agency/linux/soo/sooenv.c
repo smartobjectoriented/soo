@@ -34,6 +34,7 @@
 
 #include <soo/sooenv.h>
 #include <soo/hypervisor.h>
+#include <soo/simulation.h>
 
 #include <soo/dcm/dcm.h>
 
@@ -46,24 +47,11 @@
 #include <soo/core/sysfs.h>
 #include <soo/core/device_access.h>
 
-#define BUFFER_SIZE 16*1024
-
 /* SOO instance handling */
 struct list_head soo_environment;
 
 static int count = 0;
 static struct mutex env_lock;
-
-/**
- *  Simulation environment
- */
-struct soo_simul_env {
-	sl_desc_t *sl_desc;
-
-	unsigned char buffer[BUFFER_SIZE];
-	unsigned int recv_count;
-
-};
 
 /**
  * Get a reference to the current SOO environment.
@@ -107,25 +95,6 @@ soo_env_t *get_soo_by_name(char *name) {
 	}
 
 	return NULL;
-}
-
-/**
- * Perform a call to <fn> on each known instance of SOO.
- * @param fn Function callback to execute
- * @param args Reference to args as passed to the iterator.
- */
-void iterate_on_other_soo(soo_iterator_t fn, void *args) {
-	soo_env_t *soo;
-	bool cont;
-
-	list_for_each_entry(soo, &soo_environment, list)
-	{
-		if (soo != current_soo)
-			cont = fn(soo, args);
-
-		if (!cont)
-			break;
-	}
 }
 
 void dump_soo(void) {
@@ -325,7 +294,9 @@ int soo_env_fn(void *args) {
 	dcm_init();
 #endif
 
-	lprintk("[soo:core] Now, starting simulation threads...\n");
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
+	lprintk("[soo:core] Now, starting SOO simulation threads...\n");
 
 	/* Start activities - Simulation mode */
 
@@ -333,21 +304,24 @@ int soo_env_fn(void *args) {
 	soo_env->soo_simul = kzalloc(sizeof(struct soo_simul_env), GFP_KERNEL);
 	BUG_ON(!soo_env->soo_simul);
 
+	INIT_LIST_HEAD(&soo_env->soo_simul->topo_links);
+
 	current_soo_simul->recv_count = 0;
 
-#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	__ts = kthread_create(soo_stream_task_tx_fn, NULL, "soo_stream_task_tx");
 	BUG_ON(!__ts);
 
 	add_thread(soo_env, __ts->pid);
-	wake_up_process(__ts);
+	//wake_up_process(__ts);
 
 	__ts = kthread_create(soo_stream_task_rx_fn, NULL, "soo_stream_task_rx");
 	BUG_ON(!__ts);
 
 	add_thread(soo_env, __ts->pid);
-	wake_up_process(__ts);
+	//wake_up_process(__ts);
 #endif
+
+	soo_env->ready = true;
 
 	do_exit(0);
 
@@ -357,6 +331,9 @@ int soo_env_fn(void *args) {
 
 void soolink_netsimul_init(void) {
 
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+	soo_env_t *soo1, *soo2, *soo3;
+#endif
 	lprintk("%s: starting SOO environment...\n", __func__);
 
 	INIT_LIST_HEAD(&soo_environment);
@@ -367,5 +344,24 @@ void soolink_netsimul_init(void) {
 #if 0
 	kthread_run(soo_env_fn, "SOO-2", "SOO-2");
 	kthread_run(soo_env_fn, "SOO-3", "SOO-3");
+
+	/* Wait until all SOO env structures have been created */
+	while (!(soo3 = get_soo_by_name("SOO-3")) || !soo3->ready )
+		schedule();
+
+	BUG_ON(!soo3);
+
+	soo1 = get_soo_by_name("SOO-1");
+	soo2 = get_soo_by_name("SOO-2");
+
+	BUG_ON(!soo1 || !soo2);
+
+	/* Define the SOO topology */
+
+	node_link(soo1, soo2); node_link(soo2, soo1);
+	node_link(soo1, soo3); node_link(soo3, soo1);
+	node_link(soo2, soo3); node_link(soo3, soo2);
+
 #endif
+
 }

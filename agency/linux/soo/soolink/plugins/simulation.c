@@ -24,6 +24,8 @@
 #include <linux/if_ether.h>
 #include <linux/kthread.h>
 
+#include <soo/simulation.h>
+
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/plugin.h>
 #include <soo/soolink/discovery.h>
@@ -49,7 +51,6 @@ typedef struct {
 } sim_packet_t;
 
 typedef struct {
-	bool plugin_ready;
 	uint8_t mac[ETH_ALEN];
 	plugin_desc_t plugin_sim_desc;
 
@@ -61,6 +62,73 @@ typedef struct {
 
 } soo_plugin_sim_t;
 
+/* SOO Smart Object topology (topo) management */
+
+/**
+ * Link a SOO (node) with another node.
+ *
+ * @param soo The smart object which becomes visible to the <soo_target>
+ * @param soo_target
+ */
+void node_link(soo_env_t *soo, soo_env_t *target) {
+	topo_node_entry_t *topo_node_entry;
+
+	/* Create a new soo_topo entry */
+	topo_node_entry = kzalloc(sizeof(topo_node_entry_t), GFP_KERNEL);
+	BUG_ON(!topo_node_entry);
+
+	topo_node_entry->node = soo;
+
+	list_add_tail(&topo_node_entry->link, &target->soo_simul->topo_links);
+}
+
+topo_node_entry_t *find_node(soo_env_t *soo, soo_env_t *target) {
+	topo_node_entry_t *topo_node_entry;
+
+	list_for_each_entry(topo_node_entry, &target->soo_simul->topo_links, link)
+		if (topo_node_entry->node == soo)
+			return topo_node_entry;
+
+	return NULL;
+}
+
+/**
+ * Perform a call to <fn> on each known instance of SOO.
+ * @param fn Function callback to execute
+ * @param args Reference to args as passed to the iterator.
+ */
+void iterate_on_topo_nodes(soo_iterator_t fn, void *args) {
+	soo_env_t *soo;
+	bool cont;
+	topo_node_entry_t *topo_node_entry;
+
+	list_for_each_entry(topo_node_entry, &current_soo->soo_simul->topo_links, link)
+	{
+		soo = topo_node_entry->node;
+
+		cont = fn(soo, args);
+
+		if (!cont)
+			break;
+	}
+}
+
+/**
+ * Unlink a SOO (node) from a target SOO.
+ *
+ * @param soo
+ * @param soo_target
+ */
+void node_unlink(soo_env_t *soo, soo_env_t *soo_target) {
+	topo_node_entry_t *topo_node_entry;
+
+	topo_node_entry = find_node(soo, soo_target);
+	BUG_ON(!topo_node_entry);
+
+	list_del(&topo_node_entry->link);
+
+	kfree(topo_node_entry);
+}
 
 /**
  * This thread simulates asynchronous activity at the receiver side.
@@ -166,8 +234,7 @@ void plugin_simulation_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	medium_rx.size = size;
 
 	/* Now proceed with sending the packet over the simulated network interface */
-	iterate_on_other_soo(sendto, &medium_rx);
-
+	iterate_on_topo_nodes(sendto, &medium_rx);
 }
 
 /**
@@ -198,8 +265,6 @@ void plugin_simulation_init(void) {
 	add_thread(current_soo, __ts->pid);
 
 	wake_up_process(__ts);
-
-	soo_plugin_sim->plugin_ready = true;
 
 	/* Assign a (virtual) MAC address */
 	memset(soo_plugin_sim->mac, 0, ETH_ALEN);
