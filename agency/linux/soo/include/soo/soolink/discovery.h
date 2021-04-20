@@ -23,7 +23,7 @@
 #include <linux/types.h>
 #include <linux/list.h>
 
-#include <soo/netsimul.h>
+#include <soo/sooenv.h>
 
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/plugin.h>

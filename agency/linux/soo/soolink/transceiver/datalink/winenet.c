@@ -2027,7 +2027,7 @@ void winenet_init(void) {
 #elif defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
 	current_soo_winenet->__sl_desc = sl_register(SL_REQ_DATALINK, SL_IF_ETH, SL_MODE_UNIBROAD);
 #elif defined(CONFIG_SOOLINK_PLUGIN_SIMULATION)
-	current_soo_winenet->__sl_desc = sl_register(SL_REQ_DATALINK, SL_IF_SIMULATION, SL_MODE_UNIBROAD);
+	current_soo_winenet->__sl_desc = sl_register(SL_REQ_DATALINK, SL_IF_SIM, SL_MODE_UNIBROAD);
 #elif
 #error !! Winenet SOOlink plugin undefined...
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */

@@ -104,13 +104,6 @@ typedef struct sl_desc {
 	/* Event and parameters to perform synchronous call to the Decoder receive function */
 	struct completion recv_event;
 
-	void *incoming_block;
-
-	/*
-	 * Number of received bytes.
-	 */
-	size_t incoming_block_size;
-
 } sl_desc_t;
 
 typedef struct {

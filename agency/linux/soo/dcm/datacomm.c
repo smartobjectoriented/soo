@@ -29,7 +29,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 
-#include <soo/netsimul.h>
+#include <soo/sooenv.h>
 
 #include <soo/uapi/dcm.h>
 
@@ -171,7 +171,7 @@ void datacomm_init(void) {
 #elif defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
 	datacomm_sl_desc = sl_register(SL_REQ_DCM, SL_IF_ETH, SL_MODE_UNIBROAD);
 #elif defined(CONFIG_SOOLINK_PLUGIN_SIMULATION)
-	datacomm_sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIMULATION, SL_MODE_UNIBROAD);
+	datacomm_sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIM, SL_MODE_UNIBROAD);
 #else
 #error "SOOlink pluging not configured..."
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */

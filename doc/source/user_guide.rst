@@ -42,7 +42,7 @@ The OP-TEE environment requires the following python packages:
 
 .. code:: bash
 
-   pip3 install pycryptdome
+   pip3 install pycryptodome
    sudo apt install python3-pyelftools
 
 The following packets are not mandatory, but they can be installed to
@@ -53,7 +53,7 @@ prevent annoying warnings:
    sudo apt-get install bison flex
 
 Toolchain
-~~~~~~~~~
+=========
 
 The AArch-32 (ARM 32-bit) toolchain can be installed with the following commands:
 
@@ -88,7 +88,7 @@ functional environment. It includes the QEMU emulator, ARM TrustZone
 components, U-boot bootlader, etc.
 
 QEMU
-~~~~
+====
 
 Currently QEMU is version *5.2* QEMU requires the additional package to
 be installed:
@@ -109,13 +109,13 @@ available in README.soo)
 It may take some time, be patient!
 
 TrustZone Related Components
-----------------------------
+============================
 
 Since the SOO agency relies on TrustZone for security concerns, it is
 necessary to compile the trusted-firmware-a package as follows:
 
 ARM Trusted firmware (trusted-firmware-a) also known as ATF
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------------------------------
 
 .. code:: bash
 
@@ -123,7 +123,7 @@ ARM Trusted firmware (trusted-firmware-a) also known as ATF
    ./build.sh
 
 OTEE_OS (Open Trusted Execution Environment)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------------
 
 .. code:: bash
 
@@ -131,7 +131,7 @@ OTEE_OS (Open Trusted Execution Environment)
    ./build.sh
 
 OPTEE TA (Trusted Applications)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------
 
 The *optee_ta/* directory contains our trusted applications used to
 cipher/uncipher the ME, discovery beacons, etc.
@@ -184,13 +184,13 @@ SOO Components
 **************
 
 Agency
-~~~~~~
+======
 
 This section presents the different components which are required to be
 built in the **agency/** directory. Different configurations are possible.
 
 Target platforms
-^^^^^^^^^^^^^^^^
+----------------
 The file ``build.conf`` in ``agency/`` contains the ``PLATFORM`` (and eventually ``TYPE``) variables 
 to select the target platform.
 
@@ -216,7 +216,7 @@ is supported.
    The ``TYPE`` variable is useless and will be removed soon.
 
 Main root filesystem (**rootfs**)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------
 
 In the code below, you have to replace ``MYARCH`` with the selected architecture. 
 All available configurations (\*_defconfig) are placed in
@@ -247,7 +247,7 @@ done by doing simply a make in the ``agency/`` root directory.
    make
 
 Initial ramfs (initrd) filesystem
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------
 
 In the agency, there is an ``initrd`` filesystem which is embedded in
 the *ITB* image file. In order to access the content of this *initrd*, 
@@ -268,7 +268,7 @@ Unmounting the filesystem is done with:
    ./umount_initrd.sh vexpress
 
 Agency user applications
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 In addition to the ``rootfs``, the Agency has its own applications that
 can be found in ``agency/usr``. The build system of this part relies on
@@ -280,7 +280,7 @@ CMake. The build is achieved with the following script:
    ./build.sh
 
 Agency filesystem
-^^^^^^^^^^^^^^^^^
+-----------------
 
 Once all main Agency components have been built, they will be put in a
 virtual disk image as it is possible to attach such a virtual SD-Card
@@ -295,7 +295,7 @@ The creation of the virtual disk image is done as follows:
    ./create_img.sh vexpress
 
 Deployment into the storage device
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------
 
 Finally, the deployment of all Agency components (including the
 bootloader in some configurations) is achieved with the following script
@@ -325,13 +325,13 @@ should get a prompt entitled:
    `agency ~ #`
 
 Mobile Entity (ME)
-~~~~~~~~~~~~~~~~~~
+==================
 
 For a quick test, it is proposed to build and to deploy the SOO.refso3
 reference Mobile Entity.
 
 ME Build
-^^^^^^^^
+--------
 
 The main ``ME``\ directory is amazingly ``ME`` at the root. The
 ``ME/base`` directory contains all the source code and related files of
@@ -343,7 +343,7 @@ System), a device tree and eventually a rootfs used as **ramfs** (the
 rootfs is embedded in the ME image itself, hence the ITB file).
 
 ME Kernel Build
-^^^^^^^^^^^^^^^
+---------------
 
 The SO3 kernel of the SOO.refso3 ME is built with the following
 commands:
@@ -357,7 +357,7 @@ commands:
 As you can see, the build system is still based on Linux KBuild.
 
 ME User Space Build
-^^^^^^^^^^^^^^^^^^^
+-------------------
 
 In this case, the ``refso3_ramfs_defconfig`` configuration means we have
 a rootfs with the ME. Therefore, we can compile the ``usr/`` component
@@ -370,7 +370,7 @@ issued from the SO3 gitlab repository).
    make
 
 ME Filesystem Generation and Deployment
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------
 
 As for the Agency, the ME needs a virtual storage based on FAT-32 to
 store the rootfs components. Note that ``so3virt`` below refers to the
@@ -394,7 +394,7 @@ used in SO3 in this context.
    ./deploy.sh so3virt
 
 Final Deployment
-^^^^^^^^^^^^^^^^
+----------------
 
 The ME ITB is produced with the following deployment script:
 
@@ -415,7 +415,7 @@ of the (virtual) SD-card found in the Agency.
    ./deploy.sh -m SOO.refso3
 
 ME Injection from the Agency
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 It’s time to test the new ME in the running environment. To do that,
 simply start the framework. The agency process which is started
