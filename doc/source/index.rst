@@ -2,8 +2,8 @@
 
 .. image:: img/heigvd-reds.png
    :align: right
-   :width: 290px
-   :height: 160px
+   :width: 180px
+   :height: 70px
    :target: http://reds.heig-vd.ch/en/rad
    
 .. image:: img/SOO_logo.jpg
