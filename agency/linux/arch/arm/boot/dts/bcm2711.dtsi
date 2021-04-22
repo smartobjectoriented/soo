@@ -320,7 +320,7 @@
 		};
 #endif /* SOO.tech */
 	};
-
+#if 0
 	scb {
 		compatible = "simple-bus";
 		#address-cells = <2>;
@@ -328,6 +328,7 @@
 
 		ranges = <0x0 0x7c000000  0x0 0xfc000000  0x03800000>;
 	};
+#endif
 };
 
 &clk_osc {
