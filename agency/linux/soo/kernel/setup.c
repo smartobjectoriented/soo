@@ -45,9 +45,6 @@ void __init avz_setup(void)
 {
 	int ret;
 
-#ifdef CONFIG_ARM
-	unsigned int cr, ttbcr;
-#endif
 	__printch = avz_start_info->printch;
 
 	/* Immediately prepare for hypercall processing */

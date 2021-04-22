@@ -288,7 +288,7 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 		if (!block->block_ext_in_progress) {
 			if (pkt->u.ext.packetID != 1) {
-				DBG("## Missed some packets\n");
+				soo_log("[soo:soolink:decoder] !! Missed some packets !!\n");
 				/*
 				 * We have missed some packets of a new block when processing the current block.
 				 * Wait for the next packet ID = 1 to arrive.
@@ -340,8 +340,7 @@ out:
  * In this case, all received packets are discarded and the blocks are released.
  */
 static int decoder_watchdog_task_fn(void *arg)  {
-	struct list_head *cur, *tmp;
-	decoder_block_t *block;
+	decoder_block_t *block, *tmp;
 	s64 current_time;
 
 	while (true) {
@@ -353,8 +352,7 @@ static int decoder_watchdog_task_fn(void *arg)  {
 		mutex_lock(&current_soo_transcoder->decoder_lock);
 
 		/* Look for the blocks that exceed the timeout */
-		list_for_each_safe(cur, tmp, &current_soo_transcoder->block_list) {
-			block = list_entry(cur, decoder_block_t, list);
+		list_for_each_entry_safe(block, tmp, &current_soo_transcoder->block_list, list) {
 
 			if (!block->block_ext_in_progress)
 				continue;
@@ -374,6 +372,7 @@ static int decoder_watchdog_task_fn(void *arg)  {
 					receiver_cancel_rx(block->sl_desc);
 				}
 
+				list_del(&block->list);
 				kfree(block);
 			}
 		}
