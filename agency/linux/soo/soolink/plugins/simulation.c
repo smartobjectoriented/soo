@@ -168,7 +168,7 @@ static bool sendto(soo_env_t *soo, void *args) {
 
 	broadcast = (memcmp(medium_rx->mac_dst, broadcast_addr, ETH_ALEN) ? false : true);
 
-	/* For a peer transmission, re we the target SOO ? */
+	/* For a peer transmission, are we the target SOO ? */
 	if (!broadcast && memcmp(medium_rx->mac_dst, soo_plugin_sim_dst->mac, ETH_ALEN))
 		return true;
 

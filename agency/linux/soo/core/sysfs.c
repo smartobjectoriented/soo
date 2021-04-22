@@ -28,7 +28,7 @@
 
 /* Required to have a real string for each attribute. */
 char *soo_sysfs_names[] = {
-	[stream_count] = "stream_count",
+	[buffer_count] = "buffer_count",
 	[neighbours] = "neighbours",
 };
 
@@ -103,12 +103,12 @@ ssize_t	attr_store(struct kobject *kobj, struct kobj_attribute *attr, const char
 
 /**** Discovery ****/
 
-static struct kobj_attribute stream_count_attr = __ATTR(stream_count, 0664, attr_show, attr_store);
+static struct kobj_attribute buffer_count_attr = __ATTR(buffer_count, 0664, attr_show, attr_store);
 static struct kobj_attribute neighbours_attr = __ATTR(neighbours, 0664, attr_show, attr_store);
 
 /* Group of attributes for SOOlink Discovery */
 static struct attribute *soolink_discovery_attrs[] = {
-	&stream_count_attr.attr,
+	&buffer_count_attr.attr,
 	&neighbours_attr.attr,
 	NULL,	/* need to NULL terminate the list of attributes */
 };
