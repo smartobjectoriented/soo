@@ -75,30 +75,12 @@
 
 _start:
 
- @ prepare to clear bss and zero fp
-  ldr	r5, =.LCbss
-  ldr	r6, [r5], #4	@ __bss_start
-  ldr 	r7, [r5]		@ __bss_end
-
-  mov	fp, #0			@ Clear BSS (and zero fp)
-1:
-  cmp	r6, r7
-  strcc	fp, [r6], #4
-  bcc	1b
-
   @ r1 = machine id
   @ r2 = dtb address
 
-#ifdef CONFIG_SO3VIRT
-
-  ldr	r10, =avz_start_info
-  str 	r12, [r10]
-
-#else /* !CONFIG_SO3VIRT */
+#ifndef CONFIG_SO3VIRT
 
   safe_svcmode_maskall r9
-
-  @ Make sure we start in SVC mode
 
   msr  	cpsr_c, #PSR_F_BIT | PSR_I_BIT | PSR_SVC_MODE @ ensure svc mode and irqs disabled
 
@@ -109,6 +91,23 @@ _start:
   mcr 	p15, 0, r1, c12, c0, 0		@ vector table
 
 #endif
+
+  @ prepare to clear bss and zero fp
+  ldr	r6, =__bss_start
+  ldr	r7, =__bss_end
+
+  mov	fp, #0			@ Clear BSS (and zero fp)
+1:
+  cmp	r6, r7
+  strcc	fp, [r6], #4
+  bcc	1b
+
+#ifdef CONFIG_SO3VIRT
+
+  ldr	r10, =avz_start_info
+  str 	r12, [r10]
+
+#endif /* CONFIG_So3VIRT */
 
   @ Preserve the (physical address of) device tree base in r9
   mov 	r9, r2
@@ -130,8 +129,6 @@ __kernel_main:
 
   ldr	r0, =__fdt_addr
   str	r9, [r0]
-
-  @ Up to here, a stack should be initialized
 
 #ifdef CONFIG_SO3VIRT
 	bl	avz_setup
@@ -189,10 +186,6 @@ __fdt_addr:
 temp_stack_bottom:
 	.space 4096
 temp_stack:
-
-.LCbss:
-	.long __bss_start
-	.long __bss_end
 
 .LCvirt_entry:
   .word __kernel_main
