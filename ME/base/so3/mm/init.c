@@ -85,15 +85,15 @@ void memory_init(void) {
 	 * Switch to the temporary page table in order to re-configure the original system page table
 	 * Warning !! After the switch, we do not have any mapped I/O until the driver core gets initialized.
 	 */
-
+lprintk("## 0\n");
 	mmu_switch(new_sys_pgtable);
-
+	lprintk("## 1\n");
 	/* Re-configuring the original system page table */
 	memcpy((void *) __sys_l1pgtable, (unsigned char *) new_sys_pgtable, TTB_L1_SIZE);
 
 	/* Finally, switch back to the original location of the system page table */
 	mmu_switch(__sys_l1pgtable);
-
+	lprintk("## 2\n");
 #ifndef CONFIG_SO3VIRT
 
 	/* Finally, prepare the vector page at its correct location */
