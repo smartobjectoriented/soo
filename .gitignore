@@ -13,6 +13,8 @@
 **/generated/**
 **/optee_os/out/**
 
+**/build
+
 #vmlinux*
 uImage*
 domains*
