@@ -749,7 +749,7 @@ void neighbours_read(char *str) {
 void discovery_init(void) {
 	struct task_struct *__ts;
 
-	lprintk("Soolink Discovery init...\n");
+	lprintk("SOOlink: Discovery init...\n");
 
 	current_soo->soo_discovery = kzalloc(sizeof(struct soo_discovery_env), GFP_KERNEL);
 	BUG_ON(!current_soo->soo_discovery);
@@ -777,9 +777,13 @@ void discovery_init(void) {
 
 	/* Enable the discovery function of SOOlink transceiver. */
 
-	if (current_soo->id == 0)
+	/* The first SOO id is 1 (SOO-1) */
+	if (current_soo->id == 1) {
+		lprintk("SOOlink: registering <neighbours> entry in /sys/soo/soolink...\n");
+
 		/* Create an entry in sysfs to export the number of neighbours to the user space */
 		soo_sysfs_register(neighbours, neighbours_read, NULL);
+	}
 
 	__ts = kthread_create(iamasoo_task_fn, NULL, "iamasoo_task");
 	BUG_ON(!__ts);
