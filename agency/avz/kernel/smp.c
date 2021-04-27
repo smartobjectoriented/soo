@@ -110,7 +110,6 @@ void handle_IPI(int ipinr)
 		break;
 	}
 
-
 }
 
 /*
