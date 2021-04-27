@@ -107,7 +107,7 @@ _start:
   ldr	r10, =avz_start_info
   str 	r12, [r10]
 
-#endif /* CONFIG_So3VIRT */
+#endif /* CONFIG_SO3VIRT */
 
   @ Preserve the (physical address of) device tree base in r9
   mov 	r9, r2
