@@ -11,6 +11,10 @@ usage() {
   echo "  - SOO.agency"
   echo ""
   echo "The <ITB_FILE> (without extension) depends on the selected .its file available in the target/ directory."
+  echo ""
+  echo "Here is the list of the target/ directory:"
+  echo ""
+  ls target/
   
   exit 1
 }

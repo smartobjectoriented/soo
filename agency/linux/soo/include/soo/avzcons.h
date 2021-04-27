@@ -16,19 +16,11 @@
  *
  */
 
-#ifndef __AVZCONS_H__
-#define __AVZCONS_H__
+#ifndef __AVZCONS_H
+#define __AVZCONS_H
 
-void avzcons_force_flush(void);
-void avzcons_resume(void);
-
-/* Interrupt work hooks. Receive data, or kick data out. */
-void avzcons_rx(char *buf, unsigned len, struct pt_regs *regs);
-void avzcons_tx(void);
-
-int avzcons_ring_init(void);
-int avzcons_ring_send(const char *data, unsigned len);
+#include <linux/spinlock.h>
 
 int avz_switch_console(char ch);
 
-#endif /* __AVZCONS_H__ */
+#endif /* __AVZCONS_H */
