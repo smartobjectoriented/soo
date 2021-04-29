@@ -58,7 +58,7 @@ struct completion compl;
 mutex_t lock1, lock2;
 
 extern void *localinfo_data;
-
+extern uint32_t migration_count;
 /*
  * Just an example using a thread.
  */
@@ -147,8 +147,40 @@ static int alphabet_fn(void *arg) {
 
 #endif
 
-
 #if 1
+
+
+/* Used to test a ME trip within a scalable network */
+
+static int pingPong_fn(void *arg) {
+
+	printk("ping pong ...\n");
+
+#if 0
+	set_timer(&timer, NOW() + SECONDS(10));
+#endif
+
+	while (migration_count == 0) {
+
+		/* printk("### heap size: %x\n", heap_size()); */
+		msleep(500);
+
+		/* Simply display the current letter which is incremented each time a ME comes back */
+		//lprintk("(%d)",  ME_domID());
+		if(*((char *) localinfo_data) == 'i'){
+			lprintk("\n                              ping                          \n");
+		}else{
+			lprintk("\n                              pong                          \n");
+		}
+		
+	}
+
+	return 0;
+}
+#endif
+
+
+#if 0
 
 
 /* Used to test a ME trip within a scalable network */
@@ -168,7 +200,7 @@ static int alphabet_fn(void *arg) {
 
 		/* Simply display the current letter which is incremented each time a ME comes back */
 		lprintk("(%d)",  ME_domID());
-		printk("%c ", *((char *) localinfo_data));
+		lprintk("%c ", *((char *) localinfo_data));
 
 	}
 
@@ -188,11 +220,17 @@ int app_thread_main(void *args) {
 	kernel_thread(thread1, "thread1", NULL, 0);
 #endif
 
-	//init_timer(&timer, timer_fn, NULL);
-#if 1
+	
+#if 0
 	*((char *) localinfo_data) = 'A';
 
 	kernel_thread(alphabet_fn, "alphabet", NULL, 0);
+#endif
+
+#if 1
+	*((char *) localinfo_data) = 'i';
+
+	kernel_thread(pingPong_fn, "pingPong", NULL, 0);
 #endif
 
 
