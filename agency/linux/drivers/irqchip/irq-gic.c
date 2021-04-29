@@ -756,6 +756,8 @@ void gic_cpu_restore(struct gic_chip_data *gic)
 	gic_cpu_if_up(gic);
 }
 
+#if 0 /* SOO.tech */
+
 static int gic_notifier(struct notifier_block *self, unsigned long cmd,	void *v)
 {
 	int i;
@@ -791,7 +793,6 @@ static struct notifier_block gic_notifier_block = {
 	.notifier_call = gic_notifier,
 };
 
-#if 0 /* SOO.tech */
 static int gic_pm_init(struct gic_chip_data *gic)
 {
 	gic->saved_ppi_enable = __alloc_percpu(DIV_ROUND_UP(32, 32) * 4,

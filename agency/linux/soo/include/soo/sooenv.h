@@ -16,8 +16,8 @@
  *
  */
 
-#ifndef NETSIMUL_H
-#define NETSIMUL_H
+#ifndef SOOENV_H
+#define SOOENV_H
 
 #include <linux/list.h>
 
@@ -41,6 +41,9 @@ typedef struct {
         char name[80];
         unsigned int id;
 
+        /* Helpful to say when (all) soo_env structures are initialized. */
+        bool ready;
+
         /* agencyUID of this Smart Object */
         agencyUID_t agencyUID;
 
@@ -63,8 +66,9 @@ soo_env_t *__current_soo(void);
 
 typedef bool(*soo_iterator_t)(soo_env_t *, void *args);
 
-#define current_soo	__current_soo()
+#define current_soo		__current_soo()
 
+/* Used for the simulated environment */
 #define current_soo_simul	(current_soo->soo_simul)
 
 #define current_soo_soolink	(current_soo->soo_soolink)
@@ -77,10 +81,8 @@ typedef bool(*soo_iterator_t)(soo_env_t *, void *args);
 void add_thread(soo_env_t *soo, unsigned int pid);
 void soolink_netsimul_init(void);
 
-void iterate_on_other_soo(soo_iterator_t fn, void *args);
-
 void dump_soo(void);
 
 soo_env_t *get_soo_by_name(char *name);
 
-#endif /* NETSIMUL_H */
+#endif /* SOOENV_H */

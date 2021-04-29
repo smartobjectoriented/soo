@@ -17,7 +17,13 @@
  */
 
 /*
- * SOO ecosystem environment management
+ * SOO Ecosystem environment management
+ *
+ * Of course, a smart object must handle a set of state/general variables which
+ * are very specific to a specific SOO instance.
+ *
+ * In the case of a simulated environment, it is possible to start several SOO instances
+ * so that interactions between smart objects can be investigated.
  */
 
 #include <linux/types.h>
@@ -26,8 +32,9 @@
 #include <linux/delay.h>
 #include <linux/mutex.h>
 
-#include <soo/netsimul.h>
+#include <soo/sooenv.h>
 #include <soo/hypervisor.h>
+#include <soo/simulation.h>
 
 #include <soo/dcm/dcm.h>
 
@@ -40,23 +47,20 @@
 #include <soo/core/sysfs.h>
 #include <soo/core/device_access.h>
 
-#define BUFFER_SIZE 16*1024
-
 /* SOO instance handling */
 struct list_head soo_environment;
 
 static int count = 0;
 static struct mutex env_lock;
 
-/* Simulation environment */
-struct soo_simul_env {
-	sl_desc_t *sl_desc;
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+	soo_env_t *soo1, *soo2, *soo3;
+#endif
 
-	unsigned char buffer[BUFFER_SIZE];
-	unsigned int recv_count;
-
-};
-
+/**
+ * Get a reference to the current SOO environment.
+ * @return the address soo_env
+ */
 soo_env_t *__current_soo(void) {
 	soo_env_t *soo;
 	soo_env_thread_t *soo_thread;
@@ -78,9 +82,13 @@ soo_env_t *__current_soo(void) {
 	 */
 
 	return list_first_entry(&soo_environment, soo_env_t, list);
-
 }
 
+/**
+ * Get a reference to the SOO environment by its name.
+ * @param name (SOO name)
+ * @return the address of the soo_env
+ */
 soo_env_t *get_soo_by_name(char *name) {
 	soo_env_t *soo;
 
@@ -91,20 +99,6 @@ soo_env_t *get_soo_by_name(char *name) {
 	}
 
 	return NULL;
-}
-
-void iterate_on_other_soo(soo_iterator_t fn, void *args) {
-	soo_env_t *soo;
-	bool cont;
-
-	list_for_each_entry(soo, &soo_environment, list)
-	{
-		if (soo != current_soo)
-			cont = fn(soo, args);
-
-		if (!cont)
-			break;
-	}
 }
 
 void dump_soo(void) {
@@ -130,12 +124,13 @@ void add_thread(soo_env_t *soo, unsigned int pid) {
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 
-static int soo_stream_task_rx_fn(void *args) {
+static int soo_task_rx_fn(void *args) {
 	uint32_t size;
 	void *data;
 	int i;
 
 	while (true){
+
 		size = sl_recv(current_soo_simul->sl_desc, &data);
 
 		for (i = 0; i < BUFFER_SIZE; i++)
@@ -156,49 +151,82 @@ static int soo_stream_task_rx_fn(void *args) {
 	return 0;
 }
 
-void stream_count_read(char *str) {
+void buffer_count_read(char *str) {
 	sprintf(str, "%d", current_soo_simul->recv_count);
 }
 
 /*
- * Testing RT task to send a stream to a specific smart object.
+ * Testing RT task to send data to a specific smart object.
  * This is mainly used for debugging purposes and performance assessment.
  */
-static int soo_stream_task_tx_fn(void *args) {
+static int soo_task_tx_fn(void *args) {
 	int i;
 
-	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIMULATION, SL_MODE_UNIBROAD);
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIM, SL_MODE_UNIBROAD);
 
 	for (i = 0; i < BUFFER_SIZE; i++)
 		current_soo_simul->buffer[i] = i;
 
-	soo_sysfs_register(stream_count, stream_count_read, NULL);
+	soo_sysfs_register(buffer_count, buffer_count_read, NULL);
 
 	while (true) {
+		if (discovery_neighbour_count() > 0) {
+			lprintk("*** (%s) sending buffer ****\n", current_soo->name);
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
 
-		//if (!strcmp(current_soo->name, "SOO-1")) {
+			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
 
-			if (discovery_neighbour_count() > 0) {
-				lprintk("*** (%s) sending buffer ****\n", current_soo->name);
-				sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			lprintk("*** (%s) End. ***\n", current_soo->name);
 
-				lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
-				sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			//msleep(1000);
 
-				lprintk("*** (%s) End. ***\n", current_soo->name);
-
-				//msleep(1000);
-
-			} else
-				schedule();
-
-		//} else
-		//	schedule();
+		} else
+			schedule();
 	}
 
 	return 0;
 }
+/**
+ *
+ * Specific behaviour of SOO3 emitter side.
+ */
+static int soo3_task_tx_fn(void *args) {
+	int i;
+	bool here = true;
 
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIM, SL_MODE_UNIBROAD);
+
+	for (i = 0; i < BUFFER_SIZE; i++)
+		current_soo_simul->buffer[i] = i;
+
+	soo_sysfs_register(buffer_count, buffer_count_read, NULL);
+
+	i = 0;
+	while (true) {
+		if (here && discovery_neighbour_count() > 0) {
+			lprintk("*** (%s) sending buffer ****\n", current_soo->name);
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+
+			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
+
+			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			lprintk("*** (%s) End. ***\n", current_soo->name);
+
+#if 0
+			i++;
+			if (i == 5) {
+				node_unlink(soo3, soo1);
+				node_unlink(soo3, soo2);
+				here = false;
+			}
+#endif
+		} else
+			schedule();
+	}
+
+	return 0;
+}
 #endif /* CONFIG_SOOLINK_PLUGIN_SIMULATION */
 
 /*
@@ -226,9 +254,11 @@ int soo_env_fn(void *args) {
 
 	mutex_unlock(&env_lock);
 
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	strcpy(soo_env->name, (char *) args);
-
+#else
 	devaccess_get_soo_name(soo_env->name);
+#endif
 
 	/* Adding ourself (the current thread) to this environment. */
 	add_thread(soo_env, current->pid);
@@ -301,10 +331,15 @@ int soo_env_fn(void *args) {
 	/* Transcoder initialization */
 	transcoder_init();
 
+	/* In simulation mode, we do not manage several instances of DCM yet. */
+#ifndef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	/* Ready to initializing the DCM subsystem */
 	dcm_init();
+#endif
 
-	lprintk("[soo:core] Now, starting simulation threads...\n");
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
+	lprintk("[soo:core] Now, starting SOO simulation threads...\n");
 
 	/* Start activities - Simulation mode */
 
@@ -312,21 +347,30 @@ int soo_env_fn(void *args) {
 	soo_env->soo_simul = kzalloc(sizeof(struct soo_simul_env), GFP_KERNEL);
 	BUG_ON(!soo_env->soo_simul);
 
+	INIT_LIST_HEAD(&soo_env->soo_simul->topo_links);
+
 	current_soo_simul->recv_count = 0;
 
-#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
-	__ts = kthread_create(soo_stream_task_tx_fn, NULL, "soo_stream_task_tx");
-	BUG_ON(!__ts);
+	if (!strcmp(soo_env->name, "SOO-3")) {
+		__ts = kthread_create(soo3_task_tx_fn, NULL, "soo3_task_tx");
+		BUG_ON(!__ts);
+
+	} else {
+		__ts = kthread_create(soo_task_tx_fn, NULL, "soo_task_tx");
+		BUG_ON(!__ts);
+	}
 
 	add_thread(soo_env, __ts->pid);
 	wake_up_process(__ts);
 
-	__ts = kthread_create(soo_stream_task_rx_fn, NULL, "soo_stream_task_rx");
+	__ts = kthread_create(soo_task_rx_fn, NULL, "soo_task_rx");
 	BUG_ON(!__ts);
 
 	add_thread(soo_env, __ts->pid);
 	wake_up_process(__ts);
 #endif
+
+	soo_env->ready = true;
 
 	do_exit(0);
 
@@ -346,5 +390,24 @@ void soolink_netsimul_init(void) {
 #if 0
 	kthread_run(soo_env_fn, "SOO-2", "SOO-2");
 	kthread_run(soo_env_fn, "SOO-3", "SOO-3");
+
+	/* Wait until all SOO env structures have been created */
+	while (!(soo3 = get_soo_by_name("SOO-3")) || !soo3->ready )
+		schedule();
+
+	BUG_ON(!soo3);
+
+	soo1 = get_soo_by_name("SOO-1");
+	soo2 = get_soo_by_name("SOO-2");
+
+	BUG_ON(!soo1 || !soo2);
+
+	/* Define the SOO topology */
+
+	node_link(soo1, soo2); node_link(soo2, soo1);
+	node_link(soo1, soo3); node_link(soo3, soo1);
+	node_link(soo2, soo3); node_link(soo3, soo2);
+
 #endif
+
 }

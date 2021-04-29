@@ -1,14 +1,22 @@
 .. _architecture:
 
+################
 SOO Architecture
-================
+################
 
-Operating systems
------------------
+.. toctree::
+   :maxdepth: 5
+   :hidden:
+   
+   soolink/soolink
+   
+==============================
+Overall framework architecture
+==============================
 
 The next figure shows an overview of the execution environment inside a smart object 
 
-.. figure:: img/SOO_Architecture_overview.png
+.. figure:: /img/SOO_Architecture_overview.png
    :scale: 50 %
     
    Overview of the SOO framework in a smart object
@@ -34,7 +42,7 @@ The Big Picture
 The next figure is another view of the general architecture. The ME embeds the SO3 kernel and may also have a 
 user space; in this case, applications such a shell can run and make usage of libc (or other libraries) functionalities.
 
-.. figure:: img/SOO_Architecture_general.png
+.. figure:: /img/SOO_Architecture_general.png
    :scale: 50 %
 
    General architecture with resident and migrating parts
@@ -43,14 +51,46 @@ AVZ Hypervisor is responsible to start the Agency when the smart object is switc
 about loading, hosting and managing the migration of all mobile entities which may travel over the time.
 
 
+======
+Agency
+======
+
+The agency is the whole software which is resident within a smart object. It is composed of the ``avz`` hypervisor
+and ``Linux`` as the main domain. Actually, the domain is divided in ``domain #0`` which is the non realtime domain
+of the agency, and ``domain #1`` which is a hard realtime domain running independently of the Linux scheduler.
+The hard realtime domain is a highly modified version of the Xenomai/Cobalt kernel with its RTDM API.
+
 Subsystems and Functional Blocks
 --------------------------------
 
-.. figure:: img/SOO_Architecture_general_detailed.png
+.. figure:: /img/SOO_Architecture_general_detailed.png
    :scale: 50 %
 
    SOO Subsystems and functional blocks
 
+.. _ME:
 
+==================
+Mobile Entity (ME)
+==================
 
-*to be completed*
+A Mobile Entity (ME) is the core logic of the application which can be constituted of several tasks or 
+even of several processes. MEs are based on SO3 operating system.
+
+Specy Aptitude Descriptor (SPAD)
+--------------------------------
+
+Each ME may have one or several :term:`SPAD` (Specy Aptitude Descriptor). The ``SPAD`` determines a specific
+feature (or set of features).
+
+The *SPAD* is also used to tell the agency if the ME is inclined to cooperate with other ME.
+
+Enabling the possibility for an ME to perform *cooperation* with other ME requires to call
+the following function in the main application of the ME:
+
+.. code-block:: c
+
+   spad_enable_cooperate();
+  
+  
+

@@ -214,7 +214,8 @@ static int alphabet_fn(void *arg) {
  */
 int app_thread_main(void *args) {
 
-	avz_shared_info->dom_desc.u.ME.spad.valid = true;
+	/* The ME can cooperate with the others. */
+	spad_enable_cooperate();
 
 #if 0
 	kernel_thread(thread1, "thread1", NULL, 0);

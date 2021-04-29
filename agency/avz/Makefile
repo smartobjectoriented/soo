@@ -121,7 +121,7 @@ HOSTCXXFLAGS = -O2
 #         cmd_cc_o_c       = $(CC) $(c_flags) -c -o $@ $<
 #
 # If $(quiet) is empty, the whole command will be printed.
-# If it is set to "quiet_", only the short version will be printed. 
+# If it is set to "quiet_", only the short version will be printed.
 # If it is set to "silent_", nothing will be printed at all, since
 # the variable $(silent_cmd_cc_o_c) doesn't exist.
 #
@@ -278,7 +278,7 @@ $(KCONFIG_CONFIG):
 
 include include/config/auto.conf
 
-# From here, we can rely CONFIG_* variables stored in .config 
+# From here, we can rely CONFIG_* variables stored in .config
 CROSS_COMPILE = $(CONFIG_CROSS_COMPILE)
 
 
@@ -306,15 +306,15 @@ AVZINCLUDE    := -Iinclude  -I.  \
 KBUILD_CPPFLAGS := -D__KERNEL__ -D__AVZ__
 
 KBUILD_CPPFLAGS += -I$(TOPDIR)include
-KBUILD_CPPFLAGS += -fno-builtin -ffreestanding -nostdinc -isystem $(gccincdir)  
+KBUILD_CPPFLAGS += -fno-builtin -ffreestanding -nostdinc -isystem $(gccincdir)
 
 KBUILD_CFLAGS   := -g  -O0 -fno-common  -Wall -Wstrict-prototypes $(KBUILD_CPPFLAGS)
-KBUILD_CFLAGS	:= -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -fno-PIE -fno-dwarf2-cfi-asm -fno-ipa-sra -funwind-tables -fno-delete-null-pointer-checks -Wno-frame-address --param=allow-store-data-races=0 -Wframe-larger-than=1024 \
+KBUILD_CFLAGS	:= -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -fno-PIE -fno-dwarf2-cfi-asm -fno-ipa-sra -funwind-tables -fno-delete-null-pointer-checks -Wno-frame-address -Wframe-larger-than=1024 \
 				   -fno-stack-protector -Wno-unused-but-set-variable -Wno-unused-const-variable -fomit-frame-pointer -fno-var-tracking-assignments -g -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fno-merge-all-constants -fmerge-constants -fno-stack-check -fconserve-stack \
 				   -Werror=implicit-int -Werror=strict-prototypes -Werror=date-time -Werror=incompatible-pointer-types -Werror=designated-init -fno-function-sections -fno-data-sections
 
-KBUILD_AFLAGS_KERNEL := -I. 
-KBUILD_CFLAGS_KERNEL := -I. -I./lib/libfdt 
+KBUILD_AFLAGS_KERNEL := -I.
+KBUILD_CFLAGS_KERNEL := -I. -I./lib/libfdt
 KBUILD_AFLAGS   := -g -D__ASSEMBLY__ -mlittle-endian -fno-PIE -funwind-tables -Wa,-gdwarf-2
 
 # Specific CFLAGS/AFLAGS according to ARCH
@@ -322,13 +322,13 @@ KBUILD_AFLAGS   := -g -D__ASSEMBLY__ -mlittle-endian -fno-PIE -funwind-tables -W
 SRCARCH := $(patsubst "%",%,$(CONFIG_ARCH))
 
 ifeq ($(CONFIG_ARCH_ARM32),y)
-KBUILD_CFLAGS	+= -mabi=aapcs-linux -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -march=armv7-a -Uarm -DBITS_PER_LONG=32
+KBUILD_CFLAGS	+= -mabi=aapcs-linux -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -march=armv7-a -Uarm -DBITS_PER_LONG=32 --param allow-store-data-races=0
 KBUILD_AFLAGS   += -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -march=armv7-a  -Wa,-gdwarf-2
 endif
- 
+
 ifeq ($(CONFIG_ARCH_ARM64),y)
-KBUILD_CFLAGS	+= -DBITS_PER_LONG=64
-KBUILD_AFLAGS   += 
+KBUILD_CFLAGS	+= -DBITS_PER_LONG=64 -fno-allow-store-data-races
+KBUILD_AFLAGS   +=
 endif
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
@@ -367,10 +367,10 @@ ELF	= avz
 BIN	= avz.bin
 
 include scripts/Makefile.build
- 
-all:  $(BIN)  
 
-objs-y		:= kernel mm arch/$(SRCARCH) devices  
+all:  $(BIN)
+
+objs-y		:= kernel mm arch/$(SRCARCH) devices
 libs-y		:= lib
 libs-y 		+= lib/libfdt
 
@@ -389,8 +389,8 @@ LIBGCC_PATH := $(shell dirname `$(CC) -print-libgcc-file-name`)
 quiet_cmd_avz = LD      $@
      cmd_avz = $(LD) --defsym=ENTRY_ADDR=$(CONFIG_HYPERVISOR_VIRT_ADDR) -T arch/$(SRCARCH)/avz.lds -o $@ $(avz-all) -L $(LIBGCC_PATH) -lgcc
 
-	 
-KBUILD_CFLAGS_KERNEL += -Iarch/$(SRCARCH)/include/ -Iarch/$(SRCARCH)/$(TARGET)/include/	
+
+KBUILD_CFLAGS_KERNEL += -Iarch/$(SRCARCH)/include/ -Iarch/$(SRCARCH)/$(TARGET)/include/
 KBUILD_AFLAGS_KERNEL += -Iarch/$(SRCARCH)/include/ -Iarch/$(SRCARCH)/$(TARGET)/include/
 
 export KBUILD_CFLAGS CFLAGS_KERNEL
@@ -398,11 +398,11 @@ export KBUILD_AFLAGS AFLAGS_KERNEL
 
 $(BIN): $(ELF)
 	$(OBJCOPY) --set-section-flags .bss=alloc,load,contents -O binary $< $@ 2>/dev/null
-	
+
 $(ELF): $(avz-all) arch/$(SRCARCH)/avz.lds
 	$(call if_changed,avz)
 
-# The actual objects are generated when descending, 
+# The actual objects are generated when descending,
 # make sure no implicit rule kicks in
 $(sort $(avz-all)): $(avz-dirs) ;
 
@@ -411,7 +411,7 @@ $(sort $(avz-all)): $(avz-dirs) ;
 # tweaks to this spot to avoid wrong language settings when running
 # make menuconfig etc.
 # Error messages still appears in the original language
- 
+
 prepare0: scripts_basic FORCE
 	$(Q)$(MAKE) $(build)=.
 

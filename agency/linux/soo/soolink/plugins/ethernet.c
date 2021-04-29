@@ -25,8 +25,6 @@
 #include <linux/netdevice.h>
 #include <linux/kthread.h>
 
-#include <soo/netsimul.h>
-
 #include <soo/uapi/avz.h>
 #include <soo/uapi/console.h>
 #include <soo/vbus.h>

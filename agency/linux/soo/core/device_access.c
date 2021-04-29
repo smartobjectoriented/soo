@@ -29,7 +29,7 @@
 
 #include <soo/soolink/discovery.h>
 
-#include <soo/netsimul.h>
+#include <soo/sooenv.h>
 
 #include <asm/io.h>
 

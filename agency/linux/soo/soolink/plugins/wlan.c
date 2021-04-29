@@ -24,8 +24,6 @@
 #include <linux/if_ether.h>
 #include <linux/kthread.h>
 
-#include <soo/netsimul.h>
-
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/plugin.h>
 #include <soo/soolink/plugin/wlan.h>
