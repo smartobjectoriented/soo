@@ -160,7 +160,11 @@ static int pingPong_fn(void *arg) {
 	set_timer(&timer, NOW() + SECONDS(10));
 #endif
 
+<<<<<<< HEAD
 	while (migration_count == 0) {
+=======
+	while (1) {
+>>>>>>> ping pong
 
 		/* printk("### heap size: %x\n", heap_size()); */
 		msleep(500);
