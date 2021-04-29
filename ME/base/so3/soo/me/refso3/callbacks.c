@@ -54,7 +54,7 @@ static int live_count = 0;
  * the ME must be broadcast in the neighborhood, then disappear from the smart object.
  */
 #if 1
-static uint32_t migration_count = 0;
+uint32_t migration_count;
 #endif
 
 /**
@@ -74,6 +74,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 #endif /* 0 */
 
 	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
+	migration_count = 0;
 
 #if 0
 	logmsg("[soo:me:SOO.refSO3] ME %d: cb_pre_activate..\n", ME_domID());
@@ -135,12 +136,14 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	pre_propagate_args->propagate_status = 0;
 
-	/* Enable migration - here, we migrate 3 times before being killed. */
-	if ((get_ME_state() != ME_state_dormant) || (migration_count != 3)) {
+	/* Enable migration - here, we migrate 1 times before being killed. */
+	if ((get_ME_state() != ME_state_dormant) || (migration_count < 1)) {
 		pre_propagate_args->propagate_status = 1;
 		migration_count++;
-	} else
+	} else{
 		set_ME_state(ME_state_killed);
+	}
+		
 
 #endif
 
@@ -226,7 +229,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 				/* Perform the cooperate in the target ME */
 				args->__agency_ctl(&agency_ctl_args);
 
-#if 1
+#if 0
 				/* Now incrementing us */
 				*((char *) localinfo_data) = *((char *) localinfo_data) + 1;
 #endif
@@ -263,7 +266,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		args->__agency_ctl(&agency_ctl_args);
 #endif
 
-#if 1 /* Alphabet */
+#if 0 /* Alphabet */
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
 		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
@@ -274,7 +277,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		initiator_char = *((char *) recv_data);
 #endif
 
-#if 1 /* Alphabet - Increment the alphabet in this case. */
+#if 0 /* Alphabet - Increment the alphabet in this case. */
 		if (get_ME_state() != ME_state_dormant)  {
 
 			if (initiator_found)
@@ -325,6 +328,22 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 #endif
 
+#if 1 /*pigpong*/
+		pfn = cooperate_args->u.initiator_coop.pfn.content;
+		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+		initiator_char = *((char *) recv_data);
+
+		if(initiator_char == 'i'){
+			*((char *) localinfo_data) = 'o';
+		}else {
+			*((char *) localinfo_data) = 'i';
+		}
+		
+
+
+
+#endif 
+
 #if 0 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
 		DBG("Force the termination of this ME #%d\n", ME_domID());
 		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
@@ -334,6 +353,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 #endif
 
 		io_unmap((uint32_t) recv_data);
+	
 		break;
 
 	default:
