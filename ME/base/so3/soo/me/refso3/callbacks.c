@@ -94,15 +94,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 
 	}else{
 
-		list_it = &listOfVisitedDevice.list;
-
-		/*check the vicious circle*/
-		while(list_it->next != NULL){
-
-			container_of 
-			list_it = list_it->next;
-		} 
-
+		
 	}
 
 	
