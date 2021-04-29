@@ -122,10 +122,8 @@ static int base_fn(void *arg) {
 	while (1) {
 
 		/* printk("### heap size: %x\n", heap_size()); */
-		msleep(1000);
 
-		/* Simply display the current letter which is incremented each time a ME comes back */
-		//lprintk("(%d) jump number:",  ME_domID());
+		msleep(1000);
 		
 	}
 
@@ -144,6 +142,7 @@ int app_thread_main(void *args) {
 	spad_enable_cooperate();
 
 	
+
 	kernel_thread(base_fn, "base", NULL, 0);
 
 
