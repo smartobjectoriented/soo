@@ -152,9 +152,15 @@ static int alphabet_fn(void *arg) {
 
 /* Used to test a ME trip within a scalable network */
 
+<<<<<<< HEAD
 static int base_fn(void *arg) {
 
 	printk("ME base...\n");
+=======
+static int pingPong_fn(void *arg) {
+
+	printk("ping pong ...\n");
+>>>>>>> ping pong
 
 #if 0
 	set_timer(&timer, NOW() + SECONDS(10));
@@ -163,10 +169,22 @@ static int base_fn(void *arg) {
 	while (1) {
 
 		/* printk("### heap size: %x\n", heap_size()); */
+<<<<<<< HEAD
 		msleep(1000);
 
 		/* Simply display the current letter which is incremented each time a ME comes back */
 		lprintk("(%d) jump number:",  ME_domID());
+=======
+		msleep(500);
+
+		/* Simply display the current letter which is incremented each time a ME comes back */
+		//lprintk("(%d)",  ME_domID());
+		if(*((char *) localinfo_data) == 'i'){
+			lprintk("\n                              ping                          \n");
+		}else{
+			lprintk("\n                              pong                          \n");
+		}
+>>>>>>> ping pong
 		
 	}
 
@@ -218,13 +236,23 @@ int app_thread_main(void *args) {
 
 	
 #if 0
+<<<<<<< HEAD
 
 #endif
 
 #if 1
 	
+=======
+	*((char *) localinfo_data) = 'A';
+>>>>>>> ping pong
 
 	kernel_thread(base_fn, "base", NULL, 0);
+#endif
+
+#if 1
+	*((char *) localinfo_data) = 'i';
+
+	kernel_thread(pingPong_fn, "pingPong", NULL, 0);
 #endif
 
 
