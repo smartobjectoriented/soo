@@ -353,6 +353,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 #endif
 
 		io_unmap((uint32_t) recv_data);
+	
 		break;
 
 	default:
