@@ -143,15 +143,23 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 	pre_propagate_args->propagate_status = 0;
 
 	/* Enable migration - here, we migrate 1 times before being killed. */
+<<<<<<< HEAD
 	if ((migration_count < 1) &&  (TxData->nb_jump < 4)) {
+=======
+	if ((get_ME_state() != ME_state_dormant) || (migration_count < 1)) {
+>>>>>>> ping pong
 		pre_propagate_args->propagate_status = 1;
 		TxData->nb_jump++;
 		migration_count++;
 	} else{
+<<<<<<< HEAD
 		if(get_ME_state() != ME_state_dormant){
 			set_ME_state(ME_state_killed);
 		}
 		
+=======
+		set_ME_state(ME_state_killed);
+>>>>>>> ping pong
 	}
 		
 
@@ -269,14 +277,52 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
+<<<<<<< HEAD
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
 		//RxData = (common_data *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 		
+=======
+#if 0 /* Will trigger a force_terminate on us */
+		agency_ctl_args.cmd = AG_KILL_ME;
+		agency_ctl_args.slotID = args->slotID;
+		args->__agency_ctl(&agency_ctl_args);
+#endif
+
+#if 0 /* Alphabet */
+		pfn = cooperate_args->u.initiator_coop.pfn.content;
+		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+
+		target_found = *((char *) localinfo_data+1);
+		initiator_found = *((char *) recv_data+1);
+
+		target_char = *((char *) localinfo_data);
+		initiator_char = *((char *) recv_data);
+#endif
+
+#if 0 /* Alphabet - Increment the alphabet in this case. */
+		if (get_ME_state() != ME_state_dormant)  {
+>>>>>>> ping pong
 
 		/*TODO reste de la logique de propagation*/
 
 	
 
+
+#if 1 /*pigpong*/
+		pfn = cooperate_args->u.initiator_coop.pfn.content;
+		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+		initiator_char = *((char *) recv_data);
+
+		if(initiator_char == 'i'){
+			*((char *) localinfo_data) = 'o';
+		}else {
+			*((char *) localinfo_data) = 'i';
+		}
+		
+
+
+
+#endif 
 
 #if 0 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
 		DBG("Force the termination of this ME #%d\n", ME_domID());
