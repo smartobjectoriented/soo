@@ -439,6 +439,7 @@ int cb_force_terminate(void) {
 	return 0;
 }
 
+
 void callbacks_init(void) {
 
 	/* Allocate localinfo */
