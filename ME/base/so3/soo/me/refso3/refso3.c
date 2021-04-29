@@ -109,12 +109,53 @@ irq_return_t evt_interrupt(int irq, void *dev_id) {
 
 
 
+<<<<<<< HEAD
 
+=======
+#if 1
+>>>>>>> ping pong
 
 
 /* Used to test a ME trip within a scalable network */
 
+<<<<<<< HEAD
 static int base_fn(void *arg) {
+=======
+static int pingPong_fn(void *arg) {
+
+	printk("ping pong ...\n");
+
+#if 0
+	set_timer(&timer, NOW() + SECONDS(10));
+#endif
+
+	while (1) {
+
+		/* printk("### heap size: %x\n", heap_size()); */
+		msleep(500);
+
+		/* Simply display the current letter which is incremented each time a ME comes back */
+		//lprintk("(%d)",  ME_domID());
+		if(*((char *) localinfo_data) == 'i'){
+			lprintk("\n                              ping                          \n");
+		}else{
+			lprintk("\n                              pong                          \n");
+		}
+		
+	}
+
+	return 0;
+}
+#endif
+
+
+#if 0
+
+
+/* Used to test a ME trip within a scalable network */
+
+static int alphabet_fn(void *arg) {
+>>>>>>> ping pong
 
 	printk("ME base...\n");
 
@@ -125,8 +166,14 @@ static int base_fn(void *arg) {
 		msleep(1000);
 
 		/* Simply display the current letter which is incremented each time a ME comes back */
+<<<<<<< HEAD
 		lprintk("(%d) jump number:",  ME_domID());
 		
+=======
+		lprintk("(%d)",  ME_domID());
+		lprintk("%c ", *((char *) localinfo_data));
+
+>>>>>>> ping pong
 	}
 
 	return 0;
@@ -144,8 +191,27 @@ int app_thread_main(void *args) {
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
 
+<<<<<<< HEAD
 	
 	kernel_thread(base_fn, "base", NULL, 0);
+=======
+#if 0
+	kernel_thread(thread1, "thread1", NULL, 0);
+#endif
+
+	
+#if 0
+	*((char *) localinfo_data) = 'A';
+
+	kernel_thread(alphabet_fn, "alphabet", NULL, 0);
+#endif
+>>>>>>> ping pong
+
+#if 1
+	*((char *) localinfo_data) = 'i';
+
+	kernel_thread(pingPong_fn, "pingPong", NULL, 0);
+#endif
 
 
 	return 0;

@@ -58,8 +58,14 @@ agencyUID_t listOfVisitedDevice;
  * migrated_once allows the dormant ME to control its oneshot propagation, i.e.
  * the ME must be broadcast in the neighborhood, then disappear from the smart object.
  */
+<<<<<<< HEAD
 uint32_t migration_count;
 
+=======
+#if 1
+uint32_t migration_count;
+#endif
+>>>>>>> ping pong
 
 /**
  * PRE-ACTIVATE
@@ -119,17 +125,36 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 	pre_propagate_args->propagate_status = 0;
 
 	/* Enable migration - here, we migrate 1 times before being killed. */
+<<<<<<< HEAD
 	if ((migration_count < 1) &&  (TxData->nb_jump < 4)) {
+=======
+	if ((get_ME_state() != ME_state_dormant) || (migration_count < 1)) {
+>>>>>>> ping pong
 		pre_propagate_args->propagate_status = 1;
 		TxData->nb_jump++;
 		migration_count++;
 	} else{
+<<<<<<< HEAD
 		if(get_ME_state() != ME_state_dormant){
 			set_ME_state(ME_state_killed);
 		}
 		
 	}
 		
+=======
+		set_ME_state(ME_state_killed);
+	}
+		
+
+#endif
+
+#if 0
+	live_count++;
+
+	if (live_count == 5) {
+		lprintk("##################### ME %d disappearing..\n", ME_domID());
+		set_ME_state(ME_state_killed);
+>>>>>>> ping pong
 	}
 
 	return 0;
@@ -197,6 +222,19 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 				/* Perform the cooperate in the target ME */
 				args->__agency_ctl(&agency_ctl_args);
+<<<<<<< HEAD
+=======
+
+#if 0
+				/* Now incrementing us */
+				*((char *) localinfo_data) = *((char *) localinfo_data) + 1;
+#endif
+
+#endif
+#if 0 /* Arrived ME disappears now... */
+				set_ME_state(ME_state_killed);
+#endif
+>>>>>>> ping pong
 			}
 		}
 
@@ -218,17 +256,63 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
+<<<<<<< HEAD
+=======
+#if 0 /* Will trigger a force_terminate on us */
+		agency_ctl_args.cmd = AG_KILL_ME;
+		agency_ctl_args.slotID = args->slotID;
+		args->__agency_ctl(&agency_ctl_args);
+#endif
+
+#if 0 /* Alphabet */
+>>>>>>> ping pong
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
 		//RxData = (common_data *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 		
 
+<<<<<<< HEAD
 		/*TODO reste de la logique de propagation*/
+=======
+#if 0 /* Alphabet - Increment the alphabet in this case. */
+		if (get_ME_state() != ME_state_dormant)  {
+>>>>>>> ping pong
 
 
 
 
 
+<<<<<<< HEAD
 #if 1 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
+=======
+				else {
+					agency_ctl_args.cmd = AG_KILL_ME;
+					agency_ctl_args.slotID = args->slotID;
+
+					args->__agency_ctl(&agency_ctl_args);
+				}
+			}
+		}
+
+#endif
+
+#if 1 /*pigpong*/
+		pfn = cooperate_args->u.initiator_coop.pfn.content;
+		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+		initiator_char = *((char *) recv_data);
+
+		if(initiator_char == 'i'){
+			*((char *) localinfo_data) = 'o';
+		}else {
+			*((char *) localinfo_data) = 'i';
+		}
+		
+
+
+
+#endif 
+
+#if 0 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
+>>>>>>> ping pong
 		DBG("Force the termination of this ME #%d\n", ME_domID());
 		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
 		agency_ctl_args.slotID = ME_domID();
