@@ -31,6 +31,8 @@
 #define WNET_TIME_US_TO_NS(x) ((x) * 1000ull)
 
 #define WNET_MAX_PACKET_TRANSID 0xffffff
+
+/* Last packet of the buffer (ME) */
 #define WNET_LAST_PACKET	(1 << 24)
 
 /*

@@ -125,7 +125,7 @@ void kernel_start(void) {
 
 	/* Memory manager subsystem initialization */
 	memory_init();
-lprintk("## D\n");
+
 	devices_init();
 
 	/* At this point of time, we are able to use the standard printk() */

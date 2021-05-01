@@ -16,6 +16,8 @@
  *
  */
 
+#include <linux/io.h>
+
 #include <asm/mach/map.h>
 #include <asm/pgtable.h>
 
@@ -35,7 +37,7 @@ void *paging_remap(uint32_t paddr, size_t size) {
 void paging_remap_page_range(unsigned long addr, unsigned long end, phys_addr_t physaddr) {
 	int ret;
 
-	ret = ioremap_page(addr, addr + end, get_mem_type(MT_MEMORY_RWX_NONCACHED));
+	ret = arm_ioremap_page_range(addr, end, physaddr, get_mem_type(MT_MEMORY_RWX_NONCACHED));
 	BUG_ON(ret);
 
 }
