@@ -941,8 +941,9 @@ retry_waitack:
 	change_state(WNET_STATE_LISTENER);
 }
 
-/*
+/**
  * Broadcast to all neighbours that we are the new speaker.
+ *
  * This will update the neighbourhood according to the ack we receive.
  * The neighbor must be protected during this operation to remain consistent
  * during the sending.

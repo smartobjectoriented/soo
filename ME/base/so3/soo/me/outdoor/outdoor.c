@@ -368,8 +368,6 @@ int main_kernel(void *args) {
 	/* Initialize the application */
 	outdoor_init();
 
-	avz_shared_info->dom_desc.u.ME.spad.valid = true;
-
 	lprintk("SOO." APP_NAME " Mobile Entity -- Copyright (c) 2016-2020 REDS Institute (HEIG-VD)\n\n");
 
 	DBG("ME running as domain %d\n", ME_domID());
