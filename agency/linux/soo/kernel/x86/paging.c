@@ -16,7 +16,8 @@
  *
  */
 
-#include <asm/mach/map.h>
+#include <linux/io.h>
+
 #include <asm/pgtable.h>
 
 #include <soo/paging.h>
@@ -31,13 +32,11 @@ void *paging_remap(uint32_t paddr, size_t size) {
 
 	return vaddr;
 }
+void paging_remap_page_range(unsigned long addr, unsigned long end, phys_addr_t physaddr) {
+	int ret;
 
-void *paging_remap_page_range(unsigned long addr, unsigned long end, phys_addr_t physaddr) {
-	void *vaddr;
+	ret = ioremap_page_range(addr, end, physaddr, cachemode2pgprot(_PAGE_CACHE_MODE_UC));
+	BUG_ON(!ret);
 
-	ioremap_page_range(addr, end, physaddr, cachemode2pgprot(_PAGE_CACHE_MODE_UC));
-	BUG_ON(!vaddr);
-
-	return vaddr;
 }
 
