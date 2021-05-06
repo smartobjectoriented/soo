@@ -359,8 +359,17 @@ include scripts/subarch.include
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 
 # (SOO.tech) Usual toolchains for our systems
-ARCH		?= arm
-CROSS_COMPILE	?= arm-linux-gnueabihf-
+include ../build.conf
+
+ifeq ($(PLATFORM),$(filter $(PLATFORM),rpi4_64 virt64))
+ARCH	= arm64
+CROSS_COMPILE = aarch64-none-linux-gnu-
+endif
+
+ifeq ($(PLATFORM),$(filter $(PLATFORM),vexpress rpi4))
+ARCH = arm
+CROSS_COMPILE = arm-linux-gnueabihf-
+endif
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -456,7 +465,9 @@ LINUXINCLUDE    := \
 		$(if $(building_out_of_srctree),-I$(srctree)/include) \
 		-I$(objtree)/include \
 		$(USERINCLUDE) \
-		-Isoo/include
+		-Isoo/include \
+		-Iarch/$(SRCARCH)/xenomai/include -Iinclude/xenomai
+
 
 KBUILD_AFLAGS   := -D__ASSEMBLY__ -fno-PIE
 KBUILD_CFLAGS   := -Wall -Wundef -Werror=strict-prototypes -Wno-trigraphs \
@@ -1023,7 +1034,8 @@ ifeq ($(KBUILD_EXTMOD),)
 core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/
 
 # (SOO.tech) SOO subsystems and drivers
-core-y		+= soo/
+core-y	 += soo/
+core-y	 += arch/$(SRCARCH)/xenomai/
 
 
 vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, $(init-y) $(init-m) \

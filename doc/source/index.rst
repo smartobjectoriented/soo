@@ -1,21 +1,32 @@
 .. doc Documentation master file.
 
+.. image:: img/heigvd-reds.png
+   :align: right
+   :width: 180px
+   :height: 70px
+   :target: http://reds.heig-vd.ch/en/rad
+   
 .. image:: img/SOO_logo.jpg
    :align: center
    :width: 170px
    :height: 150px
+  
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 5
    :numbered:
    :hidden:
   
    introduction
-   architecture
+   architecture/architecture
    user_guide
    logging
    aarch64
+<<<<<<< HEAD
    virt_interfaces/vuihandler
+=======
+   glossary
+>>>>>>> 1362ba2b085f96add55f314c7140073f6cac84f7
    
 ======================================
 Smart Object Oriented (SOO) Technology
@@ -30,8 +41,8 @@ SOO Concepts and Architecture
 - :ref:`Introduction to SOO <introduction>`
 - :ref:`Architecture <architecture>`
 
-Setup and Envronment
-====================
+Setup and Environment
+=====================
 
 -  :ref:`User Guide <user_guide>`
 -  `Logging system <logging>`__

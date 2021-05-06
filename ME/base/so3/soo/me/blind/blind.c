@@ -1425,8 +1425,6 @@ int main_kernel(void *args) {
 	/* Initialize the application */
 	blind_init();
 
-	avz_shared_info->dom_desc.u.ME.spad.valid = true;
-
 	lprintk("SOO." APP_NAME " Mobile Entity\n\n");
 
 	DBG("ME running as domain %d\n", ME_domID());

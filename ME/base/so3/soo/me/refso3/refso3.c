@@ -107,48 +107,6 @@ irq_return_t evt_interrupt(int irq, void *dev_id) {
 	return IRQ_COMPLETED;
 }
 
-#if 0 /* Stress test on evtchn and IRQs */
-static int alphabet_fn(void *arg) {
-	int res;
-	unsigned int evtchn;
-	struct evtchn_alloc_unbound alloc_unbound;
-
-	printk("Alphabet roundtrip...\n");
-
-#if 0
-	set_timer(&timer, NOW() + SECONDS(10));
-#endif
-
-	/* Allocate an event channel associated to the ring */
-	alloc_unbound.remote_dom = 0;
-	alloc_unbound.dom = DOMID_SELF;
-
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
-	evtchn = alloc_unbound.evtchn;
-	lprintk("## evtchn got from avz: %d\n", evtchn);
-
-	res = bind_evtchn_to_irq_handler(evtchn, evt_interrupt, NULL, NULL);
-
-	do_sync_dom(0, DC_PRE_SUSPEND);
-
-	while (1) {
-
-		/* printk("### heap size: %x\n", heap_size()); */
-		msleep(500);
-
-		/* Simply display the current letter which is incremented each time a ME comes back */
-		lprintk("(%d)",  ME_domID());
-		//printk("%c ", *((char *) localinfo_data));
-		lprintk("X ");
-	}
-
-	return 0;
-}
-
-#endif
-
-#if 1
-
 
 /* Used to test a ME trip within a scalable network */
 
@@ -156,9 +114,7 @@ static int pingPong_fn(void *arg) {
 
 	printk("ping pong ...\n");
 
-#if 0
-	set_timer(&timer, NOW() + SECONDS(10));
-#endif
+
 
 	while (1) {
 
@@ -177,36 +133,9 @@ static int pingPong_fn(void *arg) {
 
 	return 0;
 }
-#endif
 
 
-#if 0
 
-
-/* Used to test a ME trip within a scalable network */
-
-static int alphabet_fn(void *arg) {
-
-	printk("Alphabet roundtrip...\n");
-
-#if 0
-	set_timer(&timer, NOW() + SECONDS(10));
-#endif
-
-	while (1) {
-
-		/* printk("### heap size: %x\n", heap_size()); */
-		msleep(500);
-
-		/* Simply display the current letter which is incremented each time a ME comes back */
-		lprintk("(%d)",  ME_domID());
-		lprintk("%c ", *((char *) localinfo_data));
-
-	}
-
-	return 0;
-}
-#endif
 
 /*
  * The main application of the ME is executed right after the bootstrap. It may be empty since activities can be triggered

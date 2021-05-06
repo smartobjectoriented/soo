@@ -26,7 +26,9 @@
 #include <soo/debug/time.h>
 #include <soo/debug/bandwidth.h>
 
+#ifdef CONFIG_ARM
 #include <arm_neon.h>
+#endif
 
 void ll_bandwidth_compute(s64 delay, size_t size, uint32_t *div, uint32_t *result) {
 	float div_f, result_f;

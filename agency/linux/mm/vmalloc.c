@@ -2114,7 +2114,7 @@ struct vm_struct *get_vm_area_caller(unsigned long size, unsigned long flags,
 	/* Use GFP_ATOMIC on CPU 1 */
 	return __get_vm_area_node(size, 1, flags, VMALLOC_START, VMALLOC_END,
 				  NUMA_NO_NODE,
-				  ((smp_processor_id() == AGENCY_CPU) ? GFP_KERNEL : GFP_ATOMIC),
+				  ((smp_processor_id() == AGENCY_RT_CPU) ? GFP_ATOMIC : GFP_KERNEL),
 				  caller);
 }
 

@@ -66,7 +66,7 @@
 
 	memory@80000000 {
 		device_type = "memory";
-		reg = <0 0x80000000 0x20000000>;
+		reg = <0 0x80000000 0x0 0x20000000>;
 	};
 
 	psci {
@@ -388,7 +388,7 @@
 			};
 			vnet {
 				compatible = "vnet,backend";
-				status = "ok";
+				status = "disabled";
 			};
 		};
 	};

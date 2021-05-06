@@ -392,14 +392,12 @@ static void dump_vbstore(unsigned char key)
 
 
 static struct keyhandler dump_backtrace_keyhandler = {
-		.diagnostic = 1,
-		.u.fn = dump_backtrace,
+		.fn = dump_backtrace,
 		.desc = "dump backtrace"
 };
 
 static struct keyhandler dump_vbstore_keyhandler = {
-		.diagnostic = 1,
-		.u.fn = dump_vbstore,
+		.fn = dump_vbstore,
 		.desc = "dump vbstore"
 };
 
@@ -452,6 +450,7 @@ int do_soo_hypercall(soo_hyp_t *args) {
 		rc = soo_pre_activate(*((unsigned int *) op.p_val1));
 		break;
 
+#ifdef CONFIG_ARCH_ARM32
 	case AVZ_MIG_INIT:
 		rc = migration_init(&op);
 		break;
@@ -491,6 +490,8 @@ int do_soo_hypercall(soo_hyp_t *args) {
 	case AVZ_INJECT_ME:
 		rc = inject_me(&op);
 		break;
+
+#endif /* CONFIG_ARCH_ARM32 */
 
 	case AVZ_DC_SET:
 		/*

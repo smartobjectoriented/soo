@@ -103,7 +103,6 @@ static void rtdm_dc_isr_task_fn(void *arg) {
 			lprintk("%s: failure on dc_event %d, no callback function associated\n", __func__, dc_event);
 			BUG();
 		}
-
 	}
 }
 

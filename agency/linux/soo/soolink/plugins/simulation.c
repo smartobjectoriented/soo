@@ -22,6 +22,9 @@
 
 #include <linux/init.h>
 #include <linux/if_ether.h>
+#include <linux/kthread.h>
+
+#include <soo/simulation.h>
 
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/plugin.h>
@@ -47,74 +50,153 @@ typedef struct {
 	uint8_t *mac_addr;
 } sim_packet_t;
 
-struct soo_plugin_sim_env {
-
-	bool plugin_ready;
-
+typedef struct {
 	uint8_t mac[ETH_ALEN];
+	plugin_desc_t plugin_sim_desc;
 
-	medium_rx_back_ring_t rx_ring;
+	/* Simulated RX packet to be queued. */
+	medium_rx_t __medium_rx;
 
-	plugin_desc_t simulation_desc;
-};
+	struct completion rx_event, rx_completed_event;
+	struct mutex rx_lock;
 
-#define current_soo_plugin_sim     ((struct soo_plugin_sim_env *) current_soo->soo_plugin->priv)
+} soo_plugin_sim_t;
+
+/* SOO Smart Object topology (topo) management */
+
+/**
+ * Link a SOO (node) with another node.
+ *
+ * @param soo The smart object which becomes visible to the <soo_target>
+ * @param soo_target
+ */
+void node_link(soo_env_t *soo, soo_env_t *target) {
+	topo_node_entry_t *topo_node_entry;
+
+	/* Create a new soo_topo entry */
+	topo_node_entry = kzalloc(sizeof(topo_node_entry_t), GFP_KERNEL);
+	BUG_ON(!topo_node_entry);
+
+	topo_node_entry->node = soo;
+
+	list_add_tail(&topo_node_entry->link, &target->soo_simul->topo_links);
+}
+
+topo_node_entry_t *find_node(soo_env_t *soo, soo_env_t *target) {
+	topo_node_entry_t *topo_node_entry;
+
+	list_for_each_entry(topo_node_entry, &target->soo_simul->topo_links, link)
+		if (topo_node_entry->node == soo)
+			return topo_node_entry;
+
+	return NULL;
+}
+
+/**
+ * Perform a call to <fn> on each known instance of SOO.
+ * @param fn Function callback to execute
+ * @param args Reference to args as passed to the iterator.
+ */
+void iterate_on_topo_nodes(soo_iterator_t fn, void *args) {
+	soo_env_t *soo;
+	bool cont;
+	topo_node_entry_t *topo_node_entry;
+
+	list_for_each_entry(topo_node_entry, &current_soo->soo_simul->topo_links, link)
+	{
+		soo = topo_node_entry->node;
+
+		cont = fn(soo, args);
+
+		if (!cont)
+			break;
+	}
+}
+
+/**
+ * Unlink a SOO (node) from a target SOO.
+ *
+ * @param soo
+ * @param soo_target
+ */
+void node_unlink(soo_env_t *soo, soo_env_t *soo_target) {
+	topo_node_entry_t *topo_node_entry;
+
+	topo_node_entry = find_node(soo, soo_target);
+	BUG_ON(!topo_node_entry);
+
+	list_del(&topo_node_entry->link);
+
+	kfree(topo_node_entry);
+}
+
+/**
+ * This thread simulates asynchronous activity at the receiver side.
+ * Normally, the network driver executes the rx in a workqueue.
+ */
+static int plugin_sim_rx_fn(void *args) {
+	soo_plugin_sim_t *soo_plugin_sim;
+
+	soo_plugin_sim = container_of(current_soo_plugin->__intf[SL_IF_SIM], soo_plugin_sim_t, plugin_sim_desc);
+
+	/* Wait on a complete from the sending context */
+	while (true) {
+
+		wait_for_completion(&soo_plugin_sim->rx_event);
+
+		plugin_rx(&soo_plugin_sim->plugin_sim_desc, soo_plugin_sim->__medium_rx.req_type, soo_plugin_sim->__medium_rx.mac_src,
+			  soo_plugin_sim->__medium_rx.data, soo_plugin_sim->__medium_rx.size);
+
+		complete(&soo_plugin_sim->rx_completed_event);
+	}
+
+	return 0;
+}
 
 /*
  * Low-level function for sending to a smart object according to the MAC address of the destination.
  */
 static bool sendto(soo_env_t *soo, void *args) {
-	medium_rx_t *medium_rx, *rsp;
-	bool broadcast, peer;
+	medium_rx_t *medium_rx;
+	soo_plugin_sim_t *soo_plugin_sim, *soo_plugin_sim_dst;
+	bool broadcast;
+
+	soo_plugin_sim = container_of(current_soo_plugin->__intf[SL_IF_SIM], soo_plugin_sim_t, plugin_sim_desc);
+	soo_plugin_sim_dst = container_of(soo->soo_plugin->__intf[SL_IF_SIM], soo_plugin_sim_t, plugin_sim_desc);
 
 	medium_rx = (medium_rx_t *) args;
 
-	/* <broadcast> is true if the MAC address is set to 00:00:00:00:00:00 */
-	/* <peer> is true if the Smart Object corresponds to the destination MAC address */
-	broadcast = !memcmp(medium_rx->mac_src, broadcast_addr, ETH_ALEN);
-	peer = !memcmp(medium_rx->mac_src, soo->soo_plugin->sim->mac, ETH_ALEN);
+	broadcast = (memcmp(medium_rx->mac_dst, broadcast_addr, ETH_ALEN) ? false : true);
 
-	if (broadcast || peer) {
+	/* For a peer transmission, are we the target SOO ? */
+	if (!broadcast && memcmp(medium_rx->mac_dst, soo_plugin_sim_dst->mac, ETH_ALEN))
+		return true;
 
-		soo_log("[soo:soolink:plugin:tx] ");
-		if (broadcast)
-			soo_log("(broadcast)");
-		else
-			soo_log("(peer)");
+	soo_log("[soo:soolink:plugin:tx] %s", (broadcast ? "(broadcast)" : "(peer)"));
+	soo_log("  sending to %s (%d bytes)\n", soo->name, medium_rx->size);
 
-		soo_log(" sending to %s (%d bytes)\n", soo->name, medium_rx->size);
+	/* Several SOOs could send to this destination...*/
+	mutex_lock(&soo_plugin_sim_dst->rx_lock);
 
-		while (RING_RSP_FULL(&soo->soo_plugin->sim->rx_ring))
-			schedule();
+	/* We pass the medium_rx packet to the target thread */
+	soo_plugin_sim_dst->__medium_rx.req_type = medium_rx->req_type;
+	soo_plugin_sim_dst->__medium_rx.mac_src = medium_rx->mac_src;
+	soo_plugin_sim_dst->__medium_rx.data = medium_rx->data;
+	soo_plugin_sim_dst->__medium_rx.size = medium_rx->size;
 
-		rsp = medium_rx_new_ring_response(&soo->soo_plugin->sim->rx_ring);
+	/* Simulate the receival of a packet on the target SOO. */
+	complete(&soo_plugin_sim_dst->rx_event);
 
-		rsp->plugin_desc = &soo->soo_plugin->sim->simulation_desc;
-		rsp->req_type = medium_rx->req_type;
+	/* Synchronous wait until the target thread was able to queue the RX packet. */
+	wait_for_completion(&soo_plugin_sim_dst->rx_completed_event);
 
-		rsp->size = medium_rx->size;
+	mutex_unlock(&soo_plugin_sim_dst->rx_lock);
 
-		/* The data will be freed by the rx threaded function of the plugin block. */
-		rsp->data = kzalloc(rsp->size, GFP_KERNEL);
-		BUG_ON(!rsp->data);
-
-		memcpy(rsp->data, medium_rx->data, rsp->size);
-
-		/* Update our MAC address in the packet, so that the receiver get the packet from us :-) */
-		rsp->mac_src = kzalloc(ETH_ALEN, GFP_KERNEL);
-		BUG_ON(!rsp->mac_src);
-
-		memcpy(rsp->mac_src, current_soo_plugin_sim->mac, ETH_ALEN);
-
-		medium_rx_ring_response_ready(&soo->soo_plugin->sim->rx_ring);
-
-		complete(&soo->soo_plugin->rx_event);
-
-		if (peer)
-			return false;
-	}
-
-	return true;
+	/* If the packet is not broadcast, we abort the iterator on other SOOs. */
+	if (!broadcast)
+		return false;
+	else
+		return true;
 }
 
 /*
@@ -123,69 +205,77 @@ static bool sendto(soo_env_t *soo, void *args) {
  */
 void plugin_simulation_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	medium_rx_t medium_rx;
-	const uint8_t *dest;
+	soo_plugin_sim_t *soo_plugin_sim;
 
 	soo_log("[soo:soolink:plugin:tx] transmitting to ");
 	soo_log_printlnUID(&sl_desc->agencyUID_to);
 
 	/* If no valid recipient agency UID is given, broadcast the packet */
 	if (!agencyUID_is_valid(&sl_desc->agencyUID_to))
-		dest = broadcast_addr;
+		medium_rx.mac_dst = broadcast_addr;
 	else
-		dest = get_mac_addr(&sl_desc->agencyUID_to);
+		medium_rx.mac_dst = get_mac_addr(&sl_desc->agencyUID_to);
 
 	/* Maybe not yet known as a neighbour, while the other peer knows us. */
-	if (dest == NULL)
+	if (medium_rx.mac_dst == NULL)
 		return ;
 
 	soo_log("[soo:soolink:plugin:tx] MAC addr: ");
-	soo_log_buffer((void *) dest, ETH_ALEN);
+	soo_log_buffer((void *) medium_rx.mac_dst, ETH_ALEN);
 	soo_log("\n");
 
 	medium_rx.req_type = sl_desc->req_type;
 
-	medium_rx.mac_src = (uint8_t *) dest;
+	soo_plugin_sim = container_of(current_soo_plugin->__intf[SL_IF_SIM], soo_plugin_sim_t, plugin_sim_desc);
+
+	medium_rx.mac_src = soo_plugin_sim->mac;
 
 	medium_rx.data = data;
 	medium_rx.size = size;
 
 	/* Now proceed with sending the packet over the simulated network interface */
-	iterate_on_other_soo(sendto, &medium_rx);
-
+	iterate_on_topo_nodes(sendto, &medium_rx);
 }
 
 /**
  * This function must be executed in the non-RT domain.
  */
-int plugin_simulation_init(void) {
+void plugin_simulation_init(void) {
+	soo_plugin_sim_t *soo_plugin_sim;
+	struct task_struct *__ts;
 
 	lprintk("(%s) SOOlink simulation plugin initializing ...\n", current_soo->name);
 
-	current_soo->soo_plugin->priv = (struct soo_plugin_sim_env *) kzalloc(sizeof(struct soo_plugin_sim_env), GFP_KERNEL);
-	BUG_ON(!current_soo->soo_plugin->priv);
+	soo_plugin_sim = (soo_plugin_sim_t *) kzalloc(sizeof(soo_plugin_sim_t), GFP_KERNEL);
+	BUG_ON(!soo_plugin_sim);
 
-	current_soo_plugin_sim->simulation_desc.tx_callback = plugin_simulation_tx;
-	current_soo_plugin_sim->simulation_desc.if_type = SL_IF_SIMULATION;
+	soo_plugin_sim->plugin_sim_desc.tx_callback = plugin_simulation_tx;
+	soo_plugin_sim->plugin_sim_desc.if_type = SL_IF_SIM;
 
-	transceiver_plugin_register(&current_soo_plugin_sim->simulation_desc);
+	transceiver_plugin_register(&soo_plugin_sim->plugin_sim_desc);
 
-	current_soo_plugin_sim->plugin_ready = true;
+	init_completion(&soo_plugin_sim->rx_event);
+	init_completion(&soo_plugin_sim->rx_completed_event);
+
+	mutex_init(&soo_plugin_sim->rx_lock);
+
+	__ts = kthread_create(plugin_sim_rx_fn, NULL, "plugin_sim_rx");
+	BUG_ON(!__ts);
+
+	add_thread(current_soo, __ts->pid);
+
+	wake_up_process(__ts);
 
 	/* Assign a (virtual) MAC address */
-	memset(current_soo_plugin_sim->mac, 0, ETH_ALEN);
-	current_soo_plugin_sim->mac[4] = 0x12;
-	current_soo_plugin_sim->mac[5] = current_soo->id;
+	memset(soo_plugin_sim->mac, 0, ETH_ALEN);
+	soo_plugin_sim->mac[4] = 0x12;
+	soo_plugin_sim->mac[5] = current_soo->id;
 
 	lprintk("--> On SOO %s, UID: ", current_soo->name);
 	lprintk_buffer(&current_soo->agencyUID, 5);
 	lprintk(" / assigning MAC address :");
-	lprintk_buffer(current_soo_plugin_priv->mac, ETH_ALEN);
+	lprintk_buffer(soo_plugin_sim->mac, ETH_ALEN);
 	lprintk("\n");
-
-	/* Initialize the backend shared ring for RX packet */
-	BACK_RING_INIT(&current_soo_plugin_sim->rx_ring, current_soo_plugin->rx_ring.sring, 32 * PAGE_SIZE);
-
-	return 0;
 }
 
 

@@ -1118,11 +1118,9 @@ static int __init arch_timer_cpu_pm_init(void)
 	return 0;
 }
 
-#if 0 /* SOO.tech */
 static void __init arch_timer_cpu_pm_deinit(void)
 {
 }
-#endif /* 0 */
 
 #endif
 
@@ -1136,9 +1134,8 @@ static int __init arch_timer_register(void)
 		err = -ENOMEM;
 		/* SOO.tech */
 		BUG();
-#if 0
+
  		goto out; 
-#endif /* 0 */
 	}
 
 	ppi = arch_timer_ppi[arch_timer_uses_ppi];
@@ -1170,21 +1167,21 @@ static int __init arch_timer_register(void)
 
 	if (err) {
 		pr_err("can't register interrupt %d (%d)\n", ppi, err);
+
 		/* SOO.tech */
 		BUG();
-#if 0
-		goto out_free;
-#endif /* 0 */
 
+		goto out_free;
 	}
 
 	err = arch_timer_cpu_pm_init();
-	if (err)
+	if (err) {
 		/* SOO.tech */
 		BUG();
-#if 0		
+
 		goto out_unreg_notify;
-#endif /* 0 */
+	}
+
 
 	/* Register and immediately configure the timer on the boot CPU */
 	err = cpuhp_setup_state(CPUHP_AP_ARM_ARCH_TIMER_STARTING,
@@ -1199,16 +1196,15 @@ static int __init arch_timer_register(void)
 	err = cpurthp_setup_state(CPUHP_AP_ARM_ARCH_TIMER_STARTING,
 				"clockevents/arm/arch_timer:starting",
 				arch_timer_starting_cpu, arch_timer_dying_cpu);
-	if (err)
+	if (err) {
 		/* SOO.tech */
 		BUG();
 
-#if 0		
 		goto out_unreg_cpupm;
-#endif /* 0 */
+	}
 
 	return 0;
-#if 0 /* SOO.tech */
+
 out_unreg_cpupm:
 	arch_timer_cpu_pm_deinit();
 
@@ -1222,7 +1218,7 @@ out_free:
 	free_percpu(arch_timer_evt);
 out:
 	return err;
-#endif /* 0 */
+
 }
 
 static int __init arch_timer_mem_register(void __iomem *base, unsigned int irq)

@@ -9,6 +9,7 @@
 
 #include <linux/pci.h>
 #include <linux/slab.h>
+#include <linux/mutex.h>
 #include <linux/export.h>
 #include <linux/string.h>
 #include <linux/delay.h>
@@ -157,6 +158,7 @@ int pci_iov_add_virtfn(struct pci_dev *dev, int id)
 	virtfn->device = iov->vf_device;
 	virtfn->is_virtfn = 1;
 	virtfn->physfn = pci_dev_get(dev);
+	virtfn->no_command_memory = 1;
 
 	if (id == 0)
 		pci_read_vf_config_common(virtfn);

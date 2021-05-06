@@ -185,10 +185,18 @@ ENDPROC(cpu_do_switch_mm)
 ENTRY(idmap_cpu_replace_ttbr1)
 	save_and_disable_daif flags=x2
 
+	msr	ttbr1_el1, x0
+#if 0
 	__idmap_cpu_set_reserved_ttbr1 x1, x3
 
 	offset_ttbr1 x0, x3
 	msr	ttbr1_el1, x0
+#endif
+
+	isb
+	tlbi	vmalle1
+	dsb	nsh
+
 	isb
 
 	restore_daif x2

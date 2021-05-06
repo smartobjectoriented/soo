@@ -16,4 +16,10 @@
  *
  */
 
-#define	UART_BASE	0x1c090000
+#ifndef MACH_UART_H
+#define MACH_UART_H
+
+#define UART_BASE 0x1c090000
+
+#endif /* MACH_UART_H */
+

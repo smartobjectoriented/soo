@@ -24,6 +24,8 @@
 #include <linux/kbuild.h>
 #include <linux/arm-smccc.h>
 
+#include <soo/uapi/avz.h>
+
 int main(void)
 {
   DEFINE(TSK_ACTIVE_MM,		offsetof(struct task_struct, active_mm));
@@ -127,5 +129,10 @@ int main(void)
   DEFINE(SDEI_EVENT_INTREGS,	offsetof(struct sdei_registered_event, interrupted_regs));
   DEFINE(SDEI_EVENT_PRIORITY,	offsetof(struct sdei_registered_event, priority));
 #endif
+
+  /* SOO.tech */
+  DEFINE(AVZ_DOM_PHYS_OFFSET, offsetof(start_info_t, dom_phys_offset));
+  DEFINE(AVZ_PT_VADDR, offsetof(start_info_t, pt_vaddr));
+
   return 0;
 }

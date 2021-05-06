@@ -27,6 +27,10 @@ ENTRY(armv8_switch_to_el2)
          * When running in EL2 now, jump to the
 	 * address saved in x4.
 	 */
+
+	/* SOO.tech */
+	 mov x0, x2
+
 	br x4
 1:	armv8_switch_to_el2_m x4, x5, x6
 ENDPROC(armv8_switch_to_el2)

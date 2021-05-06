@@ -27,6 +27,7 @@
 #include <migration.h>
 #include <domain.h>
 #include <memslot.h>
+#include <heap.h>
 
 #include <asm/io.h>
 #include <asm/mmu.h>
@@ -260,7 +261,7 @@ static int fix_other_page_tables_ME(unsigned int ME_slotID)
 
 	fix_pt_args.pfn_offset = pfn_offset;
 
-	fix_pt_args.min_pfn =  ((start_info_t *) me->vstartinfo_start)->min_mfn;
+	fix_pt_args.min_pfn =  ((start_info_t *) me->vstartinfo_start)->dom_phys_offset >> PAGE_SHIFT;
 	fix_pt_args.nr_pages = ((start_info_t *) me->vstartinfo_start)->nr_pages;
 
 	DBG("DOMCALL_fix_other_page_tables called in ME with pfn_offset=%ld (%lx)\n", fix_pt_args.pfn_offset, fix_pt_args.pfn_offset);
@@ -448,10 +449,10 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 	/* Init post-migration execution of ME */
 
 	/* Stack pointer (r13) should remain unchanged since on the receiver side we did not make any push on the SVC stack */
-	me->arch.guest_context.user_regs.r13 = (unsigned long) setup_dom_stack(me);
+	me->arch.guest_context.user_regs.sp = (unsigned long) setup_dom_stack(me);
 
 	/* Setting the (future) value of PC in r14 (LR). See code switch_to in entry-armv.S */
-	me->arch.guest_context.user_regs.r14 = (unsigned int) (void *) after_migrate_to_user;
+	me->arch.guest_context.user_regs.lr = (unsigned int) (void *) after_migrate_to_user;
 
 	/* Issue a timer interrupt (first timer IRQ) avoiding some problems during the forced upcall in after_migrate_to_user */
 	send_timer_event(me);
@@ -558,7 +559,7 @@ out_error:
 
 	/* Cleanup */
 	if (me != NULL)
-		free_domain_struct(me);
+		free(me);
 
 	DBG("%s failed!\n", __FUNCTION__);
 	return -1;

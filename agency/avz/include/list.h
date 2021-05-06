@@ -4,6 +4,7 @@
 #define LIST_H
 
 #include <common.h>
+#include <prefetch.h>
 
 #include <asm/processor.h>
 
@@ -248,6 +249,17 @@ static inline void list_splice_init(struct list_head *list,
         INIT_LIST_HEAD(list);
     }
 }
+
+/**
+ * list_first_entry - get the first element from a list
+ * @ptr:	the list head to take the element from.
+ * @type:	the type of the struct this is embedded in.
+ * @member:	the name of the list_struct within the struct.
+ *
+ * Note, that list is expected to be not empty.
+ */
+#define list_first_entry(ptr, type, member) \
+	list_entry((ptr)->next, type, member)
 
 /**
  * list_entry - get the struct for this entry

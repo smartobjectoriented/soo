@@ -121,7 +121,7 @@ long arch_do_domctl(struct domctl *op,  domctl_t *args)
         /* Retrieve info from hypercall parameter structure */
         si->store_mfn = op->u.unpause_ME.store_mfn;
 
-        DBG("%s: unpausing ME\n", __FUNCTION__);
+        DBG("%s: unpausing ME\n", __func__);
 
         domain_unpause_by_systemcontroller(d);
 

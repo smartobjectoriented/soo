@@ -41,6 +41,7 @@
 #define BCM2711_DMA_MEMCPY_CHAN 14
 
 struct bcm2835_dma_cfg_data {
+	u64	dma_mask;
 	u32	chan_40bit_mask;
 };
 
@@ -302,10 +303,12 @@ DEFINE_SPINLOCK(memcpy_lock);
 
 static const struct bcm2835_dma_cfg_data bcm2835_dma_cfg = {
 	.chan_40bit_mask = 0,
+	.dma_mask = DMA_BIT_MASK(32),
 };
 
 static const struct bcm2835_dma_cfg_data bcm2711_dma_cfg = {
 	.chan_40bit_mask = BIT(11) | BIT(12) | BIT(13) | BIT(14),
+	.dma_mask = DMA_BIT_MASK(36),
 };
 
 static inline size_t bcm2835_dma_max_frame_length(struct bcm2835_chan *c)
@@ -1115,10 +1118,10 @@ int bcm2711_dma40_memcpy_init(void)
 {
 	if (!memcpy_parent)
 		return -EPROBE_DEFER;
-	
+
 	if (!memcpy_chan)
 		return -EINVAL;
-	
+
 	if (!memcpy_scb)
 		return -ENOMEM;
 
@@ -1185,6 +1188,8 @@ static struct dma_chan *bcm2835_dma_xlate(struct of_phandle_args *spec,
 
 static int bcm2835_dma_probe(struct platform_device *pdev)
 {
+	const struct bcm2835_dma_cfg_data *cfg_data;
+	const struct of_device_id *of_id;
 	struct bcm2835_dmadev *od;
 	struct resource *res;
 	void __iomem *base;
@@ -1194,13 +1199,20 @@ static int bcm2835_dma_probe(struct platform_device *pdev)
 	int irq_flags;
 	uint32_t chans_available;
 	char chan_name[BCM2835_DMA_CHAN_NAME_SIZE];
-	const struct of_device_id *of_id;
 	int chan_count, chan_start, chan_end;
+
+	of_id = of_match_node(bcm2835_dma_of_match, pdev->dev.of_node);
+	if (!of_id) {
+		dev_err(&pdev->dev, "Failed to match compatible string\n");
+		return -EINVAL;
+	}
+
+	cfg_data = of_id->data;
 
 	if (!pdev->dev.dma_mask)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 
-	rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	rc = dma_set_mask_and_coherent(&pdev->dev, cfg_data->dma_mask);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to set DMA mask\n");
 		return rc;
@@ -1212,12 +1224,12 @@ static int bcm2835_dma_probe(struct platform_device *pdev)
 
 	pdev->dev.dma_parms = &od->dma_parms;
 	dma_set_max_seg_size(&pdev->dev, 0x3FFFFFFF);
-	
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
-	
+
 	/* The set of channels can be split across multiple instances. */
 	chan_start = ((u32)(uintptr_t)base / BCM2835_DMA_CHAN_SIZE) & 0xf;
 	base -= BCM2835_DMA_CHAN(chan_start);
@@ -1259,14 +1271,14 @@ static int bcm2835_dma_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to map zero page\n");
 		return -ENOMEM;
 	}
-	
+
 	of_id = of_match_node(bcm2835_dma_of_match, pdev->dev.of_node);
 	if (!of_id) {
 		dev_err(&pdev->dev, "Failed to match compatible string\n");
 		return -EINVAL;
 	}
-	
-	od->cfg_data = of_id->data;
+
+	od->cfg_data = cfg_data;
 
 	/* Request DMA channel mask from device tree */
 	if (of_property_read_u32(pdev->dev.of_node,
@@ -1276,7 +1288,7 @@ static int bcm2835_dma_probe(struct platform_device *pdev)
 		rc = -EINVAL;
 		goto err_no_dma;
 	}
-	
+
 	/* One channel is reserved for the legacy API */
 	if (chans_available & BCM2835_DMA_BULK_MASK) {
 		rc = bcm_dmaman_probe(pdev, base,
@@ -1369,7 +1381,7 @@ static int bcm2835_dma_probe(struct platform_device *pdev)
 		goto err_no_dma;
 	}
 
-	dev_info(&pdev->dev, "Load BCM2835 DMA engine driver\n");
+	dev_dbg(&pdev->dev, "Load BCM2835 DMA engine driver\n");
 
 	return 0;
 

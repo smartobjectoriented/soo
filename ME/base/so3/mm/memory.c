@@ -110,19 +110,30 @@ uint32_t get_kernel_size(void) {
  * Get a free page. Return the physical address of the page (or 0 if not available).
  */
 uint32_t get_free_page(void) {
-	uint32_t i;
+	uint32_t loop_mark;
+	static uint32_t __next_free_page = 0;
 
 	spin_lock(&ft_lock);
-	for (i = 0; i < mem_info.avail_pages; i++) {
-		if (frame_table[i].free) {
-			frame_table[i].free = false;
+
+	/* Used to detect a cycle meaning that there no free page. */
+	loop_mark = __next_free_page;
+
+	do {
+
+		if (frame_table[__next_free_page].free) {
+			frame_table[__next_free_page].free = false;
 
 			spin_unlock(&ft_lock);
 
 			/* Found an available page */
-			return page_to_phys(&frame_table[i]);
+			return page_to_phys(&frame_table[__next_free_page]);
 		}
-	}
+
+		/* Prepare to be ready fo the next request (or increment if not available */
+		__next_free_page = (__next_free_page + 1) % mem_info.avail_pages;
+
+	} while (__next_free_page != loop_mark);
+
 	spin_unlock(&ft_lock);
 
 	/* No available page */
@@ -303,7 +314,7 @@ uint32_t io_map(uint32_t phys, size_t size) {
 			break;
 		else {
 			target = cur->vaddr + cur->size;
-			target = ALIGN_UP(target, ((size < SZ_1M) ? PAGE_SIZE : SZ_1M));
+			target = ALIGN_UP(target, PAGE_SIZE);
 
 			/* If we reach the end of the list, we can detect it. */
 			cur = NULL;

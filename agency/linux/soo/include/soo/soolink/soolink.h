@@ -56,7 +56,10 @@ typedef enum {
 	SL_IF_TCP,
 	SL_IF_BT,
 	SL_IF_LOOP,
-	SL_IF_SIMULATION
+	SL_IF_SIM,
+
+	/* Number of plugins */
+	SL_IF_MAX
 } if_type_t;
 
 /* Transmission mode type */
@@ -100,13 +103,6 @@ typedef struct sl_desc {
 
 	/* Event and parameters to perform synchronous call to the Decoder receive function */
 	struct completion recv_event;
-
-	void *incoming_block;
-
-	/*
-	 * Number of received bytes.
-	 */
-	size_t incoming_block_size;
 
 } sl_desc_t;
 

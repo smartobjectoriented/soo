@@ -16,6 +16,9 @@
  *
  */
 
+#ifndef UAPI_DEBUG_H
+#define UAPI_DEBUG_H
+
 #ifdef __KERNEL__
 #define force_print lprintk
 #else
@@ -63,3 +66,6 @@
 #define DBG_OFF__
 
 #endif
+
+#endif /* UAPI_DEBUG_H */
+

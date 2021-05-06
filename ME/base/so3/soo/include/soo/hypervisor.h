@@ -48,6 +48,9 @@ void avz_ME_pause(domid_t domain_id);
 
 int domcall(int cmd, void *arg);
 
+void spad_enable_cooperate(void);
+void spad_disable_cooperate(void);
+
 int do_presetup_adjust_variables(void *arg);
 int do_postsetup_adjust_variables(void *arg);
 int do_sync_domain_interactions(void *arg);

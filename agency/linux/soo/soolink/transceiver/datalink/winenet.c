@@ -110,7 +110,6 @@ struct soo_winenet_env {
 
 	/* When a SOO starts receiving until the end of the buffer receipt. */
 	atomic_t rx_in_progress;
-
 };
 
 
@@ -185,7 +184,6 @@ char *beacon_str(wnet_beacon_t *beacon, agencyUID_t *uid) {
  */
 void winenet_xmit_data_processed(int ret) {
 
-	current_soo_winenet->wnet_tx.pending = false;
 	current_soo_winenet->wnet_tx.ret = ret;
 
 	/* Allow the producer to go further */
@@ -539,12 +537,12 @@ static void winenet_remove_neighbour(neighbour_desc_t *neighbour) {
 				ourself()->neighbour->priv = &ourself()->neighbour->agencyUID;
 
 				change_state(WNET_STATE_SPEAKER);
-
-				complete(&current_soo_winenet->wnet_event);
 			}
 
-		} else
+		} else {
+			/* Since we are already in this state, and maybe waiting... */
 			complete(&current_soo_winenet->wnet_event);
+		}
 
 	}
 
@@ -943,8 +941,9 @@ retry_waitack:
 	change_state(WNET_STATE_LISTENER);
 }
 
-/*
+/**
  * Broadcast to all neighbours that we are the new speaker.
+ *
  * This will update the neighbourhood according to the ack we receive.
  * The neighbor must be protected during this operation to remain consistent
  * during the sending.
@@ -1045,7 +1044,7 @@ retry_waitack:
 
 	/* Alone ? */
 	if (next_valid_neighbour(NULL) == NULL) {
-		lprintk("#################################\n");
+
 		ourself()->neighbour->priv = NULL;
 
 		change_state(WNET_STATE_IDLE);
@@ -1161,14 +1160,10 @@ retry:
 					ourself()->neighbour->priv = &ourself()->neighbour->agencyUID;
 					change_state(WNET_STATE_SPEAKER);
 
-					/* Proceed immediately */
-					complete(&current_soo_winenet->wnet_event);
-
 				} else {
 
 					ourself()->neighbour->priv = &wnet_neighbour->neighbour->agencyUID;
 					change_state(WNET_STATE_LISTENER);
-
 				}
 
 			} else {
@@ -1206,9 +1201,6 @@ retry:
 					ourself()->neighbour->priv = &ourself()->neighbour->agencyUID;
 					change_state(WNET_STATE_SPEAKER);
 
-					/* Proceed immediately */
-					complete(&current_soo_winenet->wnet_event);
-
 				} else {
 					ourself()->neighbour->priv = &wnet_neighbour->neighbour->agencyUID;
 					change_state(WNET_STATE_LISTENER);
@@ -1237,6 +1229,7 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 	wnet_neighbour_t *listener, *tmp;
 	bool __broadcast_done = false;
 	agencyUID_t agencyUID_from, agencyUID_to;
+	bool first = true;
 
 	soo_log("[soo:soolink:winenet:state:speaker] Now in state SPEAKER\n");
 
@@ -1253,7 +1246,14 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 	while (true) {
 
 		/* We keep synchronized with our producer or be ready to process beacons. */
-		wait_for_completion(&current_soo_winenet->wnet_event);
+
+		/* As we enter in this state for the first time, we can process what is pending (beacon
+		 * or data along the tx path).
+		 */
+		if (!first)
+			wait_for_completion(&current_soo_winenet->wnet_event);
+
+		first = false;
 
 		if (clear_spurious_ack())
 			continue;
@@ -1312,6 +1312,7 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 
 			return ;
 		}
+
 		/* Now, we inform all neighbours that we are the new speaker.
 		 *
 		 * We ask an acknowledge for this beacon, and if a neighbour does
@@ -1367,7 +1368,6 @@ static void winenet_state_speaker(wnet_state_t old_state) {
 		memcpy(&agencyUID_to, &current_soo_winenet->wnet_tx.sl_desc->agencyUID_to, SOO_AGENCY_UID_SIZE);
 
 retry_ack1:
-
 		ack = wait_for_ack();
 
 		if (ack != 0) {
@@ -1445,6 +1445,7 @@ retry_ack2:
 
 				tmp = listener;
 				listener = next_valid_neighbour(listener);
+
 				winenet_remove_neighbour(tmp->neighbour);
 
 				if (listener == NULL) {
@@ -1553,6 +1554,7 @@ retry_ack3:
 static void winenet_state_listener(wnet_state_t old_state) {
 	wnet_neighbour_t *wnet_neighbour;
 	agencyUID_t agencyUID_from;
+	bool first = true;
 
 	soo_log("[soo:soolink:winenet:state:listener] Now in state LISTENER\n");
 
@@ -1565,7 +1567,10 @@ static void winenet_state_listener(wnet_state_t old_state) {
 	}
 
 	while (1) {
-		wait_for_completion(&current_soo_winenet->wnet_event);
+		if (!first)
+			wait_for_completion(&current_soo_winenet->wnet_event);
+
+		first = false;
 
 		if (clear_spurious_ack())
 			continue;
@@ -1573,7 +1578,6 @@ static void winenet_state_listener(wnet_state_t old_state) {
 		/* It may happen if the current speaker disappeared and we are now speaker. */
 		if (get_state() == WNET_STATE_SPEAKER) {
 			/* Go ahead in speaker state for active processing */
-			complete(&current_soo_winenet->wnet_event);
 			return ;
 		}
 
@@ -1611,9 +1615,6 @@ static void winenet_state_listener(wnet_state_t old_state) {
 			/* Our turn... */
 			ourself()->neighbour->priv = &ourself()->neighbour->agencyUID;
 			change_state(WNET_STATE_SPEAKER);
-
-			/* Proceed immediately */
-			complete(&current_soo_winenet->wnet_event);
 
 			/* We can respond to our promoter :-) */
 			winenet_send_beacon(&agencyUID_from, WNET_BEACON_ACKNOWLEDGMENT, NULL, 0);
@@ -1754,14 +1755,13 @@ static int winenet_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet, bool com
 
 		/* Ok, go ahead with the next speaker */
 
-		/* tx_pending will remain to false */
-
 		/* We are synchronized with the SPEAKER if it is still active, i.e.
 		 * if there is still some valid neighbour.
 		 */
 		if (get_state() == WNET_STATE_SPEAKER) {
 
 			current_soo_winenet->transmission_over = true;
+			current_soo_winenet->wnet_tx.pending = false;
 
 			complete(&current_soo_winenet->wnet_event);
 
@@ -1865,6 +1865,7 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 			beacon_str(current_soo_winenet->wnet_rx.last_beacon, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from));
 
 		/* Processed within the FSM directly */
+
 		complete(&current_soo_winenet->wnet_event);
 
 		/* Wait until the beacon has been processed by the FSM */
@@ -1888,7 +1889,7 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 			return ;
 		}
 
-			/*
+		/*
 		 * Data packets are processed immediately along the RX callpath (upper layers) and has nothing to
 		 * do with the FSM. Actually, the speaker will wait for an acknowledgment beacon which will
 		 * process by the FSM *after* all packets have been received (and hence forwarded to the upper layers).
@@ -2027,7 +2028,7 @@ void winenet_init(void) {
 #elif defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
 	current_soo_winenet->__sl_desc = sl_register(SL_REQ_DATALINK, SL_IF_ETH, SL_MODE_UNIBROAD);
 #elif defined(CONFIG_SOOLINK_PLUGIN_SIMULATION)
-	current_soo_winenet->__sl_desc = sl_register(SL_REQ_DATALINK, SL_IF_SIMULATION, SL_MODE_UNIBROAD);
+	current_soo_winenet->__sl_desc = sl_register(SL_REQ_DATALINK, SL_IF_SIM, SL_MODE_UNIBROAD);
 #elif
 #error !! Winenet SOOlink plugin undefined...
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */

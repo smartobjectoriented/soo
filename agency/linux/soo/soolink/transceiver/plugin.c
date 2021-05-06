@@ -20,6 +20,7 @@
 #include <linux/spinlock.h>
 #include <linux/list.h>
 #include <linux/kthread.h>
+#include <linux/mutex.h>
 
 #include <soo/soolink/transceiver.h>
 #include <soo/soolink/plugin.h>
@@ -48,18 +49,7 @@ static uint16_t req_type_to_protocol[SL_REQ_N] = {
 	[SL_REQ_DATALINK] = ETH_P_SOOLINK_DATALINK
 };
 
-/*
- * Look for a specific plugin which matches the if_type
- */
-static plugin_desc_t *find_plugin_by_if_type(if_type_t if_type) {
-	plugin_desc_t *cur;
-
-	list_for_each_entry(cur, &current_soo_plugin->plugin_list, list)
-		if (cur->if_type == if_type)
-			return cur;
-
-	return NULL;
-}
+struct mutex rx_lock;
 
 /**
  * Get the MAC address from an agencyUID.
@@ -140,7 +130,7 @@ void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src) {
 
 	/* Sanity check */
 	if (!memcmp(agencyUID, &current_soo->agencyUID, SOO_AGENCY_UID_SIZE)) {
-		lprintk("!! We are trying to a remote SOO with the same agency UID as us !!\n");
+		lprintk("!! Hacker bip! We are trying to attach a remote SOO with the same agency UID as us !!\n");
 		BUG();
 	}
 
@@ -205,6 +195,41 @@ void detach_agencyUID(agencyUID_t *agencyUID) {
 	BUG();
 }
 
+void plugin_rx(plugin_desc_t *plugin_desc, req_type_t req_type, uint8_t *mac_src, void *data, size_t size) {
+	medium_rx_t *rsp;
+
+	/* Prepare to propagate the data to the plugin block */
+	while (RING_RSP_FULL(&current_soo->soo_plugin->rx_ring_back))
+		schedule();
+
+	mutex_lock(&rx_lock);
+
+	rsp = medium_rx_new_ring_response(&current_soo->soo_plugin->rx_ring_back);
+
+	rsp->plugin_desc = plugin_desc;
+	rsp->req_type = req_type;
+
+	rsp->size = size;
+
+	/* Allocate the payload which will be freed in the rx processing thread. */
+	rsp->data = kzalloc(rsp->size, GFP_KERNEL);
+	BUG_ON(!rsp->data);
+
+	memcpy(rsp->data, data, size);
+
+	rsp->mac_src = kzalloc(ETH_ALEN, GFP_KERNEL);
+	BUG_ON(!rsp->mac_src);
+
+	memcpy(rsp->mac_src, mac_src, ETH_ALEN);
+
+	medium_rx_ring_response_ready(&current_soo->soo_plugin->rx_ring_back);
+
+	complete(&current_soo->soo_plugin->rx_event);
+
+	mutex_unlock(&rx_lock);
+}
+
+
 /**
  * Send a packet using a plugin.
  */
@@ -212,13 +237,12 @@ void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	plugin_desc_t *plugin_desc;
 
 	/* Find a plugin descriptor which matches with the if_type */
-	plugin_desc = find_plugin_by_if_type(sl_desc->if_type);
+	plugin_desc = current_soo_plugin->__intf[sl_desc->if_type];
 
 	/* Currently, it should not fail... */
 	BUG_ON(!plugin_desc);
 
 	plugin_desc->tx_callback(sl_desc, data, size);
-
 }
 
 /**
@@ -240,7 +264,7 @@ static int plugin_rx_fn(void *args) {
 
 		soo_log("[soo:soolink:plugin] Got something...\n");
 
-		rsp = medium_rx_get_ring_response(&current_soo_plugin->rx_ring);
+		rsp = medium_rx_get_ring_response(&current_soo_plugin->rx_ring_front);
 
 		if (rsp->req_type == SL_REQ_DISCOVERY) {
 			transceiver_packet = (transceiver_packet_t *) rsp->data;
@@ -285,6 +309,7 @@ static int plugin_rx_fn(void *args) {
  * Find the requester type using the protocol ID.
  */
 req_type_t get_sl_req_type_from_protocol(uint16_t protocol) {
+
 	/* Clear the flag bits */
 	protocol &= 0x10ff;
 
@@ -297,6 +322,7 @@ req_type_t get_sl_req_type_from_protocol(uint16_t protocol) {
  * Find the protocol ID using the requester type.
  */
 uint16_t get_protocol_from_sl_req_type(req_type_t req_type) {
+
 	if (unlikely((req_type < 0) || (req_type >= SL_REQ_N)))
 		BUG();
 
@@ -308,8 +334,8 @@ uint16_t get_protocol_from_sl_req_type(req_type_t req_type) {
  */
 void transceiver_plugin_register(plugin_desc_t *plugin_desc) {
 
-	/* Add it in the list of known plugin */
-	list_add_tail(&plugin_desc->list, &current_soo_plugin->plugin_list);
+	/* Attatch this plugin to our environment */
+	current_soo_plugin->__intf[plugin_desc->if_type] = plugin_desc;
 }
 
 /*
@@ -324,7 +350,6 @@ void transceiver_plugin_init(void) {
 	current_soo->soo_plugin = kzalloc(sizeof(struct soo_plugin_env), GFP_KERNEL);
 	BUG_ON(!current_soo->soo_plugin);
 
-	INIT_LIST_HEAD(&current_soo_plugin->plugin_list);
 	INIT_LIST_HEAD(&current_soo_plugin->remote_soo_list);
 
 	spin_lock_init(&current_soo_plugin->list_lock);
@@ -337,7 +362,12 @@ void transceiver_plugin_init(void) {
 	BUG_ON(!sring);
 
 	SHARED_RING_INIT(sring);
-	FRONT_RING_INIT(&current_soo_plugin->rx_ring, sring, 32 * PAGE_SIZE);
+	FRONT_RING_INIT(&current_soo_plugin->rx_ring_front, sring, 32 * PAGE_SIZE);
+
+	/* Prepare the backend-style ring side */
+	BACK_RING_INIT(&current_soo_plugin->rx_ring_back, current_soo_plugin->rx_ring_front.sring, 32 * PAGE_SIZE);
+
+	mutex_init(&rx_lock);
 
 	__ts = kthread_create(plugin_rx_fn, NULL, "plugin_rx");
 	BUG_ON(!__ts);

@@ -83,8 +83,7 @@
 #ifndef __ASSEMBLY__
 
 #include <types.h>
-
-#include <asm/linkage.h>
+#include <linkage.h>
 
 /**
  * struct arm_smccc_res - Result from SMC/HVC call

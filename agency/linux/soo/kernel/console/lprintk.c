@@ -17,7 +17,7 @@
  *
  */
 
-#include <soo/netsimul.h>
+#include <soo/sooenv.h>
 
 #include <soo/hypervisor.h>
 #include <soo/uapi/console.h>
@@ -30,6 +30,9 @@ static bool log_soo_dcm = false;
 
 /* Discovery */
 static bool log_soo_soolink_discovery = false;
+
+/* Transcoder */
+static bool log_soo_soolink_transcoder = false;
 
 /* Winenet */
 static bool log_soo_soolink_winenet = false;
@@ -46,7 +49,7 @@ static bool log_soo_soolink_plugin = false;
 
 extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
-void (*__printch)(char c);
+void (*__printch)(char c) = NULL;
 
 void __lprintk(const char *format, va_list va) {
 	char buf[CONSOLEIO_BUFFER_SIZE];
@@ -119,8 +122,15 @@ void soo_log(char *format, ...) {
 		outlog = true;
 
 	/* SOOlink Discovery functional block */
-	if ((log_soo_soolink_discovery && (strstr(__internal_buf, "[soo:soolink:discovery"))) ||
-	    (log_soo_soolink_winenet && (strstr(__internal_buf, "[soo:soolink:winenet"))) ||
+	if (log_soo_soolink_discovery && (strstr(__internal_buf, "[soo:soolink:discovery")))
+		outlog = true;
+
+	/* SOOlink Transcoder functional block */
+	if (log_soo_soolink_transcoder && (strstr(__internal_buf, "[soo:soolink:transcoder")))
+		outlog = true;
+
+	/* SOOlink Winenet protocol */
+	if ((log_soo_soolink_winenet && (strstr(__internal_buf, "[soo:soolink:winenet"))) ||
 	    (log_soo_soolink_winenet_state && (strstr(__internal_buf, "[soo:soolink:winenet:state"))) ||
 	    (log_soo_soolink_winenet_state_idle && (strstr(__internal_buf, "[soo:soolink:winenet:state:idle"))) ||
 	    (log_soo_soolink_winenet_neighbour && (strstr(__internal_buf, "[soo:soolink:winenet:neighbour"))) ||

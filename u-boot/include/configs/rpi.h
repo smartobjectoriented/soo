@@ -56,11 +56,8 @@
 #define CONFIG_LOADADDR			0x00200000
 
 /* SOO.tech */
-#define CONFIG_SYS_BOOTM_LEN            (64 << 20)
-
-#ifdef CONFIG_ARM64
 #define CONFIG_SYS_BOOTM_LEN		SZ_64M
-#endif
+
 
 /* Devices */
 /* GPIO */

@@ -31,6 +31,7 @@
 #include <smp.h>
 #include <softirq.h>
 #include <limits.h>
+#include <div64.h>
 
 #include <device/timer.h>
 
@@ -39,7 +40,6 @@
 #include <asm/bitops.h>
 #include <asm/setup.h>
 #include <asm/processor.h>
-#include <asm/div64.h>
 
 unsigned long loops_per_jiffy = (1 << 20);
 

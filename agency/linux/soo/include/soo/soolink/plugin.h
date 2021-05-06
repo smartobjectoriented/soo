@@ -28,16 +28,13 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
-#include <soo/netsimul.h>
+#include <soo/sooenv.h>
 
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/transceiver.h>
 #include <soo/soolink/plugin/common.h>
 
 typedef struct {
-
-	/* To help for a list of available plugin */
-	struct list_head list;
 
 	/* Associated interface type for this plugin */
 	if_type_t if_type;
@@ -52,11 +49,16 @@ typedef struct {
 	req_type_t req_type;
 	void *data;
 	size_t size;
+
+	/* MAC address of the sender */
 	uint8_t *mac_src;
+
+	/* Also determine if it is broadcast or not */
+	uint8_t *mac_dst;
+
 } medium_rx_t;
 
 DEFINE_RING_TYPES(medium_rx, medium_rx_t, medium_rx_t);
-
 
 struct soo_plugin_env {
 	struct list_head remote_soo_list;
@@ -64,17 +66,21 @@ struct soo_plugin_env {
 	spinlock_t list_lock;
 	struct list_head plugin_list;
 
+	/*
+	 * We keep an array of possible plugins according to the interfaces.
+	 * It is much more efficient to do this way instead
+	 * of handling a list of plugin. On RX path, the interface plugin can then access
+	 * directly its specific fields.
+	 */
+	plugin_desc_t *__intf[SL_IF_MAX];
+
 	/* Rx part */
-	medium_rx_front_ring_t rx_ring;
+	medium_rx_front_ring_t rx_ring_front;
+	medium_rx_back_ring_t rx_ring_back;
 
 	struct completion rx_event;
 
-	/* Specific plugin related data */
-	void *priv;
-
 };
-
-#define current_soo_plugin_priv     (current_soo->soo_plugin->priv)
 
 void transceiver_plugin_init(void);
 
@@ -82,6 +88,7 @@ void transceiver_plugin_register(plugin_desc_t *plugin_desc);
 void transceiver_plugins_enable(void);
 
 void plugin_tx(sl_desc_t *sl_desc, void *data, size_t size);
+void plugin_rx(plugin_desc_t *plugin_desc, req_type_t req_type, uint8_t *mac_src, void *data, size_t size);
 
 uint8_t *get_mac_addr(agencyUID_t *agencyUID);
 
@@ -92,8 +99,9 @@ req_type_t get_sl_req_type_from_protocol(uint16_t protocol);
 uint16_t get_protocol_from_sl_req_type(req_type_t req_type);
 
 /* Supported plugins */
-int plugin_simulation_init(void);
-int plugin_ethernet_init(void);
-
+void plugin_simulation_init(void);
+void plugin_ethernet_init(void);
+void plugin_wlan_init(void);
+void plugin_bt_init(void);
 
 #endif /* PLUGIN_H */

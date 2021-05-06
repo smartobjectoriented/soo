@@ -47,6 +47,11 @@ U-boot can be configured (and rebuilt) as follows:
    make qemu_arm64_defconfig
    make -j8
 
+.. warning::
+
+   Since the virtio-blk-device of QEMU has a block size of 512 bytes, the uEnv file
+   stored in ``uEnv.d`` directory must not be less than 512 bytes.
+   
 Agency
 ------
 
@@ -140,3 +145,11 @@ AVZ Hypervisor
 
 - The hypervisor will be located at 0xffff700000000000
 
+
+Realtime Agency
+---------------
+
+- The ``idmap`` page tables have to be built up during the bootstrap of CPU #1 to enable the MMU since these page tables are not configured by CPU #0 (AVZ already enabled the MMU).
+- A RT task creation must have a stack aligned on 64-byte
+- tpidr_el1 has a reference to the current task_sruct and is used to retrieved the IRQ stack initialized during ``irq_init()``
+ 

@@ -40,13 +40,12 @@ typedef struct {
 	struct irq_common_data common_data;
 	void *data;
 	void *xnintr;
+	raw_spinlock_t lock;
 } ipipe_irqdesc_t;
 
 extern ipipe_irqdesc_t irqdescs[NR_PIRQS + NR_VIRQS];
 
 extern void (*ipipe_assign_chip)(ipipe_irqdesc_t *irqdesc);
-
-void  __ipipe_do_IPI(unsigned ipinr, void *cookie);
 
 #include <asm/ipipe_base.h>
 #include <linux/compiler.h>
@@ -91,17 +90,6 @@ void __ipipe_init_post(void);
 
 void __ipipe_init(void);
 
-#ifdef CONFIG_PROC_FS
-void __ipipe_init_proc(void);
-#ifdef CONFIG_IPIPE_TRACE
-void __ipipe_init_tracer(void);
-#else /* !CONFIG_IPIPE_TRACE */
-static inline void __ipipe_init_tracer(void) { }
-#endif /* CONFIG_IPIPE_TRACE */
-#else	/* !CONFIG_PROC_FS */
-static inline void __ipipe_init_proc(void) { }
-#endif	/* CONFIG_PROC_FS */
-
 void __ipipe_restore_root_nosync(unsigned long x);
 
 #define IPIPE_IRQF_NOACK    0x1
@@ -117,7 +105,6 @@ void __ipipe_set_RT_IRQ(unsigned int irq);
 
 
 static inline void __ipipe_init_taskinfo(struct task_struct *p) { }
-
 
 void __xnintr_irq_handler(unsigned int irq);
 
