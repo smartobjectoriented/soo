@@ -353,7 +353,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 #endif
 
 		io_unmap((uint32_t) recv_data);
-		set_ME_state(ME_state_killed);
 		break;
 
 	default:
@@ -428,7 +427,7 @@ void callbacks_init(void) {
 	/* Allocate localinfo */
 	localinfo_data = (void *) get_contig_free_vpages(1);
 
-	*((char *) localinfo_data) = 'A';
+	*((char *) localinfo_data) = 'i';
 	*((char *) localinfo_data+1) = 0;
 
 	/* The ME accepts to collaborate */
