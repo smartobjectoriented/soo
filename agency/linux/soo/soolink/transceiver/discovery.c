@@ -408,6 +408,9 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 
 	mutex_unlock(&current_soo_discovery->discovery_listener_lock);
 
+#if 0
+	discovery_dump_neighbours();
+#endif
 }
 
 /**
@@ -685,7 +688,7 @@ void discovery_dump_neighbours(void) {
 
 	/* There is no neighbour in the list, I am alone */
 	if (list_empty(&current_soo_discovery->neighbour_list)) {
-		soo_log("[soo:soolink:discovery] No neighbour\n");
+		soo_log("*** [soo:soolink:discovery] No neighbour\n");
 		mutex_unlock(&current_soo_discovery->discovery_listener_lock);
 		return;
 	}
@@ -694,16 +697,16 @@ void discovery_dump_neighbours(void) {
 
 		neighbour = list_entry(cur, neighbour_desc_t, list);
 
-		soo_log("[soo:soolink:discovery] Neighbour %d: %s - ", count+1, neighbour->name);
+		soo_log("*** [soo:soolink:discovery] Neighbour %d: %s - ", count+1, neighbour->name);
 		soo_log_printlnUID(&neighbour->agencyUID);
 
 		if (!neighbour->plugin)
-			soo_log("[soo:soolink:discovery] ** ourself **\n");
+			soo_log("*** [soo:soolink:discovery] ** ourself **\n");
 		else {
-			soo_log("[soo:soolink:discovery]      ** Friends: **\n");
+			soo_log("*** [soo:soolink:discovery]      ** Friends: **\n");
 			list_for_each(cur_friend, &neighbour->friends) {
 				friend = list_entry(cur_friend, agencyUID_t, list);
-				soo_log("[soo:soolink:discovery] ");
+				soo_log("*** [soo:soolink:discovery] ");
 				soo_log_printlnUID(friend);
 			}
 		}

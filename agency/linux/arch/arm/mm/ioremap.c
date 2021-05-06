@@ -113,6 +113,11 @@ int ioremap_page(unsigned long virt, unsigned long phys,
 }
 EXPORT_SYMBOL(ioremap_page);
 
+/* SOO.tech */
+int arm_ioremap_page_range(unsigned long start, unsigned long end, unsigned long phys, const struct mem_type *mtype) {
+	return ioremap_page_range(start, end, phys, __pgprot(mtype->prot_pte));
+}
+
 void __check_vmalloc_seq(struct mm_struct *mm)
 {
 	unsigned int seq;

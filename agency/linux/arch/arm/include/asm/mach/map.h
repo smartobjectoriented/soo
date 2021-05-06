@@ -11,6 +11,10 @@
 
 #include <asm/io.h>
 
+/* SOO.tech */
+struct mem_type;
+int arm_ioremap_page_range(unsigned long start, unsigned long end, unsigned long phys, const struct mem_type *mtype);
+
 struct map_desc {
 	unsigned long virtual;
 	unsigned long pfn;

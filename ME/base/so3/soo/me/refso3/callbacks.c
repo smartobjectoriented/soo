@@ -17,7 +17,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -429,9 +429,6 @@ void callbacks_init(void) {
 
 	*((char *) localinfo_data) = 'i';
 	*((char *) localinfo_data+1) = 0;
-
-	/* The ME accepts to collaborate */
-	get_ME_desc()->spad.valid = true;
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);

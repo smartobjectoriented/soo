@@ -397,9 +397,6 @@ void callbacks_init(void) {
 	memcpy(&agencyUID_history[0], &null_agencyUID, SOO_AGENCY_UID_SIZE);
 	memcpy(&agencyUID_history[1], &null_agencyUID, SOO_AGENCY_UID_SIZE);
 
-	/* The ME accepts to collaborate */
-	get_ME_desc()->spad.valid = true;
-
 	/* Get ME SPID */
 	memcpy(get_ME_desc()->spid, SOO_outdoor_spid, SPID_SIZE);
 	lprintk("ME SPID: ");

@@ -174,7 +174,7 @@ void vuart_probe(struct vbus_device *vdev) {
 
 	add_console(vdev);
 
-	DBG(vuart_PREFIX "Backend probe: %d\n", vdev->otherend_id);
+	DBG(VUART_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
 
 void vuart_remove(struct vbus_device *vdev) {
@@ -219,7 +219,7 @@ void vuart_reconfigured(struct vbus_device *vdev) {
 	vuart_sring_t *sring;
 	vuart_t *vuart = to_vuart(vdev);
 
-	DBG(vuart_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
+	DBG(VUART_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
 
 	/*
 	 * Set up a ring (shared page & event channel) between the agency and the ME.
@@ -227,7 +227,7 @@ void vuart_reconfigured(struct vbus_device *vdev) {
 
 	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
-	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
+	DBG("BE: ring-ref=%lu, event-channel=%u\n", ring_ref, evtchn);
 
 	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 	BUG_ON(res < 0);
@@ -243,7 +243,7 @@ void vuart_reconfigured(struct vbus_device *vdev) {
 
 void vuart_connected(struct vbus_device *vdev) {
 
-	DBG(vuart_PREFIX "Backend connected: %d\n",vdev->otherend_id);
+	DBG(VUART_PREFIX "Backend connected: %d\n",vdev->otherend_id);
 
 	process_response(vdev);
 }
