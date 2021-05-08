@@ -186,8 +186,6 @@ static inline __req_t *__name##_get_ring_request(__name##_back_ring_t *__name##_
 /* Test if there is an empty slot available on the front ring.
  * (This is only meaningful from the front. )
  */
-#define RING_FULL(_r)                                                   \
-    (RING_FREE_REQUESTS(_r) == 0)
 
 #define RING_REQ_FULL(_r)                                                   \
     (RING_FREE_REQUESTS(_r) == 0)
