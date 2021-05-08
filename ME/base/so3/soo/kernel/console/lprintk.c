@@ -42,6 +42,8 @@ void lprintk(char *format, ...) {
 	else {
 		flags = local_irq_save();
 
+		BUG_ON(strlen(buf) > CONSOLEIO_BUFFER_SIZE);
+
 		for (i = 0; i < strlen(buf); i++)
 			__printch(buf[i]);
 

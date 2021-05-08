@@ -87,6 +87,11 @@ void vuart_write(char *buffer, int count) {
 
 }
 
+/*
+ * The only way to get a char from the backend is
+ * along the vuart interrupt path. Hence, an interrupt must be raised up
+ * in any case.
+ */
 char vuart_read_char(void) {
 	vuart_response_t *ring_rsp;
 	vuart_t *vuart;
@@ -96,17 +101,15 @@ char vuart_read_char(void) {
 
 	vuart = to_vuart(vdev_console);
 
+	/* Always perform a wait on the completion since we always get an interrupt
+	 * per byte (hence a complete will be aised up).
+	 */
+	wait_for_completion(&vuart->reader_wait);
+
 	vdevfront_processing_begin(vdev_console);
+
 	ring_rsp = vuart_get_ring_response(&vuart->ring);
-
-	if (!ring_rsp) {
-		vdevfront_processing_end(vdev_console);
-
-		wait_for_completion(&vuart->reader_wait);
-		vdevfront_processing_begin(vdev_console);
-
-		ring_rsp = vuart_get_ring_response(&vuart->ring);
-	}
+	BUG_ON(!ring_rsp);
 
 	vdevfront_processing_end(vdev_console);
 
