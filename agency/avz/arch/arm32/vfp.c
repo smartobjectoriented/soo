@@ -27,36 +27,36 @@
  */
 void vfp_save_state(struct domain *d)
 {
-	d->arch.vfp.fpexc = READ_CP32(FPEXC);
+	d->vfp.fpexc = READ_CP32(FPEXC);
 
-	WRITE_CP32(d->arch.vfp.fpexc | FPEXC_EN, FPEXC);
+	WRITE_CP32(d->vfp.fpexc | FPEXC_EN, FPEXC);
 
-	d->arch.vfp.fpscr = READ_CP32(FPSCR);
+	d->vfp.fpscr = READ_CP32(FPSCR);
 
-	if ( d->arch.vfp.fpexc & FPEXC_EX ) /* Check for sub-architecture */
+	if ( d->vfp.fpexc & FPEXC_EX ) /* Check for sub-architecture */
 	{
-		d->arch.vfp.fpinst = READ_CP32(FPINST);
+		d->vfp.fpinst = READ_CP32(FPINST);
 
-		if ( d->arch.vfp.fpexc & FPEXC_FP2V )
-			d->arch.vfp.fpinst2 = READ_CP32(FPINST2);
+		if ( d->vfp.fpexc & FPEXC_FP2V )
+			d->vfp.fpinst2 = READ_CP32(FPINST2);
 
 		/* Disable FPEXC_EX */
-		WRITE_CP32((d->arch.vfp.fpexc | FPEXC_EN) & ~FPEXC_EX, FPEXC);
+		WRITE_CP32((d->vfp.fpexc | FPEXC_EN) & ~FPEXC_EX, FPEXC);
 	}
 
 	/* Save {d0-d15} */
 	asm volatile("stc p11, cr0, [%1], #32*4"
-			: "=Q" (*d->arch.vfp.fpregs1) : "r" (d->arch.vfp.fpregs1));
+			: "=Q" (*d->vfp.fpregs1) : "r" (d->vfp.fpregs1));
 
 	/* 32 x 64 bits registers? */
 	if ( (READ_CP32(MVFR0) & MVFR0_A_SIMD_MASK) == 2 )
 	{
 		/* Save {d16-d31} */
 		asm volatile("stcl p11, cr0, [%1], #32*4"
-				: "=Q" (*d->arch.vfp.fpregs2) : "r" (d->arch.vfp.fpregs2));
+				: "=Q" (*d->vfp.fpregs2) : "r" (d->vfp.fpregs2));
 	}
 
-	WRITE_CP32(d->arch.vfp.fpexc & ~(FPEXC_EN), FPEXC);
+	WRITE_CP32(d->vfp.fpexc & ~(FPEXC_EN), FPEXC);
 }
 
 void vfp_restore_state(struct domain *d)
@@ -64,23 +64,23 @@ void vfp_restore_state(struct domain *d)
 	WRITE_CP32(READ_CP32(FPEXC) | FPEXC_EN, FPEXC);
 
 	/* Restore {d0-d15} */
-	asm volatile("ldc p11, cr0, [%1], #32*4" : : "Q" (*d->arch.vfp.fpregs1), "r" (d->arch.vfp.fpregs1));
+	asm volatile("ldc p11, cr0, [%1], #32*4" : : "Q" (*d->vfp.fpregs1), "r" (d->vfp.fpregs1));
 
 	/* 32 x 64 bits registers? */
 	if ( (READ_CP32(MVFR0) & MVFR0_A_SIMD_MASK) == 2 ) /* 32 x 64 bits registers */
 		/* Restore {d16-d31} */
-		asm volatile("ldcl p11, cr0, [%1], #32*4" : : "Q" (*d->arch.vfp.fpregs2), "r" (d->arch.vfp.fpregs2));
+		asm volatile("ldcl p11, cr0, [%1], #32*4" : : "Q" (*d->vfp.fpregs2), "r" (d->vfp.fpregs2));
 
-	if (d->arch.vfp.fpexc & FPEXC_EX)
+	if (d->vfp.fpexc & FPEXC_EX)
 	{
-		WRITE_CP32(d->arch.vfp.fpinst, FPINST);
-		if (d->arch.vfp.fpexc & FPEXC_FP2V)
-			WRITE_CP32(d->arch.vfp.fpinst2, FPINST2);
+		WRITE_CP32(d->vfp.fpinst, FPINST);
+		if (d->vfp.fpexc & FPEXC_FP2V)
+			WRITE_CP32(d->vfp.fpinst2, FPINST2);
 	}
 
-	WRITE_CP32(d->arch.vfp.fpscr, FPSCR);
+	WRITE_CP32(d->vfp.fpscr, FPSCR);
 
-	WRITE_CP32(d->arch.vfp.fpexc, FPEXC);
+	WRITE_CP32(d->vfp.fpexc, FPEXC);
 }
 
 void vfp_enable(void)

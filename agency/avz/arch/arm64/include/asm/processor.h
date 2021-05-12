@@ -819,7 +819,7 @@
 	and \reg, \reg, #0x3 	// mask on CPU ID bits
 .endm
 
-.macro	vcpu	rd, tmp
+.macro	curdom	rd, tmp
 
 	// Compute the address of the stack bottom where cpu_info is located.
 	ldr	\rd, =(~(STACK_SIZE - 1))
@@ -1036,7 +1036,7 @@ static inline void cpu_relax(void)
 	asm volatile("yield" ::: "memory");
 }
 
-typedef struct cpu_user_regs {
+typedef struct cpu_regs {
 	u64 x0;
 	u64 x1;
 	u64 x2;
@@ -1071,7 +1071,7 @@ typedef struct cpu_user_regs {
 	u64 sp;
 	u64 pc;
 	u64 pstate;
-} cpu_user_regs_t;
+} cpu_regs_t;
 
 typedef struct cpu_sys_regs {
 	u64   vksp;
@@ -1082,7 +1082,7 @@ typedef struct cpu_sys_regs {
 struct vcpu_guest_context;
 struct domain;
 
-void __switch_to(struct vcpu_guest_context *prev, struct vcpu_guest_context *next);
+void __switch_to(struct domain *prev, struct domain *next);
 void ret_to_user(void);
 void pre_ret_to_user(void);
 

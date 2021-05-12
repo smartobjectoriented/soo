@@ -31,8 +31,6 @@
 
 #include <device/irq.h>
 
-#include <soo/uapi/event_channel.h>
-
 #include <soo/uapi/avz.h>
 
 /*
@@ -56,25 +54,6 @@ extern struct domain *domains[];
 
 DECLARE_PER_CPU(struct domain *, current_domain);
 
-struct evtchn
-{
-	u8  state;             /* ECS_* */
-
-	bool can_notify;
-
-	struct {
-		domid_t remote_domid;
-	} unbound;     /* state == ECS_UNBOUND */
-
-	struct {
-		u16 remote_evtchn;
-		struct domain *remote_dom;
-	} interdomain; /* state == ECS_INTERDOMAIN */
-
-	u16 virq;      /* state == ECS_VIRQ */
-
-};
-
 int  evtchn_init(struct domain *d); /* from domain_create */
 void evtchn_destroy(struct domain *d); /* from domain_kill */
 void evtchn_destroy_final(struct domain *d); /* from complete_domain_destroy */
@@ -84,58 +63,6 @@ void evtchn_destroy_final(struct domain *d); /* from complete_domain_destroy */
 #define domain_unlock(d) spin_unlock_recursive(&(d)->domain_lock)
 #define domain_is_locked(d) spin_is_locked(&(d)->domain_lock)
 
-struct domain
-{
-	domid_t domain_id;
-
-	/* The following fields are at this place in the structure to
-	 * avoid asm_offset to generate too big offsets causing
-	 * a bad immediate value in exception.S.
-	 */
-	struct arch_vcpu arch;
-
-	/* Information to the related address space for this domain. */
-	addrspace_t addrspace;
-
-	shared_info_t *shared_info;     /* shared data area */
-
-	spinlock_t domain_lock;
-
-	unsigned int tot_pages;       /* number of pages currently possesed */
-	unsigned int max_pages;       /* maximum value for tot_pages        */
-
-	/* Event channel information. */
-	struct evtchn evtchn[NR_EVTCHN];
-	spinlock_t event_lock;
-
-	/* Is this guest dying (i.e., a zombie)? */
-	enum { DOMDYING_alive, DOMDYING_dying, DOMDYING_dead } is_dying;
-
-	/* Domain is paused by controller software? */
-	bool_t is_paused_by_controller;
-
-	int processor;
-
-	bool need_periodic_timer;
-	struct timer oneshot_timer;
-
-	struct scheduler *sched;
-
-	int runstate;
-
-	/* Currently running on a CPU? */
-	bool_t is_running;
-
-	unsigned long pause_flags;
-	atomic_t pause_count;
-
-	/* IRQ-safe virq_lock protects against delivering VIRQ to stale evtchn. */
-	u16 virq_to_evtchn[NR_VIRQS];
-	spinlock_t virq_lock;
-
-	unsigned long vstartinfo_start;
-	unsigned long domain_stack;
-};
 
 #define is_idle_domain(d) ((d)->domain_id == DOMID_IDLE)
 

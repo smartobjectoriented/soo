@@ -38,8 +38,6 @@
 
 #include <mach/uart.h>
 
-#include <soo/arch-arm.h>
-
 #define ME_MEMCHUNK_SIZE	2 * 1024 * 1024
 #define ME_MEMCHUNK_NR		256    /* 256 chunks of 2 MB */
 

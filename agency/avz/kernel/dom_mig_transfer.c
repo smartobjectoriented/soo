@@ -181,7 +181,14 @@ static void build_domain_migration_info(unsigned int ME_slotID, struct domain *m
 	memcpy(mig_info->virq_to_evtchn, me->virq_to_evtchn, sizeof((me->virq_to_evtchn)));
 
 	/* Arch & address space */
-	mig_info->arch = me->arch;
+
+	mig_info->cpu_regs = me->cpu_regs;
+	mig_info->g_sp = me->g_sp;
+	mig_info->vfp = me->vfp;
+
+	mig_info->domcall = me->domcall;
+	mig_info->event_callback = me->event_callback;
+
 	mig_info->addrspace = me->addrspace;
 
 	mig_info->evtchn_upcall_pending = me->shared_info->evtchn_upcall_pending;
@@ -292,8 +299,14 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 	/* VIRQ mapping */
 	memcpy(me->virq_to_evtchn, mig_info->virq_to_evtchn, sizeof((me->virq_to_evtchn)));
 
-	/* Arch & address space */
-	me->arch = mig_info->arch;
+	/* Fields related to CPU */
+	me->cpu_regs = mig_info->cpu_regs;
+	me->g_sp = mig_info->g_sp;
+	me->vfp = mig_info->vfp;
+	me->domcall = mig_info->domcall;
+	me->event_callback = mig_info->event_callback;
+
+	lprintk("####### g_sp: %x\n", mig_info->g_sp);
 	me->addrspace = mig_info->addrspace;
 
 	/* Internal fields of vcpu_info_t structure */
