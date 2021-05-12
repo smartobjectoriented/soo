@@ -64,8 +64,14 @@ struct domain_migration_info
 	/* IRQ-safe virq_lock protects against delivering VIRQ to stale evtchn. */
 	u16 virq_to_evtchn[NR_VIRQS];
 
-	/* arch_vcpu structure */
-	struct arch_vcpu arch;
+	/* Fields related to the CPU state */
+	cpu_regs_t cpu_regs;
+	addr_t   g_sp; 	/* G-stack */
+
+	addr_t	domcall;
+	addr_t event_callback;
+
+	struct vfp_state vfp;
 
 	addrspace_t addrspace;
 

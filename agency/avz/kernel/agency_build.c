@@ -33,8 +33,6 @@
 #include <asm/cacheflush.h>
 #include <asm/setup.h>
 
-#include <soo/arch-arm.h>
-
 #include <soo/uapi/logbool.h>
 
 start_info_t *agency_start_info;
@@ -47,6 +45,11 @@ int construct_agency(struct domain *d) {
 	unsigned long alloc_spfn;
 	struct start_info *si = NULL;
 	unsigned long nr_pages;
+
+	unsigned long domain_stack;
+	extern addr_t *hypervisor_stack;
+	static addr_t *__hyp_stack = (unsigned long *) &hypervisor_stack;
+	static addr_t *__pseudo_usr_mode = (unsigned long *) &pseudo_usr_mode;
 
 	printk("***************************** Loading SOO Agency Domain *****************************\n");
 
@@ -116,33 +119,28 @@ int construct_agency(struct domain *d) {
 
 	d->vstartinfo_start = vstartinfo_start;
 
-	{
-		unsigned long domain_stack;
-		extern addr_t *hypervisor_stack;
-		static addr_t *__hyp_stack = (unsigned long *) &hypervisor_stack;
-		static addr_t *__pseudo_usr_mode = (unsigned long *) &pseudo_usr_mode;
 
-	  /* Set up a new domain stack for the RT domain */
-	  domain_stack = (unsigned long) setup_dom_stack(domains[DOMID_AGENCY_RT]);
+	/* Set up a new domain stack for the RT domain */
+	domain_stack = (unsigned long) setup_dom_stack(domains[DOMID_AGENCY_RT]);
 
-	  /* Store the stack address for further needs in hypercalls/interrupt context */
-	  __hyp_stack[AGENCY_RT_CPU] = domain_stack;
+	/* Store the stack address for further needs in hypercalls/interrupt context */
+	__hyp_stack[AGENCY_RT_CPU] = domain_stack;
 
-	  /* We set the realtime domain in pseudo-usr mode since the primary domain will start it, not us. */
-	  __pseudo_usr_mode[AGENCY_RT_CPU] = 1;
+	/* We set the realtime domain in pseudo-usr mode since the primary domain will start it, not us. */
+	__pseudo_usr_mode[AGENCY_RT_CPU] = 1;
 
-	  /*
-	   * Keep a reference in the primary agency domain to its subdomain. Indeed, there is only one shared info page mapped
-	   * in the guest.
-	   */
-	  agency->shared_info->subdomain_shared_info = domains[DOMID_AGENCY_RT]->shared_info;
+	/*
+	 * Keep a reference in the primary agency domain to its subdomain. Indeed, there is only one shared info page mapped
+	 * in the guest.
+	 */
+	agency->shared_info->subdomain_shared_info = domains[DOMID_AGENCY_RT]->shared_info;
 
-	  /*
-	   * Create the first thread associated to this domain.
-	   * The initial stack of the domain is put at the top of the domain memory area.
-	   */
-	  new_thread(d, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
-	}
+	/*
+	 * Create the first thread associated to this domain.
+	 * The initial stack of the domain is put at the top of the domain memory area.
+	 */
+	new_thread(d, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
+
 
 	return 0;
 }

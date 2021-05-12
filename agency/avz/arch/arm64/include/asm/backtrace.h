@@ -19,16 +19,14 @@
 #ifndef BACKTRACE_H
 #define BACKTRACE_H
 
-#include <soo/arch-arm.h>
-
 void dump_stack(void);
 
-void show_registers(struct cpu_user_regs *regs);
+void show_registers(struct cpu_regs *regs);
 
 void dump_execution_state(void);
 void dump_all_execution_state(void);
 
-static inline void show_execution_state(struct cpu_user_regs *regs)
+static inline void show_execution_state(struct cpu_regs *regs)
 {
     show_registers(regs);
 }

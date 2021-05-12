@@ -449,10 +449,10 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 	/* Init post-migration execution of ME */
 
 	/* Stack pointer (r13) should remain unchanged since on the receiver side we did not make any push on the SVC stack */
-	me->arch.guest_context.user_regs.sp = (unsigned long) setup_dom_stack(me);
+	me->cpu_regs.sp = (unsigned long) setup_dom_stack(me);
 
 	/* Setting the (future) value of PC in r14 (LR). See code switch_to in entry-armv.S */
-	me->arch.guest_context.user_regs.lr = (unsigned int) (void *) after_migrate_to_user;
+	me->cpu_regs.lr = (unsigned int) (void *) after_migrate_to_user;
 
 	/* Issue a timer interrupt (first timer IRQ) avoiding some problems during the forced upcall in after_migrate_to_user */
 	send_timer_event(me);

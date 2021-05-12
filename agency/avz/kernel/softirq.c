@@ -61,6 +61,9 @@ void do_softirq(void)
 
 		loopmax++;
 	}
+
+	/* schedule() could have been invoked outside a softirq context, therefore we disable the interrupt context here. */
+	__in_interrupt = false;
 }
 
 void open_softirq(int nr, softirq_handler handler)

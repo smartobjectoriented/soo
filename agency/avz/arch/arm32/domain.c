@@ -25,8 +25,7 @@
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
 
-void arch_setup_domain_frame(struct domain *d, struct cpu_user_regs *domain_frame, addr_t fdt_addr, addr_t start_info, addr_t start_stack, addr_t start_pc) {
-	struct cpu_user_regs *regs = &d->arch.guest_context.user_regs;
+void arch_setup_domain_frame(struct domain *d, cpu_regs_t *domain_frame, addr_t fdt_addr, addr_t start_info, addr_t start_stack, addr_t start_pc) {
 
 	domain_frame->r2 = fdt_addr;
 	domain_frame->ip = start_info;
@@ -36,8 +35,8 @@ void arch_setup_domain_frame(struct domain *d, struct cpu_user_regs *domain_fram
 
 	domain_frame->psr = 0x93;  /* IRQs disabled initially */
 
-	regs->sp = (unsigned long) domain_frame;
-	regs->lr = (unsigned long) pre_ret_to_user;
+	d->cpu_regs.sp = (unsigned long) domain_frame;
+	d->cpu_regs.lr = (unsigned long) pre_ret_to_user;
 }
 
 /*
@@ -90,11 +89,6 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 void arch_domain_create(struct domain *d, int cpu_id) {
                 
 	/* Will be used during the context_switch (cf kernel/entry-armv.S */
-
-	d->arch.guest_context.sys_regs.vdacr = domain_val(DOMAIN_USER, DOMAIN_MANAGER) | domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) |
-		domain_val(DOMAIN_IO, DOMAIN_MANAGER);
-
-	d->arch.guest_context.sys_regs.vusp = 0x0; /* svc stack hypervisor at the beginning */
 
 	if (is_idle_domain(d)) {
 		d->addrspace.pgtable_paddr = (CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET);

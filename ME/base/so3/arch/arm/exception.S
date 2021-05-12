@@ -274,19 +274,19 @@ __ret_from_fork:
     ldr 	lr, [sp, #OFFSET_PSR]	@ get the saved spsr and adjust the stack pointer
     msr		spsr, lr
 
+	@ Check if it is necessary to restore sp_usr and lr_usr
+	and		lr, lr, #PSR_MODE_MASK
+	cmp		lr, #PSR_USR_MODE
+
 	@ Restoring user mode registers (sp_usr, lr_usr)
-	add		lr, sp, #OFFSET_SP_USR
-	ldmia	lr, {sp, lr}^
+	addeq	lr, sp, #OFFSET_SP_USR
+	ldmeqia	lr, {sp, lr}^
+
 
  	ldmia 	sp, {r0-r12}
 	add		sp, sp, #OFFSET_SP
 
-	dsb
-	isb
-
-	ldmia 	sp, {sp, lr, pc}^
-
-
+    ldmia 	sp, {sp, lr, pc}^
 
 @ Used at entry point of a fork'd process (setting the return value to 0)
 ret_from_fork:
@@ -398,9 +398,6 @@ irq:
 
     bl 		irq_handle
 
-	@ Give the opportunity to pending softirq to be executed (IRQs off, but can be (synchronously) preempted)
-    bl 		do_softirq
-
 #ifdef CONFIG_IPC_SIGNAL
 	@ Is there any pending signals for this process?
 
@@ -437,46 +434,30 @@ irq:
 .align 5
 ENTRY(avz_vector_callback)
 
-	@ Store the current value of sp which is at the base of cpu_regs_t
-	@ from avz. It may be not 8-byte aligned so that we are
-	@ re-adjusting the sp as follows.
-
-	mov	    r1, sp
-
-	tst		sp, #0x7	@ 8-bytes aligned
-	subne	sp, sp, #4
-	subeq	sp, sp, #8
-
-	str		r1, [sp]	@ save current sp; now, we know that at this position we will retrieve the correct sp.
-
-	@ Check if the stack is 8-byte aligned.
-	tst		sp, #0x7
-	bne		__stack_alignment_fault
-
 	@ r0 is set to cpu_regs_t by avz
 	bl 		irq_handle
 
-	@ restore the sp at the entry of the function
-	ldr		sp, [sp]
+ 	ldr 	lr, [sp, #OFFSET_PSR]	@ get the saved spsr and adjust the stack pointer
+    msr		spsr, lr
 
-	ldr		r0, [sp, #OFFSET_PSR]			@ Check if return is in guest SVC or guest USR
-	msr		spsr_cxsf, r0
+	@ Check if it is necessary to restore sp_usr and lr_usr
+	and		lr, lr, #PSR_MODE_MASK
+	cmp		lr, #PSR_USR_MODE
 
-	and		r0, r0, #PSR_MODE_MASK
-	cmp		r0, #PSR_USR_MODE   			@ usr ?
-	bne		restore_svc
+	@ Restoring user mode registers (sp_usr, lr_usr)
+	addeq	lr, sp, #OFFSET_SP_USR
+	ldmeqia	lr, {sp, lr}^
 
-	ldr     lr, [sp, #OFFSET_PC]!                @ Get PC
+	@ Restore registers
+   	ldmia 	sp, {r0-r12}
 
-	ldmdb   sp, {r0 - lr}^                  @ Get calling r0 - lr
-	mov     r0, r0
-	add     sp, sp, #72 - OFFSET_PC
+	add		sp, sp, #OFFSET_SP
 
-	movs    pc, lr                          @ return & move spsr_svc into cpsr
+	dsb
+	isb
 
-restore_svc:
-
-	ldmia	sp, {r0 - pc}^		@ load r0 - pc, cpsr
+    @ Now, we retrieve the final registers, sp will be adjusted automatically
+    ldmia 	sp, {sp, lr, pc}^
 
 .align 5
 

@@ -23,8 +23,19 @@ HEAP_SIZE = 2 * 1024 * 1024;    /* 2 MB dedicated to kernel heap */
 SECTIONS
 {
    
-     . = ENTRY_ADDR + 0x8000;      
+     . = ENTRY_ADDR + 0x8000;    
+       
+    __vectors_start = .;
 
+    .vectors.text :
+    {
+        *(.vectors.text); 
+    }
+    
+  	__vectors_end = .;
+  
+    . = ALIGN(16384);
+    
     .head.text :
     {
         *(.head.text);

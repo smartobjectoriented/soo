@@ -25,7 +25,7 @@
 #include <asm/processor.h>
 #include <asm/backtrace.h>
 
-void show_registers(struct cpu_user_regs *regs);
+void show_registers(cpu_regs_t *regs);
 extern void __backtrace(void);
 
 void show_backtrace(ulong sp, ulong lr, ulong pc)
@@ -33,7 +33,7 @@ void show_backtrace(ulong sp, ulong lr, ulong pc)
     __backtrace();
 }
 
-void show_backtrace_regs(struct cpu_user_regs *regs)
+void show_backtrace_regs(cpu_regs_t *regs)
 {
     show_registers(regs);
     __backtrace();
@@ -46,7 +46,7 @@ static const char *processor_modes[]=
   "UK8_32" , "UK9_32" , "UK10_32", "UND_32" , "UK12_32", "UK13_32", "UK14_32", "SYS_32"
 };
 
-void show_registers(struct cpu_user_regs *regs)
+void show_registers(cpu_regs_t *regs)
 {
 	unsigned long flags = condition_codes(regs);
 
@@ -98,7 +98,7 @@ void dump_stack(void)
 
 void dump_execution_state(void)
 {
-    struct cpu_user_regs regs;
+	cpu_regs_t regs;
 
 	register unsigned int r0 __asm__("r0");
 	register unsigned int r1 __asm__("r1");

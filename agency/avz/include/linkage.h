@@ -18,17 +18,7 @@
 #ifndef LINKAGE_H
 #define LINKAGE_H
 
-#ifdef __cplusplus
-#define CPP_ASMLINKAGE extern "C"
-#else
-#define CPP_ASMLINKAGE
-#endif
-
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
-
-#ifndef asmlinkage
-#define asmlinkage CPP_ASMLINKAGE
-#endif
 
 #ifndef prevent_tail_call
 # define prevent_tail_call(ret) do { } while (0)

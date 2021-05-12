@@ -124,6 +124,8 @@
 
 #define	NR_VIRQS	2
 
+extern volatile bool __in_interrupt;
+
 void init_IRQ(void);
 void trap_init(void);
 
@@ -215,6 +217,20 @@ typedef struct irqdesc irqdesc_t;
 extern struct irqdesc irq_desc[NR_IRQS];
 
 extern struct irqdesc irq_desc[NR_IRQS];
+
+/* IRQ controller */
+typedef struct  {
+
+    void (*irq_enable)(unsigned int irq);
+    void (*irq_disable)(unsigned int irq);
+    void (*irq_mask)(unsigned int irq);
+    void (*irq_unmask)(unsigned int irq);
+
+    void (*irq_handle)(cpu_regs_t *regs);
+
+} irq_ops_t;
+
+extern irq_ops_t irq_ops;
 
 int set_irq_chip_data(unsigned int irq, void *data);
 #define set_irq_data(irq, data) set_irq_chip_data(irq, data)

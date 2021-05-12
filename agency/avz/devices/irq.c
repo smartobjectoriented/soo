@@ -34,12 +34,13 @@
 
 #include <device/arch/gic.h>
 
-#include <soo/arch-arm.h>
-
 #include <soo/uapi/event_channel.h>
 #include <soo/uapi/soo.h>
 #include <soo/uapi/debug.h>
 
+volatile bool __in_interrupt = false;
+
+irq_ops_t irq_ops;
 
 void handle_bad_irq(unsigned int irq, struct irqdesc *desc)
 {
@@ -176,13 +177,6 @@ void set_irq_reg_base(unsigned int irq, void *reg_base) {
 	spin_lock_irqsave(&desc->lock, flags);
 	desc->reg_base = reg_base;
 	spin_unlock_irqrestore(&desc->lock, flags);
-}
-
-asmlinkage void ll_handle_irq(void) {
-
-	/* arch-dependant low-level processing */
-	ll_entry_irq();
-
 }
 
 int setup_irq(unsigned int irq, struct irqaction *new)
@@ -365,10 +359,27 @@ out_unlock:
 	spin_unlock(&desc->lock);
 }
 
+void irq_handle(cpu_regs_t *regs) {
+
+	/* The following boolean indicates we are currently in the interrupt call path.
+	 * It will be reset at the end of the softirq processing.
+	 */
+	__in_interrupt = true;
+
+	irq_ops.irq_handle(regs);
+
+	/* Now perform the softirq processing in any case, i.e. even if the domain IRQs were off,
+	 * avz may schedule to another domain along an hypercall.
+	 */
+
+	do_softirq();
+}
+
+
 /*
  * asm_do_IRQ() is the primary IRQ handler.
  */
-asmlinkage void asm_do_IRQ(unsigned int irq)
+void asm_do_IRQ(unsigned int irq)
 {
 	struct irqdesc *desc;
 

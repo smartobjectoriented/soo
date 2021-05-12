@@ -21,23 +21,87 @@
 
 #include <soo/uapi/avz.h>
 
-#include <soo/arch-arm.h>
-
 #include <asm/vfp.h>
+#include <asm/mmu.h>
 
-struct arch_vcpu {
-	struct vcpu_guest_context guest_context;
-	cpu_user_regs_t ctxt; /* User-level CPU registers */
+struct evtchn
+{
+	u8  state;             /* ECS_* */
+
+	bool can_notify;
+
+	struct {
+		domid_t remote_domid;
+	} unbound;     /* state == ECS_UNBOUND */
+
+	struct {
+		u16 remote_evtchn;
+		struct domain *remote_dom;
+	} interdomain; /* state == ECS_INTERDOMAIN */
+
+	u16 virq;      /* state == ECS_VIRQ */
+
+};
+
+struct domain
+{
+	domid_t domain_id;
+
+	/* Fields related to the underlying CPU */
+	cpu_regs_t cpu_regs;
+	addr_t   g_sp; 	/* G-stack */
+
+	addr_t	event_callback;
+	addr_t	domcall;
 
 	struct vfp_state vfp;
 
+	/* Information to the related address space for this domain. */
+	addrspace_t addrspace;
+
+	shared_info_t *shared_info;     /* shared data area */
+
+	spinlock_t domain_lock;
+
+	unsigned int tot_pages;       /* number of pages currently possesed */
+	unsigned int max_pages;       /* maximum value for tot_pages        */
+
+	/* Event channel information. */
+	struct evtchn evtchn[NR_EVTCHN];
+	spinlock_t event_lock;
+
+	/* Is this guest dying (i.e., a zombie)? */
+	enum { DOMDYING_alive, DOMDYING_dying, DOMDYING_dead } is_dying;
+
+	/* Domain is paused by controller software? */
+	bool_t is_paused_by_controller;
+
+	int processor;
+
+	bool need_periodic_timer;
+	struct timer oneshot_timer;
+
+	struct scheduler *sched;
+
+	int runstate;
+
+	/* Currently running on a CPU? */
+	bool_t is_running;
+
+	unsigned long pause_flags;
+	atomic_t pause_count;
+
+	/* IRQ-safe virq_lock protects against delivering VIRQ to stale evtchn. */
+	u16 virq_to_evtchn[NR_VIRQS];
+	spinlock_t virq_lock;
+
+	unsigned long vstartinfo_start;
+	unsigned long domain_stack;
 };
 
 
 #define USE_NORMAL_PGTABLE	0
 #define USE_SYSTEM_PGTABLE	1
-
-extern void full_resume(void);
 
 extern struct domain *agency_rt_domain;
 extern struct domain *domains[MAX_DOMAINS];
@@ -49,12 +113,11 @@ extern void new_thread(struct domain *d, unsigned long start_pc, unsigned long r
 void *setup_dom_stack(struct domain *d);
 
 extern int domain_call(struct domain *target_dom, int cmd, void *arg);
-extern int prep_switch_domain(void);
 
 void machine_halt(void);
 
 void arch_domain_create(struct domain *d, int cpu_id);
-void arch_setup_domain_frame(struct domain *d, struct cpu_user_regs *domain_frame, addr_t fdt_addr, addr_t start_info, addr_t start_stack, addr_t start_pc);
+void arch_setup_domain_frame(struct domain *d, cpu_regs_t *domain_frame, addr_t fdt_addr, addr_t start_info, addr_t start_stack, addr_t start_pc);
 
 /*
  * setup_page_table_guestOS() is setting up the 1st-level and 2nd-level page tables within the domain.
