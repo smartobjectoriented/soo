@@ -29,8 +29,6 @@
 
 #include <asm/processor.h>
 
-#include <soo/arch-arm.h>
-
 #include <soo/uapi/logbool.h>
 
 #include <asm/cacheflush.h>

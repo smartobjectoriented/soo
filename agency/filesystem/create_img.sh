@@ -37,8 +37,9 @@ if [ "$1" == "vexpress" -o "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "virt6
     (echo o; echo n; echo p; echo; echo; echo +64M; echo t; echo c; echo n; echo p; echo; echo; echo +400M; echo n; echo p; echo; echo; echo +100M; echo n; echo p; echo; echo; echo; echo w)   | sudo fdisk /dev/"$devname";
 fi
 
+echo Waiting...
 # Give a chance to the real SD-card to be sync'd
-sleep 1s
+sleep 2s
 
 if [[ "$devname" = *[0-9] ]]; then
     export devname="${devname}p"
@@ -50,6 +51,6 @@ sudo mkfs.ext4 /dev/"$devname"3
 sudo mkfs.ext4 /dev/"$devname"4
 
 if [ "$1" == "vexpress" -o "$1" == "virt64" ]; then
-	losetup -D
+	sudo losetup -D
 fi
 

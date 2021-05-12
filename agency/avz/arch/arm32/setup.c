@@ -21,6 +21,7 @@
  */
 
 #include <memory.h>
+#include <string.h>
 
 #include <device/irq.h>
 
@@ -115,7 +116,7 @@ void setup_arch(void) {
 
 	/* A low-level UART should be initialized here so that subsystems initialization (like MMC) can already print out logs ... */
 
-	vectors_init();
+	memset(&pseudo_usr_mode, 0, NR_CPUS * sizeof(unsigned int));
 
 	/*
 	 * Finally flush the caches and tlb to ensure that we're in a

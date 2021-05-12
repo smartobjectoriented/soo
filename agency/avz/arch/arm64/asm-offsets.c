@@ -28,28 +28,20 @@
 int main(void)
 {
 
-	DEFINE(OFFSET_USER_REGS, offsetof(struct vcpu_guest_context, user_regs));
-	DEFINE(OFFSET_ARCH_VCPU, offsetof(struct domain, arch));
-	DEFINE(OFFSET_GUEST_CONTEXT, offsetof(struct arch_vcpu, guest_context));
-
 	DEFINE(OFFSET_SHARED_INFO, offsetof(struct domain, shared_info));
 	DEFINE(OFFSET_DOMAIN_ID, offsetof(struct domain, domain_id));
 
 	DEFINE(OFFSET_EVTCHN_UPCALL_PENDING, offsetof(struct shared_info, evtchn_upcall_pending));
 
-	DEFINE(OFFSET_HYPERVISOR_CALLBACK,  offsetof(struct vcpu_guest_context, event_callback));
-	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct vcpu_guest_context, domcall));
-	DEFINE(OFFSET_PREP_SWITCH_DOMAIN_CALLBACK, offsetof(struct vcpu_guest_context, prep_switch_domain_callback));
+	DEFINE(OFFSET_HYPERVISOR_CALLBACK,  offsetof(struct domain, event_callback));
+	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct domain, domcall));
+	DEFINE(OFFSET_G_SP,		 offsetof(struct domain, g_sp));
+
+	DEFINE(OFFSET_CPU_REGS,		offsetof(struct domain, cpu_regs));
 
 	BLANK();
 
-	DEFINE(OFFSET_X19,		offsetof(struct cpu_user_regs, x19));
-
-	BLANK();
-
-	DEFINE(OFFSET_SYS_REGS,		 offsetof(struct vcpu_guest_context, sys_regs));
-	DEFINE(OFFSET_VKSP,		 offsetof(struct cpu_sys_regs, vksp));
-	DEFINE(OFFSET_VUSP,		 offsetof(struct cpu_sys_regs, vusp));
+	DEFINE(OFFSET_X19,		offsetof(struct cpu_regs, x19));
 
 	return 0;
 }

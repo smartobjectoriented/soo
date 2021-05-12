@@ -99,8 +99,9 @@ static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long en
 	size = TTB_L2_ENTRIES * sizeof(uint32_t);
 	
 	if (!*l1pte) {
-
+	
 		l2pte = memalign(size, SZ_1K);
+
 		ASSERT(l2pte != NULL);
 		 
 		memset(l2pte, 0, size);
@@ -108,8 +109,6 @@ static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long en
 		*l1pte =__pa((uint32_t) l2pte);
 
 		set_l1_pte_page_dcache(l1pte, (nocache ? L1_PAGE_DCACHE_OFF : L1_PAGE_DCACHE_WRITEALLOC));
-
-		flush_pte_entry(l1pte);
 
 		DBG("Allocating a L2 page table at %p in l1pte: %p with contents: %x\n", l2pte, l1pte, *l1pte);
 
@@ -124,8 +123,6 @@ static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long en
 		*l2pte = pfn << PAGE_SHIFT;
 
 		set_l2_pte_dcache(l2pte, (nocache ? L2_DCACHE_OFF : L2_DCACHE_WRITEALLOC));
-
-		flush_pte_entry(l2pte);
 
 		DBG("Setting l2pte %p with contents: %x\n", l2pte, *l2pte);
 
@@ -155,8 +152,6 @@ static void alloc_init_section(uint32_t *l1pte, uint32_t addr, uint32_t end, uin
 			set_l1_pte_sect_dcache(l1pte, (nocache ? L1_SECT_DCACHE_OFF : L1_SECT_DCACHE_WRITEALLOC));
 			DBG("Allocating a section at l1pte: %p content: %x\n", l1pte, *l1pte);
 
-			flush_pte_entry(l1pte);
-
 			phys += TTB_SECT_SIZE;
 
 		} while (l1pte++, addr += TTB_SECT_SIZE, addr != end);
@@ -166,6 +161,7 @@ static void alloc_init_section(uint32_t *l1pte, uint32_t addr, uint32_t end, uin
 		 * No need to loop; L2 pte's aren't interested in the
 		 * individual L1 entries.
 		 */
+
 		alloc_init_pte(l1pte, addr, end, phys >> PAGE_SHIFT, nocache);
 	}
 }
@@ -203,7 +199,11 @@ void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base,
 
 	} while (l1pte++, addr != end);
 
-	mmu_page_table_flush((uint32_t) l1pgtable, (uint32_t) (l1pgtable + TTB_L1_ENTRIES));
+	/* Invalidate TLBs whenever the mapping is applied on the current page table.
+	 * In other cases, the memory context switch will invalidate anyway.
+	 */
+	if (l1pgtable == __sys_l1pgtable)
+		v7_inval_tlb();
 }
 
 /*
@@ -480,26 +480,4 @@ uint32_t virt_to_phys_pt(uint32_t vaddr) {
 	}
 
 }
-
-void vectors_init(void) {
-
-	extern char __stubs_start[], __stubs_end[];
-	extern char __vectors_start[], __vectors_end[];
-	void *vectors_page;
-
-	memset(&pseudo_usr_mode, 0, NR_CPUS * sizeof(unsigned int));
-
-	/* Allocate a page for the vectors page */
-	vectors_page = memalign(PAGE_SIZE, PAGE_SIZE);
-	BUG_ON(!vectors_page);
-
-	create_mapping(NULL, VECTORS_BASE, virt_to_phys(vectors_page), PAGE_SIZE, false);
-
-	memcpy(vectors_page, __vectors_start, __vectors_end - __vectors_start);
-	memcpy(vectors_page + 0x200, __stubs_start, __stubs_end - __stubs_start);
-
-	flush_dcache_range((unsigned long) vectors_page, (unsigned long) vectors_page + PAGE_SIZE);
-
-}
-
 

@@ -25,7 +25,7 @@
 #include <asm/processor.h>
 #include <asm/backtrace.h>
 
-void show_registers(struct cpu_user_regs *regs);
+void show_registers(struct cpu_regs *regs);
 extern void __backtrace(void);
 
 void show_backtrace(ulong sp, ulong lr, ulong pc)
@@ -33,13 +33,13 @@ void show_backtrace(ulong sp, ulong lr, ulong pc)
    // __backtrace();
 }
 
-void show_backtrace_regs(struct cpu_user_regs *regs)
+void show_backtrace_regs(struct cpu_regs *regs)
 {
     show_registers(regs);
     //__backtrace();
 }
 
-void show_registers(struct cpu_user_regs *regs)
+void show_registers(struct cpu_regs *regs)
 {
 	//unsigned long flags = condition_codes(regs);
 

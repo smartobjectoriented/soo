@@ -38,6 +38,8 @@
 
 #include <soo/dev/vdummy.h>
 
+static struct vbus_device *vdummy_dev = NULL;
+
 
 static bool thread_created = false;
 
@@ -58,37 +60,38 @@ irq_return_t vdummy_interrupt(int irq, void *dev_id) {
 	return IRQ_COMPLETED;
 }
 
+#if 0
+static int i1 = 1, i2 = 2;
 /*
  * The following function is given as an example.
  *
  */
-#if 0
+
 void vdummy_generate_request(char *buffer) {
 	vdummy_request_t *ring_req;
+	vdummy_t *vdummy;
 
-	vdevfront_processing_start();
+	if (!vdummy_dev)
+		return ;
+
+	vdummy = to_vdummy(vdummy_dev);
+
+	vdevfront_processing_begin(vdummy_dev);
 
 	/*
 	 * Try to generate a new request to the backend
 	 */
-	if (!RING_FULL(&vdummy.ring)) {
-		ring_req = RING_GET_REQUEST(&vdummy.ring, vdummy.ring.req_prod_pvt);
+	if (!RING_REQ_FULL(&vdummy->ring)) {
+		ring_req = vdummy_new_ring_request(&vdummy->ring);
 
 		memcpy(ring_req->buffer, buffer, VDUMMY_PACKET_SIZE);
 
-		/* Fill in the ring_req structure */
+		vdummy_ring_request_ready(&vdummy->ring);
 
-		/* Make sure the other end "sees" the request when updating the index */
-		dmb();
-
-		vdummy.ring.req_prod_pvt++;
-
-		RING_PUSH_REQUESTS(&vdummy.ring);
-
-		notify_remote_via_irq(vdummy.irq);
+		notify_remote_via_irq(vdummy->irq);
 	}
 
-	vdevfront_processing_end();
+	vdevfront_processing_end(vdummy_dev);
 }
 #endif
 
@@ -104,6 +107,7 @@ void vdummy_probe(struct vbus_device *vdev) {
 	if (vdev->state == VbusStateConnected)
 		return ;
 
+	vdummy_dev = vdev;
 
 	vdummy = malloc(sizeof(vdummy_t));
 	BUG_ON(!vdummy);
@@ -235,18 +239,14 @@ void vdummy_resume(struct vbus_device *vdev) {
 
 #if 0
 int notify_fn(void *arg) {
+	char buffer[VDUMMY_PACKET_SIZE];
 
 	while (1) {
 		msleep(50);
 
-		vdummy_start();
+		sprintf(buffer, "Hello %d\n", *((int *) arg));
 
-		/* Make sure the backend is connected and ready for interactions. */
-
-		notify_remote_via_irq(vdummy.irq);
-
-		vdummy_end();
-
+		vdummy_generate_request(buffer);
 	}
 
 	return 0;
@@ -264,7 +264,8 @@ void vdummy_connected(struct vbus_device *vdev) {
 	if (!thread_created) {
 		thread_created = true;
 #if 0
-		kernel_thread(notify_fn, "notify_th", NULL, 0);
+		kernel_thread(notify_fn, "notify_th", &i1, 0);
+		kernel_thread(notify_fn, "notify_th2", &i2, 0);
 #endif
 	}
 }

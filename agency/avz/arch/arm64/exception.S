@@ -34,8 +34,8 @@ ENTRY(pre_ret_to_user)
 	disable_irq
 
 	// Get a reference to our domain descriptor
-	vcpu	x10, x11
-	str		xzr, [x10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_HYPERVISOR_CALLBACK)]
+	curdom	x10, x11
+	str		xzr, [x10, #OFFSET_HYPERVISOR_CALLBACK]
 
 	current_cpu 	x11
 
@@ -74,13 +74,13 @@ ENTRY(after_migrate_to_user)
 
     current_cpu r11
 
-    vcpu    r10
+    curdom  r10
 
 	ldr		r0, .LChypervisor_stack   	@ running SVC hypervisor stack
 	str		sp, [r0, r11, lsl #2]
 
 	@ get guest stack (already stacked from save_svc_context)
-	ldr		sp, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	ldr		sp, [r10, #OFFSET_G_SP]
 
 	mov		r9, #0x18   @ IRQ -> will drive to evtchn_do_upcall() in the guest
     str		r9, [sp, #S_CONTEXT]
@@ -122,9 +122,9 @@ ENTRY(do_upcall)
 
 	current_cpu r11
 
-	vcpu    r10
+	curdom  r10
 
-	ldr		lr, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_HYPERVISOR_CALLBACK)]
+	ldr		lr, [r10, #OFFSET_HYPERVISOR_CALLBACK]
 	cmp		lr, #0
 	beq		restore
 
@@ -132,7 +132,7 @@ ENTRY(do_upcall)
 	str		sp, [r0, r11, lsl #2]
 
 	@ get guest stack (already stacked from save_svc_context)
-	ldr		sp, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	ldr		sp, [r10, #OFFSET_G_SP]
 
 	@ setting pseudo_usr_mode / r0, r1 re-assigned right after
 	ldr 	r0, .LCpseudo_usr_mode
@@ -162,10 +162,10 @@ ENTRY(restore)
 	ldr		r0, .LChypervisor_stack   	@ running SVC hypervisor stack
 	str		sp, [r0, r11, lsl #2]
 
-	vcpu	r10
+	curdom	r10
 
 	@ get guest stack (already stacked from save_svc_context)
-	ldr		sp, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	ldr		sp, [r10, #OFFSET_G_SP]
 
 	ldr		r0, [sp, #S_PSR]			@ Check if return is in guest SVC or guest USR
 	msr		spsr_cxsf, r0
@@ -195,10 +195,7 @@ restore_svc:
  */
 ENTRY(__switch_to)
 
-	mov		x10, sp
-	str		x10, [x1, #(OFFSET_SYS_REGS + OFFSET_VUSP)]  // save hyp. stack (SVC)
-
-	mov		x10, #(OFFSET_USER_REGS + OFFSET_X19)
+	mov		x10, #(OFFSET_CPU_REGS + OFFSET_X19)
 	add		x8, x0, x10
 	mov		x9, sp
 
@@ -215,14 +212,7 @@ save_ctx:
 	// Prepare to retrieve the regs from the stack
 	add		x8, x1, x10
 
-	// Get the running CPU
-	current_cpu	x22
-
 load_ctx:
-
-	ldr		x19, .LChypervisor_stack
-	ldr		x20, [x1, #(OFFSET_SYS_REGS + OFFSET_VUSP)]	// Retrieve hyp stack
-	str		x20, [x19, x22, lsl #3]
 
 	ldp		x19, x20, [x8], #16		// restore callee-saved registers
 	ldp		x21, x22, [x8], #16
@@ -234,60 +224,6 @@ load_ctx:
 	mov		sp, x9
 
 	ret
-
-
-ENTRY(prep_switch_domain)
-#if 0
-        @ Call, if any, the prepare_switch_xen_domain() in the guest
-  	    @ Stay 8-byte aligned
-        stmfd   sp!, {r0-r6, lr}
-        vcpu    r0
-
-        ldr     r1, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_PREP_SWITCH_DOMAIN_CALLBACK)]
-        cmp     r1, #0
-
-        @ r1 must be preserved
-
-        beq     __out_prep_switch
-
-        current_cpu r3
-
-        ldr     r2, .LChypervisor_stack         @ running SVC hypervisor stack
-        str     sp, [r2, r3, lsl #2]
-
-        @ get guest stack (already stacked from save_svc_context)
-        ldr     sp, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
-
-        @ setting pseudo_usr_mode / r0, r1 re-assigned right after
-        ldr     r0, .LCpseudo_usr_mode
-        mov     r2, #1
-        str     r2, [r0, r3, lsl #2]
-
-        adr     lr, __continue_prep_switch
-        mov     pc, r1
-
-__continue_prep_switch:
-
-        current_cpu     r3
-
-        ldr             r0, .LCpseudo_usr_mode
-        mov             r1, #0                                  @ setting svc
-        str             r1, [r0, r3, lsl #2]
-
-        mov             r1, sp
-        ldr             r2, .LChypervisor_stack @ Get the running hypervisor SVC stack
-        ldr             r2, [r2, r3, lsl #2]
-
-        mov             sp, r2
-
-        vcpu    r0
-        str             r1, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
-
-__out_prep_switch:
-        ldmfd   sp!, {r0-r6, pc}
-
-#endif
-
 
 pseudo_usr_mode:
 	.space NR_CPUS * 8

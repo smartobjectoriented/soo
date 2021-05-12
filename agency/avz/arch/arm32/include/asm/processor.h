@@ -274,7 +274,7 @@
 	and \reg, \reg, #0x3 @ mask on CPU ID bits
 .endm
 
-.macro	vcpu	rd
+.macro	curdom	rd
 	ldr	\rd, =(~(STACK_SIZE - 1))
 	and	\rd, r13, \rd
 	ldr	\rd, [\rd]
@@ -299,29 +299,6 @@
 
 scno    .req    r7              @ syscall number
 tbl     .req    r8              @ syscall table pointer
-
-/*
-* Stack format (ensured by USER_* and SVC_*)
-*/
-
-#define S_CONTEXT	68
-#define S_PSR           64
-#define S_PC            60
-#define S_LR            56
-#define S_SP            52
-#define S_IP            48
-#define S_FP            44
-#define S_R10           40
-#define S_R9            36
-#define S_R8            32
-#define S_R7            28
-#define S_R6            24
-#define S_R5            20
-#define S_R4            16
-#define S_R3            12
-#define S_R2            8
-#define S_R1            4
-#define S_R0            0
 
 #endif /* __ASSEMBLY__ */
 
@@ -369,7 +346,7 @@ union fp_state {
  * CPU regs matches with the stack frame layout.
  * It has to be 8 bytes aligned.
  */
-typedef struct cpu_user_regs {
+typedef struct cpu_regs {
 	__u32   r0;
 	__u32   r1;
 	__u32   r2;
@@ -390,13 +367,7 @@ typedef struct cpu_user_regs {
 	__u32	sp_usr;
 	__u32   lr_usr;
 	__u32   padding;  /* padding to keep 8-bytes alignment */
-} cpu_user_regs_t;
-
-typedef struct cpu_sys_regs {
-	u32   vksp;
-	u32   vusp;
-	u32   vdacr;
-} cpu_sys_regs_t;
+} cpu_regs_t;
 
 #define cpu_relax()	barrier()
 
@@ -552,10 +523,9 @@ static inline void set_dacr(unsigned int val)
 	isb();
 }
 
-struct vcpu_guest_context;
 struct domain;
 
-void __switch_to(struct vcpu_guest_context *prev, struct vcpu_guest_context *next);
+void __switch_to(struct domain *prev, struct domain *next);
 void ret_to_user(void);
 void pre_ret_to_user(void);
 

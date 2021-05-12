@@ -323,8 +323,7 @@ static void gic_cpu_init(struct gic_chip_data *gic)
  * valid range for an IRQ (30-1020 inclusive).
  *
  */
-void ll_entry_irq(void)
-{
+static void gic_handle(cpu_regs_t *cpu_regs) {
 	u32 irqstat, irqnr;
 	struct gic_chip_data *gic = &gic_data[0];
 	void *cpu_base = gic_data_cpu_base(gic);
@@ -427,6 +426,9 @@ void gic_init(unsigned int gic_nr, unsigned int irq_start, addr_t *dist_base, ad
 	set_irq_chip_data(IRQ_ARCH_ARM_TIMER, gic);
 	set_irq_flags(IRQ_ARCH_ARM_TIMER, IRQF_VALID | IRQF_NOAUTOEN);
 	set_irq_handler(IRQ_ARCH_ARM_TIMER, handle_fasteoi_irq);
+
+
+	irq_ops.irq_handle = gic_handle;
 
 }
 

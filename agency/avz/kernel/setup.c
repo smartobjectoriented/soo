@@ -49,15 +49,15 @@ long do_set_callbacks(unsigned long event, unsigned long domcall)
 {
 	struct domain *d = current;
 
-	d->arch.guest_context.event_callback = event;
-	d->arch.guest_context.domcall = domcall;
+	d->event_callback = event;
+	d->domcall = domcall;
 
 	if (d->domain_id == DOMID_AGENCY) {
 		/*
 		 * Do the same thing for the realtime subdomain.
 		 */
-		domains[DOMID_AGENCY_RT]->arch.guest_context.event_callback = d->arch.guest_context.event_callback;
-		domains[DOMID_AGENCY_RT]->arch.guest_context.domcall = d->arch.guest_context.domcall;
+		domains[DOMID_AGENCY_RT]->event_callback = d->event_callback;
+		domains[DOMID_AGENCY_RT]->domcall = d->domcall;
 	}
 
 	return 0;
@@ -166,6 +166,7 @@ void kernel_start(void)
 		while (1);
 	}
 
+	/* Allow context switch between domains */
 	local_irq_enable();
 
 	smp_init();
