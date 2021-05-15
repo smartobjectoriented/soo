@@ -30,9 +30,10 @@ ENTRY(ret_from_hypercall)
 
 	disable_irq
 
-	vcpu	r8
-	ldr		r9, [r8, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
-	str		r0, [r9, #S_R0]
+	@ Preserve the return value in the stack frame of the domain (G-stack)
+	curdom	r8
+	ldr		r9, [r8, #OFFSET_G_SP]
+	str		r0, [r9, #OFFSET_R0]
 
 	b	ret_to_user
 
@@ -43,31 +44,25 @@ ENTRY(hypercall_start)
 
 	disable_irq
 
+	tst		sp, #0x7	@ 8-bytes aligned
+	strne	sp, [sp, #(OFFSET_SP-S_FRAME_SIZE - 4)]	@ save sp
+	subne	sp, sp, #4
+	streq	sp, [sp, #(OFFSET_SP-S_FRAME_SIZE)]	@ save sp
+
+	@ Alignment guard
+	tst		sp, #0x7		@ 8-bytes aligned
+	bne		__stack_alignment_fault
+
 	sub		sp, sp, #S_FRAME_SIZE
 
 	stmia	sp, {r0 - r12}
 
-	str		lr, [sp, #S_PC]
+	str		lr, [sp, #OFFSET_PC]
+	str		lr, [sp, #OFFSET_LR]
+	str		r11, [sp, #OFFSET_PSR]  		  @ r11 was set by the guest before trampoline
 
+	@ Switch from G-stack to H-stack
 	current_cpu r10
-
-	@ Check if we are coming from avz or the guest
-	ldr		r8, .LCpseudo_usr_mode
-
-	ldr		r9, [r8, r10, lsl #2]
-	cmp		r9, #0
-	beq		__do_hypercall_from_avz
-
-	@ readjust stack for future restore
-	add		r8, sp, #S_FRAME_SIZE
-
-	str		r8, [sp, #S_SP]
-
-	str		lr, [sp, #S_LR]
-	str		r11, [sp, #S_PSR]  		  @ r11 was set by the guest before trampoline
-
-	mov		r12, #0x18		          @ IRQ vector if something happened during hypercall processing
-	str		r12, [sp, #S_CONTEXT]
 
 	ldr		r8, .LCpseudo_usr_mode
 	mov		r9, #0
@@ -77,8 +72,8 @@ ENTRY(hypercall_start)
 	ldr 	r9, .LChypervisor_stack   @ Get the running hypervisor SVC stack
 	ldr		sp, [r9, r10, lsl #2]
 
-	vcpu	r9
-	str		r8, [r9, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	curdom	r9
+	str		r8, [r9, #OFFSET_G_SP]
 
 
 process_hypercalls:
@@ -107,7 +102,7 @@ __do_hypercall_from_avz:
 __end_hypercall_from_avz:
 
 	@ Load and skip r0 since it has the return value
-	ldr		lr, [sp, #S_PC]
+	ldr		lr, [sp, #OFFSET_PC]
 	add		sp, sp, #4
 
 	ldmia	sp, {r1 - r12}
@@ -122,6 +117,7 @@ __end_hypercall_from_avz:
 ENTRY(hypercall_table)
 
 __hypercall_start:
+
 	.long do_set_callbacks
 	.long do_event_channel_op
 	.long do_console_io
@@ -129,6 +125,7 @@ __hypercall_start:
 	.long do_sched_op
 	.long do_domctl
 	.long do_soo_hypercall
+
 __hypercall_end:
 
 .LCpseudo_usr_mode:

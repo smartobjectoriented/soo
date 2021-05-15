@@ -19,8 +19,6 @@
 #ifndef KEYHANDLER_H
 #define KEYHANDLER_H
 
-#include <soo/arch-arm.h>
-
 typedef void keyhandler_fn_t(unsigned char key);
 
 struct keyhandler {

@@ -53,18 +53,10 @@ struct domain *domains[MAX_DOMAINS];
 
 struct domain *agency;
 
-DEFINE_PER_CPU(struct vcpu *, curr_vcpu);
-
-struct cpu_info {
-	struct domain *d;
-	ulong saved_regs[2];
-};
-
 int current_domain_id(void)
 {
 	return current->domain_id;
 }
-
 
 /*
  * Creation of new domain context associated to the agency or a Mobile Entity.
@@ -103,8 +95,8 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 
 	arch_domain_create(d, cpu_id);
 
-	d->arch.guest_context.event_callback = 0;
-	d->arch.guest_context.domcall = 0;
+	d->event_callback = 0;
+	d->domcall = 0;
 
 	d->processor = cpu_id;
 
@@ -230,8 +222,6 @@ void context_switch(struct domain *prev, struct domain *next)
 
 	if (!is_idle_domain(current)) {
 
-		prep_switch_domain();
-
 		local_irq_disable();  /* Again, if the guest re-enables the IRQ */
 
 #ifdef CONFIG_ARCH_ARM32
@@ -261,17 +251,16 @@ void context_switch(struct domain *prev, struct domain *next)
 
 	spin_unlock(&prev->sched->sched_data.schedule_lock);
 
-	__switch_to(&prev->arch.guest_context, &next->arch.guest_context);
+	__switch_to(prev, next);
 
 }
 
 /*
  * Initialize the domain stack used by the hypervisor.
- * This the H-stack and contains the reference to the VCPU in its base.
+ * This is the H-stack and contains a reference to the domain as the bottom (base) of the stack.
  */
 void *setup_dom_stack(struct domain *d) {
-	unsigned char *domain_stack;
-	struct cpu_info *ci;
+	addr_t *domain_stack;
 
 	/* The stack must be aligned at STACK_SIZE bytes so that it is
 	 * possible to retrieve the cpu_info structure at the bottom
@@ -282,11 +271,13 @@ void *setup_dom_stack(struct domain *d) {
 
 	d->domain_stack = (unsigned long) domain_stack;
 
-	ci = (struct cpu_info *) domain_stack;
-	ci->d = d;
+	/* Put the address of the domain descriptor at the base of this stack */
+	*domain_stack = (addr_t) d;
 
 	/* Reserve the frame which will be restored later */
-	domain_stack += STACK_SIZE - sizeof(struct cpu_user_regs);
+	domain_stack += (STACK_SIZE - sizeof(cpu_regs_t))/sizeof(addr_t);
+
+	/* Returns the reference to the H-stack frame of this domain */
 
 	return domain_stack;
 }
@@ -296,9 +287,9 @@ void *setup_dom_stack(struct domain *d) {
  */
 void new_thread(struct domain *d, addr_t start_pc, addr_t fdt_addr, addr_t start_stack, addr_t start_info)
 {
-	struct cpu_user_regs *domain_frame;
+	cpu_regs_t *domain_frame;
 
-	domain_frame = (struct cpu_user_regs *) setup_dom_stack(d);
+	domain_frame = (cpu_regs_t *) setup_dom_stack(d);
 
 	if (domain_frame == NULL)
 	  panic("Could not set up a new domain stack.n");
@@ -372,7 +363,7 @@ int domain_call(struct domain *target_dom, int cmd, void *arg)
 
 	/* Make the call with IRQs disabled */
 
-	rc = ((domcall_t) target_dom->arch.guest_context.domcall)(cmd, arg);
+	rc = ((domcall_t) target_dom->domcall)(cmd, arg);
 
 	/* Switch back to our domain address space. */
 	switch_mm(__current, &prev_addrspace);

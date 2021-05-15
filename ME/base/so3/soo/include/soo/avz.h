@@ -20,7 +20,6 @@
 #define __AVZ_H__
 
 
-#include <soo/arch-arm.h>
 #include <soo/soo.h>
 
 #include <asm/atomic.h>

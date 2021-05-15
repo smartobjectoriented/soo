@@ -26,6 +26,38 @@
 .globl  pseudo_usr_mode
 .globl	hypervisor_stack
 
+.extern __prefetch_abort
+.extern __data_abort
+.extern __undefined_instruction
+
+#if (S_FRAME_SIZE & 7)
+#error "S_FRAME_SIZE must be a multiple of 8"
+#endif
+
+/* use the special section (.vectors.text), to enable fine-tuning
+ * of the placement of this section inside the linker script
+ */
+.section ".vectors.text", "ax"
+
+ENTRY(__vectors)
+		    b   _start @ reset
+            ldr pc, _undefined_instruction
+            ldr pc, _syscall_interrupt
+            ldr pc, _prefetch_abort
+            ldr pc, _data_abort
+            ldr pc, _not_used
+            ldr pc, _irq
+            ldr pc, _fiq
+
+_undefined_instruction: .word undefined_instruction
+_syscall_interrupt:     .word not_used
+_prefetch_abort:        .word prefetch_abort
+_data_abort:            .word data_abort
+_not_used:              .word not_used
+_irq:                   .word irq
+_fiq:                   .word not_used
+_pad:                   .word 0x12345678 @ now 16*4=64
+
 .align	5
 
 @ This function is called at bootstrap and
@@ -33,36 +65,42 @@
 ENTRY(pre_ret_to_user)
 	disable_irq
 
-	vcpu	r10
+	curdom	r10
 	mov 	r6, #0
-	str		r6, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_HYPERVISOR_CALLBACK)]
+	str		r6, [r10, #OFFSET_HYPERVISOR_CALLBACK]
 
 	current_cpu r3
 
-	@ switch to the guest stack
-	ldr r0, .LChypervisor_stack
-	str	sp, [r0, r3, lsl #2]
+	@ Prepare to switch to the guest stack in order to prepare
+	@ its stack frame required along the upcall (restore) path.
 
-	ldr	r6,	[sp, #S_PC]		@ entry point of the guess  /  r6 is used because not altered by save_svc_context
-	ldr r7, [sp, #S_PSR]
-	ldr r8, [sp, #S_IP]  	@ start_info (r12)
-	ldr r9, [sp, #S_R2]		@ arg (devtree/atags)
+	ldr 	r0, .LChypervisor_stack
+	str		sp, [r0, r3, lsl #2]
 
-	ldr 	sp, [sp, #S_SP]   	@ get the guest stack
-	sub	sp, sp, #S_FRAME_SIZE   @ will be restored later, but the contents is not important
-	str	sp, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	ldr		r6,	[sp, #OFFSET_PC]	@ entry point of the guess  /  r6 is used because not altered by save_svc_context
+	ldr 	r7, [sp, #OFFSET_PSR]	@ CPSR flags
+	ldr 	r8, [sp, #OFFSET_IP]  	@ start_info (r12)
+	ldr 	r9, [sp, #OFFSET_R2]	@ arg (devtree/atags)
 
-	@ preserve the guest stack before coming back to the hypervisor stack
+	ldr 	sp, [sp, #OFFSET_SP]   	@ get the guest stack
+	sub		sp, sp, #S_FRAME_SIZE
 
-	str r6, [sp, #S_PC]	@ put the entry point on the guess stack
-	str r7, [sp, #S_PSR]
-	str r8, [sp, #S_IP]
-	str r9, [sp, #S_R2]
+	str		sp, [r10, #OFFSET_G_SP]
 
-	@ back to hypervisor stack
-	ldr r0, .LChypervisor_stack
-	ldr sp, [r0, r3, lsl #2]
-	ldr	r3, [sp, #S_R3]
+	@ Configure the G-stack frame
+
+	str 	r6, [sp, #OFFSET_PC]	@ put the entry point on the guess stack
+	str 	r7, [sp, #OFFSET_PSR]
+	str 	r8, [sp, #OFFSET_IP]
+	str 	r9, [sp, #OFFSET_R2]
+
+	@ Finally switch back to H-stack
+	ldr 	r0, .LChypervisor_stack
+	ldr 	sp, [r0, r3, lsl #2]
+
+	@ Restore r3 used by current_cpu above
+	ldr		r3, [sp, #OFFSET_R3]
+
 	b restore
 
 /*
@@ -79,32 +117,201 @@ ENTRY(after_migrate_to_user)
 
     @ should be enough
 
-    @ We need to set up a correct vector offset in S_CONTEXT
-
+#if 0
     current_cpu r11
 
-    vcpu    r10
+    curdom    r10
 
 	ldr		r0, .LChypervisor_stack   	@ running SVC hypervisor stack
 	str		sp, [r0, r11, lsl #2]
 
 	@ get guest stack (already stacked from save_svc_context)
-	ldr		sp, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
-
-	mov		r9, #0x18   @ IRQ -> will drive to evtchn_do_upcall() in the guest
-    str		r9, [sp, #S_CONTEXT]
+	ldr		sp, [r10, #OFFSET_G_SP]
 
 	ldr		sp, [r0, r11, lsl #2]
+#endif
 
-	b do_upcall
+	b 		do_upcall
+
+.align	5
+
+/*
+ * r0 = previous domain, r1 = next domain
+ * previous and next are guaranteed not to be the same.
+ *
+ */
+ENTRY(__switch_to)
+	disable_irq 				@ ensure IRQs are disabled
+
+	add     ip, r0, #(OFFSET_CPU_REGS + OFFSET_R4)
+save_ctx:
+    stmia   ip, {r4 - sl, fp, ip, sp, lr}      @ Store most regs on stack
+
+	current_cpu r6
+
+load_ctx:
+
+	add		ip, r1, #(OFFSET_CPU_REGS + OFFSET_R4)
+
+    ldmia   ip,  {r4 - sl, fp, ip, sp, pc}       @ Load all regs saved previously
+
+	nop
+	nop
+	nop
+
+/******** Exception handlers **********/
+.align  5
+undefined_instruction:
+
+    b  __undefined_instruction
+
+.align  5
+prefetch_abort:
+
+	@ Call the C data abort handler with the following args:
+	@ r0 = IFAR, r1 = IFSR, r2 = LR
+
+	mrc	p15, 0, r0, c6, c0, 2		@ get IFAR
+	mrc	p15, 0, r1, c5, c0, 1		@ get IFSR
+	mov r2, lr
+
+    b __prefetch_abort
+
+.align  5
+data_abort:
+
+	@ Call the C data abort handler with the following args:
+	@ r0 = FAR, r1 = FSR, r2 = LR
+
+	mrc	p15, 0, r1, c5, c0, 0		@ get FSR
+	mrc	p15, 0, r0, c6, c0, 0		@ get FAR
+	mov r2, lr
+
+    b __data_abort
+
+.align  5
+not_used:
+
+    /* Fault address information retrieval */
+	mrc	p15, 0, r1, c5, c0, 0		@ get FSR
+	mrc	p15, 0, r0, c6, c0, 0		@ get FAR
+
+	mov r2, lr
+	b	__fault_trap
+
+/* *********************** */
+
+.align 5
+
+irq:
+
+    @ IRQ mode (lr_irq, sp_irq, cpsr_irq)
+
+    @ Store original r0, and lr_irq in the IRQ stack sp = sp_irq
+    @ sp_irq is a simple array declared in arch/arm/setup.c (so address can be ascending)
+
+    str 	r0, [sp]		@ original r0
+    str 	lr, [sp, #4]	@ lr_irq
+
+    mrs 	r0, spsr 		@ to preserve irq bit
+    str		r0, [sp, #8]	@ spsr_irq
+
+    mov		r0, sp			@ to maintain a reference on sp_irq; r0 will not be affected after mode switch
+
+    @ Now switch back to SVC. IRQs are disabled
+    mrs		lr, cpsr
+
+    bic		lr, lr, #PSR_MODE_MASK
+    orr		lr, lr, #PSR_SVC_MODE
+
+    @ switch to SVC
+    msr		cpsr, lr
+
+    @ --- SVC mode from now on ---
+
+	@ At the exception entry, the stack must be 8-byte aligned.
+	@ If it is not the case (gcc might not respect the AAPCS convention for optimization purposes),
+	@ sp will be adjusted. The original sp is preserved and will be correctly restored at the exit.
+
+	tst		sp, #0x7	@ 8-bytes aligned
+	strne	sp, [sp, #(OFFSET_SP-S_FRAME_SIZE - 4)]	@ save sp
+	subne	sp, sp, #4
+	streq	sp, [sp, #(OFFSET_SP-S_FRAME_SIZE)]	@ save sp
+
+	@ Alignment guard
+	tst		sp, #0x7		@ 8-bytes aligned
+	bne		__stack_alignment_fault
+
+	sub		sp, sp, #S_FRAME_SIZE
+
+	@ Store the lr_svc (before the irq)
+	str		lr, [sp, #OFFSET_LR]	@ current lr_svc
+
+    @ preserve spsr for future IRQ enabling
+    ldr		lr, [r0, #8]   			@ retrieve spsr_irq
+    str		lr, [sp, #OFFSET_PSR]	@ location of spsr_svc (hence cpsr right before the interrupt)
+
+	@ Check if it is necessary to preserve sp_usr and lr_usr
+	and		lr, lr, #PSR_MODE_MASK
+	cmp		lr, #PSR_USR_MODE
+
+	@ Saving user mode registers (sp_usr, lr_usr)
+	addeq	lr, sp, #OFFSET_SP_USR
+	stmeqia	lr, {sp, lr}^
+
+	@ Retrieve the lr_irq to set the pc out of this routine
+	ldr 	lr, [r0, #4]			@ retrieve lr_irq to set lr_svc
+	sub 	lr, lr, #4				@ Adjust the lr since it is automatically set from pc (in advance of 2 instructions due to the pipeline)
+	str 	lr, [sp, #OFFSET_PC]  	@ future pc at exit
+
+	ldr 	r0, [r0]			    @ original r0
+
+    stmia 	sp, {r0-r12}
+
+	@ Now process the IRQ differentiating execution according to the source (dom/hyp)
+	@ for managing the stack correctly
+
+	current_cpu	r10
+
+	ldr		r0, .LCpseudo_usr_mode
+	ldr		r1, [r0, r10, lsl #2]
+	cmp		r1, #0  				@ svc ?
+
+	beq		hyp_path
+
+	mov		r1, #0 					@ setting svc
+	str		r1, [r0, r10, lsl #2]
+
+	mov		r1, sp
+	ldr 	r0, .LChypervisor_stack @ Get the running hypervisor SVC stack
+	ldr		r0, [r0, r10, lsl #2]
+
+	mov		sp, r0
+
+	curdom	r0
+	str		r1, [r0, #OFFSET_G_SP]
+
+	@ Make sure r0 refers to the base of the stack frame
+	mov		r0, sp
+
+    bl 		irq_handle
+
+	b		ret_to_user
+
+hyp_path:
+
+	mov		r0, sp
+
+    bl 		irq_handle
+
+    b 		out_irq
+
 
 ENTRY(ret_to_user)
 
 	disable_irq 					@ ensure IRQs are disabled
 
-	bl	do_softirq
-
-	vcpu	r10
+	curdom	r10
 	ldr		r11, [r10, #OFFSET_SHARED_INFO]
 
 	@ If the softirq handling leads to trigger an interrupt in the guest,
@@ -116,21 +323,21 @@ ENTRY(ret_to_user)
 	ldrb	r12, [r11, #OFFSET_EVTCHN_UPCALL_PENDING]
 	tst		r12, #0xff
 
-	beq	restore
+	beq		restore
 
-	b	do_upcall
+	/* Fallback to do_upcall */
 
 /*
- * Send event to guest domain
+ * Process pending events along the upcall path to the domain.
  */
 ENTRY(do_upcall)
 	disable_irq
 
 	current_cpu r11
 
-	vcpu    r10
+	curdom  r10
 
-	ldr		lr, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_HYPERVISOR_CALLBACK)]
+	ldr		lr, [r10, #OFFSET_HYPERVISOR_CALLBACK]
 	cmp		lr, #0
 	beq		restore
 
@@ -138,7 +345,7 @@ ENTRY(do_upcall)
 	str		sp, [r0, r11, lsl #2]
 
 	@ get guest stack (already stacked from save_svc_context)
-	ldr		sp, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	ldr		sp, [r10, #OFFSET_G_SP]
 
 	@ setting pseudo_usr_mode / r0, r1 re-assigned right after
 	ldr 	r0, .LCpseudo_usr_mode
@@ -150,7 +357,7 @@ ENTRY(do_upcall)
 
 	mov		pc, lr
 
-ENTRY(restore)
+restore:
 
 	current_cpu r11
 
@@ -159,469 +366,50 @@ ENTRY(restore)
 	mov		r1, #1
 	str		r1, [r0, r11, lsl #2]
 
-
 	@ restore saved registers
 
 	ldr		r0, .LChypervisor_stack   	@ running SVC hypervisor stack
 	str		sp, [r0, r11, lsl #2]
 
-	vcpu	r10
+	curdom	r10
 
 	@ get guest stack (already stacked from save_svc_context)
-	ldr		sp, [r10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	ldr		sp, [r10, #OFFSET_G_SP]
 
-	ldr		r0, [sp, #S_PSR]			@ Check if return is in guest SVC or guest USR
-	msr		spsr_cxsf, r0
+out_irq:
 
-	and		r0, r0, #PSR_MODE_MASK
-	cmp		r0, #PSR_MODE_USR   			@ usr ?
-	bne		restore_svc
+    ldr 	lr, [sp, #OFFSET_PSR]	@ get the saved spsr and adjust the stack pointer
+    msr		spsr, lr
 
-	ldr     lr, [sp, #S_PC]!                @ Get PC
+	@ Check if it is necessary to restore sp_usr and lr_usr
+	and		lr, lr, #PSR_MODE_MASK
+	cmp		lr, #PSR_USR_MODE
 
-	ldmdb   sp, {r0 - lr}^                  @ Get calling r0 - lr
-	mov     r0, r0
-	add     sp, sp, #S_FRAME_SIZE - S_PC
+	@ Restoring user mode registers (sp_usr, lr_usr)
+	addeq	lr, sp, #OFFSET_SP_USR
+	ldmeqia	lr, {sp, lr}^
 
-	movs    pc, lr                          @ return & move spsr_svc into cpsr
+	@ Restore registers
+   	ldmia 	sp, {r0-r12}
 
-restore_svc:
+	add		sp, sp, #OFFSET_SP
 
-	ldmia	sp, {r0 - pc}^		@ load r0 - pc, cpsr
+	dsb
+	isb
 
-
-/* *********************** */
-
-.align 5
-
-.macro	svc_entry, stack_hole=0
-	sub	sp, sp, #(S_FRAME_SIZE + \stack_hole)
- 	tst	sp, #4
- 	bicne	sp, sp, #4
-	stmib	sp, {r1 - r12}
-
-	ldmia	r0, {r1 - r3}
-	add	r5, sp, #S_SP		@ here for interlock avoidance
-	mov	r4, #-1			@  ""  ""      ""       ""
-	add	r0, sp, #(S_FRAME_SIZE + \stack_hole)
- 	addne	r0, r0, #4
-	str	r1, [sp]		@ save the "real" r0 copied from the exception stack
-
-	mov	r1, lr
-
-	@
-	@ We are now ready to fill in the remaining blanks on the stack:
-	@
-	@  r0 - sp_svc
-	@  r1 - lr_svc
-	@  r2 - lr_<exception>, already fixed up for correct return/restart
-	@  r3 - spsr_<exception>
-	@  r4 - orig_r0 (see pt_regs definition in ptrace.h)
-	@
-	stmia	r5, {r0 - r4}
-.endm
-
-.macro	usr_entry
-	sub	sp, sp, #S_FRAME_SIZE
- 	stmib	sp, {r1 - r12}
-
-	ldmia	r0, {r1 - r3}
-	add	r0, sp, #S_PC		@ here for interlock avoidance
-	mov	r4, #-1			@  ""  ""     ""        ""
-
-	str	r1, [sp]		@ save the "real" r0 copied
-					@ from the exception stack
-
-	@
-	@ We are now ready to fill in the remaining blanks on the stack:
-	@
-	@  r2 - lr_<exception>, already fixed up for correct return/restart
-	@  r3 - spsr_<exception>
-	@  r4 - orig_r0 (see pt_regs definition in ptrace.h)
-	@
-	@ Also, separately save sp_usr and lr_usr
-	@
-	stmia	r0, {r2 - r4}
- 	stmdb	r0, {sp, lr}^
-
-.endm
-
-
-.align 5
-
-__invalid:
-1:
-	b	__vector_fault
-
-/*
- * Interrupt handling.  Preserves r7, r8, r9
- */
-.macro	irq_handler
-
-	ldr	r1, =ll_handle_irq
-	mov	r0, sp
-	adr	lr, 9f
-	mov pc, r1
-
-9:
-.endm
-
-.align 5
-__irq_svc:
-	svc_entry
-
-	mov		r0, #0x18				@ IRQ
-	str		r0, [sp, #S_CONTEXT]
-
-	current_cpu	r10
-
-	ldr		r0, .LCpseudo_usr_mode
-	ldr		r1, [r0, r10, lsl #2]
-	cmp		r1, #0  				@ svc ?
-
-	beq		2f
-
-	mov		r1, #0 					@ setting svc
-	str		r1, [r0, r10, lsl #2]
-
-	mov		r1, sp
-	ldr 	r0, .LChypervisor_stack @ Get the running hypervisor SVC stack
-	ldr		r0, [r0, r10, lsl #2]
-
-	mov		sp, r0
-
-	vcpu	r0
-	str		r1, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
-
-	irq_handler
-
-	b	ret_to_user
-
-2:
-	irq_handler
-
-	@ Perform a call to do_softirq to check if it is time to raise some SOFTIRQ
-	bl		do_softirq
-
-	@ Update spsr in order to be ready for cpsr adjustment
-	ldr	r0, [sp, #S_PSR]
-	msr	spsr_cxsf, r0
-
-	ldmia	sp, {r0 - pc}^		@ load r0 - pc, cpsr
+    @ Now, we retrieve the final registers, sp will be adjusted automatically
+    ldmia 	sp, {sp, lr, pc}^
 
 	.ltorg
-/*
- * User mode handlers
- *
- * EABI note: sp_svc is always 64-bit aligned here, so should S_FRAME_SIZE
- */
 
-#if (S_FRAME_SIZE & 7)
-#error "S_FRAME_SIZE must be a multiple of 8"
-#endif
 
-__irq_usr:
-	usr_entry
+/** Area of memory reserved to manage domain stack and hypervisor stack (G-stack/H-stack) **/
 
-	mov		r1, #0x18				@ IRQ
-	str		r1, [sp, #S_CONTEXT]
-
-	current_cpu	r10
-
-	ldr 	r0, .LCpseudo_usr_mode
-	mov		r1, #0 					@ setting svc
-	str		r1, [r0, r10, lsl #2]
-
-
-	mov		r1, sp
-	ldr 	r0, .LChypervisor_stack   @ Get the running hypervisor SVC stack
-	ldr		sp, [r0, r10, lsl #2]
-
-	vcpu	r0
-	str		r1, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
-
-    irq_handler
-
-	b	ret_to_user
-
-
-.global prep_switch_domain
-prep_switch_domain:
-
-        @ Call, if any, the prepare_switch_xen_domain() in the guest
-  	    @ Stay 8-byte aligned
-        stmfd   sp!, {r0-r6, lr}
-        vcpu    r0
-
-        ldr     r1, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_PREP_SWITCH_DOMAIN_CALLBACK)]
-        cmp     r1, #0
-
-        @ r1 must be preserved
-
-        beq     __out_prep_switch
-
-        current_cpu r3
-
-        ldr     r2, .LChypervisor_stack         @ running SVC hypervisor stack
-        str     sp, [r2, r3, lsl #2]
-
-        @ get guest stack (already stacked from save_svc_context)
-        ldr     sp, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
-
-        @ setting pseudo_usr_mode / r0, r1 re-assigned right after
-        ldr     r0, .LCpseudo_usr_mode
-        mov     r2, #1
-        str     r2, [r0, r3, lsl #2]
-
-        adr     lr, __continue_prep_switch
-        mov     pc, r1
-
-__continue_prep_switch:
-
-        current_cpu     r3
-
-        ldr             r0, .LCpseudo_usr_mode
-        mov             r1, #0                                  @ setting svc
-        str             r1, [r0, r3, lsl #2]
-
-        mov             r1, sp
-        ldr             r2, .LChypervisor_stack @ Get the running hypervisor SVC stack
-        ldr             r2, [r2, r3, lsl #2]
-
-        mov             sp, r2
-
-        vcpu    r0
-        str             r1, [r0, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
-
-__out_prep_switch:
-        ldmfd   sp!, {r0-r6, pc}
-
-
-
-
-	.align	5
-
-
-/*
- * r0 = previous vcpu_guest_context, r1 = next vcpu_guest_context
- * previous and next are guaranteed not to be the same.
- *
- */
-ENTRY(__switch_to)
-	disable_irq 				@ ensure IRQs are disabled
-
-	str		sp, [r0, #(OFFSET_SYS_REGS + OFFSET_VUSP)]  @ save hyp. stack (SVC)
-	add     ip, r0, #(OFFSET_USER_REGS + OFFSET_R4)
-save_ctx:
-    stmia   ip, {r4 - sl, fp, ip, sp, lr}      @ Store most regs on stack
-
-	current_cpu r6
-
-	mrc		p15, 0, r4, c3, c0, 0
-	str		r4, [r0, #(OFFSET_SYS_REGS + OFFSET_VDACR)]
-
-load_ctx:
-	ldr		r4, .LChypervisor_stack
-	ldr		r5, [r1, #(OFFSET_SYS_REGS + OFFSET_VUSP)]	@ Retrieve hyp stack
-	str		r5, [r4, r6, lsl #2]
-
-
-	ldr		r4, [r1, #(OFFSET_SYS_REGS + OFFSET_VDACR)]
-	mcr		p15, 0, r4, c3, c0, 0
-
-	add		ip, r1, #(OFFSET_USER_REGS + OFFSET_R4)
-
-    ldmia   ip,  {r4 - sl, fp, ip, sp, pc}       @ Load all regs saved previously
-
-	nop
-	nop
-	nop
-
-/*
- * SVC mode handlers
- */
-.align  5
-__vector_fault:
-	svc_entry
-1:
-	/* Fault address information retrieval */
-	mrc	p15, 0, r1, c5, c0, 0		@ get FSR
-	mrc	p15, 0, r0, c6, c0, 0		@ get FAR
-
-	mov r2, lr
-	b	__fault_trap
-
-.align  5
-
-
-/*
- * Vector stubs.
- *
- * This code is copied to 0xffff0200 so we can use branches in the
- * vectors, rather than ldr's.  Note that this code must not
- * exceed 0x300 bytes.
- *
- * Common stub entry macro:
- *   Enter in IRQ mode, spsr = SVC/USR CPSR, lr = SVC/USR PC
- *
- * SP points to a minimal amount of processor-private memory, the address
- * of which is copied into r0 for the mode specific abort handler.
- */
-	.macro	vector_stub, name, mode, correction=0
-	.align	5
-
-vector_\name:
-	.if \correction
-	sub	lr, lr, #\correction
-	.endif
-
-	@
-	@ Save r0, lr_<exception> (parent PC) and spsr_<exception>
-	@ (parent CPSR)
-	@
-	stmia	sp, {r0, lr}		@ save r0, lr
-	mrs	lr, spsr
-	str	lr, [sp, #8]		@ save spsr
-
-	@
-	@ Prepare for SVC32 mode.  IRQs remain disabled.
-	@
-	mrs	r0, cpsr
-	eor	r0, r0, #(\mode ^ PSR_MODE_SVC)
-	msr	spsr_cxsf, r0
-
-	@
-	@ the branch table must immediately follow this code
-	@
-	and	lr, lr, #0x0f
-	mov	r0, sp
-	ldr	lr, [pc, lr, lsl #2]
-	movs	pc, lr			@ branch to handler in SVC mode
-	.endm
-
-	.globl	__stubs_start
-__stubs_start:
-
-/*
- * Interrupt dispatcher
- */
-	vector_stub	irq, PSR_MODE_IRQ, 4
-
-	.long	__irq_usr			@  0  (USR_26 / USR_32)
-	.long	__invalid			@  1  (FIQ_26 / FIQ_32)
-	.long	__invalid			@  2  (IRQ_26 / IRQ_32)
-	.long	__irq_svc			@  3  (SVC_26 / SVC_32)
-	.long	__invalid			@  4
-	.long	__invalid			@  5
-	.long	__invalid			@  6
-	.long	__invalid			@  7
-	.long	__invalid			@  8
-	.long	__invalid			@  9
-	.long	__invalid			@  a
-	.long	__invalid			@  b
-	.long	__invalid			@  c
-	.long	__invalid			@  d
-	.long	__invalid			@  e
-	.long	__invalid			@  f
-
-/* Data abort dispatcher
- * Enter in ABT mode, spsr = USR CPSR, lr = USR PC
- */
-	vector_stub	dabt, PSR_MODE_ABT, 8
-
-	.long	__invalid			@  0  (USR_26 / USR_32)
-	.long	__invalid			@  1  (FIQ_26 / FIQ_32)
-	.long	__invalid			@  2  (IRQ_26 / IRQ_32)
-	.long	__vector_fault		@  3  (SVC_26 / SVC_32)
-	.long	__invalid			@  4
-	.long	__invalid			@  5
-	.long	__invalid			@  6
-	.long	__invalid			@  7
-	.long	__invalid			@  8
-	.long	__invalid			@  9
-	.long	__invalid			@  a
-	.long	__invalid			@  b
-	.long	__invalid			@  c
-	.long	__invalid			@  d
-	.long	__invalid			@  e
-	.long	__invalid			@  f
-
-/*
- * Prefetch abort dispatcher
- * Enter in ABT mode, spsr = USR CPSR, lr = USR PC
- */
-	vector_stub	pabt, PSR_MODE_ABT, 4
-
-	.long	__invalid			@  0 (USR_26 / USR_32)
-	.long	__invalid			@  1 (FIQ_26 / FIQ_32)
-	.long	__invalid			@  2 (IRQ_26 / IRQ_32)
-	.long	__vector_fault		@  3 (SVC_26 / SVC_32)
-	.long	__invalid			@  4
-	.long	__invalid			@  5
-	.long	__invalid			@  6
-	.long	__invalid			@  7
-	.long	__invalid			@  8
-	.long	__invalid			@  9
-	.long	__invalid			@  a
-	.long	__invalid			@  b
-	.long	__invalid			@  c
-	.long	__invalid			@  d
-	.long	__invalid			@  e
-	.long	__invalid			@  f
-
-/*
- * Undef instr entry dispatcher
- * Enter in UND mode, spsr = SVC/USR CPSR, lr = SVC/USR PC
- */
-	vector_stub	und, PSR_MODE_UND
-
-	.long	__invalid			@  0 (USR_26 / USR_32)
-	.long	__invalid			@  1 (FIQ_26 / FIQ_32)
-	.long	__invalid			@  2 (IRQ_26 / IRQ_32)
-	.long	__vector_fault		@  3 (SVC_26 / SVC_32)
-	.long	__invalid			@  4
-	.long	__invalid			@  5
-	.long	__invalid			@  6
-	.long	__invalid			@  7
-	.long	__invalid			@  8
-	.long	__invalid			@  9
-	.long	__invalid			@  a
-	.long	__invalid			@  b
-	.long	__invalid			@  c
-	.long	__invalid			@  d
-	.long	__invalid			@  e
-	.long	__invalid			@  f
-
-/*
- * We group all the following data together to optimise
- * for CPUs with separate I & D caches.
- */
-	.align	5
-
-	.globl	__stubs_end
-__stubs_end:
-
-	.equ	stubs_offset, __vectors_start + 0x200 - __stubs_start
-
-	.globl	__vectors_start
-__vectors_start:
-	b	__invalid
-	b	vector_und + stubs_offset
-	b	__invalid
-	b	vector_pabt + stubs_offset
-	b	vector_dabt + stubs_offset
-	b	__invalid
-	b	vector_irq + stubs_offset
-	b	__invalid
-
-	.globl	__vectors_end
-__vectors_end:
-
-
+.align 5
 pseudo_usr_mode:
 	.space NR_CPUS * 4
 
-@ Hypervisor stack is used for the *current* (running) vcpu svc stack address
+@ Hypervisor stack is used for the *current* (running) domain svc stack address
 hypervisor_stack:
 	.space NR_CPUS * 4
 

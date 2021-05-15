@@ -31,13 +31,13 @@ ENTRY(ret_from_hypercall)
 	disable_irq
 
 	/* Store the x0 value in the stack frame of G-stack */
-	vcpu	x8, x11
-	ldr		x9, [x8, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	curdom	x8, x11
+	ldr		x9, [x8, #OFFSET_G_SP]
 	str		x0, [x9, #S_X0]
 
 	bl		do_softirq
 
-	vcpu	x10, x11
+	curdom	x10, x11
 	ldr		x11, [x10, #OFFSET_SHARED_INFO]
 
 	// If the softirq handling leads to trigger an interrupt in the guest,
@@ -57,9 +57,9 @@ do_upcall:
 
 	current_cpu x11
 
-	vcpu    x10, x12
+	curdom  x10, x12
 
-	ldr		lr, [x10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_HYPERVISOR_CALLBACK)]
+	ldr		lr, [x10, #OFFSET_HYPERVISOR_CALLBACK]
 	cmp		lr, #0
 	beq		restore
 
@@ -68,7 +68,7 @@ do_upcall:
 	str		x12, [x0, x11, lsl #3]
 
 	// Get guest stack
-	ldr		x12, [x10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	ldr		x12, [x10, #OFFSET_G_SP]
 	mov		sp, x12
 
 	// setting pseudo_usr_mode / x0, x1 re-assigned right after
@@ -97,10 +97,10 @@ restore:
 	mov		x10, sp
 	str		x10, [x0, x11, lsl #3]
 
-	vcpu	x10, x11
+	curdom	x10, x11
 
 	// Get guest stack
-	ldr		x11, [x10, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	ldr		x11, [x10, #OFFSET_G_SP]
 	mov		sp, x11
 
 	ldr		lr, [sp, #S_PC]
@@ -197,8 +197,8 @@ ENTRY(hypercall_start)
 	ldr		x11, [x9, x10, lsl #3]
 	mov		sp, x11
 
-	vcpu	x9, x11
-	str		x8, [x9, #(OFFSET_ARCH_VCPU + OFFSET_GUEST_CONTEXT + OFFSET_SYS_REGS + OFFSET_VKSP)]
+	curdom	x9, x11
+	str		x8, [x9, #OFFSET_G_SP]
 
 
 process_hypercalls:

@@ -121,10 +121,10 @@ struct arm_smccc_quirk {
  * from register 0 to 3 on return from the SMC instruction.  An optional
  * quirk structure provides vendor specific behavior.
  */
-asmlinkage void __arm_smccc_smc(unsigned long a0, unsigned long a1,
-			unsigned long a2, unsigned long a3, unsigned long a4,
-			unsigned long a5, unsigned long a6, unsigned long a7,
-			struct arm_smccc_res *res, struct arm_smccc_quirk *quirk);
+void __arm_smccc_smc(unsigned long a0, unsigned long a1,
+                     unsigned long a2, unsigned long a3, unsigned long a4,
+                     unsigned long a5, unsigned long a6, unsigned long a7,
+                     struct arm_smccc_res *res, struct arm_smccc_quirk *quirk);
 
 /**
  * __arm_smccc_hvc() - make HVC calls
@@ -138,10 +138,10 @@ asmlinkage void __arm_smccc_smc(unsigned long a0, unsigned long a1,
  * the content from register 0 to 3 on return from the HVC instruction.  An
  * optional quirk structure provides vendor specific behavior.
  */
-asmlinkage void __arm_smccc_hvc(unsigned long a0, unsigned long a1,
-			unsigned long a2, unsigned long a3, unsigned long a4,
-			unsigned long a5, unsigned long a6, unsigned long a7,
-			struct arm_smccc_res *res, struct arm_smccc_quirk *quirk);
+void __arm_smccc_hvc(unsigned long a0, unsigned long a1,
+                     unsigned long a2, unsigned long a3, unsigned long a4,
+                     unsigned long a5, unsigned long a6, unsigned long a7,
+                     struct arm_smccc_res *res, struct arm_smccc_quirk *quirk);
 
 #define arm_smccc_smc(...) __arm_smccc_smc(__VA_ARGS__, NULL)
 

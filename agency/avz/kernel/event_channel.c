@@ -320,7 +320,7 @@ int evtchn_send(struct domain *d, unsigned int levtchn) {
 	struct evtchn *lchn;
 	struct domain *ld = d, *rd;
 	int revtchn = 0, ret = 0;
-	
+
 	lchn = &ld->evtchn[levtchn];
 
 	rd = lchn->interdomain.remote_dom;
