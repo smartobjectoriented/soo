@@ -148,6 +148,24 @@ typedef struct {
 
 
 /*
+* locale info data for cooperate
+*/
+
+typedef struct {
+	
+	unsigned char id[SOO_AGENCY_UID_SIZE];
+	unsigned char type;
+	unsigned int timeStamp;
+	unsigned short nb_jump;
+
+	/*final*/
+	//void* data;
+
+}common_data;
+
+
+
+/*
  * SOO agencyUID unique ID - Allowing to identify a SOO device.
  * agencyUID 0 is NOT valid.
  */

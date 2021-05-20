@@ -286,6 +286,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
+
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
 		RxData = (common_data *) io_map(pfn_to_phys(pfn), sizeof(RxData));
 
@@ -352,22 +353,10 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 				#endif
 			}	
+
 		}
 
-
-		/*TODO reste de la logique de colaboration*/
-
-
-
-#if 0 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
-		DBG("Force the termination of this ME #%d\n", ME_domID());
-		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
-		agency_ctl_args.slotID = ME_domID();
-
-		args->__agency_ctl(&agency_ctl_args);
-#endif
-
-	io_unmap((uint32_t) RxData);
+		io_unmap((uint32_t) RxData);
 	
 		break;
 
@@ -452,7 +441,6 @@ void callbacks_init(void) {
 	localData->timeStamp = 0;
 	localData->type = 0;
 	localData->nb_device_visited = 0;
-
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
