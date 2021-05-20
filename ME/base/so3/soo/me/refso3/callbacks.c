@@ -129,6 +129,8 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 		}
 		
 	}
+		
+	}
 
 	return 0;
 }
@@ -197,8 +199,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 				args->__agency_ctl(&agency_ctl_args);
 			}
 		}
-
-
 		break;
 
 	case COOPERATE_TARGET:
@@ -208,15 +208,25 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
-		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		RxData = (common_data *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-		
 
 		/*TODO reste de la logique de propagation*/
 
+
+#if 1 /*pigpong*/
+
+
+
+		if(initiator_char == 'i'){
+			*((char *) localinfo_data) = 'o';
+		}else {
+			*((char *) localinfo_data) = 'i';
+		}
+
 		
 
 
+
+#endif 
 
 
 
@@ -305,13 +315,6 @@ void callbacks_init(void) {
 	/* Allocate localinfo */
 	localinfo_data = (void *) get_contig_free_vpages(1);
 
-	TxData = (common_data* ) localinfo_data;
-
-	/*init TxData*/
-	TxData->id[0] = 0;
-	TxData->nb_jump = 0;
-	TxData->timeStamp = 0;
-	TxData->type = 0;
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
