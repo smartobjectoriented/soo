@@ -275,8 +275,21 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 				args->__agency_ctl(&agency_ctl_args);
 			}
 		}
+<<<<<<< HEAD
+=======
+
+#if 0 /* This pattern is used to remove this (just arrived) ME even before its activation. */
+		if (!cooperate_args->alone) {
+>>>>>>> base avec ramfs
 
 
+<<<<<<< HEAD
+=======
+			set_ME_state(ME_state_killed);
+		}
+#endif
+
+>>>>>>> base avec ramfs
 		break;
 
 	case COOPERATE_TARGET:
@@ -286,6 +299,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
+<<<<<<< HEAD
 
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
 		RxData = (common_data *) io_map(pfn_to_phys(pfn), sizeof(RxData));
@@ -355,6 +369,16 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			}	
 
 		}
+=======
+		pfn = cooperate_args->u.initiator_coop.pfn.content;
+		//RxData = (common_data *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+		
+
+		/*TODO reste de la logique de propagation*/
+
+	
+
+>>>>>>> base avec ramfs
 
 		io_unmap((uint32_t) RxData);
 	
