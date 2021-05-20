@@ -36,7 +36,7 @@ done < ../agency/build.conf
 
 if [ "$PLATFORM" == "vexpress" ]; then
 	echo "Building Trusted Applications for platform vExpress qemu"
-	CROSS_COMPILE=arm-linux-gnueabihf-
+	CROSS_COMPILE=arm-none-linux-gnueabihf-
 	PLATFORM=vexpress
 	TA_DEV_KIT_DIR=$OPTEE_OS_PATH/out/arm-plat-vexpress/export-ta_arm32
 fi

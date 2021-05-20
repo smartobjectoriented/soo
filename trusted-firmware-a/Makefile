@@ -186,7 +186,7 @@ export HOSTCC
 
 # SOO.tech
 #CROSS_COMPILE 		:=	aarch64-linux-gnu-
-CROSS_COMPILE 		:=	arm-linux-gnueabihf-
+CROSS_COMPILE 		:=	arm-none-linux-gnueabihf-
 
 CC			:=	${CROSS_COMPILE}gcc
 CPP			:=	${CROSS_COMPILE}cpp
