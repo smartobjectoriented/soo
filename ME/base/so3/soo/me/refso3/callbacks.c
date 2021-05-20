@@ -42,8 +42,14 @@
  * The ME must stay dormant in the Smart Objects different than the origin and the one with UID 0x08.
  */
 
+
+
+
 /* Localinfo buffer used during cooperation processing */
 void *localinfo_data;
+common_data* TxData;
+common_data* RxData;
+agencyUID_t listOfVisitedDevice;
 
 #if 0
 static int live_count = 0;
@@ -137,11 +143,15 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 	pre_propagate_args->propagate_status = 0;
 
 	/* Enable migration - here, we migrate 1 times before being killed. */
-	if ((get_ME_state() != ME_state_dormant) || (migration_count < 1)) {
+	if ((migration_count < 1) &&  (TxData->nb_jump < 4)) {
 		pre_propagate_args->propagate_status = 1;
+		TxData->nb_jump++;
 		migration_count++;
 	} else{
-		set_ME_state(ME_state_killed);
+		if(get_ME_state() != ME_state_dormant){
+			set_ME_state(ME_state_killed);
+		}
+		
 	}
 		
 
@@ -240,6 +250,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 #endif
 			}
 		}
+<<<<<<< HEAD
 
 #if 0 /* This pattern is used to remove this (just arrived) ME even before its activation. */
 		if (!cooperate_args->alone) {
@@ -250,16 +261,18 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		}
 #endif
 
+=======
+>>>>>>> add struct localinfo
 		break;
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
-
 		DBG("SPID of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spid, SPID_SIZE);
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
+<<<<<<< HEAD
 #if 0 /* Will trigger a force_terminate on us */
 		agency_ctl_args.cmd = AG_KILL_ME;
 		agency_ctl_args.slotID = args->slotID;
@@ -329,10 +342,18 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 #endif
 
 #if 1 /*pigpong*/
-		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-		initiator_char = *((char *) recv_data);
+=======
 
+>>>>>>> add struct localinfo
+		pfn = cooperate_args->u.initiator_coop.pfn.content;
+		RxData = (common_data *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+		
+
+		/*TODO reste de la logique de propagation*/
+
+	
+
+<<<<<<< HEAD
 		if(initiator_char == 'i'){
 			*((char *) localinfo_data) = 'o';
 		}else {
@@ -343,6 +364,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 
 #endif 
+=======
+>>>>>>> add struct localinfo
 
 #if 0 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
 		DBG("Force the termination of this ME #%d\n", ME_domID());
@@ -428,8 +451,19 @@ void callbacks_init(void) {
 	/* Allocate localinfo */
 	localinfo_data = (void *) get_contig_free_vpages(1);
 
+<<<<<<< HEAD
 	*((char *) localinfo_data) = 'i';
 	*((char *) localinfo_data+1) = 0;
+=======
+	TxData = (common_data* ) localinfo_data;
+
+	/*init TxData*/
+	TxData->id[0] = 0xff;
+	TxData->nb_jump = 0;
+	TxData->timeStamp = 0;
+	TxData->type = 0;
+
+>>>>>>> add struct localinfo
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
