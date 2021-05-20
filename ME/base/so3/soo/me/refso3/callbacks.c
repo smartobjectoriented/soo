@@ -250,7 +250,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 #endif
 			}
 		}
-<<<<<<< HEAD
 
 #if 0 /* This pattern is used to remove this (just arrived) ME even before its activation. */
 		if (!cooperate_args->alone) {
@@ -261,8 +260,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		}
 #endif
 
-=======
->>>>>>> add struct localinfo
 		break;
 
 	case COOPERATE_TARGET:
@@ -272,100 +269,14 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
-<<<<<<< HEAD
-#if 0 /* Will trigger a force_terminate on us */
-		agency_ctl_args.cmd = AG_KILL_ME;
-		agency_ctl_args.slotID = args->slotID;
-		args->__agency_ctl(&agency_ctl_args);
-#endif
-
-#if 0 /* Alphabet */
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-
-		target_found = *((char *) localinfo_data+1);
-		initiator_found = *((char *) recv_data+1);
-
-		target_char = *((char *) localinfo_data);
-		initiator_char = *((char *) recv_data);
-#endif
-
-#if 0 /* Alphabet - Increment the alphabet in this case. */
-		if (get_ME_state() != ME_state_dormant)  {
-
-			if (initiator_found)
-			{
-				(*((char *) localinfo_data))++;
-				if (*((char *) localinfo_data) > 'Z')
-					*((char *) localinfo_data) = 'A';
-				*((char *) localinfo_data+1) = 0; /* Reset */
-			}
-
-			/* In any case, the arrived ME must disappeared */
-			agency_ctl_args.cmd = AG_KILL_ME;
-			agency_ctl_args.slotID = args->slotID;
-
-			args->__agency_ctl(&agency_ctl_args);
-
-
-		} else {
-
-			if (*((char *) localinfo_data) > (*((char *) recv_data))) {
-
-				agency_ctl_args.cmd = AG_KILL_ME;
-				agency_ctl_args.slotID = args->slotID;
-
-				args->__agency_ctl(&agency_ctl_args);
-
-			} else {
-
-				target_found = *((char *) localinfo_data+1);
-				initiator_found = *((char *) recv_data+1);
-
-				target_char = *((char *) localinfo_data);
-				initiator_char = *((char *) recv_data);
-
-				if ((target_char < initiator_char) ||
-				    (initiator_found && (!target_found || (initiator_char >= target_char))))
-
-					set_ME_state(ME_state_killed);
-
-				else {
-					agency_ctl_args.cmd = AG_KILL_ME;
-					agency_ctl_args.slotID = args->slotID;
-
-					args->__agency_ctl(&agency_ctl_args);
-				}
-			}
-		}
-
-#endif
-
-#if 1 /*pigpong*/
-=======
-
->>>>>>> add struct localinfo
-		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		RxData = (common_data *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+		//RxData = (common_data *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 		
 
 		/*TODO reste de la logique de propagation*/
 
 	
 
-<<<<<<< HEAD
-		if(initiator_char == 'i'){
-			*((char *) localinfo_data) = 'o';
-		}else {
-			*((char *) localinfo_data) = 'i';
-		}
-		
-
-
-
-#endif 
-=======
->>>>>>> add struct localinfo
 
 #if 0 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
 		DBG("Force the termination of this ME #%d\n", ME_domID());
@@ -451,19 +362,14 @@ void callbacks_init(void) {
 	/* Allocate localinfo */
 	localinfo_data = (void *) get_contig_free_vpages(1);
 
-<<<<<<< HEAD
-	*((char *) localinfo_data) = 'i';
-	*((char *) localinfo_data+1) = 0;
-=======
 	TxData = (common_data* ) localinfo_data;
 
-	/*init TxData*/
+	/*init TxData
 	TxData->id[0] = 0xff;
 	TxData->nb_jump = 0;
 	TxData->timeStamp = 0;
-	TxData->type = 0;
+	TxData->type = 0;*/
 
->>>>>>> add struct localinfo
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
