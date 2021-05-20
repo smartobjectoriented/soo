@@ -160,22 +160,13 @@ static int base_fn(void *arg) {
 	set_timer(&timer, NOW() + SECONDS(10));
 #endif
 
-<<<<<<< HEAD
-	while (migration_count == 0) {
-=======
 	while (1) {
->>>>>>> ping pong
 
 		/* printk("### heap size: %x\n", heap_size()); */
 		msleep(1000);
 
 		/* Simply display the current letter which is incremented each time a ME comes back */
 		lprintk("(%d) jump number:",  ME_domID());
-
-	
-
-
-		
 		
 	}
 
