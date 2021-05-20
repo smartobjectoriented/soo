@@ -15,7 +15,7 @@ ENTRY(_start)
  */
 SVC_STACK_SIZE = 64*1024 + 32*64*1024;  /* Initial system stack + 640 KB stack available for max. 10 kernel threads */
 
-HEAP_SIZE = 8 * 1024 * 1024;     /* 8 MB dedicated to kernel heap */
+HEAP_SIZE = 8 * 1024 * 1024; /* 8 MB dedicated to kernel heap */
 TABLE_L1_SIZE = 16 * 1024;   /* 16 KB 1st-level page table */ 
 
 /*
