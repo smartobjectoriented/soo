@@ -119,7 +119,6 @@ static int base_fn(void *arg) {
 	printk("ME base...\n");
 
 
-
 	while (1) {
 
 		/* printk("### heap size: %x\n", heap_size()); */
@@ -127,11 +126,6 @@ static int base_fn(void *arg) {
 
 		/* Simply display the current letter which is incremented each time a ME comes back */
 		lprintk("(%d) jump number:",  ME_domID());
-
-	
-
-
-		
 		
 	}
 
