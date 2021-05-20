@@ -19,7 +19,7 @@ case "$1" in
         echo "OK"
 
         echo -n "Configuring Bluetooth... "
-        /root/btmanager.sh
+        /root/btmanager.sh &
         echo "OK"
 
         # Set up wifi
