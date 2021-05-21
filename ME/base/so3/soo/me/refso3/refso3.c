@@ -142,7 +142,6 @@ int app_thread_main(void *args) {
 	spad_enable_cooperate();
 
 	
-
 	kernel_thread(base_fn, "base", NULL, 0);
 
 
