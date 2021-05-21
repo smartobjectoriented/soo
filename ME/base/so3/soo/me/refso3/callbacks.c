@@ -137,7 +137,6 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 		}
 		
 	}
-
 	return 0;
 }
 
@@ -224,7 +223,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 		
 
+		/*TODO reste de la logique de propagation*/
 
+	
 
 
 
