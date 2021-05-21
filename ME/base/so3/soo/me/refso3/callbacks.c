@@ -70,7 +70,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 
 	agency_ctl_args_t agency_ctl_args;
 	struct list_head *list_it;
-	unsigned i;
+
 	
 
 	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
@@ -99,7 +99,6 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 		/*check the vicious circle*/
 		while(list_it->next != NULL){
 
-			container_of 
 			list_it = list_it->next;
 		} 
 
@@ -127,7 +126,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 	pre_propagate_args->propagate_status = 0;
 
 	/* Enable migration - here, we migrate 1 times before being killed. */
-	if ((migration_count < 1) &&  (TxData->nb_jump < 4)) {
+	if ((migration_count < 2) &&  (TxData->nb_jump < 4)) {
 		pre_propagate_args->propagate_status = 1;
 		TxData->nb_jump++;
 		migration_count++;
@@ -223,13 +222,11 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 		
 
-		/*TODO reste de la logique de propagation*/
-
 	
 
 
 
-#if 1 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
+#if 0 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
 		DBG("Force the termination of this ME #%d\n", ME_domID());
 		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
 		agency_ctl_args.slotID = ME_domID();
@@ -237,7 +234,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		args->__agency_ctl(&agency_ctl_args);
 #endif
 
-		io_unmap((uint32_t) recv_data);
+		io_unmap((uint32_t) RxData);
 	
 		break;
 
@@ -272,7 +269,7 @@ int cb_post_activate(soo_domcall_arg_t *args) {
 #endif
 
 	DBG(">> ME %d: cb_post_activate...\n", ME_domID());
-	TxData->id
+	
 
 	return 0;
 }
