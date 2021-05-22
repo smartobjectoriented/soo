@@ -56,10 +56,6 @@ struct vdrvback {
 };
 typedef struct vdrvback vdrvback_t;
 
-static inline vdevback_t *to_vdevback(struct vbus_device *vdev) {
-	return dev_get_drvdata(&vdev->dev);
-}
-
 static inline vdrvback_t *to_vdrvback(struct vbus_device *vdev) {
 	struct vbus_driver *vdrv = to_vbus_driver(vdev->dev.driver);
 	return container_of(vdrv, vdrvback_t, vdrv);
