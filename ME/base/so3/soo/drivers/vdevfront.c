@@ -41,7 +41,8 @@
  *
  */
 bool vdevfront_processing_begin(struct vbus_device *vdev) {
-	vdevfront_t *vdevfront = to_vdevfront(vdev);
+	void *priv = dev_get_drvdata(vdev->dev);
+	vdevfront_t *vdevfront = (vdevfront_t *) priv;
 
 	/* Could be still being initialized... */
 	if (vdev->state != VbusStateConnected)
@@ -67,7 +68,8 @@ bool vdevfront_processing_begin(struct vbus_device *vdev) {
  * Finish a processing section against suspend/close prevention
  */
 void vdevfront_processing_end(struct vbus_device *vdev) {
-	vdevfront_t *vdevfront = to_vdevfront(vdev);
+	void *priv = dev_get_drvdata(vdev->dev);
+	vdevfront_t *vdevfront = (vdevfront_t *) priv;
 
 	atomic_dec(&vdevfront->processing_count);
 
@@ -84,14 +86,13 @@ void vdevfront_processing_end(struct vbus_device *vdev) {
  *
  */
 static int __probe(struct vbus_device *vdev) {
-	vdevfront_t *vdevfront;
+	void *priv = dev_get_drvdata(vdev->dev);
+	vdevfront_t *vdevfront = (vdevfront_t *) priv;
 	vdrvfront_t *vdrvfront = to_vdrvfront(vdev);
 
 	DBG("%s: SOO dummy frontend driver for testing\n", __func__);
 
 	vdrvfront->probe(vdev);
-
-	vdevfront = to_vdevfront(vdev);
 
 	atomic_set(&vdevfront->processing_count, 0);
 
@@ -106,7 +107,8 @@ static int __probe(struct vbus_device *vdev) {
  * State machine by the frontend's side.
  */
 static void __otherend_changed(struct vbus_device *vdev, enum vbus_state backend_state) {
-	vdevfront_t *vdevfront = dev_get_drvdata(vdev->dev);
+	void *priv = dev_get_drvdata(vdev->dev);
+	vdevfront_t *vdevfront = (vdevfront_t *) priv;
 	vdrvfront_t *vdrvfront = to_vdrvfront(vdev);
 
 	DBG("SOO vdummy frontend, backend %s changed its state to %d.\n", vdev->nodename, backend_state);

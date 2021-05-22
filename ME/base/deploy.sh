@@ -35,6 +35,13 @@ done
 
 if [ $OPTIND -eq 1 ]; then usage; fi
 
+# Execute first this target if required
+if [ "$deploy_clean" == "y" ]; then
+
+        echo "Removing all ITB images in $2"
+        rm ../$2/target/*
+fi
+
 if [ "$deploy_me" == "y" ]; then
         echo Deploying the ME into its itb file...
         cd target
@@ -44,11 +51,6 @@ if [ "$deploy_me" == "y" ]; then
         cp $3.itb ../../$2/target/
 fi
 
-if [ "$deploy_clean" == "y" ]; then
-
-        echo "Removing all ITB images in $2"
-        rm ../$2/target/*
-fi
 
 
 

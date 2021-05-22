@@ -39,14 +39,23 @@
 
 #include <soo/dev/vuart.h>
 
+typedef struct {
+
+	/* Must be the first field */
+	vuart_t vuart;
+
+	completion_t reader_wait;
+
+} vuart_priv_t;
+
 /* Our unique uart instance. */
 static struct vbus_device *vdev_console = NULL;
 
 irq_return_t vuart_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	vuart_t *vuart = to_vuart(vdev);
+	vuart_priv_t *vuart_priv = (vuart_priv_t *) dev_get_drvdata(vdev->dev);
 
-	complete(&vuart->reader_wait);
+	complete(&vuart_priv->reader_wait);
 
 	return IRQ_COMPLETED;
 }
@@ -64,24 +73,25 @@ bool vuart_ready(void) {
 void vuart_write(char *buffer, int count) {
 	int i;
 	vuart_request_t *ring_req;
-	vuart_t *vuart;
+	vuart_priv_t *vuart_priv;
 
 	if (!vdev_console)
 		return ;
 
-	vuart = to_vuart(vdev_console);
+	vuart_priv = (vuart_priv_t *) dev_get_drvdata(vdev_console->dev);
+	BUG_ON(!vuart_priv);
 
 	vdevfront_processing_begin(vdev_console);
 
 	for (i = 0; i < count; i++) {
-		ring_req = vuart_new_ring_request(&vuart->ring);
+		ring_req = vuart_new_ring_request(&vuart_priv->vuart.ring);
 
 		ring_req->c = buffer[i];
 	}
 
-	vuart_ring_request_ready(&vuart->ring);
+	vuart_ring_request_ready(&vuart_priv->vuart.ring);
 
-	notify_remote_via_irq(vuart->irq);
+	notify_remote_via_irq(vuart_priv->vuart.irq);
 
 	vdevfront_processing_end(vdev_console);
 
@@ -94,21 +104,22 @@ void vuart_write(char *buffer, int count) {
  */
 char vuart_read_char(void) {
 	vuart_response_t *ring_rsp;
-	vuart_t *vuart;
+	vuart_priv_t *vuart_priv;
 
 	if (!vdev_console)
 		return 0;
 
-	vuart = to_vuart(vdev_console);
+	vuart_priv = (vuart_priv_t *) dev_get_drvdata(vdev_console->dev);
+	BUG_ON(!vuart_priv);
 
 	/* Always perform a wait on the completion since we always get an interrupt
 	 * per byte (hence a complete will be aised up).
 	 */
-	wait_for_completion(&vuart->reader_wait);
+	wait_for_completion(&vuart_priv->reader_wait);
 
 	vdevfront_processing_begin(vdev_console);
 
-	ring_rsp = vuart_get_ring_response(&vuart->ring);
+	ring_rsp = vuart_get_ring_response(&vuart_priv->vuart.ring);
 	BUG_ON(!ring_rsp);
 
 	vdevfront_processing_end(vdev_console);
@@ -121,29 +132,25 @@ void vuart_probe(struct vbus_device *vdev) {
 	unsigned int evtchn;
 	vuart_sring_t *sring;
 	struct vbus_transaction vbt;
-	vuart_t *vuart;
+	vuart_priv_t *vuart_priv;
 
 	DBG0("[vuart] Frontend probe\n");
 
 	if (vdev->state == VbusStateConnected)
 		return ;
 
-	vuart = malloc(sizeof(vuart_t));
-	BUG_ON(!vuart);
-	memset(vuart, 0, sizeof(vuart_t));
+	vuart_priv = dev_get_drvdata(vdev->dev);
 
 	/* Local instance */
 	vdev_console = vdev;
 
-	dev_set_drvdata(vdev->dev, &vuart->vdevfront);
-
-	init_completion(&vuart->reader_wait);
+	init_completion(&vuart_priv->reader_wait);
 
 	DBG("Frontend: Setup ring\n");
 
 	/* Prepare to set up the ring. */
 
-	vuart->ring_ref = GRANT_INVALID_REF;
+	vuart_priv->vuart.ring_ref = GRANT_INVALID_REF;
 
 	/* Allocate an event channel associated to the ring */
 	res = vbus_alloc_evtchn(vdev, &evtchn);
@@ -155,8 +162,8 @@ void vuart_probe(struct vbus_device *vdev) {
 		BUG();
 	}
 
-	vuart->evtchn = evtchn;
-	vuart->irq = res;
+	vuart_priv->vuart.evtchn = evtchn;
+	vuart_priv->vuart.irq = res;
 
 	/* Allocate a shared page for the ring */
 	sring = (vuart_sring_t *) get_free_vpage();
@@ -166,20 +173,20 @@ void vuart_probe(struct vbus_device *vdev) {
 	}
 
 	SHARED_RING_INIT(sring);
-	FRONT_RING_INIT(&vuart->ring, sring, PAGE_SIZE);
+	FRONT_RING_INIT(&vuart_priv->vuart.ring, sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuart->ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuart_priv->vuart.ring.sring)));
 	if (res < 0)
 		BUG();
 
-	vuart->ring_ref = res;
+	vuart_priv->vuart.ring_ref = res;
 
 	vbus_transaction_start(&vbt);
 
-	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vuart->ring_ref);
-	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vuart->evtchn);
+	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vuart_priv->vuart.ring_ref);
+	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vuart_priv->vuart.evtchn);
 
 	vbus_transaction_end(vbt);
 
@@ -189,35 +196,35 @@ void vuart_probe(struct vbus_device *vdev) {
 void vuart_reconfiguring(struct vbus_device *vdev) {
 	int res;
 	struct vbus_transaction vbt;
-	vuart_t *vuart = to_vuart(vdev);
+	vuart_priv_t *vuart_priv = dev_get_drvdata(vdev->dev);
 
 	DBG0("[vuart] Frontend reconfiguring\n");
 	/* The shared page already exists */
 	/* Re-init */
 
-	gnttab_end_foreign_access_ref(vuart->ring_ref);
+	gnttab_end_foreign_access_ref(vuart_priv->vuart.ring_ref);
 
 	DBG("Frontend: Setup ring\n");
 
 	/* Prepare to set up the ring. */
 
-	vuart->ring_ref = GRANT_INVALID_REF;
+	vuart_priv->vuart.ring_ref = GRANT_INVALID_REF;
 
-	SHARED_RING_INIT(vuart->ring.sring);
-	FRONT_RING_INIT(&vuart->ring, (&vuart->ring)->sring, PAGE_SIZE);
+	SHARED_RING_INIT(vuart_priv->vuart.ring.sring);
+	FRONT_RING_INIT(&vuart_priv->vuart.ring, (&vuart_priv->vuart.ring)->sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuart->ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuart_priv->vuart.ring.sring)));
 	if (res < 0)
 		BUG();
 
-	vuart->ring_ref = res;
+	vuart_priv->vuart.ring_ref = res;
 
 	vbus_transaction_start(&vbt);
 
-	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vuart->ring_ref);
-	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vuart->evtchn);
+	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vuart_priv->vuart.ring_ref);
+	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vuart_priv->vuart.evtchn);
 
 	vbus_transaction_end(vbt);
 }
@@ -228,7 +235,7 @@ void vuart_shutdown(struct vbus_device *vdev) {
 }
 
 void vuart_closed(struct vbus_device *vdev) {
-	vuart_t *vuart = to_vuart(vdev);
+	vuart_priv_t *vuart_priv = dev_get_drvdata(vdev->dev);
 
 	DBG0("[vuart] Frontend close\n");
 
@@ -237,18 +244,18 @@ void vuart_closed(struct vbus_device *vdev) {
 	 */
 
 	/* Free resources associated with old device channel. */
-	if (vuart->ring_ref != GRANT_INVALID_REF) {
-		gnttab_end_foreign_access(vuart->ring_ref);
-		free_vpage((uint32_t) vuart->ring.sring);
+	if (vuart_priv->vuart.ring_ref != GRANT_INVALID_REF) {
+		gnttab_end_foreign_access(vuart_priv->vuart.ring_ref);
+		free_vpage((uint32_t) vuart_priv->vuart.ring.sring);
 
-		vuart->ring_ref = GRANT_INVALID_REF;
-		vuart->ring.sring = NULL;
+		vuart_priv->vuart.ring_ref = GRANT_INVALID_REF;
+		vuart_priv->vuart.ring.sring = NULL;
 	}
 
-	if (vuart->irq)
-		unbind_from_irqhandler(vuart->irq);
+	if (vuart_priv->vuart.irq)
+		unbind_from_irqhandler(vuart_priv->vuart.irq);
 
-	vuart->irq = 0;
+	vuart_priv->vuart.irq = 0;
 }
 
 void vuart_suspend(struct vbus_device *vdev) {
@@ -278,6 +285,14 @@ vdrvfront_t vuartdrv = {
 };
 
 static int vuart_init(dev_t *dev) {
+	vuart_priv_t *vuart_priv;
+
+	vuart_priv = malloc(sizeof(vuart_priv_t));
+	BUG_ON(!vuart_priv);
+
+	memset(vuart_priv, 0, sizeof(vuart_priv_t));
+
+	dev_set_drvdata(dev, vuart_priv);
 
 	vdevfront_init(VUART_NAME, &vuartdrv);
 
