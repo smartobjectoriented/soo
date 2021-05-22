@@ -46,6 +46,7 @@ DEFINE_RING_TYPES(vdummy, vdummy_request_t, vdummy_response_t);
  */
 
 typedef struct {
+	/* Must be the first field */
 	vdevfront_t vdevfront;
 
 	vdummy_front_ring_t ring;

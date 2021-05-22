@@ -60,10 +60,6 @@ struct vdrvfront {
 };
 typedef struct vdrvfront vdrvfront_t;
 
-static inline vdevfront_t *to_vdevfront(struct vbus_device *vdev) {
-	return dev_get_drvdata(vdev->dev);
-}
-
 static inline vdrvfront_t *to_vdrvfront(struct vbus_device *vdev) {
 	struct vbus_driver *vdrv = vdev->vdrv;
 	return container_of(vdrv, vdrvfront_t, vdrv);

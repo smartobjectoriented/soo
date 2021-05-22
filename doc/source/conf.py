@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath('.'))
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('.'))
 
 # -- General configuration -----------------------------------------------------
 
@@ -39,10 +39,11 @@ extensions = [
     'rstFlatTable',
 #    'sphinxcontrib.bibtex',
     'sphinx.ext.extlinks',
-    'sphinx.ext.imgmath',
+    'sphinx.ext.imgmath'
 ]
 
-plantuml = 'java -jar ../plantuml.jar'
+plantuml = 'java -jar %s -t' % os.path.join(os.path.dirname(__file__), "../utils", "plantuml.jar")
+plantuml_output_format = 'png'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

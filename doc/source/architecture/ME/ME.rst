@@ -18,8 +18,6 @@ The *SPAD* is also used to tell the agency if the ME is inclined to cooperate wi
 Enabling the possibility for an ME to perform *cooperation* with other ME requires to call
 the following function in the main application of the ME:
 
-.. code-block:: c
-
-   spad_enable_cooperate();
-  
-  
+.. c:function:: void spad_enable_cooperate(void)
+   
+   
