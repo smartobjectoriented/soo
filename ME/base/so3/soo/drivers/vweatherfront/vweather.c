@@ -66,7 +66,7 @@ void vweather_connected(void) {
 	DBG0(VWEATHER_PREFIX "Frontend connected\n");
 
 	/* Force the processing of pending requests, if any */
-	notify_remote_via_irq(vweather.irq);
+	notify_remote_via_virq(vweather.irq);
 }
 
 void vweather_reconfiguring(void) {

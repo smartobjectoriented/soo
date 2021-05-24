@@ -87,7 +87,7 @@ void vnet_ask_token(void) {
                 vnet_ctrl_ring_request_ready(&vnet->ring_ctrl);
 
                 if(vnet->irq)
-                        notify_remote_via_irq(vnet->irq);
+                        notify_remote_via_virq(vnet->irq);
         }
 }
 
@@ -165,7 +165,7 @@ err_t vnet_lwip_send(struct netif *netif, struct pbuf *p) {
         vnet_data_ring_request_ready(&vnet->ring_data);
 
         if(vnet->irq)
-                notify_remote_via_irq(vnet->irq);
+                notify_remote_via_virq(vnet->irq);
 
 
         vdevfront_processing_end(vdev_net);
@@ -410,7 +410,7 @@ void vnet_connected(struct vbus_device *vdev) {
 
         /* Force the processing of pending requests, if any */
         if(vnet->irq)
-                notify_remote_via_irq(vnet->irq);
+                notify_remote_via_virq(vnet->irq);
 
         vnet_ask_token();
 }

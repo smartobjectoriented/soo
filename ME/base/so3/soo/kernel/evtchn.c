@@ -334,7 +334,7 @@ void unbind_from_irqhandler(unsigned int irq)
  * Send a notification event along an event channel.
  * To send a notification, the
  */
-void notify_remote_via_irq(int irq)
+void notify_remote_via_virq(int irq)
 {
 	int evtchn = evtchn_from_irq(irq);
 

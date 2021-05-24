@@ -91,7 +91,7 @@ void vuart_write(char *buffer, int count) {
 
 	vuart_ring_request_ready(&vuart_priv->vuart.ring);
 
-	notify_remote_via_irq(vuart_priv->vuart.irq);
+	notify_remote_via_virq(vuart_priv->vuart.irq);
 
 	vdevfront_processing_end(vdev_console);
 
