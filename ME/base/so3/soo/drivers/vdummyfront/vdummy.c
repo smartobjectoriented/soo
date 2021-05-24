@@ -98,7 +98,7 @@ void vdummy_generate_request(char *buffer) {
 
 		vdummy_ring_request_ready(&vdummy_priv->vdummy.ring);
 
-		notify_remote_via_irq(vdummy_priv->vdummy.irq);
+		notify_remote_via_virq(vdummy_priv->vdummy.irq);
 	}
 
 	vdevfront_processing_end(vdummy_dev);
@@ -265,7 +265,7 @@ void vdummy_connected(struct vbus_device *vdev) {
 	DBG0("[" VDUMMY_NAME "] Frontend connected\n");
 
 	/* Force the processing of pending requests, if any */
-	notify_remote_via_irq(vdummy_priv->vdummy.irq);
+	notify_remote_via_virq(vdummy_priv->vdummy.irq);
 
 	if (!thread_created) {
 		thread_created = true;

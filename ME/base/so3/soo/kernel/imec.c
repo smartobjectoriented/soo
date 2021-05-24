@@ -232,11 +232,11 @@ void imec_notify(imec_channel_t *imec_channel)
 
 	if (imec_initiator(imec_channel)) {
 	  DBG("l evtchn=%d\n", evtchn_from_irq(imec_channel->lirq));
-		notify_remote_via_irq(imec_channel->lirq);
+		notify_remote_via_virq(imec_channel->lirq);
 	}
 	else {
 	  DBG("r evtchn=%d\n", evtchn_from_irq(imec_channel->rirq));
-		notify_remote_via_irq(imec_channel->rirq);
+		notify_remote_via_virq(imec_channel->rirq);
 	}
 }
 
