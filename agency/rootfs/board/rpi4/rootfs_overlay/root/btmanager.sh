@@ -6,7 +6,7 @@ BT_TTY="/dev/ttyAMA1"
 AGENCYUID_FILE="/sys/devices/system/soo/soo0/agencyUID"
 BDADDR=`cat ${AGENCYUID_FILE} | cut -c1-17`
 
-hciattach ${BT_TTY} bcm2035 115200 flow - ${BDADDR}
+hciattach ${BT_TTY} bcm43xx 460800 noflow - ${BDADDR}
 
 DEFAULT_HCI_NAME="soo-bt"
 
