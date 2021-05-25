@@ -125,13 +125,12 @@ static int base_fn(void *arg) {
 		msleep(1000);
 
 		/* Simply display the current letter which is incremented each time a ME comes back */
-		lprintk("(%d) jump number:",  ME_domID());
+		//lprintk("(%d) jump number:",  ME_domID());
 		
 	}
 
 	return 0;
 }
-
 
 
 

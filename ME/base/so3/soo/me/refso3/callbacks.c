@@ -32,6 +32,7 @@
 #include <soo/soo.h>
 #include <soo/console.h>
 #include <soo/debug.h>
+#include <heap.h>
 
 /*
  * ME Description:
@@ -70,6 +71,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 
 	agency_ctl_args_t agency_ctl_args;
 	struct list_head *list_it;
+	agencyUID_t *id;
 
 	
 
@@ -79,36 +81,61 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	/* Retrieve the agency UID of the Smart Object on which the ME has migrated */
 	agency_ctl_args.cmd = AG_AGENCY_UID;
 	args->__agency_ctl(&agency_ctl_args);
+	lprintk("id : %x,%x\n",  agency_ctl_args.u.agencyUID_args.agencyUID.id[0],agency_ctl_args.u.agencyUID_args.agencyUID.id[1]);
 	
-
+	
 	/*if id not init */
 	if(TxData->id[0] == 0){
-		
-		//save the source uid
-		memcpy(&TxData->id, &agency_ctl_args.u.agencyUID_args.agencyUID, SOO_AGENCY_UID_SIZE);
 
-		/*inti the list of Visited Device*/
-		memcpy(&listOfVisitedDevice.id, &agency_ctl_args.u.agencyUID_args.agencyUID, SOO_AGENCY_UID_SIZE);
+		lprintk("init id and list\n");
+		
+		/*save the source uid*/
+		memcpy(&TxData->id, &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
+
+		/*init the list of Visited Device*/
+		memcpy(&listOfVisitedDevice.id, &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
 		listOfVisitedDevice.list.next = NULL;
 		listOfVisitedDevice.list.prev = NULL;
 
 	}else{
-
+		lprintk("check the vicious circle\n");
 		list_it = &listOfVisitedDevice.list;
 
 		/*check the vicious circle*/
-		while(list_it->next != NULL){
+		while(list_it->next){
 
+			//get id
+			id = container_of(list_it,agencyUID_t,list);
+
+			//if the device is know
+			if(!memcmp(&id->id,&agency_ctl_args.u.agencyUID_args.agencyUID.id,SOO_AGENCY_UID_SIZE)){
+
+				/* Kill the ME to avoid circularity */
+				lprintk("hey vicious circle detected !!!!!!!!!!!\n");
+				
+
+			    lprintk("kill ME\n");
+				//delete the ME
+				DBG("Force the termination of this ME #%d\n", ME_domID());
+				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+				agency_ctl_args.slotID = ME_domID();
+
+				args->__agency_ctl(&agency_ctl_args);
+
+
+				return 0;
+			}
+			
 			list_it = list_it->next;
 		} 
 
+		//add the curent device ID to the list
+		id = (agencyUID_t*) malloc(sizeof(agencyUID_t)); 
+		memcpy(&id->id, &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
+		list_it->next = &id->list;
+		id->list.next = 0;
+
 	}
-
-	
-
-
-
-
 	return 0;
 }
 
@@ -120,21 +147,21 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
+	agency_ctl_args_t agency_ctl_args;
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
 	pre_propagate_args->propagate_status = 0;
 
 	/* Enable migration - here, we migrate 1 times before being killed. */
-	if ((migration_count < 2) &&  (TxData->nb_jump < 4)) {
+	if ((migration_count < 1) && (TxData->nb_jump < 7)) {
 		pre_propagate_args->propagate_status = 1;
 		TxData->nb_jump++;
 		migration_count++;
 	} else{
-		if(get_ME_state() != ME_state_dormant){
-			set_ME_state(ME_state_killed);
-		}
-		
+		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+		agency_ctl_args.slotID = ME_domID();
+		args->__agency_ctl(&agency_ctl_args);
 	}
 	return 0;
 }
@@ -215,14 +242,25 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		RxData = (common_data *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+		RxData = (common_data *) io_map(pfn_to_phys(pfn), sizeof(RxData));
 		
 
-		/*TODO reste de la logique de propagation*/
 
-		
+		/*if the ME com to the same device and have the same type*/
+		if(!memcmp(&RxData->id,&TxData->id,SOO_AGENCY_UID_SIZE) && (RxData->type == TxData->type)){
+			
+			//delete the ME
+			lprintk("same ME kill the less recent\n");
+			agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+			agency_ctl_args.slotID = ME_domID();
 
-	
+			args->__agency_ctl(&agency_ctl_args);
+
+			/*TODO delete en fonction du timestamp */
+		}
+
+
+		/*TODO reste de la logique de colaboration*/
 
 
 
