@@ -6,11 +6,8 @@ BT_TTY="/dev/ttyAMA1"
 AGENCYUID_FILE="/sys/devices/system/soo/soo0/agencyUID"
 BDADDR=`cat ${AGENCYUID_FILE} | cut -c1-17`
 
-<<<<<<< HEAD
-hciattach ${BT_TTY} bcm43xx 460800 noflow - ${BDADDR}
-=======
-hciattach ${BT_TTY} bcm2035 115200 flow - ${BDADDR}
->>>>>>> f6a008c3bd6f3da79dd58d04681b62262f620456
+# Configure the controller with an address and load its firmware
+hciattach ${BT_TTY} bcm43xx 460800 flow - ${BDADDR}
 
 DEFAULT_HCI_NAME="soo-bt"
 
@@ -21,21 +18,21 @@ else
     HCI_NAME=${DEFAULT_HCI_NAME}
 fi
 
+# Launch the BT daemon. The --compat is MANDATORY
 /usr/libexec/bluetooth/bluetoothd --compat &
 hciconfig hci0 up
 # Secure Simple Pairing Mode
 hciconfig hci0 sspmode 1
 # Discoverable
 hciconfig hci0 piscan
-# Class Networking
+# Class Networking TTY interface
 hciconfig hci0 class 001101
+# Assign a name to the controller
 hciconfig hci0 name ${HCI_NAME}
-# Serial Port
+# Serial Port config
 sdptool add --channel=1 SP
-
 # Launch the agent with NoInputNoOutput so we don't have to enter a PIN 
 bt-agent -c NoInputNoOutput -d
-
 
 # This opens a rfcomm socket which will be hooked by vuihandler
 while true
