@@ -47,6 +47,25 @@
 #include <soo/core/sysfs.h>
 #include <soo/core/device_access.h>
 
+/*
+ * The following structure is used to maintain a list
+ * of callback functions which will be called once
+ * all SOO subsystems will be fully initialized.
+ */
+typedef struct {
+
+	struct list_head list;
+
+	/* Callback function */
+	sooenv_up_fn_t up_fn;
+
+	/* Pointer which can be retrieved in the callback function */
+	void *args;
+
+} sooenv_up_t;
+
+LIST_HEAD(sooenv_up_list);
+
 /* SOO instance handling */
 struct list_head soo_environment;
 
@@ -234,6 +253,7 @@ static int soo3_task_tx_fn(void *args) {
  */
 int soo_env_fn(void *args) {
 	soo_env_t *soo_env;
+	sooenv_up_t *sooenv_up, *tmp;
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	int i;
@@ -372,13 +392,73 @@ int soo_env_fn(void *args) {
 
 	soo_env->ready = true;
 
+	/* Performed all deferred init functions which were
+	 * waiting for all SOO subsystems get fully initialized.
+	 */
+
+	if (soo_env->id == 1)
+		list_for_each_entry_safe(sooenv_up, tmp, &sooenv_up_list, list) {
+
+			/* Execute the callback function */
+			sooenv_up->up_fn(soo_env, sooenv_up->args);
+
+			list_del(&sooenv_up->list);
+			kfree(sooenv_up);
+
+			break;
+		}
+
 	do_exit(0);
 
 	return 0;
 }
 
+/**
+ * Registering a new callback function which will be called
+ * at the end of the SOO environment initialization process.
+ *
+ * @param sooenv_up_fn	callback function
+ * @param args		arguments to be passed to the callback function
+ */
+void register_sooenv_up(sooenv_up_fn_t sooenv_up_fn, void *args) {
+	sooenv_up_t *sooenv_up;
 
-void soolink_netsimul_init(void) {
+	sooenv_up = kzalloc(sizeof(sooenv_up_t), GFP_KERNEL);
+	BUG_ON(!sooenv_up);
+
+	sooenv_up->up_fn = sooenv_up_fn;
+	sooenv_up->args = args;
+
+	list_add_tail(&sooenv_up->list, &sooenv_up_list);
+};
+
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
+void sooenv_init_topology(soo_env_t *sooenv, void *args) {
+
+	if (!strcmp(sooenv->name, "SOO-3")) {
+		soo1 = get_soo_by_name("SOO-1");
+		soo2 = get_soo_by_name("SOO-2");
+		soo3 = get_soo_by_name("SOO-3");
+
+		BUG_ON(!soo1 || !soo2 || !soo3);
+
+		/* Define the SOO topology */
+
+		node_link(soo1, soo2); node_link(soo2, soo1);
+		node_link(soo1, soo3); node_link(soo3, soo1);
+		node_link(soo2, soo3); node_link(soo3, soo2);
+	}
+}
+
+#endif
+
+/**
+ * sooenv_init() is called from a thread at the end
+ * of the boot process, which is created in init/main.c
+ * before the rootfs mounting.
+ */
+void sooenv_init(void) {
 
 	lprintk("%s: starting SOO environment...\n", __func__);
 
@@ -387,27 +467,12 @@ void soolink_netsimul_init(void) {
 
 	kthread_run(soo_env_fn, "SOO-1", "SOO-1");
 
-#if 0
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
 	kthread_run(soo_env_fn, "SOO-2", "SOO-2");
 	kthread_run(soo_env_fn, "SOO-3", "SOO-3");
 
-	/* Wait until all SOO env structures have been created */
-	while (!(soo3 = get_soo_by_name("SOO-3")) || !soo3->ready )
-		schedule();
-
-	BUG_ON(!soo3);
-
-	soo1 = get_soo_by_name("SOO-1");
-	soo2 = get_soo_by_name("SOO-2");
-
-	BUG_ON(!soo1 || !soo2);
-
-	/* Define the SOO topology */
-
-	node_link(soo1, soo2); node_link(soo2, soo1);
-	node_link(soo1, soo3); node_link(soo3, soo1);
-	node_link(soo2, soo3); node_link(soo3, soo2);
-
+	register_sooenv_up(sooenv_init_topology, NULL);
 #endif
 
 }
