@@ -133,6 +133,7 @@ typedef struct {
 	unsigned char type;
 	unsigned int timeStamp;
 	unsigned short nb_jump;
+	unsigned short nb_device_visited;
 
 	/*final*/
 	//void* data;

@@ -34,6 +34,27 @@
 #include <soo/debug.h>
 #include <heap.h>
 
+#if 0
+#define DEBUG
+#endif
+
+#if 1 /*mode demo*/
+#define NB_DEMO_DEVICE 4		
+#endif
+
+
+void printID(unsigned char* id){
+	int i;
+	
+	for(i=0;i<SOO_AGENCY_UID_SIZE;i++){
+		lprintk("%x ",id[i]);
+	}
+
+	lprintk("\n");
+
+}
+
+
 /*
  * ME Description:
  * The ME resides in one (and only one) Smart Object.
@@ -48,7 +69,7 @@
 
 /* Localinfo buffer used during cooperation processing */
 void *localinfo_data;
-common_data* TxData;
+common_data* localData;
 common_data* RxData;
 agencyUID_t listOfVisitedDevice;
 
@@ -81,16 +102,18 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	/* Retrieve the agency UID of the Smart Object on which the ME has migrated */
 	agency_ctl_args.cmd = AG_AGENCY_UID;
 	args->__agency_ctl(&agency_ctl_args);
-	lprintk("id : %x,%x\n",  agency_ctl_args.u.agencyUID_args.agencyUID.id[0],agency_ctl_args.u.agencyUID_args.agencyUID.id[1]);
+	lprintk("device ID:");
+	printID(agency_ctl_args.u.agencyUID_args.agencyUID.id);
+
 	
 	
 	/*if id not init */
-	if(TxData->id[0] == 0){
+	if(localData->id[0] == 0){
 
 		lprintk("init id and list\n");
 		
 		/*save the source uid*/
-		memcpy(&TxData->id, &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
+		memcpy(&localData->id, &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
 
 		/*init the list of Visited Device*/
 		memcpy(&listOfVisitedDevice.id, &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
@@ -106,12 +129,13 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 
 			//get id
 			id = container_of(list_it,agencyUID_t,list);
+			printID(id->id);
 
 			//if the device is know
 			if(!memcmp(&id->id,&agency_ctl_args.u.agencyUID_args.agencyUID.id,SOO_AGENCY_UID_SIZE)){
 
 				/* Kill the ME to avoid circularity */
-				lprintk("hey vicious circle detected !!!!!!!!!!!\n");
+				lprintk("vicious circle detected\n");
 				
 
 			    lprintk("kill ME\n");
@@ -122,12 +146,22 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 
 				args->__agency_ctl(&agency_ctl_args);
 
-
 				return 0;
 			}
+
 			
 			list_it = list_it->next;
 		} 
+		localData->nb_device_visited++;
+		lprintk("visited %d device \n",localData->nb_device_visited);
+
+		#if 1 /*mode demo*/
+
+		if(localData->nb_device_visited == NB_DEMO_DEVICE){
+			lprintk("\n\n\n\n\n!!!!!!!!!!!!!!! fin demo !!!!!!!!!!!!!!!!!!!!\n\n\n\n");
+		}
+
+		#endif
 
 		//add the curent device ID to the list
 		id = (agencyUID_t*) malloc(sizeof(agencyUID_t)); 
@@ -154,9 +188,9 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 	pre_propagate_args->propagate_status = 0;
 
 	/* Enable migration - here, we migrate 1 times before being killed. */
-	if ((migration_count < 1) && (TxData->nb_jump < 7)) {
+	if ((migration_count < 1) && (localData->nb_jump < 7)) {
 		pre_propagate_args->propagate_status = 1;
-		TxData->nb_jump++;
+		localData->nb_jump++;
 		migration_count++;
 	} else{
 		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
@@ -246,17 +280,21 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		
 
 
-		/*if the ME com to the same device and have the same type*/
-		if(!memcmp(&RxData->id,&TxData->id,SOO_AGENCY_UID_SIZE) && (RxData->type == TxData->type)){
-			
-			//delete the ME
+		/*if ME have the same device and have the same type*/
+		if(!memcmp(&RxData->id,&localData->id,SOO_AGENCY_UID_SIZE) && (RxData->type == localData->type)){
+				
 			lprintk("same ME kill the less recent\n");
-			agency_ctl_args.cmd = AG_FORCE_TERMINATE;
-			agency_ctl_args.slotID = ME_domID();
 
-			args->__agency_ctl(&agency_ctl_args);
+			if(RxData->timeStamp < localData->timeStamp){
 
-			/*TODO delete en fonction du timestamp */
+				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+				agency_ctl_args.slotID = ME_domID();
+				args->__agency_ctl(&agency_ctl_args);
+			}else if(RxData->timeStamp > localData->timeStamp){
+				/*agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+				agency_ctl_args.slotID = cooperate_args->u.initiator_coop.;
+				args->__agency_ctl(&agency_ctl_args);*/
+			}	
 		}
 
 
@@ -349,13 +387,15 @@ void callbacks_init(void) {
 	/* Allocate localinfo */
 	localinfo_data = (void *) get_contig_free_vpages(1);
 
-	TxData = (common_data* ) localinfo_data;
+	localData = (common_data* ) localinfo_data;
 
-	/*init TxData*/
-	TxData->id[0] = 0;
-	TxData->nb_jump = 0;
-	TxData->timeStamp = 0;
-	TxData->type = 0;
+	/*init localData*/
+	localData->id[0] = 0;
+	localData->nb_jump = 0;
+	localData->timeStamp = 0;
+	localData->type = 0;
+	localData->nb_device_visited = 1;
+
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
