@@ -1075,7 +1075,7 @@ int agency_late_init_fn(void *args) {
 	lprintk("SOO Agency last initialization part processing now...\n");
 
 	/* At this point, we can start the Discovery process */
-	soolink_netsimul_init();
+	sooenv_init();
 
 	/* This thread will start various debugging testings possibly in RT domain .*/
 	kernel_thread(rtapp_main, NULL, 0);
