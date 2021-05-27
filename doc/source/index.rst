@@ -19,6 +19,7 @@
   
    introduction
    architecture/architecture
+   drivers/drivers
    user_guide
    logging
    aarch64
