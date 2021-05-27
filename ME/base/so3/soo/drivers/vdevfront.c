@@ -85,7 +85,7 @@ void vdevfront_processing_end(struct vbus_device *vdev) {
  * Initialised state.
  *
  */
-static int __probe(struct vbus_device *vdev) {
+static void __probe(struct vbus_device *vdev) {
 	void *priv = dev_get_drvdata(vdev->dev);
 	vdevfront_t *vdevfront = (vdevfront_t *) priv;
 	vdrvfront_t *vdrvfront = to_vdrvfront(vdev);
@@ -99,8 +99,6 @@ static int __probe(struct vbus_device *vdev) {
 	mutex_init(&vdevfront->processing_lock);
 
 	init_completion(&vdevfront->sync);
-
-	return 0;
 }
 
 /**
@@ -170,7 +168,7 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state backend
 	}
 }
 
-int __shutdown(struct vbus_device *vdev) {
+static void __shutdown(struct vbus_device *vdev) {
 	vdevfront_t *vdevfront = dev_get_drvdata(vdev->dev);
 	vdrvfront_t *vdrvfront = to_vdrvfront(vdev);
 
@@ -187,8 +185,6 @@ int __shutdown(struct vbus_device *vdev) {
 	reinit_completion(&vdevfront->sync);
 
 	vdrvfront->shutdown(vdev);
-
-	return 0;
 }
 
 

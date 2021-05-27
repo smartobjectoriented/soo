@@ -105,7 +105,7 @@ void vdummy_generate_request(char *buffer) {
 }
 #endif
 
-void vdummy_probe(struct vbus_device *vdev) {
+static void vdummy_probe(struct vbus_device *vdev) {
 	int res;
 	unsigned int evtchn;
 	vdummy_sring_t *sring;
@@ -168,7 +168,7 @@ void vdummy_probe(struct vbus_device *vdev) {
 }
 
 /* At this point, the FE is not connected. */
-void vdummy_reconfiguring(struct vbus_device *vdev) {
+static void vdummy_reconfiguring(struct vbus_device *vdev) {
 	int res;
 	struct vbus_transaction vbt;
 	vdummy_priv_t *vdummy_priv = dev_get_drvdata(vdev->dev);
@@ -204,12 +204,12 @@ void vdummy_reconfiguring(struct vbus_device *vdev) {
 	vbus_transaction_end(vbt);
 }
 
-void vdummy_shutdown(struct vbus_device *vdev) {
+static void vdummy_shutdown(struct vbus_device *vdev) {
 
 	DBG0("[" VDUMMY_NAME "] Frontend shutdown\n");
 }
 
-void vdummy_closed(struct vbus_device *vdev) {
+static void vdummy_closed(struct vbus_device *vdev) {
 	vdummy_priv_t *vdummy_priv = dev_get_drvdata(vdev->dev);
 
 	DBG0("[" VDUMMY_NAME "] Frontend close\n");
@@ -233,12 +233,12 @@ void vdummy_closed(struct vbus_device *vdev) {
 	vdummy_priv->vdummy.irq = 0;
 }
 
-void vdummy_suspend(struct vbus_device *vdev) {
+static void vdummy_suspend(struct vbus_device *vdev) {
 
 	DBG0("[" VDUMMY_NAME "] Frontend suspend\n");
 }
 
-void vdummy_resume(struct vbus_device *vdev) {
+static void vdummy_resume(struct vbus_device *vdev) {
 
 	DBG0("[" VDUMMY_NAME "] Frontend resume\n");
 }
@@ -259,7 +259,7 @@ int notify_fn(void *arg) {
 }
 #endif
 
-void vdummy_connected(struct vbus_device *vdev) {
+static void vdummy_connected(struct vbus_device *vdev) {
 	vdummy_priv_t *vdummy_priv = dev_get_drvdata(vdev->dev);
 
 	DBG0("[" VDUMMY_NAME "] Frontend connected\n");
