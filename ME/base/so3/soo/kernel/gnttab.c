@@ -48,7 +48,6 @@ static grant_ref_t gnttab_list[NR_GRANT_ENTRIES];
 static int gnttab_free_count;
 static grant_ref_t gnttab_free_head;
 static DEFINE_SPINLOCK(gnttab_list_lock);
-static DEFINE_SPINLOCK(handle_list_lock);
 
 static inline int get_order_from_pages(unsigned long nr_pages)
 {
@@ -73,15 +72,11 @@ struct handle_grant {
 	struct list_head list;
 };
 
-LIST_HEAD(list_handle_grant);
-
 /*
  * Number of associations pfn<->frame table entry
  * Basically, number of foreign pages + number of pages necessary for the foreign grant table
  */
 #define NR_FRAME_TABLE_ENTRIES	(NR_GRANT_FRAMES + 2)
-
-static struct gnttab_free_callback *gnttab_free_callback_list = NULL;
 
 static inline u32 atomic_cmpxchg_u16(volatile u16 *v, u16 old, u16 new)
 {
@@ -97,70 +92,6 @@ static inline u32 atomic_cmpxchg_u16(volatile u16 *v, u16 old, u16 new)
 	local_irq_restore(flags);
 
 	return ret;
-}
-
-/*** handle management ***/
-
-struct handle_grant *new_handle(unsigned int domid, unsigned int gref,  uint64_t host_addr, unsigned int offset, unsigned int size) {
-	unsigned long flags;
-	struct handle_grant *entry;
-	unsigned int cur_handleID = 0;
-
-	spin_lock_irqsave(&handle_list_lock, flags);
-
-	/* Get the max handleID */
-	again:
-	list_for_each_entry(entry, &list_handle_grant, list)
-	if (entry->handle >= cur_handleID) {
-		cur_handleID = entry->handle + 1;
-		if (cur_handleID == 0)
-			goto again;
-	}
-
-	entry = malloc(sizeof(struct handle_grant));
-
-	entry->domid = domid;
-	entry->gref = gref;
-	entry->handle = cur_handleID;
-	entry->host_addr = host_addr;
-	entry->offset = offset;
-	entry->size = size;
-
-	list_add_tail(&entry->list, &list_handle_grant);
-	spin_unlock_irqrestore(&handle_list_lock, flags);
-
-	return entry;
-}
-
-/*
- * Retrieve the handle descriptor for a specific handle ID.
- */
-struct handle_grant *get_handle(unsigned int handle) {
-	struct handle_grant *entry;
-
-	list_for_each_entry(entry, &list_handle_grant, list)
-	if (entry->handle == handle)
-		return entry;
-
-	return NULL;
-}
-
-void free_handle(unsigned int handle) {
-	struct handle_grant *entry;
-	unsigned long flags;
-
-	spin_lock_irqsave(&handle_list_lock, flags);
-
-	list_for_each_entry(entry, &list_handle_grant, list)
-	if (entry->handle == handle) {
-		list_del(&entry->list);
-		free(entry);
-		spin_unlock_irqrestore(&handle_list_lock, flags);
-		return ;
-	}
-
-	printk("should not be here...\n");
-	BUG();
 }
 
 static int get_free_entries(int count)
@@ -191,32 +122,6 @@ static int get_free_entries(int count)
 
 #define get_free_entry() get_free_entries(1)
 
-static void do_free_callbacks(void)
-{
-	struct gnttab_free_callback *callback, *next;
-
-	callback = gnttab_free_callback_list;
-	gnttab_free_callback_list = NULL;
-
-	while (callback != NULL) {
-		next = callback->next;
-		if (gnttab_free_count >= callback->count) {
-			callback->next = NULL;
-			callback->fn(callback->arg);
-		} else {
-			callback->next = gnttab_free_callback_list;
-			gnttab_free_callback_list = callback;
-		}
-		callback = next;
-	}
-}
-
-static inline void check_free_callbacks(void)
-{
-	if (unlikely((int) gnttab_free_callback_list))
-		do_free_callbacks();
-}
-
 static void put_free_entry(grant_ref_t ref)
 {
 	unsigned long flags;
@@ -226,8 +131,6 @@ static void put_free_entry(grant_ref_t ref)
 	gnttab_list[ref] = gnttab_free_head;
 	gnttab_free_head = ref;
 	gnttab_free_count++;
-
-	check_free_callbacks();
 
 	spin_unlock_irqrestore(&gnttab_list_lock, flags);
 }
@@ -313,7 +216,7 @@ void gnttab_free_grant_references(grant_ref_t head)
 	gnttab_list[ref] = gnttab_free_head;
 	gnttab_free_head = head;
 	gnttab_free_count += count;
-	check_free_callbacks();
+
 	spin_unlock_irqrestore(&gnttab_list_lock, flags);
 }
 
@@ -328,55 +231,6 @@ int gnttab_alloc_grant_references(u16 count, grant_ref_t *head)
 
 	return 0;
 }
-
-int gnttab_claim_grant_reference(grant_ref_t *private_head)
-{
-	grant_ref_t g = *private_head;
-
-	if (unlikely(g == GNTTAB_LIST_END))
-		return -ENOSPC;
-	*private_head = gnttab_list[g];
-	return g;
-}
-
-void gnttab_release_grant_reference(grant_ref_t *private_head, grant_ref_t  release)
-{
-	gnttab_list[release] = *private_head;
-	*private_head = release;
-}
-
-void gnttab_request_free_callback(struct gnttab_free_callback *callback, void (*fn)(void *), void *arg, u16 count)
-{
-	unsigned long flags;
-	spin_lock_irqsave(&gnttab_list_lock, flags);
-	if (callback->next)
-		goto out;
-	callback->fn = fn;
-	callback->arg = arg;
-	callback->count = count;
-	callback->next = gnttab_free_callback_list;
-	gnttab_free_callback_list = callback;
-	check_free_callbacks();
-
-out:
-	spin_unlock_irqrestore(&gnttab_list_lock, flags);
-}
-
-void gnttab_cancel_free_callback(struct gnttab_free_callback *callback)
-{
-	struct gnttab_free_callback **pcb;
-	unsigned long flags;
-
-	spin_lock_irqsave(&gnttab_list_lock, flags);
-	for (pcb = &gnttab_free_callback_list; *pcb; pcb = &(*pcb)->next) {
-		if (*pcb == callback) {
-			*pcb = callback->next;
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&gnttab_list_lock, flags);
-}
-
 
 /*
  * Remove the grant table and all foreign entries.
