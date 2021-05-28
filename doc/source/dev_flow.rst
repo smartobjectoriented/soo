@@ -87,3 +87,39 @@ The creation of a ``merge request`` is simple:
 2. Validate the creation of the ``merge request`` in the new Windows
 
 `Merge request official doc <https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html>`__.
+
+*************
+Documentation
+*************
+
+.. warning:: 
+
+   The Documentation of a new feature **shall** be part of the *feature Merge Request*. 
+
+The issue ``#30 Documentation Update``, with its related branch (``30-documentation-update``), 
+can be use for documentation update, improvement. 
+
+The flow is the following:
+
+* Select and update ``30-documentation-update`` branch 
+	
+.. code-block:: shell
+
+	$ git fetch --all 
+	$ git checkout 30-documentation-update
+	$ git rebase origin/master
+
+* Update the documentation and push the modification
+
+.. code-block:: shell
+
+	$ git push --force
+
+* Update the issue with info on modification made
+* Create a *Merge Request*  
+
+
+.. note::
+	
+	Ideally, there is only one commit per changes. If, for some reasons, it is not 
+	possible, please inform the *dev team* to lock this branch. 
