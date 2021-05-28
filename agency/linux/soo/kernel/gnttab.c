@@ -95,8 +95,6 @@ LIST_HEAD(list_handle_grant);
  */
 #define NR_FRAME_TABLE_ENTRIES	(NR_GRANT_FRAMES + 2)
 
-static struct gnttab_free_callback *gnttab_free_callback_list = NULL;
-
 static inline u32 atomic_cmpxchg_u16(volatile u16 *v, u16 old, u16 new)
 {
 	u16 ret;
@@ -203,32 +201,6 @@ static int get_free_entries(int count)
 
 #define get_free_entry() get_free_entries(1)
 
-static void do_free_callbacks(void)
-{
-	struct gnttab_free_callback *callback, *next;
-
-	callback = gnttab_free_callback_list;
-	gnttab_free_callback_list = NULL;
-
-	while (callback != NULL) {
-		next = callback->next;
-		if (gnttab_free_count >= callback->count) {
-			callback->next = NULL;
-			callback->fn(callback->arg);
-		} else {
-			callback->next = gnttab_free_callback_list;
-			gnttab_free_callback_list = callback;
-		}
-		callback = next;
-	}
-}
-
-static inline void check_free_callbacks(void)
-{
-	if (unlikely((long) gnttab_free_callback_list))
-		do_free_callbacks();
-}
-
 static void put_free_entry(grant_ref_t ref)
 {
 	unsigned long flags;
@@ -236,7 +208,7 @@ static void put_free_entry(grant_ref_t ref)
 	gnttab_list[ref] = gnttab_free_head;
 	gnttab_free_head = ref;
 	gnttab_free_count++;
-	check_free_callbacks();
+
 	spin_unlock_irqrestore(&gnttab_list_lock, flags);
 }
 
@@ -346,7 +318,7 @@ void gnttab_free_grant_references(grant_ref_t head)
 	gnttab_list[ref] = gnttab_free_head;
 	gnttab_free_head = head;
 	gnttab_free_count += count;
-	check_free_callbacks();
+
 	spin_unlock_irqrestore(&gnttab_list_lock, flags);
 }
 
@@ -377,39 +349,6 @@ void gnttab_release_grant_reference(grant_ref_t *private_head, grant_ref_t  rele
 	gnttab_list[release] = *private_head;
 	*private_head = release;
 }
-
-void gnttab_request_free_callback(struct gnttab_free_callback *callback, void (*fn)(void *), void *arg, u16 count)
-{
-	unsigned long flags;
-	spin_lock_irqsave(&gnttab_list_lock, flags);
-	if (callback->next)
-		goto out;
-	callback->fn = fn;
-	callback->arg = arg;
-	callback->count = count;
-	callback->next = gnttab_free_callback_list;
-	gnttab_free_callback_list = callback;
-	check_free_callbacks();
-
-out:
-	spin_unlock_irqrestore(&gnttab_list_lock, flags);
-}
-
-void gnttab_cancel_free_callback(struct gnttab_free_callback *callback)
-{
-	struct gnttab_free_callback **pcb;
-	unsigned long flags;
-
-	spin_lock_irqsave(&gnttab_list_lock, flags);
-	for (pcb = &gnttab_free_callback_list; *pcb; pcb = &(*pcb)->next) {
-		if (*pcb == callback) {
-			*pcb = callback->next;
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&gnttab_list_lock, flags);
-}
-EXPORT_SYMBOL_GPL(gnttab_cancel_free_callback);
 
 /*
  * Update the reference to the ME grant table.
