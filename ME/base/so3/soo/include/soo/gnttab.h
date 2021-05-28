@@ -69,14 +69,6 @@ void gnttab_free_grant_reference(grant_ref_t ref);
 
 void gnttab_free_grant_references(grant_ref_t head);
 
-int gnttab_claim_grant_reference(grant_ref_t *pprivate_head);
-
-void gnttab_release_grant_reference(grant_ref_t *private_head,
-				    grant_ref_t release);
-
-void gnttab_request_free_callback(struct gnttab_free_callback *callback, void (*fn)(void *), void *arg, u16 count);
-void gnttab_cancel_free_callback(struct gnttab_free_callback *callback);
-
 void gnttab_grant_foreign_access_ref(grant_ref_t ref, domid_t domid, unsigned long frame, int readonly);
 
 static inline void gnttab_set_map_op(struct gnttab_map_grant_ref *map, phys_addr_t addr, uint32_t flags, grant_ref_t ref, domid_t domid, unsigned int offset, unsigned int size)
