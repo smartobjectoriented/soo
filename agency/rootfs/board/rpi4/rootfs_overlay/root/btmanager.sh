@@ -6,6 +6,7 @@ BT_TTY="/dev/ttyAMA1"
 AGENCYUID_FILE="/sys/devices/system/soo/soo0/agencyUID"
 BDADDR=`cat ${AGENCYUID_FILE} | cut -c1-17`
 
+# Configure the controller with an address and load its firmware
 hciattach ${BT_TTY} bcm43xx 460800 flow - ${BDADDR}
 
 DEFAULT_HCI_NAME="soo-bt"
