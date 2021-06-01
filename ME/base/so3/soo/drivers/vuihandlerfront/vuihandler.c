@@ -24,10 +24,13 @@
 #include <mutex.h>
 #include <heap.h>
 #include <completion.h>
+#include <memory.h>
+#include <asm/mmu.h>
 
 #include <device/driver.h>
 
 #include <soo/evtchn.h>
+#include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
 #include <soo/console.h>
@@ -39,17 +42,27 @@ ui_update_spid_t __ui_update_spid = NULL;
 ui_interrupt_t __ui_interrupt = NULL;
 
 /* Sent BT packet count */
-static uint32_t send_count = 0;
 
-static completion_t *send_compl;
+typedef struct {
+	void *data;
+	size_t size;
+} send_param_t;
 
-/* Global pointer */
-vuihandler_t *__vuihandler;
+typedef struct {
+	vuihandler_t vuihandler;
+
+	uint32_t send_count;
+	completion_t *send_compl;
+	send_param_t sp;
+} vuihandler_priv_t;
+
+static struct vbus_device *vuihandler_dev = NULL;
 
 
 /* In lib/vsprintf.c */
 unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
 
+#if 0
 /**
  * Read the current connected application ME SPID in vbstore.
  */
@@ -98,6 +111,7 @@ static void process_pending_tx_rsp(struct vbus_device *vdev) {
 
 	vuihandler->tx_ring.sring->rsp_cons = i;
 }
+#endif
 
 /**
  * tx_ring interrupt. It should not be used in this direction.
@@ -105,58 +119,51 @@ static void process_pending_tx_rsp(struct vbus_device *vdev) {
 irq_return_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 
-	process_pending_tx_rsp(vdev);
+	// process_pending_tx_rsp(vdev);
 
 	return IRQ_COMPLETED;
 }
 
+#if 1
 /**
  * Process pending responses in the rx_
  */
 static void process_pending_rx_rsp(struct vbus_device *vdev) {
-	RING_IDX i, rp;
 	vuihandler_rx_response_t *ring_rsp;
-	vuihandler_t *vuihandler = to_vuihandler(vdev);
+	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(vdev->dev);
+	vuihandler_t *vuihandler = &vuihandler_priv->vuihandler;
 
-	rp = vuihandler->rx_ring.sring->rsp_prod;
-	dmb();
 
-	while ((ring_rsp = vuihandler_rx_ring_response(&vuihandler->rx_ring)) != NULL) {
+	while ((ring_rsp = vuihandler_rx_get_ring_response(&vuihandler->rx_ring)) != NULL) {
 
 		if (__ui_interrupt)
 			(*__ui_interrupt)(vuihandler->rx_data + (ring_rsp->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_rsp->size);
 	
 	}
-
-	vuihandler->rx_ring.sring->rsp_cons = i;
 }
+#endif
 
 /**
  * rx_ring interrupt.
  */
 irq_return_t vuihandler_rx_interrupt(int irq, void *dev_id) {
-	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	vuihandler_t *vuihandler = to_vuihandler(vdev);
 
-	process_pending_rx_rsp(vdev);
+	process_pending_rx_rsp(vuihandler_dev);
 
 	return IRQ_COMPLETED;
 }
 
-struct send_param {
-	void *data;
-	size_t size;
-};
-
-static struct send_param sp;
+#if 1
 
 /**
  * Send a packet to the tablet/smartphone.
  */
 void vuihandler_send(void *data, size_t size) {
-	sp.data = data;
-	sp.size = size;
-	complete(send_compl);
+	vuihandler_priv_t *vuihandler_priv;
+	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
+	vuihandler_priv->sp.data = data;
+	vuihandler_priv->sp.size = size;
+	complete(vuihandler_priv->send_compl);
 	// vuihandler_tx_start();
 
 	// vuihandler_tx_end();
@@ -166,36 +173,143 @@ int vuihandler_send_fn(void *arg) {
 	// struct send_params *sp = (struct send_params *) arg;
 	struct vbus_device *vdev = (struct vbus_device *) arg;
 	vuihandler_tx_request_t *ring_req;
+	vuihandler_priv_t *vuihandler_priv;
 
-	vuihandler_t *vuihandler = to_vuihandler(vdev);
+	if (!vuihandler_dev)
+		return -1;
+
+	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
+
 
 	while(1) {
-		wait_for_completion(send_compl);
+		wait_for_completion(vuihandler_priv->send_compl);
 		DBG(VUIHANDLER_PREFIX "0x%08x %d\n", (unsigned int) data, size);
-		ring_req = RING_GET_REQUEST(&vuihandler->tx_ring, vuihandler->tx_ring.req_prod_pvt);
 
-		ring_req->id = send_count;
-		ring_req->size = sp.size;
+		
 
-		memcpy(vuihandler->tx_data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, sp.data, sp.size);
+		vdevfront_processing_begin(vuihandler_dev);
+		/*
+		* Try to generate a new request to the backend
+		*/
+		if (!RING_REQ_FULL(&vuihandler_priv->vuihandler.tx_ring)) {
+			ring_req = vuihandler_tx_new_ring_request(&vuihandler_priv->vuihandler.tx_ring);
 
-		dmb();
+			ring_req->id = vuihandler_priv->send_count;
+			ring_req->size = vuihandler_priv->sp.size;
 
-		vuihandler->tx_ring.req_prod_pvt++;
+			memcpy(vuihandler_priv->vuihandler.tx_data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, vuihandler_priv->sp.data, vuihandler_priv->sp.size);
 
-		RING_PUSH_REQUESTS(&vuihandler->tx_ring);
+			vuihandler_priv->send_count++;
 
-		notify_remote_via_virq(vuihandler->tx_irq);
+			vuihandler_tx_ring_request_ready(&vuihandler_priv->vuihandler.tx_ring);
 
-		send_count++;
+			notify_remote_via_virq(vuihandler_priv->vuihandler.tx_irq);
+		}
+
+		vdevfront_processing_end(vuihandler_dev);
 
 	}
 
 	return 0;
 }
 
+#endif
+
 void vuihandler_probe(struct vbus_device *vdev) {
+
+	int res;
+	unsigned int rx_evtchn, tx_evtchn;
+	vuihandler_rx_sring_t *rx_sring;
+	vuihandler_tx_sring_t *tx_sring;
+	struct vbus_transaction vbt;
+	vuihandler_priv_t *vuihandler_priv;
+
 	DBG0(VUIHANDLER_PREFIX "Frontend probe\n");
+
+	vuihandler_priv = dev_get_drvdata(vdev->dev);
+	vuihandler_dev = vdev;
+
+	/* RX ring init */
+	vuihandler_priv->vuihandler.rx_ring_ref = GRANT_INVALID_REF;
+
+	res = vbus_alloc_evtchn(vdev, &rx_evtchn);
+	BUG_ON(!res);
+
+	res = bind_evtchn_to_irq_handler(rx_evtchn, vuihandler_rx_interrupt, NULL, vdev);
+	if (res <= 0) {
+		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
+		BUG();
+	}
+
+	vuihandler_priv->vuihandler.rx_evtchn = rx_evtchn;
+	vuihandler_priv->vuihandler.rx_irq = res;
+
+	rx_sring = (vuihandler_rx_sring_t *) get_free_vpage();
+
+	if (!rx_sring) {
+		lprintk("%s - line %d: Allocating shared ring failed for device %s\n", __func__, __LINE__, vdev->nodename);
+		BUG();
+	}
+
+	SHARED_RING_INIT(rx_sring);
+	FRONT_RING_INIT(&vuihandler_priv->vuihandler.rx_ring, rx_sring, PAGE_SIZE);
+
+	/* Prepare the shared to page to be visible on the other end */
+
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.rx_ring.sring)));
+	if (res < 0)
+		BUG();
+
+	vuihandler_priv->vuihandler.rx_ring_ref = res;
+
+	vbus_transaction_start(&vbt);
+
+	vbus_printf(vbt, vdev->nodename, "rx_ring-ref", "%u", vuihandler_priv->vuihandler.rx_ring_ref);
+	vbus_printf(vbt, vdev->nodename, "rx_ring-evtchn", "%u", vuihandler_priv->vuihandler.rx_evtchn);
+
+	vbus_transaction_end(vbt);
+
+
+
+	/* TX ring init */
+	vuihandler_priv->vuihandler.tx_ring_ref = GRANT_INVALID_REF;
+
+	res = vbus_alloc_evtchn(vdev, &tx_evtchn);
+	BUG_ON(!res);
+
+	res = bind_evtchn_to_irq_handler(tx_evtchn, vuihandler_tx_interrupt, NULL, vdev);
+	if (res <= 0) {
+		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
+		BUG();
+	}
+
+	vuihandler_priv->vuihandler.tx_evtchn = tx_evtchn;
+	vuihandler_priv->vuihandler.tx_irq = res;
+
+	tx_sring = (vuihandler_tx_sring_t *) get_free_vpage();
+
+	if (!tx_sring) {
+		lprintk("%s - line %d: Allocating shared ring failed for device %s\n", __func__, __LINE__, vdev->nodename);
+		BUG();
+	}
+
+	SHARED_RING_INIT(tx_sring);
+	FRONT_RING_INIT(&vuihandler_priv->vuihandler.tx_ring, tx_sring, PAGE_SIZE);
+
+	/* Prepare the shared to page to be visible on the other end */
+
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.tx_ring.sring)));
+	if (res < 0)
+		BUG();
+
+	vuihandler_priv->vuihandler.tx_ring_ref = res;
+
+	vbus_transaction_start(&vbt);
+
+	vbus_printf(vbt, vdev->nodename, "tx_ring-ref", "%u", vuihandler_priv->vuihandler.tx_ring_ref);
+	vbus_printf(vbt, vdev->nodename, "tx_ring-evtchn", "%u", vuihandler_priv->vuihandler.tx_evtchn);
+
+	vbus_transaction_end(vbt);
 }
 
 void vuihandler_suspend(struct vbus_device *vdev) {
@@ -205,32 +319,80 @@ void vuihandler_suspend(struct vbus_device *vdev) {
 void vuihandler_resume(struct vbus_device *vdev) {
 	DBG0(VUIHANDLER_PREFIX "Frontend resume\n");
 
-	process_pending_rx_rsp(vdev);
+	// process_pending_rx_rsp(vdev);
 }
 
 void vuihandler_connected(struct vbus_device *vdev) {
-	vuihandler_t *vuihandler = to_vuihandler(vdev);
-
-
-	send_compl = malloc(sizeof(completion_t));
+	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(vdev->dev);
 	
-	// sp->vdev = vdev;
-	// sp->send_completion = send_compl;
-
+	vuihandler_priv->send_compl = malloc(sizeof(completion_t));
 
 	DBG0(VUIHANDLER_PREFIX "Frontend connected\n");
 
 	/* Force the processing of pending requests, if any */
-	notify_remote_via_virq(vuihandler->tx_irq);
-	notify_remote_via_virq(vuihandler->rx_irq);
+	notify_remote_via_virq(vuihandler_priv->vuihandler.tx_irq);
+	notify_remote_via_virq(vuihandler_priv->vuihandler.rx_irq);
 
-	init_completion(send_compl);
+	init_completion(vuihandler_priv->send_compl);
 
 	kernel_thread(vuihandler_send_fn, "vuihandler_send_fn", (void *) vdev, 0);
 }
 
 void vuihandler_reconfiguring(struct vbus_device *vdev) {
+
+	int res;
+	struct vbus_transaction vbt;
+	vuihandler_priv_t *vuihandler_priv;
+
 	DBG0(VUIHANDLER_PREFIX "Frontend reconfiguring\n");
+
+	vuihandler_priv = dev_get_drvdata(vdev->dev);
+
+	/* RX ring init */
+	gnttab_end_foreign_access_ref(vuihandler_priv->vuihandler.rx_ring_ref);
+	vuihandler_priv->vuihandler.rx_ring_ref = GRANT_INVALID_REF;
+
+	SHARED_RING_INIT(vuihandler_priv->vuihandler.rx_ring.sring);
+	FRONT_RING_INIT(&vuihandler_priv->vuihandler.rx_ring, (&vuihandler_priv->vuihandler.rx_ring)->sring, PAGE_SIZE);
+
+	/* Prepare the shared to page to be visible on the other end */
+
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.rx_ring.sring)));
+	if (res < 0)
+		BUG();
+
+	vuihandler_priv->vuihandler.rx_ring_ref = res;
+
+	vbus_transaction_start(&vbt);
+
+	vbus_printf(vbt, vdev->nodename, "rx_ring-ref", "%u", vuihandler_priv->vuihandler.rx_ring_ref);
+	vbus_printf(vbt, vdev->nodename, "rx_ring-evtchn", "%u", vuihandler_priv->vuihandler.rx_evtchn);
+
+	vbus_transaction_end(vbt);
+
+
+
+	/* TX ring init */
+	gnttab_end_foreign_access_ref(vuihandler_priv->vuihandler.tx_ring_ref);
+	vuihandler_priv->vuihandler.tx_ring_ref = GRANT_INVALID_REF;
+
+	SHARED_RING_INIT(vuihandler_priv->vuihandler.tx_ring.sring);
+	FRONT_RING_INIT(&vuihandler_priv->vuihandler.tx_ring, (&vuihandler_priv->vuihandler.tx_ring)->sring, PAGE_SIZE);
+
+	/* Prepare the shared to page to be visible on the other end */
+
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.tx_ring.sring)));
+	if (res < 0)
+		BUG();
+
+	vuihandler_priv->vuihandler.tx_ring_ref = res;
+
+	vbus_transaction_start(&vbt);
+
+	vbus_printf(vbt, vdev->nodename, "tx_ring-ref", "%u", vuihandler_priv->vuihandler.tx_ring_ref);
+	vbus_printf(vbt, vdev->nodename, "tx_ring-evtchn", "%u", vuihandler_priv->vuihandler.tx_evtchn);
+
+	vbus_transaction_end(vbt);
 }
 
 void vuihandler_shutdown(struct vbus_device *vdev) {
@@ -238,7 +400,40 @@ void vuihandler_shutdown(struct vbus_device *vdev) {
 }
 
 void vuihandler_closed(struct vbus_device *vdev) {
+	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(vdev->dev);
+
 	DBG0(VUIHANDLER_PREFIX "Frontend close\n");
+
+	/**
+	 * Free the ring and deallocate the proper data.
+	 */
+
+	/* Free resources associated with old device channel. */
+	/* RX side */
+	if (vuihandler_priv->vuihandler.rx_ring_ref != GRANT_INVALID_REF) {
+		gnttab_end_foreign_access(vuihandler_priv->vuihandler.rx_ring_ref);
+		free_vpage((uint32_t) vuihandler_priv->vuihandler.rx_ring.sring);
+
+		vuihandler_priv->vuihandler.rx_ring_ref = GRANT_INVALID_REF;
+		vuihandler_priv->vuihandler.rx_ring.sring = NULL;
+	}
+
+	if (vuihandler_priv->vuihandler.rx_irq)
+		unbind_from_irqhandler(vuihandler_priv->vuihandler.rx_irq);
+	vuihandler_priv->vuihandler.rx_irq = 0;
+	
+	/* TX side */
+	if (vuihandler_priv->vuihandler.tx_ring_ref != GRANT_INVALID_REF) {
+		gnttab_end_foreign_access(vuihandler_priv->vuihandler.tx_ring_ref);
+		free_vpage((uint32_t) vuihandler_priv->vuihandler.tx_ring.sring);
+
+		vuihandler_priv->vuihandler.tx_ring_ref = GRANT_INVALID_REF;
+		vuihandler_priv->vuihandler.tx_ring.sring = NULL;
+	}
+
+	if (vuihandler_priv->vuihandler.tx_irq)
+		unbind_from_irqhandler(vuihandler_priv->vuihandler.tx_irq);
+	vuihandler_priv->vuihandler.tx_irq = 0;
 }
 
 void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_interrupt_t ui_interrupt) {
@@ -257,6 +452,14 @@ vdrvfront_t vuihandlerdrv = {
 };
 
 static int vuihandler_init(dev_t *dev) {
+
+	vuihandler_priv_t *vuihandler_priv;
+
+	vuihandler_priv = malloc(sizeof(vuihandler_priv_t));
+	BUG_ON(!vuihandler_priv);
+	memset(vuihandler_priv, 0, sizeof(vuihandler_priv_t));
+
+	dev_set_drvdata(dev, vuihandler_priv);
 
 	vdevfront_init(VUIHANDLER_NAME, &vuihandlerdrv);
 
