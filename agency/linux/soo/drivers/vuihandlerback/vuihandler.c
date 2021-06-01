@@ -128,14 +128,6 @@ typedef struct {
 	vuihandler_t vuihandler;
 } vuihandler_priv_t;
 
-
-struct list_head vdev_list;
-
-
-typedef struct {
-	vuihandler_t vuihandler;
-} vuihandler_priv_t;
-
 /**
  * Return the SPID of the ME whose "otherend ID" is given as parameter.
  * Return the pointer to the SPID on success.
