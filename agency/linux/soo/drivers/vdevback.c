@@ -249,3 +249,43 @@ void vdevback_init(char *name, vdrvback_t *vbackdrv) {
 
 	vbus_register_backend(&vbackdrv->vdrv);
 }
+
+
+
+void vdevback_add_entry(struct vbus_device *vdev, struct list_head *list) {
+	vdev_entry_t *entry;
+
+	entry = kzalloc(sizeof(vdev_entry_t), GFP_ATOMIC);
+	BUG_ON(!entry);
+
+	entry->vdev = vdev;
+
+	list_add(&entry->list, list);
+}
+
+/*
+ * Search for a console related to a specific ME according to its domid.
+ */
+struct vbus_device *vdevback_get_entry(uint32_t domid, struct list_head *_list) {
+	vdev_entry_t *entry;
+
+	list_for_each_entry(entry, _list, list)
+		if (entry->vdev->otherend_id == domid)
+			return entry->vdev;
+	return NULL;
+}
+
+/*
+ * Remove a console attached to a specific ME
+ */
+void vdevback_del_entry(struct vbus_device *vdev, struct list_head *_list) {
+	vdev_entry_t *entry;
+
+	list_for_each_entry(entry, _list, list)
+		if (entry->vdev == vdev) {
+			list_del(&entry->list);
+			kfree(entry);
+			return ;
+		}
+	BUG();
+}
