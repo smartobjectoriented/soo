@@ -120,12 +120,8 @@ static vuihandler_pkt_t *ping_pkt;
 /* The payload of a beacon has only one byte */
 static size_t ping_pkt_size = sizeof(vuihandler_pkt_t) + 1;
 
-/* Statically allocated array which saves the vbus_devices to be able to retrieve all
-   vuihandler struct after they got created. */
-static struct vbus_device *vdevs[MAX_DOMAINS] = { NULL };
 
-
-struct list_head vdev_list;
+struct list_head *vdev_list;
 
 
 typedef struct {
@@ -140,7 +136,7 @@ typedef struct {
 static uint8_t *get_spid_from_otherend_id(int otherend_id) {
 	vuihandler_t *vuihandler;
 	vuihandler_priv_t *vuihandler_priv;
-	struct vbus_device *vdev = vdevback_get_entry(otherend_id, &vdev_list);
+	struct vbus_device *vdev = vdevback_get_entry(otherend_id, vdev_list);
 
 	vuihandler_priv = dev_get_drvdata(&vdev->dev);
 	vuihandler = &vuihandler_priv->vuihandler;
@@ -164,7 +160,7 @@ static int get_otherend_id_from_spid(uint8_t *spid) {
 	
 
 	for (i = 1; i < MAX_DOMAINS; i++) {
-		vdev = vdevback_get_entry(i, &vdev_list);
+		vdev = vdevback_get_entry(i, vdev_list);
 		vuihandler_priv = dev_get_drvdata(&vdev->dev);
 		vuihandler = &vuihandler_priv->vuihandler;
 
@@ -359,8 +355,7 @@ static void recv_beacon(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_
 
 #if 1
 static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
-	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&
-	vdevback_get_entry(domid, &vdev_list)->dev); 
+	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&vdevback_get_entry(domid, vdev_list)->dev); 
 	vuihandler_t *vuihandler = &vuihandler_priv->vuihandler;
 	vuihandler_rx_response_t *ring_rsp = vuihandler_rx_new_ring_response(&vuihandler->rx_rings.ring);
 	size_t size = vuihandler_pkt_size - VUIHANDLER_BT_PKT_HEADER_SIZE;
@@ -624,10 +619,8 @@ void vuihandler_probe(struct vbus_device *vdev) {
 	BUG_ON(!vuihandler_priv);
 
 	dev_set_drvdata(&vdev->dev, vuihandler_priv);
-
-	// vdevs[vdev->otherend_id] = vdev;
 	
-	vdevback_add_entry(vdev, &vdev_list);
+	vdevback_add_entry(vdev, vdev_list);
 
 	DBG(VUIHANDLER_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
@@ -635,7 +628,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 void vuihandler_remove(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&vdev->dev);
 
-	vdevback_del_entry(vdev, &vdev_list);
+	vdevback_del_entry(vdev, vdev_list);
 
 	DBG("%s: freeing the vuihandler structure for %s\n", __func__,vdev->nodename);
 	kfree(vuihandler_priv);
@@ -761,7 +754,8 @@ int vuihandler_init(void) {
 
 	// for (i = 0; i < MAX_DOMAINS; i++)
 	// 	memset(vuihandler.spid[i], 0, SPID_SIZE);
-
+	vdev_list = (struct list_head *) kzalloc(sizeof(struct list_head), GFP_ATOMIC);
+	INIT_LIST_HEAD(vdev_list);
 #if 0
 	memcpy(connected_app.spid, vuihandler_null_spid, SPID_SIZE);
 	spin_lock_init(&connected_app_lock);
