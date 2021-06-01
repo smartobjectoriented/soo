@@ -23,6 +23,7 @@
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
+#include <soo/vdevback.h>
 
 #define VUIHANDLER_NAME		"vuihandler"
 #define VUIHANDLER_PREFIX	"[" VUIHANDLER_NAME "] "
@@ -105,7 +106,7 @@ void rfcomm_send_sigterm(void);
 
 typedef struct {
 
-	struct vbus_device  *dev;
+	// struct vbus_device  *dev;
 
 	vuihandler_tx_back_ring_t ring;
 	unsigned int	irq;
@@ -114,7 +115,7 @@ typedef struct {
 
 typedef struct {
 
-	struct vbus_device  *dev;
+	// struct vbus_device  *dev;
 
 	vuihandler_rx_back_ring_t ring;
 	unsigned int	irq;
@@ -124,21 +125,22 @@ typedef struct {
 typedef struct {
 	char		*data;
 	unsigned int	pfn;
-
 } vuihandler_shared_buffer_t;
 
+
 typedef struct {
+    vdevback_t vdevback;
 
-	vuihandler_tx_ring_t	tx_rings[MAX_DOMAINS];
-	vuihandler_rx_ring_t	rx_rings[MAX_DOMAINS];
+	vuihandler_tx_ring_t	tx_rings;
+	vuihandler_rx_ring_t	rx_rings;
 
-	vuihandler_shared_buffer_t	tx_buffers[MAX_DOMAINS];
-	vuihandler_shared_buffer_t	rx_buffers[MAX_DOMAINS];
+	vuihandler_shared_buffer_t	tx_buffers;
+	vuihandler_shared_buffer_t	rx_buffers;
+
+    // unsigned int irq;
 
 	/* Table that holds the SPID of the ME whose frontends are connected */
-	uint8_t spid[MAX_DOMAINS][SPID_SIZE];
-
-	struct vbus_device  *vdev[MAX_DOMAINS];
+	uint8_t spid[SPID_SIZE];
 
 } vuihandler_t;
 
@@ -153,18 +155,18 @@ irqreturn_t vuihandler_rx_interrupt(int irq, void *dev_id);
 void vuihandler_update_spid_vbstore(uint8_t spid[SPID_SIZE]);
 
 /* State management */
-void vuihandler_probe(struct vbus_device *dev);
-void vuihandler_close(struct vbus_device *dev);
-void vuihandler_suspend(struct vbus_device *dev);
-void vuihandler_resume(struct vbus_device *dev);
-void vuihandler_connected(struct vbus_device *dev);
-void vuihandler_reconfigured(struct vbus_device *dev);
-void vuihandler_shutdown(struct vbus_device *dev);
+// void vuihandler_probe(struct vbus_device *dev);
+// void vuihandler_close(struct vbus_device *dev);
+// void vuihandler_suspend(struct vbus_device *dev);
+// void vuihandler_resume(struct vbus_device *dev);
+// void vuihandler_connected(struct vbus_device *dev);
+// void vuihandler_reconfigured(struct vbus_device *dev);
+// void vuihandler_shutdown(struct vbus_device *dev);
 
-void vuihandler_vbus_init(void);
+// void vuihandler_vbus_init(void);
 
-bool vuihandler_start(domid_t domid);
-void vuihandler_end(domid_t domid);
-bool vuihandler_is_connected(domid_t domid);
+// bool vuihandler_start(domid_t domid);
+// void vuihandler_end(domid_t domid);
+// bool vuihandler_is_connected(domid_t domid);
 
 #endif /* VUIHANDLER_H */
