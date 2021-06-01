@@ -1,3 +1,3 @@
 obj-$(CONFIG_VUIHANDLER_BACKEND) := vuihandlerback.o
 
-vuihandlerback-y := vuihandler.o vbus.o
+vuihandlerback-y := vuihandler.o
