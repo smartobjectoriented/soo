@@ -33,6 +33,7 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 #include <heap.h>
+#include <timer.h>
 
 #if 0
 #define DEBUG
@@ -55,6 +56,8 @@ void printID(unsigned char* id){
 }
 
 
+
+
 /*
  * ME Description:
  * The ME resides in one (and only one) Smart Object.
@@ -71,8 +74,6 @@ void printID(unsigned char* id){
 void *localinfo_data;
 common_data* localData;
 common_data* RxData;
-agencyUID_t listOfVisitedDevice;
-
 
 
 
@@ -91,8 +92,7 @@ uint32_t migration_count;
 int cb_pre_activate(soo_domcall_arg_t *args) {
 
 	agency_ctl_args_t agency_ctl_args;
-	struct list_head *list_it;
-	agencyUID_t *id;
+	ssize_t i;
 
 	
 
@@ -110,29 +110,22 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	/*if id not init */
 	if(localData->id[0] == 0){
 
-		lprintk("init id and list\n");
-		
+		lprintk("init id\n");
+
 		/*save the source uid*/
 		memcpy(&localData->id, &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
 
 		/*init the list of Visited Device*/
-		memcpy(&listOfVisitedDevice.id, &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
-		listOfVisitedDevice.list.next = NULL;
-		listOfVisitedDevice.list.prev = NULL;
+		memcpy(&localData->ID_device_visited[0], &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
+		localData->nb_device_visited++;
 
 	}else{
 		lprintk("check the vicious circle\n");
-		list_it = &listOfVisitedDevice.list;
-
+	
 		/*check the vicious circle*/
-		while(list_it->next){
+		for(i = 0; i < localData->nb_device_visited; i++) {
 
-			//get id
-			id = container_of(list_it,agencyUID_t,list);
-			printID(id->id);
-
-			//if the device is know
-			if(!memcmp(&id->id,&agency_ctl_args.u.agencyUID_args.agencyUID.id,SOO_AGENCY_UID_SIZE)){
+			if(!memcmp(&localData->ID_device_visited[i],&agency_ctl_args.u.agencyUID_args.agencyUID.id,SOO_AGENCY_UID_SIZE)){
 
 				/* Kill the ME to avoid circularity */
 				lprintk("vicious circle detected\n");
@@ -150,7 +143,6 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 			}
 
 			
-			list_it = list_it->next;
 		} 
 		localData->nb_device_visited++;
 		lprintk("visited %d device \n",localData->nb_device_visited);
@@ -158,16 +150,18 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 		#if 1 /*mode demo*/
 
 		if(localData->nb_device_visited == NB_DEMO_DEVICE){
-			lprintk("\n\n\n\n\n!!!!!!!!!!!!!!! fin demo !!!!!!!!!!!!!!!!!!!!\n\n\n\n");
+			lprintk("fin demo nb_jmp = %d !!!!!!!!!!!!!!!!!!!!!!\n\n\n\n",localData->nb_jump);
+			agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+			agency_ctl_args.slotID = ME_domID();
+			args->__agency_ctl(&agency_ctl_args);
 		}
 
 		#endif
 
 		//add the curent device ID to the list
-		id = (agencyUID_t*) malloc(sizeof(agencyUID_t)); 
-		memcpy(&id->id, &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
-		list_it->next = &id->list;
-		id->list.next = 0;
+		memcpy(&localData->ID_device_visited[localData->nb_device_visited - 1], &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
+		
+		
 
 	}
 	return 0;
@@ -238,6 +232,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	agency_ctl_args_t agency_ctl_args;
 
 	unsigned int i;
+	unsigned int j;
+	bool is_new_ID = false;
+	unsigned char idexEnd;
 	uint32_t pfn;
 
 
@@ -249,6 +246,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 		if (cooperate_args->alone)
 			return 0;
+
+		localData->slotID = ME_domID();
 
 		for (i = 0; i < MAX_ME_DOMAINS; i++) {
 			if (cooperate_args->u.target_coop_slot[i].spad.valid) {
@@ -277,7 +276,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
 		RxData = (common_data *) io_map(pfn_to_phys(pfn), sizeof(RxData));
-		
 
 
 		/*if ME have the same device and have the same type*/
@@ -286,14 +284,59 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			lprintk("same ME kill the less recent\n");
 
 			if(RxData->timeStamp < localData->timeStamp){
-
 				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
 				agency_ctl_args.slotID = ME_domID();
 				args->__agency_ctl(&agency_ctl_args);
+
 			}else if(RxData->timeStamp > localData->timeStamp){
-				/*agency_ctl_args.cmd = AG_FORCE_TERMINATE;
-				agency_ctl_args.slotID = cooperate_args->u.initiator_coop.;
-				args->__agency_ctl(&agency_ctl_args);*/
+				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+				agency_ctl_args.slotID = RxData->slotID;
+				args->__agency_ctl(&agency_ctl_args);
+
+			}else{
+				/*if ME have the same timeStamp merge liste*/
+				lprintk("ME have the same time stamp\n");
+				lprintk("merge list and kill initator\n");
+
+
+				/*end of list*/
+				idexEnd = localData->nb_device_visited - 1;
+
+				for(i = 0; i < RxData->nb_device_visited; i++){
+					is_new_ID = true;
+					
+					/*find if id know*/
+					for(j = 0; j < localData->nb_device_visited; j++){
+						if(!memcmp(&localData->ID_device_visited[j],&RxData->ID_device_visited[i],SOO_AGENCY_UID_SIZE)){
+							is_new_ID = false;
+						}
+					}
+
+					/*if id is new add to list*/
+					if(is_new_ID){
+						memcpy(&localData->ID_device_visited[idexEnd++], &RxData->ID_device_visited[i], SOO_AGENCY_UID_SIZE);
+					}
+				}
+				localData->nb_device_visited  = idexEnd  + 1;
+
+				/*KILL ME*/
+				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+				agency_ctl_args.slotID = RxData->slotID;
+				args->__agency_ctl(&agency_ctl_args);
+
+				/*enable migration*/
+				migration_count = 0;
+
+				#if 1 /*mode demo*/
+
+				if(localData->nb_device_visited == NB_DEMO_DEVICE){
+					lprintk("fin demo nb_jmp = %d !!!!!!!!!!!!!!!!!!!!!!\n\n\n\n",localData->nb_jump);
+					agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+					agency_ctl_args.slotID = ME_domID();
+					args->__agency_ctl(&agency_ctl_args);
+				}
+
+				#endif
 			}	
 		}
 
@@ -386,7 +429,6 @@ void callbacks_init(void) {
 
 	/* Allocate localinfo */
 	localinfo_data = (void *) get_contig_free_vpages(1);
-
 	localData = (common_data* ) localinfo_data;
 
 	/*init localData*/
@@ -394,7 +436,7 @@ void callbacks_init(void) {
 	localData->nb_jump = 0;
 	localData->timeStamp = 0;
 	localData->type = 0;
-	localData->nb_device_visited = 1;
+	localData->nb_device_visited = 0;
 
 
 	/* Set the SPAD capabilities */
