@@ -107,6 +107,8 @@ void process_response(struct vbus_device *vdev) {
 	vuart_response_t *ring_rsp;
 	struct winsize wsz;
 
+	vdevback_processing_begin(vdev);
+
 	while ((ring_req = vuart_get_ring_request(&vuart_priv->vuart.ring)) != NULL) {
 
 		if (ring_req->c == SERIAL_GWINSZ) {
@@ -127,6 +129,9 @@ void process_response(struct vbus_device *vdev) {
 		} else
 			lprintch(ring_req->c);
 	}
+
+	vdevback_processing_end(vdev);
+
 }
 
 irqreturn_t vuart_interrupt(int irq, void *dev_id)
@@ -150,8 +155,11 @@ void me_cons_sendc(domid_t domid, uint8_t ch) {
 	vuart_response_t *vuart_rsp;
 
 	console = get_console(domid);
-	if (!console)
+
+	if (!vdevfront_is_connected(console))
 		return ;
+
+	vdevback_processing_begin(console);
 
 	vuart_priv = dev_get_drvdata(&console->dev);
 
@@ -167,6 +175,7 @@ void me_cons_sendc(domid_t domid, uint8_t ch) {
 	if (console->state == VbusStateConnected)
 		notify_remote_via_virq(vuart_priv->vuart.irq);
 
+	vdevback_processing_end(console);
 }
 
 void vuart_probe(struct vbus_device *vdev) {
