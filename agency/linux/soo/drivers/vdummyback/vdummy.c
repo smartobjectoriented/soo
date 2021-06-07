@@ -55,7 +55,7 @@ void vdummy_notify(struct vbus_device *vdev)
 {
 	vdummy_priv_t *vdummy_priv = dev_get_drvdata(&vdev->dev);
 
-	RING_PUSH_RESPONSES(&vdummy_priv->vdummy.ring);
+	vdummy_ring_response_ready(&vdummy_priv->vdummy.ring);
 
 	/* Send a notification to the frontend only if connected.
 	 * Otherwise, the data remain present in the ring. */
@@ -184,6 +184,7 @@ int generator_fn(void *arg) {
 				continue;
 
 			vdummy_ring_response_ready()
+
 			vdummy_notify(i);
 
 			vdummy_end(i);
