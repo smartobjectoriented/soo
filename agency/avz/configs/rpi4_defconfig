@@ -6,7 +6,7 @@
 #
 # General
 #
-CONFIG_CROSS_COMPILE="arm-linux-gnueabihf-"
+CONFIG_CROSS_COMPILE="arm-none-linux-gnueabihf-"
 
 #
 # Platform

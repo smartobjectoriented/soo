@@ -25,4 +25,5 @@ add_subdirectory(dcm)
 add_subdirectory(frozen)
 
 add_subdirectory(apps)
+add_subdirectory(lib)
 

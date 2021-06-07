@@ -306,7 +306,6 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 	me->domcall = mig_info->domcall;
 	me->event_callback = mig_info->event_callback;
 
-	lprintk("####### g_sp: %x\n", mig_info->g_sp);
 	me->addrspace = mig_info->addrspace;
 
 	/* Internal fields of vcpu_info_t structure */

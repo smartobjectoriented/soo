@@ -92,6 +92,19 @@ void vdevback_processing_end(struct vbus_device *vdev) {
 }
 
 /*
+ * Check if the frontend state and tell whether it is connected.
+ */
+bool vdevfront_is_connected(struct vbus_device *vdev) {
+	void *priv = dev_get_drvdata(&vdev->dev);
+	vdevback_t *vdevback = (vdevback_t *) priv;
+
+	if (!vdev)
+		return false;
+
+	return vdevback->vdevfront_connected;
+}
+
+/*
  * Probe entry point for our vbus backend.
  * The probe is executed as soon as a frontend is showing up.
  */
@@ -165,6 +178,9 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state fronten
 
 	case VbusStateConnected:
 		DBG0("vdummy frontend connected, all right.\n");
+
+		vdevback->vdevfront_connected = true;
+
 		vdrvback->connected(vdev);
 
 		complete(&vdevback->sync);
@@ -180,6 +196,8 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state fronten
 
 		/* Prepare the sync completion to coordinate the removal of device. */
 		reinit_completion(&vdevback->sync);
+
+		vdevback->vdevfront_connected = false;
 
 		vdrvback->close(vdev);
 		break;
