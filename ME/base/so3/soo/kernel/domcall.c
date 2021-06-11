@@ -243,9 +243,8 @@ static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
 		adjust_l1_page_tables(0, CONFIG_KERNEL_VIRT_ADDR, pcb->pgtable, args);
 		adjust_l2_page_tables(0, CONFIG_KERNEL_VIRT_ADDR, pcb->pgtable, args);
 
+		mmu_page_table_flush((uint32_t) pcb->pgtable, (uint32_t) (pcb->pgtable + TTB_L1_ENTRIES));
 	}
-
-	mmu_page_table_flush((uint32_t) pcb->pgtable, (uint32_t) (pcb->pgtable + TTB_L1_ENTRIES));
 
 	return 0;
 }
