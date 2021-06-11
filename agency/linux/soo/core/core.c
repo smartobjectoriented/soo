@@ -353,6 +353,7 @@ static int ioctl_write_snapshot(unsigned long arg) {
 	crc32 = xcrc32(args.buffer + sizeof(ME_info_transfer_t), args.value - sizeof(ME_info_transfer_t), 0xffffffff);
 	soo_log("[soo:core] Computed CRC32 of the received snapshot: %x / embedded crc32 value: %x / Size: %x\n", crc32, ME_info_transfer->crc32, args.value);
 
+	/* Currently, we bug on that, but we should skip the buffer without kernel-panic'ing ... */
 	BUG_ON(crc32 != ME_info_transfer->crc32);
 
 	/* Retrieve the info related to the migration structure */
