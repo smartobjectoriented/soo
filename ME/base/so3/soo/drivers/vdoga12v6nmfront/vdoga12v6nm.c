@@ -130,7 +130,7 @@ static void do_cmd(uint32_t cmd, uint32_t arg) {
 
 	RING_PUSH_REQUESTS(&__vdoga12v6nm->cmd_ring);
 
-	notify_remote_via_irq(__vdoga12v6nm->cmd_irq);
+	notify_remote_via_virq(__vdoga12v6nm->cmd_irq);
 
 	vdoga12v6nm_end();
 }

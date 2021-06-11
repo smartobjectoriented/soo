@@ -83,9 +83,6 @@ extern void bind_virq_to_irqhandler(unsigned int virq, irq_handler_t handler, ir
 extern int bind_existing_interdomain_evtchn(unsigned int local_channel, unsigned int remote_domain, unsigned int remote_evtchn);
 
 
-extern unsigned int virq_to_irq(unsigned int virq);
-extern int bind_virq_to_irq(unsigned int virq);
-
 /*
  * Common unbind function for all event sources. Takes IRQ to unbind from.
  * Automatically closes the underlying event channel (even for bindings
@@ -102,7 +99,7 @@ extern unsigned int type_from_irq(int irq);
  * Unlike notify_remote_via_evtchn(), this is safe to use across
  * save/restore. Notifications on a broken connection are silently dropped.
  */
-extern void notify_remote_via_irq(int irq);
+extern void notify_remote_via_virq(int irq);
 
 void virq_init(void);
 

@@ -185,7 +185,7 @@ int vuihandler_send_fn(void *arg) {
 
 		RING_PUSH_REQUESTS(&vuihandler->tx_ring);
 
-		notify_remote_via_irq(vuihandler->tx_irq);
+		notify_remote_via_virq(vuihandler->tx_irq);
 
 		send_count++;
 
@@ -221,8 +221,8 @@ void vuihandler_connected(struct vbus_device *vdev) {
 	DBG0(VUIHANDLER_PREFIX "Frontend connected\n");
 
 	/* Force the processing of pending requests, if any */
-	notify_remote_via_irq(vuihandler->tx_irq);
-	notify_remote_via_irq(vuihandler->rx_irq);
+	notify_remote_via_virq(vuihandler->tx_irq);
+	notify_remote_via_virq(vuihandler->rx_irq);
 
 	init_completion(send_compl);
 

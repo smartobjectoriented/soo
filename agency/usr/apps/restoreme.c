@@ -27,6 +27,8 @@
 
 #include <uapi/soo.h>
 
+#include <zip.h>
+
 int fd_core;
 
 int initialize_migration(unsigned int ME_slotID) {
@@ -44,21 +46,21 @@ int initialize_migration(unsigned int ME_slotID) {
 /**
  * Restore the snapshot of a ME.
  */
-void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer) {
+void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer, size_t buffer_size) {
 	agency_tx_args_t args;
 
 	args.ME_slotID = slotID;
 	args.buffer = ME_buffer;
+	args.value = buffer_size;
 
 	ioctl(fd_core, AGENCY_IOCTL_WRITE_SNAPSHOT, &args);
 }
 
 int main(int argc, char *argv[]) {
 	struct agency_tx_args args;
-	int fd, ret;
-	void *buffer;
+	void *buffer = NULL;
 	unsigned int buffer_size;
-	struct stat filestat;
+	struct zip_t *zip;
 
 	printf("*** SOO - Mobile Entity snapshot restorer ***\n");
 
@@ -72,29 +74,23 @@ int main(int argc, char *argv[]) {
 	fd_core = open("/dev/soo/core", O_RDWR);
 	assert(fd_core > 0);
 
-	/* Get the size of the image */
-	stat(argv[1], &filestat);
-	buffer_size = filestat.st_size;
-
-	buffer = malloc(buffer_size);
-	assert(buffer != NULL);
-
 	/* Save the snapshot to file */
-	fd = open(argv[1], O_RDONLY);
-	if (fd < 0) {
+	zip = zip_open(argv[1], 0, 'r');
+	if (!zip) {
 		perror("");
 		return -1;
 	}
 
-	ret = read(fd, buffer, buffer_size);
-	if (ret != buffer_size) {
-		perror("");
-		return -1;
-	}
+	zip_entry_open(zip, "me");
+	zip_entry_read(zip, &buffer, &buffer_size);
+	zip_entry_close(zip);
+
+	zip_close(zip);
 
 	printf("  ** ME memory re-implantation and resuming...\n");
 
 	args.value = buffer_size;
+
 	ioctl(fd_core, AGENCY_IOCTL_GET_ME_FREE_SLOT, &args);
 	assert(args.ME_slotID == 2);
 
@@ -105,7 +101,7 @@ int main(int argc, char *argv[]) {
 
 	initialize_migration(2);
 
-	write_ME_snapshot(2, buffer);
+	write_ME_snapshot(2, buffer, buffer_size);
 
 	args.ME_slotID = 2;
 
@@ -114,9 +110,9 @@ int main(int argc, char *argv[]) {
 
 	ioctl(fd_core, AGENCY_IOCTL_SET_PERSONALITY, &args);
 
-	close(fd);
-
 	close(fd_core);
+
+	free(buffer);
 
 	printf("  ** ME successfully restored and resumed...\n");
 

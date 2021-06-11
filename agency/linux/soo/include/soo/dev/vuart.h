@@ -56,10 +56,4 @@ typedef struct {
 
 bool vuart_ready(void);
 
-static inline vuart_t *to_vuart(struct vbus_device *vdev) {
-	vdevback_t *vdevback = dev_get_drvdata(&vdev->dev);
-	return container_of(vdevback, vuart_t, vdevback);
-}
-
-
 #endif /* VUART_H */

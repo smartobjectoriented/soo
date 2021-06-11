@@ -102,14 +102,14 @@ struct vbus_driver {
 
 	char devicetype[32];
 
-	int (*probe)(struct vbus_device *dev);
+	void (*probe)(struct vbus_device *dev);
 	void (*otherend_changed)(struct vbus_device *dev, enum vbus_state backend_state);
 
-	int (*shutdown)(struct vbus_device *dev);
+	void (*shutdown)(struct vbus_device *dev);
 
-	int (*suspend)(struct vbus_device *dev);
-	int (*resume)(struct vbus_device *dev);
-	int (*resumed)(struct vbus_device *dev);
+	void (*suspend)(struct vbus_device *dev);
+	void (*resume)(struct vbus_device *dev);
+	void (*resumed)(struct vbus_device *dev);
 
 	/* Used as an entry of the main vbus driver list */
 	struct list_head list;

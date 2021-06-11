@@ -42,7 +42,8 @@
  *
  */
 bool vdevback_processing_begin(struct vbus_device *vdev) {
-	vdevback_t *vdevback = to_vdevback(vdev);
+	void *priv = dev_get_drvdata(&vdev->dev);
+	vdevback_t *vdevback = (vdevback_t *) priv;
 
 	/* Make sure we are still connected */
 	if (vdev->fe_state == VbusStateClosing)
@@ -80,7 +81,8 @@ bool vdevback_processing_begin(struct vbus_device *vdev) {
  * Finish a processing section against suspend/close prevention
  */
 void vdevback_processing_end(struct vbus_device *vdev) {
-	vdevback_t *vdevback = to_vdevback(vdev);
+	void *priv = dev_get_drvdata(&vdev->dev);
+	vdevback_t *vdevback = (vdevback_t *) priv;
 
 	atomic_dec(&vdevback->processing_count);
 
@@ -90,10 +92,24 @@ void vdevback_processing_end(struct vbus_device *vdev) {
 }
 
 /*
+ * Check if the frontend state and tell whether it is connected.
+ */
+bool vdevfront_is_connected(struct vbus_device *vdev) {
+	void *priv = dev_get_drvdata(&vdev->dev);
+	vdevback_t *vdevback = (vdevback_t *) priv;
+
+	if (!vdev)
+		return false;
+
+	return vdevback->vdevfront_connected;
+}
+
+/*
  * Probe entry point for our vbus backend.
  * The probe is executed as soon as a frontend is showing up.
  */
 static void __probe(struct vbus_device *vdev) {
+	void *priv;
 	vdevback_t *vdevback;
 	vdrvback_t *vdrvback = to_vdrvback(vdev);
 
@@ -101,7 +117,8 @@ static void __probe(struct vbus_device *vdev) {
 
 	vdrvback->probe(vdev);
 
-	vdevback = to_vdevback(vdev);
+	priv = dev_get_drvdata(&vdev->dev);
+	vdevback = (vdevback_t *) priv;
 
 	atomic_set(&vdevback->processing_count, 0);
 
@@ -112,7 +129,8 @@ static void __probe(struct vbus_device *vdev) {
 }
 
 static void __remove(struct vbus_device *vdev) {
-	vdevback_t *vdevback = to_vdevback(vdev);
+	void *priv = dev_get_drvdata(&vdev->dev);
+	vdevback_t *vdevback = (vdevback_t *) priv;
 	vdrvback_t *vdrvback = to_vdrvback(vdev);
 
 	/*
@@ -138,7 +156,8 @@ static void __remove(struct vbus_device *vdev) {
  * Callback received when the frontend's state changes.
  */
 static void __otherend_changed(struct vbus_device *vdev, enum vbus_state frontend_state) {
-	vdevback_t *vdevback = to_vdevback(vdev);
+	void *priv = dev_get_drvdata(&vdev->dev);
+	vdevback_t *vdevback = (vdevback_t *) priv;
 	vdrvback_t *vdrvback = to_vdrvback(vdev);
 
 	DBG("%s\n", vbus_strstate(frontend_state));
@@ -159,6 +178,9 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state fronten
 
 	case VbusStateConnected:
 		DBG0("vdummy frontend connected, all right.\n");
+
+		vdevback->vdevfront_connected = true;
+
 		vdrvback->connected(vdev);
 
 		complete(&vdevback->sync);
@@ -174,6 +196,8 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state fronten
 
 		/* Prepare the sync completion to coordinate the removal of device. */
 		reinit_completion(&vdevback->sync);
+
+		vdevback->vdevfront_connected = false;
 
 		vdrvback->close(vdev);
 		break;
@@ -191,7 +215,8 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state fronten
 }
 
 static int __suspend(struct vbus_device *vdev) {
-	vdevback_t *vdevback = to_vdevback(vdev);
+	void *priv = dev_get_drvdata(&vdev->dev);
+	vdevback_t *vdevback = (vdevback_t *) priv;
 	vdrvback_t *vdrvback = to_vdrvback(vdev);
 
 	DBG0("vdummy_suspend: wait for frontend now...\n");
@@ -209,7 +234,8 @@ static int __suspend(struct vbus_device *vdev) {
 }
 
 static int __resume(struct vbus_device *vdev) {
-	vdevback_t *vdevback = to_vdevback(vdev);
+	void *priv = dev_get_drvdata(&vdev->dev);
+	vdevback_t *vdevback = (vdevback_t *) priv;
 	vdrvback_t *vdrvback = to_vdrvback(vdev);
 
 	/* Resume Step 1 */

@@ -14,7 +14,12 @@ usage() {
   echo ""
   echo "Here is the list of the target/ directory:"
   echo ""
+
   ls target/
+  
+  echo ""
+  echo "To clean all MEs in the current target directory, just do $0 -c <ME_NAME>"
+  echo ""
   
   exit 1
 }
@@ -35,6 +40,13 @@ done
 
 if [ $OPTIND -eq 1 ]; then usage; fi
 
+# Execute first this target if required
+if [ "$deploy_clean" == "y" ]; then
+
+        echo "Removing all ITB images in $2"
+        rm -f ../$2/target/*
+fi
+
 if [ "$deploy_me" == "y" ]; then
         echo Deploying the ME into its itb file...
         cd target
@@ -44,11 +56,6 @@ if [ "$deploy_me" == "y" ]; then
         cp $3.itb ../../$2/target/
 fi
 
-if [ "$deploy_clean" == "y" ]; then
-
-        echo "Removing all ITB images in $2"
-        rm ../$2/target/*
-fi
 
 
 

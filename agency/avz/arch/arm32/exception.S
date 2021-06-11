@@ -115,22 +115,6 @@ ENTRY(pre_ret_to_user)
  */
 ENTRY(after_migrate_to_user)
 
-    @ should be enough
-
-#if 0
-    current_cpu r11
-
-    curdom    r10
-
-	ldr		r0, .LChypervisor_stack   	@ running SVC hypervisor stack
-	str		sp, [r0, r11, lsl #2]
-
-	@ get guest stack (already stacked from save_svc_context)
-	ldr		sp, [r10, #OFFSET_G_SP]
-
-	ldr		sp, [r0, r11, lsl #2]
-#endif
-
 	b 		do_upcall
 
 .align	5
