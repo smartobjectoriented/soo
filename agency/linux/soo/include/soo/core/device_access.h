@@ -80,7 +80,10 @@ static inline int cmpUID(agencyUID_t *u1, agencyUID_t *u2) {
 static inline void soo_log_printUID(agencyUID_t *uid) {
 
 	/* Normally, the length of agencyUID is SOO_AGENCY_UID_SIZE bytes, but we display less. */
-	soo_log_buffer(uid, 5);
+	if (!uid)
+		soo_log("(null)");
+	else
+		soo_log_buffer(uid, 5);
 }
 
 /* Helper function to display agencyUID */

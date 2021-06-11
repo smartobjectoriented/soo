@@ -113,28 +113,6 @@ void vbus_watch_pathfmt(struct vbus_device *dev, struct vbus_watch *watch, void 
 }
 
 /**
- * vbus_grant_ring
- * @dev: vbus device
- * @ring_mfn: mfn of ring to grant
-
- * Grant access to the given @ring_mfn to the peer of the given device.  Return
- * 0 on success, or -errno on error.  On error, the device will switch to
- * VbusStateClosing, and the error will be saved in the store.
- */
-int vbus_grant_ring(struct vbus_device *dev, unsigned long ring_pfn)
-{
-	int err = gnttab_grant_foreign_access(dev->otherend_id, ring_pfn, 0);
-
-	if (err < 0) {
-		lprintk("%s - line %d: granting access to ring page failed / dev name: %s ring_pfn: %u\n", __func__, __LINE__, dev->nodename, ring_pfn);
-		BUG();
-	}
-
-	return err;
-}
-
-
-/**
  * Allocate an event channel for the given vbus_device, assigning the newly
  * created local evtchn to *evtchn.  Return 0 on success, or -errno on error.  On
  * error, the device will switch to VbusStateClosing, and the error will be
