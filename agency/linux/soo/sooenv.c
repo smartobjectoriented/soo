@@ -73,7 +73,11 @@ static int count = 0;
 static struct mutex env_lock;
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
+#define	SOO_NR_MAX 	10
+
 	soo_env_t *soo1, *soo2, *soo3;
+
 #endif
 
 /**
@@ -145,22 +149,31 @@ void add_thread(soo_env_t *soo, unsigned int pid) {
 
 static int soo_task_rx_fn(void *args) {
 	uint32_t size;
-	void *data;
+	char *data;
 	int i;
 
-	while (true){
+	int soo_count_table[SOO_NR_MAX] = { 0 };
 
-		size = sl_recv(current_soo_simul->sl_desc, &data);
+	while (true) {
 
-		for (i = 0; i < BUFFER_SIZE; i++)
+		size = sl_recv(current_soo_simul->sl_desc, (void *) &data);
+
+		for (i = 1; i < BUFFER_SIZE; i++)
 			if (((unsigned char *) data)[i] != current_soo_simul->buffer[i]) {
 				lprintk("## Data corruption : failure on byte %d\n", i);
 				break;
 			}
 
+		soo_count_table[(int) data[0]]++;
+
 		if (i == BUFFER_SIZE) {
 			current_soo_simul->recv_count++;
 			lprintk("## (%s) ******************** Got a buffer (count %d got %d bytes)\n", current_soo->name, current_soo_simul->recv_count, size);
+			lprintk("## stats: ");
+			for (i = 1; i < SOO_NR_MAX; i++)
+				lprintk(" (SOO-%d): %d ", i, soo_count_table[i]);
+
+			lprintk("\n");
 		}
 
 		/* Must release the allocated buffer */
@@ -191,6 +204,10 @@ static int soo_task_tx_fn(void *args) {
 	while (true) {
 		if (discovery_neighbour_count() > 0) {
 			lprintk("*** (%s) sending buffer ****\n", current_soo->name);
+
+			/* Encode the SOO number */
+			current_soo_simul->buffer[0] = current_soo->id;
+
 			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
 
 			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
@@ -225,6 +242,10 @@ static int soo3_task_tx_fn(void *args) {
 	while (true) {
 		if (here && discovery_neighbour_count() > 0) {
 			lprintk("*** (%s) sending buffer ****\n", current_soo->name);
+
+			/* Encode the SOO number */
+			current_soo_simul->buffer[0] = current_soo->id;
+
 			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
 
 			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
@@ -295,22 +316,7 @@ int soo_env_fn(void *args) {
 
 	soo_env->agencyUID.id[3] = 0x99;
 
-	switch (count) {
-
-	/* SOO-1 */
-	case 1:
-		soo_env->agencyUID.id[4] = 0x01;
-		break;
-	case 2:
-		soo_env->agencyUID.id[4] = 0x02;
-		break;
-	case 3:
-		soo_env->agencyUID.id[4] = 0x03;
-		break;
-	default:
-		lprintk("## Invalid SOO count (soo env)...\n");
-		BUG();
-	}
+	soo_env->agencyUID.id[4] = count;
 
 #endif /* CONFIG_SOOLINK_PLUGIN_SIMULATION */
 

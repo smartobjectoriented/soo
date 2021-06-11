@@ -46,9 +46,6 @@ typedef struct {
 
 	bool present;
 
-	/* List of neighbours (called friends) for this neighbour */
-	struct list_head friends;
-
 	void *priv;
 
 	/* List of neighbours */
@@ -104,7 +101,7 @@ void discovery_listener_register(discovery_listener_t *listener);
 
 void discovery_update_ourself(agencyUID_t *agencyUID);
 
-void neighbour_list_protection(bool protect);
+bool neighbour_list_protection(bool protect);
 
 void discovery_init(void);
 void discovery_start(void);
