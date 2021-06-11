@@ -226,67 +226,6 @@ static void update_neighbour(neighbour_desc_t *neighbour) {
 		}
 	} else
 		callbacks_update_neighbour(neighbour);
-
-}
-
-/*
- * Build a byte area containing all our neighbours (our friends :-))
- */
-void concat_friends(uint8_t *friends) {
-	struct list_head *cur;
-	neighbour_desc_t *neighbour;
-	uint8_t *pos = friends;
-
-	mutex_lock(&current_soo_discovery->discovery_listener_lock);
-
-	list_for_each(cur, &current_soo_discovery->neighbour_list) {
-		neighbour = list_entry(cur, neighbour_desc_t, list);
-
-		memcpy(pos, &neighbour->agencyUID, SOO_AGENCY_UID_SIZE);
-		pos += SOO_AGENCY_UID_SIZE;
-	}
-
-	mutex_unlock(&current_soo_discovery->discovery_listener_lock);
-}
-
-/*
- * Retrieve the list of friends from a Iamasoo packet and put them in the appropriate
- * field of neighbour_desc_t.
- * It is assumed that discovery_listener_lock is hold.
- */
-void expand_friends(uint8_t *friends, int friends_count, neighbour_desc_t *neighbour_desc) {
-	int i;
-	agencyUID_t *friend;
-
-	if (!friends_count)
-		return ;
-
-	for (i = 0; i < friends_count; i++) {
-		friend = kzalloc(sizeof(agencyUID_t), GFP_KERNEL);
-		BUG_ON(!friend);
-
-		memcpy(&friend->id, friends, SOO_AGENCY_UID_SIZE);
-
-		list_add_tail(&friend->list, &neighbour_desc->friends);
-
-		friends += SOO_AGENCY_UID_SIZE;
-	}
-}
-
-/*
- * Reset the list of friends (empty the list of friends)
- * It is assumed that discovery_listener_lock is hold.
- */
-void reset_friends(struct list_head *friends) {
-	struct list_head *cur, *tmp;
-	agencyUID_t *friend;
-
-	list_for_each_safe(cur, tmp, friends) {
-		friend = list_entry(cur, agencyUID_t, list);
-
-		list_del(cur);
-		kfree(friend);
-	}
 }
 
 /**
@@ -348,14 +287,6 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 			memcpy(neighbour->priv, iamasoo_pkt->extra, iamasoo_pkt->priv_len);
 		}
 
-		INIT_LIST_HEAD(&neighbour->friends);
-
-		/* Expand the list of friends and put them in the neighbour_desc
-		 * according to the iamasoo_pkt_t structure
-		 */
-
-		expand_friends(&iamasoo_pkt->extra[iamasoo_pkt->priv_len], (size - sizeof(iamasoo_pkt_t) - iamasoo_pkt->priv_len) / SOO_AGENCY_UID_SIZE, neighbour);
-
 		soo_log("[soo:soolink:discovery] Adding the neighbour: %s - ", neighbour->name);
 		soo_log_printlnUID(&neighbour->agencyUID);
 
@@ -389,14 +320,6 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 			memcpy(neighbour->priv, iamasoo_pkt->extra, iamasoo_pkt->priv_len);
 		}
 
-		/* Update the friends of this neighbour */
-		reset_friends(&neighbour->friends);
-
-		/* Expand the list of friends and put them in the neighbour_desc
-		 * according to the iamasoo_pkt_t structure
-		 */
-		expand_friends(&iamasoo_pkt->extra[iamasoo_pkt->priv_len], (size - sizeof(iamasoo_pkt_t) - iamasoo_pkt->priv_len ) / SOO_AGENCY_UID_SIZE, neighbour);
-
 		/* Call the update callbacks of listeners (currently one) */
 		update_neighbour(neighbour);
 
@@ -415,8 +338,6 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 
 /**
  * Send a Iamasoo beacon.
- * All agencyUIDs of our neighbourhood will be concatened and referenced by the
- * field <friends>.
  */
 static void send_beacon(void) {
 	iamasoo_pkt_t *iamasoo_pkt;
@@ -465,8 +386,6 @@ static void send_beacon(void) {
 		iamasoo_pkt->priv_len = priv_len;
 		memcpy(iamasoo_pkt->extra, current_soo_discovery->ourself->priv, priv_len);
 	}
-
-	concat_friends(&iamasoo_pkt->extra[priv_len]);
 
 	/* Beacon encryption */
 #ifdef CONFIG_SOO_CORE_ASF
@@ -561,9 +480,6 @@ static int iamasoo_task_fn(void *args) {
 					/* Call the neighbour remove callbacks */
 					callbacks_remove_neighbour(neighbour);
 
-					/* Remove all friends */
-					reset_friends(&neighbour->friends);
-
 					/* Release the private data memory if any */
 					if (neighbour->priv)
 						kfree(neighbour->priv);
@@ -625,14 +541,24 @@ int discovery_get_neighbours(struct list_head *new_list) {
  * Enable the protection on the main neighbour list.
  * Used to prevent any changes during some operations.
  */
-void neighbour_list_protection(bool protect) {
+bool neighbour_list_protection(bool protect) {
 	neighbour_desc_t *neighbour = NULL, *tmp;
 	pending_update_t *pending_update = NULL, *tmp2;
+	bool __old_state;
 
 	mutex_lock(&current_soo_discovery->discovery_listener_lock);
 
-	BUG_ON(protect && current_soo_discovery->__neighbour_list_protected);
-	BUG_ON(!protect && !current_soo_discovery->__neighbour_list_protected);
+	if (protect && current_soo_discovery->__neighbour_list_protected) {
+		mutex_unlock(&current_soo_discovery->discovery_listener_lock);
+		return current_soo_discovery->__neighbour_list_protected;
+	}
+
+	if (!protect && !current_soo_discovery->__neighbour_list_protected) {
+		mutex_unlock(&current_soo_discovery->discovery_listener_lock);
+		return current_soo_discovery->__neighbour_list_protected;
+	}
+
+	__old_state = current_soo_discovery->__neighbour_list_protected;
 
 	/* Check for a need of synchronization with the pending list. */
 	if (!protect) {
@@ -673,16 +599,17 @@ void neighbour_list_protection(bool protect) {
 	current_soo_discovery->__neighbour_list_protected = protect;
 
 	mutex_unlock(&current_soo_discovery->discovery_listener_lock);
+
+	return __old_state;
 }
 
 /**
  * Dump the active neighbour list.
  */
 void discovery_dump_neighbours(void) {
-	struct list_head *cur, *cur_friend;
+	struct list_head *cur;
 	neighbour_desc_t *neighbour;
 	uint32_t count = 0;
-	agencyUID_t *friend;
 
 	mutex_lock(&current_soo_discovery->discovery_listener_lock);
 
@@ -702,14 +629,6 @@ void discovery_dump_neighbours(void) {
 
 		if (!neighbour->plugin)
 			soo_log("*** [soo:soolink:discovery] ** ourself **\n");
-		else {
-			soo_log("*** [soo:soolink:discovery]      ** Friends: **\n");
-			list_for_each(cur_friend, &neighbour->friends) {
-				friend = list_entry(cur_friend, agencyUID_t, list);
-				soo_log("*** [soo:soolink:discovery] ");
-				soo_log_printlnUID(friend);
-			}
-		}
 
 		count++;
 	}
