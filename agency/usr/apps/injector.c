@@ -1,18 +1,23 @@
 /*
+ * Copyright (C) 2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2019-2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
- * -- Smart Object Oriented  --
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- * Copyright (c) 2016-2018 SOOtech SA, Switzerland
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The contents of this file is strictly under the property of SOOtech SA and must not be shared in any case.
- *
- * Contributors:
- *
- * - January 2018: Baptiste Delporte
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 

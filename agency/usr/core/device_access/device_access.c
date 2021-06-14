@@ -238,8 +238,9 @@ int upgrade_rootfs(char *rootfs_upgraded, size_t size) {
 	}
 
 	/* Create the new rootfs path string */
-	strncpy(new_path, tar_path, strlen(tar_path));
-	strncat(new_path, ROOTFS_ARCHIVE_NAME, strlen(ROOTFS_ARCHIVE_NAME));
+	strcpy(new_path, tar_path);
+	strcat(new_path, ROOTFS_ARCHIVE_NAME);
+
 	printf("Creating file %s\n", new_path);
 
 	fp_rootfs = fopen(new_path, "wb");

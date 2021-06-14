@@ -138,8 +138,8 @@ static void erase_ta(const char *ta)
 	char cmd_rm[100] = "rm ";
 
 	ASF_IMSG("Erase '%s' TA\n", ta);
-	strncat(cmd_shred, ta, strlen(ta));
-	strncat(cmd_rm, ta, strlen(ta));
+	strcat(cmd_shred, ta);
+	strcat(cmd_rm, ta);
 
 	system(cmd_shred);
 	system(cmd_rm);
@@ -204,7 +204,7 @@ void asf_ta_installation(void)
 			if ((dir->d_type == DT_REG) && (is_ta(dir->d_name))) {
 				strcpy(ta_path, ASF_TA_PATH);
 
-				strncat(ta_path, dir->d_name, strlen(dir->d_name));
+				strcat(ta_path, dir->d_name);
 
 				strcpy(tas[n_ta], ta_path);
 				n_ta++;

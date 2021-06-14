@@ -21,6 +21,8 @@
 #ifndef DEVICE_ACCESS_H
 #define DEVICE_ACCESS_H
 
+#define FILENAME_MAX_LEN	80
+
 #define SOO_ME_DIRECTORY 	"/mnt/ME"
 #define SOO_BOOT_PART		"/mnt/boot/"
 #define SOO_ROOTFS_P2 		"/mnt/rootfs1/"
