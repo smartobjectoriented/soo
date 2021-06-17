@@ -47,6 +47,25 @@
 #include <soo/core/sysfs.h>
 #include <soo/core/device_access.h>
 
+
+/*
+ * The following value is used to determine the last SOO thread of
+ * sooenv to get initialized before executing the deferred processing.
+ */
+
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
+#define SOO_NR_MAX	8
+
+soo_env_t *soo1, *soo2, *soo3, *soo4, *soo5, *soo6, *soo7, *soo8;
+
+#else
+
+#define SOO_NR_MAX	1
+
+#endif /* CONFIG_SOOLINK_PLUGIN_SIMULATION */
+
+
 /*
  * The following structure is used to maintain a list
  * of callback functions which will be called once
@@ -71,14 +90,6 @@ struct list_head soo_environment;
 
 static int count = 0;
 static struct mutex env_lock;
-
-#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
-
-#define	SOO_NR_MAX 	10
-
-	soo_env_t *soo1, *soo2, *soo3;
-
-#endif
 
 /**
  * Get a reference to the current SOO environment.
@@ -164,19 +175,19 @@ static int soo_task_rx_fn(void *args) {
 				break;
 			}
 
-		soo_count_table[(int) data[0]]++;
+		soo_count_table[((int) data[0])-1]++;
 
 		if (i == BUFFER_SIZE) {
 			current_soo_simul->recv_count++;
 			lprintk("## (%s) ******************** Got a buffer (count %d got %d bytes)\n", current_soo->name, current_soo_simul->recv_count, size);
 			lprintk("## stats: ");
-			for (i = 1; i < SOO_NR_MAX; i++)
-				lprintk(" (SOO-%d): %d ", i, soo_count_table[i]);
+			for (i = 0; i < SOO_NR_MAX; i++)
+				lprintk(" (SOO-%d): %d ", i+1, soo_count_table[i]);
 
 			lprintk("\n");
 		}
 
-		/* Must release the allocated buffer */
+		/* Must release th e allocated buffer */
 		vfree(data);
 	}
 
@@ -402,7 +413,7 @@ int soo_env_fn(void *args) {
 	 * waiting for all SOO subsystems get fully initialized.
 	 */
 
-	if (soo_env->id == 1)
+	if (soo_env->id == SOO_NR_MAX)
 		list_for_each_entry_safe(sooenv_up, tmp, &sooenv_up_list, list) {
 
 			/* Execute the callback function */
@@ -442,19 +453,60 @@ void register_sooenv_up(sooenv_up_fn_t sooenv_up_fn, void *args) {
 
 void sooenv_init_topology(soo_env_t *sooenv, void *args) {
 
-	if (!strcmp(sooenv->name, "SOO-3")) {
-		soo1 = get_soo_by_name("SOO-1");
-		soo2 = get_soo_by_name("SOO-2");
-		soo3 = get_soo_by_name("SOO-3");
+	soo1 = get_soo_by_name("SOO-1");
+	soo2 = get_soo_by_name("SOO-2");
+	soo3 = get_soo_by_name("SOO-3");
+	soo4 = get_soo_by_name("SOO-4");
 
-		BUG_ON(!soo1 || !soo2 || !soo3);
+	BUG_ON(!soo1 || !soo2 || !soo3 || !soo4);
 
-		/* Define the SOO topology */
+	/* Define the SOO topology */
 
-		node_link(soo1, soo2); node_link(soo2, soo1);
-		node_link(soo1, soo3); node_link(soo3, soo1);
-		node_link(soo2, soo3); node_link(soo3, soo2);
-	}
+#if 0
+	/* Topology #1 with 6 SOOs */
+
+	soo5 = get_soo_by_name("SOO-5");
+	soo6 = get_soo_by_name("SOO-6");
+
+	BUG_ON(!soo5 || !soo6);
+
+	node_link(soo1, soo2); node_link(soo2, soo1);
+	node_link(soo1, soo3); node_link(soo3, soo1);
+	node_link(soo2, soo3); node_link(soo3, soo2);
+	node_link(soo3, soo4); node_link(soo4, soo3);
+	node_link(soo4, soo5); node_link(soo5, soo4);
+	node_link(soo5, soo6); node_link(soo6, soo5);
+#endif
+
+#if 1
+	/* Topology #2 with 4 SOOs */
+
+	soo5 = get_soo_by_name("SOO-5");
+	soo6 = get_soo_by_name("SOO-6");
+
+	BUG_ON(!soo5 || !soo6);
+
+	node_link(soo1, soo2); node_link(soo2, soo1);
+	node_link(soo2, soo3); node_link(soo3, soo2);
+	node_link(soo3, soo4); node_link(soo4, soo3);
+
+#endif
+
+#if 1
+	/* Topology #3 with 4 additional SOOs */
+
+	soo7 = get_soo_by_name("SOO-7");
+	soo8 = get_soo_by_name("SOO-8");
+
+	BUG_ON(!soo7 || !soo8);
+
+	node_link(soo4, soo5); node_link(soo5, soo4);
+	node_link(soo5, soo6); node_link(soo6, soo5);
+	node_link(soo6, soo7); node_link(soo7, soo6);
+	node_link(soo7, soo8); node_link(soo8, soo7);
+
+#endif
+
 }
 
 #endif
@@ -477,8 +529,14 @@ void sooenv_init(void) {
 
 	kthread_run(soo_env_fn, "SOO-2", "SOO-2");
 	kthread_run(soo_env_fn, "SOO-3", "SOO-3");
+	kthread_run(soo_env_fn, "SOO-4", "SOO-4");
+	kthread_run(soo_env_fn, "SOO-5", "SOO-5");
+	kthread_run(soo_env_fn, "SOO-6", "SOO-6");
+	kthread_run(soo_env_fn, "SOO-7", "SOO-7");
+	kthread_run(soo_env_fn, "SOO-8", "SOO-8");
 
 	register_sooenv_up(sooenv_init_topology, NULL);
+
 #endif
 
 }

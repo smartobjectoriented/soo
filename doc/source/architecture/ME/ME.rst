@@ -1,14 +1,15 @@
 .. _ME:
 
-==================
+******************   
 Mobile Entity (ME)
-==================
+******************
+
 
 A Mobile Entity (ME) is the core logic of the application which can be constituted of several tasks or 
 even of several processes. MEs are based on SO3 operating system.
 
 Specy Aptitude Descriptor (SPAD)
---------------------------------
+================================
 
 Each ME may have one or several :term:`SPAD` (Specy Aptitude Descriptor). The ``SPAD`` determines a specific
 feature (or set of features).
