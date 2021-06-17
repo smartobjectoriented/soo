@@ -25,7 +25,7 @@
 #include <soo/soolink/discovery.h>
 
 /* Maximal number of retries */
-#define WNET_RETRIES_MAX 5
+#define WNET_RETRIES_MAX 3
 
 /* Conversion from us to ns */
 #define WNET_TIME_US_TO_NS(x) ((x) * 1000ull)
@@ -46,16 +46,12 @@
  */
 
 #ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-
 #define WNET_N_PACKETS_IN_FRAME 64
-#define WNET_TSPEAKER_ACK_MS	500
-
-#else /* !CONFIG_SOOLINK_PLUGIN_WLAN */
-
+#else
 #define WNET_N_PACKETS_IN_FRAME 8
-#define WNET_TSPEAKER_ACK_MS	500
+#endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
 
-#endif
+#define WNET_TSPEAKER_ACK_MS	500
 
 /* The following values are called ACK cause and
  * enables to check the status of an acknowledgment message

@@ -1,14 +1,30 @@
 .. _plugins:
 
 Plugins management
-==================
+------------------
+
+Plugins are used to access physical network interfaces in order to send and to receive data packets.
+It constitutes the OSI layer #1 which is the physical layer under the datalink.
+
+
+.. _simulation_plugin:
+
+Simulation plugin
+^^^^^^^^^^^^^^^^^
+
+The simulation plugin enables the instantiation of several SOO environments which run in a unique
+QEMU instance. It is basically used in emulation and for debugging/testing/assessment purposes.
+
 
 
 WLAN plugin
------------
+^^^^^^^^^^^
+
+The WLAN plugin is the main plugin used for the wireless Wifi network used for the migration 
+of MEs.
 
 Raspberry Pi 4 WIFI capabilities
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""
 
 .. code:: bash
 

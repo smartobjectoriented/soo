@@ -1,17 +1,16 @@
 .. _virt_interfaces:
 
-=========================================
+*****************************************
 Virtualized interfaces (backend/frontend)
-=========================================
+*****************************************
 
 The SOO framework has various virtualized interfaces which can be used between the ME and the agency.
 On the agency side, these are ``backends`` (BE) drivers and can manage several links to MEs which have the 
 corresponding ``frontends`` (FE) drivers. Basically, the backend manage one *link* for each ME and each FE.
 
 
---------
 Backends
---------
+========
 
 Linux has a well-defined device and driver model in which the basic structures are ``struct device`` and ``struct device_driver``.
 On top of that, the ``struct vbus_device`` structure defined in *vbus* is used to refer a specific backend device and the
@@ -33,9 +32,8 @@ the ring(s) and other fields required for managing the activities related to the
 
 
 
----------
 Frontends
----------
+=========
 
 SO3 has a slightly different device and driver model. The main structure related to the device is the ``dev_t`` structure
 which is built during the device tree parsing; as soon as a frontend is detected in the DTS, a corresponding ``dev_t`` structure

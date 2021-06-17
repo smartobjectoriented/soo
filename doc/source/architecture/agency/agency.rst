@@ -1,8 +1,8 @@
 .. _agency:
 
-======
+******
 Agency
-======
+******
 
 
 .. toctree::
@@ -17,8 +17,7 @@ and ``Linux`` as the main domain. Actually, the domain is divided in ``domain #0
 of the agency, and ``domain #1`` which is a hard realtime domain running independently of the Linux scheduler.
 The hard realtime domain is a highly modified version of the Xenomai/Cobalt kernel with its RTDM API.
 
-Subsystems and Functional Blocks
---------------------------------
+The figure below shows the Agency subsystems and functional blocks.
 
 .. figure:: /img/SOO_Architecture_general_detailed.png
    :scale: 50 %
