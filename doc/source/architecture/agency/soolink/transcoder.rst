@@ -1,7 +1,7 @@
 .. _transcoder:
 
 Transcoder logical block
-========================
+------------------------
 
 The transcoder is able to manage sending and receiving of ``block`` composed of several packets (payloads).
 

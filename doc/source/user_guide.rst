@@ -37,6 +37,9 @@ Various other packages are required:
    sudo apt-get install pkg-config libgtk2.0-dev bridge-utils
    sudo apt-get install unzip bc
    sudo apt-get install elfutils u-boot-tools
+   sudo apt-get install device-tree-compiler
+   sudo apt-get install fdisk
+   sudo apt-get install libncurses-dev
    
 The OP-TEE environment requires the following python packages:
 
