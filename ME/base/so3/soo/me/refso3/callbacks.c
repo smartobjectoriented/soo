@@ -32,6 +32,31 @@
 #include <soo/soo.h>
 #include <soo/console.h>
 #include <soo/debug.h>
+#include <heap.h>
+#include <timer.h>
+
+#if 0
+#define DEBUG
+#endif
+
+#if 1 /*mode demo*/
+#define NB_DEMO_DEVICE 4		
+#endif
+
+
+void printID(unsigned char* id){
+	int i;
+	
+	for(i=0;i<SOO_AGENCY_UID_SIZE;i++){
+		lprintk("%x ",id[i]);
+	}
+
+	lprintk("\n");
+
+}
+
+
+
 
 /*
  * ME Description:
@@ -47,10 +72,8 @@
 
 /* Localinfo buffer used during cooperation processing */
 void *localinfo_data;
-common_data* TxData;
+common_data* localData;
 common_data* RxData;
-agencyUID_t listOfVisitedDevice;
-
 
 
 
@@ -58,14 +81,8 @@ agencyUID_t listOfVisitedDevice;
  * migrated_once allows the dormant ME to control its oneshot propagation, i.e.
  * the ME must be broadcast in the neighborhood, then disappear from the smart object.
  */
-<<<<<<< HEAD
 uint32_t migration_count;
 
-=======
-#if 1
-uint32_t migration_count;
-#endif
->>>>>>> ping pong
 
 /**
  * PRE-ACTIVATE
@@ -75,8 +92,8 @@ uint32_t migration_count;
 int cb_pre_activate(soo_domcall_arg_t *args) {
 
 	agency_ctl_args_t agency_ctl_args;
-	struct list_head *list_it;
-	unsigned i;
+	ssize_t i;
+
 	
 
 	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
@@ -85,29 +102,68 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	/* Retrieve the agency UID of the Smart Object on which the ME has migrated */
 	agency_ctl_args.cmd = AG_AGENCY_UID;
 	args->__agency_ctl(&agency_ctl_args);
+	lprintk("device rpi4 ID:");
+	//printID(agency_ctl_args.u.agencyUID_args.agencyUID.id);
+
 	
-
+	
 	/*if id not init */
-	if(TxData->id[0] == 0){
-		
-		//save the source uid
-		memcpy(&TxData->id, &agency_ctl_args.u.agencyUID_args.agencyUID, SOO_AGENCY_UID_SIZE);
+	if(localData->id[0] == 0){
 
-		/*inti the list of Visited Device*/
-		memcpy(&listOfVisitedDevice.id, &agency_ctl_args.u.agencyUID_args.agencyUID, SOO_AGENCY_UID_SIZE);
-		listOfVisitedDevice.list.next = NULL;
-		listOfVisitedDevice.list.prev = NULL;
+		lprintk("init id\n");
+
+		/*save the source uid*/
+		memcpy(&localData->id, &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
+
+		/*init the list of Visited Device*/
+		memcpy(&localData->ID_device_visited[0], &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
+		localData->nb_device_visited++;
 
 	}else{
-
-		
-	}
-
+		lprintk("check the vicious circle\n");
 	
+		/*check the vicious circle*/
+		for(i = 0; i < localData->nb_device_visited; i++) {
 
+			if(!memcmp(&localData->ID_device_visited[i],&agency_ctl_args.u.agencyUID_args.agencyUID.id,SOO_AGENCY_UID_SIZE)){
 
+				/* Kill the ME to avoid circularity */
+				lprintk("vicious circle detected\n");
+				
 
+			    lprintk("kill ME\n");
+				//delete the ME
+				DBG("Force the termination of this ME #%d\n", ME_domID());
+				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+				agency_ctl_args.slotID = ME_domID();
 
+				args->__agency_ctl(&agency_ctl_args);
+
+				return 0;
+			}
+
+			
+		} 
+		localData->nb_device_visited++;
+		lprintk("visited %d device \n",localData->nb_device_visited);
+
+		#if 1 /*mode demo*/
+
+		if(localData->nb_device_visited == NB_DEMO_DEVICE){
+			lprintk("fin demo nb_jmp = %d !!!!!!!!!!!!!!!!!!!!!!\n\n\n\n",localData->nb_jump);
+			agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+			agency_ctl_args.slotID = ME_domID();
+			args->__agency_ctl(&agency_ctl_args);
+		}
+
+		#endif
+
+		//add the curent device ID to the list
+		memcpy(&localData->ID_device_visited[localData->nb_device_visited - 1], &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
+		
+		
+
+	}
 	return 0;
 }
 
@@ -119,44 +175,22 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
+	agency_ctl_args_t agency_ctl_args;
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
 	pre_propagate_args->propagate_status = 0;
 
 	/* Enable migration - here, we migrate 1 times before being killed. */
-<<<<<<< HEAD
-	if ((migration_count < 1) &&  (TxData->nb_jump < 4)) {
-=======
-	if ((get_ME_state() != ME_state_dormant) || (migration_count < 1)) {
->>>>>>> ping pong
+	if ((migration_count < 1) && (localData->nb_jump < 7)) {
 		pre_propagate_args->propagate_status = 1;
-		TxData->nb_jump++;
+		localData->nb_jump++;
 		migration_count++;
 	} else{
-<<<<<<< HEAD
-		if(get_ME_state() != ME_state_dormant){
-			set_ME_state(ME_state_killed);
-		}
-		
+		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+		agency_ctl_args.slotID = ME_domID();
+		args->__agency_ctl(&agency_ctl_args);
 	}
-		
-=======
-		set_ME_state(ME_state_killed);
-	}
-		
-
-#endif
-
-#if 0
-	live_count++;
-
-	if (live_count == 5) {
-		lprintk("##################### ME %d disappearing..\n", ME_domID());
-		set_ME_state(ME_state_killed);
->>>>>>> ping pong
-	}
-
 	return 0;
 }
 
@@ -198,6 +232,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	agency_ctl_args_t agency_ctl_args;
 
 	unsigned int i;
+	unsigned int j;
+	bool is_new_ID = false;
+	unsigned char idexEnd;
 	uint32_t pfn;
 
 
@@ -209,6 +246,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 		if (cooperate_args->alone)
 			return 0;
+
+		localData->slotID = ME_domID();
 
 		for (i = 0; i < MAX_ME_DOMAINS; i++) {
 			if (cooperate_args->u.target_coop_slot[i].spad.valid) {
@@ -222,30 +261,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 				/* Perform the cooperate in the target ME */
 				args->__agency_ctl(&agency_ctl_args);
-<<<<<<< HEAD
-=======
-
-#if 0
-				/* Now incrementing us */
-				*((char *) localinfo_data) = *((char *) localinfo_data) + 1;
-#endif
-
-#endif
-#if 0 /* Arrived ME disappears now... */
-				set_ME_state(ME_state_killed);
-#endif
->>>>>>> ping pong
 			}
 		}
 
-#if 0 /* This pattern is used to remove this (just arrived) ME even before its activation. */
-		if (!cooperate_args->alone) {
-
-			DBG("Killing ME #%d\n", ME_domID());
-
-			set_ME_state(ME_state_killed);
-		}
-#endif
 
 		break;
 
@@ -256,63 +274,78 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
-<<<<<<< HEAD
-=======
-#if 0 /* Will trigger a force_terminate on us */
-		agency_ctl_args.cmd = AG_KILL_ME;
-		agency_ctl_args.slotID = args->slotID;
-		args->__agency_ctl(&agency_ctl_args);
-#endif
-
-#if 0 /* Alphabet */
->>>>>>> ping pong
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		//RxData = (common_data *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-		
-
-<<<<<<< HEAD
-		/*TODO reste de la logique de propagation*/
-=======
-#if 0 /* Alphabet - Increment the alphabet in this case. */
-		if (get_ME_state() != ME_state_dormant)  {
->>>>>>> ping pong
+		RxData = (common_data *) io_map(pfn_to_phys(pfn), sizeof(RxData));
 
 
+		/*if ME have the same device and have the same type*/
+		if(!memcmp(&RxData->id,&localData->id,SOO_AGENCY_UID_SIZE) && (RxData->type == localData->type)){
+				
+			lprintk("same ME kill the less recent\n");
+
+			if(RxData->timeStamp < localData->timeStamp){
+				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+				agency_ctl_args.slotID = ME_domID();
+				args->__agency_ctl(&agency_ctl_args);
+
+			}else if(RxData->timeStamp > localData->timeStamp){
+				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+				agency_ctl_args.slotID = RxData->slotID;
+				args->__agency_ctl(&agency_ctl_args);
+
+			}else{
+				/*if ME have the same timeStamp merge liste*/
+				lprintk("ME have the same time stamp\n");
+				lprintk("merge list and kill initator\n");
 
 
+				/*end of list*/
+				idexEnd = localData->nb_device_visited - 1;
 
-<<<<<<< HEAD
-#if 1 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
-=======
-				else {
-					agency_ctl_args.cmd = AG_KILL_ME;
-					agency_ctl_args.slotID = args->slotID;
+				for(i = 0; i < RxData->nb_device_visited; i++){
+					is_new_ID = true;
+					
+					/*find if id know*/
+					for(j = 0; j < localData->nb_device_visited; j++){
+						if(!memcmp(&localData->ID_device_visited[j],&RxData->ID_device_visited[i],SOO_AGENCY_UID_SIZE)){
+							is_new_ID = false;
+						}
+					}
 
+					/*if id is new add to list*/
+					if(is_new_ID){
+						memcpy(&localData->ID_device_visited[idexEnd++], &RxData->ID_device_visited[i], SOO_AGENCY_UID_SIZE);
+					}
+				}
+				localData->nb_device_visited  = idexEnd  + 1;
+
+				/*KILL ME*/
+				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+				agency_ctl_args.slotID = RxData->slotID;
+				args->__agency_ctl(&agency_ctl_args);
+
+				/*enable migration*/
+				migration_count = 0;
+
+				#if 0 /*mode demo*/
+
+				if(localData->nb_device_visited == NB_DEMO_DEVICE){
+					lprintk("fin demo nb_jmp = %d !!!!!!!!!!!!!!!!!!!!!!\n\n\n\n",localData->nb_jump);
+					agency_ctl_args.cmd = AG_FORCE_TERMINATE;
+					agency_ctl_args.slotID = ME_domID();
 					args->__agency_ctl(&agency_ctl_args);
 				}
-			}
+
+				#endif
+			}	
 		}
 
-#endif
 
-#if 1 /*pigpong*/
-		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-		initiator_char = *((char *) recv_data);
-
-		if(initiator_char == 'i'){
-			*((char *) localinfo_data) = 'o';
-		}else {
-			*((char *) localinfo_data) = 'i';
-		}
-		
+		/*TODO reste de la logique de colaboration*/
 
 
-
-#endif 
 
 #if 0 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
->>>>>>> ping pong
 		DBG("Force the termination of this ME #%d\n", ME_domID());
 		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
 		agency_ctl_args.slotID = ME_domID();
@@ -320,7 +353,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		args->__agency_ctl(&agency_ctl_args);
 #endif
 
-		io_unmap((uint32_t) recv_data);
+	io_unmap((uint32_t) RxData);
 	
 		break;
 
@@ -355,7 +388,7 @@ int cb_post_activate(soo_domcall_arg_t *args) {
 #endif
 
 	DBG(">> ME %d: cb_post_activate...\n", ME_domID());
-	TxData->id
+	
 
 	return 0;
 }
@@ -396,14 +429,14 @@ void callbacks_init(void) {
 
 	/* Allocate localinfo */
 	localinfo_data = (void *) get_contig_free_vpages(1);
+	localData = (common_data* ) localinfo_data;
 
-	TxData = (common_data* ) localinfo_data;
-
-	/*init TxData
-	TxData->id[0] = 0xff;
-	TxData->nb_jump = 0;
-	TxData->timeStamp = 0;
-	TxData->type = 0;*/
+	/*init localData*/
+	localData->id[0] = 0;
+	localData->nb_jump = 0;
+	localData->timeStamp = 0;
+	localData->type = 0;
+	localData->nb_device_visited = 0;
 
 
 	/* Set the SPAD capabilities */
