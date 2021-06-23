@@ -8,8 +8,11 @@ The Migration Manager deals with the automatic propagation of the residing MEs w
 This subsystem does not require realtime capabilities and therefore runs on CPU #0 (non-realtime CPU).
 
 
-DomainID, ME slot ID
-^^^^^^^^^^^^^^^^^^^^
+Migration Sequence
+^^^^^^^^^^^^^^^^^^
+
+**DomainID, ME slot ID**
+
 
 There are several ways to identify a ME in a smart object. Two identifiers are used and have different
 semantics: the **domID** and the (ME) **slotID**. 
@@ -37,3 +40,13 @@ The identifiers are:
   and thus regarding MEs, *slotID* is identical to *domID*.
 
 
+ME ID
+^^^^^
+
+*to be completed*
+
+
+
+
+
+*to be completed*
