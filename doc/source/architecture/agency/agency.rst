@@ -10,7 +10,8 @@ Agency
    :hidden:
    
    soolink/soolink
- 
+   core/core
+   
  
 The agency is the whole software which is resident within a smart object. It is composed of the ``avz`` hypervisor
 and ``Linux`` as the main domain. Actually, the domain is divided in ``domain #0`` which is the non realtime domain
