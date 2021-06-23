@@ -4,4 +4,5 @@
 Device access logical block
 ---------------------------
 
-*To be completed*
+The **Device Access** logical block is dedicated to the management of the local devices including 
+the available storage medium, the identify management and information related to the available virtualized interfaces.
