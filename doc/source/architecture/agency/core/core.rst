@@ -19,6 +19,7 @@ It shows the various functional blocks of this subsystem.
 The **Migration Manager** functional block is in charge to manage the migration cycle at a certain frequency. 
 All mobile entities (MEs) are queried through specific callbacks and if they are ready to be migrated, 
 the Migration Manager is starting the callback sequence.
+
 Additionally, the Migration Manager provides an API to retrieve information about present MEs such as
 their ``SPID`` (Specy ID), name and short description.
 
@@ -29,5 +30,6 @@ To do that, this function interacts with the :ref:`Virtualized Interfaces <virt_
 
 Finally, the ``Identity``  function manages the agencyUID which is proper to the Smart Object. 
 It takes care of the location and security aspects related to the **agencyUID** identifier.
+
 
 
