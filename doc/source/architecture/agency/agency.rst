@@ -9,8 +9,8 @@ Agency
    :maxdepth: 5
    :hidden:
    
-   soolink/soolink
    core/core
+   soolink/soolink
    
  
 The agency is the whole software which is resident within a smart object. It is composed of the ``avz`` hypervisor
