@@ -43,10 +43,16 @@ The identifiers are:
 ME ID
 ^^^^^
 
-*to be completed*
+The Migration Manager provides an API that can be used to retrieve the following information related to
+each present mobile entity in the current smart object:
+
+* SPID
+* Short name (like "SOO.blind")
+* Short description (a maximum 1024-byte free text)
+
+ 
 
 
 
 
-
-*to be completed*
+ 
