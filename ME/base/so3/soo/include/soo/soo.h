@@ -69,21 +69,6 @@ int get_pfn_offset(void);
 extern soo_personality_t soo_get_personality(void);
 
 /*
- * IOCTL commands for migration.
- * This part is shared between the kernel and user spaces.
- */
-
-/*
- * IOCTL codes
- */
-
-#define ME_IOCTL_FORCE_TERMINATE		100
-#define ME_IOCTL_PICK_NEXT_UEVENT		101
-#define ME_IOCTL_READY				102
-#define ME_IOCTL_LOCALINFO_UPDATE		103
-#define ME_IOCTL_DUMP				104
-
-/*
  * ME states:
  * - ME_state_booting:		ME is currently booting...
  * - ME_state_preparing:	ME is being paused during the boot process, in the case of an injection, before the frontend initialization
@@ -209,8 +194,6 @@ typedef struct {
     unsigned int rootfs;
 } upgrade_versions_args_t;
 
-#ifdef __KERNEL__
-
 /*
  * Device Capabilities (Devcaps)
  * The agency holds a table of devcaps (device capabilities).
@@ -278,8 +261,6 @@ typedef struct agency_tx_args {
 	int	ME_slotID;
 	int	value;   /* IN/OUT */
 } agency_tx_args_t;
-
-#endif /* __KERNEL__ */
 
 /*
  * SOO hypercall management
@@ -566,20 +547,17 @@ void soo_guest_activity_init(void);
 void dc_stable(int dc_event);
 void tell_dc_stable(int dc_event);
 
-int sooeventd_resume(void);
-int sooeventd_suspend(void);
-
-void set_uevent(unsigned int uevent_type, unsigned int ME_slotID);
-void wait_for_usr_feedback(void);
-void usr_feedback_ready(void);
-
 void do_sync_dom(int slotID, dc_event_t);
 void do_async_dom(int slotID, dc_event_t);
 
 void perform_task(dc_event_t dc_event);
 
-int pick_next_uevent(void);
-
 void shutdown_ME(unsigned int ME_slotID);
+
+/* ME ID management */
+const char *get_me_shortdesc(void);
+const char *get_me_name(void);
+u64 get_spid(void);
+
 
 #endif /* SOO_H */
