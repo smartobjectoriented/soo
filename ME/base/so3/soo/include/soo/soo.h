@@ -187,7 +187,7 @@ typedef struct {
  * ME descriptor
  *
  * WARNING !! Be careful when modifying this structure. It *MUST* be aligned with
- * the same structure used in AVZ.
+ * the same structure used in AVZ and Agency.
  */
 typedef struct {
 	ME_state_t	state;
