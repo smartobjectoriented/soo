@@ -50,9 +50,16 @@ each present mobile entity in the current smart object:
 * Short name (like "SOO.blind")
 * Short description (a maximum 1024-byte free text)
 
- 
+The following fonction can be used either in the kernel or in the user space via
+the ``AGENCY_IOCTL_GET_ME_ID_ARRAY`` ioctl syscall.
 
+.. c:function:: void get_ME_id_array(ME_id_t *ME_id_array)
 
+.. note::
+   The caller must allocate an array of <ME_id_t> elements. The number of elements
+   corresponds to ``MAX_ME_DOMAINS``.
+   
+   
 
 
  

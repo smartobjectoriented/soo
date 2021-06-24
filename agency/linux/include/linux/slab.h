@@ -18,8 +18,6 @@
 #include <linux/workqueue.h>
 #include <linux/percpu-refcount.h>
 
-#include <soo/uapi/soo.h>
-
 /*
  * Flags to pass to kmem_cache_create().
  * The ones marked DEBUG are only valid if CONFIG_DEBUG_SLAB is set.

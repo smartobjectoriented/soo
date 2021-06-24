@@ -32,6 +32,9 @@
 
 #include "internal.h"
 
+/* SOO.tech */
+#include <soo/uapi/soo.h>
+
 /* sysctl tunables... */
 struct files_stat_struct files_stat = {
 	.max_files = NR_FILE
