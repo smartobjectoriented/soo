@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2014-2020 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2019-2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -26,28 +27,31 @@
 
 #include <uapi/soo.h>
 
+/**
+ * Main entry point of the Agency core subsystem.
+ */
 int main(int argc, char *argv[]) {
-	int slotID;
-	int fd_core;
+	int i, fd_core;
+	ME_id_t id_array[MAX_ME_DOMAINS];
 
-	printf("*** SOO - Mobile Entity shutdown ***\n");
-
-	if (argc != 2) {
-		printf("## Usage is : shutdownme <ME ID (1-5)>\n");
-		exit(-1);
-	}
-
-	printf("** Perform a shutdown of ME #%d (slotID %d)...", atoi(argv[1]), atoi(argv[1])+1);
-	fflush(stdout);
+	printf("*** SOO - Mobile Entity ID Retrieval ***\n\n");
 
 	fd_core = open("/dev/soo/core", O_RDWR);
 	assert(fd_core > 0);
 
 	/* Prepare to terminate the running ME (dom #2) */
+	printf("*** List of residing Mobile Entities: \n");
 
-	slotID = atoi(argv[1]) + 1;
+	ioctl(fd_core, AGENCY_IOCTL_GET_ME_ID_ARRAY, (unsigned int) id_array);
 
-	ioctl(fd_core, AGENCY_IOCTL_FORCE_TERMINATE, &slotID);
+	for (i = 0; i < MAX_ME_DOMAINS; i++) {
+		if (id_array[i].state == ME_state_dead)
+			printf("  slot %d -> empty\n", i+2);
+		else {
+			printf("  slot %d -> spid: %llx       name: %s\n", i+2, id_array[i].spid, id_array[i].name);
+			printf("             Short description: %s\n", id_array[i].shortdesc);
+		}
+	}
 
 	printf("done.\n");
 

@@ -44,6 +44,7 @@
 #else /* __KERNEL__ */
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdbool.h>
 
 typedef unsigned short uint16_t;
@@ -130,6 +131,7 @@ extern soo_personality_t soo_get_personality(void);
 #define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOR('S', 13, upgrader_ioctl_recv_args_t)
 #define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW('S', 14, upgrade_versions_args_t)
 #define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 15, agency_tx_args_t)
+#define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 16, agency_tx_args_t)
 
 #define ME_IOCTL_FORCE_TERMINATE		100
 #define ME_IOCTL_PICK_NEXT_UEVENT		101
@@ -174,6 +176,23 @@ typedef enum {
 
 #define SOO_NAME_SIZE				16
 
+/* ME ID related information */
+#define ME_NAME_SIZE				40
+#define ME_SHORTDESC_SIZE			1024
+
+/*
+ * Definition of ME ID information used by functions which need
+ * to get a list of running MEs with their information.
+ */
+typedef struct {
+	uint32_t slotID;
+	ME_state_t state;
+
+	uint64_t spid;
+	char name[ME_NAME_SIZE];
+	char shortdesc[ME_SHORTDESC_SIZE];
+} ME_id_t;
+
 #ifdef __KERNEL__
 
 /*
@@ -199,9 +218,6 @@ typedef struct {
 	agencyUID_t agencyUID; /* Agency UID */
 } agency_desc_t;
 
-#if defined(CONFIG_SOO_ME)
-extern agencyUID_t null_agencyUID;
-#endif /* CONFIG_SOO_ME */
 
 #endif /* __KERNEL__ */
 
@@ -728,6 +744,8 @@ int pick_next_uevent(void);
 void shutdown_ME(unsigned int ME_slotID);
 
 void cache_flush_all(void);
+
+void get_ME_id_array(ME_id_t *ME_id_array);
 
 #endif /* __KERNEL__ */
 #endif /* __ASSEMBLY__ */
