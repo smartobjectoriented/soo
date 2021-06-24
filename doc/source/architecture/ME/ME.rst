@@ -35,6 +35,9 @@ The following entries are dedicated to the ME ID information.
 * /soo/me/<domID>/name
 * /soo/me/<domID>/shortdesc
 
+The :ref:`Migration Manager <migration_manager>` provides a facility to get 
+the list of MEs with their ID Information in the kernel and in the user space
+via an ioctl.
 
 Species Identifier (SPID)
 -------------------------

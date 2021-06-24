@@ -45,6 +45,7 @@
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
+#include <linux/string.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -842,6 +843,10 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		ioctl_get_ME_snapshot(arg);
 		break;
 	
+	case AGENCY_IOCTL_GET_ME_ID_ARRAY:
+		get_ME_id_array((ME_id_t *) arg);
+		break;
+
 	case INJECTOR_IOCTL_CLEAN_ME:
 		injector_clean_ME();
 		break;
@@ -921,6 +926,48 @@ struct file_operations agency_fops = {
     .unlocked_ioctl = agency_ioctl,
     .mmap = agency_upgrade_mmap,
 };
+
+/**
+ * Get a list of all residing MEs in this smart object.
+ * The caller must have allocated an array of <MAX_ME_DOMAINS> <ME_id_t> elements.
+ *
+ * The ME state will be used to determine if a ME is residing or not (ME_state_dead).
+ */
+void get_ME_id_array(ME_id_t *ME_id_array) {
+	uint32_t slotID;
+	char *prop;
+	char rootname[VBS_KEY_LENGTH];
+	unsigned int len;
+
+	/* Walk through all entries in vbstore regarding MEs */
+
+	for (slotID = 2; slotID < MAX_DOMAINS; slotID++) {
+
+		sprintf(rootname, "soo/me/%d", slotID);
+
+		/* Check if there is a ME? */
+		prop = vbus_read(VBT_NIL, rootname, "spid", &len);
+
+		if (len == 1)  { /* If no entry in vbstore, it returns 1 (byte \0) */
+			ME_id_array[slotID-2].state = ME_state_dead;
+		} else {
+			sscanf(prop, "%llx", &ME_id_array[slotID-2].spid);
+			kfree(prop);
+
+			ME_id_array[slotID-2].state = get_ME_state(slotID);
+			prop = vbus_read(VBT_NIL, rootname, "name", &len);
+
+			strcpy(ME_id_array[slotID-2].name, prop);
+			kfree(prop);
+
+			prop = vbus_read(VBT_NIL, rootname, "shortdesc", &len);
+
+			strcpy(ME_id_array[slotID-2].shortdesc, prop);
+			kfree(prop);
+		}
+	}
+
+}
 
 /*  Driver core definition */
 
@@ -1028,6 +1075,8 @@ static struct device soo_dev = {
 #endif /* !CONFIG_X86 */
 
 int evtchn;
+
+/* For testing purposes */
 
 irqreturn_t dummy_interrupt(int irq, void *dev_id) {
 

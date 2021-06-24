@@ -84,6 +84,8 @@ install_file_root build/apps/injector
 install_file_root build/apps/saveme
 install_file_root build/apps/restoreme
 install_file_root build/apps/shutdownme
+install_file_root build/apps/melist
+
 
 
 
