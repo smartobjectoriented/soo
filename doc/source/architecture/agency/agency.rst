@@ -31,7 +31,7 @@ VBus and VBstore
 
 *to be completed*
 
-VBStore
+VBstore
 -------
 
 .. warning::
