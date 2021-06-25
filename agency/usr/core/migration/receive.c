@@ -28,7 +28,7 @@
 
 #include <dcm/core.h>
 
-#include <uapi/debug.h>
+#include <soo/uapi/debug.h>
 
 #ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>

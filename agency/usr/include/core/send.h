@@ -20,7 +20,7 @@
 #ifndef SEND_H
 #define SEND_H
 
-#include <uapi/soo.h>
+#include <soo/uapi/soo.h>
 
 void try_to_send_ME(void);
 void sig_initiate_migration(int sig);

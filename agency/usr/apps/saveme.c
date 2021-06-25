@@ -24,7 +24,7 @@
 
 #include <sys/ioctl.h>
 
-#include <uapi/soo.h>
+#include <soo/uapi/soo.h>
 
 #include <zip.h>
 

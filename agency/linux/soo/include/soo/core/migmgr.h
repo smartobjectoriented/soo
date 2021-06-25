@@ -1,7 +1,5 @@
-
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@soo.tech>
- * Copyright (C) 2018-2019 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2016-2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,12 +16,21 @@
  *
  */
 
-#ifndef INJECTOR_CORE_H
-#define INJECTOR_CORE_H
+#ifndef MIGMGR_H
+#define MIGMGR_H
 
-#include <soo/uapi/injector.h>
+int ioctl_set_personality(unsigned long arg);
+int ioctl_get_personality(unsigned long arg);
 
-void injector_init(void);
-void inject_from_BT(void);
+int ioctl_initialize_migration(unsigned long arg);
+int ioctl_finalize_migration(unsigned long arg);
 
-#endif /* INJECTOR_CORE_H */
+int ioctl_write_snapshot(unsigned long arg);
+
+void ioctl_get_ME_snapshot(unsigned long arg);
+int ioctl_read_snapshot(unsigned long arg);
+
+
+#endif /* MIGMGR_H */
+
+
