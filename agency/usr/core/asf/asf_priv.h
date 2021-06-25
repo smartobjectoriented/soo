@@ -31,7 +31,7 @@
 #include <sys/ioctl.h>
 #include <stdarg.h>
 
-#include <uapi/asf.h>
+#include <soo/uapi/asf.h>
 
 #define ASF_MAX_PRINT_SIZE	256
 

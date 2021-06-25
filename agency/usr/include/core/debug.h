@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <uapi/debug.h>
+#include <soo/uapi/debug.h>
 
 #define BUG() do { force_print("BUG\n"); fflush(stdout); exit(-1); } while (0);
 

@@ -21,7 +21,7 @@
 
 #include <stdint.h>
 
-#include <uapi/soo.h>
+#include <soo/uapi/soo.h>
 
 #define SOO_N_LEDS				6
 
