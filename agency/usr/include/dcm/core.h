@@ -25,7 +25,7 @@
 
 #include <core/core.h>
 
-#include <uapi/dcm.h>
+#include <soo/uapi/dcm.h>
 
 /* Max ME size is 64 MBytes */
 #define	ME_BUFFER_MAXSIZE	8*1024*1024

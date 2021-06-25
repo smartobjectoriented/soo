@@ -45,10 +45,10 @@
 #endif /* __KERNEL__ */
 
 /* IOCTL codes exposed to the user space side */
-#define INJECTOR_IOCTL_INIT				_IOW(0x5000DC40, 0, char)
-#define INJECTOR_IOCTL_IS_READY_TO_SEND	_IOW(0x5000DC40, 1, char)
-#define INJECTOR_IOCTL_RETRIEVE_ME		_IOW(0x5000DC40, 2, char)
-#define INJECTOR_IOCTL_CLEAN_ME		    _IOW(0x5000DC40, 3, char)
+#define INJECTOR_IOCTL_INIT			_IOW('I', 0, char)
+#define INJECTOR_IOCTL_IS_READY_TO_SEND		_IOW('I', 1, char)
+#define INJECTOR_IOCTL_RETRIEVE_ME		_IOW('I', 2, char)
+#define INJECTOR_IOCTL_CLEAN_ME			_IOW('I', 3, char)
 
 typedef struct {
 	void *ME_data;	/* Reference to the uncompressed ME */
@@ -105,8 +105,6 @@ void injector_retrieve_ME(unsigned long arg);
 void injector_clean_ME(void);
 int injector_receive_ME(void *ME, size_t size);
 
-int injector_init(wait_queue_head_t *_wq_prod, wait_queue_head_t *_wq_cons);
-
 void *injector_get_ME_buffer(void);
 size_t injector_get_ME_size(void);
 
@@ -116,6 +114,8 @@ bool injector_is_full(void);
 void injector_set_full(bool _full);
 
 int ioctl_inject_ME(unsigned long arg);
+
+ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos);
 
 #endif /* __KERNEL__ */
 

@@ -25,7 +25,7 @@
 
 #include <sys/ioctl.h>
 
-#include <uapi/soo.h>
+#include <soo/uapi/soo.h>
 
 /**
  * Main entry point of the Agency core subsystem.

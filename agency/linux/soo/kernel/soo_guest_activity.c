@@ -41,12 +41,12 @@
 #include <soo/vbstore.h>
 
 #include <soo/uapi/soo.h>
-#include <soo/guest_api.h>
 #include <soo/uapi/console.h>
 
 #include <soo/guest_api.h>
 
 #include <soo/core/device_access.h>
+#include <soo/core/upgrader.h>
 
 #define MAX_PENDING_UEVENT		10
 
@@ -393,44 +393,6 @@ int pick_next_uevent(void)
 	return 1;
 }
 
-int get_ME_state(unsigned int ME_slotID)
-{
-	int rc;
-	int val;
-
-	val = ME_slotID;
-
-	rc = soo_hypercall(AVZ_GET_ME_STATE, NULL, NULL, &val, NULL);
-	if (rc != 0) {
-		printk("%s: failed to get the ME state from the hypervisor (%d)\n", __func__, rc);
-		return rc;
-	}
-
-	return val;
-}
-
-/*
- * Setting the ME state to the specific ME_slotID.
- * The hypercall args is passed by 2 contiguous (unsigned) int, the first one is
- * used for slotID, the second for the state
- */
-int set_ME_state(unsigned int ME_slotID, ME_state_t state)
-{
-	int rc;
-	int _state[2];
-
-	_state[0] = ME_slotID;
-	_state[1] = state;
-
-	rc = soo_hypercall(AVZ_SET_ME_STATE, NULL, NULL, _state, NULL);
-	if (rc != 0) {
-		printk("%s: failed to set the ME state from the hypervisor (%d)\n", __func__, rc);
-		return rc;
-	}
-
-	return rc;
-}
-
 void dc_trigger_dev_probe_fn(dc_event_t dc_event) {
 	vbus_probe_backend(atomic_read(&dc_incoming_domID[dc_event]));
 	tell_dc_stable(dc_event);
@@ -514,7 +476,7 @@ int agency_ctl(agency_ctl_args_t *agency_ctl_args)
 
 	case AG_AGENCY_UPGRADE:
 		DBG("Upgrade buffer pfn: 0x%08X with size %lu\n", agency_ctl_args->u.agency_upgrade_args.buffer_pfn, agency_ctl_args->u.agency_upgrade_args.buffer_len);
-		devaccess_store_upgrade(agency_ctl_args->u.agency_upgrade_args.buffer_pfn, agency_ctl_args->u.agency_upgrade_args.buffer_len, agency_ctl_args->slotID);
+		upg_store(agency_ctl_args->u.agency_upgrade_args.buffer_pfn, agency_ctl_args->u.agency_upgrade_args.buffer_len, agency_ctl_args->slotID);
 
 		break;
 
@@ -526,56 +488,6 @@ int agency_ctl(agency_ctl_args_t *agency_ctl_args)
 
 
 	return 0;
-}
-
-/*
- * Retrieve the agency descriptor.
- */
-int get_agency_desc(agency_desc_t *agency_desc)
-{
-	int rc;
-	dom_desc_t dom_desc;
-	unsigned int slotID;
-
-	slotID = 1;  /* Agency slot */
-
-	rc = soo_hypercall(AVZ_GET_DOM_DESC, NULL, NULL, &slotID, &dom_desc);
-	if (rc != 0) {
-		printk("%s: failed to retrieve the SOO descriptor for slot ID %d.\n", __func__, rc);
-		return rc;
-	}
-
-	memcpy(agency_desc, &dom_desc.u.agency, sizeof(agency_desc_t));
-
-	return 0;
-}
-
-/**
- * Retrieve the ME descriptor including the SPID, the state and the SPAD.
- */
-void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc) {
-	int rc;
-	dom_desc_t dom_desc;
-
-	rc = soo_hypercall(AVZ_GET_DOM_DESC, NULL, NULL, &slotID, &dom_desc);
-	if (rc != 0) {
-		printk("%s: failed to retrieve the SOO descriptor for slot ID %d.\n", __func__, rc);
-		BUG();
-	}
-
-	memcpy(ME_desc, &dom_desc.u.ME, sizeof(ME_desc_t));
-}
-
-/*
- * Retrieve the SPID of a ME.
- *
- * Return 0 if success.
- */
-void get_ME_spid(unsigned int slotID, unsigned char *spid) {
-	ME_desc_t ME_desc;
-
-	get_ME_desc(slotID, &ME_desc);
-	memcpy(spid, ME_desc.spid, SPID_SIZE);
 }
 
 void soo_guest_activity_init(void)

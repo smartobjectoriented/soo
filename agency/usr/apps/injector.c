@@ -37,7 +37,7 @@
 #include <sys/mman.h>
 #include <stdbool.h>
 
-#include <uapi/soo.h>
+#include <soo/uapi/soo.h>
 
 #include <core/core.h>
 #include <core/inject.h>
