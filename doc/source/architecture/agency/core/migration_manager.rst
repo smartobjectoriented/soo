@@ -53,7 +53,8 @@ each present mobile entity in the current smart object:
 The following fonction can be used either in the kernel or in the user space via
 the ``AGENCY_IOCTL_GET_ME_ID_ARRAY`` ioctl syscall.
 
-.. c:function:: void get_ME_id_array(ME_id_t *ME_id_array)
+.. c:function:: 
+   void get_ME_id_array(ME_id_t *ME_id_array)
 
 .. note::
    The caller must allocate an array of <ME_id_t> elements. The number of elements
