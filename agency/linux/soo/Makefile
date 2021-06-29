@@ -10,4 +10,6 @@ obj-y 	+= soolink/
 
 obj-y   += rtapp.o
 
+obj-y	+= lib/
+
 CFLAGS_REMOVE_rtapp.o = -mgeneral-regs-only
