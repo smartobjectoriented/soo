@@ -24,10 +24,12 @@
 #include <linux/slab.h>
 
 #include <soo/vbus.h>
+#include <soo/roxml.h>
 
 #include <soo/uapi/soo.h>
 #include <soo/uapi/debug.h>
 #include <soo/uapi/me_access.h>
+
 
 int get_ME_state(unsigned int ME_slotID)
 {
@@ -203,6 +205,51 @@ void get_ME_id_array(ME_id_t *ME_id_array) {
 			kfree(prop);
 		}
 	}
+
+}
+
+void xml_prepare_id_array(char *buffer, ME_id_t *ME_id_array) {
+	uint32_t pos;
+	char *__buffer;
+	node_t *root, *messages, *me, *name, *shortdesc;
+	char spid[SPID_SIZE];
+
+	/* Adding attributes to xml node */
+	root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
+
+	/* Adding the messages node */
+	messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "mobile-entities", NULL);
+
+	for (pos = 0; pos < MAX_ME_DOMAINS; pos++) {
+
+		if (ME_id_array[pos].state != ME_state_dead) {
+
+			/* Adding the message itself */
+			me = roxml_add_node(messages, 0, ROXML_ELM_NODE, "mobile-entity", NULL);
+
+			/* Add SPID */
+			sprintf(spid, "%llx", ME_id_array[pos].spid);
+			roxml_add_node(me, 0, ROXML_ATTR_NODE, "spid", spid);
+
+			/* Add short name */
+			name = roxml_add_node(me, 0, ROXML_ELM_NODE, "name", NULL);
+			roxml_add_node(name, 0, ROXML_TXT_NODE, NULL, ME_id_array[pos].name);
+
+			/* And the short description */
+			shortdesc = roxml_add_node(me, 0, ROXML_ELM_NODE, "description", NULL);
+			roxml_add_node(shortdesc, 0, ROXML_TXT_NODE, NULL, ME_id_array[pos].shortdesc);
+		}
+
+	}
+
+	roxml_commit_changes(root, NULL, &__buffer, 1);
+
+	strcpy(buffer, __buffer);
+
+	roxml_release(RELEASE_LAST);
+	roxml_close(root);
 
 }
 
