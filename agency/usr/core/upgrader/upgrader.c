@@ -40,7 +40,7 @@
 #include <frozen.h>
 #include <lz4.h>
 
-#include <uapi/soo.h>
+#include <soo/uapi/soo.h>
 
 int fd_core;
 

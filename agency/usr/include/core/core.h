@@ -22,7 +22,7 @@
 
 #include <stddef.h>
 
-#include <uapi/soo.h>
+#include <soo/uapi/soo.h>
 
 /* Cycle period express in ms */
 #define AG_CYCLE_PERIOD		100

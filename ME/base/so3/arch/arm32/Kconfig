@@ -1,0 +1,26 @@
+
+if ARCH_ARM32
+
+menu "Platform"
+
+choice
+  prompt "Target"
+	
+	config VEXPRESS
+    		bool "Vexpress"
+	
+	config RPI4    	
+    		bool "Raspberry Pi 4 Model B support"
+     
+	config SO3VIRT
+		bool "SO3 avz"
+		depends on MMU
+endchoice
+
+
+source "arch/arm32/vexpress/Kconfig"
+source "arch/arm32/rpi4/Kconfig"
+
+endmenu
+
+endif
