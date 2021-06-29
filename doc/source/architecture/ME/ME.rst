@@ -58,7 +58,8 @@ The *SPAD* is also used to tell the agency if the ME is inclined to cooperate wi
 Enabling the possibility for an ME to perform *cooperation* with other ME requires to call
 the following function in the main application of the ME:
 
-.. c:function:: void spad_enable_cooperate(void)
+.. c:function:: 
+   void spad_enable_cooperate(void)
 
    
 Lifecycle of a Mobile Entity
@@ -70,5 +71,38 @@ from the CPU's agency (CPU #0 normally).
 
 The ME will then prepare the initialization of ``vbstore`` entries related to itself as well as to
 the frontend drivers which are managed by the ME.
+
+ME Interactions with the User Interface application
+===================================================
+
+The ME can manage XML messages and events in order to interact with a GUI running
+on the tablet. The following helpers are very helpful to this purpose. The messages/events
+are forwarded to the vuihandler frontend.
+
+
+Message handling
+----------------
+
+This function prepare a XML message based on its ID and value:
+
+.. c:function:: 
+   void xml_prepare_message(char *buffer, char *id, char *value)
+
+The buffer is allocated by the caller and will contain the XML formatted message.
+  
+
+Event handling
+--------------
+
+.. c:function::
+   void xml_parse_event(char *buffer, char *id, char *action)
+
+The event message (pointed by *buffer*) contains a specific action with an associated ID. These fields can be retrieved
+with this function. The caller must allocate the memory.
+
+
+
+
+
 
 
