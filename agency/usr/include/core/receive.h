@@ -20,7 +20,7 @@
 #ifndef RECEIVE_H
 #define RECEIVE_H
 
-#include <uapi/soo.h>
+#include <soo/uapi/soo.h>
 
 bool ME_processing_receive(void);
 

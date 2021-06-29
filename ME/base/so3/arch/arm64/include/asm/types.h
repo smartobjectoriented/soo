@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,6 +16,29 @@
  *
  */
 
-int vbs_me_mkdir(struct vbus_transaction vbt, const char *dir, const char *node);
-int vbs_me_write(struct vbus_transaction vbt, const char *dir, const char *node, const char *string);
+#ifndef __ASM_ARM_TYPES_H
+#define __ASM_ARM_TYPES_H
 
+typedef unsigned short umode_t;
+
+#define BITS_PER_INT 32
+
+/*
+ * __xx is ok: it doesn't pollute the POSIX namespace. Use these in the
+ * header files exported to user space
+ */
+
+typedef __signed__ char __s8;
+typedef unsigned char __u8;
+
+typedef __signed__ short __s16;
+typedef unsigned short __u16;
+
+typedef __signed__ int __s32;
+typedef unsigned int __u32;
+
+typedef __signed__ long __s64;
+typedef unsigned long __u64;
+
+
+#endif

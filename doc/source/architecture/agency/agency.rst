@@ -24,3 +24,16 @@ The figure below shows the Agency subsystems and functional blocks.
    :scale: 50 %
 
    SOO Subsystems and functional blocks
+
+================
+VBus and VBstore
+================
+
+*to be completed*
+
+VBstore
+-------
+
+.. warning::
+   Do not forget to free the memory allocated at the return of ``vbus_read()``.
+

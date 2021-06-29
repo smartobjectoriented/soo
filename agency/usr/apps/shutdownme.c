@@ -24,12 +24,11 @@
 
 #include <sys/ioctl.h>
 
-#include <uapi/soo.h>
-
-int fd_core;
+#include <soo/uapi/soo.h>
 
 int main(int argc, char *argv[]) {
 	int slotID;
+	int fd_core;
 
 	printf("*** SOO - Mobile Entity shutdown ***\n");
 
@@ -51,6 +50,8 @@ int main(int argc, char *argv[]) {
 	ioctl(fd_core, AGENCY_IOCTL_FORCE_TERMINATE, &slotID);
 
 	printf("done.\n");
+
+	close(fd_core);
 
 	return 0;
 }

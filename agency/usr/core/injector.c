@@ -41,7 +41,7 @@
 #include <core/types.h>
 #include <core/device_access.h>
 
-#include <uapi/dcm.h>
+#include <soo/uapi/dcm.h>
 
 #include <injector/core.h>
 

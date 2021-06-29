@@ -35,7 +35,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 
-#include <uapi/soo.h>
+#include <soo/uapi/soo.h>
 
 #include <core/core.h>
 

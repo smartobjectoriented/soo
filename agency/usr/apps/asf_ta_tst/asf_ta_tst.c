@@ -23,7 +23,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include <uapi/asf.h>
+#include <soo/uapi/asf.h>
 
 typedef struct {
 	int val;
