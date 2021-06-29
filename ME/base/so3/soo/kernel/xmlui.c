@@ -33,6 +33,7 @@ void xml_prepare_message(char *buffer, char *id, char *value) {
 
 	/* Adding attributes to xml node */
 	roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
 
 	/* Adding the messages node */
 	messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "messages", NULL);
