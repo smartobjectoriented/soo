@@ -27,8 +27,9 @@
  */
 void xml_prepare_message(char *buffer, char *id, char *value) {
 	char *__buffer;
-	node_t *root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
-	node_t *messages, *msg;
+	node_t *root, *messages, *msg;
+
+	root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
 
 	/* Adding attributes to xml node */
 	roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
@@ -39,7 +40,7 @@ void xml_prepare_message(char *buffer, char *id, char *value) {
 	/* Adding the message itself */
 	msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
 
-	roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to=", id);
+	roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", id);
 
 	roxml_add_node(msg, 0, ROXML_TXT_NODE, NULL, value);
 
