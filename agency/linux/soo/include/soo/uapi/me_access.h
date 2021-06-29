@@ -24,7 +24,9 @@
 #include <stdint.h>
 #endif
 
+#ifndef __AVZ__
 #include <linux/types.h>
+#endif
 
 /*
  * Capabilities for the Species Aptitude Descriptor (SPAD) structure
@@ -138,6 +140,7 @@ typedef struct {
 #define ME_EXTRA_BUFFER_SIZE (1024 * 1024)
 
 #ifdef __KERNEL__
+#ifndef __AVZ__
 
 int get_ME_state(unsigned int ME_slotID);
 int set_ME_state(unsigned int ME_slotID, ME_state_t state);
@@ -150,7 +153,7 @@ void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc);
 
 void get_ME_spid(unsigned int slotID, unsigned char *spid);
 
-
+#endif /* !__AVZ__ */
 #endif /* __KERNEL__ */
 
 #endif /* ME_ACCESS_H */

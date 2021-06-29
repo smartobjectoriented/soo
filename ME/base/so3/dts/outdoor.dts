@@ -25,7 +25,7 @@
 	domain-size = <0x400000>;
 	
 	/* SPID on 128-bit encoding */
-	spid = <0x0020000000000002>;
+	spid = /bits/ 64 <0x0020000000000002>;
 		
 	/* Name of this ME */
 	me_name = "SOO.outdoor";
