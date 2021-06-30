@@ -21,6 +21,7 @@
    architecture/architecture
    drivers/drivers
    user_guide
+   boards/boards
    logging
    aarch64
    dev_flow
