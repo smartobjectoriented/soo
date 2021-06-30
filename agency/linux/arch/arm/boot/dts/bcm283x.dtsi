@@ -396,15 +396,6 @@
 				brcm,function = <BCM2835_FSEL_ALT5>;
 			};
 
-			/*uart2_gpio0: uart2_gpio0 {
-				brcm,pins = <0 1>;
-				brcm,function = <BCM2835_FSEL_ALT4>;
-			};*/
-
-			uart5_gpio12: uart5_gpio12 {
-				brcm,pins = <12 13>;
-				brcm,function = <BCM2835_FSEL_ALT4>;
-			};
 		};
 
 		uart0: serial@7e201000 {

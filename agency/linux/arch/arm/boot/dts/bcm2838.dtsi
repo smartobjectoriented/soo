@@ -623,11 +623,11 @@
 		brcm,function = <BCM2835_FSEL_ALT4>;
 		brcm,pull = <BCM2835_PUD_UP BCM2835_PUD_OFF>;
 	};
-	/*uart5_gpio12: uart5_gpio12 {
+	uart5_gpio12: uart5_gpio12 {
 		brcm,pins = <12 13>;
 		brcm,function = <BCM2835_FSEL_ALT4>;
 		brcm,pull = <BCM2835_PUD_OFF BCM2835_PUD_UP>;
-	};*/
+	};
 	uart5_ctsrts_gpio14: uart5_ctsrts_gpio14 {
 		brcm,pins = <14 15>;
 		brcm,function = <BCM2835_FSEL_ALT4>;
