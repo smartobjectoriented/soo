@@ -19,7 +19,14 @@
 #ifndef MACH_UART_H
 #define MACH_UART_H
 
-#define UART_BASE 0xfe215040
+/* UART1 (mini UART) */
+#define RPI4_UART1_ADDR		0xfe215040
+
+/* UART5 (pl011) */
+#define RPI4_UART5_ADDR 	0xfe201a00
+
+/* Initial UART */
+#define UART_BASE		RPI4_UART1_ADDR
 
 #endif /* MACH_UART_H */
 

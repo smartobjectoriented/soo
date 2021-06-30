@@ -27,6 +27,12 @@
 
 #include <types.h>
 
+/* UART Control Register */
+#define RPI_UART_CR	0x30
+
+/* UART Enable bit */
+#define RPI_UART_EN	0x1
+
 #define UART_THR	0x0
 #define UART_LSR	0x14
 
