@@ -7,6 +7,7 @@ Core subsystem
    
    migration_manager
    device_access
+   me_access
    
 The general architecture of the agency core subsystem is depicted on the figure below.
 It shows the various functional blocks of this subsystem.

@@ -1612,6 +1612,10 @@ int vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
     return (i > 0) ? i : 0;
 }
 
+int vsprintf(char *s, const char *fmt, va_list ap)
+{
+	return vsnprintf(s, INT_MAX, fmt, ap);
+}
 
 /**
  * vsscanf - Unformat a buffer into a list of arguments
