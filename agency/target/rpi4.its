@@ -53,6 +53,15 @@
             compression = "none";
             load = <0x10a00000>;
         };
+
+        fdt_lora {
+        	description = "SOO Agency device tree blob";
+            data = /incbin/("../linux/arch/arm/boot/dts/bcm2711-rpi-4-b-lora.dtb");
+            type = "flat_dt";
+            arch = "arm";
+            compression = "none";
+            load = <0x10a00000>;
+        };
 	
         initrd {
         	description = "Agency initial rootfs (initrd)";
@@ -71,7 +80,8 @@
 			description = "SOO Agency on Raspberry Pi 4 B";
         	loadables = "linux";
         	kernel = "avz";
-        	fdt = "fdt";
+        	/*fdt = "fdt";*/
+        	fdt = "fdt_lora";
         	ramdisk = "initrd";
 		};
 	};

@@ -36,7 +36,7 @@ ifeq ("$(PLATFORM)", "merida")
 endif
 
 ifeq ("$(PLATFORM)", "rpi4")
-  LINUX_CONF := $(PLATFORM_TYPE)_defconfig
+  LINUX_CONF := $(PLATFORM_TYPE)_lora_defconfig
   AVZ_CONF := rpi4_defconfig
 endif
 
