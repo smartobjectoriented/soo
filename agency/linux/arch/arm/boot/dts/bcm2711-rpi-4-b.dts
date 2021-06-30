@@ -341,16 +341,6 @@
 };
 
 
-
-/* uart5 is used for console */
-&uart5 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart5_gpio12>;
-	/*pinctrl-0 = <&uart5_pins>;*/
-	status = "okay";
-};
-
-
 &i2c1 {
     compatible = "brcm,bcm2711-i2c", "brcm,bcm2835-i2c";
 	interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
