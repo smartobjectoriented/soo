@@ -15,6 +15,7 @@
 
 		random: rng@7e104000 {
 			/* Add label */
+	pinctrl-0 = <&uart2_gpio0>;
 		};
 
 		gpio@7e200000 { /* gpio */
