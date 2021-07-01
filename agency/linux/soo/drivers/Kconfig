@@ -56,6 +56,14 @@ config VNET_BACKEND
     help
       This driver implements the backend of the network driver of the SOO environment.
 
+config VSENSELED_BACKEND
+	depends on FB_RPISENSE
+	bool "vsenseled Sense-HAT led backend driver"
+	default n
+	help
+	  The vsenseled driver enables 5 logical LEDs that may be used to represent the joystick movement
+	  for example.
+
 source "soo/drivers/vnetback/Kconfig"
 
 endmenu
