@@ -90,6 +90,7 @@ irqreturn_t vsenseled_interrupt(int irq, void *dev_id)
 
 void vsenseled_probe(struct vbus_device *vdev) {
 	vsenseled_priv_t *vsenseled_priv;
+	static bool rpisense = false;
 
 	vsenseled_priv = kzalloc(sizeof(vsenseled_priv_t), GFP_ATOMIC);
 	BUG_ON(!vsenseled_priv);
@@ -97,6 +98,13 @@ void vsenseled_probe(struct vbus_device *vdev) {
 	dev_set_drvdata(&vdev->dev, vsenseled_priv);
 
 	vsenseled_dev = vdev;
+
+	if (!rpisense) {
+		/* Initialize the RPi Sense HAT peripheral */
+		senseled_init();
+
+		rpisense = true;
+	}
 
 	DBG(VSENSELED_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
@@ -188,9 +196,6 @@ int vsenseled_init(void) {
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))
 		return 0;
-
-	/* Initialize the RPi Sense HAT peripheral */
-	senseled_init();
 
 	vdevback_init(VSENSELED_NAME, &vsenseleddrv);
 
