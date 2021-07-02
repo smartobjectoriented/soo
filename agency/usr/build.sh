@@ -44,6 +44,7 @@ SCRIPTPATH=`dirname $SCRIPT`
 if [ $clean == y ]; then
   echo "Cleaning $SCRIPTPATH/build"
   rm -rf $SCRIPTPATH/build
+  make -C module clean
   exit
 fi
 
@@ -70,6 +71,9 @@ else
 fi
 cd -
 
+# Check for modules
+
+make -C module
 
 mkdir -p build/deploy/
 
@@ -86,7 +90,8 @@ install_file_root build/apps/restoreme
 install_file_root build/apps/shutdownme
 install_file_root build/apps/melist
 
-
+# And modules if any
+cp module/*.ko build/deploy 2>/dev/null
 
 
 
