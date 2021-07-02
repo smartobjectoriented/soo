@@ -16,6 +16,7 @@
 #include <asm/io.h>
 
 void display_led(int led_nr, bool on);
+void senseled_init(void);
 
 static int senseled_probe(struct platform_device *pdev) {
 
@@ -36,7 +37,7 @@ static int senseled_remove(struct platform_device *pdev) {
 
 static const struct of_device_id senseled_of_ids[] = {
 	{
-		.compatible = "agency,vexpress",
+		.compatible = "agency,rpi4",
 	},
 
 	{ /* sentinel */ },
@@ -52,23 +53,24 @@ static struct platform_driver senseled_driver = {
 	},
 };
 
-static int senseled_init(void) {
+static int mod_senseled_init(void) {
 
 	printk("access: small driver for accessing Sense HAT led...\n");
+	senseled_init();
 
 	platform_driver_register(&senseled_driver);
 
 	return 0;
 }
 
-static void senseled_exit(void) {
+static void mod_senseled_exit(void) {
 
 	platform_driver_unregister(&senseled_driver);
 	printk("senseled: bye bye!\n");
 }
 
-module_init(senseled_init);
-module_exit(senseled_exit);
+module_init(mod_senseled_init);
+module_exit(mod_senseled_exit);
 
 MODULE_INFO(intree, "Y");
 MODULE_LICENSE("GPL");

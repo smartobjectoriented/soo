@@ -101,6 +101,9 @@ unsigned char leds[][64][2] = {
 	}
 };
 
+/* In drivers/video/fbdev/rpisense-fb.c */
+void update_rpisense_fb_mem(uint8_t *matrix);
+
 void display_led(int led_nr, bool on) {
 	int i, j;
 	u16 *mem = (u16 *) leds[led_nr];
@@ -127,6 +130,8 @@ void display_led(int led_nr, bool on) {
 		}
 	}
 
+	update_rpisense_fb_mem(matrix);
+
 	i2c_master_send(rpisense->i2c_client, matrix, SIZE_FB);
 }
 EXPORT_SYMBOL(display_led);
@@ -140,3 +145,4 @@ void senseled_init(void) {
 	rpisense = rpisense_get_dev();
 
 }
+EXPORT_SYMBOL(senseled_init);
