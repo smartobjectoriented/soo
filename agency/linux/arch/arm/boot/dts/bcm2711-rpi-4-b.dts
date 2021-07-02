@@ -75,8 +75,7 @@
 	
 		/* Backends */
 		backends {
-			compatible = "arm,soo";
-
+	
 			vdummy {
 				compatible = "vdummy,backend";
 				status = "ok";
@@ -89,11 +88,16 @@
 		
 			vuihandler {
 				compatible = "vuihandler,backend";
-				status = "disabled";
+				status = "ok";
 			};
 
 			vnet {
 				compatible = "vnet,backend";
+				status = "disabled";
+			};
+			
+			vsenseled {
+				compatible = "vsenseled,backend";
 				status = "ok";
 			};
 		

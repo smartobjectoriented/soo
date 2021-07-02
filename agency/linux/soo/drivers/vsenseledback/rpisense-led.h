@@ -19,11 +19,8 @@ typedef void(*joystick_handler_t)(struct platform_device *pdev, int key);
 #define LEFT    0x10
 #define CENTER  0x08
 
-void rpisense_init(void);
+void senseled_init(void);
 
 void display_led(int led_nr, bool on);
-
-void rpisense_joystick_handler_register(struct platform_device *pdev, joystick_handler_t joystick_handler);
-
 
 #endif /* RPISENSE_H */

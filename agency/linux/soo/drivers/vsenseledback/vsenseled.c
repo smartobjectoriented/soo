@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Daniel Rossier <daniel.rossier@soo.tech>
- * Copyright (C) 2016 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -41,6 +40,8 @@
 #include <soo/vdevback.h>
 
 #include <soo/dev/vsenseled.h>
+
+#include "rpisense-led.h"
 
 typedef struct {
 
@@ -188,9 +189,8 @@ int vsenseled_init(void) {
 	if (!of_device_is_available(np))
 		return 0;
 
-#if 0
-	kthread_run(generator_fn, NULL, "vsenseled-gen");
-#endif
+	/* Initialize the RPi Sense HAT peripheral */
+	senseled_init();
 
 	vdevback_init(VSENSELED_NAME, &vsenseleddrv);
 
