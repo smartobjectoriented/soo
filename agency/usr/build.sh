@@ -91,7 +91,7 @@ install_file_root build/apps/shutdownme
 install_file_root build/apps/melist
 
 # And modules if any
-cp module/*.ko build/deploy
+cp module/*.ko build/deploy 2>/dev/null
 
 
 

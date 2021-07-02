@@ -34,7 +34,7 @@ config VWEATHER_BACKEND
 	  product.
 	  
 config VUIHANDLER_BACKEND
-	bool "vUihandler backend driver"
+	bool "vuihandler backend driver"
 	default N
 	help
 	  vUihandler backend driver for remote UI over Bluetooth or WLAN.
