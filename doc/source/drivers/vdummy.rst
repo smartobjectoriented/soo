@@ -1,15 +1,31 @@
 .. _vdummy:
 
+***************
+*vdummy* driver
+***************
+
+
 *******************
-The *vdummy* driver
+*vuihandler* driver
 *******************
 
+Introduction
+============
 
-1 Introduction
+*must be updated...*
 
-The vUIHandler interface allows a ME to communicate with a Bluetooth device like a tablet or a smartphone. It relies on the BNEP protocol provided by the PAN profile.
- Associated dev capabilities:
- DEVCAPS_CLASS_COMM
-·         DEVCAP_COMM_UIHANDLER
- The following dev capabilities are set and unset in a dynamic way, when the matching remote application is connected and detected. Only one dev capability in the list below can be set at a time:
+The vUIHandler interface allows a ME to communicate with a Bluetooth device like a tablet or a smartphone. 
+It relies on the BNEP protocol provided by the PAN profile.
+
+Associated dev capabilities:
+
++---------------------+-------------------------+---------------------------------------------------+
+| Devcaps class       | Devcaps                 |                                                   |
++=====================+=========================+===================================================+
+| *DEVCAPS_CLASS_COM* | *DEVCAP_COMM_UIHANDLER* | Enabled with a tablet UI application is connected |
++---------------------+-------------------------+---------------------------------------------------+
+
+Only one dev capability in the list below can be set at a time
+ 
+ 
 
