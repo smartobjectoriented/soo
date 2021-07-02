@@ -30,7 +30,21 @@ a ``vbus_device`` contains the ``device`` structure.
 Each backend has a private structure which has reference to the *vbus* definition associated to the device; it contains
 the ring(s) and other fields required for managing the activities related to the interactions with the frontend.
 
+VBstore and storage of properties
+---------------------------------
 
+Each backend driver must have a basic entry in ``vbstore`` in order to process properties managed by the frontend.
+The entries are pre-defined in the file ``soo/kernel/vbstore/vbstorage.c``.
+
+Example of such a entry is:
+
+.. code-block:: c
+
+   np = of_find_compatible_node(NULL, NULL, "vdummy,backend");
+   if (of_device_is_available(np))
+      vbs_store_mkdir("/backend/vdummy");
+
+As we can see, the entry is created only if the backend is enabled in the *device tree*.
 
 Frontends
 =========
@@ -43,5 +57,26 @@ structure ``vdummy_priv_t`` is allocated at this time.
 .. figure:: /img/SOO_architecture_v2021_2-FE_structures.png
     
    Device and driver model for a frontend within SO3
+
+VBstore on ME side
+------------------
+
+Each frontend driver must create its own basic entry in ``vbstore``. Properties such as its *state* will be then added so that
+a ``watch`` can be attached and trigger a function execution when the state changes.
+
+The entries are created in the file ``soo/kernel/vbstore/vbstore_me.c``.
+
+Example of such an entry is :
+
+.. code-block:: c
+
+   fdt_node = fdt_find_compatible_node(__fdt_addr, "vdummy,frontend");
+   if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+      DBG("%s: removing vdummy from vbstore...\n", __func__);
+      vbstore_dev_remove(ME_domID(), "vdummy");
+   }
+
+Again, we check the device tree (in SO3) to see if the frontend is enabled or not.
+
 
 
