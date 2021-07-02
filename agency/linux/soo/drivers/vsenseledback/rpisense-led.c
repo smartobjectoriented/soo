@@ -14,7 +14,7 @@
 
 #include "rpisense-led.h"
 
-static struct rpisense *rpisense;
+static struct rpisense *rpisense = NULL;
 
 /* 8 (row) * 8 (column) * 3 (colors) + 1 (first byte needed blank) */
 #define SIZE_FB 193
@@ -129,8 +129,9 @@ void display_led(int led_nr, bool on) {
 
 	i2c_master_send(rpisense->i2c_client, matrix, SIZE_FB);
 }
+EXPORT_SYMBOL(display_led);
 
-void rpisense_init(void) {
+void senseled_init(void) {
 	int i;
 
 	for (i = 0; i < SIZE_FB; i++)
