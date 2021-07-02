@@ -15,13 +15,10 @@
 
 #include <asm/io.h>
 
-void display_led(int led_nr, bool on);
-
 static int senseled_probe(struct platform_device *pdev) {
 
 	printk("%s: probing now...\n", __func__);
 
-	display_led(3, true);
 
 	return 0;
 
