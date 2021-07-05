@@ -44,6 +44,7 @@
 #endif
 
 
+
 void printID(unsigned char* id){
 	int i;
 	
@@ -52,6 +53,14 @@ void printID(unsigned char* id){
 	}
 
 	lprintk("\n");
+
+}
+void print_list_id(unsigned char list[][SOO_AGENCY_UID_SIZE],unsigned nb_ID){
+	int i;
+	lprintk("list of ID:\n");
+	for(i = 0; i < nb_ID; i++){
+		printID(list[i]);
+	}
 
 }
 
@@ -103,7 +112,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	agency_ctl_args.cmd = AG_AGENCY_UID;
 	args->__agency_ctl(&agency_ctl_args);
 	lprintk("device rpi4 ID:");
-	//printID(agency_ctl_args.u.agencyUID_args.agencyUID.id);
+	printID(agency_ctl_args.u.agencyUID_args.agencyUID.id);
 
 	
 	
@@ -147,10 +156,14 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 		localData->nb_device_visited++;
 		lprintk("visited %d device \n",localData->nb_device_visited);
 
+		//add the curent device ID to the list
+		memcpy(&localData->ID_device_visited[localData->nb_device_visited - 1], &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
+
 		#if 1 /*mode demo*/
 
 		if(localData->nb_device_visited == NB_DEMO_DEVICE){
 			lprintk("fin demo nb_jmp = %d !!!!!!!!!!!!!!!!!!!!!!\n\n\n\n",localData->nb_jump);
+			print_list_id(localData->ID_device_visited,NB_DEMO_DEVICE);
 			agency_ctl_args.cmd = AG_FORCE_TERMINATE;
 			agency_ctl_args.slotID = ME_domID();
 			args->__agency_ctl(&agency_ctl_args);
@@ -158,8 +171,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 
 		#endif
 
-		//add the curent device ID to the list
-		memcpy(&localData->ID_device_visited[localData->nb_device_visited - 1], &agency_ctl_args.u.agencyUID_args.agencyUID.id, SOO_AGENCY_UID_SIZE);
+		
 		
 		
 
@@ -300,7 +312,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 
 				/*end of list*/
-				idexEnd = localData->nb_device_visited - 1;
+				idexEnd = localData->nb_device_visited;
 
 				for(i = 0; i < RxData->nb_device_visited; i++){
 					is_new_ID = true;
@@ -317,7 +329,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 						memcpy(&localData->ID_device_visited[idexEnd++], &RxData->ID_device_visited[i], SOO_AGENCY_UID_SIZE);
 					}
 				}
-				localData->nb_device_visited  = idexEnd  + 1;
+				localData->nb_device_visited  = idexEnd;
 
 				/*KILL ME*/
 				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
@@ -327,10 +339,12 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 				/*enable migration*/
 				migration_count = 0;
 
-				#if 0 /*mode demo*/
+				#if 1 /*mode demo*/
 
 				if(localData->nb_device_visited == NB_DEMO_DEVICE){
 					lprintk("fin demo nb_jmp = %d !!!!!!!!!!!!!!!!!!!!!!\n\n\n\n",localData->nb_jump);
+					print_list_id(localData->ID_device_visited,NB_DEMO_DEVICE);
+
 					agency_ctl_args.cmd = AG_FORCE_TERMINATE;
 					agency_ctl_args.slotID = ME_domID();
 					args->__agency_ctl(&agency_ctl_args);
