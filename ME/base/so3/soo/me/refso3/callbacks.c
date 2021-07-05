@@ -44,7 +44,6 @@
 #endif
 
 
-
 void printID(unsigned char* id){
 	int i;
 	

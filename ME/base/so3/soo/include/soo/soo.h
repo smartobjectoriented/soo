@@ -147,6 +147,29 @@ typedef struct {
 
 
 
+#define SOO_NB_UID_MAX              16
+
+/*
+* locale info data for cooperate
+*/
+
+typedef struct {
+	
+	unsigned char id[SOO_AGENCY_UID_SIZE];
+	unsigned char type;
+	unsigned char slotID;
+	unsigned int timeStamp;
+	unsigned short nb_jump;
+	unsigned short nb_device_visited;
+	unsigned char ID_device_visited[SOO_NB_UID_MAX][SOO_AGENCY_UID_SIZE];
+
+	/*final*/
+	//void* data;
+
+}common_data;
+
+
+
 /*
  * SOO agencyUID unique ID - Allowing to identify a SOO device.
  * agencyUID 0 is NOT valid.
