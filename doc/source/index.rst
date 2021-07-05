@@ -20,6 +20,7 @@
    introduction
    architecture/architecture
    drivers/drivers
+   rootfs/rootfs
    user_guide
    boards/boards
    logging
