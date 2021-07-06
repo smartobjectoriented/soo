@@ -250,6 +250,18 @@ void remove_vbstore_entries(void) {
 		DBG("%s: removing vdummy from vbstore...\n", __func__);
 		vbstore_dev_remove(ME_domID(), "vdummy");
 	}
+
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "vsenseled,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: removing vsenseled from vbstore...\n", __func__);
+		vbstore_dev_remove(ME_domID(), "vsenseled");
+	}
+
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "vsensej,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: removing vsensej from vbstore...\n", __func__);
+		vbstore_dev_remove(ME_domID(), "vsensej");
+	}
 }
 
 /*
@@ -296,6 +308,17 @@ void vbstore_devices_populate(void) {
 		vbstore_dev_init(ME_domID(), "vdoga12v6nm", false, "vdoga12v6nm,frontend");
 	}
 
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "vsenseled,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: init vsenseled...\n", __func__);
+		vbstore_dev_init(ME_domID(), "vsenseled", false, "vsenseled,frontend");
+	}
+
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "vsensej,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: init vsensej...\n", __func__);
+		vbstore_dev_init(ME_domID(), "vsensej", false, "vsensej,frontend");
+	}
 }
 
 void vbstore_trigger_dev_probe(void) {

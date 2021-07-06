@@ -14,3 +14,4 @@ obj-$(CONFIG_VLEDS_BACKEND)		+= vledsback/
 obj-$(CONFIG_VFB_BACKEND)  += vfbback/
 obj-$(CONFIG_VNET_BACKEND)  += vnetback/
 obj-$(CONFIG_VSENSELED_BACKEND) += vsenseledback/
+obj-$(CONFIG_VSENSEJ_BACKEND) += vsensejback/

@@ -99,6 +99,9 @@ static int rpisense_js_probe(struct platform_device *pdev)
 		goto err_keys_reg;
 	}
 
+#if 0 /* SOO.tech */
+	/* Because we have our own handler in vsensejback */
+
 	ret = devm_request_irq(&pdev->dev, rpisense_js->keys_irq,
 			       keys_irq_handler, IRQF_TRIGGER_RISING,
 			       "keys", &pdev->dev);
@@ -106,6 +109,8 @@ static int rpisense_js_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "IRQ request failed.\n");
 		goto err_keys_reg;
 	}
+#endif
+
 	return 0;
 err_keys_reg:
 	input_unregister_device(rpisense_js->keys_dev);

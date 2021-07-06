@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@soo.tech>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,36 +18,33 @@
 
 /dts-v1/;
 
-#include "so3virt.dtsi"
+/ {
+	description = "SO3 image for the SOO.ledctrl ME";
 
-&ME {
-	/* Since we have a rootfs (ramfs), we put give 64 MB */
-	domain-size = <0x4000000>;
+	images {
 	
-	/* SPID on 128-bit encoding */
-	spid = /bits/ 64 <0x0010000000000001>;
-	
-	/* Name of this ME */
-	me_name = "SOO.refso3";
-	
-	/* Short description */
-	me_shortdesc =
+		so3 {
+			description = "SO3 OS kernel";
+			data = /incbin/("../so3/so3.bin");
+			type = "ME";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
 			
-"This is the standard reference ME that can be used as template or simply to \
-perform various tests. This variant includes a rootfs with some user space \
-applications.";
-
-	frontends {
-		
-		/* Enabling vdummy for testing purposes */
-		vdummy {
-			status = "ok";
+			hash {
+				algo = "crc32";
+			};
 		};
 
-		/* Enabling the console */
-		vuart {
-			status = "ok";
-		};
-	};
+		fdt {
+			description = "Flattened Device Tree blob";
+			data = /incbin/("../so3/dts/ledctrl.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			hash {
+				algo = "crc32";
+			};
+		};	
+    };
 };
-			

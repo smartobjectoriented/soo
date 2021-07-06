@@ -176,6 +176,14 @@ void vbus_otherend_changed(struct vbus_watch *watch) {
 
         DBG("On domID: %d, otherend changed / device: %s  state: %d, CPU %d\n", ME_domID(), vdev->nodename, state, smp_processor_id());
 	
+        /*
+         * Set immediately the frontend as connected if the backend announces to be connected.
+         * It will help in the processing of connected function callback in the upper layers.
+         */
+
+	if (state == VbusStateConnected)
+		vbus_switch_state(vdev, VbusStateConnected);
+
 	/* We do not want to call a callback in a frontend on InitWait. This is
 	 * a state issued from the backend to tell the frontend it can be probed.
 	 */
@@ -229,14 +237,6 @@ void vbus_otherend_changed(struct vbus_watch *watch) {
 		vbus_switch_state(vdev, VbusStateConnected);
 		break;
 
-	case VbusStateConnected:
-
-		if (vdev->state != VbusStateConnected)
-			/* The frontend is in VbusStateReconfigured after been migrated. */
-			vbus_switch_state(vdev, VbusStateConnected);
-
-		break;
-
 	default:
 		break;
 
@@ -278,7 +278,7 @@ int vbus_dev_remove(struct vbus_device *vdev)
 	 */
 	dir_exists = vbus_directory_exists(VBT_NIL, vdev->otherend_watch.node, "");
 	if (dir_exists) {
-		DBG("%s", dev->nodename);
+		DBG("%s", vdev->nodename);
 
 		/* Remove the watch on the remote device. */
 		free_otherend_watch(vdev, true);
