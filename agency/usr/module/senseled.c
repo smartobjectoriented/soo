@@ -13,10 +13,27 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 
+#include <soo/vbus.h>
+
 #include <asm/io.h>
+
+typedef void(*joystick_handler_t)(struct vbus_device *vdev, int key);
+
+#define UP      0x04
+#define DOWN    0x01
+#define RIGHT   0x02
+#define LEFT    0x10
+#define CENTER  0x08
 
 void display_led(int led_nr, bool on);
 void senseled_init(void);
+void sensej_init(void);
+void rpisense_joystick_handler_register(struct vbus_device *vdev, joystick_handler_t joystick_handler);
+
+void j_handler(struct vbus_device *vdev, int key) {
+
+	printk("%s: getting key %d\n", __func__, key);
+}
 
 static int senseled_probe(struct platform_device *pdev) {
 
@@ -54,9 +71,13 @@ static struct platform_driver senseled_driver = {
 };
 
 static int mod_senseled_init(void) {
+	struct vbus_device *cookie = (void *) 0xdead;
 
 	printk("access: small driver for accessing Sense HAT led...\n");
 	senseled_init();
+
+	sensej_init();
+	rpisense_joystick_handler_register(cookie, j_handler);
 
 	platform_driver_register(&senseled_driver);
 

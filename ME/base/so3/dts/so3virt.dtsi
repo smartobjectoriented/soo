@@ -91,7 +91,17 @@
             	compatible = "vweather,frontend";
             	status = "disabled";
         	};
+        	
+        	vsenseled {
+            	compatible = "vsenseled,frontend";
+            	status = "disabled";
+        	};
 			
+        	vsensej {
+            	compatible = "vsensej,frontend";
+            	status = "disabled";
+        	};
+        	
 		};
 	
 	};

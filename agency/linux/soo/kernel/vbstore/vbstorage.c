@@ -486,4 +486,8 @@ void vbstorage_agency_init(void) {
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vsenseled");
 
+	/* Agency backend side of virtual sensej (Sense HAT joystick) device */
+	np = of_find_compatible_node(NULL, NULL, "vsensej,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vsensej");
 }

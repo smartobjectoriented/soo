@@ -52,40 +52,26 @@ typedef struct {
 
 static struct vbus_device *vsenseled_dev = NULL;
 
-void vsenseled_notify(struct vbus_device *vdev)
-{
-	vsenseled_priv_t *vsenseled_priv = dev_get_drvdata(&vdev->dev);
 
-	vsenseled_ring_response_ready(&vsenseled_priv->vsenseled.ring);
-
-	/* Send a notification to the frontend only if connected.
-	 * Otherwise, the data remain present in the ring. */
-
-	notify_remote_via_virq(vsenseled_priv->vsenseled.irq);
-}
-
-
-irqreturn_t vsenseled_interrupt(int irq, void *dev_id)
+irqreturn_t vsenseled_interrupt_bh(int irq, void *dev_id)
 {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vsenseled_priv_t *vsenseled_priv = dev_get_drvdata(&vdev->dev);
 	vsenseled_request_t *ring_req;
-	vsenseled_response_t *ring_rsp;
 
-	DBG("%d\n", dev->otherend_id);
+	vdevback_processing_begin(vdev);
 
-	while ((ring_req = vsenseled_get_ring_request(&vsenseled_priv->vsenseled.ring)) != NULL) {
+	while ((ring_req = vsenseled_get_ring_request(&vsenseled_priv->vsenseled.ring)) != NULL)
+		display_led(ring_req->lednr, ring_req->ledstate);
 
-		ring_rsp = vsenseled_new_ring_response(&vsenseled_priv->vsenseled.ring);
-
-		memcpy(ring_rsp->buffer, ring_req->buffer, VSENSELED_PACKET_SIZE);
-
-		vsenseled_ring_response_ready(&vsenseled_priv->vsenseled.ring);
-
-		notify_remote_via_virq(vsenseled_priv->vsenseled.irq);
-	}
+	vdevback_processing_end(vdev);
 
 	return IRQ_HANDLED;
+}
+
+irqreturn_t vsenseled_interrupt(int irq, void *dev_id)
+{
+	return IRQ_WAKE_THREAD;
 }
 
 void vsenseled_probe(struct vbus_device *vdev) {
@@ -165,7 +151,8 @@ void vsenseled_reconfigured(struct vbus_device *vdev) {
 
 	BACK_RING_INIT(&vsenseled_priv->vsenseled.ring, sring, PAGE_SIZE);
 
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vsenseled_interrupt, NULL, 0, VSENSELED_NAME "-backend", vdev);
+	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vsenseled_interrupt, vsenseled_interrupt_bh,
+						     0, VSENSELED_NAME "-backend", vdev);
 
 	BUG_ON(res < 0);
 

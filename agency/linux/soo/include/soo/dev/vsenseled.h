@@ -26,14 +26,15 @@
 #define VSENSELED_PACKET_SIZE	32
 
 #define VSENSELED_NAME		"vsenseled"
-#define VSENSELED_PREFIX		"[" VSENSELED_NAME "] "
+#define VSENSELED_PREFIX	"[" VSENSELED_NAME "] "
 
 typedef struct {
-	char buffer[VSENSELED_PACKET_SIZE];
+	int lednr;
+	bool ledstate; /* true = on, false = off */
 } vsenseled_request_t;
 
 typedef struct  {
-	char buffer[VSENSELED_PACKET_SIZE];
+	/* nothing */
 } vsenseled_response_t;
 
 /*

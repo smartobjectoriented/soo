@@ -101,7 +101,11 @@
 				compatible = "vsenseled,backend";
 				status = "ok";
 			};
-		
+			
+			vsensej {
+				compatible = "vsensej,backend";
+				status = "ok";
+			};
 		};
 	};
 
