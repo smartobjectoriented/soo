@@ -47,6 +47,53 @@ A Mobile Entity is identified by its SPID, a unique 128-bit identifier correspon
 Several ME of the same SPIDs are de facto in various smart objects, possibly in the same smart object
 until one instance decide to kill the other one(s).
 
+The following SPID are currently assigned:
+
+Basic mobile entities
+^^^^^^^^^^^^^^^^^^^^^
+
++----------------------+-----------------------------------------------------------------------------+
+| SPID                 | ME Description                                                              |
++======================+=============================================================================+
+| *0x0010000000000001* | SOO.refso3 used as reference ME. A new ME can be based on this model.       |
+|                      | There are mainly two configurations (hence two dts) with and without ramfs. |
++----------------------+-----------------------------------------------------------------------------+
+| *0x0010000000000002* | SOO.ledctrl is the ME running in SOO.ledctrl smart object which is          |
+|                      | a Raspberry Pi 4 enhanced with the Sense HAT extension. This ME             |
+|                      | basically uses the led matrix and joystick. It is mainly used               |
+|                      | for demonstration purposes.                                                 |
++----------------------+-----------------------------------------------------------------------------+
+
+
+Mobile entities devoted to SOO.domotics family
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
++----------------------+----------------------------------------------------------------------------+
+| SPID                 | ME Description                                                             |
++======================+============================================================================+
+| *0x0020000000000001* | SOO.blind is devoted to the handling of a "standard" blind which provides  |
+|                      | the user with features such as putting the blinds up or down, but the ME   |
+|                      | can also perform synergies with SOO.outdoor for example to decide how      |
+|                      | to manipulate the blinds, according to the weather condition               |
++----------------------+----------------------------------------------------------------------------+
+| *0x0020000000000002* | SOO.outdoor is able to collect data from any weather station. This ME      |
+|                      | can be used in conjunction with other MEs which can use this kind of data. |
++----------------------+----------------------------------------------------------------------------+
+
+System and housekeeping mobile entities
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
++----------------------+------------------------------------------------------------------------------------------+
+| SPID                 | ME Description                                                                           |
++======================+==========================================================================================+
+| *0x0030000000000001* | SOO.agency enables the upgrade of agency image within a smart object. The ME             |
+|                      | has an embedded of the new version of agency. All smart objects can be updated.          |
++----------------------+------------------------------------------------------------------------------------------+
+| *0x0030000000000002* | SOO.net can transport networking data packet from a SOO.net smart object to any          |
+|                      | other smart objects. The ME can then collect data packet to forward them to the network. |
++----------------------+------------------------------------------------------------------------------------------+
+
+
 Species Aptitude Descriptor (SPAD)
 ----------------------------------
 
