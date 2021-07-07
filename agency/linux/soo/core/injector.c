@@ -99,7 +99,6 @@ int injector_receive_ME(void *ME, size_t size) {
 
 #if 0
 	printk("%d\n", size);
-	return;
 #endif	
 	wait_event_interruptible(wq_prod, !full);
 
@@ -182,7 +181,7 @@ ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
         if (maxbytes > length)
                 bytes_to_read = length;
         else
-                bytes_to_read = maxbytes;
+                bytes_to_read = maxbytes;	
 
         bytes_read = copy_to_user(buff, ME, bytes_to_read);
 
@@ -190,6 +189,6 @@ ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
 	injector_set_full(false);
 	wake_up_interruptible(&wq_prod);
 
-        return bytes_read;
+        return bytes_to_read;
 }
 
