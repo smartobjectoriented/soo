@@ -62,6 +62,8 @@ static struct vbus_device *vuihandler_dev = NULL;
 /* In lib/vsprintf.c */
 unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
 
+#if 0
+/* See if it is still needed */
 /**
  * Read the current connected application ME SPID in vbstore.
  */
@@ -93,6 +95,7 @@ static void get_app_spid(uint8_t spid[SPID_SIZE]) {
 		spid[i] = (uint8_t) spid_number;
 	}
 }
+#endif
 
 
 /**
