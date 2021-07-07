@@ -24,7 +24,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -175,35 +175,32 @@ static int get_otherend_id_from_spid(uint8_t *spid) {
  * tx_ring interrupt.
  */
 irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
-	// struct vbus_device *dev = (struct vbus_device *) dev_id;
-	// vuihandler_t *vuihandler = to_vuihandler(dev);
-	// RING_IDX i, rp;
-	// vuihandler_tx_request_t *ring_req;
-	// uint8_t *spid;
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	vuihandler_t *vuihandler = dev_get_drvdata(&vdev->dev);
+	vuihandler_tx_request_t *ring_req;
+	uint8_t *spid;
 
-	// while ((ring_req = vuihandler_tx_ring_request(&vuihandler->tx_rings.ring)) != NULL) {
-	// 	//ring_req = RING_GET_REQUEST(&vuihandler->tx_rings.ring, i);
+	while ((ring_req = vuihandler_tx_get_ring_request(&vuihandler->tx_rings.ring)) != NULL) {
 
-	// 	DBG(VUIHANDLER_PREFIX "%d, %d\n", ring_req->id, ring_req->size);
+		DBG(VUIHANDLER_PREFIX "%d, %d\n", ring_req->id, ring_req->size);
 
-	// 	/* The slot ID is equal to the otherend ID */
-	// 	if ((spid = get_spid_from_otherend_id(dev->otherend_id)) == NULL)
-	// 		continue;
+		/* The slot ID is equal to the otherend ID */
+		if ((spid = get_spid_from_otherend_id(vdev->otherend_id)) == NULL)
+			continue;
 
-	// 	/* Only send packets that are adapted to the tablet application */
-	// 	if (memcmp(connected_app.spid, spid, SPID_SIZE) != 0)
-	// 		continue;
+		/* Only send packets that are adapted to the tablet application */
+		if (memcmp(connected_app.spid, spid, SPID_SIZE) != 0)
+			continue;
 
-	// 	spin_lock(&tx_lock);
-	// 	tx_pkt_size = VUIHANDLER_BT_PKT_HEADER_SIZE + ring_req->size;
-	// 	memcpy(tx_vuihandler_pkt->spid, spid, SPID_SIZE);
-	// 	memcpy(tx_vuihandler_pkt->payload, vuihandler->tx_buffers.data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_req->size);
-	// 	tx_vuihandler_pkt->type = VUIHANDLER_DATA;
-	// 	spin_unlock(&tx_lock);
+		spin_lock(&tx_lock);
+		tx_pkt_size = VUIHANDLER_BT_PKT_HEADER_SIZE + ring_req->size;
+		memcpy(tx_vuihandler_pkt->spid, spid, SPID_SIZE);
+		memcpy(tx_vuihandler_pkt->payload, vuihandler->tx_buffers.data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_req->size);
+		tx_vuihandler_pkt->type = VUIHANDLER_DATA;
+		spin_unlock(&tx_lock);
 
-	// 	complete(&tx_completion);
-	// }
-
+		complete(&tx_completion);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -212,13 +209,12 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
  * rx_ring interrupt. The RX ring should not be used in this direction.
  */
 irqreturn_t vuihandler_rx_interrupt(int irq, void *dev_id) {
-	// struct vbus_device *dev = (struct vbus_device *) dev_id;
-	// vuihandler_t *vuihandler = to_vuihandler(dev);
-	// RING_IDX i, rp;
-	// vuihandler_rx_request_t *ring_req;
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	vuihandler_t *vuihandler = dev_get_drvdata(&vdev->dev);
+	vuihandler_rx_request_t *ring_req;
 
-	// /* Just consume the requests */
-	// while ((ring_req = vuihandler_rx_ring_request(&vuihandler->rx_rings.ring)) != NULL);
+	/* Just consume the requests */
+	while ((ring_req = vuihandler_rx_get_ring_request(&vuihandler->rx_rings.ring)) != NULL);
 
 	return IRQ_HANDLED;
 }
@@ -239,7 +235,7 @@ void rfcomm_send_sigterm(void) {
 
 	mutex_unlock(&rfcomm_lock);
 }
-#if 0
+
 /**
  * Update the connected application SPID.
  */
@@ -266,7 +262,6 @@ void vuihandler_update_spid_vbstore(uint8_t spid[SPID_SIZE]) {
 	devaccess_set_devcaps(DEVCAPS_CLASS_APP, DEVCAP_APP_BLIND, !memcmp(spid, SOO_blind_spid, SPID_SIZE));
 	devaccess_set_devcaps(DEVCAPS_CLASS_APP, DEVCAP_APP_OUTDOOR, !memcmp(spid, SOO_outdoor_spid, SPID_SIZE));
 }
-#endif
 
 /**
  * Process a received vUIHandler beacon.
@@ -353,7 +348,6 @@ static void recv_beacon(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_
 }
 
 
-#if 1
 static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&vdevback_get_entry(domid, vdev_list)->dev); 
 	vuihandler_t *vuihandler = &vuihandler_priv->vuihandler;
@@ -375,10 +369,18 @@ static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, si
 	recv_count++;
 }
 
+
 void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
 	size_t size, ME_size;
 	int me_id;
 	uint8_t *ME_pkt_payload;
+
+	// int i = 0;
+	// ME_pkt_payload = (uint8_t *)vuihandler_pkt;
+	// for (i= 0; i < 5; ++i) {
+	// 	printk("0x%02X \n", ME_pkt_payload[i]);
+	// }
+	// printk("\n");
 
 	/* This is the ME size (1B type + 4B size) */
 	if (vuihandler_pkt->type == VUIHANDLER_ME_SIZE) {
@@ -387,12 +389,12 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 		DBG("ME size: %u\n", *((uint32_t *)(ME_pkt_payload+1)));
 		ME_size = *((uint32_t *)(ME_pkt_payload+1));
 		
-#warning This may not be needed anymore but keep it for now as we may fallback to the non-block ME reception		
 		/* Forward the size to the injector so it knows the ME size. */
 		injector_prepare(ME_size);
 		vfree((void *) ME_pkt_payload);
 		return;
 	}
+
 	/* This is the ME data which needs to be forwarded to the Injector */
 	if (vuihandler_pkt->type == VUIHANDLER_ME_INJECT) {
 		/* As we bypass the full vuiHandler protocol, we first use a uint8_t array to
@@ -400,13 +402,9 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
 
 		injector_receive_ME((void *)(ME_pkt_payload+1), vuihandler_pkt_size-1);
-
-		/* We don't free the received buffer here as it the Core needs to read it 
-		first. The free is done in the Injector once the userspace finished reading it. */
 		return ;
 	}
-
-
+	
 	if (vuihandler_pkt->type == VUIHANDLER_BEACON) {
 		/* This is a vUIHandler beacon */
 		recv_beacon(vuihandler_pkt, vuihandler_pkt_size);
@@ -435,7 +433,6 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 	rx_push_response(me_id, vuihandler_pkt, vuihandler_pkt_size);
 }
 
-#endif
 /**
  * TX task.
  * BT and TCP/IP interfaces are mutually exclusive, thus a common thread is sufficient.
@@ -481,13 +478,10 @@ static int rx_bt_task_fn(void *arg) {
 		size = sl_recv(vuihandler_bt_sl_desc, &priv_buffer);
 
 		printk("(B<%d)\n", size);
-#if 0
+
 		vuihandler_recv(priv_buffer, size);
-#endif
-		vfree(priv_buffer);
 		
 	}
-
 	return 0;
 }
 
@@ -511,7 +505,6 @@ static int rx_tcp_task_fn(void *arg) {
 }
 #endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
 
- // deatc
 /**
  * Interface with RFCOMM.
  */
@@ -521,6 +514,7 @@ void vuihandler_open_rfcomm(pid_t pid) {
 	mutex_unlock(&rfcomm_lock);
 }
 
+/* See if we still need this */
 #if 0
 /**
  * Watchdog thread that detects a dead (disconnected) remote application and updates the connected
@@ -602,7 +596,7 @@ send_ping:
  */
 static void vuihandler_start_threads(void) {
 
-	// kthread_run(tx_task_fn, NULL, "vUIHandler-TX");
+	kthread_run(tx_task_fn, NULL, "vUIHandler-TX");
 	kthread_run(rx_bt_task_fn, NULL, "vUIHandler-BT-RX");
 
 #if defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
@@ -636,11 +630,10 @@ void vuihandler_remove(struct vbus_device *vdev) {
 
 void vuihandler_close(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&vdev->dev);
-	vuihandler_t vuihandler = vuihandler_priv->vuihandler;
-	int id = vdev->otherend_id;
+	vuihandler_t *vuihandler = &vuihandler_priv->vuihandler;
 
-	vuihandler_tx_ring_t *tx_ring = &vuihandler.tx_rings;
-	vuihandler_rx_ring_t *rx_ring = &vuihandler.rx_rings;
+	vuihandler_tx_ring_t *tx_ring = &vuihandler->tx_rings;
+	vuihandler_rx_ring_t *rx_ring = &vuihandler->rx_rings;
 
 	/* tx_ring */
 
@@ -661,7 +654,9 @@ void vuihandler_close(struct vbus_device *vdev) {
 	rx_ring->ring.sring = NULL;
 
 	/* Update the SPID in the SPID table */
-	memcpy(vuihandler.spid, vuihandler_null_spid, SPID_SIZE);
+	memcpy(vuihandler->spid, vuihandler_null_spid, SPID_SIZE);
+
+	DBG(VUIHANDLER_PREFIX "Backend closed: %d\n", vdev->otherend_id);
 
 }
 
@@ -681,18 +676,16 @@ void vuihandler_connected(struct vbus_device *vdev) {
 
 void vuihandler_reconfigured(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&vdev->dev);
-	vuihandler_t vuihandler = vuihandler_priv->vuihandler;
+	vuihandler_t *vuihandler =  &vuihandler_priv->vuihandler;
 	int res;
-	int id = vdev->otherend_id;
 	unsigned long tx_ring_ref, rx_ring_ref;
 	unsigned int tx_evtchn, rx_evtchn;
 	vuihandler_tx_sring_t *tx_sring;
-	vuihandler_tx_ring_t *tx_ring = &vuihandler.tx_rings;
+	vuihandler_tx_ring_t *tx_ring = &vuihandler->tx_rings;
 	vuihandler_rx_sring_t *rx_sring;
-	vuihandler_rx_ring_t *rx_ring = &vuihandler.rx_rings;
+	vuihandler_rx_ring_t *rx_ring = &vuihandler->rx_rings;
 
 	/* tx_ring */
-
 	vbus_gather(VBT_NIL, vdev->otherend, "tx_ring-ref", "%lu", &tx_ring_ref, "tx_ring-evtchn", "%u", &tx_evtchn, NULL);
 
 	res = vbus_map_ring_valloc(vdev, tx_ring_ref, (void **) &tx_sring);
@@ -707,7 +700,6 @@ void vuihandler_reconfigured(struct vbus_device *vdev) {
 	tx_ring->irq = res;
 
 	/* rx_ring */
-
 	vbus_gather(VBT_NIL, vdev->otherend, "rx_ring-ref", "%lu", &rx_ring_ref, "rx_ring-evtchn", "%u", &rx_evtchn, NULL);
 
 	res = vbus_map_ring_valloc(vdev, rx_ring_ref, (void **) &rx_sring);
@@ -743,7 +735,6 @@ void vuihandler_start_deferred(soo_env_t * sooenv, void *args) {
 }
 
 int vuihandler_init(void) {
-	uint32_t i;
 	struct device_node *np;
 
 	np = of_find_compatible_node(NULL, NULL, "vuihandler,backend");
@@ -752,17 +743,14 @@ int vuihandler_init(void) {
 	if (!of_device_is_available(np))
 		return 0;
 
-	// for (i = 0; i < MAX_DOMAINS; i++)
-	// 	memset(vuihandler.spid[i], 0, SPID_SIZE);
+
 	vdev_list = (struct list_head *) kzalloc(sizeof(struct list_head), GFP_ATOMIC);
 	INIT_LIST_HEAD(vdev_list);
-#if 0
+#if 1
 	memcpy(connected_app.spid, vuihandler_null_spid, SPID_SIZE);
 	spin_lock_init(&connected_app_lock);
 
-	kthread_run(connected_app_watchdog_fn, NULL, "vUIHandler-watch");
-
-	//vuihandler_vbus_init();
+	// kthread_run(connected_app_watchdog_fn, NULL, "vUIHandler-watch");
 
 	tx_vuihandler_pkt = (vuihandler_pkt_t *) kzalloc(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE, GFP_KERNEL);
 	spin_lock_init(&tx_lock);
@@ -783,19 +771,13 @@ int vuihandler_init(void) {
 	memcpy(ping_pkt->spid, vuihandler_null_spid, SPID_SIZE);
 	ping_pkt->payload[0] = '?';
 #endif	
-	/* Register with Soolink */
-	// vuihandler_bt_sl_desc = sl_register(SL_REQ_BT, SL_IF_BT, SL_MODE_UNICAST);
 
 #if defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
 	// vuihandler_tcp_sl_desc = sl_register(SL_REQ_TCP, SL_IF_TCP, SL_MODE_UNICAST);
 #endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
 
-
-	/* We need to start the threads here as they need a reference on vuihandler */
-	// vuihandler_start_threads();
-
+	/* Start the threads in a defferred way, to wait for the soolink to be ready */
 	register_sooenv_up(vuihandler_start_deferred, NULL);
-
 
 	/* Set the associated dev capability */
 	devaccess_set_devcaps(DEVCAPS_CLASS_COMM, DEVCAP_COMM_UIHANDLER, true);
