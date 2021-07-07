@@ -105,7 +105,6 @@ static void process_pending_tx_rsp(struct vbus_device *vdev) {
 	/* Consume the responses without doing anything */
 	while ((ring_req = vuihandler_tx_get_ring_response(&vuihandler->tx_ring)) != NULL);
 }
-#endif
 
 
 /**
@@ -114,7 +113,7 @@ static void process_pending_tx_rsp(struct vbus_device *vdev) {
 irq_return_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 
-	// process_pending_tx_rsp(vdev);
+	process_pending_tx_rsp(vdev);
 
 	return IRQ_COMPLETED;
 }
