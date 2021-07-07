@@ -30,6 +30,27 @@ a ``vbus_device`` contains the ``device`` structure.
 Each backend has a private structure which has reference to the *vbus* definition associated to the device; it contains
 the ring(s) and other fields required for managing the activities related to the interactions with the frontend.
 
+There is also a private structure attached to the ``vbus_driver`` associated to a device. The following helpers can 
+be used to handle this private structure:
+
+To attach a private structure to a *vbus driver*
+
+.. c:function:: 
+   void *vdrv_get_priv(struct vbus_driver *vdrv) 
+
+To get the private structure attached to a *vbus_driver*
+
+.. c:function::
+   void *vdrv_get_priv(struct vbus_driver *vdrv) 
+
+Finally, a helper to get the private structure attached to *vbus_driver* from a particular *vbus_device*
+
+.. c:function::
+   void *vdrv_get_vdevpriv(struct vbus_device *vdev)
+   
+Defining a private structure attached to a *vbus_driver* can be done in the *init* function of the driver.
+
+
 VBstore and storage of properties
 ---------------------------------
 
