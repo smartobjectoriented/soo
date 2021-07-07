@@ -105,18 +105,12 @@ void rfcomm_send_sigterm(void);
 #endif /* CONFIG_BT_RFCOMM */
 
 typedef struct {
-
-	// struct vbus_device  *dev;
-
 	vuihandler_tx_back_ring_t ring;
 	unsigned int	irq;
 
 } vuihandler_tx_ring_t;
 
 typedef struct {
-
-	// struct vbus_device  *dev;
-
 	vuihandler_rx_back_ring_t ring;
 	unsigned int	irq;
 
@@ -137,9 +131,7 @@ typedef struct {
 	vuihandler_shared_buffer_t	tx_buffers;
 	vuihandler_shared_buffer_t	rx_buffers;
 
-    // unsigned int irq;
-
-	/* Table that holds the SPID of the ME whose frontends are connected */
+	/* Holds the SPID of the ME who is connected */
 	uint8_t spid[SPID_SIZE];
 
 } vuihandler_t;
@@ -153,20 +145,5 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id);
 irqreturn_t vuihandler_rx_interrupt(int irq, void *dev_id);
 
 void vuihandler_update_spid_vbstore(uint8_t spid[SPID_SIZE]);
-
-/* State management */
-// void vuihandler_probe(struct vbus_device *dev);
-// void vuihandler_close(struct vbus_device *dev);
-// void vuihandler_suspend(struct vbus_device *dev);
-// void vuihandler_resume(struct vbus_device *dev);
-// void vuihandler_connected(struct vbus_device *dev);
-// void vuihandler_reconfigured(struct vbus_device *dev);
-// void vuihandler_shutdown(struct vbus_device *dev);
-
-// void vuihandler_vbus_init(void);
-
-// bool vuihandler_start(domid_t domid);
-// void vuihandler_end(domid_t domid);
-// bool vuihandler_is_connected(domid_t domid);
 
 #endif /* VUIHANDLER_H */

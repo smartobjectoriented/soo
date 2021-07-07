@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -62,7 +62,7 @@ static struct vbus_device *vuihandler_dev = NULL;
 /* In lib/vsprintf.c */
 unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
 
-#if 0
+
 /**
  * Read the current connected application ME SPID in vbstore.
  */
@@ -100,18 +100,13 @@ static void get_app_spid(uint8_t spid[SPID_SIZE]) {
  * Process pending responses in the tx_ It should not be used in this direction.
  */
 static void process_pending_tx_rsp(struct vbus_device *vdev) {
-	RING_IDX i, rp;
 	vuihandler_t *vuihandler = to_vuihandler(vdev);
-	rp = vuihandler->tx_ring.sring->rsp_prod;
+	vuihandler_tx_response_t *ring_req;
 	dmb();
-
-	for (i = vuihandler->tx_ring.sring->rsp_cons; i != rp; i++) {
-		/* Do nothing */
-	}
-
-	vuihandler->tx_ring.sring->rsp_cons = i;
+	/* Consume the responses without doing anything */
+	while ((ring_req = vuihandler_tx_get_ring_response(&vuihandler->tx_ring)) != NULL);
 }
-#endif
+
 
 /**
  * tx_ring interrupt. It should not be used in this direction.
@@ -119,12 +114,11 @@ static void process_pending_tx_rsp(struct vbus_device *vdev) {
 irq_return_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 
-	// process_pending_tx_rsp(vdev);
+	process_pending_tx_rsp(vdev);
 
 	return IRQ_COMPLETED;
 }
 
-#if 1
 /**
  * Process pending responses in the rx_
  */
@@ -135,25 +129,22 @@ static void process_pending_rx_rsp(struct vbus_device *vdev) {
 
 
 	while ((ring_rsp = vuihandler_rx_get_ring_response(&vuihandler->rx_ring)) != NULL) {
-
+		DBG("rsp->id = %d, rsp->size = %d\n", ring_rsp->id, ring_rsp->size);
 		if (__ui_interrupt)
 			(*__ui_interrupt)(vuihandler->rx_data + (ring_rsp->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_rsp->size);
 	
 	}
 }
-#endif
 
 /**
  * rx_ring interrupt.
  */
 irq_return_t vuihandler_rx_interrupt(int irq, void *dev_id) {
-
 	process_pending_rx_rsp(vuihandler_dev);
 
 	return IRQ_COMPLETED;
 }
 
-#if 1
 
 /**
  * Send a packet to the tablet/smartphone.
@@ -164,30 +155,19 @@ void vuihandler_send(void *data, size_t size) {
 	vuihandler_priv->sp.data = data;
 	vuihandler_priv->sp.size = size;
 	complete(vuihandler_priv->send_compl);
-	// vuihandler_tx_start();
-
-	// vuihandler_tx_end();
 }
 
 int vuihandler_send_fn(void *arg) {
-	// struct send_params *sp = (struct send_params *) arg;
 	struct vbus_device *vdev = (struct vbus_device *) arg;
 	vuihandler_tx_request_t *ring_req;
 	vuihandler_priv_t *vuihandler_priv;
 
-	if (!vuihandler_dev)
-		return -1;
-
-	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
-
+	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vdev->dev);
 
 	while(1) {
 		wait_for_completion(vuihandler_priv->send_compl);
-		DBG(VUIHANDLER_PREFIX "0x%08x %d\n", (unsigned int) data, size);
 
-		
-
-		vdevfront_processing_begin(vuihandler_dev);
+		vdevfront_processing_begin(vdev);
 		/*
 		* Try to generate a new request to the backend
 		*/
@@ -206,14 +186,13 @@ int vuihandler_send_fn(void *arg) {
 			notify_remote_via_virq(vuihandler_priv->vuihandler.tx_irq);
 		}
 
-		vdevfront_processing_end(vuihandler_dev);
+		vdevfront_processing_end(vdev);
 
 	}
 
 	return 0;
 }
 
-#endif
 
 void vuihandler_probe(struct vbus_device *vdev) {
 
@@ -233,7 +212,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 	vuihandler_priv->vuihandler.rx_ring_ref = GRANT_INVALID_REF;
 
 	res = vbus_alloc_evtchn(vdev, &rx_evtchn);
-	BUG_ON(!res);
+	BUG_ON(res);
 
 	res = bind_evtchn_to_irq_handler(rx_evtchn, vuihandler_rx_interrupt, NULL, vdev);
 	if (res <= 0) {
@@ -275,7 +254,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 	vuihandler_priv->vuihandler.tx_ring_ref = GRANT_INVALID_REF;
 
 	res = vbus_alloc_evtchn(vdev, &tx_evtchn);
-	BUG_ON(!res);
+	BUG_ON(res);
 
 	res = bind_evtchn_to_irq_handler(tx_evtchn, vuihandler_tx_interrupt, NULL, vdev);
 	if (res <= 0) {
