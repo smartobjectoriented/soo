@@ -45,8 +45,8 @@ void bluetooth_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 	return;
 #endif
 	
-	memcpy(buffers[cur_buf_idx++].buffer, packet, packet->size + sizeof(transceiver_packet_t));
-	buffers[i].valid = true;
+	memcpy(buffers[cur_buf_idx].buffer, packet, packet->size + sizeof(transceiver_packet_t));
+	buffers[cur_buf_idx++].valid = true;
 
 	/* If our buffers are full or if the packet is a small one, receive all */
 	if (cur_buf_idx == 3 || packet->size != 960) {
