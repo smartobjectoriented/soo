@@ -17,7 +17,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -302,7 +302,7 @@ void vuihandler_suspend(struct vbus_device *vdev) {
 void vuihandler_resume(struct vbus_device *vdev) {
 	DBG0(VUIHANDLER_PREFIX "Frontend resume\n");
 
-	// process_pending_rx_rsp(vdev);
+	process_pending_rx_rsp(vdev);
 }
 
 void vuihandler_connected(struct vbus_device *vdev) {
