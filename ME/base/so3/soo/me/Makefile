@@ -4,6 +4,7 @@ obj-$(CONFIG_SOO_OUTDOOR) += outdoor/
 obj-$(CONFIG_SOO_BLIND) += blind/
 obj-$(CONFIG_SOO_AGENCY) += agency/
 obj-$(CONFIG_SOO_NET) += net/
+obj-$(CONFIG_SOO_HEAT) += heat/
 
 
 

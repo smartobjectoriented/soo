@@ -35,5 +35,10 @@ choice
 			SOO.net is an example of ME which can interact with the network.
 			The ME is configured with a simple ramfs which contains basic applications
 		
+	config SOO_HEAT
+		bool "SOO.heattemp Mobile Entity"
+		help
+			SOO.heattemp is able to read temperature data from SOO.Temp module.
+		
 endchoice
 

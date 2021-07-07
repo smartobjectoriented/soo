@@ -5,7 +5,7 @@ include $(PWD)/../build.conf
 KDIR = ../../linux
 
 ifeq ($(PLATFORM),$(filter $(PLATFORM),rpi4))
-obj-m := senseled.o
+#obj-m := senseled.o
 endif
 
 ifeq ($(PLATFORM),$(filter $(PLATFORM),vexpress))

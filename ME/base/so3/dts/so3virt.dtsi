@@ -91,6 +91,11 @@
             	compatible = "vweather,frontend";
             	status = "disabled";
         	};
+            
+            vtemp {
+            	compatible = "vtemp,frontend";
+            	status = "disabled";
+        	};
 			
 		};
 	

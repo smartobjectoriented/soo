@@ -28,6 +28,9 @@ config VUIHANDLER_FRONTEND
 config VNET_FRONTEND
     bool "vnet Frontend for network access"
 
+config VTEMP_FRONTEND
+	bool "vTemp frontend for the SOO.Heat temp (temperature module)"
+
 source "soo/drivers/vnetfront/Kconfig"
 
 endmenu
