@@ -136,14 +136,20 @@ typedef struct {
 
 } vuihandler_t;
 
-extern vuihandler_t vuihandler;
-
-extern uint8_t vuihandler_null_spid[SPID_SIZE];
-
 /* ISRs associated to the rings */
 irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id);
 irqreturn_t vuihandler_rx_interrupt(int irq, void *dev_id);
 
 void vuihandler_update_spid_vbstore(uint8_t spid[SPID_SIZE]);
+
+/* State management */
+void vuihandler_probe(struct vbus_device *dev);
+void vuihandler_remove(struct vbus_device *dev);
+void vuihandler_close(struct vbus_device *dev);
+void vuihandler_connected(struct vbus_device *dev);
+void vuihandler_reconfigured(struct vbus_device *dev);
+void vuihandler_suspend(struct vbus_device *dev);
+void vuihandler_resume(struct vbus_device *dev);
+
 
 #endif /* VUIHANDLER_H */
