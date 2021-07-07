@@ -16,30 +16,31 @@
  *
  */
 
-#ifndef VDUMMY_H
-#define VDUMMY_H
+#ifndef VSENSELED_H
+#define VSENSELED_H
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
 #include <soo/vdevfront.h>
 
-#define VDUMMY_PACKET_SIZE	32
+#define VSENSELED_PACKET_SIZE	32
 
-#define VDUMMY_NAME		"vdummy"
-#define VDUMMY_PREFIX		"[" VDUMMY_NAME "] "
+#define VSENSELED_NAME		"vsenseled"
+#define VSENSELED_PREFIX	"[" VSENSELED_NAME "] "
 
 typedef struct {
-	char buffer[VDUMMY_PACKET_SIZE];
-} vdummy_request_t;
+	int lednr;
+	bool ledstate; /* true = on, false = off */
+} vsenseled_request_t;
 
 typedef struct  {
-	char buffer[VDUMMY_PACKET_SIZE];
-} vdummy_response_t;
+	/* nothing */
+} vsenseled_response_t;
 
 /*
  * Generate ring structures and types.
  */
-DEFINE_RING_TYPES(vdummy, vdummy_request_t, vdummy_response_t);
+DEFINE_RING_TYPES(vsenseled, vsenseled_request_t, vsenseled_response_t);
 
 /*
  * General structure for this virtual device (frontend side)
@@ -49,14 +50,17 @@ typedef struct {
 	/* Must be the first field */
 	vdevfront_t vdevfront;
 
-	vdummy_front_ring_t ring;
+	vsenseled_front_ring_t ring;
 	unsigned int irq;
 
 	grant_ref_t ring_ref;
 	grant_handle_t handle;
 	uint32_t evtchn;
 
-} vdummy_t;
+} vsenseled_t;
 
+/* API for the user of this frontend */
 
-#endif /* VDUMMY_H */
+void vsenseled_set(int lednr, bool ledstate);
+
+#endif /* VSENSELED_H */

@@ -64,6 +64,14 @@ config VSENSELED_BACKEND
 	  The vsenseled driver enables 5 logical LEDs that may be used to represent the joystick movement
 	  for example.
 
+config VSENSEJ_BACKEND
+	depends on FB_RPISENSE
+	bool "vsensej Sense-HAT joystick backend driver"
+	default n
+	help
+	  The vsensej driver captures joystick movements.
+	  
+	  
 source "soo/drivers/vnetback/Kconfig"
 
 endmenu

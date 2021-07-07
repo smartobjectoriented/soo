@@ -22,10 +22,10 @@ on = 1;
 
 while True:
         if on == 1:
-            sense.set_pixel(9, 9, (0, 0, 255))
+            sense.set_pixel(7, 7, (0, 0, 255))
             on = 0
         else:
-            sense.set_pixel(9, 9, (0, 0, 0))
+            sense.set_pixel(7, 7, (0, 0, 0))
             on = 1
 
         val = read_discovery()
