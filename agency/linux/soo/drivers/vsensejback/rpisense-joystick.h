@@ -16,18 +16,24 @@
  *
  */
 
+#ifndef RPISENSE_JOYSTICK_H
+#define RPISENSE_JOYSTICK_H
 
-#ifndef RPISENSE_LED_H
-#define RPISENSE_LED_H
+#include <linux/platform_device.h>
 
-/* 8 (row) * 8 (column) * 3 (colors) + 1 (first byte needed blank) */
-#define SIZE_FB 193
+#include <soo/vbus.h>
 
-/* LED address on the I2C bus */
-#define LED_ADDR	0x46
+typedef void(*joystick_handler_t)(struct vbus_device *vdev, int key);
 
+#define RPISENSE_JS_UP      	0x04
+#define RPISENSE_JS_DOWN    	0x01
+#define RPISENSE_JS_RIGHT   	0x02
+#define RPISENSE_JS_LEFT    	0x10
+#define RPISENSE_JS_CENTER	0x08
 
-void senseled_init(void);
-void display_led(int led_nr, bool on);
+#define RPISENSE_JS_ADDR	0xF2
 
-#endif /* RPISENSE_LED_H */
+void sensej_init(void);
+void rpisense_joystick_handler_register(struct vbus_device *vdev, joystick_handler_t joystick_handler);
+
+#endif /* RPISENSE_JOYSTICK_H */

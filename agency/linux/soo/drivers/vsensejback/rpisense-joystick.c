@@ -1,0 +1,91 @@
+/*
+ * Copyright (C) 2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
+
+#include <linux/i2c.h>
+#include <linux/delay.h>
+#include <linux/kthread.h>
+#include <linux/interrupt.h>
+
+#include <linux/mfd/rpisense/core.h>
+
+#include <linux/platform_device.h>
+
+#include "rpisense-joystick.h"
+
+static struct rpisense *rpisense = NULL;
+
+static joystick_handler_t __joystick_handler = NULL;
+static struct vbus_device *__vdev;
+
+
+static irqreturn_t keys_irq_handler_bh(int irq, void *pdev) {
+	int key;
+
+	key = i2c_smbus_read_byte_data(rpisense->i2c_client, RPISENSE_JS_ADDR);
+
+	if (__joystick_handler)
+		__joystick_handler((struct vbus_device *) pdev, key);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t keys_irq_handler(int irq, void *pdev)
+{
+	/*
+	 * Nothing to do in the top half. Access to i2c requires
+	 * the scheduler to be not in an atomic context.
+	 */
+
+	return IRQ_WAKE_THREAD;
+}
+
+
+void rpisense_joystick_handler_register(struct vbus_device *vdev, joystick_handler_t joystick_handler) {
+	int ret;
+
+	__joystick_handler = joystick_handler;
+	__vdev = vdev;
+
+	ret = request_threaded_irq(rpisense->joystick.keys_irq,
+				  keys_irq_handler, keys_irq_handler_bh, IRQF_TRIGGER_RISING,
+				  "keys", __vdev);
+	if (ret) {
+		printk("IRQ request failed ret = %d.\n", ret);
+		BUG();
+	}
+}
+EXPORT_SYMBOL(rpisense_joystick_handler_register);
+
+void sensej_init(void) {
+	int ret;
+
+	rpisense = rpisense_get_dev();
+	ret = gpiod_direction_input(rpisense->joystick.keys_desc);
+	if (ret) {
+		printk("Could not set keys-int direction.\n");
+		BUG();
+	}
+
+	rpisense->joystick.keys_irq = gpiod_to_irq(rpisense->joystick.keys_desc);
+	if (rpisense->joystick.keys_irq < 0) {
+		printk("Could not determine keys-int IRQ.\n");
+		BUG();
+	}
+
+}
+EXPORT_SYMBOL(sensej_init);

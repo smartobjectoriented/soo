@@ -291,12 +291,6 @@
 			arm,vexpress-sysreg,func = <13 0>;
 			label = "Cores";
 		};
-		
-		vsenseled {
-				
-					compatible = "vsenseled,backend";
-				};
-		
 	};
 
 	smb@8000000 {
@@ -371,16 +365,6 @@
 				<0 3 &gic 0 39 4>;
 	};
 	
-	l0 {
-		compatible = "soo,agency";
-		
-		vsenseled {
-		
-			compatible = "vsenseled,backend";
-		};
-		 
-	};
-	
 	agency {
 		domain-size = <0x20000000>; /* 512 MB */	
 	
@@ -409,11 +393,7 @@
 				compatible = "vnet,backend";
 				status = "disabled";
 			};
-			
-			vsenseled {
-				compatible = "vsenseled,backend";
-				status = "ok";
-			};
+
 		};
 	};
 

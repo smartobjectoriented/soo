@@ -1,8 +1,20 @@
-/*******************************************************************
- * rpisense.c
+/*
+ * Copyright (C) 2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
- * Copyright (c) 2020 HEIG-VD, REDS Institute
- *******************************************************************/
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
 
 #include <linux/i2c.h>
 #include <linux/delay.h>
@@ -15,12 +27,6 @@
 #include "rpisense-led.h"
 
 static struct rpisense *rpisense = NULL;
-
-/* 8 (row) * 8 (column) * 3 (colors) + 1 (first byte needed blank) */
-#define SIZE_FB 193
-
-/* LED address on the I2C bus */
-#define LED_ADDR	0x46
 
 uint8_t leds_array[SIZE_FB];
 
@@ -101,6 +107,9 @@ unsigned char leds[][64][2] = {
 	}
 };
 
+/* In drivers/video/fbdev/rpisense-fb.c */
+void update_rpisense_fb_mem(uint8_t *matrix);
+
 void display_led(int led_nr, bool on) {
 	int i, j;
 	u16 *mem = (u16 *) leds[led_nr];
@@ -127,6 +136,8 @@ void display_led(int led_nr, bool on) {
 		}
 	}
 
+	update_rpisense_fb_mem(matrix);
+
 	i2c_master_send(rpisense->i2c_client, matrix, SIZE_FB);
 }
 EXPORT_SYMBOL(display_led);
@@ -140,3 +151,4 @@ void senseled_init(void) {
 	rpisense = rpisense_get_dev();
 
 }
+EXPORT_SYMBOL(senseled_init);
