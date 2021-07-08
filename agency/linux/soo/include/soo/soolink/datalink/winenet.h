@@ -51,7 +51,7 @@
 #define WNET_N_PACKETS_IN_FRAME 8
 #endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
 
-#define WNET_TSPEAKER_ACK_MS	500
+#define WNET_TSPEAKER_ACK_MS	800
 
 /* The following values are called ACK cause and
  * enables to check the status of an acknowledgment message
