@@ -359,9 +359,9 @@ static void winenet_send_beacon(agencyUID_t *agencyUID, wnet_beacon_id_t beacon_
 
 	memcpy(&current_soo_winenet->__sl_desc->agencyUID_to, agencyUID, SOO_AGENCY_UID_SIZE);
 
-	soo_log("[soo:soolink:winenet:beacon] (state %s) Sending beacon to %s\n",
+	soo_log("[soo:soolink:winenet:beacon] (state %s) Sending beacon to %s cause: %d\n",
 		wnet_str_state(),
-		beacon_str(beacon, &current_soo_winenet->__sl_desc->agencyUID_to));
+		beacon_str(beacon, &current_soo_winenet->__sl_desc->agencyUID_to), cause);
 
 	__sender_tx(current_soo_winenet->__sl_desc, transceiver_packet);
 
@@ -504,7 +504,7 @@ static void winenet_remove_neighbour(neighbour_desc_t *neighbour) {
  *
  */
 static void winenet_update_neighbour_priv(neighbour_desc_t *neighbour) {
-	wnet_neighbour_t *wnet_neighbour;
+	wnet_neighbour_t *wnet_neighbour, *wnet_neighbour_entry;
 	wnet_ping_t ping_type;
 	bool ok = false;
 
@@ -515,6 +515,8 @@ static void winenet_update_neighbour_priv(neighbour_desc_t *neighbour) {
 
 	soo_log("[soo:soolink:winenet:neighbour] Updating neighbour (our state is %s): ", get_current_state_str());
 	soo_log_printlnUID(&neighbour->agencyUID);
+
+	winenet_dump_neighbours();
 
 	list_for_each_entry(wnet_neighbour, &current_soo_winenet->wnet_neighbours, list) {
 
@@ -565,6 +567,7 @@ static void winenet_update_neighbour_priv(neighbour_desc_t *neighbour) {
 
 		if (!ok)
 			current_soo_winenet->ourself->neighbour->priv = NULL;
+
 	}
 
 	/*
@@ -573,9 +576,9 @@ static void winenet_update_neighbour_priv(neighbour_desc_t *neighbour) {
 	 * If it not the case, we check if we are the smallest UID and change to SPEAKER.
 	 */
 
-	list_for_each_entry(wnet_neighbour, &current_soo_winenet->wnet_neighbours, list)
+	list_for_each_entry(wnet_neighbour_entry, &current_soo_winenet->wnet_neighbours, list)
 	{
-		if (wnet_neighbour->neighbour->priv != NULL) {
+		if (wnet_neighbour_entry->neighbour->priv != NULL) {
 
 			winenet_dump_neighbours();
 
@@ -592,6 +595,7 @@ static void winenet_update_neighbour_priv(neighbour_desc_t *neighbour) {
 
 	change_state(WNET_STATE_SPEAKER);
 	complete(&current_soo_winenet->wnet_event);
+
 
 	winenet_dump_neighbours();
 }
@@ -841,9 +845,9 @@ again:
 		next_speaker = next_valid_neighbour(current_soo_winenet->ourself);
 
 	if (!next_speaker) {
-		/* Reset our speakerUID */
-		current_soo_winenet->ourself->neighbour->priv = NULL;
+
 		current_soo_winenet->__current_speaker = NULL;
+		current_soo_winenet->ourself->neighbour->priv = NULL;
 
 		neighbour_list_protection(old);
 
@@ -853,6 +857,8 @@ again:
 
 	/* Well, the current speaker is known */
 	current_soo_winenet->__current_speaker = next_speaker;
+
+	current_soo_winenet->ourself->neighbour->priv = &next_speaker->neighbour->agencyUID;
 
 	/* Check if this neighbour has already plaid its turn in the current round. */
 
@@ -865,6 +871,7 @@ retry_waitack:
 		ack = wait_for_ack();
 
 		if (ack != ACK_STATUS_OK) {
+
 			/* Did we receive another beacon than ack ? */
 			if (ack == ACK_STATUS_BEACON) {
 
@@ -906,9 +913,6 @@ retry_waitack:
 
 		goto again;
 	}
-
-	/* Set our new speakerUID */
-	current_soo_winenet->ourself->neighbour->priv = &next_speaker->neighbour->agencyUID;
 
 out:
 	neighbour_list_protection(old);
@@ -1463,15 +1467,8 @@ static void winenet_state_listener(wnet_state_t old_state) {
 		current_soo_winenet->last_state = WNET_STATE_LISTENER;
 	}
 
-	/*
-	 * At this point, we are not paired yet with another SOO.
-	 * But, if an update_neighbour_priv is performed and decide to put us
-	 * as speaker right before to change to listener, we can have a paired
-	 * speaker to ourself, so lets reset it.
-	 */
-	current_soo_winenet->ourself->neighbour->priv = NULL;
-
 	while (1) {
+
 		if (!first)
 			wait_for_completion(&current_soo_winenet->wnet_event);
 
@@ -1521,7 +1518,8 @@ static void winenet_state_listener(wnet_state_t old_state) {
 			/* Event processed */
 			beacon_clear();
 
-			if (current_soo_winenet->ourself->neighbour->priv && cmpUID(current_soo_winenet->ourself->neighbour->priv, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from))
+			if (current_soo_winenet->ourself->neighbour->priv &&
+			    cmpUID(current_soo_winenet->ourself->neighbour->priv, &current_soo_winenet->wnet_rx.sl_desc->agencyUID_from))
 
 				/* Cause ACK_STATUS_ABORT means the sender will put its priv to NULL */
 				winenet_send_beacon(&agencyUID_from, WNET_BEACON_ACKNOWLEDGMENT, ACK_STATUS_ABORT, NULL, 0);
