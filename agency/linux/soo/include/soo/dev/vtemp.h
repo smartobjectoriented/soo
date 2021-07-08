@@ -44,11 +44,13 @@ typedef struct {
 } vtemp_data_t;
 
 typedef struct {
-	char buffer[VTEMP_PACKET_SIZE];
+	/* EMPTY */
 } vtemp_request_t;
 
 typedef struct  {
-	char buffer[VTEMP_PACKET_SIZE];
+	int temp;
+	uint32_t dev_id;
+	uint8_t dev_type;
 } vtemp_response_t;
 
 /*

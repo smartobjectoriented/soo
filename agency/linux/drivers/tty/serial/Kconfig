@@ -19,6 +19,17 @@ source "drivers/tty/serial/8250/Kconfig"
 
 comment "Non-8250 serial port support"
 
+
+
+config LORA_SOO_HEAT_BASE
+	bool "SOO, uart communication to LoRa module"
+	depends on TTY
+	select SERIAL_CORE
+	help
+	  Support for UART communication to LoRa module
+	  for SOO.heat Base module
+
+
 config SERIAL_AMBA_PL010
 	tristate "ARM AMBA PL010 serial port support"
 	depends on ARM_AMBA

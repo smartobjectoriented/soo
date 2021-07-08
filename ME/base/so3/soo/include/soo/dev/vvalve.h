@@ -16,39 +16,38 @@
  *
  */
 
-#ifndef VTEMP_H
-#define VTEMP_H
+#ifndef VVALVE_H
+#define VVALVE_H
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
 #include <soo/vdevfront.h>
 
-#define VTEMP_PACKET_SIZE	32
+#define VVALVE_PACKET_SIZE	32
+#define CMD_DATA_SIZE 8
 
-#define VTEMP_NAME		"vtemp"
-#define VTEMP_PREFIX		"[" VTEMP_NAME "] "
+#define VVALVE_NAME		"vvalve"
+#define VVALVE_PREFIX		"[" VVALVE_NAME "] "
 
-
-typedef struct {
-	int temp;
-	uint32_t dev_id;
-	uint8_t dev_type;
-} vtemp_data_t;
 
 typedef struct {
-	/* EMPTY */
-} vtemp_request_t;
+	int command;
+	int dev_id;
+	int dev_type;
+} vvalve_data_t;
+
+typedef struct {
+	char buffer[CMD_DATA_SIZE+2];
+} vvalve_request_t;
 
 typedef struct  {
-	int temp;
-	uint32_t dev_id;
-	uint8_t dev_type;
-} vtemp_response_t;
+	/* EMPTY */
+} vvalve_response_t;
 
 /*
  * Generate ring structures and types.
  */
-DEFINE_RING_TYPES(vtemp, vtemp_request_t, vtemp_response_t);
+DEFINE_RING_TYPES(vvalve, vvalve_request_t, vvalve_response_t);
 
 /*
  * General structure for this virtual device (backend side)
@@ -58,22 +57,22 @@ typedef struct {
 	/* Must be the first field */
 	vdevfront_t vdevfront;
 
-	vtemp_front_ring_t ring;
+	vvalve_front_ring_t ring;
 	unsigned int irq;
 
 	grant_ref_t ring_ref;
 	grant_handle_t handle;
 	uint32_t evtchn;
 
-	vtemp_data_t *temp_data;
+	vvalve_data_t *valve_data;
 
-} vtemp_t;
+} vvalve_t;
 
-static inline vtemp_t *to_vtemp(struct vbus_device *vdev) {
+static inline vvalve_t *to_vvalve(struct vbus_device *vdev) {
 	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
-	return container_of(vdevback, vtemp_t, vdevfront);
+	return container_of(vdevback, vvalve_t, vdevfront);
 }
 
-int vtemp_get_temp_data(vtemp_data_t *temp_data);
+void vvalve_generate_request(char *buffer);
 
-#endif /* VTEMP_H */
+#endif /* VVALVE_H */

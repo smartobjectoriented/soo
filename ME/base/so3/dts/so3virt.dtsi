@@ -96,6 +96,11 @@
             	compatible = "vtemp,frontend";
             	status = "disabled";
         	};
+            
+            vvalve {
+            	compatible = "vvalve,frontend";
+            	status = "disabled";
+        	};
 			
 		};
 	

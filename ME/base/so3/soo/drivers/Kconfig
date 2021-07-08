@@ -31,6 +31,9 @@ config VNET_FRONTEND
 config VTEMP_FRONTEND
 	bool "vTemp frontend for the SOO.Heat temp (temperature module)"
 
+config VVALVE_FRONTEND
+	bool "vValve frontend for the SOO.Heat valve (Electrovanne)"
+
 source "soo/drivers/vnetfront/Kconfig"
 
 endmenu

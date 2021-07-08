@@ -6,3 +6,4 @@ obj-$(CONFIG_VDOGA12V6NM_FRONTEND) += vdoga12v6nmfront/
 obj-$(CONFIG_VWEATHER_FRONTEND) += vweatherfront/
 obj-$(CONFIG_VUIHANDLER_FRONTEND) += vuihandlerfront/
 obj-$(CONFIG_VTEMP_FRONTEND) += vtempfront/
+obj-$(CONFIG_VVALVE_FRONTEND) += vvalvefront/

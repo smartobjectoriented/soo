@@ -3,6 +3,12 @@
 # Makefile for the kernel serial device drivers.
 #
 
+
+# SOO - additional driver
+obj-$(CONFIG_LORA_SOO_HEAT_BASE)  += soo_heat_base.o
+# END SOO
+
+
 obj-$(CONFIG_SERIAL_CORE) += serial_core.o
 
 obj-$(CONFIG_SERIAL_EARLYCON) += earlycon.o

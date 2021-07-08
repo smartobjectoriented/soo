@@ -37,6 +37,8 @@
 #include <soo/debug/dbgvar.h>
 #include <soo/debug/logbool.h>
 #include <soo/evtchn.h>
+#include <soo/dev/vtemp.h>
+#include <soo/dev/vvalve.h>
 
 
 #include <device/irq.h>
@@ -59,19 +61,26 @@ mutex_t lock1, lock2;
 
 extern void *localinfo_data;
 
+
 /*
  * Just an example using a thread.
  */
 int thread1(void *args)
 {
+
+	vtemp_data_t temp_data;
+	char buff[10];
+
 	while (1) {
-		printk("%s: in loop within domain %d...\n", __func__, ME_domID());
-#if defined(CONFIG_RTOS)
-		/* avz_sched_sleep_ms(300); */
-		msleep(300);
-#else
-		msleep(300);
-#endif /* CONFIG_RTOS */
+
+		if(vtemp_get_temp_data(&temp_data) > 0) {
+
+			lprintk("ME SOO.heat : dev_id = %d, dev_type = %d, temp = %d\n", temp_data.dev_id, temp_data.dev_type, temp_data.temp);
+
+			sprintf(buff, "%d-%d-%d\r\n", temp_data.dev_id, temp_data.dev_type, temp_data.temp);
+
+			vvalve_generate_request(buff);
+		}
 
 	}
 
@@ -175,6 +184,15 @@ static int alphabet_fn(void *arg) {
 	return 0;
 }
 #endif
+#if 0
+
+void heat_init(void) {
+
+	temp_data = (vtemp_data_t *)localinfo_data;
+	memset(temp_data, 0, sizeof(vtemp_data_t));
+
+}
+#endif
 
 /*
  * The main application of the ME is executed right after the bootstrap. It may be empty since activities can be triggered
@@ -185,8 +203,9 @@ int app_thread_main(void *args) {
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
 
-#if 0
+#if 1
 	kernel_thread(thread1, "thread1", NULL, 0);
+	// heat_init();
 #endif
 
 	//init_timer(&timer, timer_fn, NULL);

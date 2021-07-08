@@ -43,35 +43,31 @@ typedef struct {
 	/* Must be the first field */
 	vtemp_t vtemp;
 
+	/* contains data receives from backend */
+	vtemp_data_t vtemp_data;
+
+	/* wait data from backend */
+	struct completion wait_temp;
+
 } vtemp_priv_t;
+
+
+
 
 static struct vbus_device *vtemp_dev = NULL;
 
 static bool thread_created = false;
 
 irq_return_t vtemp_interrupt(int irq, void *dev_id) {
-	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	vtemp_priv_t *vtemp_priv = dev_get_drvdata(vdev->dev);
-	vtemp_response_t *ring_rsp;
 
-	DBG("%s, %d\n", __func__, ME_domID());
-
-	while ((ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring)) != NULL) {
-
-		DBG("%s, cons=%d\n", __func__, i);
-
-		/* Do something with the response */
-
-#if 0 /* Debug */
-		lprintk("## Got from the backend: %s\n", ring_rsp->buffer);
-#endif
-	}
+	vtemp_priv_t *vtemp_priv = (vtemp_priv_t *) dev_get_drvdata(vtemp_dev->dev);
+	
+	complete(&vtemp_priv->wait_temp);
 
 	return IRQ_COMPLETED;
 }
 
 #if 0
-static int i1 = 1, i2 = 2;
 /*
  * The following function is given as an example.
  *
@@ -105,6 +101,33 @@ void vtemp_generate_request(char *buffer) {
 }
 #endif
 
+
+/**
+ * Get temperature data from temperature LoRa module (SOO.heat temp)
+ * @return 0 if success, -1 if not ready yet
+ */
+int vtemp_get_temp_data(vtemp_data_t *temp_data) {
+
+	vtemp_priv_t *vtemp_priv;
+	vtemp_response_t *ring_rsp;
+
+	if(!vtemp_dev) {
+		return -1;
+	}
+
+	vtemp_priv = dev_get_drvdata(vtemp_dev->dev);
+
+	wait_for_completion(&vtemp_priv->wait_temp);
+
+	ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring);
+
+	temp_data->temp = ring_rsp->temp;
+	temp_data->dev_id = ring_rsp->dev_id;
+	temp_data->dev_type = ring_rsp->dev_type;
+
+	return sizeof(vtemp_data_t);
+}
+
 static void vtemp_probe(struct vbus_device *vdev) {
 	int res;
 	unsigned int evtchn;
@@ -122,6 +145,8 @@ static void vtemp_probe(struct vbus_device *vdev) {
 	vtemp_priv = dev_get_drvdata(vdev->dev);
 
 	vtemp_dev = vdev;
+
+	init_completion(&vtemp_priv->wait_temp);
 
 	DBG("Frontend: Setup ring\n");
 

@@ -47,13 +47,9 @@
 #include <soo/dev/vtemp.h>
 #include <linux/tty.h>
 
-extern ssize_t tty_do_read(struct tty_struct *tty, unsigned char *buf, size_t nr);
-extern struct tty_struct *tty_kopen(dev_t device);
-extern void uart_do_open(struct tty_struct *tty);
-extern void uart_do_close(struct tty_struct *tty);
-extern int tty_set_termios(struct tty_struct *tty, struct ktermios *new_termios);
-extern int uart_do_write(struct tty_struct *tty, const unsigned char *buf, int count);
-extern void n_tty_do_flush_buffer(struct tty_struct *tty);
+extern int soo_heat_base_open(void);
+extern ssize_t soo_heat_base_read_temp(char *buffer);
+extern void soo_heat_base_set_lora_rx(void);
 
 
 
@@ -64,8 +60,6 @@ typedef struct {
 
 	/* contains data receives from LoRa */
 	vtemp_data_t vtemp_data;
-
-	struct tty_struct *tty_uart;
 
 } vtemp_priv_t;
 
@@ -83,223 +77,39 @@ void vtemp_notify(struct vbus_device *vdev)
 	notify_remote_via_virq(vtemp_priv->vtemp.irq);
 }
 
-// static int lora_monitor_fn(void *args) {
-// 	struct tty_struct *tty_uart;
-// 	int len, nbytes;
-// 	char buffer[VTEMP_PACKET_SIZE];
-// 	dev_t dev;
-// 	int baud = 57600;
-// 	int bits = 8;
-// 	int parity = 'n';
-// 	int flow = 'n';
-// 	int lora_padding = 10;
-// 	int ret = 0;
+void send_data_to_front(vtemp_priv_t *vtemp_priv) {
 
-// 	char temp_char[TEMP_BLOCK_SIZE+1];
-// 	char dev_id_char[DEV_ID_BLOCK_SIZE+1];
-// 	char dev_type_char[DEV_TYPE_BLOCK_SIZE+1];
+	vtemp_response_t *ring_rsp;
 
-// 	vtemp_priv_t *vtemp_priv = (vtemp_priv_t *)args;
+	ring_rsp = vtemp_new_ring_response(&vtemp_priv->vtemp.ring);
 
+	ring_rsp->temp = vtemp_priv->vtemp_data.temp;
+	ring_rsp->dev_id = vtemp_priv->vtemp_data.dev_id;
+	ring_rsp->dev_type = vtemp_priv->vtemp_data.dev_type;
 
-// 	printk("%s begin to read data from LoRa \n", VTEMP_PREFIX);
+	vtemp_ring_response_ready(&vtemp_priv->vtemp.ring);
 
-// 	/* Initiate the tty device dedicated to the LoRa module. */
-// 	tty_dev_name_to_number(VTEMP_UART0_DEV, &dev);
-// 	tty_uart = tty_kopen(dev);
-
-
-// 	uart_do_open(tty_uart);
-
-// 	/* Set the termios parameters related to tty. */
-
-// 	tty_uart->termios.c_lflag = ECHO | ECHOE | NOFLSH;
-// 	tty_set_termios(tty_uart, &tty_uart->termios);
-
-
-// 	/* Set UART configuration */
-// 	uart_set_options(
-// 		((struct uart_state *) tty_uart->driver_data)->uart_port,
-// 		NULL,
-// 		baud,
-// 		parity,
-// 		bits,
-// 		flow
-// 	);
-
-
-// 	while (true) {
-
-// 		nbytes = 0;
-
-// 		printk("%s reading data by uart\n", VTEMP_PREFIX);
-
-// 		// read the number of bytes corresponding of the data send by SOO.Temp
-// 		while (nbytes < (TEMP_DATA_SIZE + lora_padding)) {
-			
-// 			len = tty_do_read(tty_uart, buffer + nbytes, (TEMP_DATA_SIZE + lora_padding));
-// 			nbytes += len;
-// 		}
-
-// 		printk("%s READED : %s\n", VTEMP_PREFIX, buffer);
-
-// 		/* copy temperature into local buffer*/
-// 		memcpy(
-// 			temp_char,
-// 			buffer + lora_padding,
-// 			TEMP_BLOCK_SIZE
-// 		);
-// 		temp_char[TEMP_BLOCK_SIZE+1] = '\0';
-
-// 		/* copy dev_id */
-// 		memcpy(
-// 			dev_id_char,
-// 			buffer + lora_padding + TEMP_BLOCK_SIZE,
-// 			DEV_ID_BLOCK_SIZE
-// 		);
-// 		dev_id_char[DEV_ID_BLOCK_SIZE+1] = '\0';
-
-// 		/* copy dev_type */
-// 		memcpy(
-// 			dev_type_char,
-// 			buffer + lora_padding + TEMP_BLOCK_SIZE + DEV_ID_BLOCK_SIZE,
-// 			DEV_TYPE_BLOCK_SIZE
-// 		);
-// 		dev_type_char[DEV_TYPE_BLOCK_SIZE+1] = '\0';
-
-// 		/* update local data */
-// 		ret = kstrtol(temp_char, 10, (long *)(&(vtemp_priv->vtemp_data.temp)));
-// 		ret = kstrtol(dev_id_char, 10, (long *)(&(vtemp_priv->vtemp_data.dev_id)));
-// 		ret = kstrtol(dev_type_char, 10, (long *)(&(vtemp_priv->vtemp_data.dev_type)));
-		
-// 		if(ret != 0) {
-
-// 			printk("%s ERROR CONV STR TO L %d \n", VTEMP_PREFIX, ret);
-// 		}
-		
-// 		printk("%s Readed Temp : %d \n", VTEMP_PREFIX, vtemp_priv->vtemp_data.temp);
-
-
-// 	}
-
-// 	return 0;
-// }
+	notify_remote_via_virq(vtemp_priv->vtemp.irq);
+}
 
 static int lora_monitor_fn(void *args) {
 
-	struct tty_struct *tty_uart;
-	dev_t dev;
-	int baud = 57600;
-	int bits = 8;
-	int parity = 'n';
-	int flow = 'n';
-	int nbytes, len;
-	int bytes_to_read = 18;
-	char buffer[19];
-	int lora_padding = 10;
 
 	char temp_char[TEMP_BLOCK_SIZE+1];
 	char dev_id_char[DEV_ID_BLOCK_SIZE+1];
 	char dev_type_char[DEV_TYPE_BLOCK_SIZE+1];
 
+	char buffer[18];
+    int  lora_padding = 10;
 
 	vtemp_priv_t *vtemp_priv = (vtemp_priv_t *)args;
-	
 
-	tty_uart = vtemp_priv->tty_uart;
-
-	printk("%s LoRa Thread is running.... \n", VTEMP_PREFIX);
-
-	/* Initiate the tty device dedicated to the LoRa module. */
-	tty_dev_name_to_number(VTEMP_UART1_DEV, &dev);
-	tty_uart = tty_kopen(dev);
-
-
-	printk("%s Open uart \n", VTEMP_PREFIX);
-	uart_do_open(tty_uart);
-
-
-
-	printk("%s tty_set_termios....\n", VTEMP_PREFIX);
-
-	/* Set the termios parameters related to tty. */
-	tty_uart->termios.c_iflag = (IUTF8 | IMAXBEL | IUCLC | IXANY);
-	tty_uart->termios.c_oflag = ~(OPOST);
-	tty_uart->termios.c_cflag = (CREAD | CMSPAR);
-	tty_uart->termios.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL | ICANON | IEXTEN | ISIG | NOFLSH);
-	tty_uart->termios.c_lflag |= ICANON;
-	// tty_uart->termios.c_lflag = NOFLSH;
-
-	tty_set_termios(tty_uart, &tty_uart->termios);
-
-	printk("%s TTY Set option\n", VTEMP_PREFIX);
-	uart_set_options(((struct uart_state *) tty_uart->driver_data)->uart_port, NULL, baud, parity, bits, flow);
-
-
-	/* reset the module to be safe */
-	uart_do_write(tty_uart, "sys reset\r\n", 11);
-	msleep(100);
-
-	/* Setup the LoRa module */
-	printk("%s Setting LoRa module... \n", VTEMP_PREFIX);
-
-
-	/* set modulation type*/
-	uart_do_write(tty_uart, "radio set mod lora\r\n", 20);
-	msleep(50);
-
-	/* set frequence to 915MHz*/
-	uart_do_write(tty_uart, "radio set freq 915000000\r\n", 26);
-	msleep(50);
-
-	/* set emission power */
-	uart_do_write(tty_uart, "radio set pwr 2\r\n", 17);
-	msleep(50);
-
-	/* set unlimited timeout limit */
-	uart_do_write(tty_uart, "radio set wdt 0\r\n", 17);
-	msleep(50);
-
-	/* disable LoRaWAN*/
-	uart_do_write(tty_uart, "mac pause\r\n", 11);
-	msleep(50);
-
-	/* set continue listening */
-	uart_do_write(tty_uart, "radio rx 0\r\n", 12);
-	msleep(50);
-
-	printk("%s Setting LoRa module finish \n", VTEMP_PREFIX);
-
-	n_tty_do_flush_buffer(tty_uart);
+	soo_heat_base_set_lora_rx();
 
 	while(true) {
-		
-		nbytes = 0;
 
-
-		while(nbytes < bytes_to_read) {
-
-			/* read byte by byte to check unwanted responses */
-			len = tty_do_read(tty_uart, buffer + nbytes, 18);
-			nbytes += len;
-			
-			buffer[18] = '\0';
-
-			printk("%s Current read : %s\n", VTEMP_PREFIX, buffer);
-
-			/* check for unwanted responses */
-			if(strstr(buffer, "ok") != NULL || 
-			   strstr(buffer, "invalid_param") != NULL) {
-				
-				nbytes = 0;
-				memset(buffer, 0, 18);
-				printk("%s Reset read, unwanted response !!\n", VTEMP_PREFIX);
-			}
-
-		}
-
-		printk("%s READED %s\n", VTEMP_PREFIX, buffer);
-
+		/* block until useful data from LoRa */
+		soo_heat_base_read_temp(buffer);
 
 		// if readed buffer contains radio_tx
 		if(strstr(buffer, "radio_rx") != NULL) {
@@ -311,7 +121,7 @@ static int lora_monitor_fn(void *args) {
 				TEMP_BLOCK_SIZE
 			);
 			temp_char[TEMP_BLOCK_SIZE] = '\0';
-			printk("%s temp : %s", VTEMP_PREFIX, temp_char);
+			// printk("%s temp : %s", VTEMP_PREFIX, temp_char);
 
 			/* copy dev_id */
 			memcpy(
@@ -320,7 +130,7 @@ static int lora_monitor_fn(void *args) {
 				DEV_ID_BLOCK_SIZE
 			);
 			dev_id_char[DEV_ID_BLOCK_SIZE] = '\0';
-			printk("%s dev_id : %s", VTEMP_PREFIX, dev_id_char);
+			// printk("%s dev_id : %s", VTEMP_PREFIX, dev_id_char);
 
 			/* copy dev_type */
 			memcpy(
@@ -329,7 +139,7 @@ static int lora_monitor_fn(void *args) {
 				DEV_TYPE_BLOCK_SIZE
 			);
 			dev_type_char[DEV_TYPE_BLOCK_SIZE] = '\0';
-			printk("%s dev_type : %s", VTEMP_PREFIX, dev_type_char);
+			// printk("%s dev_type : %s", VTEMP_PREFIX, dev_type_char);
 
 			/* update local data */
 			if(kstrtol(temp_char, 10, (long *)(&(vtemp_priv->vtemp_data.temp))) != 0){
@@ -349,47 +159,37 @@ static int lora_monitor_fn(void *args) {
 			vtemp_priv->vtemp_data.temp /= 4;
 
 			printk("%s DEV_ID: %d, DEV_TYPE: %d, TEMP: %d \n", VTEMP_PREFIX,
-															   vtemp_priv->vtemp_data.dev_id,
-															   vtemp_priv->vtemp_data.dev_type,
-															   vtemp_priv->vtemp_data.temp);
+																vtemp_priv->vtemp_data.dev_id,
+																vtemp_priv->vtemp_data.dev_type,
+																vtemp_priv->vtemp_data.temp);
 		}
 
-		/* disable LoRaWAN*/
-		uart_do_write(tty_uart, "mac pause\r\n", 11);
-		msleep(50);
-
-		/* set continue listening */
-		uart_do_write(tty_uart, "radio rx 0\r\n", 12);
-		msleep(50);
-
-		n_tty_do_flush_buffer(tty_uart);
-
+		/* Send data to frontend */
+		send_data_to_front(vtemp_priv);
 	}
-
-	tty_kclose(tty_uart);
 
 	return 0;
 }
 
 irqreturn_t vtemp_interrupt(int irq, void *dev_id)
 {
-	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	vtemp_priv_t *vtemp_priv = dev_get_drvdata(&vdev->dev);
-	vtemp_request_t *ring_req;
-	vtemp_response_t *ring_rsp;
+	// struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	// vtemp_priv_t *vtemp_priv = dev_get_drvdata(&vdev->dev);
+	// vtemp_request_t *ring_req;
+	// vtemp_response_t *ring_rsp;
 
-	DBG("%d\n", dev->otherend_id);
+	// DBG("%d\n", dev->otherend_id);
 
-	while ((ring_req = vtemp_get_ring_request(&vtemp_priv->vtemp.ring)) != NULL) {
+	// while ((ring_req = vtemp_get_ring_request(&vtemp_priv->vtemp.ring)) != NULL) {
 
-		ring_rsp = vtemp_new_ring_response(&vtemp_priv->vtemp.ring);
+	// 	ring_rsp = vtemp_new_ring_response(&vtemp_priv->vtemp.ring);
 
-		memcpy(ring_rsp->buffer, ring_req->buffer, VTEMP_PACKET_SIZE);
+	// 	memcpy(ring_rsp->buffer, ring_req->buffer, VTEMP_PACKET_SIZE);
 
-		vtemp_ring_response_ready(&vtemp_priv->vtemp.ring);
+	// 	vtemp_ring_response_ready(&vtemp_priv->vtemp.ring);
 
-		notify_remote_via_virq(vtemp_priv->vtemp.irq);
-	}
+	// 	notify_remote_via_virq(vtemp_priv->vtemp.irq);
+	// }
 
 	return IRQ_HANDLED;
 }
@@ -419,7 +219,6 @@ void vtemp_remove(struct vbus_device *vdev) {
 
 	DBG("%s: freeing the vtemp structure for %s\n", __func__,vdev->nodename);
 
-	tty_kclose(vtemp_priv->tty_uart);
 	
 	kfree(vtemp_priv);
 }
@@ -430,12 +229,10 @@ void vtemp_close(struct vbus_device *vdev) {
 
 	DBG(VTEMP_PREFIX "Backend close: %d\n", vdev->otherend_id);
 
+
 	/*
 	 * Free the ring and unbind evtchn.
 	 */
-	tty_kclose(vtemp_priv->tty_uart);
-
-
 	BACK_RING_INIT(&vtemp_priv->vtemp.ring, (&vtemp_priv->vtemp.ring)->sring, PAGE_SIZE);
 	unbind_from_virqhandler(vtemp_priv->vtemp.irq, vdev);
 

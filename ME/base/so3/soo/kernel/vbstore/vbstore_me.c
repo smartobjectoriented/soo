@@ -251,10 +251,18 @@ void remove_vbstore_entries(void) {
 		vbstore_dev_remove(ME_domID(), "vdummy");
 	}
 
+	/* vtemp node */
 	fdt_node = fdt_find_compatible_node(__fdt_addr, "vtemp,frontend");
 	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
 		DBG("%s: removing vtemp from vbstore...\n", __func__);
 		vbstore_dev_remove(ME_domID(), "vtemp");
+	}
+
+	/* vvalve node */
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "vvalve,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: removing vvalve from vbstore...\n", __func__);
+		vbstore_dev_remove(ME_domID(), "vvalve");
 	}
 }
 
@@ -302,10 +310,18 @@ void vbstore_devices_populate(void) {
 		vbstore_dev_init(ME_domID(), "vdoga12v6nm", false, "vdoga12v6nm,frontend");
 	}
 
+	/* vtemp node */
 	fdt_node = fdt_find_compatible_node(__fdt_addr, "vtemp,frontend");
 	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
 		DBG("%s: init vtemp...\n", __func__);
 		vbstore_dev_init(ME_domID(), "vtemp", false, "vtemp,frontend");
+	}
+
+	/* vvalve node */
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "vvalve,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: init vvalve...\n", __func__);
+		vbstore_dev_init(ME_domID(), "vvalve", false, "vvalve,frontend");
 	}
 
 }

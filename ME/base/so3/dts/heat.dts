@@ -28,13 +28,12 @@
 	spid = /bits/ 64 <0x002000000000000a>;
 		
 	/* Name of this ME */
-	me_name = "SOO.heattemp";
+	me_name = "SOO.heat";
 		
 	/* Short description */
 	me_shortdesc =
 			
-"SOO.Heattemp is able to collect temperature data from SOO.Temp. This ME \
-can be used in conjunction with other MEs which can use this kind of data. Like heatvalve.";
+"SOO.Heat is able to collect temperature data from SOO.Temp, and send commande to SOO.Valve.";
 
 	frontends {
 		/* Enabling the console */
@@ -48,6 +47,10 @@ can be used in conjunction with other MEs which can use this kind of data. Like 
 		};*/
 	
 		vtemp {
+			status = "ok";
+		};
+	
+		vvalve {
 			status = "ok";
 		};
 	};

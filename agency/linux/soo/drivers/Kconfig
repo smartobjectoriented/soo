@@ -33,13 +33,19 @@ config VWEATHER_BACKEND
 	  Support for multi-purpose weather station, for the SOO.outdoor
 	  product.
 
-
 config VTEMP_BACKEND
         bool "vTemp backend"
 		depends on TTY
 		default y
 		help
 		  Support for SOO.Temp LoRa module.
+
+config VVALVE_BACKEND
+        bool "vValve backend"
+		depends on TTY
+		default y
+		help
+		  Support for SOO.Valve LoRa module.
 	  
 config VUIHANDLER_BACKEND
 	bool "vUihandler backend driver"
