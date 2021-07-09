@@ -333,8 +333,11 @@ typedef struct {
 } pre_activate_args_t;
 
 /*
- * pre_propagate val set to 0 if no propagation is required, 1 means the ME will be propagated.
+ * pre_propagate to tell the agency if the ME must be propagated or not.
  */
+#define PROPAGATE_STATUS_YES 	1
+#define PROPAGATE_STATUS_NO	0
+
 typedef struct {
 	int propagate_status;
 } pre_propagate_args_t;
