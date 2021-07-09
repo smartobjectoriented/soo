@@ -25,10 +25,10 @@
 
 #include <soo/soo.h>
 
-#include <apps/eco_stability.h>
+#include <me/eco_stability.h>
 
 /* Cooperation with SOO.outdoor */
-#include <me/outdoor/outdoor.h>
+#include <me/outdoor.h>
 
 #define APP_NAME "blind"
 

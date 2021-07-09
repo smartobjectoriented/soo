@@ -156,6 +156,74 @@ void add_thread(soo_env_t *soo, unsigned int pid) {
 
 }
 
+#if 0 /* For bandwidth performance measurement */
+static int soo_task_rx_fn(void *args) {
+	uint32_t size;
+	char *data;
+	int i;
+
+	int soo_count_table[SOO_NR_MAX] = { 0 };
+
+	while (true) {
+
+		size = sl_recv(current_soo_simul->sl_desc, (void *) &data);
+
+		for (i = 1; i < BUFFER_SIZE; i++)
+			if (((unsigned char *) data)[i] != current_soo_simul->buffer[i]) {
+				lprintk("## Data corruption : failure on byte %d\n", i);
+				break;
+			}
+
+		soo_count_table[((int) data[0])-1]++;
+
+		if (i == BUFFER_SIZE) {
+			current_soo_simul->recv_count++;
+			lprintk("## (%s) ******************** Got a buffer (count %d got %d bytes)\n", current_soo->name, current_soo_simul->recv_count, size);
+			lprintk("## stats: ");
+			for (i = 0; i < SOO_NR_MAX; i++)
+				lprintk(" (SOO-%d): %d ", i+1, soo_count_table[i]);
+
+			lprintk("\n");
+		}
+
+		/* Must release th e allocated buffer */
+		vfree(data);
+	}
+
+	return 0;
+}
+
+static int soo_task_tx_fn(void *args) {
+	int i;
+
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
+
+	for (i = 0; i < BUFFER_SIZE; i++)
+		current_soo_simul->buffer[i] = i;
+
+	while (true) {
+		if (discovery_neighbour_count() > 0) {
+			lprintk("*** (%s) sending buffer ****\n", current_soo->name);
+
+			/* Encode the SOO number */
+			current_soo_simul->buffer[0] = current_soo->id;
+
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+
+			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
+
+			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			lprintk("*** (%s) End. ***\n", current_soo->name);
+
+
+		} else
+			schedule();
+	}
+
+	return 0;
+}
+#endif /* 0 */
+
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 
 static int soo_task_rx_fn(void *args) {
@@ -234,6 +302,7 @@ static int soo_task_tx_fn(void *args) {
 
 	return 0;
 }
+
 /**
  *
  * Specific behaviour of SOO3 emitter side.
@@ -372,6 +441,26 @@ int soo_env_fn(void *args) {
 #ifndef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	/* Ready to initializing the DCM subsystem */
 	dcm_init();
+#endif
+
+	/* Bandwidth assessment */
+#if 0
+	soo_env->soo_simul = kzalloc(sizeof(struct soo_simul_env), GFP_KERNEL);
+	BUG_ON(!soo_env->soo_simul);
+
+	current_soo_simul->recv_count = 0;
+
+	__ts = kthread_create(soo_task_tx_fn, NULL, "soo_task_tx");
+	BUG_ON(!__ts);
+
+	add_thread(soo_env, __ts->pid);
+	wake_up_process(__ts);
+
+	__ts = kthread_create(soo_task_rx_fn, NULL, "soo_task_rx");
+	BUG_ON(!__ts);
+
+	add_thread(soo_env, __ts->pid);
+	wake_up_process(__ts);
 #endif
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION

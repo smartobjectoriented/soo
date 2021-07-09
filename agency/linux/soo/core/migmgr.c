@@ -43,7 +43,6 @@
  */
 static uint8_t buffer[32 * 1024]; /* 32 Ko */
 
-
 /*
  * Set the personality.
  */
@@ -173,7 +172,6 @@ int ioctl_write_snapshot(unsigned long arg) {
 	agency_tx_args_t args;
 	void *target;
 	ME_info_transfer_t *ME_info_transfer;
-	uint32_t crc32;
 
 	if ((copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
 		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
@@ -185,13 +183,6 @@ int ioctl_write_snapshot(unsigned long arg) {
 
 	/* Beginning of the ME_buffer */
 	ME_info_transfer = (ME_info_transfer_t *) args.buffer;
-
-	/* Check the CRC32 for consistency purposes. */
-	crc32 = xcrc32(args.buffer + sizeof(ME_info_transfer_t), args.value - sizeof(ME_info_transfer_t), 0xffffffff);
-	soo_log("[soo:core] Computed CRC32 of the received snapshot: %x / embedded crc32 value: %x / Size: %x\n", crc32, ME_info_transfer->crc32, args.value);
-
-	/* Currently, we bug on that, but we should skip the buffer without kernel-panic'ing ... */
-	BUG_ON(crc32 != ME_info_transfer->crc32);
 
 	/* Retrieve the info related to the migration structure */
 	memcpy(buffer, args.buffer + sizeof(ME_info_transfer_t), ME_info_transfer->size_mig_structure);
@@ -297,21 +288,13 @@ int ioctl_read_snapshot(unsigned long arg) {
 
 	iounmap(source);
 
-	/* Compute the crc32 of the snapshot */
-
 	args.buffer = ME_buffer;
 	args.value = sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure + ME_desc.size;
-
-	/* The CRC32 is done over the bytes right after the ME_info_transfer structure since the result will be placed within this structure. */
-	ME_info_transfer->crc32 = xcrc32(args.buffer + sizeof(ME_info_transfer_t), args.value - sizeof(ME_info_transfer_t), 0xffffffff);
-
-	soo_log("[soo:core] Computed CRC32 of the current snapshot: %x / Size: %x\n", ME_info_transfer->crc32, args.value);
 
 	if ((copy_to_user((void *) arg, &args, sizeof(agency_tx_args_t))) != 0) {
 		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
 		BUG();
 	}
-
 
 	return 0;
 }
@@ -398,6 +381,7 @@ int ioctl_finalize_migration(unsigned long arg) {
 
 			DBG("Putting ME domid %d in state living...\n", args.ME_slotID);
 			set_ME_state(args.ME_slotID, ME_state_living);
+
 		}
 
 	} else {
@@ -425,6 +409,7 @@ int ioctl_finalize_migration(unsigned long arg) {
 
 			DBG("Putting ME domid %d in state living...\n", args.ME_slotID);
 			set_ME_state(args.ME_slotID, ME_state_living);
+
 		}
 	}
 

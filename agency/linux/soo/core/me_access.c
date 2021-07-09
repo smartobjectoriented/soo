@@ -207,7 +207,16 @@ void get_ME_id_array(ME_id_t *ME_id_array) {
 	}
 
 }
+EXPORT_SYMBOL(get_ME_id_array);
 
+/**
+ * Prepare a XML message which contains the list of MEs with their specific ID information
+ * (SPID, name, short desc)
+ * The caller must allocate the memory area required to store the result
+ *
+ * @param buffer	Buffer allocated by the caller which contains the XML message
+ * @param ME_id_array	Array of ME_id_t entries (got with get_ME_id_array())
+ */
 void xml_prepare_id_array(char *buffer, ME_id_t *ME_id_array) {
 	uint32_t pos;
 	char *__buffer;
@@ -252,4 +261,5 @@ void xml_prepare_id_array(char *buffer, ME_id_t *ME_id_array) {
 	roxml_close(root);
 
 }
+EXPORT_SYMBOL(xml_prepare_id_array);
 
