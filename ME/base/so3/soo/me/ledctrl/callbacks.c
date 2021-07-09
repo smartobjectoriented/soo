@@ -33,20 +33,12 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-/* Localinfo buffer used during cooperation processing */
-void *localinfo_data;
+#include <soo/dev/vsenseled.h>
 
-#if 0
-static int live_count = 0;
-#endif
+#include <me/ledctrl.h>
 
-/*
- * migrated_once allows the dormant ME to control its oneshot propagation, i.e.
- * the ME must be broadcast in the neighborhood, then disappear from the smart object.
- */
-#if 1
-static uint32_t migration_count = 0;
-#endif
+/* Reference to the shared content helpful during synergy with other MEs */
+sh_ledctrl_t *sh_ledctrl;
 
 /**
  * PRE-ACTIVATE
@@ -54,8 +46,6 @@ static uint32_t migration_count = 0;
  * Should receive local information through args
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
-
-	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
 
 	return 0;
 }
@@ -66,10 +56,11 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
  * The callback is executed in first stage to give a chance to a resident ME to stay or disappear, for example.
  */
 int cb_pre_propagate(soo_domcall_arg_t *args) {
-
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
-	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
+	pre_propagate_args->propagate_status = (sh_ledctrl->need_propagate ? PROPAGATE_STATUS_YES : PROPAGATE_STATUS_NO);
+
+	sh_ledctrl->need_propagate = false;
 
 	return 0;
 }
@@ -108,29 +99,36 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
  */
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
-
 	agency_ctl_args_t agency_ctl_args;
-
 	unsigned int i;
 
-	void *recv_data;
+	sh_ledctrl_t *incoming_sh_ledctrl;
+
 	uint32_t pfn;
-	bool target_found, initiator_found;
-	char target_char, initiator_char;
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
 
-		if (cooperate_args->alone)
+		/*
+		 * If we are alone in this smart object, we stay here.
+		 * The post_activate callback will update the LED.
+		 */
+		if (cooperate_args->alone) {
+
+			/* No LED currently switched on. */
+			sh_ledctrl->local_nr = -1;
+
+			complete(&sh_ledctrl->upd_lock);
+
 			return 0;
+		}
 
 		for (i = 0; i < MAX_ME_DOMAINS; i++) {
 			if (cooperate_args->u.target_coop_slot[i].spad.valid) {
 
-
-#if 1 /* Alphabet */
 				/* Collaboration ... */
-				agency_ctl_args.u.target_cooperate_args.pfn.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
+				agency_ctl_args.u.target_cooperate_args.pfn.content =
+					phys_to_pfn(virt_to_phys_pt((uint32_t) sh_ledctrl));
 
 				/* This pattern enables the cooperation with the target ME */
 
@@ -139,27 +137,12 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 				/* Perform the cooperate in the target ME */
 				args->__agency_ctl(&agency_ctl_args);
-
-#if 1
-				/* Now incrementing us */
-				*((char *) localinfo_data) = *((char *) localinfo_data) + 1;
-#endif
-
-#endif
-#if 0 /* Arrived ME disappears now... */
-				set_ME_state(ME_state_killed);
-#endif
 			}
 		}
 
-#if 0 /* This pattern is used to remove this (just arrived) ME even before its activation. */
-		if (!cooperate_args->alone) {
+		/* Can disappear...*/
 
-			DBG("Killing ME #%d\n", ME_domID());
-
-			set_ME_state(ME_state_killed);
-		}
-#endif
+		set_ME_state(ME_state_killed);
 
 		break;
 
@@ -171,18 +154,15 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		args->__agency_ctl(&agency_ctl_args);
 #endif
 
-#if 1 /* Alphabet */
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+		incoming_sh_ledctrl = (sh_ledctrl_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
-		target_found = *((char *) localinfo_data+1);
-		initiator_found = *((char *) recv_data+1);
+		sh_ledctrl->incoming_nr = incoming_sh_ledctrl->local_nr;
 
-		target_char = *((char *) localinfo_data);
-		initiator_char = *((char *) recv_data);
-#endif
+		io_unmap((uint32_t) incoming_sh_ledctrl);
 
-		io_unmap((uint32_t) recv_data);
+		complete(&sh_ledctrl->upd_lock);
+
 		break;
 
 	default:
@@ -210,8 +190,6 @@ int cb_pre_resume(soo_domcall_arg_t *args) {
  * POST_ACTIVATE callback (async)
  */
 int cb_post_activate(soo_domcall_arg_t *args) {
-
-	DBG(">> ME %d: cb_post_activate...\n", ME_domID());
 
 	return 0;
 }
@@ -251,10 +229,19 @@ int cb_force_terminate(void) {
 void callbacks_init(void) {
 
 	/* Allocate localinfo */
-	localinfo_data = (void *) get_contig_free_vpages(1);
+	sh_ledctrl = (sh_ledctrl_t *) get_contig_free_vpages(1);
 
-	/* Set the SPAD capabilities */
+	/* Initialize the shared content page used to exchange information between other MEs */
+	memset(sh_ledctrl, 0, PAGE_SIZE);
+
+	init_completion(&sh_ledctrl->upd_lock);
+
+	sh_ledctrl->local_nr = -1;
+	sh_ledctrl->incoming_nr = -1;
+
+	/* Set the SPAD capabilities (currently not used) */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
+
 }
 
 

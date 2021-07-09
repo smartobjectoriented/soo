@@ -41,18 +41,41 @@
 #include <soo/dev/vsensej.h>
 #include <soo/dev/vsenseled.h>
 
+#include <me/ledctrl.h>
+
+int process_led(void *args) {
+
+	while (true) {
+
+		wait_for_completion(&sh_ledctrl->upd_lock);
+
+		if (sh_ledctrl->local_nr != sh_ledctrl->incoming_nr) {
+
+			/* Check if we are not at the beginning, otherwise switch off first. */
+			if (sh_ledctrl->local_nr != -1)
+				vsenseled_set(sh_ledctrl->local_nr, 0);
+
+			/* Switch on the correct led */
+			vsenseled_set(sh_ledctrl->incoming_nr, 1);
+
+			sh_ledctrl->local_nr = sh_ledctrl->incoming_nr;
+		}
+	}
+}
+
 /*
  * The main application of the ME is executed right after the bootstrap. It may be empty since activities can be triggered
  * by external events based on frontend activities.
  */
 int app_thread_main(void *args) {
 	struct input_event ie;
-	static int __lednr = -1;
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
 
 	printk("Enjoy the SOO.ledctrl ME !\n");
+
+	kernel_thread(process_led, "process_led", NULL, 0);
 
 	while (true) {
 		vsensej_get(&ie);
@@ -60,41 +83,35 @@ int app_thread_main(void *args) {
 		if (!ie.value)
 			continue;
 
-		if (__lednr != ie.code) {
-			/* Check if we are not at the beginning, otherwise switch off first. */
-			if (__lednr != -1)
-				vsenseled_set(__lednr, 0);
+		/* Prepare to switch on the right led. */
+		switch (ie.code) {
 
-			__lednr = ie.code;
+		case KEY_ENTER:
+			sh_ledctrl->incoming_nr = 0;
+			break;
 
-			/* Prepare to switch on the right led. */
-			switch (ie.code) {
+		case KEY_LEFT:
+			sh_ledctrl->incoming_nr = 1;
+			break;
 
-			case KEY_ENTER:
-				__lednr = 0;
-				break;
+		case KEY_UP:
+			sh_ledctrl->incoming_nr = 2;
+			break;
 
-			case KEY_LEFT:
-				__lednr = 1;
-				break;
+		case KEY_RIGHT:
+			sh_ledctrl->incoming_nr = 3;
+			break;
 
-			case KEY_UP:
-				__lednr = 2;
-				break;
+		case KEY_DOWN:
+			sh_ledctrl->incoming_nr = 4;
+			break;
 
-			case KEY_RIGHT:
-				__lednr = 3;
-				break;
-
-			case KEY_DOWN:
-				__lednr = 4;
-				break;
-
-			}
-
-			/* Switch on the correct led */
-			vsenseled_set(__lednr, 1);
 		}
+
+		complete(&sh_ledctrl->upd_lock);
+
+		sh_ledctrl->need_propagate = true;
+
 	}
 
 	return 0;

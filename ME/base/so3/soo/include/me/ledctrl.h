@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 David Truan <david.truan@heig-vd.ch>
+ * Copyright (C) 2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,21 +16,28 @@
  *
  */
 
+#ifndef LEDCTRL_H
+#define LEDCTRL_H
 
-#ifndef UPGRADER_H
-#define UPGRADER_H
+#include <completion.h>
 
-/* Struct embedding the version numbers of three main the agency components*/
 typedef struct {
-    unsigned int itb;
-    unsigned int uboot;
-    unsigned int rootfs;
-} upgrade_versions_args_t;
 
-extern const unsigned char upgrade_image[];
-extern const unsigned long upgrade_image_length;
+	struct completion upd_lock;
 
-extern upgrade_versions_args_t get_agency_versions(void);
+	int local_nr;
+	int incoming_nr;
+
+	/* To determine if the ME needs to be propagated.
+	 * If it is the same state, no need to be propagated.
+	 */
+	bool need_propagate;
+
+} sh_ledctrl_t;
+
+/* Export the reference to the shared content structure */
+extern sh_ledctrl_t *sh_ledctrl;
+
+#endif /* LEDCTRL_H */
 
 
-#endif /* UPGRADER_H */
