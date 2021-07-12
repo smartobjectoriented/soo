@@ -28,4 +28,5 @@ bool datacomm_ready_to_send(void);
 
 void datacomm_send(void *ME_buffer, size_t size, uint32_t prio);
 
+
 #endif /* DATACOMM_H */

@@ -43,11 +43,17 @@
 
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
+#include <soo/soolink/lib/tcpclient.h>
+
 
 /* The main requester descriptor managed by Soolink */
 static sl_desc_t *datacomm_sl_desc = NULL;
 
+/*The SOO.space server descriptor*/
+static sl_desc_t *datacomm_sl_server_soospace_desc = NULL;
+
 static bool datacomm_initialized = false;
+
 
 /**
  * At the moment, we experiment a broadcast (no known recipient) and
@@ -57,7 +63,14 @@ void datacomm_send(void *ME_buffer, size_t size, uint32_t prio) {
 	if (unlikely(!datacomm_initialized))
 		BUG();
 
-	sl_send(datacomm_sl_desc, ME_buffer, size, get_null_agencyUID(), prio);
+	sl_send(datacomm_sl_server_soospace_desc, ME_buffer, size, get_null_agencyUID(), prio);
+
+	if(sl_neighbour_count() != 1 || soo_space_server == 0){
+		sl_send(datacomm_sl_desc, ME_buffer, size, get_null_agencyUID(), prio);
+	}
+	
+	
+
 }
 
 /**
@@ -89,7 +102,7 @@ static int recv_thread_task_fn(void *data) {
 	while (1) {
 		/* Receive data from Soolink */
 		datacomm_recv(&ME_compressed_buffer, &compressed_size);
-
+		printk("[%s]: new data compressed_size : %u KB ", __func__,compressed_size/1024);
 		/* If the decoder has nothing for us... */
 		if (!compressed_size)
 			continue;
@@ -134,7 +147,7 @@ static int recv_thread_task_fn(void *data) {
 
 		/* Release the original compressed buffer */
 		vfree((void *) ME_compressed_buffer);
-
+		printk("[%s]: start new ME from sooSpace server decompressed size: %u KB ", __func__,decompressed_size/1024);
 		ret = dcm_ME_rx(ME_decompressed_buffer, decompressed_size);
 
 		/*
@@ -175,6 +188,8 @@ void datacomm_init(void) {
 #else
 #error "SOOlink pluging not configured..."
 #endif /* !CONFIG_SOOLINK_PLUGIN_WLAN */
+	//register soo.space
+	datacomm_sl_server_soospace_desc = sl_register(SL_REQ_DCM, SL_IF_TCP, SL_MODE_UNIBROAD);
 
 	__ts = kthread_create(recv_thread_task_fn, NULL, "datacomm_recv");
 	BUG_ON(!__ts);
@@ -184,5 +199,7 @@ void datacomm_init(void) {
 
 #endif
 	datacomm_initialized = true;
+
+	
 
 }

@@ -23,7 +23,7 @@
 #define SOCKETMGR_H
 
 #include <uapi/linux/in.h>
-
+#include <linux/types.h>
 #include <linux/net.h>
 #include <linux/byteorder/generic.h>
 
@@ -33,8 +33,9 @@ void do_listen(struct socket *sock, int backlog);
 struct socket *do_accept(struct socket *sock, struct sockaddr *peer_sockaddr, int * peer_addrlen, int flags);
 void do_socket_release(struct socket *sock);
 void do_shutdown(struct socket *sock, int how);
-
+int do_connect(struct socket *sock,unsigned char *ip,unsigned port);
 int do_sendto(struct socket *sock, void *buff, size_t len, unsigned int flags, struct sockaddr *addr, int addr_len);
 int do_recvfrom(struct socket *sock, void *buf, size_t size, unsigned int flags, struct sockaddr *addr, int *addr_len);
-
+int server_sendmsg(struct socket *sock, void *buf, const size_t length);
+int server_rcvmsg(struct socket *sock, void *buf, size_t length);
 #endif /* SOCKETMGR_H */
