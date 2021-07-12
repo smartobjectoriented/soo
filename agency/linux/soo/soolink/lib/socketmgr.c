@@ -19,6 +19,9 @@
 /* Socket management for SOOlink and other SOO in-kernel subsystems */
 
 #include <linux/security.h>
+#include <linux/netdevice.h>
+#include <linux/if_ether.h>
+#include <linux/kernel.h>
 #include <linux/audit.h>
 #include <linux/file.h>
 #include <linux/fs.h>
@@ -26,6 +29,8 @@
 #include <net/sock.h>
 
 #include <soo/soolink/lib/socketmgr.h>
+
+#define MAX_PCK 1024
 
 /*
  * Create a socket to be used as client or server with the functions of this library.
@@ -135,6 +140,101 @@ struct socket *do_accept(struct socket *sock, struct sockaddr *peer_sockaddr, in
 	return newsock;
 }
 
+
+
+int server_rcvmsg(struct socket *sock, void *buf, size_t length)
+{
+	struct msghdr msg;
+	struct kvec vec;
+	int len = 1; 
+    size_t written = 0;
+	size_t left = length;
+
+	msg.msg_name    = 0;
+	msg.msg_namelen = 0;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags   = MSG_DONTWAIT;
+    
+    
+    while(written < length){
+    	
+    	if(left > MAX_RW_COUNT){
+    		left = MAX_RW_COUNT;
+    	}
+     
+		while(left > 0){
+
+			vec.iov_len = left;
+			vec.iov_base = (char *)buf + written;
+
+			len = kernel_recvmsg(sock, &msg, &vec, 1, left,0);
+
+			if(len == -EAGAIN){
+				continue;
+			}
+
+				//if error
+			if(len < 0){
+				return len;
+			}
+
+			written += len;
+			left -= len;      
+		}
+	
+		
+	}
+
+    return 0;
+}
+
+
+int server_sendmsg(struct socket *sock, void *buf, const size_t length)
+{
+	struct msghdr msg;
+	struct kvec vec;
+	int len = 1; 
+	size_t written = 0; 
+	size_t left = length;
+
+	msg.msg_name    = 0;
+	msg.msg_namelen = 0;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags   = MSG_DONTWAIT;
+    
+    
+    while(written < length){
+    	
+    	if(left > MAX_RW_COUNT){
+    		left = MAX_RW_COUNT;
+    	}
+     
+		while(left > 0){
+
+			vec.iov_len = left;
+			vec.iov_base = (char *)buf + written;
+
+			len = kernel_sendmsg(sock, &msg, &vec, 1, left);
+
+			if(len == -EAGAIN){
+				msleep(500);
+				continue;
+			}
+		
+			//if error
+			if(len < 0){
+				return len;
+			}
+			written += len;
+			left -= len;      
+		}	
+	}
+    return 0;
+}
+
+
 /*
  * Sends some byte to a peer socket connection.
  */
@@ -229,6 +329,49 @@ void do_shutdown(struct socket *sock, int how) {
 
 	err = sock->ops->shutdown(sock, how);
 	BUG_ON(err);
+
+}
+
+
+unsigned create_address_ipv4(unsigned char *ip)
+{
+        unsigned addr = 0;
+        int i;
+
+        for(i=0; i<4; i++)
+        {
+                addr += ip[i];
+                if(i==3){
+					break;
+				}
+                     
+                addr <<= 8;
+        }
+        return addr;
+}
+
+
+/*
+* connect socket to server (the socket muste be init befor)
+*/
+int do_connect(struct socket *sock,unsigned char *ip,unsigned port){
+	struct sockaddr_in saddr;
+
+	int ret;
+
+	memset(&saddr, 0, sizeof(saddr));
+    saddr.sin_family = AF_INET;
+    saddr.sin_port = htons(port);
+    saddr.sin_addr.s_addr = htonl(create_address_ipv4(ip));
+
+	if(sock->ops != NULL){
+			ret = sock->ops->connect(sock, (struct sockaddr *)&saddr, sizeof(saddr), O_RDWR);
+	}else{
+		ret = -1;
+	}
+
+
+	return ret;
 
 }
 

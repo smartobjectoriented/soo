@@ -36,6 +36,11 @@
 #include <soo/soolink/transceiver.h>
 #include <soo/soolink/discovery.h>
 #include <soo/soolink/datalink.h>
+#include <soo/soolink/lib/tcpclient.h>
+
+static unsigned char servip[] = {10,192,166,48};
+static unsigned int PORT_SERVER = 7070;
+
 
 struct soo_soolink_env {
 	/* List of registered requesters */
@@ -77,6 +82,10 @@ sl_desc_t *sl_register(req_type_t req_type, if_type_t if_type, trans_mode_t tran
 	sl_desc->if_type = if_type;
 	sl_desc->trans_mode = trans_mode;
 
+	if(if_type == SL_IF_TCP){
+		init_client_soo_space(servip,PORT_SERVER);
+	}
+
 	memcpy(&sl_desc->agencyUID_to, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
 	memcpy(&sl_desc->agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
 
@@ -107,7 +116,7 @@ void sl_unregister(sl_desc_t *sl_desc) {
  * Return the number of smart objects detected in the neighborhood.
  */
 uint32_t sl_neighbour_count(void) {
-	return discovery_neighbour_count();
+	return discovery_neighbour_count() + soo_space_server;
 }
 
 
@@ -124,9 +133,21 @@ void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID
 
 	/* Configure the sl_desc with the various attributes */
 
+	if(sl_desc->if_type == SL_IF_TCP){
+
+		if(soo_space_server && size){
+			TCP_send_ME_to_server(data,size);
+		}
+		
+		//soo net dont use coder
+		return;
+	}
+
 	/* According to the transmission mode, we do not want to handle the destination */
 	if (sl_desc->trans_mode != SL_MODE_UNIBROAD)
 		memcpy(&sl_desc->agencyUID_to, agencyUID, SOO_AGENCY_UID_SIZE);
+
+	
 
 	sl_desc->prio = prio;
 
@@ -166,6 +187,7 @@ int soolink_init(void) {
 	BUG_ON(!current_soo->soo_soolink);
 
 	INIT_LIST_HEAD(&current_soo_soolink->sl_req_list);
+
 
 	return 0;
 }
