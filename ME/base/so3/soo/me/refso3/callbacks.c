@@ -172,9 +172,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 		#endif
 
 		
-		
-		
-
+	
 	}
 	return 0;
 }
