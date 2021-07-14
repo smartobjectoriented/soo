@@ -766,7 +766,7 @@ static int vbus_probe_node(struct vbus_type *bus, const char *type, const char *
 
 	/*
 	 * Register with generic device framework.
-	 * The link with the driver is also done at this moment.
+	 * The link with the driver is also done at this moment (device_add() operation)
 	 */
 	err = device_register(&vdev->dev);
 	if (err)
