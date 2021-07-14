@@ -290,7 +290,7 @@ void vuihandler_update_spid_vbstore(uint8_t spid[SPID_SIZE]) {
  * Process a received vUIHandler beacon.
  */
 static void recv_beacon(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
-#if 0
+#if 1
 	unsigned long flags;
 
 	DBG0(VUIHANDLER_PREFIX "Recv beacon\n");
@@ -423,6 +423,8 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 		injector_receive_ME((void *)(ME_pkt_payload+1), vuihandler_pkt_size-1);
 		return ;
 	}
+
+
 	
 	if (vuihandler_pkt->type == VUIHANDLER_BEACON) {
 		/* This is a vUIHandler beacon */
@@ -500,7 +502,10 @@ static int rx_bt_task_fn(void *arg) {
 
 		printk("(B<%d)\n", size);
 
-		vuihandler_recv(priv_buffer, size);
+
+		
+
+		// vuihandler_recv(priv_buffer, size);
 	}
 	return 0;
 }
