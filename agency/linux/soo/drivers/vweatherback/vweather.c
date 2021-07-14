@@ -100,8 +100,10 @@ extern int tty_set_termios(struct tty_struct *tty, struct ktermios *new_termios)
  *   to be over now.
  */
 static void rain_timer_fn(struct timer_list *dummy) {
-	DBG("Rain timer interrupt\n");
 	vweather_drv_priv_t *vdrv_priv = vdrv_get_priv(&vweatherdrv.vdrv);
+
+	DBG("Rain timer interrupt\n");
+
 	vdrv_priv->weather_data.rain_intensity = NO_RAIN;
 }
 
@@ -116,6 +118,8 @@ void update_weather_data(void) {
 
 	vweather_ascii_data_t *ascii_data = &vdrv_priv->ascii_data;
 	vweather_data_t *weather_data = &vdrv_priv->weather_data;
+
+	struct vbus_device *vdev;
 
 	/* South Sun */
 	if ((ascii_data->south_sun[0] >= '0') && (ascii_data->south_sun[0] <= '9') &&
@@ -181,12 +185,15 @@ void update_weather_data(void) {
 	/* Now update all connected vweather frontends */
 	for (i = 0; i < MAX_DOMAINS; i++) {
 
-		if (!vdevfront_is_connected(i)) 
+		vdev = vdevback_get_entry(i, vdev_list);
+		if (vdev == NULL)
+			continue;
+
+		if (!vdevfront_is_connected(vdev)) 
 			continue;
 
 		vweather_start(i);
-
-		vweather_priv = dev_get_drvdata(vdevback_get_entry(i, vdev_list));
+		vweather_priv = dev_get_drvdata(&vdev->dev);
 
 		memcpy(vweather_priv->vweather.weather_buffers.data, &vdrv_priv->weather_data, VWEATHER_DATA_SIZE);
 		notify_remote_via_virq(vweather_priv->vweather.update_notifications.irq);
@@ -203,7 +210,6 @@ void vweather_dump_ascii_data(void) {
 	char output[8];
 
 	vweather_drv_priv_t *vdrv_priv = vdrv_get_priv(&vweatherdrv.vdrv);
-	vweather_priv_t *vweather_priv;
 
 	vweather_ascii_data_t ascii_data = vdrv_priv->ascii_data;
 
@@ -253,7 +259,6 @@ void vweather_dump_ascii_data(void) {
  */
 void vweather_dump_data(void) {
 	vweather_drv_priv_t *vdrv_priv = vdrv_get_priv(&vweatherdrv.vdrv);
-	vweather_priv_t *vweather_priv;
 
 	vweather_data_t weather_data = vdrv_priv->weather_data;
 
@@ -302,6 +307,9 @@ void vweather_dump_data(void) {
  * heavy rain.
  */
 static irqreturn_t pluvio_interrupt(int irq, void *dev_id) {
+	vweather_drv_priv_t *vdrv_priv = vdrv_get_priv(&vweatherdrv.vdrv);
+
+	vweather_data_t *weather_data = &vdrv_priv->weather_data;
 
 	/* Timestamp of the previous pluviometer interrupt */
 	static uint64_t prev_rain_timestamp = 0;
@@ -313,7 +321,7 @@ static irqreturn_t pluvio_interrupt(int irq, void *dev_id) {
 	uint64_t cur_rain_timestamp, time_delta;
 
 	/* Current rain detection state */
-	bool cur_rain_detection = (weather_data.rain == 1);
+	bool cur_rain_detection = (weather_data->rain == 1);
 
 	DBG("Pluviometer IRQ\n");
 
@@ -326,18 +334,18 @@ static irqreturn_t pluvio_interrupt(int irq, void *dev_id) {
 		time_delta = (0xffffffffffffffffull - prev_rain_timestamp + cur_rain_timestamp);
 
 	if (time_delta < HEAVY_RAIN_INT_DELAY)
-		weather_data.rain_intensity = HEAVY_RAIN;
+		weather_data->rain_intensity = HEAVY_RAIN;
 	else if (time_delta < MODERATE_RAIN_INT_DELAY)
-		weather_data.rain_intensity = MODERATE_RAIN;
+		weather_data->rain_intensity = MODERATE_RAIN;
 	else if (time_delta < LIGHT_RAIN_INT_DELAY)
-		weather_data.rain_intensity = LIGHT_RAIN;
+		weather_data->rain_intensity = LIGHT_RAIN;
 	else
-		weather_data.rain_intensity = NO_RAIN;
+		weather_data->rain_intensity = NO_RAIN;
 
 	prev_rain_timestamp = cur_rain_timestamp;
 	prev_rain_detection = cur_rain_detection;
 
-	mod_timer(&weather_data.rain_timer, jiffies + (30 * 60 * HZ)); /* 30 min. */
+	mod_timer(&weather_data->rain_timer, jiffies + (30 * 60 * HZ)); /* 30 min. */
 
 	return IRQ_HANDLED;
 }
@@ -379,6 +387,9 @@ static void setup_gpios(void) {
  * Receival of the frames coming from the weather station by reading the serial line.
  */
 static int weather_monitor_fn(void *args) {
+	vweather_drv_priv_t *vdrv_priv = vdrv_get_priv(&vweatherdrv.vdrv);
+	vweather_ascii_data_t *ascii_data = &vdrv_priv->ascii_data;
+
 	struct tty_struct *tty_uart;
 	int len, nbytes;
 	char buffer[VWEATHER_FRAME_SIZE];
@@ -419,7 +430,7 @@ static int weather_monitor_fn(void *args) {
 			continue;
 
 		/* Update the local data with the new received data. */
-		memcpy(&ascii_data, buffer, VWEATHER_FRAME_SIZE);
+		memcpy(ascii_data, buffer, VWEATHER_FRAME_SIZE);
 		update_weather_data();
 
 	}
@@ -431,7 +442,7 @@ static int weather_monitor_fn(void *args) {
 
 static int setup_shared_buffer(struct vbus_device *dev) {
 	vweather_priv_t *vweather_priv = dev_get_drvdata(&dev->dev);
-	vweather_shared_buffer_t *weather_buffer = vweather_priv->vweather.weather_buffers;
+	vweather_shared_buffer_t *weather_buffer = &vweather_priv->vweather.weather_buffers;
 
 	/* Shared data buffer */
 
@@ -440,7 +451,8 @@ static int setup_shared_buffer(struct vbus_device *dev) {
 	DBG(VWEATHER_PREFIX "Backend: Shared data pfn=%08x\n", weather_buffer->pfn);
 
 	/* The pages allocated by the ME have to be contiguous */
-	weather_buffer->data = (unsigned char *) __arm_ioremap(weather_buffer->pfn << PAGE_SHIFT, VWEATHER_DATA_SIZE, MT_MEMORY_RWX_NONCACHED);
+	// weather_buffer->data = (unsigned char *) __arm_ioremap(weather_buffer->pfn << PAGE_SHIFT, VWEATHER_DATA_SIZE, MT_MEMORY_RWX_NONCACHED);
+	weather_buffer->data = (unsigned char *) ioremap(weather_buffer->pfn << PAGE_SHIFT, VWEATHER_DATA_SIZE);
 
 	BUG_ON(!weather_buffer->data);
 
@@ -460,7 +472,7 @@ static void setup_notification(struct vbus_device *dev) {
 	res = bind_interdomain_evtchn_to_virqhandler(dev->otherend_id, evtchn, NULL, NULL, 0, VWEATHER_NAME "-data_update", dev);
 	BUG_ON(res < 0);
 
-	vweather_priv->vweather.update_notifications[dev->otherend_id].irq = res;
+	vweather_priv->vweather.update_notifications.irq = res;
 }
 
 void vweather_probe(struct vbus_device *vdev) {
@@ -525,6 +537,7 @@ void vweather_connected(struct vbus_device *vdev) {
 int vweather_init(void) {
 	int ret;
 	struct device_node *np;
+	vweather_drv_priv_t *vdrv_priv;
 
 	np = of_find_compatible_node(NULL, NULL, "vweather,backend");
 
@@ -534,17 +547,17 @@ int vweather_init(void) {
 
 
 	devaccess_set_devcaps(DEVCAPS_CLASS_DOMOTICS, DEVCAP_WEATHER_DATA, true);
-
-	vweather_drv_priv_t *vdrv_priv = kzalloc(sizeof(vweather_drv_priv_t), GFP_ATOMIC);
-	vdrv_set_priv(&vvweatherdrv.vdrv, (void *)vdrv_priv);
+	
+	vdrv_priv = kzalloc(sizeof(vweather_drv_priv_t), GFP_ATOMIC);
+	vdrv_set_priv(&vweatherdrv.vdrv, (void *)vdrv_priv);
 
 	/* Initialize the rain timer */
-	timer_setup(&vdrv_priv->weather_data.rain_timer, rain_timer_fn, 0)
+	timer_setup(&vdrv_priv->weather_data.rain_timer, rain_timer_fn, 0);
 
-	memset(&vdrv_priv->ascii_data, 0, sizeof(ascii_data));
-	memset(&vdrv_priv->weather_data, 0, sizeof(weather_data));
+	memset(&vdrv_priv->ascii_data, 0, sizeof(vweather_ascii_data_t));
+	memset(&vdrv_priv->weather_data, 0, sizeof(vweather_data_t));
 
-	vdevback_init(VWEATHER_NAME, &vvweatherdrv);
+	vdevback_init(VWEATHER_NAME, &vweatherdrv);
 
 	return ret;
 }
