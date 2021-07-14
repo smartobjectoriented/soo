@@ -350,7 +350,7 @@ void outdoor_init(void) {
  * The main application of the ME is executed right after the bootstrap. It may be empty since activities can be triggered
  * by external events based on frontend activities.
  */
-int main_kernel(void *args) {
+int app_thread_main(void *args) {
 
 	lprintk("SOO." APP_NAME " Mobile Entity booting ...\n");
 
