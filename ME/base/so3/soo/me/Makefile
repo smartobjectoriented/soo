@@ -6,5 +6,7 @@ obj-$(CONFIG_SOO_AGENCY) += agency/
 obj-$(CONFIG_SOO_NET) += net/
 obj-$(CONFIG_SOO_HEAT) += heat/
 
+obj-y += eco_stability.o
+
 
 

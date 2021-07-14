@@ -647,6 +647,7 @@ static void rfcomm_dev_data_ready(struct rfcomm_dlc *dlc, struct sk_buff *skb)
 
 	BT_DBG("dlc %p len %d", dlc, skb->len);
 
+
 	/* SOO.tech */
 
 	/*
@@ -659,10 +660,8 @@ static void rfcomm_dev_data_ready(struct rfcomm_dlc *dlc, struct sk_buff *skb)
 	/* Force the protocol of the SKB to ETH_P_SOOLINK_BT */
 	skb->protocol = htons(ETH_P_SOOLINK_BT);
 
-        /* Binding with Soolink */
+        /* Binding with Soolink. skb will be freed by Soolink */
         plugin_bt_rx(skb);
-
-	kfree_skb(skb);
 
 	return ;
 #else

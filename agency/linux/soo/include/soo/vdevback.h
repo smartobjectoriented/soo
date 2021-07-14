@@ -20,8 +20,9 @@
 #define VDEVBACK_H
 
 #include <linux/mutex.h>
-
+#include <soo/vbus.h>
 #include <asm/atomic.h>
+#include <linux/list.h>
 
 struct vdrvback;
 
@@ -69,6 +70,16 @@ bool vdevback_processing_begin(struct vbus_device *vdev);
 void vdevback_processing_end(struct vbus_device *vdev);
 
 bool vdevfront_is_connected(struct vbus_device *vdev);
+/* Used to generically store a list of connected vbus_device */
+struct vdev_entry {
+	struct list_head list;
+	struct vbus_device *vdev;
+};
+typedef struct vdev_entry vdev_entry_t;
+
+void vdevback_add_entry(struct vbus_device *vdev, struct list_head *list);
+struct vbus_device *vdevback_get_entry(uint32_t domid, struct list_head *_list);
+void vdevback_del_entry(struct vbus_device *vdev, struct list_head *_list);
 
 #endif /* VDEVBACK_H */
 

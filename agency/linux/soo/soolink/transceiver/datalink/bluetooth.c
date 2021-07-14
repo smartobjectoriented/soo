@@ -24,6 +24,7 @@
 
 typedef struct bt_sl_buf {
 	void *buffer;
+	bool valid;
 } bt_sl_buf_t;
 
 #define NB_BUF 3
@@ -44,13 +45,18 @@ void bluetooth_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 	return;
 #endif
 	
-	memcpy(buffers[cur_buf_idx++].buffer, packet, packet->size + sizeof(transceiver_packet_t));
+	memcpy(buffers[cur_buf_idx].buffer, packet, packet->size + sizeof(transceiver_packet_t));
+	buffers[cur_buf_idx++].valid = true;
 
-	if (cur_buf_idx == 3) {
+	/* If our buffers are full or if the packet is a small one, receive all */
+	if (cur_buf_idx == 3 || packet->size != 960) {
 		cur_buf_idx = 0;
 
 		for (i = 0; i < 3; ++i) {
-			receiver_rx(sl_desc, buffers[i].buffer);
+			if (buffers[i].valid) {
+				receiver_rx(sl_desc, buffers[i].buffer);
+			}
+			buffers[i].valid = false;
 		}
 	}
 }
@@ -82,6 +88,7 @@ void bluetooth_init(void) {
 #warning 960 ??
 		buffers[i].buffer = vmalloc(960);
 		if (buffers[i].buffer == NULL) {
+			buffers[i].valid = false;
 			printk("vmalloc failed in %s\n", __func__);
 			BUG();
 		} 

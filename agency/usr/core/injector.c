@@ -206,8 +206,8 @@ void *ME_retrieve_fn(void *dummy) {
 	printf("Injector: ME retrieve thread started\n");
 	while(1) {
 
-		usleep(500 * 1000);
-
+		usleep(500);
+		
 		if ((ioctl(fd_core, INJECTOR_IOCTL_RETRIEVE_ME, &args)) < 0) {
 			DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
 			BUG();
@@ -225,18 +225,21 @@ void *ME_retrieve_fn(void *dummy) {
 			while (current_size != args.size) {
 				br = read(fd_core, ME+current_size, chunk);
 				current_size += br;
-
+				// printf("Cur size: %d B / %d\n", current_size, args.size);
 			}
+
+			printf("Injector: ME fully received, now injecting it...\n");
 
 			ME_inject(ME);
 
+			printf("Injector: ME injected!\n");
 			if ((ioctl(fd_core, INJECTOR_IOCTL_CLEAN_ME, NULL)) < 0) {
 				DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
 				BUG();
 			}
-			
-			return NULL;
 
+			current_size = 0;
+			free(ME);
 		}
 	}
 	

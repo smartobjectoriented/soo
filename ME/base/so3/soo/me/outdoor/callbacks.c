@@ -24,7 +24,7 @@
 #include <asm/mmu.h>
 
 #include <memory.h>
-#include <sync.h>
+// #include <sync.h>
 
 #include <soo/avz.h>
 #include <soo/hypervisor.h>
@@ -33,7 +33,9 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-#include <apps/outdoor.h>
+#include <me/outdoor/outdoor.h>
+
+#include <me/eco_stability.h>
 
 static bool outdoor_initialized = false;
 
@@ -234,7 +236,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 				agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
 				memcpy(agency_ctl_args.u.target_cooperate_args.spid, get_ME_desc()->spid, SPID_SIZE);
 				memcpy(agency_ctl_args.u.target_cooperate_args.spad_caps, get_ME_desc()->spad.caps, SPAD_CAPS_SIZE);
-				agency_ctl_args.u.target_cooperate_args.pfns.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
+				agency_ctl_args.u.target_cooperate_args.pfn.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
 				args->__agency_ctl(&agency_ctl_args);
 			}
 
@@ -256,7 +258,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 				agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
 				memcpy(agency_ctl_args.u.target_cooperate_args.spid, get_ME_desc()->spid, SPID_SIZE);
 				memcpy(agency_ctl_args.u.target_cooperate_args.spad_caps, get_ME_desc()->spad.caps, SPAD_CAPS_SIZE);
-				agency_ctl_args.u.target_cooperate_args.pfns.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
+				agency_ctl_args.u.target_cooperate_args.pfn.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
 				args->__agency_ctl(&agency_ctl_args);
 			}
 		}
@@ -288,7 +290,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		if (!memcmp(cooperate_args->u.initiator_coop.spid, SOO_outdoor_spid, SPID_SIZE)) {
 			DBG("Cooperation with SOO.outdoor\n");
 
-			pfn = cooperate_args->u.initiator_coop.pfns.content;
+			pfn = cooperate_args->u.initiator_coop.pfn.content;
 
 			recv_data_size = DIV_ROUND_UP(sizeof(outdoor_info_t), PAGE_SIZE) * PAGE_SIZE;
 			recv_data = (void *) io_map(pfn_to_phys(pfn), recv_data_size);

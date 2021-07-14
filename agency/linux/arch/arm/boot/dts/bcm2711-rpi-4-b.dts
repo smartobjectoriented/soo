@@ -90,7 +90,7 @@
 		
 			vuihandler {
 				compatible = "vuihandler,backend";
-				status = "disabled";
+				status = "ok";
 			};
 
 			vnet {
