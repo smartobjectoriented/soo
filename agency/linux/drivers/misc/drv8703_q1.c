@@ -528,7 +528,7 @@ static int drv8703q1_probe(struct spi_device *spi) {
 	printk(KERN_INFO "DRV8703-Q1 Probe\n");
 
 	spi->bits_per_word = 8;
-	spi->mode = SPI_MODE_1;
+	spi->mode = SPI_MODE_0;
 	ret = spi_setup(spi);
 	if (ret < 0)
 		return ret;
