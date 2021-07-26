@@ -192,13 +192,13 @@ void update_weather_data(void) {
 		if (!vdevfront_is_connected(vdev)) 
 			continue;
 
-		vweather_start(i);
+		vdevback_processing_begin(vdev);
 		vweather_priv = dev_get_drvdata(&vdev->dev);
 
 		memcpy(vweather_priv->vweather.weather_buffers.data, &vdrv_priv->weather_data, VWEATHER_DATA_SIZE);
 		notify_remote_via_virq(vweather_priv->vweather.update_notifications.irq);
 
-		vweather_end(i);
+		vdevback_processing_end(vdev);
 	}
 
 }
@@ -451,7 +451,8 @@ static int setup_shared_buffer(struct vbus_device *dev) {
 	DBG(VWEATHER_PREFIX "Backend: Shared data pfn=%08x\n", weather_buffer->pfn);
 
 	/* The pages allocated by the ME have to be contiguous */
-	// weather_buffer->data = (unsigned char *) __arm_ioremap(weather_buffer->pfn << PAGE_SHIFT, VWEATHER_DATA_SIZE, MT_MEMORY_RWX_NONCACHED);
+	/* DTN */
+	/* weather_buffer->data = (unsigned char *) __arm_ioremap(weather_buffer->pfn << PAGE_SHIFT, VWEATHER_DATA_SIZE, MT_MEMORY_RWX_NONCACHED); */
 	weather_buffer->data = (unsigned char *) ioremap(weather_buffer->pfn << PAGE_SHIFT, VWEATHER_DATA_SIZE);
 
 	BUG_ON(!weather_buffer->data);
