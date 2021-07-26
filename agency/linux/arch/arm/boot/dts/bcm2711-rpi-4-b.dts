@@ -378,8 +378,8 @@
 		status = "okay";
 		reg = <0>;
 		spi-max-frequency = <0x7735940>;
-		//sleep-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>;
-		//mode-gpio = <&gpio 10 GPIO_ACTIVE_HIGH>;
+		sleep-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>;
+		mode-gpio = <&gpio 10 GPIO_ACTIVE_HIGH>;
 	};
 };
 
