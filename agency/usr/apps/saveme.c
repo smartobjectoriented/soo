@@ -24,7 +24,9 @@
 
 #include <sys/ioctl.h>
 
-#include <uapi/soo.h>
+#include <soo/uapi/soo.h>
+
+#include <zip.h>
 
 int fd_core;
 
@@ -86,10 +88,10 @@ void finalize_migration(unsigned int slotID) {
 }
 
 int main(int argc, char *argv[]) {
-	int fd;
 	void *buffer;
 	unsigned int buffer_size;
 	int ret;
+	struct zip_t *zip;
 
 	printf("*** SOO - Mobile Entity snapshot saver ***\n");
 
@@ -120,27 +122,21 @@ int main(int argc, char *argv[]) {
 
 	finalize_migration(2);
 
+	printf("  * Saving to the file...");
+	fflush(stdout);
+
 	/* Save the snapshot to file */
-	fd = open(argv[1], O_WRONLY | O_CREAT);
-	if (fd < 0) {
-		perror("");
-		return -1;
-	}
+	zip = zip_open(argv[1], ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
 
-	ret = write(fd, buffer, buffer_size);
-	if (ret < 0) {
-		perror("## ME snapshot failure");
-		return -1;
-	}
-	if (ret != buffer_size) {
-		printf("## ME snapshot failure: no space left.\n");
-		return -1;
-	}
+	zip_entry_open(zip, "me");
+	zip_entry_write(zip, buffer, buffer_size);
+	zip_entry_close(zip);
 
-	close(fd);
+	zip_close(zip);
 
 	close(fd_core);
 
+	printf("done.\n\n");
 	printf("  * snapshot saved successfully\n");
 
 	return 0;

@@ -36,6 +36,9 @@ struct vdevback {
 
 	/* Synchronization between ongoing processing and suspend/closing */
 	struct completion sync;
+
+	/* Tell if the frontend is in connected state */
+	bool vdevfront_connected;
 };
 typedef struct vdevback vdevback_t;
 
@@ -56,10 +59,6 @@ struct vdrvback {
 };
 typedef struct vdrvback vdrvback_t;
 
-static inline vdevback_t *to_vdevback(struct vbus_device *vdev) {
-	return dev_get_drvdata(&vdev->dev);
-}
-
 static inline vdrvback_t *to_vdrvback(struct vbus_device *vdev) {
 	struct vbus_driver *vdrv = to_vbus_driver(vdev->dev.driver);
 	return container_of(vdrv, vdrvback_t, vdrv);
@@ -68,6 +67,8 @@ static inline vdrvback_t *to_vdrvback(struct vbus_device *vdev) {
 void vdevback_init(char *name, vdrvback_t *vdrvback);
 bool vdevback_processing_begin(struct vbus_device *vdev);
 void vdevback_processing_end(struct vbus_device *vdev);
+
+bool vdevfront_is_connected(struct vbus_device *vdev);
 
 #endif /* VDEVBACK_H */
 

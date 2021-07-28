@@ -4,11 +4,16 @@
  *
  */
 
+/* override table no-wrap */
+.wy-table-responsive table td, .wy-table-responsive table th {
+    white-space: normal;
+}
+
 .wy-nav-content {
 max-width: none;
 }
 
 .highlight {
-	height:300px;
+	max-height:300px;
 	overflow:auto;
 }

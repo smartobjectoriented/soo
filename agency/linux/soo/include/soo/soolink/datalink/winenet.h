@@ -25,7 +25,7 @@
 #include <soo/soolink/discovery.h>
 
 /* Maximal number of retries */
-#define WNET_RETRIES_MAX 5
+#define WNET_RETRIES_MAX 3
 
 /* Conversion from us to ns */
 #define WNET_TIME_US_TO_NS(x) ((x) * 1000ull)
@@ -46,16 +46,20 @@
  */
 
 #ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-
 #define WNET_N_PACKETS_IN_FRAME 64
-#define WNET_TSPEAKER_ACK_MS	500
-
-#else /* !CONFIG_SOOLINK_PLUGIN_WLAN */
-
+#else
 #define WNET_N_PACKETS_IN_FRAME 8
+#endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
+
 #define WNET_TSPEAKER_ACK_MS	800
 
-#endif
+/* The following values are called ACK cause and
+ * enables to check the status of an acknowledgment message
+ */
+#define ACK_STATUS_TIMEOUT	-1
+#define ACK_STATUS_OK		0x0
+#define ACK_STATUS_BEACON	0x1
+#define ACK_STATUS_ABORT	0x10
 
 /*
  * Winenet states FSM
@@ -108,16 +112,13 @@ typedef enum {
 
 typedef struct {
 
-	wnet_ping_t type;
-
-	/* Used in response */
-	agencyUID_t speakerUID;
-
-} wnet_ping_args_t;
-
-typedef struct {
-
 	uint8_t id;
+
+	/* The <cause> field can be used to obtain further information
+	 * about a beacon like a ACK for example.
+	 * The values depend on the beacon (see the code)
+	 */
+	uint8_t cause;
 
 	uint8_t priv_len;
 	uint8_t priv[0];
@@ -154,9 +155,6 @@ typedef struct {
 	/* Helper field to make a round of neighbours */
 	bool processed;
 
-	/* Used to keep the turn in a round of speaker */
-	bool speaker_done;
-
 	neighbour_desc_t *neighbour;
 	uint32_t last_transID;
 	uint8_t speakerUID[SOO_AGENCY_UID_SIZE];
@@ -168,7 +166,6 @@ typedef void (*wnet_state_fn_t)(wnet_state_t old_state);
 typedef struct {
 	wnet_state_fn_t	*funcs;
 
-	struct completion event;
 	wnet_state_t	old_state;
 	wnet_state_t	state;
 } wnet_fsm_handle_t;

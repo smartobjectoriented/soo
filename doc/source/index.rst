@@ -19,15 +19,16 @@
   
    introduction
    architecture/architecture
+   drivers/drivers
+   rootfs/rootfs
    user_guide
    logging
    aarch64
-<<<<<<< HEAD
-   virt_interfaces/vuihandler
-=======
+
+
+   dev_flow
    glossary
->>>>>>> 1362ba2b085f96add55f314c7140073f6cac84f7
-   
+
 ======================================
 Smart Object Oriented (SOO) Technology
 ======================================

@@ -33,6 +33,7 @@ static bool log_soo_soolink_discovery = false;
 
 /* Transcoder */
 static bool log_soo_soolink_transcoder = false;
+static bool log_soo_soolink_transcoder_block = false;
 
 /* Winenet */
 static bool log_soo_soolink_winenet = false;
@@ -126,7 +127,8 @@ void soo_log(char *format, ...) {
 		outlog = true;
 
 	/* SOOlink Transcoder functional block */
-	if (log_soo_soolink_transcoder && (strstr(__internal_buf, "[soo:soolink:transcoder")))
+	if ((log_soo_soolink_transcoder && (strstr(__internal_buf, "[soo:soolink:transcoder"))) ||
+	    (log_soo_soolink_transcoder_block && (strstr(__internal_buf, "[soo:soolink:transcoder:block"))))
 		outlog = true;
 
 	/* SOOlink Winenet protocol */

@@ -50,18 +50,12 @@ void gnttab_dump(void);
 
 static grant_entry_t *gnttab_ME[MAX_DOMAINS];
 
-static grant_entry_t *gnttab;
-
 static struct vbus_watch gt_watch[MAX_DOMAINS];
 
 /* External tools reserve first few grant table entries. -> TO BE REMOVED IN A NEAR FUTURE ! */
 #define NR_RESERVED_ENTRIES 	8
 #define GNTTAB_LIST_END 	(NR_GRANT_ENTRIES + 1)
 
-static grant_ref_t gnttab_list[NR_GRANT_ENTRIES];
-static int gnttab_free_count;
-static grant_ref_t gnttab_free_head;
-static DEFINE_SPINLOCK(gnttab_list_lock);
 static DEFINE_SPINLOCK(handle_list_lock);
 
 static inline int get_order_from_pages(unsigned long nr_pages)
@@ -95,8 +89,6 @@ LIST_HEAD(list_handle_grant);
  */
 #define NR_FRAME_TABLE_ENTRIES	(NR_GRANT_FRAMES + 2)
 
-static struct gnttab_free_callback *gnttab_free_callback_list = NULL;
-
 static inline u32 atomic_cmpxchg_u16(volatile u16 *v, u16 old, u16 new)
 {
 	u16 ret;
@@ -115,7 +107,7 @@ static inline u32 atomic_cmpxchg_u16(volatile u16 *v, u16 old, u16 new)
 
 /*** handle management ***/
 
-struct handle_grant *new_handle(unsigned int domid, unsigned int gref,  uint64_t host_addr, unsigned int offset, unsigned int size) {
+static struct handle_grant *new_handle(unsigned int domid, unsigned int gref,  uint64_t host_addr, unsigned int offset, unsigned int size) {
 	unsigned long flags;
 	struct handle_grant *entry;
 	unsigned int cur_handleID = 0;
@@ -149,7 +141,7 @@ struct handle_grant *new_handle(unsigned int domid, unsigned int gref,  uint64_t
 /*
  * Retrieve the handle descriptor for a specific handle ID.
  */
-struct handle_grant *get_handle(unsigned int handle) {
+static struct handle_grant *get_handle(unsigned int handle) {
 	struct handle_grant *entry;
 
 	list_for_each_entry(entry, &list_handle_grant, list)
@@ -159,7 +151,7 @@ struct handle_grant *get_handle(unsigned int handle) {
 	return NULL;
 }
 
-void free_handle(unsigned int handle) {
+static void free_handle(unsigned int handle) {
 	struct handle_grant *entry;
 	unsigned long flags;
 
@@ -174,242 +166,6 @@ void free_handle(unsigned int handle) {
 	}
 	panic("should not be here...\n");
 }
-
-static int get_free_entries(int count)
-{
-	unsigned long flags;
-	int ref;
-	grant_ref_t head;
-
-	spin_lock_irqsave(&gnttab_list_lock, flags);
-
-	if (gnttab_free_count < count) {
-		spin_unlock_irqrestore(&gnttab_list_lock, flags);
-		return -1;
-	}
-
-	ref = head = gnttab_free_head;
-	gnttab_free_count -= count;
-
-	while (count-- > 1)
-		head = gnttab_list[head];
-
-	gnttab_free_head = gnttab_list[head];
-	gnttab_list[head] = GNTTAB_LIST_END;
-
-	spin_unlock_irqrestore(&gnttab_list_lock, flags);
-	return ref;
-}
-
-#define get_free_entry() get_free_entries(1)
-
-static void do_free_callbacks(void)
-{
-	struct gnttab_free_callback *callback, *next;
-
-	callback = gnttab_free_callback_list;
-	gnttab_free_callback_list = NULL;
-
-	while (callback != NULL) {
-		next = callback->next;
-		if (gnttab_free_count >= callback->count) {
-			callback->next = NULL;
-			callback->fn(callback->arg);
-		} else {
-			callback->next = gnttab_free_callback_list;
-			gnttab_free_callback_list = callback;
-		}
-		callback = next;
-	}
-}
-
-static inline void check_free_callbacks(void)
-{
-	if (unlikely((long) gnttab_free_callback_list))
-		do_free_callbacks();
-}
-
-static void put_free_entry(grant_ref_t ref)
-{
-	unsigned long flags;
-	spin_lock_irqsave(&gnttab_list_lock, flags);
-	gnttab_list[ref] = gnttab_free_head;
-	gnttab_free_head = ref;
-	gnttab_free_count++;
-	check_free_callbacks();
-	spin_unlock_irqrestore(&gnttab_list_lock, flags);
-}
-
-int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops, struct gnttab_map_grant_ref *kmap_ops, struct page **pages, unsigned int count)
-{
-	int ret;
-
-	ret = grant_table_op(GNTTABOP_map_grant_ref, map_ops, count);
-
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops, struct gnttab_map_grant_ref *kmap_ops, struct page **pages, unsigned int count)
-{
-	int ret;
-
-	ret = grant_table_op(GNTTABOP_unmap_grant_ref, unmap_ops, count);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-/*
- * Public grant-issuing interface functions
- */
-
-int gnttab_grant_foreign_access(domid_t domid, unsigned long frame, int readonly)
-{
-	int ref;
-
-	if (unlikely((ref = get_free_entry()) == -1))
-		return -ENOSPC;
-
-	gnttab[ref].frame = frame;
-	gnttab[ref].domid = domid;
-	wmb();
-	gnttab[ref].flags = GTF_permit_access | (readonly ? GTF_readonly : 0);
-
-#ifdef DEBUG
-	lprintk("%s(%d, %08x), ref=%u\n", __func__, domid, frame, ref);
-#endif
-
-	return ref;
-}
-EXPORT_SYMBOL_GPL(gnttab_grant_foreign_access);
-
-void gnttab_grant_foreign_access_ref(grant_ref_t ref, domid_t domid, unsigned long frame, int readonly)
-{
-	gnttab[ref].frame = frame;
-	gnttab[ref].domid = domid;
-	wmb();
-	gnttab[ref].flags = GTF_permit_access | (readonly ? GTF_readonly : 0);
-
-}
-
-int gnttab_query_foreign_access(grant_ref_t ref)
-{
-	u16 nflags;
-
-	nflags = gnttab[ref].flags;
-
-	return (nflags & (GTF_reading|GTF_writing));
-}
-
-void gnttab_end_foreign_access_ref(grant_ref_t ref)
-{
-	u16 flags, nflags;
-
-	nflags = gnttab[ref].flags;
-	do {
-		if ((flags = nflags) & (GTF_reading|GTF_writing)) {
-			printk(KERN_ALERT "WARNING: g.e. still in use!\n");
-			BUG();
-		}
-	}
-	while ((nflags = atomic_cmpxchg_u16(&gnttab[ref].flags, flags, 0)) != flags) ;;
-}
-
-void gnttab_end_foreign_access(grant_ref_t ref)
-{
-	gnttab_end_foreign_access_ref(ref);
-	put_free_entry(ref);
-}
-
-void gnttab_free_grant_reference(grant_ref_t ref)
-{
-	put_free_entry(ref);
-}
-
-void gnttab_free_grant_references(grant_ref_t head)
-{
-	grant_ref_t ref;
-	unsigned long flags;
-	int count = 1;
-	if (head == GNTTAB_LIST_END)
-		return;
-	spin_lock_irqsave(&gnttab_list_lock, flags);
-	ref = head;
-	while (gnttab_list[ref] != GNTTAB_LIST_END) {
-		ref = gnttab_list[ref];
-		count++;
-	}
-	gnttab_list[ref] = gnttab_free_head;
-	gnttab_free_head = head;
-	gnttab_free_count += count;
-	check_free_callbacks();
-	spin_unlock_irqrestore(&gnttab_list_lock, flags);
-}
-
-int gnttab_alloc_grant_references(u16 count, grant_ref_t *head)
-{
-	int h = get_free_entries(count);
-
-	if (h == -1)
-		return -ENOSPC;
-
-	*head = h;
-
-	return 0;
-}
-
-int gnttab_claim_grant_reference(grant_ref_t *private_head)
-{
-	grant_ref_t g = *private_head;
-
-	if (unlikely(g == GNTTAB_LIST_END))
-		return -ENOSPC;
-	*private_head = gnttab_list[g];
-	return g;
-}
-
-void gnttab_release_grant_reference(grant_ref_t *private_head, grant_ref_t  release)
-{
-	gnttab_list[release] = *private_head;
-	*private_head = release;
-}
-
-void gnttab_request_free_callback(struct gnttab_free_callback *callback, void (*fn)(void *), void *arg, u16 count)
-{
-	unsigned long flags;
-	spin_lock_irqsave(&gnttab_list_lock, flags);
-	if (callback->next)
-		goto out;
-	callback->fn = fn;
-	callback->arg = arg;
-	callback->count = count;
-	callback->next = gnttab_free_callback_list;
-	gnttab_free_callback_list = callback;
-	check_free_callbacks();
-
-out:
-	spin_unlock_irqrestore(&gnttab_list_lock, flags);
-}
-
-void gnttab_cancel_free_callback(struct gnttab_free_callback *callback)
-{
-	struct gnttab_free_callback **pcb;
-	unsigned long flags;
-
-	spin_lock_irqsave(&gnttab_list_lock, flags);
-	for (pcb = &gnttab_free_callback_list; *pcb; pcb = &(*pcb)->next) {
-		if (*pcb == callback) {
-			*pcb = callback->next;
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&gnttab_list_lock, flags);
-}
-EXPORT_SYMBOL_GPL(gnttab_cancel_free_callback);
 
 /*
  * Update the reference to the ME grant table.
@@ -435,7 +191,7 @@ static bool gnttab_update_peer(unsigned int domID) {
 	{
 		gnttab_ME[domID] = paging_remap(pfn << PAGE_SHIFT, NR_GRANT_FRAMES * PAGE_SIZE);
 		 
-		DBG("gnttab_ME[%d]=%08x\n", domID, gnttab_ME[domID]);
+		DBG("gnttab_ME[%d]=%lx\n", domID, (unsigned long) gnttab_ME[domID]);
 
 		return true;
 	} else
@@ -791,25 +547,6 @@ error_out:
 }
 
 /*
- * Remove the grant table and all foreign entries.
- */
-int gnttab_remove(bool with_vbus) {
-	char path[20];
-
-	DBG("Removing grant table ...\n");
-
-	/* Free previous entries */
-	free_pages((unsigned long) gnttab, get_order_from_pages(NR_GRANT_FRAMES));
-
-	if (with_vbus) {
-		sprintf(path, "domain/gnttab/%i", smp_processor_id());
-		vbus_rm(VBT_NIL, path, "pfn");
-	}
-
-	return 0;
-}
-
-/*
  * Register a set of watches for each domain which handles a grant table.
  */
 void register_watches(void) {
@@ -838,43 +575,12 @@ int gnttab_init(void)
 	for (i = 0; i < MAX_DOMAINS; i++)
 		gnttab_ME[i] = NULL;
 
-	/* First allocate the current domain grant table. */
-	gnttab = (void *) __get_free_pages(GFP_KERNEL | __GFP_ZERO, get_order_from_pages(NR_GRANT_FRAMES));
-
-	if (gnttab == NULL)
-	{
-		printk("%s/%d: Failed to alloc grant table\n", __FILE__, __LINE__);
-		BUG();
-	}
-
-	DBG("Exporting grant_ref table pfn %05lx virt %p \n", virt_to_pfn((unsigned int) gnttab), gnttab);
-
-	for (i = NR_RESERVED_ENTRIES; i < NR_GRANT_ENTRIES; i++)
-		gnttab_list[i] = i + 1;
-
-	gnttab_free_count = NR_GRANT_ENTRIES - NR_RESERVED_ENTRIES;
-	gnttab_free_head  = NR_RESERVED_ENTRIES;
-
-
 	/* The agency is monitoring all grant table references */
 	DBG0("Registering all grant watches for each domain ...\n");
 	register_watches();
 
 	DBG0("End of gnttab_init. Well done!\n");
 	return 0;
-}
-
-/*
- * Update the grant table for the post-migrated domain.
- * Update the watches as well.
- */
-void postmig_gnttab_update(void) {
-
-	gnttab_remove(false);
-
-	/* At the moment, perform a full rebuild of grant table */
-	gnttab_init();
-
 }
 
 /* Dump contents of grant table */

@@ -964,8 +964,8 @@ static char *address_val(char *buf, char *end, const void *addr,
 	switch (fmt[1]) {
 	case 'p':
 	default:
-		num = *(const phys_addr_t *)addr;
-		spec.field_width = sizeof(phys_addr_t) * 2 + 2;
+		num = *(const addr_t *)addr;
+		spec.field_width = sizeof(addr_t) * 2 + 2;
 		break;
 	}
 
@@ -1612,6 +1612,10 @@ int vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
     return (i > 0) ? i : 0;
 }
 
+int vsprintf(char *s, const char *fmt, va_list ap)
+{
+	return vsnprintf(s, INT_MAX, fmt, ap);
+}
 
 /**
  * vsscanf - Unformat a buffer into a list of arguments

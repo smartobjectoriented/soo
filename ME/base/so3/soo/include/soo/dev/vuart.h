@@ -38,6 +38,7 @@ typedef struct {
 DEFINE_RING_TYPES(vuart, vuart_request_t, vuart_response_t);
 
 typedef struct {
+	/* Must be the first field */
 	vdevfront_t vdevfront;
 
 	vuart_front_ring_t ring;
@@ -47,18 +48,11 @@ typedef struct {
 	grant_handle_t handle;
 	uint32_t evtchn;
 
-	completion_t reader_wait;
-
 } vuart_t;
 
 bool vuart_ready(void);
 
 void vuart_write(char *buffer, int count);
 char vuart_read_char(void);
-
-static inline vuart_t *to_vuart(struct vbus_device *vdev) {
-	vdevfront_t *vdevfront = dev_get_drvdata(vdev->dev);
-	return container_of(vdevfront, vuart_t, vdevfront);
-}
 
 #endif /* VUART_H */

@@ -143,6 +143,9 @@ struct vbus_driver {
 
 	struct device_driver driver;
 
+	/* Private stucture for this vbus driver */
+	void *priv;
+
 	void (*probe)(struct vbus_device *dev);
 	void (*remove)(struct vbus_device *dev);
 
@@ -159,6 +162,27 @@ struct vbus_driver {
 static inline struct vbus_driver *to_vbus_driver(struct device_driver *drv)
 {
 	return container_of(drv, struct vbus_driver, driver);
+}
+
+/*
+ * Attach a private structure to a vbus driver
+ */
+static inline void vdrv_set_priv(struct vbus_driver *vdrv, void *priv) {
+	vdrv->priv = priv;
+}
+
+/*
+ * Retrieve the private structure attached to a specific vbus driver
+ */
+static inline void *vdrv_get_priv(struct vbus_driver *vdrv) {
+	return vdrv->priv;
+}
+
+/*
+ * Retrieve the private structure attached to a vbus driver from a particular vbus device
+ */
+static inline void *vdrv_get_vdevpriv(struct vbus_device *vdev) {
+	return vdrv_get_priv(to_vbus_driver(vdev->dev.driver));
 }
 
 void __vbus_register_frontend(struct vbus_driver *drv, struct module *owner, const char *mod_name);

@@ -69,17 +69,9 @@ void gnttab_free_grant_reference(grant_ref_t ref);
 
 void gnttab_free_grant_references(grant_ref_t head);
 
-int gnttab_claim_grant_reference(grant_ref_t *pprivate_head);
-
-void gnttab_release_grant_reference(grant_ref_t *private_head,
-				    grant_ref_t release);
-
-void gnttab_request_free_callback(struct gnttab_free_callback *callback, void (*fn)(void *), void *arg, u16 count);
-void gnttab_cancel_free_callback(struct gnttab_free_callback *callback);
-
 void gnttab_grant_foreign_access_ref(grant_ref_t ref, domid_t domid, unsigned long frame, int readonly);
 
-static inline void gnttab_set_map_op(struct gnttab_map_grant_ref *map, phys_addr_t addr, uint32_t flags, grant_ref_t ref, domid_t domid, unsigned int offset, unsigned int size)
+static inline void gnttab_set_map_op(struct gnttab_map_grant_ref *map, addr_t addr, uint32_t flags, grant_ref_t ref, domid_t domid, unsigned int offset, unsigned int size)
 {
 	map->host_addr = addr;
 	map->flags = flags;
@@ -96,7 +88,7 @@ static inline void gnttab_set_map_op(struct gnttab_map_grant_ref *map, phys_addr
 
 }
 
-static inline void gnttab_set_unmap_op(struct gnttab_unmap_grant_ref *unmap, phys_addr_t addr, uint32_t flags, grant_handle_t handle)
+static inline void gnttab_set_unmap_op(struct gnttab_unmap_grant_ref *unmap, addr_t addr, uint32_t flags, grant_handle_t handle)
 {
 	unmap->host_addr = addr;
 	unmap->dev_bus_addr = 0;

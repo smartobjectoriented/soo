@@ -9,6 +9,12 @@
 
 #ifdef __KERNEL__
 
+/* SOO.tech */
+/* We redefine AGENCY_RT_CPU here to avoid including soo/uapi/soo.h and thus
+ * avoiding a lot of recompilation when soo.h changes.
+ */
+#define AGENCY_RT_CPU 	1
+
 #include <linux/compiler.h>
 #include <asm/fpstate.h>
 #include <asm/page.h>
@@ -22,9 +28,6 @@
 struct task_struct;
 
 #include <asm/types.h>
-
-/* SOO.tech */
-#include <soo/uapi/soo.h>
 
 typedef unsigned long mm_segment_t;
 

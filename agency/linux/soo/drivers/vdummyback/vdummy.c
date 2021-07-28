@@ -42,64 +42,74 @@
 
 #include <soo/dev/vdummy.h>
 
+typedef struct {
+
+	/* Must be the first field */
+	vdummy_t vdummy;
+
+} vdummy_priv_t;
+
+static struct vbus_device *vdummy_dev = NULL;
+
 void vdummy_notify(struct vbus_device *vdev)
 {
-	vdummy_t *vdummy = to_vdummy(vdev);
+	vdummy_priv_t *vdummy_priv = dev_get_drvdata(&vdev->dev);
 
-	RING_PUSH_RESPONSES(&vdummy->ring);
+	vdummy_ring_response_ready(&vdummy_priv->vdummy.ring);
 
 	/* Send a notification to the frontend only if connected.
 	 * Otherwise, the data remain present in the ring. */
 
-	notify_remote_via_virq(vdummy->irq);
-
+	notify_remote_via_virq(vdummy_priv->vdummy.irq);
 }
 
 
 irqreturn_t vdummy_interrupt(int irq, void *dev_id)
 {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	vdummy_t *vdummy = to_vdummy(vdev);
+	vdummy_priv_t *vdummy_priv = dev_get_drvdata(&vdev->dev);
 	vdummy_request_t *ring_req;
 	vdummy_response_t *ring_rsp;
 
 	DBG("%d\n", dev->otherend_id);
 
-	while ((ring_req = vdummy_get_ring_request(&vdummy->ring)) != NULL) {
+	while ((ring_req = vdummy_get_ring_request(&vdummy_priv->vdummy.ring)) != NULL) {
 
-		ring_rsp = vdummy_new_ring_response(&vdummy->ring);
+		ring_rsp = vdummy_new_ring_response(&vdummy_priv->vdummy.ring);
 
 		memcpy(ring_rsp->buffer, ring_req->buffer, VDUMMY_PACKET_SIZE);
 
-		vdummy_ring_response_ready(&vdummy->ring);
+		vdummy_ring_response_ready(&vdummy_priv->vdummy.ring);
 
-		notify_remote_via_virq(vdummy->irq);
+		notify_remote_via_virq(vdummy_priv->vdummy.irq);
 	}
 
 	return IRQ_HANDLED;
 }
 
 void vdummy_probe(struct vbus_device *vdev) {
-	vdummy_t *vdummy;
+	vdummy_priv_t *vdummy_priv;
 
-	vdummy = kzalloc(sizeof(vdummy_t), GFP_ATOMIC);
-	BUG_ON(!vdummy);
+	vdummy_priv = kzalloc(sizeof(vdummy_priv_t), GFP_ATOMIC);
+	BUG_ON(!vdummy_priv);
 
-	dev_set_drvdata(&vdev->dev, &vdummy->vdevback);
+	dev_set_drvdata(&vdev->dev, vdummy_priv);
+
+	vdummy_dev = vdev;
 
 	DBG(VDUMMY_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
 
 void vdummy_remove(struct vbus_device *vdev) {
-	vdummy_t *vdummy = to_vdummy(vdev);
+	vdummy_priv_t *vdummy_priv = dev_get_drvdata(&vdev->dev);
 
 	DBG("%s: freeing the vdummy structure for %s\n", __func__,vdev->nodename);
-	kfree(vdummy);
+	kfree(vdummy_priv);
 }
 
 
 void vdummy_close(struct vbus_device *vdev) {
-	vdummy_t *vdummy = to_vdummy(vdev);
+	vdummy_priv_t *vdummy_priv = dev_get_drvdata(&vdev->dev);
 
 	DBG(VDUMMY_PREFIX "Backend close: %d\n", vdev->otherend_id);
 
@@ -107,11 +117,11 @@ void vdummy_close(struct vbus_device *vdev) {
 	 * Free the ring and unbind evtchn.
 	 */
 
-	BACK_RING_INIT(&vdummy->ring, (&vdummy->ring)->sring, PAGE_SIZE);
-	unbind_from_virqhandler(vdummy->irq, vdev);
+	BACK_RING_INIT(&vdummy_priv->vdummy.ring, (&vdummy_priv->vdummy.ring)->sring, PAGE_SIZE);
+	unbind_from_virqhandler(vdummy_priv->vdummy.irq, vdev);
 
-	vbus_unmap_ring_vfree(vdev, vdummy->ring.sring);
-	vdummy->ring.sring = NULL;
+	vbus_unmap_ring_vfree(vdev, vdummy_priv->vdummy.ring.sring);
+	vdummy_priv->vdummy.ring.sring = NULL;
 }
 
 void vdummy_suspend(struct vbus_device *vdev) {
@@ -129,7 +139,7 @@ void vdummy_reconfigured(struct vbus_device *vdev) {
 	unsigned long ring_ref;
 	unsigned int evtchn;
 	vdummy_sring_t *sring;
-	vdummy_t *vdummy = to_vdummy(vdev);
+	vdummy_priv_t *vdummy_priv = dev_get_drvdata(&vdev->dev);
 
 	DBG(VDUMMY_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
 
@@ -144,13 +154,13 @@ void vdummy_reconfigured(struct vbus_device *vdev) {
 	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 	BUG_ON(res < 0);
 
-	BACK_RING_INIT(&vdummy->ring, sring, PAGE_SIZE);
+	BACK_RING_INIT(&vdummy_priv->vdummy.ring, sring, PAGE_SIZE);
 
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vdummy_interrupt, NULL, 0, VDUMMY_NAME "-backend", vdev);
 
 	BUG_ON(res < 0);
 
-	vdummy->irq = res;
+	vdummy_priv->vdummy.irq = res;
 }
 
 void vdummy_connected(struct vbus_device *vdev) {
@@ -174,6 +184,7 @@ int generator_fn(void *arg) {
 				continue;
 
 			vdummy_ring_response_ready()
+
 			vdummy_notify(i);
 
 			vdummy_end(i);
@@ -204,7 +215,7 @@ int vdummy_init(void) {
 		return 0;
 
 #if 0
-	kthread_run(generator_fn, NULL, "vDummy-gen");
+	kthread_run(generator_fn, NULL, "vdummy-gen");
 #endif
 
 	vdevback_init(VDUMMY_NAME, &vdummydrv);

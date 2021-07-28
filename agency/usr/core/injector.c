@@ -41,7 +41,7 @@
 #include <core/types.h>
 #include <core/device_access.h>
 
-#include <uapi/dcm.h>
+#include <soo/uapi/dcm.h>
 
 #include <injector/core.h>
 
@@ -107,7 +107,7 @@ void inject_MEs_from_filesystem(void) {
 	DIR *directory;
 	int fd;
 	struct dirent *ent;
-	char filename[256];
+	char filename[FILENAME_MAX_LEN];
 	int nread, ME_size;
 	unsigned char *ME_buffer = NULL;
 	struct stat filestat;
@@ -132,7 +132,9 @@ void inject_MEs_from_filesystem(void) {
 
 		printf("Found new ME to inject : %s\n", ent->d_name);
 
-		sprintf(filename, SOO_ME_DIRECTORY "/%s", ent->d_name);
+		strcpy(filename, SOO_ME_DIRECTORY);
+		strcat(filename, "/");
+		strcat(filename, ent->d_name);
 
 		stat(filename, &filestat);
 

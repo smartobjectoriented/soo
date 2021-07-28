@@ -215,7 +215,7 @@ void vinput_connected(struct vbus_device *vdev)
 	DBG0("[" VINPUT_NAME "] Frontend connected\n");
 
 	/* Force the processing of pending requests, if any */
-	notify_remote_via_irq(vinput->irq);
+	notify_remote_via_virq(vinput->irq);
 }
 
 vdrvfront_t vinputdrv = {

@@ -115,7 +115,7 @@ static decoder_block_t *new_block(sl_desc_t *sl_desc) {
 static decoder_block_t *get_block_by_sl_desc(sl_desc_t *sl_desc) {
 	decoder_block_t *block;
 
-	soo_log("[soo:soolink:transcoder] Agency UID: ");
+	soo_log("[soo:soolink:transcoder:block] Agency UID: ");
 	soo_log_printUID(&sl_desc->agencyUID_from);
 
 	list_for_each_entry(block, &current_soo_transcoder->block_list, list) {
@@ -204,7 +204,9 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		 * for a given sl_desc.
 		 */
 		if (block_count(sl_desc) == MAX_READY_BLOCK_COUNT) {
-			receiver_cancel_rx(block->sl_desc);
+
+			printk("[soo:soolink:decoder] Too many block, discarding the RX\n");
+			receiver_cancel_rx(sl_desc);
 
 			goto out;
 		}

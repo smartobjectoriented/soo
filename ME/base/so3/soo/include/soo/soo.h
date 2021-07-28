@@ -69,21 +69,6 @@ int get_pfn_offset(void);
 extern soo_personality_t soo_get_personality(void);
 
 /*
- * IOCTL commands for migration.
- * This part is shared between the kernel and user spaces.
- */
-
-/*
- * IOCTL codes
- */
-
-#define ME_IOCTL_FORCE_TERMINATE		100
-#define ME_IOCTL_PICK_NEXT_UEVENT		101
-#define ME_IOCTL_READY				102
-#define ME_IOCTL_LOCALINFO_UPDATE		103
-#define ME_IOCTL_DUMP				104
-
-/*
  * ME states:
  * - ME_state_booting:		ME is currently booting...
  * - ME_state_preparing:	ME is being paused during the boot process, in the case of an injection, before the frontend initialization
@@ -211,7 +196,7 @@ typedef struct {
  * ME descriptor
  *
  * WARNING !! Be careful when modifying this structure. It *MUST* be aligned with
- * the same structure used in AVZ.
+ * the same structure used in AVZ and Agency.
  */
 typedef struct {
 	ME_state_t	state;
@@ -232,8 +217,6 @@ typedef struct {
     unsigned int uboot;
     unsigned int rootfs;
 } upgrade_versions_args_t;
-
-#ifdef __KERNEL__
 
 /*
  * Device Capabilities (Devcaps)
@@ -302,8 +285,6 @@ typedef struct agency_tx_args {
 	int	ME_slotID;
 	int	value;   /* IN/OUT */
 } agency_tx_args_t;
-
-#endif /* __KERNEL__ */
 
 /*
  * SOO hypercall management
@@ -376,8 +357,11 @@ typedef struct {
 } pre_activate_args_t;
 
 /*
- * pre_propagate val set to 0 if no propagation is required, 1 means the ME will be propagated.
+ * pre_propagate to tell the agency if the ME must be propagated or not.
  */
+#define PROPAGATE_STATUS_YES 	1
+#define PROPAGATE_STATUS_NO	0
+
 typedef struct {
 	int propagate_status;
 } pre_propagate_args_t;
@@ -590,20 +574,17 @@ void soo_guest_activity_init(void);
 void dc_stable(int dc_event);
 void tell_dc_stable(int dc_event);
 
-int sooeventd_resume(void);
-int sooeventd_suspend(void);
-
-void set_uevent(unsigned int uevent_type, unsigned int ME_slotID);
-void wait_for_usr_feedback(void);
-void usr_feedback_ready(void);
-
 void do_sync_dom(int slotID, dc_event_t);
 void do_async_dom(int slotID, dc_event_t);
 
 void perform_task(dc_event_t dc_event);
 
-int pick_next_uevent(void);
-
 void shutdown_ME(unsigned int ME_slotID);
+
+/* ME ID management */
+const char *get_me_shortdesc(void);
+const char *get_me_name(void);
+u64 get_spid(void);
+
 
 #endif /* SOO_H */

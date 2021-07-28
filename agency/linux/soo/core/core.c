@@ -45,6 +45,7 @@
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
+#include <linux/string.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -59,8 +60,6 @@
 
 #include <soo/sooenv.h>
 
-#include <soo/uapi/avz.h>
-#include <soo/uapi/console.h>
 #include <soo/debug/dbgvar.h>
 #include <soo/evtchn.h>
 #include <soo/guest_api.h>
@@ -71,28 +70,23 @@
 
 #include <soo/core/sysfs.h>
 #include <soo/core/core.h>
+#include <soo/core/migmgr.h>
 #include <soo/core/device_access.h>
 #include <soo/core/upgrader.h>
 
 #include <soo/soolink/discovery.h>
 
+#include <soo/uapi/avz.h>
+#include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
 #include <soo/uapi/logbool.h>
+#include <soo/uapi/me_access.h>
 #include <soo/uapi/injector.h>
 
 #define AGENCY_DEV_NAME "soo/core"
 #define AGENCY_DEV_MAJOR 126
 
-/* Fixed size for the header of the ME buffer frame (max.) */
-#define ME_EXTRA_BUFFER_SIZE (1024 * 1024)
-
 #ifndef CONFIG_X86
-
-/*
- * Used to store ioctl args/buffers
- * Cannot be stored on the local stack since it is to big.
- */
-static uint8_t buffer[32 * 1024]; /* 32 Ko */
 
 static struct soo_driver soo_core_driver;
 
@@ -100,6 +94,7 @@ static struct soo_driver soo_core_driver;
 struct bus_type soo_subsys;
 
 static struct device soo_dev;
+
 
 /* Agency callback implementation */
 
@@ -137,495 +132,6 @@ ME_state_t force_terminate(unsigned int ME_slotID) {
 /* Agency ctl domcalls operations */
 
 #ifndef CONFIG_X86
-
-/*
- * Set the personality.
- */
-static int ioctl_set_personality(unsigned long arg) {
-	int rc;
-	agency_tx_args_t args;
-	soo_personality_t pers;
-
-	if ((rc = copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	pers = (soo_personality_t) args.value;
-
-	if ((pers != SOO_PERSONALITY_INITIATOR) && (pers != SOO_PERSONALITY_TARGET) &&
-	    (pers != SOO_PERSONALITY_SELFREFERENT)) {
-		lprintk("Agency: %s:%d Invalid personality value (%d)\n", __func__, __LINE__, pers);
-		BUG();
-	}
-
-	soo_set_personality(pers);
-
-	return 0;
-}
-
-/*
- * Get the personality.
- */
-static int ioctl_get_personality(unsigned long arg) {
-	int rc;
-	agency_tx_args_t args;
-
-	args.value = soo_get_personality();
-
-	if ((rc = copy_to_user((void *) arg, &args, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to transmit args to userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	return 0;
-}
-
-/**
- * Initialize the migration process of a ME.
- *
- * The process starts with the execution of pre_propagate, which might decide to kill (remove) the ME.
- * This is useful to control the propagation of the ME when necessary.
- * Furthermore, if the ME is dormant, pre_propagate is still called, but the rest of the process is skipped.
- * To let the user space aware of the state, a return value is put in args.value as follows:
- * - (-1) means the ME is dead (has disappeared) or can not pursue its propagation.
- * - (0) means the ME is dormant
- * - (1) means the ME is ready be activated
- */
-static int ioctl_initialize_migration(unsigned long arg) {
-	int rc;
-	agency_tx_args_t args;
-	soo_personality_t pers = soo_get_personality();
-	int propagate = 0;
-
-	if ((rc = copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	if (pers == SOO_PERSONALITY_INITIATOR) {
-
-		if ((rc = soo_hypercall(AVZ_MIG_PRE_PROPAGATE, NULL, NULL, &args.ME_slotID, &propagate)) != 0) {
-			lprintk("Agency: %s:%d Failed to trigger pre-propagate callback (%d)\n", __func__, __LINE__, rc);
-			BUG();
-		}
-
-		/* Set a return value so that the caller can decide what to do. */
-		if (get_ME_state(args.ME_slotID) == ME_state_dead) {
-
-			/* Just make sure that the ME has not triggered any vbstore entry creation. */
-			/* Remove all associated entries. */
-
-#warning Remove all vbstore entries....
-
-			args.value = -1;
-			goto out;
-		}
-
-#ifdef VERBOSE
-		lprintk("%s: returned propagate value = %d\n", __func__, propagate);
-#endif
-
-		if (!propagate) {
-			args.value = -1;
-			goto out;
-		}
-
-		if (get_ME_state(args.ME_slotID) == ME_state_dormant) {
-			args.value = 0;
-			goto out;
-		}
-
-		do_sync_dom(args.ME_slotID, DC_PRE_SUSPEND);
-
-		/* Set the ME in suspended state */
-		set_ME_state(args.ME_slotID, ME_state_suspended);
-
-		vbus_suspend_devices(args.ME_slotID);
-
-		do_sync_dom(args.ME_slotID, DC_SUSPEND);
-	}
-
-	if ((rc = soo_hypercall(AVZ_MIG_INIT, NULL, NULL, &args.ME_slotID, &pers)) != 0) {
-		lprintk("Agency: %s:%d Failed to initialize migration (%d)\n", __func__, __LINE__, rc);
-		return rc;
-	}
-
-	/* Ready to be migrated */
-	args.value = 0;
-out:
-	if ((rc = copy_to_user((void *) arg, &args, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to copy args to userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	return 0;
-}
-
-/**
- * Get an available ME slot from the hypervisor for a ME with a specific size (<size>).
- * If no slot is available, the value field of the agency_tx_args_t structure will be set to -1.
- */
-static int ioctl_get_ME_free_slot(unsigned long arg) {
-	int rc;
-	agency_tx_args_t args;
-	int val;
-
-	if ((rc = copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		return rc;
-	}
-
-	val = args.value;
-
-	DBG("Agency: trying to get a slot for a ME of %d bytes ...\n", val);
-
-	if ((rc = soo_hypercall(AVZ_GET_ME_FREE_SLOT, NULL, NULL, &val, NULL)) != 0) {
-		lprintk("Agency: %s:%d Failed to get ME slot from hypervisor (%d)\n", __func__, __LINE__, rc);
-		return rc;
-	}
-
-	args.ME_slotID = val;
-
-	if ((rc = copy_to_user((void *) arg, (const void *) &args, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to set args into userspace\n", __func__, __LINE__);
-		return rc;
-	}
-
-	if (val == -1) {
-		DBG0("Agency: no slot available anymore ...");
-	} else {
-		DBG("Agency: ME slot ID %d available.\n", val);
-	}
-
-	return 0;
-}
-
-/**
- * Retrieve the ME descriptor including the SPID, the state and the SPAD.
- */
-static int ioctl_get_ME_desc(unsigned long arg) {
-	int rc;
-	agency_tx_args_t args;
-	ME_desc_t ME_desc;
-
-	if ((rc = copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	DBG("ME_slotID=%d\n", args.ME_slotID);
-
-	get_ME_desc(args.ME_slotID, &ME_desc);
-
-	if ((rc = copy_to_user(args.buffer, &ME_desc, sizeof(ME_desc_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to set args into userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	if ((rc = copy_to_user((void *) arg, &args, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to set args into userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	return 0;
-}
-
-static int ioctl_write_snapshot(unsigned long arg) {
-	ME_desc_t ME_desc;
-	agency_tx_args_t args;
-	void *target;
-	ME_info_transfer_t *ME_info_transfer;
-	uint32_t crc32;
-
-	if ((copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	/* Get the ME descriptor corresponding to this slotID. */
-	get_ME_desc(args.ME_slotID, &ME_desc);
-
-	/* Beginning of the ME_buffer */
-	ME_info_transfer = (ME_info_transfer_t *) args.buffer;
-
-	/* Check the CRC32 for consistency purposes. */
-	crc32 = xcrc32(args.buffer + sizeof(ME_info_transfer_t), args.value - sizeof(ME_info_transfer_t), 0xffffffff);
-	soo_log("[soo:core] Computed CRC32 of the received snapshot: %x / embedded crc32 value: %x / Size: %x\n", crc32, ME_info_transfer->crc32, args.value);
-
-	BUG_ON(crc32 != ME_info_transfer->crc32);
-
-	/* Retrieve the info related to the migration structure */
-	memcpy(buffer, args.buffer + sizeof(ME_info_transfer_t), ME_info_transfer->size_mig_structure);
-
-	if (soo_hypercall(AVZ_MIG_WRITE_MIGRATION_STRUCT, buffer, NULL, NULL, NULL) < 0) {
-		lprintk("Agency: %s:%d Failed to write migration struct.\n", __func__, __LINE__);
-		BUG();
-	}
-
-	/* We got the pfn of the local destination for this ME, therefore... */
-
-	target = paging_remap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
-	BUG_ON(target == NULL);
-
-	/* Finally, perform the copy */
-	memcpy(target, (void *) (args.buffer + sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure), ME_desc.size);
-
-	/* Relase the map used to copy the ME to its final location */
-	iounmap(target);
-
-	/* Release the buffer */
-
-	return 0;
-}
-
-/*
- * Retrieve a valid (user space) address to the ME snapshot which has been previously
- * read with the READ_SNAPSOT ioctl.
- *
- * In tx_args_t <args>, the following fields are used as follows:
- *
- * @buffer:	pointer to the vmalloc'd memory (not be used in the user space, but will be used in following calls
- * @ME_slotID: 	the *size* of the contents to be copied.
- * @value: 	the target user space address the ME has to be copied to
- */
-static void ioctl_get_ME_snapshot(unsigned long arg) {
-	agency_tx_args_t args;
-
-	if ((copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	/* Awful usage of these fields, the name will have to evolve... */
-	memcpy((void *) args.value, args.buffer, args.ME_slotID);
-}
-
-/*
- * Read a ME snapshot for migration or saving.
- * Currently, the ME is read and stored in a vmalloc'd memory area.
- * It will be preferable in the future to have a memory allocated and handled by
- * the user space application (avoiding restriction access and so on).
- *
- * In tx_args_t <args>, the following fields are used as follows:
- *
- * @buffer:	pointer to the vmalloc'd memory (not be used in the user space, but will be used in following calls
- * @ME_slotID: 	the slotID which leads to retrieving the ME descriptor
- * @value: 	the size including ME size + additional transfer information
- */
-static int ioctl_read_snapshot(unsigned long arg) {
-	ME_desc_t ME_desc;
-	agency_tx_args_t args;
-	ME_info_transfer_t *ME_info_transfer;
-	void *ME_buffer;
-	void *source;
-
-	if ((copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	/* Get the ME descriptor corresponding to this slotID. */
-	get_ME_desc(args.ME_slotID, &ME_desc);
-
-	/*
-	 * Prepare a buffer to store the ME and additional header information like migration structure and transfer information.
-	 * The buffer must be free'd once it has been sent out (by the DCM).
-	 */
-
-	ME_buffer = __vmalloc(ME_desc.size + ME_EXTRA_BUFFER_SIZE, GFP_HIGHUSER | __GFP_ZERO, PAGE_KERNEL);
-	BUG_ON(ME_buffer == NULL);
-
-	/* Beginning of the ME buffer to transmit - We start with the information transfer. */
-	ME_info_transfer = (ME_info_transfer_t *) ME_buffer;
-	ME_info_transfer->ME_size = ME_desc.size;
-
-	if ((soo_hypercall(AVZ_MIG_READ_MIGRATION_STRUCT, buffer, NULL, &args.ME_slotID, &args.value)) < 0) {
-		lprintk("Agency: %s:%d Failed to read migration struct.\n", __func__, __LINE__);
-		BUG();
-	}
-
-	/* Store the migration structure within the ME buffer */
-	memcpy(ME_buffer + sizeof(ME_info_transfer_t), buffer, args.value);
-
-	/* Keep the size of migration structure */
-	ME_info_transfer->size_mig_structure = args.value;
-
-	/* Finally, store the ME in this buffer. */
-	source = ioremap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
-	BUG_ON(source == NULL);
-
-	memcpy(ME_buffer + sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure, source, ME_desc.size);
-
-	iounmap(source);
-
-	/* Compute the crc32 of the snapshot */
-
-	args.buffer = ME_buffer;
-	args.value = sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure + ME_desc.size;
-
-	/* The CRC32 is done over the bytes right after the ME_info_transfer structure since the result will be placed within this structure. */
-	ME_info_transfer->crc32 = xcrc32(args.buffer + sizeof(ME_info_transfer_t), args.value - sizeof(ME_info_transfer_t), 0xffffffff);
-
-	soo_log("[soo:core] Computed CRC32 of the current snapshot: %x / Size: %x\n", ME_info_transfer->crc32, args.value);
-
-	if ((copy_to_user((void *) arg, &args, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-
-	return 0;
-}
-
-/**
- * Initiate the last stage of the migration process of a ME, so called "migration
- * finalization".
- */
-static int ioctl_finalize_migration(unsigned long arg) {
-	int rc;
-	agency_tx_args_t args;
-	soo_personality_t pers = soo_get_personality();
-	int ME_slotID, ME_state;
-
-	if ((rc = copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		return rc;
-	}
-
-	if (pers == SOO_PERSONALITY_SELFREFERENT) {
-		ME_slotID = args.ME_slotID;
-
-		DBG("Unpause the ME (slot %d)...\n", ME_slotID);
-
-		/*
-		 * During the unpause operation, we take the opportunity to pass the pfn of the shared page used for exchange
-		 * between the ME and VBstore.
-		 */
-		avz_ME_unpause(ME_slotID, virt_to_pfn((unsigned long) __vbstore_vaddr[ME_slotID]));
-
-		/*
-		 * Now, we must wait for the ME to set its state to ME_state_preparing to pause it. We'll then be able
-		 * to perform a pre-activate callback on it.
-		 */
-		while (1) {
-			schedule();
-
-			if (get_ME_state(ME_slotID) == ME_state_preparing) {
-				DBG("ME now paused, continuing...\n");
-				break;
-			}
-		}
-
-		/* Pause the ME */
-		avz_ME_pause(ME_slotID);
-
-		/*
-		 * Now we pursue with a call to pre-activate callback to
-		 * see if the Smart Object has the necessary devcaps. To do that,
-		 * we ask the ME to decide.
-		 */
-		if ((rc = soo_hypercall(AVZ_MIG_PRE_ACTIVATE, NULL, NULL, &ME_slotID, NULL)) != 0) {
-			lprintk("Agency: %s:%d Failed to trigger pre-activate callback (%d)\n", __func__, __LINE__, rc);
-			BUG();
-		}
-
-		/* Check if the pre-activate callback has changed the ME state */
-		if ((get_ME_state(ME_slotID) == ME_state_dead) || (get_ME_state(ME_slotID) == ME_state_dormant))
-			return 0;
-
-		if ((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, &pers)) < 0) {
-			lprintk("Agency: %s:%d Failed to finalize migration (%d)\n", __func__, __LINE__, rc);
-			BUG();
-		}
-
-		ME_state = get_ME_state(args.ME_slotID);
-
-		if ((ME_state != ME_state_dead) && (ME_state != ME_state_dormant)) {
-
-			/* Tell the ME that it can go further */
-			set_ME_state(ME_slotID, ME_state_booting);
-
-			DBG("Unpause the ME and waiting boot completion...\n");
-
-			/* Unpause the ME */
-			avz_ME_unpause(ME_slotID, virt_to_pfn((unsigned long) __vbstore_vaddr[ME_slotID]));
-
-			/* Wait for all backend/frontend initialized. */
-			wait_for_completion(&backend_initialized);
-
-			DBG("The ME is now living, continuing the injection...\n");
-
-			ME_state = get_ME_state(args.ME_slotID);
-
-			DBG("Putting ME domid %d in state living...\n", args.ME_slotID);
-			set_ME_state(args.ME_slotID, ME_state_living);
-		}
-
-	} else {
-
-		DBG0("SOO migration subsys: Entering post migration tasks...\n");
-
-		if ((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, &pers)) < 0) {
-			lprintk("Agency: %s:%d Failed to finalize migration (%d)\n", __func__, __LINE__, rc);
-			BUG();
-		}
-
-		DBG0("Call to AVZ_MIG_FINAL terminated\n");
-
-		ME_state = get_ME_state(args.ME_slotID);
-
-		if ((ME_state != ME_state_dead) && (ME_state != ME_state_dormant)) {
-			DBG0("Pinging ME for DC_RESUME...\n");
-			do_sync_dom(args.ME_slotID, DC_RESUME);
-
-			DBG("Resuming all devices (resuming from backend devices) on domain %d...\n", args.ME_slotID);
-			vbus_resume_devices(args.ME_slotID);
-
-			DBG("Pinging ME %d for DC_POST_ACTIVATE...\n", args.ME_slotID);
-			do_sync_dom(args.ME_slotID, DC_POST_ACTIVATE);
-
-			DBG("Putting ME domid %d in state living...\n", args.ME_slotID);
-			set_ME_state(args.ME_slotID, ME_state_living);
-		}
-	}
-
-	return 0;
-}
-
-static int ioctl_get_upgrade_image(unsigned long arg) {
-	upgrader_ioctl_recv_args_t args;
-
-	args.size = devaccess_get_upgrade_size();
-	args.ME_slotID = devaccess_get_upgrade_ME_slotID();
-
-	/* Check if an upgrade image is available */
-	if (args.size == 0) {
-		return 1;
-	}
-
-	if ((copy_to_user((void *) arg, &args, sizeof(upgrader_ioctl_recv_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	return 0;
-}
-
-static int ioctl_store_versions(unsigned long arg) {
-	upgrade_versions_args_t version_args;
-
-	if (copy_from_user(&version_args, (const void *) arg, sizeof(upgrade_versions_args_t)) != 0) {
-		printk("Agency: %s:%d failed to retrieve args from userspace\n", __func__, __LINE__);
-		return -EFAULT;
-	}
-
-	vbus_printf(VBT_NIL, "/soo", "itb-version", "%u", version_args.itb);
-	vbus_printf(VBT_NIL, "/soo", "uboot-version", "%u", version_args.uboot);
-	vbus_printf(VBT_NIL, "/soo", "rootfs-version", "%u", version_args.rootfs);
-
-	return 0;
-}
 
 /*
  * Force terminate the execution of a specific ME
@@ -841,6 +347,10 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		ioctl_get_ME_snapshot(arg);
 		break;
 	
+	case AGENCY_IOCTL_GET_ME_ID_ARRAY:
+		get_ME_id_array((ME_id_t *) arg);
+		break;
+
 	case INJECTOR_IOCTL_CLEAN_ME:
 		injector_clean_ME();
 		break;
@@ -856,60 +366,6 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	}
 
 	return rc;
-}
-
-/**
- * This is the SOO Core mmap implementation. It is used to map the upgrade
- * image which is in the ME. 
- */
-static int agency_upgrade_mmap(struct file *filp, struct vm_area_struct *vma) {
-	unsigned long start, size;
-
-	start = devaccess_get_upgrade_pfn();
-	size = vma->vm_end - vma->vm_start;
-
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	vma->vm_page_prot = phys_mem_access_prot(filp, vma->vm_pgoff, size, vma->vm_page_prot);
-
-	if (remap_pfn_range(vma, vma->vm_start, start, size, vma->vm_page_prot)) {
-		lprintk("%s: remap_pfn failed.\n", __func__);
-		BUG();
-	}
-
-	return 0;
-}
-
-DECLARE_WAIT_QUEUE_HEAD(wq_prod);
-DECLARE_WAIT_QUEUE_HEAD(wq_cons);
-
-static ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
-	int maxbytes;
-        int bytes_to_read;
-        int bytes_read;
-	void *ME;
-
-	/* Wait for the Injector to produce data */
-	wait_event_interruptible(wq_cons, injector_is_full() == true);
-#if 0
-	void *ME = injector_get_ME_buffer();
-        maxbytes = injector_get_ME_size() - *ppos;
-#else
-	ME = injector_get_tmp_buf();
-        maxbytes = injector_get_tmp_size();
-#endif
-
-        if (maxbytes > length)
-                bytes_to_read = length;
-        else
-                bytes_to_read = maxbytes;
-		
-        bytes_read = copy_to_user(buff, ME, bytes_to_read);
-
-	/* Notify the Injector we read the buffer */
-	injector_set_full(false);
-	wake_up_interruptible(&wq_prod);
-
-        return bytes_read;
 }
 
 struct file_operations agency_fops = {
@@ -1028,6 +484,8 @@ static struct device soo_dev = {
 
 int evtchn;
 
+/* For testing purposes */
+
 irqreturn_t dummy_interrupt(int irq, void *dev_id) {
 
 	lprintk("### Got the interrupt %d on CPU: %d\n", irq, smp_processor_id());
@@ -1075,7 +533,7 @@ int agency_late_init_fn(void *args) {
 	lprintk("SOO Agency last initialization part processing now...\n");
 
 	/* At this point, we can start the Discovery process */
-	soolink_netsimul_init();
+	sooenv_init();
 
 	/* This thread will start various debugging testings possibly in RT domain .*/
 	kernel_thread(rtapp_main, NULL, 0);
@@ -1121,9 +579,6 @@ int agency_init(void) {
 
 	/* Initialize the agency UID and the dev caps bitmap */
 	devaccess_init();
-
-	/* Initialize the injector subsystem */
-	injector_init(&wq_prod, &wq_cons);
 
 	/* Initialize the dbgvar facility */
 	dbgvar_init();

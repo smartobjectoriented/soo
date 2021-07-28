@@ -25,6 +25,18 @@
 	/* 64 MB is required since an agency image will be embedded into the ME. */
 	domain-size = <0x4000000>;
 	
+	/* SPID on 128-bit encoding */
+	spid = /bits/ 64 <0x0030000000000001>;
+		
+	/* Name of this ME */
+	me_name = "SOO.agency";
+		
+	/* Short description */
+	me_shortdesc =
+			
+"This ME is used to propagate an upgrade of the agency. The ME will visit all smart objects \
+and perform an upgrade when necessary.";
+
 	frontends {
 	
 		/* Enabling the console */

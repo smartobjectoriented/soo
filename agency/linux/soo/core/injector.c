@@ -57,8 +57,8 @@ size_t tmp_size;
 
 bool full = false;
 
-static wait_queue_head_t *wq_cons;
-static wait_queue_head_t *wq_prod;
+DECLARE_WAIT_QUEUE_HEAD(wq_prod);
+DECLARE_WAIT_QUEUE_HEAD(wq_cons);
 
 /**
  * Initiate the injection of a ME.
@@ -101,7 +101,7 @@ int injector_receive_ME(void *ME, size_t size) {
 	printk("%d\n", size);
 	return;
 #endif	
-	wait_event_interruptible(*wq_prod, full == false);
+	wait_event_interruptible(wq_prod, !full);
 
 	current_size += size;
 
@@ -110,7 +110,7 @@ int injector_receive_ME(void *ME, size_t size) {
 
 	full = true;
 
-	wake_up_interruptible(wq_cons);
+	wake_up_interruptible(&wq_cons);
 
 	return 0;
 }
@@ -163,15 +163,33 @@ void injector_retrieve_ME(unsigned long arg) {
 	}
 }
 
+ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
+	int maxbytes;
+        int bytes_to_read;
+        int bytes_read;
+	void *ME;
 
-/**
- * Injector initialization function.
- */
-int injector_init(wait_queue_head_t *_wq_prod, wait_queue_head_t *_wq_cons) {
+	/* Wait for the Injector to produce data */
+	wait_event_interruptible(wq_cons, injector_is_full() == true);
+#if 0
+	void *ME = injector_get_ME_buffer();
+        maxbytes = injector_get_ME_size() - *ppos;
+#else
+	ME = injector_get_tmp_buf();
+        maxbytes = injector_get_tmp_size();
+#endif
 
-	DBG("Injector subsys initializing ...\n");
-	wq_cons = _wq_cons;
-	wq_prod = _wq_prod;
+        if (maxbytes > length)
+                bytes_to_read = length;
+        else
+                bytes_to_read = maxbytes;
 
-	return 0;
+        bytes_read = copy_to_user(buff, ME, bytes_to_read);
+
+	/* Notify the Injector we read the buffer */
+	injector_set_full(false);
+	wake_up_interruptible(&wq_prod);
+
+        return bytes_read;
 }
+

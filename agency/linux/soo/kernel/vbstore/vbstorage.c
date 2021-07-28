@@ -425,6 +425,8 @@ void vbstorage_agency_init(void) {
 	vbs_store_mkdir("/backend");
 	vbs_store_mkdir("/device");
 
+#warning the following entries (domain + directcomm) need to be revisited (see soo/me entries)
+
 	vbs_store_mkdir("/domain");
 	vbs_store_mkdir("/domain/gnttab");
 	vbs_store_mkdir("/domain/gnttab/0");
@@ -445,6 +447,9 @@ void vbstorage_agency_init(void) {
 	vbs_store_mkdir("/soo/directcomm/4");
 	vbs_store_mkdir("/soo/directcomm/5");
 	vbs_store_mkdir("/soo/directcomm/6");
+
+	/* Prepare the entries for ME ID information */
+	vbs_store_mkdir("/soo/me");
 
 	/* Agency backend side of virtual LED device  */
 	np = of_find_compatible_node(NULL, NULL, "vleds,backend");
@@ -476,4 +481,13 @@ void vbstorage_agency_init(void) {
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vdoga12v6nm");
 
+	/* Agency backend side of virtual senseled (Sense HAT led) device */
+	np = of_find_compatible_node(NULL, NULL, "vsenseled,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vsenseled");
+
+	/* Agency backend side of virtual sensej (Sense HAT joystick) device */
+	np = of_find_compatible_node(NULL, NULL, "vsensej,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vsensej");
 }

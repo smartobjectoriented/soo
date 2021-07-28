@@ -21,7 +21,7 @@
 #ifndef INJECTOR_CORE_H
 #define INJECTOR_CORE_H
 
-#include <uapi/injector.h>
+#include <soo/uapi/injector.h>
 
 void injector_init(void);
 void inject_from_BT(void);

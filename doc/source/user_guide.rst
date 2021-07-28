@@ -37,6 +37,9 @@ Various other packages are required:
    sudo apt-get install pkg-config libgtk2.0-dev bridge-utils
    sudo apt-get install unzip bc
    sudo apt-get install elfutils u-boot-tools
+   sudo apt-get install device-tree-compiler
+   sudo apt-get install fdisk
+   sudo apt-get install libncurses-dev
    
 The OP-TEE environment requires the following python packages:
 
@@ -64,8 +67,8 @@ The AArch-32 (ARM 32-bit) toolchain can be installed with the following commands
    $ sudo wget https://developer.arm.com/-/media/Files/downloads/gnu-a/9.2-2019.12/binrel/gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf.tar.xz
    $ sudo tar xf gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf.tar.xz
    $ sudo rm gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf.tar.xz
-   $ sudo mv gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf arm-linux-gnueabihf_9.2.1
-   $ sudo echo 'export PATH="${PATH}:/opt/toolchains/arm-linux-gnueabihf_9.2.1/bin"' > /etc/profile.d/02-toolchains.sh
+   $ sudo mv gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf arm-none-linux-gnueabihf_9.2.1
+   $ sudo echo 'export PATH="${PATH}:/opt/toolchains/arm-none-linux-gnueabihf_9.2.1/bin"' | sudo tee -a /etc/profile.d/02-toolchains.sh
 
 For the 64-bit version (virt & RPi4), the AArch-64 (ARM 64-bit) toolchain can be installed with the following commands:
 
@@ -77,7 +80,7 @@ For the 64-bit version (virt & RPi4), the AArch-64 (ARM 64-bit) toolchain can be
    $ sudo tar xf gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz
    $ sudo rm gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz
    $ sudo mv gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu aarch64-none-linux-gnu_10.2
-   $ sudo echo 'export PATH="${PATH}:/opt/toolchains/aarch64-none-linux-gnu_10.2/bin"' > /etc/profile.d/02-toolchains.sh
+   $ echo 'export PATH="${PATH}:/opt/toolchains/aarch64-none-linux-gnu_10.2/bin"' | sudo tee -a /etc/profile.d/02-toolchains.sh
 
 ****************
 Basic Components

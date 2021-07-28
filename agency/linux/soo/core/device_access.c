@@ -33,11 +33,6 @@
 
 #include <asm/io.h>
 
-/* For the upgrade */
-uint32_t upgrade_buffer_pfn = 0;
-uint32_t upgrade_buffer_size = 0;
-unsigned int upgrade_ME_slotID = 5;
-
 /* Device capabilities bitmap */
 uint8_t devcaps_class[DEVCAPS_CLASS_NR];
 
@@ -71,33 +66,27 @@ void devaccess_dump_agencyUID(void) {
 	soo_log_printlnUID(&current_soo->agencyUID);
 }
 
-uint32_t devaccess_get_upgrade_pfn(void) {
-    return upgrade_buffer_pfn;
+/*
+ * Retrieve the agency descriptor.
+ */
+int get_agency_desc(agency_desc_t *agency_desc)
+{
+	int rc;
+	dom_desc_t dom_desc;
+	unsigned int slotID;
+
+	slotID = 1;  /* Agency slot */
+
+	rc = soo_hypercall(AVZ_GET_DOM_DESC, NULL, NULL, &slotID, &dom_desc);
+	if (rc != 0) {
+		printk("%s: failed to retrieve the SOO descriptor for slot ID %d.\n", __func__, rc);
+		return rc;
+	}
+
+	memcpy(agency_desc, &dom_desc.u.agency, sizeof(agency_desc_t));
+
+	return 0;
 }
-
-uint32_t devaccess_get_upgrade_size(void) {
-    return upgrade_buffer_size;
-}
-
-unsigned int devaccess_get_upgrade_ME_slotID(void) {
-    return upgrade_ME_slotID;
-}
-
-void devaccess_store_upgrade_addr(uint32_t buffer_pfn, uint32_t buffer_size) {
-
-    upgrade_buffer_pfn = buffer_pfn;
-    upgrade_buffer_size = buffer_size;
-}
-
-void devaccess_store_upgrade(uint32_t buffer_pfn, uint32_t buffer_size, unsigned int ME_slotID) {
-
-    printk("[soo:core:device_access] Storing upgrade image: pfn %u, size %u, slot %d\n", buffer_pfn, buffer_size, ME_slotID);
-
-    upgrade_buffer_pfn = buffer_pfn;
-    upgrade_buffer_size = buffer_size;
-    upgrade_ME_slotID = ME_slotID;
-}
-
 
 /**
  * Check if a devcaps class is supported or not.
@@ -234,9 +223,6 @@ ssize_t soo_name_store(struct device *dev, struct device_attribute *attr, const 
 }
 
 void devaccess_init(void) {
-
-	upgrade_buffer_pfn = 0;
-	upgrade_buffer_size = 0;
 
 	/* Initialize the device capabilities bitmap */
 	memset(devcaps_class, 0, DEVCAPS_CLASS_NR);
