@@ -121,6 +121,7 @@ typedef struct {
 	unsigned char slotID;
 	unsigned int timeStamp;
 	unsigned short nb_jump;
+	unsigned char  killed;
 	unsigned short nb_device_visited;
 	unsigned char ID_device_visited[SOO_NB_UID_MAX][SOO_AGENCY_UID_SIZE];
 

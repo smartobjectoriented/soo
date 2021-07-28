@@ -144,8 +144,8 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 				DBG("Force the termination of this ME #%d\n", ME_domID());
 				agency_ctl_args.cmd = AG_FORCE_TERMINATE;
 				agency_ctl_args.slotID = ME_domID();
-
 				args->__agency_ctl(&agency_ctl_args);
+				localData->killed = true;
 
 				return 0;
 			}
@@ -203,6 +203,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
 		agency_ctl_args.slotID = ME_domID();
 		args->__agency_ctl(&agency_ctl_args);
+		localData->killed = true;
 
 	}
 		
@@ -287,14 +288,15 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
-
+		
 
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
 		RxData = (common_data *) io_map(pfn_to_phys(pfn), sizeof(RxData));
 
 
+
 		/*if ME have the same device and have the same type*/
-		if(!memcmp(&RxData->id,&localData->id,SOO_AGENCY_UID_SIZE) && (RxData->type == localData->type)){
+		if(!memcmp(&RxData->id,&localData->id,SOO_AGENCY_UID_SIZE) && (RxData->type == localData->type) && RxData->killed == false){
 				
 			lprintk("same ME kill the less recent\n");
 
@@ -447,6 +449,7 @@ void callbacks_init(void) {
 	localData->timeStamp = 0;
 	localData->type = 0;
 	localData->nb_device_visited = 0;
+	localData->killed = false;
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);

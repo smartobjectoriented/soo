@@ -888,7 +888,7 @@ again:
 
 	current_soo_winenet->ourself->neighbour->priv = &next_speaker->neighbour->agencyUID;
 	
-	</* Well, the current speaker is known */
+	/* Well, the current speaker is known */
 	current_soo_winenet->__current_speaker = next_speaker;
 
 	retry_count = 0;

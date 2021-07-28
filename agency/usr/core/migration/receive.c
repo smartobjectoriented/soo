@@ -25,7 +25,7 @@
 #include <core/receive.h>
 #include <core/debug.h>
 #include <core/types.h>
-
+#include <sys/time.h>
 #include <dcm/core.h>
 
 #include <soo/uapi/debug.h>
@@ -33,6 +33,12 @@
 #ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>
 #endif
+long long milliseconds;
+long long seconds;
+long long minute;
+
+
+ struct timeval te; 
 
 /**
  * Try to retrieve a ME from the DCM and deploy it.
@@ -87,8 +93,14 @@ bool ME_processing_receive(void) {
 		 */
 		if (get_personality() == SOO_PERSONALITY_INITIATOR)
 			set_personality_target();
+		gettimeofday(&te, NULL); // get current time
+		milliseconds = te.tv_usec/1000;
+		seconds = te.tv_sec % 60;
+		minute = (te.tv_sec/60)%60;
+		printf("** Receiving a ME -> now in slot %d time: %lldmin, %llds, %lldms\n", slotID, minute, seconds, milliseconds);
 
-		printf("** Receiving a ME -> now in slot %d\n", slotID);
+
+		
 
 		/* Tell AVZ to create a new domain context including the ME descriptor,
 		 * and to prepare the ME to be implemented.
