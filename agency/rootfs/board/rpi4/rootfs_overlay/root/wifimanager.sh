@@ -1,5 +1,5 @@
 #!/bin/bash
-
+exit
 DEFAULT_CHANNEL=36
 DEFAULT_SSID="soo-wifi"
 
@@ -14,7 +14,7 @@ if [[ -n ${WIFI_CHANNEL} ]]
 then
     CHANNEL=${WIFI_CHANNEL}
 else
-    CHANNEL={DEFAULT_CHANNEL}
+    CHANNEL=${DEFAULT_CHANNEL}
 fi
 
 iw reg set CH

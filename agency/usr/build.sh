@@ -93,6 +93,6 @@ install_file_root build/apps/melist
 # And modules if any
 cp module/*.ko build/deploy 2>/dev/null
 
-
+install_file_root build/apps/bt_test
 
 
