@@ -23,6 +23,7 @@ set(CMAKE_C_FLAGS_RELEASE "-Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -s
 add_subdirectory(core)
 add_subdirectory(dcm)
 add_subdirectory(frozen)
+add_subdirectory(libroxml)
 
 add_subdirectory(apps)
 add_subdirectory(lib)
