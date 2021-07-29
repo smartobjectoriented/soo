@@ -13,5 +13,5 @@ add_executable(melist melist.c)
 target_link_libraries(saveme zip)
 target_link_libraries(restoreme zip)
 
-add_executable(bt_test bt_test.c)
-target_link_libraries(bt_test roxml pthread)
+add_executable(soogui_simul soogui_simul.c)
+target_link_libraries(soogui_simul roxml pthread)
