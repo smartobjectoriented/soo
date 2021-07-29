@@ -14,4 +14,4 @@ target_link_libraries(saveme zip)
 target_link_libraries(restoreme zip)
 
 add_executable(bt_test bt_test.c)
-target_link_libraries(bt_test pthread)
+target_link_libraries(bt_test roxml pthread)
