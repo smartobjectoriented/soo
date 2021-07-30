@@ -23,7 +23,7 @@
 #include <types.h>
 #include <string.h>
 #include <list.h>
-
+#include <me/ledctrl.h>
 #include <asm/atomic.h>
 
 #define MAX_ME_DOMAINS				5
@@ -124,12 +124,18 @@ typedef struct {
 	unsigned char  killed;
 	unsigned short nb_device_visited;
 	unsigned char ID_device_visited[SOO_NB_UID_MAX][SOO_AGENCY_UID_SIZE];
+	
+	unsigned char comeback;
+	unsigned char targetID[SOO_AGENCY_UID_SIZE];
+
+	//hard 
+	sh_ledctrl_t ledctrl;
 
 
 	/*final*/
 	//void* data;
 
-}common_data;
+}common_data_t;
 
 
 

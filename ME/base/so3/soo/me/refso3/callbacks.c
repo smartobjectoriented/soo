@@ -80,8 +80,8 @@ void print_list_id(unsigned char list[][SOO_AGENCY_UID_SIZE],unsigned nb_ID){
 
 /* Localinfo buffer used during cooperation processing */
 void *localinfo_data;
-common_data* localData;
-common_data* RxData;
+common_data_t* localData;
+common_data_t* RxData;
 
 
 
@@ -291,7 +291,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		
 
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		RxData = (common_data *) io_map(pfn_to_phys(pfn), sizeof(RxData));
+		RxData = (common_data_t *) io_map(pfn_to_phys(pfn), sizeof(RxData));
 
 
 
@@ -441,7 +441,7 @@ void callbacks_init(void) {
 
 	/* Allocate localinfo */
 	localinfo_data = (void *) get_contig_free_vpages(1);
-	localData = (common_data* ) localinfo_data;
+	localData = (common_data_t* ) localinfo_data;
 
 	/*init localData*/
 	localData->id[0] = 0;
