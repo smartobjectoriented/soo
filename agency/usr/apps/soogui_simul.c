@@ -22,29 +22,20 @@ int running = 1;
  
 
 const char* moblieEntities = "<mobile-entities>\
-<mobile-entity spid=\"cdaa1894-a859-4db4-b31b-db0d7133dba4\">\
-<name>SOO.Lorem</name>\
-<description>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus aliquam erat ut posuere congue.\
-Nulla malesuada metus tincidunt, pharetra magna ut, bibendum dui. Curabitur id pulvinar urna. Ut faucibus nulla ex,\
-vitae molestie leo faucibus non. Nunc feugiat, felis ut semper elementum, nisi augue tristique augue, sit amet porttitor\
-ipsum purus non augue. Suspendisse potenti. Pellentesque sed eros posuere, blandit risus sed, condimentum nibh. Nam eget dolor\
-a nisl mattis mattis. Maecenas eget imperdiet libero. Cras mauris arcu, porttitor ac mattis in, ultrices eu ex. Aliquam rutrum \
-auctor ultrices. Sed nec libero posuere, aliquet urna convallis, venenatis elit. Fusce eu scelerisque diam. Integer sed ex cursus,\
-egestas dui eu, tristique odio. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.\
-Curabitur ullamcorper magna quis gravida tincidunt.\
+<mobile-entity spid=\"0020000000000003\">\
+<name>SOO.heat</name>\
+<description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
+</moblie-entity>\
+<mobile-entity spid=\"0020000000000002\">\
+<name>SOO.outdoor</name>\
+<description>\
+SOO.outdoor permet de récupérer des informations météorologique \
+telle que la luminosité ambiante ou la température externe. \
 </description>\
 </moblie-entity>\
-<mobile-entity spid=\"03967b81-6996-499f-8b91-e684a5a108c8\">\
-<name>SOO.Lorem 2</name>\
-<description>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus aliquam erat ut posuere congue.\
-Nulla malesuada metus tincidunt, pharetra magna ut, bibendum dui. Curabitur id pulvinar urna. Ut faucibus nulla ex, \
-vitae molestie leo faucibus non. Nunc feugiat, felis ut semper elementum, nisi augue tristique augue, sit amet porttitor \
-ipsum purus non augue. Suspendisse potenti. Pellentesque sed eros posuere, blandit risus sed, condimentum nibh. Nam eget dolor \
-a nisl mattis mattis. Maecenas eget imperdiet libero. Cras mauris arcu, porttitor ac mattis in, ultrices eu ex. Aliquam rutrum \
-auctor ultrices. Sed nec libero posuere, aliquet urna convallis, venenatis elit. Fusce eu scelerisque diam. Integer sed ex cursus, \
-egestas dui eu, tristique odio. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. \
-Curabitur ullamcorper magna quis gravida tincidunt.\
-</description>\
+<mobile-entity spid=\"0020000000000001\">\
+<name>SOO.blind</name>\
+<description>SOO.blind permet de gérer la position des stores.</description>\
 </moblie-entity>\
 <mobile-entity>\
 <name>SOO.ShouldFail</name>\
@@ -59,6 +50,88 @@ Curabitur ullamcorper magna quis gravida tincidunt.\
 </description>\
 </moblie-entity>\
 </mobile-entities>";
+
+const char* sooOutdoor = "<model spid=\"0020000000000002\">\
+<name>SOO.outdoor</name>\
+<description>SOO.outdoor permet de récupérer les informations d'une station météorologique.</description>\
+<layout>\
+    <row>\
+        <col>\
+            <label for=\"temp-per-day-graph\">Luminosité selon l'heure de la journée</label>\
+            <graph id=\"temp-per-day-graph\" type=\"line\">
+
+            </graph>
+        </col>\
+    </row>\
+    <row>\
+        <col>\
+            <label for=\"summary-graph\">Luminosité selon l'heure de la journée</label>\
+            <graph id=\"summary-graph\" type=\"table\">
+            
+            </graph>
+        </col>\
+    </row>\
+</layout>\
+</model>";
+
+const char* sooBlind = "<model spid=\"0020000000000001\">\
+<name>SOO.blind</name>\
+<description>SOO.blind permet de gérer la position des stores.</description>\
+<layout>\
+    <row>\
+        <col><label for=\"up\">Position des stores</label></col>\
+        <col><button id=\"up\" lockable=\"true\" lockable-after=\"2\">Monter</button></col>\
+        <col><button id=\"down\" lockable=\"true\" lockable-after=\"2\">Descendre</button></col>\
+        <col><slider id=\"slider\" max=\"5\" step=\"1\" orientation=\"vertical\">1</slider></col>\
+    </row>\
+    <row>\
+        <col><label for=\"if-lux\">Condition 1</label></col>\
+    </row>\
+    <row>\
+        <col><text>Si la luminosité externe est plus petite que </text><number id=\"if-lux\" value=\"500\"/><text>lux</text></col>\
+    </row>\
+    <row>\
+        <col><text>Alors </text><dropdown id=\"then-lux\"><option value=\"up\">Monter</option><option value=\"down\" default=\"true\">Descendre</option></dropdown></col>\
+    </row>\
+    <row>\
+        <col><text>Sur </text><dropdown id=\"on-lux\"><option value=\"nord\">SOO.outdoor Nord</option><option value=\"south\">SOO.outdoor Sud</option></dropdown></col>\
+    </row>\
+</layout>\
+</model>";
+
+const char* sooHeat = "<model spid=\"0020000000000003\">\
+<name>SOO.heat</name>\
+<description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
+<layout>\
+    <row>\
+        <col><label for=\"current-temp\">Position des stores</label></col>\
+        <col><number id=\"current-temp\" step=\"0.5\">22.5</number></col>\
+        <col><button id=\"increase-temp\" lockable=\"true\">-0.5°C</button></col>\
+        <col><button id=\"decrease-temp\" lockable=\"true\">+0.5°C</button></col>\
+    </row>\
+    <row>\
+        <col><label for=\"if-temp\">Palier 1</label></col>\
+    </row>\
+    <row>\
+        <col><text>Si la température externe est plus petite que </text></col>\
+        <col><number id=\"if-temp\" step=\"0.5\">12.0</number></col>\
+        <col><button id=\"if-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
+        <col><button id=\"if-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
+    </row>\
+    <row>\
+        <col><text>Alors la température interne vaut </text></col>\
+        <col><number id=\"then-temp\" step=\"0.5\">21.5</number></col>\
+        <col><button id=\"then-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
+        <col><button id=\"then-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
+    </row>\
+    <row>\
+        <col><text>Sinon la température interne vaut </text></col>\
+        <col><number id=\"else-temp\" step=\"0.5\">20.5</number></col>\
+        <col><button id=\"else-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
+        <col><button id=\"else-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
+    </row>\
+</layout>\
+</model>";
 
  
 
