@@ -45,14 +45,26 @@
 		/*vdummy {
 			status = "ok";
 		};*/
-	
-		vtemp {
-			status = "ok";
+
+		vuihandler {
+			status = "disabled";
 		};
+	
+		/*vtemp {
+			status = "ok";
+		};*/
 	
 		vvalve {
 			status = "ok";
 		};
+		
+		/*venoceansw {
+			status = "ok";
+		};
+		
+		vdogablind {
+			status = "ok";
+		};*/
 	};
 };
 	

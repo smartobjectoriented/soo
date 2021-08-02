@@ -54,9 +54,30 @@
             load = <0x10a00000>;
         };
 
+		/* dtb for SOO.heat with uart5 as console */
         fdt_lora {
         	description = "SOO Agency device tree blob";
             data = /incbin/("../linux/arch/arm/boot/dts/bcm2711-rpi-4-b-lora.dtb");
+            type = "flat_dt";
+            arch = "arm";
+            compression = "none";
+            load = <0x10a00000>;
+        };
+
+		/* dtb for SOO.mp */
+        fdt_mp {
+        	description = "SOO Agency device tree blob";
+            data = /incbin/("../linux/arch/arm/boot/dts/bcm2711-rpi-4-b-mp.dtb");
+            type = "flat_dt";
+            arch = "arm";
+            compression = "none";
+            load = <0x10a00000>;
+        };
+
+		/* dtb for SOO.Blind using KNX */
+        fdt_knx {
+        	description = "SOO Agency device tree blob";
+            data = /incbin/("../linux/arch/arm/boot/dts/bcm2711-rpi-4-b-knx.dtb");
             type = "flat_dt";
             arch = "arm";
             compression = "none";
@@ -76,12 +97,36 @@
 	
     configurations {
 		default = "agency_rpi4";
+		
 		agency_rpi4 {
 			description = "SOO Agency on Raspberry Pi 4 B";
         	loadables = "linux";
         	kernel = "avz";
-        	/*fdt = "fdt";*/
+        	fdt = "fdt";
+        	ramdisk = "initrd";
+		};
+		
+		agency_rpi4_lora {
+			description = "SOO Agency on Raspberry Pi 4 B using SOO.Heat LoRa module";
+        	loadables = "linux";
+        	kernel = "avz";
         	fdt = "fdt_lora";
+        	ramdisk = "initrd";
+		};
+		
+		agency_rpi4_mp {
+			description = "SOO Agency on Raspberry Pi 4 B using SOO.mp";
+        	loadables = "linux";
+        	kernel = "avz";
+        	fdt = "fdt_mp";
+        	ramdisk = "initrd";
+		};
+		
+		agency_rpi4_knx {
+			description = "SOO Agency on Raspberry Pi 4 B using KNX module";
+        	loadables = "linux";
+        	kernel = "avz";
+        	fdt = "fdt_knx";
         	ramdisk = "initrd";
 		};
 	};

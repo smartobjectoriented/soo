@@ -34,6 +34,12 @@ config VTEMP_FRONTEND
 config VVALVE_FRONTEND
 	bool "vValve frontend for the SOO.Heat valve (Electrovanne)"
 
+config VDOGABLIND_FRONTEND
+	bool "vDogaBlind frontend for the SOO.Blind (Doga Blind motor)"
+
+config VENOCEANSW_FRONTEND
+	bool "vEnOceanSW frontend for the SOO.Blind (EnOcean Switch)"
+
 source "soo/drivers/vnetfront/Kconfig"
 
 endmenu

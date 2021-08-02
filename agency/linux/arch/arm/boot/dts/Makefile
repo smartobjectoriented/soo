@@ -84,6 +84,8 @@ dtb-$(CONFIG_ARCH_BCM2835) += \
 	bcm2837-rpi-3-b-plus.dtb \
 	bcm2837-rpi-cm3-io3.dtb \
 	bcm2711-rpi-4-b-lora.dtb \
+	bcm2711-rpi-4-b-mp.dtb \
+	bcm2711-rpi-4-b-knx.dtb \
 	bcm2711-rpi-4-b.dtb		 # SOO.tech \
 	bcm2835-rpi-zero.dtb \
 	bcm2835-rpi-zero-w.dtb

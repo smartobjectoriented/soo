@@ -101,6 +101,16 @@
             	compatible = "vvalve,frontend";
             	status = "disabled";
         	};
+            
+            vdogablind {
+            	compatible = "vdogablind,frontend";
+            	status = "disabled";
+        	};
+            
+            venoceansw {
+            	compatible = "venoceansw,frontend";
+            	status = "disabled";
+        	};
 			
 		};
 	

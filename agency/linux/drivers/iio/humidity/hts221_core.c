@@ -15,6 +15,7 @@
 #include <linux/pm.h>
 #include <linux/regmap.h>
 #include <linux/bitfield.h>
+#include <linux/slab.h>
 
 #include "hts221.h"
 
@@ -130,6 +131,8 @@ static const struct iio_chan_spec hts221_channels[] = {
 	},
 	IIO_CHAN_SOFT_TIMESTAMP(2),
 };
+
+static struct hts221_hw *hw_g;
 
 static int hts221_check_whoami(struct hts221_hw *hw)
 {
@@ -301,6 +304,8 @@ static int hts221_parse_temp_caldata(struct hts221_hw *hw)
 	*b_gen = (((s32)cal_x1 * cal_y0 - (s32)cal_x0 * cal_y1) * 1000) /
 		 (cal_x1 - cal_x0);
 	*b_gen *= 8;
+
+	printk("PARSE TEMP: slope : %d, b_gen: %d\n", *slope, *b_gen);
 
 	return 0;
 }
@@ -554,6 +559,85 @@ static const struct iio_info hts221_info = {
 
 static const unsigned long hts221_scan_masks[] = {0x3, 0x0};
 
+/**
+ * SOO.tech
+ * @brief get registers and compute temperature in degree Celsius
+ * from HTS221 sensors
+ **/
+int hts221_get_temperature(void) {
+	
+	int err;
+	int tmp, temp, T0_degC_x8, T1_degC_x8, T0_degC, T1_degC,
+		T_degC_H;
+	s16 T0_OUT, T1_OUT, T_OUT;
+	__le16 val;
+	
+	/* update registers */
+	err = hts221_set_enable(hw_g, true);
+	if (err < 0){
+		return err;
+		printk("HTS221 : ERROR SET ENALBE...\n");
+	}
+
+	/* Get T0 and T1 from reg 0x32 & 0x33 and divide by 8 */
+	err = regmap_read(hw_g->regmap, HTS221_REG_0T_CAL_Y_H, &T0_degC_x8);
+	if (err < 0)
+		return err;
+	
+	T0_degC = (T0_degC_x8 >> 3);
+	
+	err = regmap_read(hw_g->regmap, HTS221_REG_1T_CAL_Y_H, &T1_degC_x8);
+	if (err < 0)
+		return err;
+	
+	T1_degC = (T1_degC_x8 >> 3);
+
+	/* GET T1/0_degC MSB */
+
+	err = regmap_read(hw_g->regmap, HTS221_REG_T1_T0_CAL_Y_H, &T_degC_H);
+	if (err < 0)
+		return err;
+
+	T0_degC = ((T_degC_H & 0x3) << 8) | T0_degC;
+	T1_degC = (((T_degC_H & 0xc) >> 2) << 8) | T1_degC;
+	
+
+	/* Get T0_OUT from reg 0x3c & 0x3db */
+	err = regmap_bulk_read(hw_g->regmap, HTS221_REG_0T_CAL_X_L,
+			       &val, sizeof(val));
+
+	if (err < 0)
+		return err;
+	T0_OUT = le16_to_cpu(val);
+
+
+	/* Get T1_OUT from reg 0x3e & 0x3f */
+	err = regmap_bulk_read(hw_g->regmap, HTS221_REG_1T_CAL_X_L,
+			       &val, sizeof(val));
+	if (err < 0)
+		return err;
+	T1_OUT = le16_to_cpu(val);
+
+
+	/* Get T_OUT from reg 0x2a & 0x2b */
+	err = regmap_bulk_read(hw_g->regmap, HTS221_REG_T_OUT_L,
+			       &val, sizeof(val));
+	if (err < 0)
+		return err;
+	T_OUT = le16_to_cpu(val);
+
+
+	hts221_set_enable(hw_g, false);
+
+	/* Calcul from HTS221 Datasheet */
+	tmp = (T_OUT - T0_OUT) * (T1_degC - T0_degC);
+	temp = ((tmp / (T1_OUT - T0_OUT)) + T0_degC) / 10;
+
+	return temp;
+}
+EXPORT_SYMBOL(hts221_get_temperature);
+
+
 int hts221_probe(struct device *dev, int irq, const char *name,
 		 struct regmap *regmap)
 {
@@ -573,6 +657,8 @@ int hts221_probe(struct device *dev, int irq, const char *name,
 	hw->dev = dev;
 	hw->irq = irq;
 	hw->regmap = regmap;
+
+	hw_g = kmalloc(sizeof(struct hts221_hw), GFP_KERNEL);
 
 	err = hts221_check_whoami(hw);
 	if (err < 0)
@@ -636,6 +722,8 @@ int hts221_probe(struct device *dev, int irq, const char *name,
 		if (err)
 			return err;
 	}
+
+	hw_g = hw;
 
 	return devm_iio_device_register(hw->dev, iio_dev);
 }

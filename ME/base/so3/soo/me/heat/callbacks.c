@@ -32,6 +32,7 @@
 #include <soo/soo.h>
 #include <soo/console.h>
 #include <soo/debug.h>
+#include <me/heat/heat.h>
 
 /*
  * ME Description:
@@ -44,6 +45,17 @@
 
 /* Localinfo buffer used during cooperation processing */
 void *localinfo_data;
+common_data* localData;
+common_data* RxData;
+
+
+/* SPID of the SOO.heat ME */
+uint8_t SOO_heat_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x61, 0xd0, 0x0b };
+
+
+/* SPID of the SOO.indoor ME needed to cooperate with */
+uint8_t SOO_indoor_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x61, 0xd0, 0x0a };
+
 
 #if 0
 static int live_count = 0;
@@ -53,7 +65,7 @@ static int live_count = 0;
  * migrated_once allows the dormant ME to control its oneshot propagation, i.e.
  * the ME must be broadcast in the neighborhood, then disappear from the smart object.
  */
-#if 1
+#if 0
 static uint32_t migration_count = 0;
 #endif
 
@@ -64,55 +76,7 @@ static uint32_t migration_count = 0;
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
 
-#if 0
-	agency_ctl_args_t agency_ctl_args;
-#endif
-#if 0
-	agencyUID_t refUID = {
-		.id = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08}
-	};
-#endif /* 0 */
-
-	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
-
-#if 0
-	logmsg("[soo:me:SOO.refSO3] ME %d: cb_pre_activate..\n", ME_domID());
-#endif
-
-#if 0 /* dummy_activity */
-	/* Kill MEs that are in slot 3 or beyond to keep only 2 MEs */
-	if (ME_domID() > 2) {
-		lprintk("> kill\n");
-		set_ME_state(ME_state_killed);
-	}
-#endif
-
-
-#if 0 /* alphabet */
-
-	if (get_ME_state() != ME_state_preparing) {
-
-		/* Keep the ME in dormant state; the ME is temporary here in order to be propagated. */
-		migration_count = 0;
-		set_ME_state(ME_state_dormant);
-	}
-
-	/* Retrieve the agency UID of the Smart Object on which the ME has migrated */
-	agency_ctl_args.cmd = AG_AGENCY_UID;
-	args->__agency_ctl(&agency_ctl_args);
-
-	if (!memcmp(&refUID, &agency_ctl_args.u.agencyUID_args.agencyUID, SOO_AGENCY_UID_SIZE)) {
-		if (*((char *) localinfo_data+1) == 1) /* already ? */ {
-
-			lprintk("## already found: killing...\n");
-			set_ME_state(ME_state_killed);
-		} else {
-			/* Second byte of localinfo_data tells we found the smart object with UID 0x08. */
-			*((char *) localinfo_data+1) = 1;
-			lprintk("##################################### (slotID: %d) found with %c\n", args->slotID, *((char *) localinfo_data));
-		}
-	}
-#endif
+	lprintk("SOO.heat cb_pre_activate\n");
 	return 0;
 }
 
@@ -122,37 +86,12 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
  * The callback is executed in first stage to give a chance to a resident ME to stay or disappear, for example.
  */
 int cb_pre_propagate(soo_domcall_arg_t *args) {
-
+	
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
-
-	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
-
-#if 0 /* dummy_activity */
-	pre_propagate_args->propagate_status = 1;
-#endif
-
-#if 1 /* Alphabet */
-
+	
+	// lprintk("SOO.heat cb_pre_propagate\n");
+	
 	pre_propagate_args->propagate_status = 0;
-
-	/* Enable migration - here, we migrate 3 times before being killed. */
-	// if ((get_ME_state() != ME_state_dormant) || (migration_count != 3)) {
-	// 	pre_propagate_args->propagate_status = 1;
-	// 	migration_count++;
-	// } else
-	// 	set_ME_state(ME_state_killed);
-
-#endif
-
-#if 0
-	live_count++;
-
-	if (live_count == 5) {
-		lprintk("##################### ME %d disappearing..\n", ME_domID());
-		set_ME_state(ME_state_killed);
-	}
-
-#endif
 
 	return 0;
 }
@@ -162,6 +101,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
  */
 int cb_kill_me(soo_domcall_arg_t *args) {
 
+	lprintk("SOO.heat cb_kill_me\n");
 	DBG(">> ME %d: cb_kill_me...\n", ME_domID());
 
 	/* Do we accept to be killed? yes... */
@@ -178,6 +118,7 @@ int cb_kill_me(soo_domcall_arg_t *args) {
  * Returns 0 if no propagation to the user space is required, 1 otherwise
  */
 int cb_pre_suspend(soo_domcall_arg_t *args) {
+	lprintk("SOO.heat cb_pre_suspend\n");
 	DBG(">> ME %d: cb_pre_suspend...\n", ME_domID());
 
 	/* No propagation to the user space */
@@ -191,16 +132,17 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
  */
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
-#if 1
+
 	agency_ctl_args_t agency_ctl_args;
-#endif
+
 	unsigned int i;
-#if 1
-	void *recv_data;
+	// unsigned int j;
+	// bool is_new_ID = false;
+	// unsigned char idexEnd;
 	uint32_t pfn;
-	bool target_found, initiator_found;
-	char target_char, initiator_char;
-#endif
+
+	// lprintk("SOO.heat cb_cooperate\n");
+
 
 	lprintk("[soo:me:SOO.refSO3] ME %d: cb_cooperate...\n", ME_domID());
 
@@ -210,130 +152,59 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		if (cooperate_args->alone)
 			return 0;
 
+		localData->slotID = ME_domID();
+
 		for (i = 0; i < MAX_ME_DOMAINS; i++) {
 			if (cooperate_args->u.target_coop_slot[i].spad.valid) {
 
-
-#if 1 /* Alphabet */
 				/* Collaboration ... */
 				agency_ctl_args.u.target_cooperate_args.pfn.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
 
 				/* This pattern enables the cooperation with the target ME */
-
 				agency_ctl_args.cmd = AG_COOPERATE;
 				agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
 
 				/* Perform the cooperate in the target ME */
 				args->__agency_ctl(&agency_ctl_args);
-
-#if 1
-				/* Now incrementing us */
-				*((char *) localinfo_data) = *((char *) localinfo_data) + 1;
-#endif
-
-#endif
-#if 0 /* Arrived ME disappears now... */
-				set_ME_state(ME_state_killed);
-#endif
 			}
 		}
-
-#if 0 /* This pattern is used to remove this (just arrived) ME even before its activation. */
-		if (!cooperate_args->alone) {
-
-			DBG("Killing ME #%d\n", ME_domID());
-
-			set_ME_state(ME_state_killed);
-		}
-#endif
-
 		break;
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
-
 		DBG("SPID of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spid, SPID_SIZE);
 		DBG("SPAD caps of the initiator: ");
 		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
 
-#if 0 /* Will trigger a force_terminate on us */
-		agency_ctl_args.cmd = AG_KILL_ME;
-		agency_ctl_args.slotID = args->slotID;
-		args->__agency_ctl(&agency_ctl_args);
-#endif
 
-#if 1 /* Alphabet */
+
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-
-		target_found = *((char *) localinfo_data+1);
-		initiator_found = *((char *) recv_data+1);
-
-		target_char = *((char *) localinfo_data);
-		initiator_char = *((char *) recv_data);
-#endif
-
-#if 1 /* Alphabet - Increment the alphabet in this case. */
-		if (get_ME_state() != ME_state_dormant)  {
-
-			if (initiator_found)
-			{
-				(*((char *) localinfo_data))++;
-				if (*((char *) localinfo_data) > 'Z')
-					*((char *) localinfo_data) = 'A';
-				*((char *) localinfo_data+1) = 0; /* Reset */
-			}
-
-			/* In any case, the arrived ME must disappeared */
-			agency_ctl_args.cmd = AG_KILL_ME;
-			agency_ctl_args.slotID = args->slotID;
-
-			args->__agency_ctl(&agency_ctl_args);
+		RxData = (common_data *) io_map(pfn_to_phys(pfn), sizeof(RxData));
 
 
-		} else {
+		/* if ME have the same device and have the same type*/
+		if(memcmp(RxData->type, SOO_indoor_spid, SPID_SIZE) == 0){
+				
+			// lprintk("SOO.heat detect SOO.indoor\n");
 
-			if (*((char *) localinfo_data) > (*((char *) recv_data))) {
+			localData->data_heat.temp = RxData->temp.temp;
+			localData->data_heat.temp_dev_id = RxData->temp.dev_id;
 
-				agency_ctl_args.cmd = AG_KILL_ME;
-				agency_ctl_args.slotID = args->slotID;
+			// WAKE UP ME THREAD !
+			complete(&g_heat_data->wait_me_indoor);
 
-				args->__agency_ctl(&agency_ctl_args);
-
-			} else {
-
-				target_found = *((char *) localinfo_data+1);
-				initiator_found = *((char *) recv_data+1);
-
-				target_char = *((char *) localinfo_data);
-				initiator_char = *((char *) recv_data);
-
-				if ((target_char < initiator_char) ||
-				    (initiator_found && (!target_found || (initiator_char >= target_char))))
-
-					set_ME_state(ME_state_killed);
-
-				else {
-					agency_ctl_args.cmd = AG_KILL_ME;
-					agency_ctl_args.slotID = args->slotID;
-
-					args->__agency_ctl(&agency_ctl_args);
-				}
-			}
 		}
 
-#endif
-
-#if 0 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
-		DBG("Force the termination of this ME #%d\n", ME_domID());
+		/*KILL initiatore ME*/
 		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
-		agency_ctl_args.slotID = ME_domID();
-
+		agency_ctl_args.slotID = RxData->slotID;
 		args->__agency_ctl(&agency_ctl_args);
-#endif
 
-		io_unmap((uint32_t) recv_data);
+		/*TODO reste de la logique de propagation*/
+
+		io_unmap((uint32_t) RxData);
+	
 		break;
 
 	default:
@@ -342,6 +213,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	}
 
 	return 0;
+
 }
 
 /**
@@ -352,6 +224,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
  * Returns 0 if no propagation to the user space is required, 1 otherwise
  */
 int cb_pre_resume(soo_domcall_arg_t *args) {
+	lprintk("SOO.heat cb_post_activate\n");
 	DBG(">> ME %d: cb_pre_resume...\n", ME_domID());
 
 	return 0;
@@ -361,6 +234,7 @@ int cb_pre_resume(soo_domcall_arg_t *args) {
  * POST_ACTIVATE callback (async)
  */
 int cb_post_activate(soo_domcall_arg_t *args) {
+	lprintk("SOO.heat cb_post_activate\n");
 #if 0
 	agency_ctl_args_t agency_ctl_args;
 	static uint32_t count = 0;
@@ -380,6 +254,7 @@ int cb_post_activate(soo_domcall_arg_t *args) {
  */
 int cb_localinfo_update(void) {
 
+	lprintk("SOO.heat cb_localinfo_update\n");
 	return 0;
 }
 
@@ -391,6 +266,7 @@ int cb_localinfo_update(void) {
  */
 
 int cb_force_terminate(void) {
+	lprintk("SOO.heat cb_force_terminate\n");
 	DBG(">> ME %d: cb_force_terminate...\n", ME_domID());
 	DBG("ME state: %d\n", get_ME_state());
 
@@ -405,14 +281,27 @@ int cb_force_terminate(void) {
 
 void callbacks_init(void) {
 
+	lprintk("SOO.heat callbacks_init\n");
+
 	/* Allocate localinfo */
 	localinfo_data = (void *) get_contig_free_vpages(1);
+	localData = (common_data* ) localinfo_data;
 
-	*((char *) localinfo_data) = 'H';
-	*((char *) localinfo_data+1) = 0;
+	/*init localData*/
+	localData->id[0] = 0;
+	localData->nb_jump = 0;
+	localData->timeStamp = 0;
+	localData->nb_device_visited = 0;
+	
+	g_heat_data = &localData->data_heat;
+
+	init_completion(&g_heat_data->wait_me_indoor);
+
+	memcpy(localData->type, SOO_heat_spid, SPID_SIZE);
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
+
 }
 
 

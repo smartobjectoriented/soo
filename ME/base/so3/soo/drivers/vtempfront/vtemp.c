@@ -62,6 +62,7 @@ irq_return_t vtemp_interrupt(int irq, void *dev_id) {
 
 	vtemp_priv_t *vtemp_priv = (vtemp_priv_t *) dev_get_drvdata(vtemp_dev->dev);
 	
+	/* data receive from BE*/
 	complete(&vtemp_priv->wait_temp);
 
 	return IRQ_COMPLETED;
@@ -117,13 +118,17 @@ int vtemp_get_temp_data(vtemp_data_t *temp_data) {
 
 	vtemp_priv = dev_get_drvdata(vtemp_dev->dev);
 
+	/* Ask temperature to BE */
+	notify_remote_via_virq(vtemp_priv->vtemp.irq);
+
+	/* wait response from BE*/
 	wait_for_completion(&vtemp_priv->wait_temp);
 
-	ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring);
+	while ((ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring)) != NULL) {
 
-	temp_data->temp = ring_rsp->temp;
-	temp_data->dev_id = ring_rsp->dev_id;
-	temp_data->dev_type = ring_rsp->dev_type;
+		temp_data->temp = ring_rsp->temp;
+		temp_data->dev_id = ring_rsp->dev_id;
+	}
 
 	return sizeof(vtemp_data_t);
 }

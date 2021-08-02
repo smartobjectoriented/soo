@@ -32,7 +32,6 @@
 typedef struct {
 	int temp;
 	uint32_t dev_id;
-	uint8_t dev_type;
 } vtemp_data_t;
 
 typedef struct {
@@ -42,7 +41,6 @@ typedef struct {
 typedef struct  {
 	int temp;
 	uint32_t dev_id;
-	uint8_t dev_type;
 } vtemp_response_t;
 
 /*

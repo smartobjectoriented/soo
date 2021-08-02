@@ -42,15 +42,10 @@
 
 #include <linux/delay.h>
 #include <linux/string.h>
-#include <asm/termios.h>
-#include <linux/serial_core.h>
 #include <soo/dev/vtemp.h>
-#include <linux/tty.h>
 
-extern int soo_heat_base_open(void);
-extern ssize_t soo_heat_base_read_temp(char *buffer);
-extern void soo_heat_base_set_lora_rx(void);
 
+extern int hts221_get_temperature(void);
 
 
 typedef struct {
@@ -59,7 +54,9 @@ typedef struct {
 	vtemp_t vtemp;
 
 	/* contains data receives from LoRa */
-	vtemp_data_t vtemp_data;
+	int last_temp;
+
+	struct completion wait_send_temp;
 
 } vtemp_priv_t;
 
@@ -77,95 +74,38 @@ void vtemp_notify(struct vbus_device *vdev)
 	notify_remote_via_virq(vtemp_priv->vtemp.irq);
 }
 
-void send_data_to_front(vtemp_priv_t *vtemp_priv) {
 
-	vtemp_response_t *ring_rsp;
+int read_temperature(void) {
 
-	ring_rsp = vtemp_new_ring_response(&vtemp_priv->vtemp.ring);
-
-	ring_rsp->temp = vtemp_priv->vtemp_data.temp;
-	ring_rsp->dev_id = vtemp_priv->vtemp_data.dev_id;
-	ring_rsp->dev_type = vtemp_priv->vtemp_data.dev_type;
-
-	vtemp_ring_response_ready(&vtemp_priv->vtemp.ring);
-
-	notify_remote_via_virq(vtemp_priv->vtemp.irq);
+	return hts221_get_temperature();
 }
 
-static int lora_monitor_fn(void *args) {
-
-
-	char temp_char[TEMP_BLOCK_SIZE+1];
-	char dev_id_char[DEV_ID_BLOCK_SIZE+1];
-	char dev_type_char[DEV_TYPE_BLOCK_SIZE+1];
-
-	char buffer[18];
-    int  lora_padding = 10;
+static int send_temp_to_front(void *args) {
 
 	vtemp_priv_t *vtemp_priv = (vtemp_priv_t *)args;
+	vtemp_response_t *ring_rsp;
 
-	soo_heat_base_set_lora_rx();
+	printk(VTEMP_PREFIX "send temperature to FE\n");
 
-	while(true) {
+	while(1) {
+		
+		
+		/* wait notification from FE before sending temperature */
+		wait_for_completion(&vtemp_priv->wait_send_temp);
 
-		/* block until useful data from LoRa */
-		soo_heat_base_read_temp(buffer);
+		ring_rsp = vtemp_new_ring_response(&vtemp_priv->vtemp.ring);
 
-		// if readed buffer contains radio_tx
-		if(strstr(buffer, "radio_rx") != NULL) {
+		/* Read temperature using hts221_core driver */
+		vtemp_priv->last_temp = read_temperature();
 
-			/* copy temperature into local buffer*/
-			memcpy(
-				temp_char,
-				buffer + lora_padding,
-				TEMP_BLOCK_SIZE
-			);
-			temp_char[TEMP_BLOCK_SIZE] = '\0';
-			// printk("%s temp : %s", VTEMP_PREFIX, temp_char);
+		printk(VTEMP_PREFIX "TEMP FROM SENSE HAT = %d\n", vtemp_priv->last_temp);
 
-			/* copy dev_id */
-			memcpy(
-				dev_id_char,
-				buffer + lora_padding + TEMP_BLOCK_SIZE,
-				DEV_ID_BLOCK_SIZE
-			);
-			dev_id_char[DEV_ID_BLOCK_SIZE] = '\0';
-			// printk("%s dev_id : %s", VTEMP_PREFIX, dev_id_char);
+		ring_rsp->temp = vtemp_priv->last_temp;
+		ring_rsp->dev_id = TEMP_DEV_ID;
 
-			/* copy dev_type */
-			memcpy(
-				dev_type_char,
-				buffer + lora_padding + TEMP_BLOCK_SIZE + DEV_ID_BLOCK_SIZE,
-				DEV_TYPE_BLOCK_SIZE
-			);
-			dev_type_char[DEV_TYPE_BLOCK_SIZE] = '\0';
-			// printk("%s dev_type : %s", VTEMP_PREFIX, dev_type_char);
+		vtemp_ring_response_ready(&vtemp_priv->vtemp.ring);
 
-			/* update local data */
-			if(kstrtol(temp_char, 10, (long *)(&(vtemp_priv->vtemp_data.temp))) != 0){
-				printk("%s ERROR CONV STR TO L tmeperature\n", VTEMP_PREFIX);
-
-			}
-			if(kstrtol(dev_id_char, 10, (long *)(&(vtemp_priv->vtemp_data.dev_id))) != 0){
-				printk("%s ERROR CONV STR TO L dev_id\n", VTEMP_PREFIX);
-
-			}
-			if(kstrtol(dev_type_char, 10, (long *)(&(vtemp_priv->vtemp_data.dev_type))) != 0){
-				printk("%s ERROR CONV STR TO L dev_type\n", VTEMP_PREFIX);
-
-			}
-			
-			/* calculate real temperature */
-			vtemp_priv->vtemp_data.temp /= 4;
-
-			printk("%s DEV_ID: %d, DEV_TYPE: %d, TEMP: %d \n", VTEMP_PREFIX,
-																vtemp_priv->vtemp_data.dev_id,
-																vtemp_priv->vtemp_data.dev_type,
-																vtemp_priv->vtemp_data.temp);
-		}
-
-		/* Send data to frontend */
-		send_data_to_front(vtemp_priv);
+		notify_remote_via_virq(vtemp_priv->vtemp.irq);
 	}
 
 	return 0;
@@ -173,31 +113,40 @@ static int lora_monitor_fn(void *args) {
 
 irqreturn_t vtemp_interrupt(int irq, void *dev_id)
 {
-	// struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	// vtemp_priv_t *vtemp_priv = dev_get_drvdata(&vdev->dev);
-	// vtemp_request_t *ring_req;
-	// vtemp_response_t *ring_rsp;
-
-	// DBG("%d\n", dev->otherend_id);
-
-	// while ((ring_req = vtemp_get_ring_request(&vtemp_priv->vtemp.ring)) != NULL) {
-
-	// 	ring_rsp = vtemp_new_ring_response(&vtemp_priv->vtemp.ring);
-
-	// 	memcpy(ring_rsp->buffer, ring_req->buffer, VTEMP_PACKET_SIZE);
-
-	// 	vtemp_ring_response_ready(&vtemp_priv->vtemp.ring);
-
-	// 	notify_remote_via_virq(vtemp_priv->vtemp.irq);
-	// }
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	vtemp_priv_t *vtemp_priv = dev_get_drvdata(&vdev->dev);
+	
+	complete(&vtemp_priv->wait_send_temp);
 
 	return IRQ_HANDLED;
 }
 
+
+
 void vtemp_probe(struct vbus_device *vdev) {
+	
+	int ret;
+	struct device_node *np = vdev->dev.of_node;
+	const char *port_name = "ttyAMA3";
 	vtemp_priv_t *vtemp_priv;
 
+
 	printk("%s BACKEND PROBE V2 CALLED\n", VTEMP_PREFIX);
+	
+
+	/* GET TTY PORT FROM DTB */
+	ret = of_property_read_string(np, "tty_port", &port_name);
+
+	if(ret == -EINVAL) {
+		printk("%s property tty_port doesn't exist !\n", VTEMP_PREFIX);
+
+	} else if (ret == -ENODATA) {
+		printk("%s property port is null !\n", VTEMP_PREFIX);
+	}
+
+
+
+	/* SETUP PRIVATE STRUCTURE */
 
 	vtemp_priv = kzalloc(sizeof(vtemp_priv_t), GFP_ATOMIC);
 	BUG_ON(!vtemp_priv);
@@ -205,9 +154,13 @@ void vtemp_probe(struct vbus_device *vdev) {
 	dev_set_drvdata(&vdev->dev, vtemp_priv);
 
 	vtemp_dev = vdev;
+	
+	vtemp_priv->last_temp = 60;
+
+	init_completion(&vtemp_priv->wait_send_temp);
 
 #if 1
-	kthread_run(lora_monitor_fn, (void *)vtemp_priv, "lora_monitor");
+	kthread_run(send_temp_to_front, (void *)vtemp_priv, "lora_monitor");
 #endif
 
 

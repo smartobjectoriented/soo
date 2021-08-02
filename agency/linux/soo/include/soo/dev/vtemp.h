@@ -32,16 +32,8 @@
 
 #define TEMP_DATA_SIZE 8
 
-#define TEMP_BLOCK_SIZE 3
-#define DEV_ID_BLOCK_SIZE 4
-#define DEV_TYPE_BLOCK_SIZE 1
+#define TEMP_DEV_ID		1
 
-
-typedef struct {
-	int temp;
-	uint32_t dev_id;
-	uint8_t dev_type;
-} vtemp_data_t;
 
 typedef struct {
 	/* EMPTY */
@@ -50,7 +42,6 @@ typedef struct {
 typedef struct  {
 	int temp;
 	uint32_t dev_id;
-	uint8_t dev_type;
 } vtemp_response_t;
 
 /*

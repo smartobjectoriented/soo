@@ -36,16 +36,30 @@ config VWEATHER_BACKEND
 config VTEMP_BACKEND
         bool "vTemp backend"
 		depends on TTY
-		default y
+		default n
 		help
 		  Support for SOO.Temp LoRa module.
 
 config VVALVE_BACKEND
         bool "vValve backend"
 		depends on TTY
-		default y
+		default n
 		help
 		  Support for SOO.Valve LoRa module.
+
+config VENOCEANSW_BACKEND
+        bool "vEnOcean Switch backend"
+		depends on TTY
+		default n
+		help
+		  Support for SOO.blind get EnOcean switch action.
+
+config VDOGABLIND_BACKEND
+        bool "vDoga Blind backend"
+		depends on TTY
+		default n
+		help
+		  Support for SOO.blind to control the vdoga motor blind SOO.mp.
 	  
 config VUIHANDLER_BACKEND
 	bool "vUihandler backend driver"

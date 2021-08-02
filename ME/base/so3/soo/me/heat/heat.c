@@ -37,11 +37,14 @@
 #include <soo/debug/dbgvar.h>
 #include <soo/debug/logbool.h>
 #include <soo/evtchn.h>
-#include <soo/dev/vtemp.h>
 #include <soo/dev/vvalve.h>
+#include <me/heat/heat.h>
+
+#include <completion.h>
 
 
 #include <device/irq.h>
+
 
 /* Null agency UID to check if an agency UID is valid */
 agencyUID_t null_agencyUID = {
@@ -53,6 +56,32 @@ agencyUID_t my_agencyUID = {
 	.id = { 0 }
 };
 
+/* ID of the Smart Object on which the ME is running. 0xff means that it has not been initialized yet. */
+uint32_t my_id = 0xff;
+
+/* Agency UID of the Smart Object on which the Entity has been injected */
+agencyUID_t origin_agencyUID;
+
+/* Name of the Smart Object on which the Entity has been injected */
+char origin_soo_name[SOO_NAME_SIZE];
+
+/* Agency UID of the Smart Object on which the Entity has migrated */
+agencyUID_t target_agencyUID;
+
+/* Name of the Smart Object on which the Entity has migrated */
+char target_soo_name[SOO_NAME_SIZE];
+
+/* Bool telling that the ME is in a Smart Object with the expected devcaps */
+bool available_devcaps = false;
+
+/* Bool telling that a remote application is connected */
+bool remote_app_connected = false;
+
+/* Detection of a ME that has migrated on another new Smart Object */
+bool has_migrated = false;
+
+
+
 /* Bool telling that at least 1 post-activate has been performed */
 bool post_activate_done = false;
 
@@ -60,28 +89,44 @@ struct completion compl;
 mutex_t lock1, lock2;
 
 extern void *localinfo_data;
+heat_data *g_heat_data;
 
-
-/*
- * Just an example using a thread.
- */
-int thread1(void *args)
+/**
+ * @brief Main thread sending command to the valve when SOO.indoor cooperate
+ **/
+int soo_heat_command_valve(void *args)
 {
 
-	vtemp_data_t temp_data;
-	char buff[10];
+	int valve_id;
+	int tmp_wanted = 100;
 
 	while (1) {
 
-		if(vtemp_get_temp_data(&temp_data) > 0) {
+		lprintk("ME SOO.heat is waiting for ME SOO.indoor\n");
+		wait_for_completion(&g_heat_data->wait_me_indoor);
+		lprintk("ME SOO.heat going to send valve cmd !!!\n");
 
-			lprintk("ME SOO.heat : dev_id = %d, dev_type = %d, temp = %d\n", temp_data.dev_id, temp_data.dev_type, temp_data.temp);
+		/* Get ID of the valve connected on the current Smart Object*/
+		valve_id = vvalve_get_id();
 
-			sprintf(buff, "%d-%d-%d\r\n", temp_data.dev_id, temp_data.dev_type, temp_data.temp);
+		lprintk("----- ME SOO.heat, temp_id: %d, valve_id: %d, temp_wanted: %d, real_temp: %d\n",
+			   g_heat_data->temp_dev_id, valve_id, tmp_wanted, g_heat_data->temp);
 
-			vvalve_generate_request(buff);
+		/* Compare the temperature Sensor ID from SOO.indoor with the valve ID */
+		if(g_heat_data->temp_dev_id == valve_id) {
+
+			if(g_heat_data->temp > tmp_wanted) {
+
+				vvalve_send_cmd(VALVE_CMD_CLOSE);
+
+			} else {
+				
+				vvalve_send_cmd(VALVE_CMD_OPEN);
+			}
+		} else {
+
+			/*TODO: ME SOO.indoor should migrate on another Smart Object */
 		}
-
 	}
 
 	return 0;
@@ -116,83 +161,6 @@ irq_return_t evt_interrupt(int irq, void *dev_id) {
 	return IRQ_COMPLETED;
 }
 
-#if 0 /* Stress test on evtchn and IRQs */
-static int alphabet_fn(void *arg) {
-	int res;
-	unsigned int evtchn;
-	struct evtchn_alloc_unbound alloc_unbound;
-
-	printk("Alphabet roundtrip...\n");
-
-#if 0
-	set_timer(&timer, NOW() + SECONDS(10));
-#endif
-
-	/* Allocate an event channel associated to the ring */
-	alloc_unbound.remote_dom = 0;
-	alloc_unbound.dom = DOMID_SELF;
-
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
-	evtchn = alloc_unbound.evtchn;
-	lprintk("## evtchn got from avz: %d\n", evtchn);
-
-	res = bind_evtchn_to_irq_handler(evtchn, evt_interrupt, NULL, NULL);
-
-	do_sync_dom(0, DC_PRE_SUSPEND);
-
-	while (1) {
-
-		/* printk("### heap size: %x\n", heap_size()); */
-		msleep(500);
-
-		/* Simply display the current letter which is incremented each time a ME comes back */
-		lprintk("(%d)",  ME_domID());
-		//printk("%c ", *((char *) localinfo_data));
-		lprintk("X ");
-	}
-
-	return 0;
-}
-
-#endif
-
-
-#if 0
-
-
-/* Used to test a ME trip within a scalable network */
-
-static int alphabet_fn(void *arg) {
-
-	printk("Alphabet roundtrip...\n");
-
-#if 0
-	set_timer(&timer, NOW() + SECONDS(10));
-#endif
-
-	while (1) {
-
-		/* printk("### heap size: %x\n", heap_size()); */
-		msleep(500);
-
-		/* Simply display the current letter which is incremented each time a ME comes back */
-		lprintk("(%d)",  ME_domID());
-		printk("%c ", *((char *) localinfo_data));
-
-	}
-
-	return 0;
-}
-#endif
-#if 0
-
-void heat_init(void) {
-
-	temp_data = (vtemp_data_t *)localinfo_data;
-	memset(temp_data, 0, sizeof(vtemp_data_t));
-
-}
-#endif
 
 /*
  * The main application of the ME is executed right after the bootstrap. It may be empty since activities can be triggered
@@ -203,21 +171,11 @@ int app_thread_main(void *args) {
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
 
-#if 1
-	kernel_thread(thread1, "thread1", NULL, 0);
-	// heat_init();
-#endif
+
+	kernel_thread(soo_heat_command_valve, "soo_heat_command_valve", NULL, 0);
 
 	//init_timer(&timer, timer_fn, NULL);
 	lprintk("SOO.heat Mobile Entity -- Copyright (c) 2016-2021 REDS Institute (HEIG-VD)\n\n");
-#if 0
-
-
-	*((char *) localinfo_data) = 'H';
-
-	kernel_thread(alphabet_fn, "alphabet", NULL, 0);
-#endif
-
 
 	return 0;
 }

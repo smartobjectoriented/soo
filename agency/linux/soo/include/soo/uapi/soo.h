@@ -226,6 +226,7 @@ typedef struct {
 #define DEVCAPS_CLASS_APP		0x0900
 #define DEVCAP_APP_BLIND		(1 << 0)
 #define DEVCAP_APP_OUTDOOR		(1 << 1)
+#define DEVCAP_APP_DOMO		(1 << 2)
 
 #define DEVCAPS_CLASS_NR		16
 
@@ -241,6 +242,10 @@ typedef struct {
 } dom_desc_t;
 
 #endif /* __KERNEL__ */
+
+/* SOO.domotics TEST*/
+#define DEVCAPS_CLASS_APP		0x0900
+#define DEVCAP_APP_DOMO		(1 << 2)
 
 /* struct agency_tx_args used in IOCTLs */
 typedef struct agency_tx_args {

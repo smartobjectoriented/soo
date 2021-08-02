@@ -1,0 +1,2 @@
+obj-y := venoceansw.o
+

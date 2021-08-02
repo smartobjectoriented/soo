@@ -26,6 +26,7 @@
 #include <delay.h>
 #include <memory.h>
 #include <asm/mmu.h>
+#include <completion.h>
 
 #include <device/driver.h>
 
@@ -43,8 +44,10 @@ typedef struct {
 	/* Must be the first field */
 	vvalve_t vvalve;
 
-	/* contains data receives from backend */
-	vvalve_data_t vvalve_data;
+	uint32_t dev_id;
+
+	struct completion wait_dev_id;
+
 
 } vvalve_priv_t;
 
@@ -55,28 +58,27 @@ static struct vbus_device *vvalve_dev = NULL;
 
 static bool thread_created = false;
 
+/**
+ * Only used to get DEV ID from backend
+ **/
 irq_return_t vvalve_interrupt(int irq, void *dev_id) {
+
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vvalve_priv_t *vvalve_priv = dev_get_drvdata(vdev->dev);
 	vvalve_response_t *ring_rsp;
 
-	DBG("%s, %d\n", __func__, ME_domID());
 
 	while ((ring_rsp = vvalve_get_ring_response(&vvalve_priv->vvalve.ring)) != NULL) {
 
-		DBG("%s, cons=%d\n", __func__, i);
-
-		/* Do something with the response */
-
-#if 0 /* Debug */
-		lprintk("## Got from the backend: %s\n", ring_rsp->buffer);
-#endif
+		vvalve_priv->dev_id = ring_rsp->dev_id;
+		
+		complete(&vvalve_priv->wait_dev_id);
 	}
 
 	return IRQ_COMPLETED;
 }
 
-#if 1
+#if 0
 /*
  * The following function is given as an example.
  *
@@ -99,7 +101,7 @@ void vvalve_generate_request(char *buffer) {
 	if (!RING_REQ_FULL(&vvalve_priv->vvalve.ring)) {
 		ring_req = vvalve_new_ring_request(&vvalve_priv->vvalve.ring);
 
-		memcpy(ring_req->buffer, buffer, VVALVE_PACKET_SIZE);
+		memcpy(ring_req->buffer, buffer, CMD_DATA_SIZE);
 
 		vvalve_ring_request_ready(&vvalve_priv->vvalve.ring);
 
@@ -109,6 +111,72 @@ void vvalve_generate_request(char *buffer) {
 	vdevfront_processing_end(vvalve_dev);
 }
 #endif
+
+
+void vvalve_send_cmd(uint8_t cmd) {
+	vvalve_priv_t *vvalve_priv;
+	vvalve_request_t *ring_req;
+
+	if (!vvalve_dev)
+		return;
+
+	vvalve_priv = (vvalve_priv_t *) dev_get_drvdata(vvalve_dev->dev);
+
+
+	vdevfront_processing_begin(vvalve_dev);
+
+	/*
+	 * Try to generate a new request to the backend
+	 */
+	if (!RING_REQ_FULL(&vvalve_priv->vvalve.ring)) {
+		ring_req = vvalve_new_ring_request(&vvalve_priv->vvalve.ring);
+
+		ring_req->action = VALVE_ACTION_CMD_VALVE;
+		ring_req->cmd_valve = cmd;
+
+		vvalve_ring_request_ready(&vvalve_priv->vvalve.ring);
+
+		notify_remote_via_virq(vvalve_priv->vvalve.irq);
+	}
+
+	vdevfront_processing_end(vvalve_dev);
+}
+
+int vvalve_get_id() {
+
+	vvalve_priv_t *vvalve_priv;
+	vvalve_request_t *ring_req;
+
+	if (!vvalve_dev)
+		return -1;
+
+	vvalve_priv = (vvalve_priv_t *) dev_get_drvdata(vvalve_dev->dev);
+
+
+	vdevfront_processing_begin(vvalve_dev);
+
+	/*
+	 * Try to generate a new request to the backend
+	 */
+	if (!RING_REQ_FULL(&vvalve_priv->vvalve.ring)) {
+		ring_req = vvalve_new_ring_request(&vvalve_priv->vvalve.ring);
+
+		ring_req->action = VALVE_ACTION_ASK_ID;
+
+		vvalve_ring_request_ready(&vvalve_priv->vvalve.ring);
+
+		notify_remote_via_virq(vvalve_priv->vvalve.irq);
+	}
+
+	vdevfront_processing_end(vvalve_dev);
+
+	wait_for_completion(&vvalve_priv->wait_dev_id);
+
+	// WTF valeur reçue ??
+	lprintk(VVALVE_PREFIX "FRONT get id from BE : %d\n", vvalve_priv->dev_id);
+
+	return vvalve_priv->dev_id;
+}
 
 static void vvalve_probe(struct vbus_device *vdev) {
 	int res;
@@ -146,6 +214,8 @@ static void vvalve_probe(struct vbus_device *vdev) {
 
 	vvalve_priv->vvalve.evtchn = evtchn;
 	vvalve_priv->vvalve.irq = res;
+
+	init_completion(&vvalve_priv->wait_dev_id);
 
 	/* Allocate a shared page for the ring */
 	sring = (vvalve_sring_t *) get_free_vpage();

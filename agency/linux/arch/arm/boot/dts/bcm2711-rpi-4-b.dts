@@ -28,9 +28,9 @@
 	aliases {
 		serial0 = &uart1;
 		serial1 = &uart0;
-		serial2 = &uart5;
 		mmc0 = &emmc2;
 		mmc2 = &sdhost;
+		i2c1 = &i2c1;
 		i2c3 = &i2c3;
 		i2c4 = &i2c4;
 		i2c5 = &i2c5;
@@ -95,6 +95,11 @@
 
 			vnet {
 				compatible = "vnet,backend";
+				status = "ok";
+			};
+
+			vtemp {
+				compatible = "vtemp,backend";
 				status = "ok";
 			};
 		
@@ -379,7 +384,8 @@
 	};
 
 	hts221-humid@5f {
-		compatible = "st,hts221-humid";
+		/*compatible = "st,hts221-humid";*/
+		compatible = "st,hts221";
 		reg = <0x5f>;
 		status = "okay";
 	};

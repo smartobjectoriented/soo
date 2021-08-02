@@ -275,6 +275,7 @@ static int ds1050_probe(struct i2c_client *client,
 	return 0;
 
 	exit:
+	printk(KERN_INFO "DS1050 PROBED WITH ERROR\n");
 	return rc;
 }
 

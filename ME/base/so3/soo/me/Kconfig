@@ -36,9 +36,19 @@ choice
 			The ME is configured with a simple ramfs which contains basic applications
 		
 	config SOO_HEAT
-		bool "SOO.heattemp Mobile Entity"
+		bool "SOO.heat Mobile Entity"
 		help
-			SOO.heattemp is able to read temperature data from SOO.Temp module.
+			SOO.heat is able to send command to a LoRa valve.
+		
+	config SOO_INDOOR
+		bool "SOO.indoor Mobile Entity"
+		help
+			SOO.heattemp is able to read temperature data from RPI Sense Hat.
+		
+	config SOO_DOMO
+		bool "SOO.domotic TEST Mobile Entity"
+		help
+			SOO.domo is used to TEST several BE/FE drivers.
 		
 endchoice
 

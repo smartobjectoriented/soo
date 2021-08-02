@@ -42,34 +42,24 @@
 
 #include <linux/delay.h>
 #include <linux/string.h>
-#include <asm/termios.h>
-#include <linux/serial_core.h>
 #include <soo/dev/vvalve.h>
-#include <linux/tty.h>
-
-extern ssize_t tty_do_read(struct tty_struct *tty, unsigned char *buf, size_t nr);
-extern struct tty_struct *tty_kopen(dev_t device);
-extern void uart_do_open(struct tty_struct *tty);
-extern void uart_do_close(struct tty_struct *tty);
-extern int tty_set_termios(struct tty_struct *tty, struct ktermios *new_termios);
-extern int uart_do_write(struct tty_struct *tty, const unsigned char *buf, int count);
-extern void n_tty_do_flush_buffer(struct tty_struct *tty);
+#include <linux/gpio/driver.h>
+#include <linux/gpio/consumer.h> 
 
 extern ssize_t soo_heat_base_write_cmd(char *buffer, ssize_t len);
+extern int soo_heat_base_open(const char *port);
 
 typedef struct {
 
 	/* Must be the first field */
 	vvalve_t vvalve;
 
-	/* contains data receives from LoRa */
-	vvalve_data_t vvalve_data;
+	struct completion wait_cmd;
+	struct completion wait_send_id;
 
-	struct tty_struct *tty_uart;
+	vvalve_desc_t vvalve_desc;
 
-	wait_queue_head_t wait_cmd;
-
-	uint8_t send_cmd;
+	struct gpio_desc *heat_gpio;
 
 } vvalve_priv_t;
 
@@ -87,31 +77,6 @@ void vvalve_notify(struct vbus_device *vdev)
 	notify_remote_via_virq(vvalve_priv->vvalve.irq);
 }
 
-static int lora_monitor_fn(void *args) {
-
-	vvalve_priv_t *vvalve_priv = (vvalve_priv_t *)args;
-
-
-	printk("%s LoRa Thread is running.... \n", VVALVE_PREFIX);
-
-	while(true) {
-
-		printk("%s Waiting for valve cmd...\n", VVALVE_PREFIX);
-
-		if (!vvalve_priv->send_cmd) {
-
-			wait_event_interruptible(vvalve_priv->wait_cmd, vvalve_priv->send_cmd);
-		}
-
-		printk("%s Send valve cmd ! \n", VVALVE_PREFIX);
-		soo_heat_base_write_cmd(vvalve_priv->vvalve_data.cmd_valve, CMD_DATA_SIZE+2);
-
-		vvalve_priv->send_cmd = 0;
-	}
-
-	return 0;
-}
-
 irqreturn_t vvalve_interrupt(int irq, void *dev_id)
 {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
@@ -125,44 +90,186 @@ irqreturn_t vvalve_interrupt(int irq, void *dev_id)
 
 		ring_rsp = vvalve_new_ring_response(&vvalve_priv->vvalve.ring);
 
-		memcpy(vvalve_priv->vvalve_data.cmd_valve, ring_req->buffer, CMD_DATA_SIZE+2);
-
-		// vvalve_ring_response_ready(&vvalve_priv->vvalve.ring);
-		// notify_remote_via_virq(vvalve_priv->vvalve.irq);
+		switch (ring_req->action) {
+		case VALVE_ACTION_CMD_VALVE:
+			vvalve_priv->vvalve_desc.cmd_valve = ring_req->cmd_valve;
+			complete(&vvalve_priv->wait_cmd);
+			break;
+		case VALVE_ACTION_ASK_ID:
+			complete(&vvalve_priv->wait_send_id);
+			break;
+		default:
+			BUG();
+		}
 	}
-
-	vvalve_priv->send_cmd = 1;
-	wake_up_interruptible(&vvalve_priv->wait_cmd);
 
 	return IRQ_HANDLED;
 }
 
+//called to open the valve
+// void vanalog_valve_open(void) {
+
+// 	vvalve_priv_t *vvalve_priv = dev_get_drvdata(&vvalve_dev->dev);
+
+// 	printk("The valve is opened\n"); //print in kernel
+// 	gpiod_set_value(vvalve_priv->heat_gpio, 1); //set the heat gpio to 1
+// }
+
+// //called to close the valve
+// void vanalog_valve_close(void) {
+
+// 	vvalve_priv_t *vvalve_priv = dev_get_drvdata(&vvalve_dev->dev);
+
+// 	printk("The valve is closed\n"); //print in kernel
+// 	gpiod_set_value(vvalve_priv->heat_gpio, 0); //set the heat gpio to 0
+// }
+
+
+//called to open the valve
+void vanalog_valve_open(void) {
+
+	vvalve_priv_t *vvalve_priv = dev_get_drvdata(&vvalve_dev->dev);
+
+	printk("The valve is opened\n"); //print in kernel
+	
+	soo_heat_base_write_cmd("0011", 4);
+
+}
+
+//called to close the valve
+void vanalog_valve_close(void) {
+
+	vvalve_priv_t *vvalve_priv = dev_get_drvdata(&vvalve_dev->dev);
+
+	printk("The valve is closed\n"); //print in kernel
+	
+	soo_heat_base_write_cmd("0010", 4);
+}
+
+/**
+ * @brief Allow ME to get ID of this SOO.heat Object
+ **/
+static int send_id_task_fn(void *arg) {
+
+	vvalve_priv_t *vvalve_priv = dev_get_drvdata(&vvalve_dev->dev);
+	vvalve_response_t *ring_rsp;
+
+
+	while(1) {
+
+		wait_for_completion(&vvalve_priv->wait_send_id);
+
+		/* send self ID */
+		ring_rsp = vvalve_new_ring_response(&vvalve_priv->vvalve.ring);
+
+		ring_rsp->dev_id = vvalve_priv->vvalve_desc.dev_id;
+
+		vvalve_ring_response_ready(&vvalve_priv->vvalve.ring);
+
+		notify_remote_via_virq(vvalve_priv->vvalve.irq);		
+
+	}
+
+	return 0;	
+}
+
+/**
+ * @brief Allow ME to get ID of this SOO.heat Object
+ **/
+static int cmd_valve_task_fn(void *arg) {
+
+	vvalve_priv_t *vvalve_priv = dev_get_drvdata(&vvalve_dev->dev);
+
+	while(1) {
+
+		wait_for_completion(&vvalve_priv->wait_cmd);
+
+		switch (vvalve_priv->vvalve_desc.cmd_valve)	{
+		case VALVE_CMD_OPEN:
+			vanalog_valve_open();
+			break;
+
+		case VALVE_CMD_CLOSE:
+			vanalog_valve_close();
+			break;
+		
+		default:
+			break;
+		}
+
+	}
+
+	return 0;	
+}
+
+
+
+//setup the gpios used for the vanalog backend
+static void setup_vanalog_gpios(struct device *dev) {
+
+	int ret;
+
+	vvalve_priv_t *vvalve_priv = dev_get_drvdata(dev);
+	
+	//gpio used as output to open or close the valve 
+	vvalve_priv->heat_gpio = gpiod_get(dev, "heat", GPIOD_OUT_HIGH);
+
+	// printk("heat_gpio = 0x%08X\n", vvalve_priv->heat_gpio);
+
+	if (IS_ERR(vvalve_priv->heat_gpio)) {
+		ret = PTR_ERR(vvalve_priv->heat_gpio);
+		dev_err(dev, "Failed to get HEAT GPIO: %d\n", ret);
+		return;
+	}
+	gpiod_direction_output(vvalve_priv->heat_gpio, 0); 
+}
+
+
+
 void vvalve_probe(struct vbus_device *vdev) {
+	
 	vvalve_priv_t *vvalve_priv;
+	const char *port_name = "ttyAMA5";
+	struct device_node *np = vdev->dev.of_node;
+	int ret;
 
 	printk("%s BACKEND PROBE CALLED\n", VVALVE_PREFIX);
 
 	vvalve_priv = kzalloc(sizeof(vvalve_priv_t), GFP_ATOMIC);
 	BUG_ON(!vvalve_priv);
 
+	vdev->dev.of_node = of_find_compatible_node(NULL, NULL, "vvalve,backend");
+
+	/* GET TTY PORT FROM DTB */
+	ret = of_property_read_string(np, "tty_port", &port_name);
+
+	if(ret == -EINVAL) {
+		printk("%s property tty_port doesn't exist !\n", VVALVE_PREFIX);
+
+	} else if (ret == -ENODATA) {
+		printk("%s property port is null !\n", VVALVE_PREFIX);
+	}
+
+	printk("%s using serial port %s !\n", VVALVE_PREFIX, port_name);
+
 	dev_set_drvdata(&vdev->dev, vvalve_priv);
 
-	vvalve_priv->tty_uart = NULL;
+	soo_heat_base_open(port_name);
 
-	/* wait data before send command */
-	vvalve_priv->send_cmd = 0;
+	// setup_vanalog_gpios(&vdev->dev);
 
-	/* init waitqueue to sleep lora thread until
-	   receive cmd from frontend */
-	init_waitqueue_head(&vvalve_priv->wait_cmd);
+	/* init completion to wait send_id/cmd_valve */
+	init_completion(&vvalve_priv->wait_cmd);
+	init_completion(&vvalve_priv->wait_send_id);
 
 	vvalve_dev = vdev;
 
-	/* TEST */
-	memcpy(vvalve_priv->vvalve_data.cmd_valve, "00012100\r\n", CMD_DATA_SIZE+2);
+	/* Set dev_id of this SOO.heat object*/
+	vvalve_priv->vvalve_desc.dev_id = 1;
 
 #if 1
-	kthread_run(lora_monitor_fn, (void *)vvalve_priv, "lora_monitor");
+	kthread_run(send_id_task_fn, (void *)vvalve_priv, "send_id_task");
+	kthread_run(cmd_valve_task_fn, (void *)vvalve_priv, "cmd_valve_task");
 #endif
 
 
@@ -170,16 +277,8 @@ void vvalve_probe(struct vbus_device *vdev) {
 }
 
 void vvalve_remove(struct vbus_device *vdev) {
-	vvalve_priv_t *vvalve_priv = dev_get_drvdata(&vdev->dev);
 
 	DBG("%s: freeing the vvalve structure for %s\n", __func__,vdev->nodename);
-
-	if(vvalve_priv->tty_uart != NULL) {
-
-		tty_kclose(vvalve_priv->tty_uart);
-	}
-	
-	kfree(vvalve_priv);
 }
 
 
@@ -187,14 +286,6 @@ void vvalve_close(struct vbus_device *vdev) {
 	vvalve_priv_t *vvalve_priv = dev_get_drvdata(&vdev->dev);
 
 	DBG(VVALVE_PREFIX "Backend close: %d\n", vdev->otherend_id);
-
-	/*
-	 * Free the ring and unbind evtchn.
-	 */
-	if(vvalve_priv->tty_uart != NULL) {
-
-		tty_kclose(vvalve_priv->tty_uart);
-	}
 
 
 	BACK_RING_INIT(&vvalve_priv->vvalve.ring, (&vvalve_priv->vvalve.ring)->sring, PAGE_SIZE);

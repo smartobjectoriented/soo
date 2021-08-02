@@ -23,25 +23,34 @@
 #include <soo/grant_table.h>
 #include <soo/vdevfront.h>
 
-#define VVALVE_PACKET_SIZE	32
-#define CMD_DATA_SIZE 8
+#define CMD_VALVE_SIZE 1
 
 #define VVALVE_NAME		"vvalve"
 #define VVALVE_PREFIX		"[" VVALVE_NAME "] "
 
+#define VALVE_ACTION_ASK_ID		1
+#define VALVE_ACTION_CMD_VALVE	0
 
-typedef struct {
-	int command;
-	int dev_id;
-	int dev_type;
-} vvalve_data_t;
+#define VALVE_CMD_OPEN		1
+#define VALVE_CMD_CLOSE		0
 
+
+
+/**
+ * cmd:
+ * 	1 -> open valve
+ *  0 -> close valve
+ * action:
+ * 	1 -> ask id
+ * 	0 -> open/close valve
+ **/
 typedef struct {
-	char buffer[CMD_DATA_SIZE+2];
+	uint8_t action;
+	uint8_t cmd_valve;
 } vvalve_request_t;
 
 typedef struct  {
-	/* EMPTY */
+	uint32_t dev_id;
 } vvalve_response_t;
 
 /*
@@ -64,8 +73,6 @@ typedef struct {
 	grant_handle_t handle;
 	uint32_t evtchn;
 
-	vvalve_data_t *valve_data;
-
 } vvalve_t;
 
 static inline vvalve_t *to_vvalve(struct vbus_device *vdev) {
@@ -74,5 +81,7 @@ static inline vvalve_t *to_vvalve(struct vbus_device *vdev) {
 }
 
 void vvalve_generate_request(char *buffer);
+int vvalve_get_id(void);
+void vvalve_send_cmd(uint8_t cmd);
 
 #endif /* VVALVE_H */

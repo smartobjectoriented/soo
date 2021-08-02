@@ -20,4 +20,15 @@
 #ifndef HEAT_H
 #define HEAT_H
 
+#include <completion.h>
+
+typedef struct {
+    int temp;
+    int temp_dev_id;
+	struct completion wait_me_indoor;
+} heat_data;
+
+
+extern heat_data *g_heat_data;
+
 #endif /* HEAT_H */

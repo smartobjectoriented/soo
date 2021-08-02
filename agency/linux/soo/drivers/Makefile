@@ -15,3 +15,7 @@ obj-$(CONFIG_VFB_BACKEND)  += vfbback/
 obj-$(CONFIG_VNET_BACKEND)  += vnetback/
 obj-$(CONFIG_VTEMP_BACKEND)  += vtempback/
 obj-$(CONFIG_VVALVE_BACKEND)  += vvalveback/
+obj-$(CONFIG_VENOCEANSW_BACKEND)  += venoceanswback/
+obj-$(CONFIG_VDOGABLIND_BACKEND)  += vdogablindback/
+obj-$(CONFIG_VOUTSENSE_BACKEND)  += voutsenseback/
+

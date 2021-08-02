@@ -25,11 +25,15 @@
 #include <list.h>
 
 #include <asm/atomic.h>
+#include <me/indoor/indoor.h>
+#include <me/heat/heat.h>
+
 
 #define MAX_ME_DOMAINS				5
 
 /* We include the (non-RT & RT) agency domain */
 #define MAX_DOMAINS				(2 + MAX_ME_DOMAINS)
+
 
 /*
  * Directcomm event management
@@ -108,6 +112,10 @@ typedef enum {
 
 #define SOO_NAME_SIZE				16
 
+#define SOO_NB_UID_MAX              16
+
+
+
 /*
  * SOO agencyUID unique ID - Allowing to identify a SOO device.
  * agencyUID 0 is NOT valid.
@@ -167,6 +175,22 @@ typedef struct {
 } spad_t;
 
 #define SPID_SIZE	16
+
+typedef struct {
+	
+	unsigned char id[SOO_AGENCY_UID_SIZE];
+	unsigned char type[SPID_SIZE];
+	unsigned char slotID;
+	unsigned int timeStamp;
+	unsigned short nb_jump;
+	unsigned short nb_device_visited;
+	unsigned char ID_device_visited[SOO_NB_UID_MAX][SOO_AGENCY_UID_SIZE];
+
+	/*final*/
+	temp_data temp;
+	heat_data data_heat;
+
+} common_data;
 
 /*
  * ME descriptor
@@ -241,6 +265,7 @@ typedef struct {
 #define DEVCAPS_CLASS_APP		0x0900
 #define DEVCAP_APP_BLIND		(1 << 0)
 #define DEVCAP_APP_OUTDOOR		(1 << 1)
+#define DEVCAP_APP_DOMO			(1 << 2)
 
 #define DEVCAPS_CLASS_NR		16
 

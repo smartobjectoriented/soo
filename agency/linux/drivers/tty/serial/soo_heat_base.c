@@ -51,6 +51,7 @@ extern ssize_t tty_do_read(struct tty_struct *tty, unsigned char *buf, size_t nr
 typedef struct {
 	struct tty_struct *tty_uart;
 	struct mutex mutex_uart;
+	bool tty_is_open;
 } soo_base_priv_t;
 
 soo_base_priv_t soo_base_priv;
@@ -60,24 +61,33 @@ soo_base_priv_t soo_base_priv;
  **/
 ssize_t soo_heat_base_write_cmd(char *buffer, ssize_t len) {
 
+	char buff_send[25];
+
+	printk("Buffer from ME = %s\n", buffer);
+
+	sprintf(buff_send, "radio tx %s\r\n", buffer);
 
 	mutex_lock(&soo_base_priv.mutex_uart);
 
-	/* send command to LoRa module */
-	uart_do_write(soo_base_priv.tty_uart, buffer, len);
-
+	uart_do_write(soo_base_priv.tty_uart, "mac pause\r\n", 11); //Sortie du mode LoRaWAN 
 	msleep(100);
 
+
+	/* send command to LoRa module */
+	uart_do_write(soo_base_priv.tty_uart, buff_send, len+11);
+	msleep(100);
+
+
+            
 
     /* flush the buffer of all unwanted responses */
-	n_tty_do_flush_buffer(soo_base_priv.tty_uart);
-
-	msleep(100);
+	// n_tty_do_flush_buffer(soo_base_priv.tty_uart);
+	// msleep(100);
 
 	mutex_unlock(&soo_base_priv.mutex_uart);
 	
 
-    return len;
+    return len+11;
 }
 EXPORT_SYMBOL_GPL(soo_heat_base_write_cmd);
 
@@ -93,7 +103,7 @@ ssize_t soo_heat_base_read_temp(char *buffer) {
     int bytes_to_read = 18;    
 
 
-	mutex_lock(&soo_base_priv.mutex_uart);
+	// mutex_lock(&soo_base_priv.mutex_uart);
 
     /* flush the buffer of all unwanted responses */
 	n_tty_do_flush_buffer(soo_base_priv.tty_uart);
@@ -108,7 +118,7 @@ ssize_t soo_heat_base_read_temp(char *buffer) {
         
         buffer[nbytes] = '\0';
 
-        // printk("SOO_HEAT_BASE Current read : %s\n", buffer);
+        printk("SOO_HEAT_BASE Current read : %s\n", buffer);
 
         /* check for unwanted responses just to be sure */
         if(strstr(buffer, "ok") != NULL || 
@@ -137,7 +147,7 @@ ssize_t soo_heat_base_read_temp(char *buffer) {
     /* flush the buffer of all unwanted responses */
 	n_tty_do_flush_buffer(soo_base_priv.tty_uart);
 
-	mutex_unlock(&soo_base_priv.mutex_uart);
+	// mutex_unlock(&soo_base_priv.mutex_uart);
 
     return nbytes;
 }
@@ -151,8 +161,8 @@ void soo_heat_base_set_lora_rx(void){
     
 	mutex_lock(&soo_base_priv.mutex_uart);
     /* reset the module to be safe */
-	uart_do_write(soo_base_priv.tty_uart, "sys reset\r\n", 11);
-	msleep(100);
+	// uart_do_write(soo_base_priv.tty_uart, "sys reset\r\n", 11);
+	// msleep(100);
 
 	/* Setup the LoRa module */
 	printk("SOO_HEAT_BASE Setting LoRa module... \n");
@@ -160,27 +170,27 @@ void soo_heat_base_set_lora_rx(void){
 
 	/* set modulation type*/
 	uart_do_write(soo_base_priv.tty_uart, "radio set mod lora\r\n", 20);
-	msleep(50);
+	msleep(100);
 
 	/* set frequence to 915MHz*/
-	uart_do_write(soo_base_priv.tty_uart, "radio set freq 915000000\r\n", 26);
-	msleep(50);
+	uart_do_write(soo_base_priv.tty_uart, "radio set freq 868000000\r\n", 26);
+	msleep(100);
 
 	/* set emission power */
 	uart_do_write(soo_base_priv.tty_uart, "radio set pwr 5\r\n", 17);
-	msleep(50);
+	msleep(100);
 
 	/* set unlimited timeout limit */
 	uart_do_write(soo_base_priv.tty_uart, "radio set wdt 0\r\n", 17);
-	msleep(50);
+	msleep(100);
 
 	/* disable LoRaWAN*/
 	uart_do_write(soo_base_priv.tty_uart, "mac pause\r\n", 11);
-	msleep(50);
+	msleep(100);
 
 	/* set continue listening */
 	uart_do_write(soo_base_priv.tty_uart, "radio rx 0\r\n", 12);
-	msleep(50);
+	msleep(100);
 
 	printk("SOO_HEAT_BASE Setting LoRa module finish \n");
 
@@ -191,10 +201,51 @@ void soo_heat_base_set_lora_rx(void){
 }
 EXPORT_SYMBOL_GPL(soo_heat_base_set_lora_rx);
 
-// /**
-//  * \brief open uart1 tty port
-//  **/
-int soo_heat_base_open(void) {
+
+void setup_lora_module(void) {
+
+    /* reset the module to be safe */
+	// uart_do_write(soo_base_priv.tty_uart, "sys reset\r\n", 11);
+	// msleep(100);
+
+	/* Setup the LoRa module */
+	printk("SOO_HEAT_BASE Setup LoRa module... \n");
+
+	/* get version */
+	// uart_do_write(soo_base_priv.tty_uart, "sys get ver\r\n", 13);
+	// msleep(100);
+
+	/* set modulation type */
+	uart_do_write(soo_base_priv.tty_uart, "radio set mod lora\r\n", 20);
+	msleep(100);
+
+	/* set freq*/
+	uart_do_write(soo_base_priv.tty_uart, "radio set freq 868000000\r\n", 26);
+	msleep(100);
+
+	/* set emission power */
+	uart_do_write(soo_base_priv.tty_uart, "radio set pwr 5\r\n", 17);
+	msleep(100);
+
+	/* set unlimited timeout limit */
+	uart_do_write(soo_base_priv.tty_uart, "radio set wdt 0\r\n", 17);
+	msleep(100);
+
+	/* get freq */
+	uart_do_write(soo_base_priv.tty_uart, "radio get freq\r\n", 16);
+	msleep(100);
+
+	/* disable LoRaWAN*/
+	uart_do_write(soo_base_priv.tty_uart, "mac pause\r\n", 11);
+	msleep(100);
+}
+
+
+/**
+ * @brief open given uart tty port thqat need synchronized access
+ * @return -1 if already open, 0 on success
+ **/
+int soo_heat_base_open(const char *port) {
 
 	dev_t dev;
 	int baud = 57600;
@@ -202,11 +253,19 @@ int soo_heat_base_open(void) {
 	int parity = 'n';
 	int flow = 'n';
 
-    tty_dev_name_to_number("ttyS0", &dev);
+
+	if(soo_base_priv.tty_is_open) {
+		return -1;
+	}
+
+    tty_dev_name_to_number(port, &dev);
 	soo_base_priv.tty_uart = tty_kopen(dev);
 
     printk("SOO_HEAT_BASE Open uart \n");
 	uart_do_open(soo_base_priv.tty_uart);
+
+	soo_base_priv.tty_is_open = true;
+
 
 	printk("SOO_HEAT_BASE tty_set_termios....\n");
 
@@ -223,6 +282,8 @@ int soo_heat_base_open(void) {
 	printk("SOO_HEAT_BASE TTY Set option\n");
 	uart_set_options(((struct uart_state *) soo_base_priv.tty_uart->driver_data)->uart_port, NULL, baud, parity, bits, flow);
 
+	setup_lora_module();
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(soo_heat_base_open);
@@ -236,11 +297,12 @@ static int soo_heat_base_probe(struct platform_device *pdev) {
 
 	printk("soo_heat_base driver probe() called !\n");
 
+
     mutex_init(&soo_base_priv.mutex_uart);
 
 	soo_base_priv.tty_uart = kmalloc(sizeof(struct tty_struct), GFP_KERNEL);
+	soo_base_priv.tty_is_open = false;
 
-	soo_heat_base_open();
 
     //retourne le code d'erreur
 	return 0;
@@ -289,11 +351,6 @@ static struct platform_driver soo_heat_base_driver = {
 	
 };
 
-static int __init soo_heat_base_init(void)
-{
-	printk("<1>soo_heat_base.\n");
-	return platform_driver_register(&soo_heat_base_driver);
-}
 
 
 static void __exit soo_heat_base_exit(void)
@@ -302,11 +359,9 @@ static void __exit soo_heat_base_exit(void)
 	printk(KERN_ALERT "Goodbye module soo_heat_base.\n");
 }
 
-// module_init(soo_heat_base_init);
-late_initcall(soo_heat_base_init);
 module_exit(soo_heat_base_exit);
 
 
 // va vérifier si un device est compatible avec ce driver
 // et appellera probe() si c'est le cas
-// module_platform_driver(soo_heat_base_driver);
+module_platform_driver(soo_heat_base_driver);
