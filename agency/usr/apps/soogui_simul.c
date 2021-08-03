@@ -19,27 +19,6 @@
 
 int running = 1;
 
-const char* sooOutdoor = "<model spid=\"0020000000000002\">\
-<name>SOO.outdoor</name>\
-<description>SOO.outdoor permet de récupérer les informations d'une station météorologique.</description>\
-<layout>\
-    <row>\
-        <col>\
-            <label for=\"temp-per-day-graph\">Luminosité selon l'heure de la journée</label>\
-            <graph id=\"temp-per-day-graph\" type=\"line\">\
-            </graph>\
-        </col>\
-    </row>\
-    <row>\
-        <col>\
-            <label for=\"summary-graph\">Luminosité selon l'heure de la journée</label>\
-            <graph id=\"summary-graph\" type=\"table\">\
-            </graph>\
-        </col>\
-    </row>\
-</layout>\
-</model>";
-
 void sigterm_handler(int signal) {
     running = 0;
     exit(0);
@@ -63,7 +42,7 @@ void print_hex(const char *s)
   printf("\n");
 }
 
-vuihandler_pkt_t* get_vuihandler(char* message_block) {
+vuihandler_pkt_t* get_vuihandler(const char* message_block) {
     char type[TYPE_SIZE];
     char spid[SPID_SIZE];
     char payload[PAYLOAD_SIZE];
@@ -118,75 +97,196 @@ char* generate_soo_list() {
         </mobile-entities>";
 }
 
-char* generate_soo_outdoor() {
-    // TODO:
+const char* generate_soo_outdoor() {
+    return "<model spid=\"0020000000000002\">\
+    <name>SOO.outdoor</name>\
+    <description>SOO.outdoor permet de récupérer les informations d'une station météorologique.</description>\
+    <layout>\
+        <row>\
+            <col>\
+                <label for=\"temp-per-day-graph\">Luminosité selon l'heure de la journée</label>\
+                <graph id=\"temp-per-day-graph\" type=\"line\">\
+                    <axes display-series-name=\"true\">\
+                        <axis type=\"datetime\" format=\"hh:mm\">Heure</axis>\
+                        <axis type=\"number\">Température</axis>\
+                    </axes>\
+                    <series id=\"temp-per-day-north-station\" name=\"SOO.outdoor Nord\">\
+                        <point>\
+                            <item>09:45</item>\
+                            <item>15</item>\
+                        </point>\
+                        <point>\
+                            <item>10:10</item>\
+                            <item>15.5</item>\
+                        </point>\
+                        <point>\
+                            <item>10:22</item>\
+                            <item>15.6</item>\
+                        </point>\
+                    </series>\
+                    <series id=\"temp-per-day-south-station\" name=\"SOO.outdoor Sud\">\
+                        <point>\
+                            <item>09:42</item>\
+                            <item>14</item>\
+                        </point>\
+                        <point>\
+                            <item>09:59</item>\
+                            <item>14</item>\
+                        </point>\
+                        <point>\
+                            <item>10:15</item>\
+                            <item>14.2</item>\
+                        </point>\
+                    </series>\
+                </graph>\
+            </col>\
+        </row>\
+        <row>\
+            <col>\
+                <label for=\"summary-graph\">Luminosité selon l'heure de la journée</label>\
+                <graph id=\"summary-graph\" type=\"table\">\
+                    <axes display-series-name=\"true\">\
+                        <axis type=\"number\">Temperature</axis>\
+                        <axis type=\"number\">Luminosity</axis>\
+                        <axis type=\"datetime\" format=\"hh:mm\">Hour</axis>\
+                        <axis type=\"number\">Mean temperature of the past 30 days</axis>\
+                    </axes>\
+                    <series id=\"summary-north-station\" name=\"SOO.outdoor Nord\">\
+                        <point>\
+                            <item>15</item>\
+                            <item>500</item>\
+                            <item>09:45</item>\
+                            <item>14.2</item>\
+                        </point>\
+                        <point>\
+                            <item>15.5</item>\
+                            <item>510</item>\
+                            <item>10:10</item>\
+                            <item>14.4</item>\
+                        </point>\
+                        <point>\
+                            <item>15.6</item>\
+                            <item>512</item>\
+                            <item>10:22</item>\
+                            <item>14.6</item>\
+                        </point>\
+                    </series>\
+                    <series id=\"summary-south-station\" name=\"SOO.outdoor Sud\">\
+                        <point>\
+                            <item>14</item>\
+                            <item>490</item>\
+                            <item>09:42</item>\
+                            <item>13.9</item>\
+                        </point>\
+                        <point>\
+                            <item>14</item>\
+                            <item>490</item>\
+                            <item>09:59</item>\
+                            <item>14</item>\
+                        </point>\
+                        <point>\
+                            <item>14.2</item>\
+                            <item>490</item>\
+                            <item>10:15</item>\
+                            <item>14.2</item>\
+                        </point>\
+                    </series>\
+                </graph>\
+            </col>\
+        </row>\
+    </layout>\
+    </model>";
 }
 
-char* generate_soo_blind() {
+const char* generate_soo_blind() {
     return "<model spid=\"0020000000000001\">\
     <name>SOO.blind</name>\
     <description>SOO.blind permet de gérer la position des stores.</description>\
     <layout>\
         <row>\
-            <col><label for=\"up\">Position des stores</label></col>\
-            <col><button id=\"up\" lockable=\"true\" lockable-after=\"2\">Monter</button></col>\
-            <col><button id=\"down\" lockable=\"true\" lockable-after=\"2\">Descendre</button></col>\
-            <col><slider id=\"slider\" max=\"5\" step=\"1\" orientation=\"vertical\">1</slider></col>\
+            <col><label for=\"blind-up\">Position des stores</label></col>\
+            <col><button id=\"blind-up\" lockable=\"true\" lockable-after=\"2\">Monter</button></col>\
+            <col><button id=\"blind-down\" lockable=\"true\" lockable-after=\"2\">Descendre</button></col>\
+            <col><slider id=\"blind-slider\" max=\"5\" step=\"1\" orientation=\"vertical\">1</slider></col>\
         </row>\
         <row>\
-            <col><label for=\"if-lux\">Condition 1</label></col>\
+            <col><label for=\"blind-if-lux\">Condition 1</label></col>\
         </row>\
         <row>\
-            <col><text>Si la luminosité externe est plus petite que </text><number id=\"if-lux\" value=\"500\"/><text>lux</text></col>\
+            <col><text>Si la luminosité externe est plus petite que </text><number id=\"blind-if-lux\" value=\"500\"/><text>lux</text></col>\
         </row>\
         <row>\
-            <col><text>Alors </text><dropdown id=\"then-lux\"><option value=\"up\">Monter</option><option value=\"down\" default=\"true\">Descendre</option></dropdown></col>\
+            <col><text>Alors </text><dropdown id=\"blind-then-lux\"><option value=\"up\">Monter</option><option value=\"down\" default=\"true\">Descendre</option></dropdown></col>\
         </row>\
         <row>\
-            <col><text>Sur </text><dropdown id=\"on-lux\"><option value=\"nord\">SOO.outdoor Nord</option><option value=\"south\">SOO.outdoor Sud</option></dropdown></col>\
+            <col><text>Sur </text><dropdown id=\"blind-on-lux\"><option value=\"nord\">SOO.outdoor Nord</option><option value=\"south\">SOO.outdoor Sud</option></dropdown></col>\
         </row>\
     </layout>\
     </model>";
 }
 
-char* generate_soo_heat() {
+const char* generate_soo_heat() {
     return "<model spid=\"0020000000000003\">\
     <name>SOO.heat</name>\
     <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
     <layout>\
         <row>\
-            <col><label for=\"current-temp\">Position des stores</label></col>\
-            <col><number id=\"current-temp\" step=\"0.5\">22.5</number></col>\
-            <col><button id=\"increase-temp\" lockable=\"true\">-0.5°C</button></col>\
-            <col><button id=\"decrease-temp\" lockable=\"true\">+0.5°C</button></col>\
+            <col><label for=\"heat-current-temp\">Position des stores</label></col>\
+            <col><number id=\"heat-current-temp\" step=\"0.5\">22.5</number></col>\
+            <col><button id=\"heat-increase-temp\" lockable=\"true\">-0.5°C</button></col>\
+            <col><button id=\"heat-decrease-temp\" lockable=\"true\">+0.5°C</button></col>\
         </row>\
         <row>\
-            <col><label for=\"if-temp\">Palier 1</label></col>\
+            <col><label for=\"heat-if-temp\">Palier 1</label></col>\
         </row>\
         <row>\
             <col><text>Si la température externe est plus petite que </text></col>\
-            <col><number id=\"if-temp\" step=\"0.5\">12.0</number></col>\
-            <col><button id=\"if-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
-            <col><button id=\"if-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
+            <col><number id=\"heat-if-temp\" step=\"0.5\">12.0</number></col>\
+            <col><button id=\"heat-if-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
+            <col><button id=\"heat-if-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
         </row>\
         <row>\
             <col><text>Alors la température interne vaut </text></col>\
-            <col><number id=\"then-temp\" step=\"0.5\">21.5</number></col>\
-            <col><button id=\"then-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
-            <col><button id=\"then-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
+            <col><number id=\"heat-then-temp\" step=\"0.5\">21.5</number></col>\
+            <col><button id=\"heat-then-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
+            <col><button id=\"heat-then-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
         </row>\
         <row>\
             <col><text>Sinon la température interne vaut </text></col>\
-            <col><number id=\"else-temp\" step=\"0.5\">20.5</number></col>\
-            <col><button id=\"else-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
-            <col><button id=\"else-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
+            <col><number id=\"heat-else-temp\" step=\"0.5\">20.5</number></col>\
+            <col><button id=\"heat-else-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
+            <col><button id=\"heat-else-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
         </row>\
     </layout>\
     </model>";
 }
 
-char* manage_event(vuihandler_pkt_t* message) {
-    // TODO:
+const char* create_message(const char* id, const char* value) {
+    char * buffer;
+    node_t *root, *messages, *msg;
+
+    root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
+
+    /* Adding attributes to xml node */
+    roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
+    roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
+
+    /* Adding the messages node */
+    messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "messages", NULL);
+
+    /* Adding the message itself */
+    msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
+
+    roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", id);
+
+    roxml_add_node(msg, 0, ROXML_TXT_NODE, NULL, value);
+
+    roxml_commit_changes(root, NULL, &buffer, 1);
+
+    roxml_release(RELEASE_LAST);
+    roxml_close(root);
+
+    return (const char*) buffer;
 }
 
 void send_message(int client, vuihandler_pkt_t* message) {
@@ -216,7 +316,84 @@ void send_message(int client, vuihandler_pkt_t* message) {
         
         beginPos += PAYLOAD_SIZE - 1;
     } while (beginPos < strlen(message->payload));
+
+    printf("payload \"%s send.\"", message->payload);
 }
+
+const char* manage_event(int client, vuihandler_pkt_t* message) {
+    char *id, *action, *value;
+    node_t *root, *xml;
+    node_t *events, *event, *from, *action_attr, *value_txt;
+
+    printf("events received: %s", message->payload);
+
+    root = roxml_load_buf(message->payload);
+    xml =  roxml_get_chld(root, NULL, 0);
+
+    events = roxml_get_chld(xml, NULL, 0);
+
+    // read each events
+    int i;
+    for(i = 0; i < roxml_get_chld_nb(events); ++i){
+        event = roxml_get_chld(events, NULL, i);
+        from = roxml_get_attr(event, "from", 0);
+        action_attr = roxml_get_attr(event, "action", 0);
+        value_txt = roxml_get_txt(event, 0);
+
+
+        strcpy(id, roxml_get_content(from, NULL, 0, NULL));
+        strcpy(action, roxml_get_content(action_attr, NULL, 0, NULL));
+        strcpy(value, roxml_get_content(value_txt, NULL, 0, NULL));
+
+        // apply action
+        if(strcmp(id,"blind-up") == 0) {
+            // TODO: if action is "clickUp" create timer.
+            // TODO: else action is "clickDown" stop timer.
+        } else if(strcmp(id,"blind-up") == 0) {
+            // TODO: if action is "clickUp" create timer.
+            // TODO: else action is "clickDown" stop timer.
+        } else if(strcmp(id,"blind-slider") == 0) {
+            // double number = strtod(value, NULL);
+            // send the message
+            send_message(client, get_vuihandler(create_message("blind-slider", value)));
+        } else if(strcmp(id,"blind-if-lux") == 0) {
+            // TODO:
+        } else if(strcmp(id,"blind-then-lux") == 0) {
+            // TODO:
+        } else if(strcmp(id,"blind-on-lux") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-current-temp") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-increase-temp") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-decrease-temp") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-if-temp") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-if-temp-increase") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-if-temp-decrease") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-then-temp") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-then-temp-increase") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-then-temp-decrease") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-else-temp") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-else-temp-increase") == 0) {
+            // TODO:
+        } else if(strcmp(id,"heat-else-temp-decrease") == 0) {
+            // TODO:
+        }
+    }
+
+    roxml_release(RELEASE_LAST);
+    roxml_close(root);
+}
+
+// TODO: create single thread per ME
 
 /**
  * RFCOMM Server which receive a file of any size from the tablet
@@ -226,9 +403,10 @@ void *receive_thread(void *dummy) {
     struct sockaddr_rc loc_addr = { 0 }, rem_addr = { 0 };
     char *buf;
     // char size_buf[4] = {0};
-    char get_mobile_entities_message [100] = {0};
+    // char get_mobile_entities_message [100] = {0};
     char message_block[BLOCK_SIZE] = {0};
-    int s, client, bytes_read, total_bytes = 0;
+    int s, client = 0;
+    // int bytes_read, total_bytes = 0;
     socklen_t opt = sizeof(rem_addr);
     uint32_t size;
     const uint8_t END_SYMBOL = 0x0A;
@@ -300,7 +478,7 @@ void *receive_thread(void *dummy) {
         switch (message->type)
         {
         case 0x01:
-            /* code */
+            send_message(client, get_vuihandler(generate_soo_list()));
             break;
         case 0x04:
             /* code */
@@ -308,6 +486,7 @@ void *receive_thread(void *dummy) {
         case 0x08:
         case 0x88:
             /* code */
+            manage_event(client, message);
             break;
         
         default:
@@ -368,7 +547,7 @@ void *receive_thread(void *dummy) {
         close(client);
         
         free(buf);
-        total_bytes = 0;
+        // total_bytes = 0;
     }
     
     printf("Closing socket...\n");
@@ -379,7 +558,7 @@ void *receive_thread(void *dummy) {
    receiving the BT paquet. */
 int main(int argc, char *argv[]) {
     pthread_t receive_th;
-    pthread_t me1, me2, tx_thread;
+    // pthread_t me1, me2, tx_thread;
 
     /* Open socket here */
 
