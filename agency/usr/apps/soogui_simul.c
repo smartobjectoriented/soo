@@ -19,38 +19,6 @@
 
 int running = 1;
 
- 
-
-const char* moblieEntities = "<mobile-entities>\
-<mobile-entity spid=\"0020000000000003\">\
-<name>SOO.heat</name>\
-<description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
-</moblie-entity>\
-<mobile-entity spid=\"0020000000000002\">\
-<name>SOO.outdoor</name>\
-<description>\
-SOO.outdoor permet de récupérer des informations météorologique \
-telle que la luminosité ambiante ou la température externe. \
-</description>\
-</moblie-entity>\
-<mobile-entity spid=\"0020000000000001\">\
-<name>SOO.blind</name>\
-<description>SOO.blind permet de gérer la position des stores.</description>\
-</moblie-entity>\
-<mobile-entity>\
-<name>SOO.ShouldFail</name>\
-<description>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus aliquam erat ut posuere congue.\
-Nulla malesuada metus tincidunt, pharetra magna ut, bibendum dui. Curabitur id pulvinar urna. Ut faucibus nulla ex, \
-vitae molestie leo faucibus non. Nunc feugiat, felis ut semper elementum, nisi augue tristique augue, sit amet porttitor \
-ipsum purus non augue. Suspendisse potenti. Pellentesque sed eros posuere, blandit risus sed, condimentum nibh. Nam eget dolor \
-a nisl mattis mattis. Maecenas eget imperdiet libero. Cras mauris arcu, porttitor ac mattis in, ultrices eu ex. Aliquam rutrum \
-auctor ultrices. Sed nec libero posuere, aliquet urna convallis, venenatis elit. Fusce eu scelerisque diam. Integer sed ex cursus, \
-egestas dui eu, tristique odio. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. \
-Curabitur ullamcorper magna quis gravida tincidunt.\
-</description>\
-</moblie-entity>\
-</mobile-entities>";
-
 const char* sooOutdoor = "<model spid=\"0020000000000002\">\
 <name>SOO.outdoor</name>\
 <description>SOO.outdoor permet de récupérer les informations d'une station météorologique.</description>\
@@ -58,89 +26,197 @@ const char* sooOutdoor = "<model spid=\"0020000000000002\">\
     <row>\
         <col>\
             <label for=\"temp-per-day-graph\">Luminosité selon l'heure de la journée</label>\
-            <graph id=\"temp-per-day-graph\" type=\"line\">
-
-            </graph>
+            <graph id=\"temp-per-day-graph\" type=\"line\">\
+            </graph>\
         </col>\
     </row>\
     <row>\
         <col>\
             <label for=\"summary-graph\">Luminosité selon l'heure de la journée</label>\
-            <graph id=\"summary-graph\" type=\"table\">
-            
-            </graph>
+            <graph id=\"summary-graph\" type=\"table\">\
+            </graph>\
         </col>\
     </row>\
 </layout>\
 </model>";
-
-const char* sooBlind = "<model spid=\"0020000000000001\">\
-<name>SOO.blind</name>\
-<description>SOO.blind permet de gérer la position des stores.</description>\
-<layout>\
-    <row>\
-        <col><label for=\"up\">Position des stores</label></col>\
-        <col><button id=\"up\" lockable=\"true\" lockable-after=\"2\">Monter</button></col>\
-        <col><button id=\"down\" lockable=\"true\" lockable-after=\"2\">Descendre</button></col>\
-        <col><slider id=\"slider\" max=\"5\" step=\"1\" orientation=\"vertical\">1</slider></col>\
-    </row>\
-    <row>\
-        <col><label for=\"if-lux\">Condition 1</label></col>\
-    </row>\
-    <row>\
-        <col><text>Si la luminosité externe est plus petite que </text><number id=\"if-lux\" value=\"500\"/><text>lux</text></col>\
-    </row>\
-    <row>\
-        <col><text>Alors </text><dropdown id=\"then-lux\"><option value=\"up\">Monter</option><option value=\"down\" default=\"true\">Descendre</option></dropdown></col>\
-    </row>\
-    <row>\
-        <col><text>Sur </text><dropdown id=\"on-lux\"><option value=\"nord\">SOO.outdoor Nord</option><option value=\"south\">SOO.outdoor Sud</option></dropdown></col>\
-    </row>\
-</layout>\
-</model>";
-
-const char* sooHeat = "<model spid=\"0020000000000003\">\
-<name>SOO.heat</name>\
-<description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
-<layout>\
-    <row>\
-        <col><label for=\"current-temp\">Position des stores</label></col>\
-        <col><number id=\"current-temp\" step=\"0.5\">22.5</number></col>\
-        <col><button id=\"increase-temp\" lockable=\"true\">-0.5°C</button></col>\
-        <col><button id=\"decrease-temp\" lockable=\"true\">+0.5°C</button></col>\
-    </row>\
-    <row>\
-        <col><label for=\"if-temp\">Palier 1</label></col>\
-    </row>\
-    <row>\
-        <col><text>Si la température externe est plus petite que </text></col>\
-        <col><number id=\"if-temp\" step=\"0.5\">12.0</number></col>\
-        <col><button id=\"if-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
-        <col><button id=\"if-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
-    </row>\
-    <row>\
-        <col><text>Alors la température interne vaut </text></col>\
-        <col><number id=\"then-temp\" step=\"0.5\">21.5</number></col>\
-        <col><button id=\"then-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
-        <col><button id=\"then-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
-    </row>\
-    <row>\
-        <col><text>Sinon la température interne vaut </text></col>\
-        <col><number id=\"else-temp\" step=\"0.5\">20.5</number></col>\
-        <col><button id=\"else-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
-        <col><button id=\"else-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
-    </row>\
-</layout>\
-</model>";
-
- 
 
 void sigterm_handler(int signal) {
     running = 0;
     exit(0);
 }
 
- 
+#define BLOCK_SIZE 1008
+#define TYPE_SIZE 1
+#define SPID_SIZE 16
+// #define PAYLOAD_SIZE BLOCK_SIZE - (TYPE_SIZE + SPID_SIZE)
+#define PAYLOAD_SIZE 8192
+typedef struct {
+	uint8_t		type;
+	uint8_t		spid[SPID_SIZE];
+	uint8_t		payload[0];
+} vuihandler_pkt_t;
+
+void print_hex(const char *s)
+{
+  while(*s)
+    printf("%02x", (unsigned int) *s++);
+  printf("\n");
+}
+
+vuihandler_pkt_t* get_vuihandler(char* message_block) {
+    char type[TYPE_SIZE];
+    char spid[SPID_SIZE];
+    char payload[PAYLOAD_SIZE];
+
+    strncpy(type, message_block, TYPE_SIZE);
+    strncpy(spid, message_block + TYPE_SIZE, SPID_SIZE);
+
+    memset(payload, '\0', PAYLOAD_SIZE);
+    strncpy(payload, message_block + TYPE_SIZE + SPID_SIZE, PAYLOAD_SIZE);
+
+    vuihandler_pkt_t message = {
+        .type = type,
+        .spid = spid,
+        .payload = payload
+    };
+    // message.type = type;
+    // message.spid = spid;
+    // message.payload = payload;
+
+    return &message;
+}
+
+char* generate_soo_list() {
+    return "<mobile-entities>\
+        <mobile-entity spid=\"0020000000000003\">\
+            <name>SOO.heat</name>\
+            <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
+        </moblie-entity>\
+        <mobile-entity spid=\"0020000000000002\">\
+            <name>SOO.outdoor</name>\
+            <description>\
+            SOO.outdoor permet de récupérer des informations météorologique \
+            telle que la luminosité ambiante ou la température externe. \
+            </description>\
+        </moblie-entity>\
+        <mobile-entity spid=\"0020000000000001\">\
+            <name>SOO.blind</name>\
+            <description>SOO.blind permet de gérer la position des stores.</description>\
+        </moblie-entity>\
+        <mobile-entity>\
+            <name>SOO.ShouldFail</name>\
+            <description>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus aliquam erat ut posuere congue.\
+            Nulla malesuada metus tincidunt, pharetra magna ut, bibendum dui. Curabitur id pulvinar urna. Ut faucibus nulla ex, \
+            vitae molestie leo faucibus non. Nunc feugiat, felis ut semper elementum, nisi augue tristique augue, sit amet porttitor \
+            ipsum purus non augue. Suspendisse potenti. Pellentesque sed eros posuere, blandit risus sed, condimentum nibh. Nam eget dolor \
+            a nisl mattis mattis. Maecenas eget imperdiet libero. Cras mauris arcu, porttitor ac mattis in, ultrices eu ex. Aliquam rutrum \
+            auctor ultrices. Sed nec libero posuere, aliquet urna convallis, venenatis elit. Fusce eu scelerisque diam. Integer sed ex cursus, \
+            egestas dui eu, tristique odio. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. \
+            Curabitur ullamcorper magna quis gravida tincidunt.\
+            </description>\
+        </moblie-entity>\
+        </mobile-entities>";
+}
+
+char* generate_soo_outdoor() {
+    // TODO:
+}
+
+char* generate_soo_blind() {
+    return "<model spid=\"0020000000000001\">\
+    <name>SOO.blind</name>\
+    <description>SOO.blind permet de gérer la position des stores.</description>\
+    <layout>\
+        <row>\
+            <col><label for=\"up\">Position des stores</label></col>\
+            <col><button id=\"up\" lockable=\"true\" lockable-after=\"2\">Monter</button></col>\
+            <col><button id=\"down\" lockable=\"true\" lockable-after=\"2\">Descendre</button></col>\
+            <col><slider id=\"slider\" max=\"5\" step=\"1\" orientation=\"vertical\">1</slider></col>\
+        </row>\
+        <row>\
+            <col><label for=\"if-lux\">Condition 1</label></col>\
+        </row>\
+        <row>\
+            <col><text>Si la luminosité externe est plus petite que </text><number id=\"if-lux\" value=\"500\"/><text>lux</text></col>\
+        </row>\
+        <row>\
+            <col><text>Alors </text><dropdown id=\"then-lux\"><option value=\"up\">Monter</option><option value=\"down\" default=\"true\">Descendre</option></dropdown></col>\
+        </row>\
+        <row>\
+            <col><text>Sur </text><dropdown id=\"on-lux\"><option value=\"nord\">SOO.outdoor Nord</option><option value=\"south\">SOO.outdoor Sud</option></dropdown></col>\
+        </row>\
+    </layout>\
+    </model>";
+}
+
+char* generate_soo_heat() {
+    return "<model spid=\"0020000000000003\">\
+    <name>SOO.heat</name>\
+    <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
+    <layout>\
+        <row>\
+            <col><label for=\"current-temp\">Position des stores</label></col>\
+            <col><number id=\"current-temp\" step=\"0.5\">22.5</number></col>\
+            <col><button id=\"increase-temp\" lockable=\"true\">-0.5°C</button></col>\
+            <col><button id=\"decrease-temp\" lockable=\"true\">+0.5°C</button></col>\
+        </row>\
+        <row>\
+            <col><label for=\"if-temp\">Palier 1</label></col>\
+        </row>\
+        <row>\
+            <col><text>Si la température externe est plus petite que </text></col>\
+            <col><number id=\"if-temp\" step=\"0.5\">12.0</number></col>\
+            <col><button id=\"if-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
+            <col><button id=\"if-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
+        </row>\
+        <row>\
+            <col><text>Alors la température interne vaut </text></col>\
+            <col><number id=\"then-temp\" step=\"0.5\">21.5</number></col>\
+            <col><button id=\"then-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
+            <col><button id=\"then-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
+        </row>\
+        <row>\
+            <col><text>Sinon la température interne vaut </text></col>\
+            <col><number id=\"else-temp\" step=\"0.5\">20.5</number></col>\
+            <col><button id=\"else-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
+            <col><button id=\"else-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
+        </row>\
+    </layout>\
+    </model>";
+}
+
+char* manage_event(vuihandler_pkt_t* message) {
+    // TODO:
+}
+
+void send_message(int client, vuihandler_pkt_t* message) {
+    int beginPos = 0;
+    char tmpBuf[PAYLOAD_SIZE - 1];
+    char payload[PAYLOAD_SIZE];
+
+    do {
+        memset(tmpBuf, '\0', PAYLOAD_SIZE - 1);
+        memset(payload, '\0', PAYLOAD_SIZE);
+        strncpy(tmpBuf, message->payload + beginPos, PAYLOAD_SIZE-1);
+
+
+
+        if(strlen(tmpBuf) < PAYLOAD_SIZE - 1) {
+            payload[0] = 0x02; // 0000 0010
+        } else {
+            payload[0] = 0x82; // 1000 0010
+        }
+        strcat(payload, tmpBuf);
+
+
+
+        printf("sending char from %d to %d!\n", beginPos, beginPos + PAYLOAD_SIZE - 1);
+        print_hex(payload);
+        write(client, payload, PAYLOAD_SIZE);
+        
+        beginPos += PAYLOAD_SIZE - 1;
+    } while (beginPos < strlen(message->payload));
+}
 
 /**
  * RFCOMM Server which receive a file of any size from the tablet
@@ -150,18 +226,16 @@ void *receive_thread(void *dummy) {
     struct sockaddr_rc loc_addr = { 0 }, rem_addr = { 0 };
     char *buf;
     // char size_buf[4] = {0};
-      char get_mobile_entities_message [100] = {0};
+    char get_mobile_entities_message [100] = {0};
+    char message_block[BLOCK_SIZE] = {0};
     int s, client, bytes_read, total_bytes = 0;
     socklen_t opt = sizeof(rem_addr);
     uint32_t size;
     const uint8_t END_SYMBOL = 0x0A;
-
  
 
     /* allocate socket */
     s = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
-
- 
 
     /* bind socket to port 1 of the first available */
     /* local bluetooth adapter */
@@ -169,18 +243,12 @@ void *receive_thread(void *dummy) {
     loc_addr.rc_bdaddr = *BDADDR_ANY;
     loc_addr.rc_channel = (uint8_t) 1;
 
- 
-
     printf("Binding RFCOMM socket...\n");
     bind(s, (struct sockaddr *)&loc_addr, sizeof(loc_addr));
     printf("Done!\n");
 
- 
-
     /* put socket into listening mode */
     listen(s, 1);
-
- 
 
 
     while(running) {
@@ -227,83 +295,86 @@ void *receive_thread(void *dummy) {
         // printf("\n\n");
         // /* Send the end symbol to the client so it can close its socket */
 
- 
-
-        read(client, get_mobile_entities_message, sizeof(get_mobile_entities_message));
-        if (get_mobile_entities_message[0] != 0x01) {
-            printf("wrong message : %x instead of %x!\n", get_mobile_entities_message[0], 0x01);
+        read(client, message_block, sizeof(message_block));
+        vuihandler_pkt_t* message = get_vuihandler(message_block);
+        switch (message->type)
+        {
+        case 0x01:
+            /* code */
+            break;
+        case 0x04:
+            /* code */
+            break;
+        case 0x08:
+        case 0x88:
+            /* code */
+            break;
+        
+        default:
+            printf("wrong message : %x instead of (%x, %x, %x or %x)!\n", message->type, 0x01, 0x04, 0x08, 0x88);
             continue;
         }
 
- 
-
-        int beginPos = 0;
-        size_t payloadSize = 8192;
-        char tmpBuf[payloadSize-1];
-        char payload[payloadSize];
-
- 
-
-        printf("message size: %d\n", strlen(moblieEntities));
-        do {
-            memset(tmpBuf, '\0', payloadSize-1);
-            memset(payload, '\0', payloadSize);
-            strncpy(tmpBuf, moblieEntities + beginPos, payloadSize-1);
+        // read(client, get_mobile_entities_message, sizeof(get_mobile_entities_message));
+        // if (get_mobile_entities_message[0] != 0x01) {
+        //     printf("wrong message : %x instead of %x!\n", get_mobile_entities_message[0], 0x01);
+        //     continue;
+        // }
 
  
 
-            if(strlen(tmpBuf) < payloadSize-1) {
-                payload[0] = 0x02; // 0000 0010
-            } else {
-                payload[0] = 0x82; // 1000 0010
-            }
-            strcat(payload, tmpBuf);
+        // int beginPos = 0;
+        // size_t payloadSize = 8192;
+        // char tmpBuf[payloadSize-1];
+        // char payload[payloadSize];
 
  
 
-            printf("sending char from %d to %d!\n", beginPos, beginPos + payloadSize - 1);
-            print_hex(payload);
-            write(client, payload, payloadSize);
+        // printf("message size: %d\n", strlen(moblieEntities));
+        // do {
+        //     memset(tmpBuf, '\0', payloadSize-1);
+        //     memset(payload, '\0', payloadSize);
+        //     strncpy(tmpBuf, moblieEntities + beginPos, payloadSize-1);
+
+ 
+
+        //     if(strlen(tmpBuf) < payloadSize-1) {
+        //         payload[0] = 0x02; // 0000 0010
+        //     } else {
+        //         payload[0] = 0x82; // 1000 0010
+        //     }
+        //     strcat(payload, tmpBuf);
+
+ 
+
+        //     printf("sending char from %d to %d!\n", beginPos, beginPos + payloadSize - 1);
+        //     print_hex(payload);
+        //     write(client, payload, payloadSize);
             
-            beginPos += payloadSize-1;
-        } while (beginPos < strlen(moblieEntities));
+        //     beginPos += payloadSize-1;
+        // } while (beginPos < strlen(moblieEntities));
 
  
+
+        // printf("Waiting 2s before closing socket...\n");
+        // sleep(2);
+
+        // write(client, &END_SYMBOL, 1);
 
         printf("Waiting 2s before closing socket...\n");
         sleep(2);
 
- 
-
-        write(client, &END_SYMBOL, 1);
-
- 
-
-
-        printf("Waiting 2s before closing socket...\n");
-        sleep(2);
-
- 
-
+        printf("Closing socket...\n");
         close(client);
         
         free(buf);
         total_bytes = 0;
     }
     
+    printf("Closing socket...\n");
     close(s);
 }
 
- 
-
-void print_hex(const char *s)
-{
-  while(*s)
-    printf("%02x", (unsigned int) *s++);
-  printf("\n");
-}
-
- 
 /* This thread launch the MEs and the TX thread threads and then acts as the vuihandler-RX thread 
    receiving the BT paquet. */
 int main(int argc, char *argv[]) {
