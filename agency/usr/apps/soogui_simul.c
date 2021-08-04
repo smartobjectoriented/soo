@@ -116,6 +116,35 @@ void print_hex(const char *s) {
   printf("\n");
 }
 
+void print_hex_n(const char *s, int n) {
+    int i;
+    for(i = 0; i < n; ++i) {
+        printf("%02x", (unsigned int) *s++);
+    }
+    printf("\n");
+}
+
+int compare_arrays(const char* a, const char* b, int n)
+{
+    int i;
+    for (i=0; i<n; ++i)
+    {
+        if (a[i] != b[i])
+        {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+void hexstring_to_byte(const char* src, char* dest, int n) {
+    int i;
+    for(i = 0; i < n; ++i) {
+        sscanf(src + (2*i), "%2x", dest + i);
+    }
+}
+
+
 vuihandler_pkt_t* get_vuihandler(const char* message_block) {
     char type[TYPE_SIZE];
     char spid[SPID_SIZE];
@@ -141,18 +170,18 @@ vuihandler_pkt_t* get_vuihandler(const char* message_block) {
 
 char* generate_soo_list() {
     return "<mobile-entities>\
-        <mobile-entity spid=\"0020000000000003\">\
+        <mobile-entity spid=\"00000200000000000000000000000003\">\
             <name>SOO.heat</name>\
             <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
         </moblie-entity>\
-        <mobile-entity spid=\"0020000000000002\">\
+        <mobile-entity spid=\"00000200000000000000000000000002\">\
             <name>SOO.outdoor</name>\
             <description>\
             SOO.outdoor permet de récupérer des informations météorologique \
             telle que la luminosité ambiante ou la température externe. \
             </description>\
         </moblie-entity>\
-        <mobile-entity spid=\"0020000000000001\">\
+        <mobile-entity spid=\"00000200000000000000000000000001\">\
             <name>SOO.blind</name>\
             <description>SOO.blind permet de gérer la position des stores.</description>\
         </moblie-entity>\
@@ -172,7 +201,7 @@ char* generate_soo_list() {
 }
 
 const char* generate_soo_outdoor() {
-    return "<model spid=\"0020000000000002\">\
+    return "<model spid=\"00000200000000000000000000000002\">\
     <name>SOO.outdoor</name>\
     <description>SOO.outdoor permet de récupérer les informations d'une station météorologique.</description>\
     <layout>\
@@ -273,7 +302,7 @@ const char* generate_soo_outdoor() {
 }
 
 const char* generate_soo_blind() {
-    return "<model spid=\"0020000000000001\">\
+    return "<model spid=\"00000200000000000000000000000001\">\
     <name>SOO.blind</name>\
     <description>SOO.blind permet de gérer la position des stores.</description>\
     <layout>\
@@ -300,7 +329,7 @@ const char* generate_soo_blind() {
 }
 
 const char* generate_soo_heat() {
-    return "<model spid=\"0020000000000003\">\
+    return "<model spid=\"00000200000000000000000000000003\">\
     <name>SOO.heat</name>\
     <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
     <layout>\
@@ -370,7 +399,7 @@ void* soo_outdoor_thread(void* client_arg) {
     int client = *((int*) client_arg);
     double temp, lum;
     vuihandler_pkt_t message;
-    char* buffer;
+    char* buffer, *spid;
     node_t *root, *messages, *msg, *point, *item;
 
     printf("soo_outdoor_thread started.\n");
@@ -418,8 +447,9 @@ void* soo_outdoor_thread(void* client_arg) {
         roxml_release(RELEASE_LAST);
         roxml_close(root);
 
+        hexstring_to_byte("00000200000000000000000000000002", spid, SPID_SIZE);
         message.type = 0x02;
-        strcpy(message.spid, "0020000000000002");
+        strcpy(message.spid, spid);
         strcpy(message.payload, buffer);
 
         // wait a minute before sending
@@ -626,17 +656,56 @@ void *receive_thread(void *dummy) {
 
         do {
             result = read(client, message_block, sizeof(message_block));
+
+            printf("message received : ");
+            print_hex(message_block);
+
             vuihandler_pkt_t* message = get_vuihandler(message_block);
             switch (message->type)
             {
-            case 0x01:
-                send_message(client, get_vuihandler(generate_soo_list()));
+            case 0x01: ;
+                vuihandler_pkt_t list = {
+                    .type = 0x02,
+                    .spid = {0},
+                };
+                strcpy(list.payload, generate_soo_list());
+                send_message(client, &list);
                 break;
             case 0x04:
                 soo_outdoor_thread_running = 0;
                 soo_blind_thread_running = 0;
                 soo_heat_thread_running = 0;
-                // TODO: Select the ME
+                char spid_outdoor[SPID_SIZE];
+                char spid_blind[SPID_SIZE];
+                char spid_heat[SPID_SIZE];
+
+                hexstring_to_byte("00000200000000000000000000000002", spid_outdoor, SPID_SIZE);
+                hexstring_to_byte("00000200000000000000000000000001", spid_blind, SPID_SIZE);
+                hexstring_to_byte("00000200000000000000000000000003", spid_heat, SPID_SIZE);
+
+                // Select the ME
+                if (compare_arrays(message->spid, spid_outdoor, SPID_SIZE) == 0) {
+                    soo_outdoor_thread_running = 1;
+                    if(soo_outdoor_th != NULL) {
+                        pthread_join(&soo_outdoor_th, NULL);
+                    }
+                    vuihandler_pkt_t outdoor_model = {
+                        .type = 0x02,
+                    };
+                    strcpy(outdoor_model.spid, spid_outdoor);
+                    strcpy(outdoor_model.payload, generate_soo_outdoor());
+                    send_message(client, &outdoor_model);
+                    pthread_create(&soo_outdoor_th, NULL, soo_outdoor_thread, NULL);
+                } else if (compare_arrays(message->spid, spid_blind, SPID_SIZE) == 0) {
+                    soo_blind_thread_running = 1;
+
+                } else if (compare_arrays(message->spid, spid_heat, SPID_SIZE) == 0) {
+                    soo_heat_thread_running = 1;
+
+                } else {
+                    printf("unknown spid :");
+                    print_hex_n(message->spid, 16);
+                }
                 break;
             case 0x08:
             case 0x88:
