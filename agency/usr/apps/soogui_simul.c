@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <signal.h>
+#include <semaphore.h>
 
 #include <sys/socket.h>
 #include <bluetooth/bluetooth.h>
@@ -24,19 +25,92 @@ void sigterm_handler(int signal) {
     exit(0);
 }
 
+#define SHARED 1
 #define BLOCK_SIZE 1008
 #define TYPE_SIZE 1
 #define SPID_SIZE 16
 // #define PAYLOAD_SIZE BLOCK_SIZE - (TYPE_SIZE + SPID_SIZE)
 #define PAYLOAD_SIZE 8192
+
 typedef struct {
 	uint8_t		type;
 	uint8_t		spid[SPID_SIZE];
 	uint8_t		payload[0];
 } vuihandler_pkt_t;
 
-void print_hex(const char *s)
-{
+// typedef struct {
+//     char* id;
+//     char* action;
+//     char* value;
+// } event_t;
+
+// typedef struct node {
+//     event_t* handler;
+//     struct node* next;
+// } linked_events_t;
+
+// linked_events_t* soo_outdoor_events;
+// linked_events_t* soo_blind_events;
+// linked_events_t* soo_heat_events;
+// linked_events_t* messages_to_send;
+// sem_t soo_outdoor_empty, soo_outdoor_full;
+// sem_t soo_blind_empty, soo_blind_full;
+// sem_t soo_heat_empty, soo_heat_full;
+sem_t sem_mutex;
+
+enum MESSAGE_TYPE {REPLACE, PUSH};
+
+typedef struct {
+    int hour;
+    int min;
+} soo_outdoor_t;
+
+typedef struct {
+    double current_heat;
+    double if_external_heat;
+    double then_internal_heat;
+    double else_internal_heat;
+} soo_heat_t;
+
+typedef struct {
+    int store_position;
+    int min_pos;
+    int max_pos;
+} soo_blind_t;
+
+soo_outdoor_t soo_outdoor = {
+    .hour = 10,
+    .min = 25
+};
+
+soo_heat_t soo_heat = {
+    .current_heat = 22.5,
+    .if_external_heat = 12.0,
+    .then_internal_heat = 21.5,
+    .else_internal_heat = 20.5
+};
+
+soo_blind_t soo_blind = {
+    .store_position = 1,
+    .min_pos = 0,
+    .max_pos = 5
+};
+
+pthread_t soo_outdoor_th;
+pthread_t soo_blind_th;
+pthread_t soo_heat_th;
+
+int soo_outdoor_thread_running = 0;
+int soo_blind_thread_running = 0;
+int soo_heat_thread_running = 0;
+
+double rand_helper(double min, double max) {
+    double range = (max - min); 
+    double div = RAND_MAX / range;
+    return min + (rand() / div);
+}
+
+void print_hex(const char *s) {
   while(*s)
     printf("%02x", (unsigned int) *s++);
   printf("\n");
@@ -261,7 +335,104 @@ const char* generate_soo_heat() {
     </model>";
 }
 
-const char* create_message(const char* id, const char* value) {
+void send_message(int client, vuihandler_pkt_t* message) {
+    int beginPos = 0;
+    char tmpBuf[PAYLOAD_SIZE - 1];
+    char payload[PAYLOAD_SIZE];
+
+    sem_wait(&sem_mutex);
+    do {
+        memset(tmpBuf, '\0', PAYLOAD_SIZE - 1);
+        memset(payload, '\0', PAYLOAD_SIZE);
+        strncpy(tmpBuf, message->payload + beginPos, PAYLOAD_SIZE-1);
+
+        if(strlen(tmpBuf) < PAYLOAD_SIZE - 1) {
+            payload[0] = 0x02; // 0000 0010
+        } else {
+            payload[0] = 0x82; // 1000 0010
+        }
+        strcat(payload, tmpBuf);
+
+
+
+        printf("sending char from %d to %d!\n", beginPos, beginPos + PAYLOAD_SIZE - 1);
+        print_hex(payload);
+        write(client, payload, PAYLOAD_SIZE);
+        
+        beginPos += PAYLOAD_SIZE - 1;
+    } while (beginPos < strlen(message->payload));
+    sem_post(&sem_mutex);
+
+    printf("payload \"%s send.\"\n", message->payload);
+}
+
+void* soo_outdoor_thread(void* client_arg) {
+    int client = *((int*) client_arg);
+    double temp, lum;
+    vuihandler_pkt_t message;
+    char* buffer;
+    node_t *root, *messages, *msg, *point, *item;
+
+    printf("soo_outdoor_thread started.\n");
+
+    while(soo_outdoor_thread_running){
+        //generate random value
+        temp = rand_helper(13.9, 16);
+        lum = rand_helper(490, 500);
+
+        root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
+
+        /* Adding attributes to xml node */
+        roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
+        roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
+
+        /* Adding the messages node */
+        messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "messages", NULL);
+
+        /* Adding the message for "temp-per-day-north-station" */
+        msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
+        roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", "temp-per-day-north-station");
+        roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
+        point = roxml_add_node(msg, 0, ROXML_ELM_NODE, "point", NULL);
+        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
+        sprintf(buffer, "%.2f", (float)temp);
+        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, buffer);
+        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
+        sprintf(buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
+        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, buffer);
+        
+        /* Adding the message for "temp-per-day-south-station" */
+        msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
+        roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", "temp-per-day-south-station");
+        roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
+        point = roxml_add_node(msg, 0, ROXML_ELM_NODE, "point", NULL);
+        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
+        sprintf(buffer, "%.2f", (float)temp - 0.4f);
+        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, buffer);
+        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
+        sprintf(buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
+        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, buffer);
+
+        // create string
+        roxml_commit_changes(root, NULL, &buffer, 1);
+        roxml_release(RELEASE_LAST);
+        roxml_close(root);
+
+        message.type = 0x02;
+        strcpy(message.spid, "0020000000000002");
+        strcpy(message.payload, buffer);
+
+        // wait a minute before sending
+        sleep(60);
+
+        // send the new message
+        send_message(client, &message);
+    }
+
+    printf("soo_outdoor_thread stopped.\n");
+}
+
+const char* create_messages(const char* id, const char* value, enum MESSAGE_TYPE type) {
     char * buffer;
     node_t *root, *messages, *msg;
 
@@ -279,6 +450,10 @@ const char* create_message(const char* id, const char* value) {
 
     roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", id);
 
+    if (type == PUSH) {
+        roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
+    }
+
     roxml_add_node(msg, 0, ROXML_TXT_NODE, NULL, value);
 
     roxml_commit_changes(root, NULL, &buffer, 1);
@@ -289,43 +464,12 @@ const char* create_message(const char* id, const char* value) {
     return (const char*) buffer;
 }
 
-void send_message(int client, vuihandler_pkt_t* message) {
-    int beginPos = 0;
-    char tmpBuf[PAYLOAD_SIZE - 1];
-    char payload[PAYLOAD_SIZE];
-
-    do {
-        memset(tmpBuf, '\0', PAYLOAD_SIZE - 1);
-        memset(payload, '\0', PAYLOAD_SIZE);
-        strncpy(tmpBuf, message->payload + beginPos, PAYLOAD_SIZE-1);
-
-
-
-        if(strlen(tmpBuf) < PAYLOAD_SIZE - 1) {
-            payload[0] = 0x02; // 0000 0010
-        } else {
-            payload[0] = 0x82; // 1000 0010
-        }
-        strcat(payload, tmpBuf);
-
-
-
-        printf("sending char from %d to %d!\n", beginPos, beginPos + PAYLOAD_SIZE - 1);
-        print_hex(payload);
-        write(client, payload, PAYLOAD_SIZE);
-        
-        beginPos += PAYLOAD_SIZE - 1;
-    } while (beginPos < strlen(message->payload));
-
-    printf("payload \"%s send.\"", message->payload);
-}
-
 const char* manage_event(int client, vuihandler_pkt_t* message) {
     char *id, *action, *value;
     node_t *root, *xml;
     node_t *events, *event, *from, *action_attr, *value_txt;
 
-    printf("events received: %s", message->payload);
+    printf("events received: %s \n", message->payload);
 
     root = roxml_load_buf(message->payload);
     xml =  roxml_get_chld(root, NULL, 0);
@@ -355,7 +499,6 @@ const char* manage_event(int client, vuihandler_pkt_t* message) {
         } else if(strcmp(id,"blind-slider") == 0) {
             // double number = strtod(value, NULL);
             // send the message
-            send_message(client, get_vuihandler(create_message("blind-slider", value)));
         } else if(strcmp(id,"blind-if-lux") == 0) {
             // TODO:
         } else if(strcmp(id,"blind-then-lux") == 0) {
@@ -393,7 +536,27 @@ const char* manage_event(int client, vuihandler_pkt_t* message) {
     roxml_close(root);
 }
 
-// TODO: create single thread per ME
+// create single thread per ME
+// void *soo_outdoor_thread(void *dummy) {
+//     // TODO:
+// }
+
+// void *soo_blind_thread(void *dummy) {
+//     // TODO:
+//     int store_position = 1;
+//     const int MIN_POS = 0;
+//     const int MAX_POS = 5;
+// }
+
+// void *soo_heat_thread(void *dummy) {
+//     // TODO:
+//     double current_heat = 22.5;
+//     double if_external_heat = 12.0;
+//     double then_internal_heat = 21.5;
+//     double else_internal_heat = 20.5;
+//     while(running) {
+//     }
+// }
 
 /**
  * RFCOMM Server which receive a file of any size from the tablet
@@ -410,6 +573,7 @@ void *receive_thread(void *dummy) {
     socklen_t opt = sizeof(rem_addr);
     uint32_t size;
     const uint8_t END_SYMBOL = 0x0A;
+    int result = -1;
  
 
     /* allocate socket */
@@ -441,15 +605,9 @@ void *receive_thread(void *dummy) {
         //     continue;
         // }
 
- 
-
         // size = *((uint32_t *)size_buf);
 
- 
-
         // printf("Allocating a buffer of %u bytes:\n", size);
-
- 
 
         // /* Allocate the receive buffer with the corresponding size */
         // buf = malloc(size * sizeof(char));
@@ -457,8 +615,6 @@ void *receive_thread(void *dummy) {
         //     fprintf(stderr, "%s Error allocating the Me buffer!\n", __FILE__);
         //     continue;
         // }
-
- 
 
         // printf("Now receiving a buffer (%uB):\n", size);
         // /* Read the ME */
@@ -468,77 +624,31 @@ void *receive_thread(void *dummy) {
         //     printf("\r%d/%u B", total_bytes, size);
         // } while (bytes_read != -1 && total_bytes != size);
 
- 
-
-        // printf("\n\n");
-        // /* Send the end symbol to the client so it can close its socket */
-
-        read(client, message_block, sizeof(message_block));
-        vuihandler_pkt_t* message = get_vuihandler(message_block);
-        switch (message->type)
-        {
-        case 0x01:
-            send_message(client, get_vuihandler(generate_soo_list()));
-            break;
-        case 0x04:
-            /* code */
-            break;
-        case 0x08:
-        case 0x88:
-            /* code */
-            manage_event(client, message);
-            break;
-        
-        default:
-            printf("wrong message : %x instead of (%x, %x, %x or %x)!\n", message->type, 0x01, 0x04, 0x08, 0x88);
-            continue;
-        }
-
-        // read(client, get_mobile_entities_message, sizeof(get_mobile_entities_message));
-        // if (get_mobile_entities_message[0] != 0x01) {
-        //     printf("wrong message : %x instead of %x!\n", get_mobile_entities_message[0], 0x01);
-        //     continue;
-        // }
-
- 
-
-        // int beginPos = 0;
-        // size_t payloadSize = 8192;
-        // char tmpBuf[payloadSize-1];
-        // char payload[payloadSize];
-
- 
-
-        // printf("message size: %d\n", strlen(moblieEntities));
-        // do {
-        //     memset(tmpBuf, '\0', payloadSize-1);
-        //     memset(payload, '\0', payloadSize);
-        //     strncpy(tmpBuf, moblieEntities + beginPos, payloadSize-1);
-
- 
-
-        //     if(strlen(tmpBuf) < payloadSize-1) {
-        //         payload[0] = 0x02; // 0000 0010
-        //     } else {
-        //         payload[0] = 0x82; // 1000 0010
-        //     }
-        //     strcat(payload, tmpBuf);
-
- 
-
-        //     printf("sending char from %d to %d!\n", beginPos, beginPos + payloadSize - 1);
-        //     print_hex(payload);
-        //     write(client, payload, payloadSize);
+        do {
+            result = read(client, message_block, sizeof(message_block));
+            vuihandler_pkt_t* message = get_vuihandler(message_block);
+            switch (message->type)
+            {
+            case 0x01:
+                send_message(client, get_vuihandler(generate_soo_list()));
+                break;
+            case 0x04:
+                soo_outdoor_thread_running = 0;
+                soo_blind_thread_running = 0;
+                soo_heat_thread_running = 0;
+                // TODO: Select the ME
+                break;
+            case 0x08:
+            case 0x88:
+                /* code */
+                manage_event(client, message);
+                break;
             
-        //     beginPos += payloadSize-1;
-        // } while (beginPos < strlen(moblieEntities));
-
- 
-
-        // printf("Waiting 2s before closing socket...\n");
-        // sleep(2);
-
-        // write(client, &END_SYMBOL, 1);
+            default:
+                printf("wrong message : %x instead of (%x, %x, %x or %x)!\n", message->type, 0x01, 0x04, 0x08, 0x88);
+                continue;
+            }
+        } while (result != -1);
 
         printf("Waiting 2s before closing socket...\n");
         sleep(2);
@@ -559,11 +669,24 @@ void *receive_thread(void *dummy) {
 int main(int argc, char *argv[]) {
     pthread_t receive_th;
     // pthread_t me1, me2, tx_thread;
+    // pthread_t outdoor_th, blind_th, heat_th;
+
+    // init semaphores
+    // sem_init(&soo_outdoor_empty, SHARED, 1);
+    // sem_init(&soo_outdoor_full, SHARED, 0);
+    // sem_init(&soo_blind_empty, SHARED, 1);
+    // sem_init(&soo_blind_full, SHARED, 0);
+    // sem_init(&soo_heat_empty, SHARED, 1);
+    // sem_init(&soo_heat_full, SHARED, 0);
+    sem_init(&sem_mutex,SHARED,1);
 
     /* Open socket here */
 
 
     /* Launch MEs and TX thread here */
+    // pthread_create(&outdoor_th, NULL, soo_outdoor_thread, NULL);
+    // pthread_create(&blind_th, NULL, soo_blind_thread, NULL);
+    // pthread_create(&heat_th, NULL, soo_heat_thread, NULL);
 
 
     /* Main RX loop here, which should route rx- data and update MEs accordingly*/
@@ -571,7 +694,6 @@ int main(int argc, char *argv[]) {
 
     /* Create the thread which will handle the ME receive from the tablet */
     pthread_create(&receive_th, NULL, receive_thread, NULL);
- 
 
     signal(SIGINT, sigterm_handler);
 
