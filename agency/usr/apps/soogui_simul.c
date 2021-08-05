@@ -170,19 +170,24 @@ vuihandler_pkt_t* get_vuihandler_from_bt(const char* message_block) {
     char spid[SPID_SIZE];
     char payload[PAYLOAD_SIZE];
 
-    strncpy(type, message_block, TYPE_SIZE);
+    memcpy(type, message_block, TYPE_SIZE);
     memset(spid, '\0', SPID_SIZE);
-    strncpy(spid, message_block + TYPE_SIZE, SPID_SIZE);
+    memcpy(spid, message_block + TYPE_SIZE, SPID_SIZE);
+
+    // printf("spid : ");
+    // print_hex_n(spid, SPID_SIZE);
 
     memset(payload, '\0', PAYLOAD_SIZE);
-    strncpy(payload, message_block + TYPE_SIZE + SPID_SIZE, PAYLOAD_SIZE);
+    memcpy(payload, message_block + TYPE_SIZE + SPID_SIZE, PAYLOAD_SIZE);
+
+    // printf("payload : ");
+    // print_hex_n(payload, PAYLOAD_SIZE);
 
     vuihandler_pkt_t* message = (vuihandler_pkt_t*)malloc(sizeof(vuihandler_pkt_t));
     message->type = type[0];
-    strncpy(message->spid, spid, SPID_SIZE);
-    strncpy(message->payload, payload, PAYLOAD_SIZE);
+    memcpy(message->spid, spid, SPID_SIZE);
+    memcpy(message->payload, payload, PAYLOAD_SIZE);
 
-    printf("%d",sizeof(*message));
     print_vuihandler(message);
 
     return message;
@@ -423,7 +428,7 @@ void send_payload(int client, const char* spid, const char* payload) {
     if(spid == NULL) {
         memset(_spid, '\0', SPID_SIZE);
     } else {
-        strncpy(_spid, spid, SPID_SIZE);
+        memcpy(_spid, spid, SPID_SIZE);
     }
 
     printf("entering semaphore mutex...\n");
@@ -443,8 +448,8 @@ void send_payload(int client, const char* spid, const char* payload) {
         } else {
             message_block[0] = 0x82; // 1000 0010
         }
-        strncpy(message_block + TYPE_SIZE, spid, SPID_SIZE);
-        strncpy(message_block + TYPE_SIZE + SPID_SIZE, tmpBuf, PAYLOAD_SIZE);
+        memcpy(message_block + TYPE_SIZE, spid, SPID_SIZE);
+        memcpy(message_block + TYPE_SIZE + SPID_SIZE, tmpBuf, PAYLOAD_SIZE);
 
         printf("sending payload char from %d to %d!\n", beginPos, beginPos + PAYLOAD_SIZE - 1);
         print_hex_n(message_block, BLOCK_SIZE);
@@ -753,11 +758,15 @@ void *receive_thread(void *dummy) {
                     }
 
                     // send new soo.outdoor model
+                    printf("sending model...\n");
                     send_payload(client, spid_outdoor, generate_soo_outdoor());
+                    printf("model send\n");
                     
                     // start new thread
+                    printf("starting soo.outdoor...\n");
                     soo_outdoor_thread_running = 1;
                     pthread_create(&soo_outdoor_th, NULL, soo_outdoor_thread, NULL);
+                    printf("soo.outdoor started\n");
                 } else if (compare_arrays(message->spid, spid_blind, SPID_SIZE) == 0) {
                     soo_blind_thread_running = 1;
 
