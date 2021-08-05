@@ -193,18 +193,18 @@ const char* generate_soo_list() {
         <mobile-entity spid=\"00000200000000000000000000000003\">\
             <name>SOO.heat</name>\
             <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
-        </moblie-entity>\
+        </mobile-entity>\
         <mobile-entity spid=\"00000200000000000000000000000002\">\
             <name>SOO.outdoor</name>\
             <description>\
             SOO.outdoor permet de récupérer des informations météorologique \
             telle que la luminosité ambiante ou la température externe. \
             </description>\
-        </moblie-entity>\
+        </mobile-entity>\
         <mobile-entity spid=\"00000200000000000000000000000001\">\
             <name>SOO.blind</name>\
             <description>SOO.blind permet de gérer la position des stores.</description>\
-        </moblie-entity>\
+        </mobile-entity>\
         <mobile-entity>\
             <name>SOO.ShouldFail</name>\
             <description>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus aliquam erat ut posuere congue.\
@@ -216,7 +216,7 @@ const char* generate_soo_list() {
             egestas dui eu, tristique odio. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. \
             Curabitur ullamcorper magna quis gravida tincidunt.\
             </description>\
-        </moblie-entity>\
+        </mobile-entity>\
         </mobile-entities>";
 }
 
