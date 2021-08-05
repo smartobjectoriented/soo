@@ -66,10 +66,10 @@ typedef struct {
 } soo_outdoor_t;
 
 typedef struct {
-    double current_heat;
-    double if_external_heat;
-    double then_internal_heat;
-    double else_internal_heat;
+    float current_heat;
+    float if_external_heat;
+    float then_internal_heat;
+    float else_internal_heat;
 } soo_heat_t;
 
 typedef struct {
@@ -108,9 +108,9 @@ int min(int x, int y) {
   return (x < y) ? x : y;
 }
 
-double rand_helper(double min, double max) {
-    double range = (max - min); 
-    double div = RAND_MAX / range;
+float rand_helper(float min, float max) {
+    float range = (max - min); 
+    float div = RAND_MAX / range;
     return min + (rand() / div);
 }
 
@@ -464,18 +464,21 @@ void send_payload(int client, const char* spid, const char* payload) {
 
 void* soo_outdoor_thread(void* client_arg) {
     int client = *((int*) client_arg);
-    double temp, lum;
-    char *buffer, *spid;
-    char type[TYPE_SIZE] = {0x02};
+    float temp, lum;
+    char low_buffer[80];
+    char *buffer;
+    char spid[SPID_SIZE];
     node_t *root, *messages, *msg, *point, *item;
 
     printf("soo_outdoor_thread started.\n");
 
     while(soo_outdoor_thread_running){
         //generate random value
+        printf("get random values\n");
         temp = rand_helper(13.9, 16);
         lum = rand_helper(490, 500);
 
+        printf("create root\n");
         root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
 
         /* Adding attributes to xml node */
@@ -483,46 +486,52 @@ void* soo_outdoor_thread(void* client_arg) {
         roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
 
         /* Adding the messages node */
+        printf("create messages\n");
         messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "messages", NULL);
 
         /* Adding the message for "temp-per-day-north-station" */
+        printf("create temp-per-day-north-station\n");
         msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", "temp-per-day-north-station");
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
         point = roxml_add_node(msg, 0, ROXML_ELM_NODE, "point", NULL);
         item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
-        sprintf(buffer, "%.2f", (float)temp);
-        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, buffer);
+        sprintf(low_buffer, "%.2f", temp);
+        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
         item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
-        sprintf(buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
-        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, buffer);
+        sprintf(low_buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
+        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
         
         /* Adding the message for "temp-per-day-south-station" */
+        printf("create temp-per-day-south-station\n");
         msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", "temp-per-day-south-station");
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
         point = roxml_add_node(msg, 0, ROXML_ELM_NODE, "point", NULL);
         item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
-        sprintf(buffer, "%.2f", (float)temp - 0.4f);
-        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, buffer);
+        sprintf(low_buffer, "%.2f", temp - 0.4f);
+        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
         item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
-        sprintf(buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
-        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, buffer);
+        sprintf(low_buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
+        roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
 
         // create string
+        printf("create temp-per-day-south-station\n");
         roxml_commit_changes(root, NULL, &buffer, 1);
         roxml_release(RELEASE_LAST);
         roxml_close(root);
 
+        printf("convert spid\n");
         hexstring_to_byte("00000200000000000000000000000002", spid, SPID_SIZE);
 
         // wait a minute before sending
-        sleep(60);
+        printf("sleep 15 seconds...\n");
+        sleep(15);
 
         // send the new message
-        
+        printf("sending... payload\n");
         send_payload(client, spid, buffer);
-        
+        printf("payload send.\n");
     }
 
     printf("soo_outdoor_thread stopped.\n");
@@ -593,7 +602,7 @@ const char* manage_event(int client, vuihandler_pkt_t* message) {
             // TODO: if action is "clickUp" create timer.
             // TODO: else action is "clickDown" stop timer.
         } else if(strcmp(id,"blind-slider") == 0) {
-            // double number = strtod(value, NULL);
+            // float number = strtod(value, NULL);
             // send the message
         } else if(strcmp(id,"blind-if-lux") == 0) {
             // TODO:
@@ -646,10 +655,10 @@ const char* manage_event(int client, vuihandler_pkt_t* message) {
 
 // void *soo_heat_thread(void *dummy) {
 //     // TODO:
-//     double current_heat = 22.5;
-//     double if_external_heat = 12.0;
-//     double then_internal_heat = 21.5;
-//     double else_internal_heat = 20.5;
+//     float current_heat = 22.5;
+//     float if_external_heat = 12.0;
+//     float then_internal_heat = 21.5;
+//     float else_internal_heat = 20.5;
 //     while(running) {
 //     }
 // }
@@ -765,7 +774,7 @@ void *receive_thread(void *dummy) {
                     // start new thread
                     printf("starting soo.outdoor...\n");
                     soo_outdoor_thread_running = 1;
-                    pthread_create(&soo_outdoor_th, NULL, soo_outdoor_thread, NULL);
+                    pthread_create(&soo_outdoor_th, NULL, soo_outdoor_thread, &client);
                     printf("soo.outdoor started\n");
                 } else if (compare_arrays(message->spid, spid_blind, SPID_SIZE) == 0) {
                     soo_blind_thread_running = 1;
