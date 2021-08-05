@@ -29,13 +29,13 @@ void sigterm_handler(int signal) {
 #define BLOCK_SIZE 1008
 #define TYPE_SIZE 1
 #define SPID_SIZE 16
-// #define PAYLOAD_SIZE BLOCK_SIZE - (TYPE_SIZE + SPID_SIZE)
-#define PAYLOAD_SIZE 8192
+#define PAYLOAD_SIZE BLOCK_SIZE - (TYPE_SIZE + SPID_SIZE)
+// #define PAYLOAD_SIZE 8192
 
 typedef struct {
-	uint8_t		type;
-	uint8_t		spid[SPID_SIZE];
-	uint8_t		payload[0];
+	char type;
+	char spid[SPID_SIZE];
+	char payload[PAYLOAD_SIZE];
 } vuihandler_pkt_t;
 
 // typedef struct {
@@ -104,6 +104,10 @@ int soo_outdoor_thread_running = 0;
 int soo_blind_thread_running = 0;
 int soo_heat_thread_running = 0;
 
+int min(int x, int y) {
+  return (x < y) ? x : y;
+}
+
 double rand_helper(double min, double max) {
     double range = (max - min); 
     double div = RAND_MAX / range;
@@ -122,6 +126,23 @@ void print_hex_n(const char *s, int n) {
         printf("%02x", (unsigned int) *s++);
     }
     printf("\n");
+}
+
+void print_vuihandler(vuihandler_pkt_t* vuihandler) {
+    printf("{\ntype: ");
+    int i;
+    for(i = 0; i < TYPE_SIZE; ++i) {
+        printf("%02x", (unsigned int) vuihandler->type);
+    }
+    printf(",\n spid: ");
+    for(i = 0; i < SPID_SIZE; ++i) {
+        printf("%02x", (unsigned int) vuihandler->spid[i]);
+    }
+    printf(",\n payload: ");
+    for(i = 0; i < PAYLOAD_SIZE; ++i) {
+        printf("%02x", (unsigned int) vuihandler->payload[i]);
+    }
+    printf("\n}\n");
 }
 
 int compare_arrays(const char* a, const char* b, int n)
@@ -144,31 +165,30 @@ void hexstring_to_byte(const char* src, char* dest, int n) {
     }
 }
 
-
-vuihandler_pkt_t* get_vuihandler(const char* message_block) {
+vuihandler_pkt_t* get_vuihandler_from_bt(const char* message_block) {
     char type[TYPE_SIZE];
     char spid[SPID_SIZE];
     char payload[PAYLOAD_SIZE];
 
     strncpy(type, message_block, TYPE_SIZE);
+    memset(spid, '\0', SPID_SIZE);
     strncpy(spid, message_block + TYPE_SIZE, SPID_SIZE);
 
     memset(payload, '\0', PAYLOAD_SIZE);
     strncpy(payload, message_block + TYPE_SIZE + SPID_SIZE, PAYLOAD_SIZE);
 
-    vuihandler_pkt_t message = {
-        .type = type,
-        .spid = spid,
-        .payload = payload
-    };
-    // message.type = type;
-    // message.spid = spid;
-    // message.payload = payload;
+    vuihandler_pkt_t* message = (vuihandler_pkt_t*)malloc(sizeof(vuihandler_pkt_t));
+    message->type = type[0];
+    strncpy(message->spid, spid, SPID_SIZE);
+    strncpy(message->payload, payload, PAYLOAD_SIZE);
 
-    return &message;
+    printf("%d",sizeof(*message));
+    print_vuihandler(message);
+
+    return message;
 }
 
-char* generate_soo_list() {
+const char* generate_soo_list() {
     return "<mobile-entities>\
         <mobile-entity spid=\"00000200000000000000000000000003\">\
             <name>SOO.heat</name>\
@@ -364,42 +384,84 @@ const char* generate_soo_heat() {
     </model>";
 }
 
-void send_message(int client, vuihandler_pkt_t* message) {
-    int beginPos = 0;
-    char tmpBuf[PAYLOAD_SIZE - 1];
-    char payload[PAYLOAD_SIZE];
+// void send_message(int client, vuihandler_pkt_t* message) {
+//     int beginPos = 0;
+//     char tmpBuf[PAYLOAD_SIZE - 1];
+//     char payload[PAYLOAD_SIZE];
 
+//     do {
+//         memset(tmpBuf, '\0', PAYLOAD_SIZE - 1);
+//         memset(payload, '\0', PAYLOAD_SIZE);
+//         strncpy(tmpBuf, message->payload + beginPos, PAYLOAD_SIZE-1);
+
+//         if(strlen(tmpBuf) < PAYLOAD_SIZE - 1) {
+//             payload[0] = 0x02; // 0000 0010
+//         } else {
+//             payload[0] = 0x82; // 1000 0010
+//         }
+//         strcat(payload, tmpBuf);
+
+
+
+//         printf("sending char from %d to %d!\n", beginPos, beginPos + PAYLOAD_SIZE - 1);
+//         print_hex(payload);
+//         write(client, payload, PAYLOAD_SIZE);
+        
+//         beginPos += PAYLOAD_SIZE - 1;
+//     } while (beginPos < strlen(message->payload));
+
+//     printf("payload \"%s send.\"\n", message->payload);
+// }
+
+void send_payload(int client, const char* spid, const char* payload) {
+    int beginPos = 0;
+    char _spid[SPID_SIZE];
+    char tmpBuf[PAYLOAD_SIZE];
+    char message_block[BLOCK_SIZE];
+
+    printf("setting _spid...\n");
+    if(spid == NULL) {
+        memset(_spid, '\0', SPID_SIZE);
+    } else {
+        strncpy(_spid, spid, SPID_SIZE);
+    }
+
+    printf("entering semaphore mutex...\n");
     sem_wait(&sem_mutex);
     do {
-        memset(tmpBuf, '\0', PAYLOAD_SIZE - 1);
-        memset(payload, '\0', PAYLOAD_SIZE);
-        strncpy(tmpBuf, message->payload + beginPos, PAYLOAD_SIZE-1);
 
+        printf("prepare new message...\n");
+        memset(tmpBuf, '\0', PAYLOAD_SIZE);
+        strncpy(tmpBuf, payload + beginPos, min(PAYLOAD_SIZE - 1, strlen(payload + beginPos)));
+
+        memset(message_block, '\0', BLOCK_SIZE);
+
+        printf("size tmpBuf : %d\n", strlen(tmpBuf));
+        printf("min %d %d",PAYLOAD_SIZE - 1, strlen(payload + beginPos));
         if(strlen(tmpBuf) < PAYLOAD_SIZE - 1) {
-            payload[0] = 0x02; // 0000 0010
+            message_block[0] = 0x02; // 0000 0010
         } else {
-            payload[0] = 0x82; // 1000 0010
+            message_block[0] = 0x82; // 1000 0010
         }
-        strcat(payload, tmpBuf);
+        strncpy(message_block + TYPE_SIZE, spid, SPID_SIZE);
+        strncpy(message_block + TYPE_SIZE + SPID_SIZE, tmpBuf, PAYLOAD_SIZE);
 
-
-
-        printf("sending char from %d to %d!\n", beginPos, beginPos + PAYLOAD_SIZE - 1);
-        print_hex(payload);
-        write(client, payload, PAYLOAD_SIZE);
+        printf("sending payload char from %d to %d!\n", beginPos, beginPos + PAYLOAD_SIZE - 1);
+        print_hex_n(message_block, BLOCK_SIZE);
+        printf("payload send : %s\n", message_block + TYPE_SIZE + SPID_SIZE);
+        write(client, message_block, BLOCK_SIZE);
         
         beginPos += PAYLOAD_SIZE - 1;
-    } while (beginPos < strlen(message->payload));
+    } while (beginPos < strlen(payload));
     sem_post(&sem_mutex);
-
-    printf("payload \"%s send.\"\n", message->payload);
+    printf("exiting semaphore mutex...\n");
 }
 
 void* soo_outdoor_thread(void* client_arg) {
     int client = *((int*) client_arg);
     double temp, lum;
-    vuihandler_pkt_t message;
-    char* buffer, *spid;
+    char *buffer, *spid;
+    char type[TYPE_SIZE] = {0x02};
     node_t *root, *messages, *msg, *point, *item;
 
     printf("soo_outdoor_thread started.\n");
@@ -448,15 +510,14 @@ void* soo_outdoor_thread(void* client_arg) {
         roxml_close(root);
 
         hexstring_to_byte("00000200000000000000000000000002", spid, SPID_SIZE);
-        message.type = 0x02;
-        strcpy(message.spid, spid);
-        strcpy(message.payload, buffer);
 
         // wait a minute before sending
         sleep(60);
 
         // send the new message
-        send_message(client, &message);
+        
+        send_payload(client, spid, buffer);
+        
     }
 
     printf("soo_outdoor_thread stopped.\n");
@@ -658,18 +719,19 @@ void *receive_thread(void *dummy) {
             result = read(client, message_block, sizeof(message_block));
 
             printf("message received : ");
-            print_hex(message_block);
+            print_hex_n(message_block, sizeof(message_block));
 
-            vuihandler_pkt_t* message = get_vuihandler(message_block);
+            vuihandler_pkt_t* message = get_vuihandler_from_bt(message_block);
             switch (message->type)
             {
             case 0x01: ;
-                vuihandler_pkt_t list = {
-                    .type = 0x02,
-                    .spid = {0},
-                };
-                strcpy(list.payload, generate_soo_list());
-                send_message(client, &list);
+                printf("case 0x01\n");
+                printf("sending message...\n");
+                const char* payload = generate_soo_list();
+                char spid[SPID_SIZE];
+                memset(spid, '\0', SPID_SIZE);
+                send_payload(client, spid, payload);
+                printf("message send\n");
                 break;
             case 0x04:
                 soo_outdoor_thread_running = 0;
@@ -685,16 +747,16 @@ void *receive_thread(void *dummy) {
 
                 // Select the ME
                 if (compare_arrays(message->spid, spid_outdoor, SPID_SIZE) == 0) {
-                    soo_outdoor_thread_running = 1;
+                    // stop old thread
                     if(soo_outdoor_th != NULL) {
                         pthread_join(&soo_outdoor_th, NULL);
                     }
-                    vuihandler_pkt_t outdoor_model = {
-                        .type = 0x02,
-                    };
-                    strcpy(outdoor_model.spid, spid_outdoor);
-                    strcpy(outdoor_model.payload, generate_soo_outdoor());
-                    send_message(client, &outdoor_model);
+
+                    // send new soo.outdoor model
+                    send_payload(client, spid_outdoor, generate_soo_outdoor());
+                    
+                    // start new thread
+                    soo_outdoor_thread_running = 1;
                     pthread_create(&soo_outdoor_th, NULL, soo_outdoor_thread, NULL);
                 } else if (compare_arrays(message->spid, spid_blind, SPID_SIZE) == 0) {
                     soo_blind_thread_running = 1;
@@ -704,7 +766,7 @@ void *receive_thread(void *dummy) {
 
                 } else {
                     printf("unknown spid :");
-                    print_hex_n(message->spid, 16);
+                    print_hex_n(message->spid, SPID_SIZE);
                 }
                 break;
             case 0x08:
@@ -731,6 +793,8 @@ void *receive_thread(void *dummy) {
     
     printf("Closing socket...\n");
     close(s);
+
+    return NULL;
 }
 
 /* This thread launch the MEs and the TX thread threads and then acts as the vuihandler-RX thread 
@@ -747,7 +811,7 @@ int main(int argc, char *argv[]) {
     // sem_init(&soo_blind_full, SHARED, 0);
     // sem_init(&soo_heat_empty, SHARED, 1);
     // sem_init(&soo_heat_full, SHARED, 0);
-    sem_init(&sem_mutex,SHARED,1);
+    sem_init(&sem_mutex, SHARED, 1);
 
     /* Open socket here */
 
