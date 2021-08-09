@@ -38,24 +38,6 @@ typedef struct {
 	char payload[PAYLOAD_SIZE];
 } vuihandler_pkt_t;
 
-// typedef struct {
-//     char* id;
-//     char* action;
-//     char* value;
-// } event_t;
-
-// typedef struct node {
-//     event_t* handler;
-//     struct node* next;
-// } linked_events_t;
-
-// linked_events_t* soo_outdoor_events;
-// linked_events_t* soo_blind_events;
-// linked_events_t* soo_heat_events;
-// linked_events_t* messages_to_send;
-// sem_t soo_outdoor_empty, soo_outdoor_full;
-// sem_t soo_blind_empty, soo_blind_full;
-// sem_t soo_heat_empty, soo_heat_full;
 sem_t sem_mutex;
 
 enum MESSAGE_TYPE {REPLACE, PUSH};
@@ -76,6 +58,9 @@ typedef struct {
     int store_position;
     int min_pos;
     int max_pos;
+    float if_luminosity;
+    char* then_action;
+    char* on_me;
 } soo_blind_t;
 
 soo_outdoor_t soo_outdoor = {
@@ -93,12 +78,19 @@ soo_heat_t soo_heat = {
 soo_blind_t soo_blind = {
     .store_position = 1,
     .min_pos = 0,
-    .max_pos = 15
+    .max_pos = 15,
+    .if_luminosity = 0.0f,
+    .then_action = NULL,
+    .on_me = NULL
 };
 
 pthread_t soo_outdoor_th;
+
 pthread_t soo_blind_th;
+sem_t sem_mutex_blind;
+
 pthread_t soo_heat_th;
+sem_t sem_mutex_heat;
 
 int soo_outdoor_thread_running = 0;
 int soo_blind_thread_running = 0;
@@ -359,7 +351,6 @@ const char* generate_soo_heat() {
     <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
     <layout>\
         <row>\
-            <col><label for=\"heat-current-temp\">Position des stores</label></col>\
             <col><number id=\"heat-current-temp\" step=\"0.5\">22.5</number></col>\
             <col><button id=\"heat-increase-temp\" lockable=\"true\">-0.5°C</button></col>\
             <col><button id=\"heat-decrease-temp\" lockable=\"true\">+0.5°C</button></col>\
@@ -551,8 +542,9 @@ void* soo_outdoor_thread(void* client_arg) {
     printf("soo_outdoor_thread stopped.\n");
 }
 
-void* soo_blind_thread(void* client_arg) {
-    int client = *((int*) client_arg);
+void* soo_blind_thread(void* args) {
+    int client = ((int*) args)[0];
+    int direction = ((int*) args)[1]; // 0 = up; 1 = down
     // TODO:
 }
 
@@ -562,93 +554,156 @@ void* soo_heat_thread(void* client_arg) {
 }
 
 const char* manage_event(int client, vuihandler_pkt_t* message) {
-    char *id, *action, *value;
-    node_t *root, *xml;
-    node_t *events, *event, *from, *action_attr, *value_txt;
+    char id[1024], action[1024], value[1024];
+    // char *id, *action, *value;
+    node_t *root, *events, *event, *from, *action_attr, *value_txt;
 
     printf("events received: %s \n", message->payload);
 
     root = roxml_load_buf(message->payload);
-    xml =  roxml_get_chld(root, NULL, 0);
-
-    events = roxml_get_chld(xml, NULL, 0);
+    events = roxml_get_chld(root, NULL, 0);
+    printf("events loaded\n");
 
     // read each events
     int i;
     for(i = 0; i < roxml_get_chld_nb(events); ++i){
-        event = roxml_get_chld(events, NULL, i);
+        printf("treating event nth %i\n", i+1);
+        event = roxml_get_chld(events, "event", i+1);
         from = roxml_get_attr(event, "from", 0);
         action_attr = roxml_get_attr(event, "action", 0);
         value_txt = roxml_get_txt(event, 0);
+        printf("xml parsed\n");
 
-
-        strcpy(id, roxml_get_content(from, NULL, 0, NULL));
-        strcpy(action, roxml_get_content(action_attr, NULL, 0, NULL));
-        strcpy(value, roxml_get_content(value_txt, NULL, 0, NULL));
+        memset(id, '\0', sizeof(id));
+        memset(action, '\0', sizeof(action));
+        memset(value, '\0', sizeof(value));
+        roxml_get_content(from, id, sizeof(id), NULL);
+        roxml_get_content(action_attr, action, sizeof(action), NULL);
+        roxml_get_content(value_txt, value, sizeof(value), NULL);
 
         // apply action
+        // blind-up
         if(strcmp(id,"blind-up") == 0) {
-            printf("event blind-up\n");
-            // TODO: if action is "clickDown" create timer.
-            // TODO: else action is "clickUp" stop timer.
-        } else if(strcmp(id,"blind-down") == 0) {
-            printf("event blind-down\n");
-            // TODO: if action is "clickDown" create timer.
-            // TODO: else action is "clickUp" stop timer.
-        } else if(strcmp(id,"blind-slider") == 0) {
-            printf("event blind-slider\n");
+            printf("event from blind-up with %s\n", action);
+
+            int args[2] = {client, 0};
+            soo_blind_thread_running = 0;
+
+            // stop old thread
+            if(soo_blind_th != NULL) {
+                printf("cancelling old SOO.blind thread\n");
+                pthread_cancel(soo_outdoor_th);
+            }
+
+            // if action is "clickDown" create timer.
+            if (strcmp(action, "clickDown") == 0) {
+                // start new thread
+                printf("starting soo.blind timer...\n");
+                soo_blind_thread_running = 1;
+                pthread_create(&soo_blind_th, NULL, soo_blind_thread, &args);
+                printf("soo.blind timer started\n");
+            }
+        } 
+        // blind-down
+        else if(strcmp(id,"blind-down") == 0) {
+            printf("event from blind-down with %s\n", action);
+            
+            int args[2] = {client, 1};
+            soo_blind_thread_running = 0;
+
+            // stop old thread
+            if(soo_blind_th != NULL) {
+                printf("cancelling old SOO.blind thread\n");
+                pthread_cancel(soo_outdoor_th);
+            }
+
+            // if action is "clickDown" create timer.
+            if (strcmp(action, "clickDown") == 0) {
+                // start new thread
+                printf("starting soo.blind timer...\n");
+                soo_blind_thread_running = 1;
+                pthread_create(&soo_blind_th, NULL, soo_blind_thread, &args);
+                printf("soo.blind timer started\n");
+            }
+        } 
+        // blind-slider
+        else if(strcmp(id,"blind-slider") == 0) {
+            printf("event from blind-slider with %s\n", action);
             // float number = strtod(value, NULL);
             int new_pos = atoi(value);
             if (new_pos <= soo_blind.max_pos && new_pos >= soo_blind.min_pos){
+                sem_wait(&sem_mutex_blind);
                 soo_blind.store_position = new_pos;
+                sem_post(&sem_mutex_blind);
             }
-        } else if(strcmp(id,"blind-if-lux") == 0) {
-            printf("event blind-if-lux\n");
+        } 
+        // blind-if-lux
+        else if(strcmp(id,"blind-if-lux") == 0) {
+            printf("event from blind-if-lux with action %s and value %s\n", action, value);
+            float number = strtod(value, NULL);
+            sem_wait(&sem_mutex_blind);
+            soo_blind.if_luminosity = number;
+            sem_post(&sem_mutex_blind);
+        } 
+        // blind-then-lux
+        else if(strcmp(id,"blind-then-lux") == 0) {
+            printf("event from blind-then-lux with action %s and value %s\n", action, value);
+            sem_wait(&sem_mutex_blind);
+            soo_blind.then_action = value;
+            sem_post(&sem_mutex_blind);
+        } 
+        // blind-on-lux
+        else if(strcmp(id,"blind-on-lux") == 0) {
+            printf("event from blind-on-lux with action %s and value %s\n", action, value);
+            sem_wait(&sem_mutex_blind);
+            soo_blind.on_me = value;
+            sem_post(&sem_mutex_blind);
+        } 
+
+        // SOO.heat events
+        // heat-current-temp
+        else if(strcmp(id,"heat-current-temp") == 0) {
+            printf("event from heat-current-temp\n");
             // TODO:
-        } else if(strcmp(id,"blind-then-lux") == 0) {
-            printf("event blind-then-lux\n");
+        } 
+        // heat-increase-temp
+        else if(strcmp(id,"heat-increase-temp") == 0) {
+            printf("event from heat-increase-temp\n");
             // TODO:
-        } else if(strcmp(id,"blind-on-lux") == 0) {
-            printf("event blind-on-lux\n");
-            // TODO:
-        } else if(strcmp(id,"heat-current-temp") == 0) {
-            printf("event heat-current-temp\n");
-            // TODO:
-        } else if(strcmp(id,"heat-increase-temp") == 0) {
-            printf("event heat-increase-temp\n");
-            // TODO:
-        } else if(strcmp(id,"heat-decrease-temp") == 0) {
-            printf("event heat-decrease-temp\n");
+        } 
+        // heat-decrease-temp
+        else if(strcmp(id,"heat-decrease-temp") == 0) {
+            printf("event from heat-decrease-temp\n");
             // TODO:
         } else if(strcmp(id,"heat-if-temp") == 0) {
-            printf("event heat-if-temp\n");
+            printf("event from heat-if-temp\n");
             // TODO:
         } else if(strcmp(id,"heat-if-temp-increase") == 0) {
-            printf("event heat-if-temp-increase\n");
+            printf("event from heat-if-temp-increase\n");
             // TODO:
         } else if(strcmp(id,"heat-if-temp-decrease") == 0) {
-            printf("event heat-if-temp-decrease\n");
+            printf("event from heat-if-temp-decrease\n");
             // TODO:
         } else if(strcmp(id,"heat-then-temp") == 0) {
-            printf("event heat-then-temp\n");
+            printf("event from heat-then-temp\n");
             // TODO:
         } else if(strcmp(id,"heat-then-temp-increase") == 0) {
-            printf("event heat-then-temp-increase\n");
+            printf("event from heat-then-temp-increase\n");
             // TODO:
         } else if(strcmp(id,"heat-then-temp-decrease") == 0) {
-            printf("event heat-then-temp-decrease\n");
+            printf("event from heat-then-temp-decrease\n");
             // TODO:
         } else if(strcmp(id,"heat-else-temp") == 0) {
-            printf("event heat-else-temp\n");
+            printf("event from heat-else-temp\n");
             // TODO:
         } else if(strcmp(id,"heat-else-temp-increase") == 0) {
-            printf("event heat-else-temp-increase\n");
+            printf("event from heat-else-temp-increase\n");
             // TODO:
         } else if(strcmp(id,"heat-else-temp-decrease") == 0) {
-            printf("event heat-else-temp-decrease\n");
+            printf("event from heat-else-temp-decrease\n");
             // TODO:
         } else {
-            printf("unknown event %s\n", id);
+            printf("unknown event from %s\n", id);
         }
     }
 
@@ -700,7 +755,7 @@ void *receive_thread(void *dummy) {
         do {
             result = read(client, message_block, sizeof(message_block));
 
-            printf("message received : ");
+            printf("\nmessage received : ");
             print_hex_n(message_block, sizeof(message_block));
 
             vuihandler_pkt_t* message = get_vuihandler_from_bt(message_block);
@@ -734,7 +789,7 @@ void *receive_thread(void *dummy) {
                     printf("SOO.outdoor selected\n");
                     // stop old thread
                     if(soo_outdoor_th != NULL) {
-                        printf("joining old SOO.outdoor thread\n");
+                        printf("cancelling old SOO.outdoor thread\n");
                         pthread_cancel(soo_outdoor_th);
                     }
 
@@ -813,6 +868,8 @@ int main(int argc, char *argv[]) {
     // sem_init(&soo_heat_empty, SHARED, 1);
     // sem_init(&soo_heat_full, SHARED, 0);
     sem_init(&sem_mutex, SHARED, 1);
+    sem_init(&sem_mutex_blind, SHARED, 1);
+    sem_init(&sem_mutex_heat, SHARED, 1);
 
     /* Open socket here */
 
