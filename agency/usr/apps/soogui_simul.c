@@ -479,7 +479,7 @@ void* soo_outdoor_thread(void* client_arg) {
         lum = rand_helper(490, 500);
 
         printf("create root\n");
-        root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
+        root = roxml_add_node(NULL, 0, ROXML_PI_NODE, "xml", "version=\"1.0\" encoding=\"UTF-8\"");
 
         /* Adding attributes to xml node */
         roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
@@ -495,10 +495,10 @@ void* soo_outdoor_thread(void* client_arg) {
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", "temp-per-day-north-station");
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
         point = roxml_add_node(msg, 0, ROXML_ELM_NODE, "point", NULL);
-        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
+        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "item", NULL);
         sprintf(low_buffer, "%.2f", temp);
         roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
-        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
+        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "item", NULL);
         sprintf(low_buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
         roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
         
@@ -508,10 +508,10 @@ void* soo_outdoor_thread(void* client_arg) {
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", "temp-per-day-south-station");
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
         point = roxml_add_node(msg, 0, ROXML_ELM_NODE, "point", NULL);
-        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
+        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "item", NULL);
         sprintf(low_buffer, "%.2f", temp - 0.4f);
         roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
-        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "point", NULL);
+        item = roxml_add_node(point, 0, ROXML_ELM_NODE, "item", NULL);
         sprintf(low_buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
         roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
 
