@@ -36,7 +36,7 @@ static bool log_soo_soolink_transcoder = false;
 static bool log_soo_soolink_transcoder_block = false;
 
 /* Winenet */
-static bool log_soo_soolink_winenet = true;
+static bool log_soo_soolink_winenet = false;
 static bool log_soo_soolink_winenet_beacon = false;
 static bool log_soo_soolink_winenet_neighbour = false;
 static bool log_soo_soolink_winenet_state = false;
