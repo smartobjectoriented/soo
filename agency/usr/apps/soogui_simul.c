@@ -93,7 +93,7 @@ soo_heat_t soo_heat = {
 soo_blind_t soo_blind = {
     .store_position = 1,
     .min_pos = 0,
-    .max_pos = 5
+    .max_pos = 15
 };
 
 pthread_t soo_outdoor_th;
@@ -335,7 +335,7 @@ const char* generate_soo_blind() {
             <col><label for=\"blind-up\">Position des stores</label></col>\
             <col><button id=\"blind-up\" lockable=\"true\" lockable-after=\"2\">Monter</button></col>\
             <col><button id=\"blind-down\" lockable=\"true\" lockable-after=\"2\">Descendre</button></col>\
-            <col><slider id=\"blind-slider\" max=\"5\" step=\"1\" orientation=\"vertical\">1</slider></col>\
+            <col><slider id=\"blind-slider\" max=\"15\" step=\"1\" orientation=\"vertical\">1</slider></col>\
         </row>\
         <row>\
             <col><label for=\"blind-if-lux\">Condition 1</label></col>\
@@ -389,35 +389,6 @@ const char* generate_soo_heat() {
     </model>";
 }
 
-// void send_message(int client, vuihandler_pkt_t* message) {
-//     int beginPos = 0;
-//     char tmpBuf[PAYLOAD_SIZE - 1];
-//     char payload[PAYLOAD_SIZE];
-
-//     do {
-//         memset(tmpBuf, '\0', PAYLOAD_SIZE - 1);
-//         memset(payload, '\0', PAYLOAD_SIZE);
-//         strncpy(tmpBuf, message->payload + beginPos, PAYLOAD_SIZE-1);
-
-//         if(strlen(tmpBuf) < PAYLOAD_SIZE - 1) {
-//             payload[0] = 0x02; // 0000 0010
-//         } else {
-//             payload[0] = 0x82; // 1000 0010
-//         }
-//         strcat(payload, tmpBuf);
-
-
-
-//         printf("sending char from %d to %d!\n", beginPos, beginPos + PAYLOAD_SIZE - 1);
-//         print_hex(payload);
-//         write(client, payload, PAYLOAD_SIZE);
-        
-//         beginPos += PAYLOAD_SIZE - 1;
-//     } while (beginPos < strlen(message->payload));
-
-//     printf("payload \"%s send.\"\n", message->payload);
-// }
-
 void send_payload(int client, const char* spid, const char* payload) {
     int beginPos = 0;
     char _spid[SPID_SIZE];
@@ -437,13 +408,13 @@ void send_payload(int client, const char* spid, const char* payload) {
 
         printf("prepare new message...\n");
         memset(tmpBuf, '\0', PAYLOAD_SIZE);
-        strncpy(tmpBuf, payload + beginPos, min(PAYLOAD_SIZE - 1, strlen(payload + beginPos)));
+        strncpy(tmpBuf, payload + beginPos, min(PAYLOAD_SIZE, strlen(payload + beginPos)));
 
         memset(message_block, '\0', BLOCK_SIZE);
 
-        printf("size tmpBuf : %d\n", strlen(tmpBuf));
-        printf("min %d %d",PAYLOAD_SIZE - 1, strlen(payload + beginPos));
-        if(strlen(tmpBuf) < PAYLOAD_SIZE - 1) {
+        printf("size tmpBuf : %d\n", strnlen(tmpBuf, PAYLOAD_SIZE));
+        printf("min %d %d\n",PAYLOAD_SIZE, strnlen(payload + beginPos, PAYLOAD_SIZE));
+        if(strnlen(tmpBuf, PAYLOAD_SIZE) < PAYLOAD_SIZE) {
             message_block[0] = 0x02; // 0000 0010
         } else {
             message_block[0] = 0x82; // 1000 0010
@@ -451,15 +422,47 @@ void send_payload(int client, const char* spid, const char* payload) {
         memcpy(message_block + TYPE_SIZE, spid, SPID_SIZE);
         memcpy(message_block + TYPE_SIZE + SPID_SIZE, tmpBuf, PAYLOAD_SIZE);
 
-        printf("sending payload char from %d to %d!\n", beginPos, beginPos + PAYLOAD_SIZE - 1);
+        printf("sending payload char from %d to %d!\n", beginPos, beginPos + PAYLOAD_SIZE);
         print_hex_n(message_block, BLOCK_SIZE);
         printf("payload send : %s\n", message_block + TYPE_SIZE + SPID_SIZE);
         write(client, message_block, BLOCK_SIZE);
         
-        beginPos += PAYLOAD_SIZE - 1;
+        beginPos += PAYLOAD_SIZE;
     } while (beginPos < strlen(payload));
     sem_post(&sem_mutex);
     printf("exiting semaphore mutex...\n");
+}
+
+const char* create_messages(const char* id, const char* value, enum MESSAGE_TYPE type) {
+    char * buffer;
+    node_t *root, *messages, *msg;
+
+    root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
+
+    /* Adding attributes to xml node */
+    roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
+    roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
+
+    /* Adding the messages node */
+    messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "messages", NULL);
+
+    /* Adding the message itself */
+    msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
+
+    roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", id);
+
+    if (type == PUSH) {
+        roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
+    }
+
+    roxml_add_node(msg, 0, ROXML_TXT_NODE, NULL, value);
+
+    roxml_commit_changes(root, NULL, &buffer, 1);
+
+    roxml_release(RELEASE_LAST);
+    roxml_close(root);
+
+    return (const char*) buffer;
 }
 
 void* soo_outdoor_thread(void* client_arg) {
@@ -548,36 +551,14 @@ void* soo_outdoor_thread(void* client_arg) {
     printf("soo_outdoor_thread stopped.\n");
 }
 
-const char* create_messages(const char* id, const char* value, enum MESSAGE_TYPE type) {
-    char * buffer;
-    node_t *root, *messages, *msg;
+void* soo_blind_thread(void* client_arg) {
+    int client = *((int*) client_arg);
+    // TODO:
+}
 
-    root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
-
-    /* Adding attributes to xml node */
-    roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
-    roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
-
-    /* Adding the messages node */
-    messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "messages", NULL);
-
-    /* Adding the message itself */
-    msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
-
-    roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", id);
-
-    if (type == PUSH) {
-        roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
-    }
-
-    roxml_add_node(msg, 0, ROXML_TXT_NODE, NULL, value);
-
-    roxml_commit_changes(root, NULL, &buffer, 1);
-
-    roxml_release(RELEASE_LAST);
-    roxml_close(root);
-
-    return (const char*) buffer;
+void* soo_heat_thread(void* client_arg) {
+    int client = *((int*) client_arg);
+    // TODO:
 }
 
 const char* manage_event(int client, vuihandler_pkt_t* message) {
@@ -607,72 +588,73 @@ const char* manage_event(int client, vuihandler_pkt_t* message) {
 
         // apply action
         if(strcmp(id,"blind-up") == 0) {
-            // TODO: if action is "clickUp" create timer.
-            // TODO: else action is "clickDown" stop timer.
-        } else if(strcmp(id,"blind-up") == 0) {
-            // TODO: if action is "clickUp" create timer.
-            // TODO: else action is "clickDown" stop timer.
+            printf("event blind-up\n");
+            // TODO: if action is "clickDown" create timer.
+            // TODO: else action is "clickUp" stop timer.
+        } else if(strcmp(id,"blind-down") == 0) {
+            printf("event blind-down\n");
+            // TODO: if action is "clickDown" create timer.
+            // TODO: else action is "clickUp" stop timer.
         } else if(strcmp(id,"blind-slider") == 0) {
+            printf("event blind-slider\n");
             // float number = strtod(value, NULL);
-            // send the message
+            int new_pos = atoi(value);
+            if (new_pos <= soo_blind.max_pos && new_pos >= soo_blind.min_pos){
+                soo_blind.store_position = new_pos;
+            }
         } else if(strcmp(id,"blind-if-lux") == 0) {
+            printf("event blind-if-lux\n");
             // TODO:
         } else if(strcmp(id,"blind-then-lux") == 0) {
+            printf("event blind-then-lux\n");
             // TODO:
         } else if(strcmp(id,"blind-on-lux") == 0) {
+            printf("event blind-on-lux\n");
             // TODO:
         } else if(strcmp(id,"heat-current-temp") == 0) {
+            printf("event heat-current-temp\n");
             // TODO:
         } else if(strcmp(id,"heat-increase-temp") == 0) {
+            printf("event heat-increase-temp\n");
             // TODO:
         } else if(strcmp(id,"heat-decrease-temp") == 0) {
+            printf("event heat-decrease-temp\n");
             // TODO:
         } else if(strcmp(id,"heat-if-temp") == 0) {
+            printf("event heat-if-temp\n");
             // TODO:
         } else if(strcmp(id,"heat-if-temp-increase") == 0) {
+            printf("event heat-if-temp-increase\n");
             // TODO:
         } else if(strcmp(id,"heat-if-temp-decrease") == 0) {
+            printf("event heat-if-temp-decrease\n");
             // TODO:
         } else if(strcmp(id,"heat-then-temp") == 0) {
+            printf("event heat-then-temp\n");
             // TODO:
         } else if(strcmp(id,"heat-then-temp-increase") == 0) {
+            printf("event heat-then-temp-increase\n");
             // TODO:
         } else if(strcmp(id,"heat-then-temp-decrease") == 0) {
+            printf("event heat-then-temp-decrease\n");
             // TODO:
         } else if(strcmp(id,"heat-else-temp") == 0) {
+            printf("event heat-else-temp\n");
             // TODO:
         } else if(strcmp(id,"heat-else-temp-increase") == 0) {
+            printf("event heat-else-temp-increase\n");
             // TODO:
         } else if(strcmp(id,"heat-else-temp-decrease") == 0) {
+            printf("event heat-else-temp-decrease\n");
             // TODO:
+        } else {
+            printf("unknown event %s\n", id);
         }
     }
 
     roxml_release(RELEASE_LAST);
     roxml_close(root);
 }
-
-// create single thread per ME
-// void *soo_outdoor_thread(void *dummy) {
-//     // TODO:
-// }
-
-// void *soo_blind_thread(void *dummy) {
-//     // TODO:
-//     int store_position = 1;
-//     const int MIN_POS = 0;
-//     const int MAX_POS = 5;
-// }
-
-// void *soo_heat_thread(void *dummy) {
-//     // TODO:
-//     float current_heat = 22.5;
-//     float if_external_heat = 12.0;
-//     float then_internal_heat = 21.5;
-//     float else_internal_heat = 20.5;
-//     while(running) {
-//     }
-// }
 
 /**
  * RFCOMM Server which receive a file of any size from the tablet
@@ -714,31 +696,6 @@ void *receive_thread(void *dummy) {
         printf("RFCOMM: Now accepting client...\n");
         client = accept(s, (struct sockaddr *)&rem_addr, &opt);
         printf("Client accepted!\n");
-        // /* Read the size which is sent on 4B */
-        // bytes_read = read(client, size_buf, sizeof(size_buf));
-        // if (bytes_read != sizeof(size_buf)) {
-        //     printf("Couldn't read the 4 size bytes!\n");
-        //     continue;
-        // }
-
-        // size = *((uint32_t *)size_buf);
-
-        // printf("Allocating a buffer of %u bytes:\n", size);
-
-        // /* Allocate the receive buffer with the corresponding size */
-        // buf = malloc(size * sizeof(char));
-        // if (!buf) {
-        //     fprintf(stderr, "%s Error allocating the Me buffer!\n", __FILE__);
-        //     continue;
-        // }
-
-        // printf("Now receiving a buffer (%uB):\n", size);
-        // /* Read the ME */
-        // do {
-        //     bytes_read = read(client, (char *)(buf+total_bytes), 8192);
-        //     total_bytes += bytes_read;
-        //     printf("\r%d/%u B", total_bytes, size);
-        // } while (bytes_read != -1 && total_bytes != size);
 
         do {
             result = read(client, message_block, sizeof(message_block));
@@ -792,12 +749,21 @@ void *receive_thread(void *dummy) {
                     pthread_create(&soo_outdoor_th, NULL, soo_outdoor_thread, &client);
                     printf("soo.outdoor started\n");
                 } else if (compare_arrays(message->spid, spid_blind, SPID_SIZE) == 0) {
-                    printf("SOO.outdoor selected\n");
-                    soo_blind_thread_running = 1;
+                    printf("SOO.blind selected\n");
 
+                    // send new soo.blind model
+                    printf("sending model...\n");
+                    send_payload(client, spid_blind, generate_soo_blind());
+                    printf("model send\n");
+                    
                 } else if (compare_arrays(message->spid, spid_heat, SPID_SIZE) == 0) {
-                    soo_heat_thread_running = 1;
+                    printf("SOO.heat selected\n");
 
+                    // send new soo.heat model
+                    printf("sending model...\n");
+                    send_payload(client, spid_heat, generate_soo_heat());
+                    printf("model send\n");
+                    
                 } else {
                     printf("unknown spid :");
                     print_hex_n(message->spid, SPID_SIZE);
