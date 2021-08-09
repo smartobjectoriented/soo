@@ -3824,5 +3824,7 @@ CONFIG_VUART_BACKEND=y
 # CONFIG_VUIHANDLER_BACKEND is not set
 # CONFIG_VLEDS_BACKEND is not set
 # CONFIG_VFB_BACKEND is not set
+CONFIG_VSENSELED_BACKEND=y
+CONFIG_VSENSEJ_BACKEND=y
 # end of Smart Object Oriented subsystem
 # end of SOO Framework and subsystems

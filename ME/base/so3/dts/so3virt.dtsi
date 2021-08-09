@@ -81,6 +81,15 @@
 				compatible = "vuart,frontend";
 				status = "disabled";
 			};
+			vsenseled {
+            			compatible = "vsenseled,frontend";
+            			status = "disabled";
+        		};
+			
+        		vsensej {
+            			compatible = "vsensej,frontend";
+            			status = "disabled";
+        		};
 			
 			vdoga12v6nm {
             	compatible = "vdoga12v6nm,frontend";
@@ -92,15 +101,7 @@
             	status = "disabled";
         	};
         	
-        	vsenseled {
-            	compatible = "vsenseled,frontend";
-            	status = "disabled";
-        	};
-			
-        	vsensej {
-            	compatible = "vsensej,frontend";
-            	status = "disabled";
-        	};
+
         	
 		};
 	
