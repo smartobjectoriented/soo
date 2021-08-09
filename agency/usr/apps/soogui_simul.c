@@ -496,10 +496,10 @@ void* soo_outdoor_thread(void* client_arg) {
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
         point = roxml_add_node(msg, 0, ROXML_ELM_NODE, "point", NULL);
         item = roxml_add_node(point, 0, ROXML_ELM_NODE, "item", NULL);
-        sprintf(low_buffer, "%.2f", temp);
+        sprintf(low_buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
         roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
         item = roxml_add_node(point, 0, ROXML_ELM_NODE, "item", NULL);
-        sprintf(low_buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
+        sprintf(low_buffer, "%.2f", temp);
         roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
         
         /* Adding the message for "temp-per-day-south-station" */
@@ -509,10 +509,10 @@ void* soo_outdoor_thread(void* client_arg) {
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
         point = roxml_add_node(msg, 0, ROXML_ELM_NODE, "point", NULL);
         item = roxml_add_node(point, 0, ROXML_ELM_NODE, "item", NULL);
-        sprintf(low_buffer, "%.2f", temp - 0.4f);
+        sprintf(low_buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
         roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
         item = roxml_add_node(point, 0, ROXML_ELM_NODE, "item", NULL);
-        sprintf(low_buffer, "%d:%d", soo_outdoor.hour, soo_outdoor.min);
+        sprintf(low_buffer, "%.2f", temp - 0.4f);
         roxml_add_node(item, 0, ROXML_TXT_NODE, NULL, low_buffer);
 
         // create string
@@ -524,14 +524,25 @@ void* soo_outdoor_thread(void* client_arg) {
         printf("convert spid\n");
         hexstring_to_byte("00000200000000000000000000000002", spid, SPID_SIZE);
 
-        // wait a minute before sending
+        // wait a 15 seconds before sending
         printf("sleep 15 seconds...\n");
         sleep(15);
+
+        if(!soo_outdoor_thread_running) {
+            break;
+        }
 
         // send the new message
         printf("sending... payload\n");
         send_payload(client, spid, buffer);
         printf("payload send.\n");
+
+        // update soo.outdoor
+        soo_outdoor.min += 2;
+        if(soo_outdoor.min >= 60) {
+            soo_outdoor.min = soo_outdoor.min % 60;
+            soo_outdoor.hour = (soo_outdoor.hour + 1) % 24;
+        }
     }
 
     printf("soo_outdoor_thread stopped.\n");
@@ -748,6 +759,8 @@ void *receive_thread(void *dummy) {
                 printf("message send\n");
                 break;
             case 0x04:
+                printf("case 0x04\n");
+                printf("resetting threads\n");
                 soo_outdoor_thread_running = 0;
                 soo_blind_thread_running = 0;
                 soo_heat_thread_running = 0;
@@ -761,9 +774,11 @@ void *receive_thread(void *dummy) {
 
                 // Select the ME
                 if (compare_arrays(message->spid, spid_outdoor, SPID_SIZE) == 0) {
+                    printf("SOO.outdoor selected\n");
                     // stop old thread
                     if(soo_outdoor_th != NULL) {
-                        pthread_join(&soo_outdoor_th, NULL);
+                        printf("joining old SOO.outdoor thread\n");
+                        pthread_cancel(soo_outdoor_th);
                     }
 
                     // send new soo.outdoor model
@@ -777,6 +792,7 @@ void *receive_thread(void *dummy) {
                     pthread_create(&soo_outdoor_th, NULL, soo_outdoor_thread, &client);
                     printf("soo.outdoor started\n");
                 } else if (compare_arrays(message->spid, spid_blind, SPID_SIZE) == 0) {
+                    printf("SOO.outdoor selected\n");
                     soo_blind_thread_running = 1;
 
                 } else if (compare_arrays(message->spid, spid_heat, SPID_SIZE) == 0) {
@@ -790,12 +806,13 @@ void *receive_thread(void *dummy) {
             case 0x08:
             case 0x88:
                 /* code */
+                printf("case 0xX8\n");
                 manage_event(client, message);
                 break;
             
             default:
                 printf("wrong message : %x instead of (%x, %x, %x or %x)!\n", message->type, 0x01, 0x04, 0x08, 0x88);
-                continue;
+                // continue;
             }
         } while (result != -1);
 
