@@ -438,31 +438,40 @@ void send_payload(int client, const char* spid, const char* payload) {
 }
 
 const char* create_messages(const char* id, const char* value, enum MESSAGE_TYPE type) {
-    char * buffer;
+    // char * buffer = (char*) malloc(8192);
+    char* buffer;
     node_t *root, *messages, *msg;
 
-    root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
+    printf("create root\n");
+    root = roxml_add_node(NULL, 0, ROXML_PI_NODE, "xml", "version=\"1.0\" encoding=\"UTF-8\"");
 
     /* Adding attributes to xml node */
-    roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
-    roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
+    // roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
+    // roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
 
     /* Adding the messages node */
+    printf("create messages\n");
     messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "messages", NULL);
 
     /* Adding the message itself */
+    printf("create message\n");
     msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
 
+    printf("add attr 'to'\n");
     roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", id);
 
     if (type == PUSH) {
+        printf("add attr type=\"push\"\n");
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
     }
 
+    printf("add content\n");
     roxml_add_node(msg, 0, ROXML_TXT_NODE, NULL, value);
 
+    printf("commit changes\n");
     roxml_commit_changes(root, NULL, &buffer, 1);
 
+    printf("realease root\n");
     roxml_release(RELEASE_LAST);
     roxml_close(root);
 
@@ -489,8 +498,8 @@ void* soo_outdoor_thread(void* client_arg) {
         root = roxml_add_node(NULL, 0, ROXML_PI_NODE, "xml", "version=\"1.0\" encoding=\"UTF-8\"");
 
         /* Adding attributes to xml node */
-        roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
-        roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
+        // roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
+        // roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
 
         /* Adding the messages node */
         printf("create messages\n");
@@ -553,20 +562,59 @@ void* soo_outdoor_thread(void* client_arg) {
     }
 
     printf("soo_outdoor_thread stopped.\n");
+
+    return NULL;
 }
 
 void* soo_blind_thread(void* args) {
-    int client = ((int*) args)[0];
-    int direction = ((int*) args)[1]; // 0 = up; 1 = down
-    // TODO:
+    int client = *((int*) args);
+    int direction = *((int*) args + 1); // 0 = up; 1 = down
+    int modified = 0;
+
+    char spid[SPID_SIZE];
+    hexstring_to_byte("00000200000000000000000000000001", spid, SPID_SIZE);
+    
+    while(soo_blind_thread_running) {
+        sem_wait(&sem_mutex_blind);
+        if(direction == 0 && soo_blind.store_position <= soo_blind.max_pos){
+            soo_blind.store_position += 1;
+            modified = 1;
+        } else if(direction == 1 && soo_blind.store_position >= soo_blind.min_pos) {
+            soo_blind.store_position -= 1;
+            modified = 1;
+        }
+        
+        // send new position
+        if(modified){
+            char value[80];
+            sprintf(value, "%i", soo_blind.store_position);
+            const char* payload = create_messages("blind-slider", value, REPLACE);
+            printf("sending payload...\n");
+            send_payload(
+                client, 
+                spid,
+                payload
+            );
+            printf("payload send\n");
+            free((char*)payload);
+        }
+        sem_post(&sem_mutex_blind);
+        modified = 0;
+        sleep(1);
+    }
+
+    return NULL;
 }
 
 void* soo_heat_thread(void* client_arg) {
     int client = *((int*) client_arg);
     // TODO:
+
+    
+    return NULL;
 }
 
-const char* manage_event(int client, vuihandler_pkt_t* message) {
+void manage_event(int client, vuihandler_pkt_t* message) {
     char id[1024], action[1024], value[1024];
     // char *id, *action, *value;
     node_t *root, *events, *event, *from, *action_attr, *value_txt;
@@ -604,8 +652,10 @@ const char* manage_event(int client, vuihandler_pkt_t* message) {
 
             // stop old thread
             if(soo_blind_th != NULL) {
+                sem_wait(&sem_mutex_blind); // avoid the existing thread to take the mutex
                 printf("cancelling old SOO.blind thread\n");
-                pthread_cancel(soo_outdoor_th);
+                // pthread_cancel(soo_outdoor_th);
+                sem_post(&sem_mutex_blind);
             }
 
             // if action is "clickDown" create timer.
@@ -626,8 +676,10 @@ const char* manage_event(int client, vuihandler_pkt_t* message) {
 
             // stop old thread
             if(soo_blind_th != NULL) {
+                sem_wait(&sem_mutex_blind);
                 printf("cancelling old SOO.blind thread\n");
-                pthread_cancel(soo_outdoor_th);
+                // pthread_cancel(soo_outdoor_th);
+                sem_post(&sem_mutex_blind);
             }
 
             // if action is "clickDown" create timer.
