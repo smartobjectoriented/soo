@@ -30,6 +30,12 @@ void sigterm_handler(int signal) {
 #define TYPE_SIZE 1
 #define SPID_SIZE 16
 #define PAYLOAD_SIZE BLOCK_SIZE - (TYPE_SIZE + SPID_SIZE)
+
+static const char* SOO_BLIND_SPID   = "00000200000000000000000000000001";
+static const char* SOO_OUTDOOR_SPID = "00000200000000000000000000000002";
+static const char* SOO_HEAT_SPID    = "00000200000000000000000000000003";
+
+#define HEAT_MODIFIER 0.5f
 // #define PAYLOAD_SIZE 8192
 
 typedef struct {
@@ -52,10 +58,12 @@ typedef struct {
     float if_external_heat;
     float then_internal_heat;
     float else_internal_heat;
+    float min_heat;
+    float max_heat;
 } soo_heat_t;
 
 typedef struct {
-    int store_position;
+    int current_pos;
     int min_pos;
     int max_pos;
     float if_luminosity;
@@ -69,14 +77,16 @@ soo_outdoor_t soo_outdoor = {
 };
 
 soo_heat_t soo_heat = {
-    .current_heat = 22.5,
-    .if_external_heat = 12.0,
-    .then_internal_heat = 21.5,
-    .else_internal_heat = 20.5
+    .current_heat = 22.5f,
+    .if_external_heat = 12.0f,
+    .then_internal_heat = 21.5f,
+    .else_internal_heat = 20.5f,
+    .min_heat = 0.0f,
+    .max_heat = 35.0f
 };
 
 soo_blind_t soo_blind = {
-    .store_position = 1,
+    .current_pos = 1,
     .min_pos = 0,
     .max_pos = 15,
     .if_luminosity = 500.0f,
@@ -186,16 +196,19 @@ vuihandler_pkt_t* get_vuihandler_from_bt(const char* message_block) {
 }
 
 const char* generate_soo_list() {
-    return "<mobile-entities>\
-        <mobile-entity spid=\"00000200000000000000000000000003\">\
+    char* result = (char *) malloc(8192);
+    sprintf(
+        result,
+        "<mobile-entities>\
+        <mobile-entity spid=\"%s\">\
             <name>SOO.heat</name>\
             <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
         </mobile-entity>\
-        <mobile-entity spid=\"00000200000000000000000000000002\">\
+        <mobile-entity spid=\"%s\">\
             <name>SOO.outdoor</name>\
             <description>SOO.outdoor permet de récupérer des informations météorologique telle que la luminosité ambiante ou la température externe.</description>\
         </mobile-entity>\
-        <mobile-entity spid=\"00000200000000000000000000000001\">\
+        <mobile-entity spid=\"%s\">\
             <name>SOO.blind</name>\
             <description>SOO.blind permet de gérer la position des stores.</description>\
         </mobile-entity>\
@@ -211,108 +224,121 @@ const char* generate_soo_list() {
             Curabitur ullamcorper magna quis gravida tincidunt.\
             </description>\
         </mobile-entity>\
-        </mobile-entities>";
+        </mobile-entities>",
+        SOO_HEAT_SPID,
+        SOO_OUTDOOR_SPID,
+        SOO_BLIND_SPID
+    );
+
+    return result;
 }
 
 const char* generate_soo_outdoor() {
-    return "<model spid=\"00000200000000000000000000000002\">\
-    <name>SOO.outdoor</name>\
-    <description>SOO.outdoor permet de récupérer les informations d'une station météorologique.</description>\
-    <layout>\
-        <row>\
-            <col>\
-                <label for=\"temp-per-day-graph\">Luminosité selon l'heure de la journée</label>\
-                <graph id=\"temp-per-day-graph\" type=\"line\">\
-                    <axes display-series-name=\"true\">\
-                        <axis type=\"datetime\" format=\"hh:mm\">Heure</axis>\
-                        <axis type=\"number\">Température</axis>\
-                    </axes>\
-                    <series id=\"temp-per-day-north-station\" name=\"SOO.outdoor Nord\">\
-                        <point>\
-                            <item>09:45</item>\
-                            <item>15</item>\
-                        </point>\
-                        <point>\
-                            <item>10:10</item>\
-                            <item>15.5</item>\
-                        </point>\
-                        <point>\
-                            <item>10:22</item>\
-                            <item>15.6</item>\
-                        </point>\
-                    </series>\
-                    <series id=\"temp-per-day-south-station\" name=\"SOO.outdoor Sud\">\
-                        <point>\
-                            <item>09:42</item>\
-                            <item>14</item>\
-                        </point>\
-                        <point>\
-                            <item>09:59</item>\
-                            <item>14</item>\
-                        </point>\
-                        <point>\
-                            <item>10:15</item>\
-                            <item>14.2</item>\
-                        </point>\
-                    </series>\
-                </graph>\
-            </col>\
-        </row>\
-        <row>\
-            <col>\
-                <label for=\"summary-graph\">Luminosité selon l'heure de la journée</label>\
-                <graph id=\"summary-graph\" type=\"table\">\
-                    <axes display-series-name=\"true\">\
-                        <axis type=\"number\">Temperature</axis>\
-                        <axis type=\"number\">Luminosity</axis>\
-                        <axis type=\"datetime\" format=\"hh:mm\">Hour</axis>\
-                        <axis type=\"number\">Mean temperature of the past 30 days</axis>\
-                    </axes>\
-                    <series id=\"summary-north-station\" name=\"SOO.outdoor Nord\">\
-                        <point>\
-                            <item>15</item>\
-                            <item>500</item>\
-                            <item>09:45</item>\
-                            <item>14.2</item>\
-                        </point>\
-                        <point>\
-                            <item>15.5</item>\
-                            <item>510</item>\
-                            <item>10:10</item>\
-                            <item>14.4</item>\
-                        </point>\
-                        <point>\
-                            <item>15.6</item>\
-                            <item>512</item>\
-                            <item>10:22</item>\
-                            <item>14.6</item>\
-                        </point>\
-                    </series>\
-                    <series id=\"summary-south-station\" name=\"SOO.outdoor Sud\">\
-                        <point>\
-                            <item>14</item>\
-                            <item>490</item>\
-                            <item>09:42</item>\
-                            <item>13.9</item>\
-                        </point>\
-                        <point>\
-                            <item>14</item>\
-                            <item>490</item>\
-                            <item>09:59</item>\
-                            <item>14</item>\
-                        </point>\
-                        <point>\
-                            <item>14.2</item>\
-                            <item>490</item>\
-                            <item>10:15</item>\
-                            <item>14.2</item>\
-                        </point>\
-                    </series>\
-                </graph>\
-            </col>\
-        </row>\
-    </layout>\
-    </model>";
+    char* result = (char *) malloc(8192);
+    sprintf(
+        result,
+        "<model spid=\"%s\">\
+        <name>SOO.outdoor</name>\
+        <description>SOO.outdoor permet de récupérer les informations d'une station météorologique.</description>\
+        <layout>\
+            <row>\
+                <col>\
+                    <label for=\"temp-per-day-graph\">Luminosité selon l'heure de la journée</label>\
+                    <graph id=\"temp-per-day-graph\" type=\"line\">\
+                        <axes display-series-name=\"true\">\
+                            <axis type=\"datetime\" format=\"hh:mm\">Heure</axis>\
+                            <axis type=\"number\">Température</axis>\
+                        </axes>\
+                        <series id=\"temp-per-day-north-station\" name=\"SOO.outdoor Nord\">\
+                            <point>\
+                                <item>09:45</item>\
+                                <item>15</item>\
+                            </point>\
+                            <point>\
+                                <item>10:10</item>\
+                                <item>15.5</item>\
+                            </point>\
+                            <point>\
+                                <item>10:22</item>\
+                                <item>15.6</item>\
+                            </point>\
+                        </series>\
+                        <series id=\"temp-per-day-south-station\" name=\"SOO.outdoor Sud\">\
+                            <point>\
+                                <item>09:42</item>\
+                                <item>14</item>\
+                            </point>\
+                            <point>\
+                                <item>09:59</item>\
+                                <item>14</item>\
+                            </point>\
+                            <point>\
+                                <item>10:15</item>\
+                                <item>14.2</item>\
+                            </point>\
+                        </series>\
+                    </graph>\
+                </col>\
+            </row>\
+            <row>\
+                <col>\
+                    <label for=\"summary-graph\">Luminosité selon l'heure de la journée</label>\
+                    <graph id=\"summary-graph\" type=\"table\">\
+                        <axes display-series-name=\"true\">\
+                            <axis type=\"number\">Temperature</axis>\
+                            <axis type=\"number\">Luminosity</axis>\
+                            <axis type=\"datetime\" format=\"hh:mm\">Hour</axis>\
+                            <axis type=\"number\">Mean temperature of the past 30 days</axis>\
+                        </axes>\
+                        <series id=\"summary-north-station\" name=\"SOO.outdoor Nord\">\
+                            <point>\
+                                <item>15</item>\
+                                <item>500</item>\
+                                <item>09:45</item>\
+                                <item>14.2</item>\
+                            </point>\
+                            <point>\
+                                <item>15.5</item>\
+                                <item>510</item>\
+                                <item>10:10</item>\
+                                <item>14.4</item>\
+                            </point>\
+                            <point>\
+                                <item>15.6</item>\
+                                <item>512</item>\
+                                <item>10:22</item>\
+                                <item>14.6</item>\
+                            </point>\
+                        </series>\
+                        <series id=\"summary-south-station\" name=\"SOO.outdoor Sud\">\
+                            <point>\
+                                <item>14</item>\
+                                <item>490</item>\
+                                <item>09:42</item>\
+                                <item>13.9</item>\
+                            </point>\
+                            <point>\
+                                <item>14</item>\
+                                <item>490</item>\
+                                <item>09:59</item>\
+                                <item>14</item>\
+                            </point>\
+                            <point>\
+                                <item>14.2</item>\
+                                <item>490</item>\
+                                <item>10:15</item>\
+                                <item>14.2</item>\
+                            </point>\
+                        </series>\
+                    </graph>\
+                </col>\
+            </row>\
+        </layout>\
+        </model>",
+        SOO_OUTDOOR_SPID
+    );
+
+    return result;
 }
 
 const char* generate_soo_blind() {
@@ -320,7 +346,7 @@ const char* generate_soo_blind() {
     sem_wait(&sem_mutex_blind);
     sprintf(
         result,
-        "<model spid=\"00000200000000000000000000000001\">\
+        "<model spid=\"%s\">\
         <name>SOO.blind</name>\
         <description>SOO.blind permet de gérer la position des stores.</description>\
         <layout>\
@@ -344,9 +370,10 @@ const char* generate_soo_blind() {
             </row>\
         </layout>\
         </model>",
+        SOO_BLIND_SPID,
         soo_blind.max_pos,
         soo_blind.min_pos,
-        soo_blind.store_position,
+        soo_blind.current_pos,
         soo_blind.if_luminosity,
         strcmp(soo_blind.then_action, "up") == 0 ? "true" : "false",
         strcmp(soo_blind.then_action, "down") == 0 ? "true" : "false",
@@ -359,38 +386,51 @@ const char* generate_soo_blind() {
 }
 
 const char* generate_soo_heat() {
-    return "<model spid=\"00000200000000000000000000000003\">\
-    <name>SOO.heat</name>\
-    <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
-    <layout>\
-        <row>\
-            <col><number id=\"heat-current-temp\" step=\"0.5\">22.5</number></col>\
-            <col><button id=\"heat-increase-temp\" lockable=\"true\">-0.5°C</button></col>\
-            <col><button id=\"heat-decrease-temp\" lockable=\"true\">+0.5°C</button></col>\
-        </row>\
-        <row>\
-            <col><label for=\"heat-if-temp\">Palier 1</label></col>\
-        </row>\
-        <row>\
-            <col><text>Si la température externe est plus petite que </text></col>\
-            <col><number id=\"heat-if-temp\" step=\"0.5\">12.0</number></col>\
-            <col><button id=\"heat-if-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
-            <col><button id=\"heat-if-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
-        </row>\
-        <row>\
-            <col><text>Alors la température interne vaut </text></col>\
-            <col><number id=\"heat-then-temp\" step=\"0.5\">21.5</number></col>\
-            <col><button id=\"heat-then-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
-            <col><button id=\"heat-then-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
-        </row>\
-        <row>\
-            <col><text>Sinon la température interne vaut </text></col>\
-            <col><number id=\"heat-else-temp\" step=\"0.5\">20.5</number></col>\
-            <col><button id=\"heat-else-temp-increase\" lockable=\"true\">-0.5°C</button></col>\
-            <col><button id=\"heat-else-temp-decrease\" lockable=\"true\">+0.5°C</button></col>\
-        </row>\
-    </layout>\
-    </model>";
+    char* result = (char *) malloc(8192);
+    sem_wait(&sem_mutex_heat);
+    sprintf(
+        result,
+        "<model spid=\"%s\">\
+        <name>SOO.heat</name>\
+        <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
+        <layout>\
+            <row>\
+                <col><number id=\"heat-current-temp\" step=\"0.5\">%.1f</number></col>\
+                <col><button id=\"heat-decrease-temp\" lockable=\"true\">-0.5°C</button></col>\
+                <col><button id=\"heat-increase-temp\" lockable=\"true\">+0.5°C</button></col>\
+            </row>\
+            <row>\
+                <col><label for=\"heat-if-temp\">Palier 1</label></col>\
+            </row>\
+            <row>\
+                <col><text>Si la température externe est plus petite que </text></col>\
+                <col><number id=\"heat-if-temp\" step=\"0.5\">%.1f</number></col>\
+                <col><button id=\"heat-if-temp-decrease\" lockable=\"true\">-0.5°C</button></col>\
+                <col><button id=\"heat-if-temp-increase\" lockable=\"true\">+0.5°C</button></col>\
+            </row>\
+            <row>\
+                <col><text>Alors la température interne vaut </text></col>\
+                <col><number id=\"heat-then-temp\" step=\"0.5\">%.1f</number></col>\
+                <col><button id=\"heat-then-temp-decrease\" lockable=\"true\">-0.5°C</button></col>\
+                <col><button id=\"heat-then-temp-increase\" lockable=\"true\">+0.5°C</button></col>\
+            </row>\
+            <row>\
+                <col><text>Sinon la température interne vaut </text></col>\
+                <col><number id=\"heat-else-temp\" step=\"0.5\">%.1f</number></col>\
+                <col><button id=\"heat-else-temp-decrease\" lockable=\"true\">-0.5°C</button></col>\
+                <col><button id=\"heat-else-temp-increase\" lockable=\"true\">+0.5°C</button></col>\
+            </row>\
+        </layout>\
+        </model>",
+        SOO_HEAT_SPID,
+        soo_heat.current_heat,
+        soo_heat.if_external_heat,
+        soo_heat.then_internal_heat,
+        soo_heat.else_internal_heat
+    );
+    sem_post(&sem_mutex_heat);
+
+    return result;
 }
 
 void send_payload(int client, const char* spid, const char* payload) {
@@ -442,7 +482,7 @@ const char* create_messages(const char* id, const char* value, enum MESSAGE_TYPE
     char* buffer;
     node_t *root, *messages, *msg;
 
-    printf("create root\n");
+    // printf("create root\n");
     root = roxml_add_node(NULL, 0, ROXML_PI_NODE, "xml", "version=\"1.0\" encoding=\"UTF-8\"");
 
     /* Adding attributes to xml node */
@@ -454,24 +494,24 @@ const char* create_messages(const char* id, const char* value, enum MESSAGE_TYPE
     messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "messages", NULL);
 
     /* Adding the message itself */
-    printf("create message\n");
+    // printf("create message\n");
     msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
 
-    printf("add attr 'to'\n");
+    // printf("add attr 'to'\n");
     roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", id);
 
     if (type == PUSH) {
-        printf("add attr type=\"push\"\n");
+        // printf("add attr type=\"push\"\n");
         roxml_add_node(msg, 0, ROXML_ATTR_NODE, "type", "push");
     }
 
-    printf("add content\n");
+    // printf("add content\n");
     roxml_add_node(msg, 0, ROXML_TXT_NODE, NULL, value);
 
-    printf("commit changes\n");
+    // printf("commit changes\n");
     roxml_commit_changes(root, NULL, &buffer, 1);
 
-    printf("realease root\n");
+    // printf("realease root\n");
     roxml_release(RELEASE_LAST);
     roxml_close(root);
 
@@ -485,9 +525,10 @@ void* soo_outdoor_thread(void* client_arg) {
     char *buffer;
     char spid[SPID_SIZE];
     node_t *root, *messages, *msg, *point, *item;
+    
+    hexstring_to_byte(SOO_BLIND_SPID, spid, SPID_SIZE);
 
     printf("soo_outdoor_thread started.\n");
-
     while(soo_outdoor_thread_running){
         //generate random value
         printf("get random values\n");
@@ -537,9 +578,6 @@ void* soo_outdoor_thread(void* client_arg) {
         roxml_release(RELEASE_LAST);
         roxml_close(root);
 
-        printf("convert spid\n");
-        hexstring_to_byte("00000200000000000000000000000002", spid, SPID_SIZE);
-
         // wait a 15 seconds before sending
         printf("sleep 15 seconds...\n");
         sleep(15);
@@ -572,22 +610,22 @@ void* soo_blind_thread(void* args) {
     int modified = 0;
 
     char spid[SPID_SIZE];
-    hexstring_to_byte("00000200000000000000000000000001", spid, SPID_SIZE);
+    hexstring_to_byte(SOO_BLIND_SPID, spid, SPID_SIZE);
     
-    while(soo_blind_thread_running) {
+    do {
         sem_wait(&sem_mutex_blind);
-        if(direction == 0 && soo_blind.store_position <= soo_blind.max_pos){
-            soo_blind.store_position += 1;
+        if(direction == 0 && soo_blind.current_pos <= soo_blind.max_pos){
+            soo_blind.current_pos += 1;
             modified = 1;
-        } else if(direction == 1 && soo_blind.store_position >= soo_blind.min_pos) {
-            soo_blind.store_position -= 1;
+        } else if(direction == 1 && soo_blind.current_pos >= soo_blind.min_pos) {
+            soo_blind.current_pos -= 1;
             modified = 1;
         }
         
         // send new position
         if(modified){
             char value[80];
-            sprintf(value, "%i", soo_blind.store_position);
+            sprintf(value, "%i", soo_blind.current_pos);
             const char* payload = create_messages("blind-slider", value, REPLACE);
             printf("sending payload...\n");
             send_payload(
@@ -601,14 +639,94 @@ void* soo_blind_thread(void* args) {
         sem_post(&sem_mutex_blind);
         modified = 0;
         sleep(1);
-    }
+    } while(soo_blind_thread_running);
 
     return NULL;
 }
 
-void* soo_heat_thread(void* client_arg) {
-    int client = *((int*) client_arg);
-    // TODO:
+void* soo_heat_thread(void* args) {
+    int client = *((int*) args);
+    int direction = *((int*) args + 1); // 0 = up; 1 = down
+    int type_field = *((int*) args + 2); // 0 = current; 1 = if_external; 2 = then_external; 3 = else external;
+    int modified = 0;
+    const char* payload = NULL;
+
+    char spid[SPID_SIZE];
+    hexstring_to_byte(SOO_HEAT_SPID, spid, SPID_SIZE);
+    
+    do {
+        sem_wait(&sem_mutex_heat);
+        if(type_field == 0 && direction == 0 && soo_heat.current_heat + HEAT_MODIFIER <= soo_heat.max_heat) {
+            // printf("a1\n");
+            soo_heat.current_heat += HEAT_MODIFIER;
+            modified = 1;
+        } else if(type_field == 0 && direction == 1 && soo_heat.current_heat - HEAT_MODIFIER >= soo_heat.min_heat) {
+            // printf("a2\n");
+            soo_heat.current_heat -= HEAT_MODIFIER;
+            modified = 1;
+        } else if(type_field == 1 && direction == 0 && soo_heat.if_external_heat + HEAT_MODIFIER <= soo_heat.max_heat) {
+            // printf("a3\n");
+            soo_heat.if_external_heat += HEAT_MODIFIER;
+            modified = 1;
+        } else if(type_field == 1 && direction == 1 && soo_heat.if_external_heat - HEAT_MODIFIER >= soo_heat.min_heat) {
+            // printf("a4\n");
+            soo_heat.if_external_heat -= HEAT_MODIFIER;
+            modified = 1;
+        } else if(type_field == 2 && direction == 0 && soo_heat.then_internal_heat + HEAT_MODIFIER <= soo_heat.max_heat) {
+            // printf("a5\n");
+            soo_heat.then_internal_heat += HEAT_MODIFIER;
+            modified = 1;
+        } else if(type_field == 2 && direction == 1 && soo_heat.then_internal_heat - HEAT_MODIFIER >= soo_heat.min_heat) {
+            // printf("a6\n");
+            soo_heat.then_internal_heat -= HEAT_MODIFIER;
+            modified = 1;
+        } else if(type_field == 3 && direction == 0 && soo_heat.else_internal_heat + HEAT_MODIFIER <= soo_heat.max_heat) {
+            // printf("a7\n");
+            soo_heat.else_internal_heat += HEAT_MODIFIER;
+            modified = 1;
+        } else if(type_field == 3 && direction == 1 && soo_heat.else_internal_heat - HEAT_MODIFIER >= soo_heat.min_heat) {
+            // printf("a8\n");
+            soo_heat.else_internal_heat -= HEAT_MODIFIER;
+            modified = 1;
+        } else {
+            printf("no modification in soo.heat");
+        }
+        
+        // send new position
+        if(modified){
+            char value[80];
+            switch (type_field) {
+            case 0:
+                sprintf(value, "%.1f", soo_heat.current_heat);
+                payload = create_messages("heat-current-temp", value, REPLACE);
+                break;
+            case 1:
+                sprintf(value, "%.1f", soo_heat.if_external_heat);
+                payload = create_messages("heat-if-temp", value, REPLACE);
+                break;
+            case 2:
+                sprintf(value, "%.1f", soo_heat.then_internal_heat);
+                payload = create_messages("heat-then-temp", value, REPLACE);
+                break;
+            default:
+                sprintf(value, "%.1f", soo_heat.else_internal_heat);
+                payload = create_messages("heat-else-temp", value, REPLACE);
+                break;
+            }
+            
+            printf("sending payload...\n");
+            send_payload(
+                client, 
+                spid,
+                payload
+            );
+            printf("payload send\n");
+            free((char*)payload);
+        }
+        sem_post(&sem_mutex_heat);
+        modified = 0;
+        sleep(1);
+    } while(soo_heat_thread_running);
 
     
     return NULL;
@@ -654,7 +772,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_blind_th != NULL) {
                 sem_wait(&sem_mutex_blind); // avoid the existing thread to take the mutex
                 printf("cancelling old SOO.blind thread\n");
-                // pthread_cancel(soo_outdoor_th);
+                // pthread_cancel(soo_blind_th);
                 sem_post(&sem_mutex_blind);
             }
 
@@ -678,7 +796,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_blind_th != NULL) {
                 sem_wait(&sem_mutex_blind);
                 printf("cancelling old SOO.blind thread\n");
-                // pthread_cancel(soo_outdoor_th);
+                // pthread_cancel(soo_blind_th);
                 sem_post(&sem_mutex_blind);
             }
 
@@ -698,7 +816,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             int new_pos = atoi(value);
             if (new_pos <= soo_blind.max_pos && new_pos >= soo_blind.min_pos){
                 sem_wait(&sem_mutex_blind);
-                soo_blind.store_position = new_pos;
+                soo_blind.current_pos = new_pos;
                 sem_post(&sem_mutex_blind);
             }
         } 
@@ -728,46 +846,230 @@ void manage_event(int client, vuihandler_pkt_t* message) {
         // SOO.heat events
         // heat-current-temp
         else if(strcmp(id,"heat-current-temp") == 0) {
-            printf("event from heat-current-temp\n");
-            // TODO:
+            printf("event from heat-current-temp with action %s and value %s\n", action, value);
+            float number = strtod(value, NULL);
+            sem_wait(&sem_mutex_heat);
+            soo_heat.current_heat = number;
+            sem_post(&sem_mutex_heat);
         } 
         // heat-increase-temp
         else if(strcmp(id,"heat-increase-temp") == 0) {
-            printf("event from heat-increase-temp\n");
-            // TODO:
+            printf("event from heat-increase-temp with %s\n", action);
+            // timer
+            int args[3] = {client, 0, 0};
+            soo_heat_thread_running = 0;
+
+            // stop old thread
+            if(soo_heat_th != NULL) {
+                sem_wait(&sem_mutex_heat);
+                printf("cancelling old SOO.heat thread\n");
+                // pthread_cancel(soo_heat_th);
+                sem_post(&sem_mutex_heat);
+            }
+
+            // if action is "clickDown" create timer.
+            if (strcmp(action, "clickDown") == 0) {
+                // start new thread
+                printf("starting soo.heat timer...\n");
+                soo_heat_thread_running = 1;
+                pthread_create(&soo_heat_th, NULL, soo_heat_thread, &args);
+                printf("soo.heat timer started\n");
+            }
         } 
         // heat-decrease-temp
         else if(strcmp(id,"heat-decrease-temp") == 0) {
-            printf("event from heat-decrease-temp\n");
-            // TODO:
-        } else if(strcmp(id,"heat-if-temp") == 0) {
-            printf("event from heat-if-temp\n");
-            // TODO:
-        } else if(strcmp(id,"heat-if-temp-increase") == 0) {
-            printf("event from heat-if-temp-increase\n");
-            // TODO:
-        } else if(strcmp(id,"heat-if-temp-decrease") == 0) {
-            printf("event from heat-if-temp-decrease\n");
-            // TODO:
-        } else if(strcmp(id,"heat-then-temp") == 0) {
-            printf("event from heat-then-temp\n");
-            // TODO:
-        } else if(strcmp(id,"heat-then-temp-increase") == 0) {
-            printf("event from heat-then-temp-increase\n");
-            // TODO:
-        } else if(strcmp(id,"heat-then-temp-decrease") == 0) {
-            printf("event from heat-then-temp-decrease\n");
-            // TODO:
-        } else if(strcmp(id,"heat-else-temp") == 0) {
-            printf("event from heat-else-temp\n");
-            // TODO:
-        } else if(strcmp(id,"heat-else-temp-increase") == 0) {
-            printf("event from heat-else-temp-increase\n");
-            // TODO:
-        } else if(strcmp(id,"heat-else-temp-decrease") == 0) {
-            printf("event from heat-else-temp-decrease\n");
-            // TODO:
-        } else {
+            printf("event from heat-decrease-temp with %s\n", action);
+            // timer
+            int args[3] = {client, 1, 0};
+            soo_heat_thread_running = 0;
+
+            // stop old thread
+            if(soo_heat_th != NULL) {
+                sem_wait(&sem_mutex_heat);
+                printf("cancelling old SOO.heat thread\n");
+                // pthread_cancel(soo_heat_th);
+                sem_post(&sem_mutex_heat);
+            }
+
+            // if action is "clickDown" create timer.
+            if (strcmp(action, "clickDown") == 0) {
+                // start new thread
+                printf("starting soo.heat timer...\n");
+                soo_heat_thread_running = 1;
+                pthread_create(&soo_heat_th, NULL, soo_heat_thread, &args);
+                printf("soo.heat timer started\n");
+            }
+        } 
+        // heat-if-temp
+        else if(strcmp(id,"heat-if-temp") == 0) {
+            printf("event from heat-if-temp with action %s and value %s\n", action, value);
+            float number = strtod(value, NULL);
+            sem_wait(&sem_mutex_heat);
+            soo_heat.if_external_heat = number;
+            sem_post(&sem_mutex_heat);
+        } 
+        // heat-if-temp-increase
+        else if(strcmp(id,"heat-if-temp-increase") == 0) {
+            printf("event from heat-if-temp-increase with %s\n", action);
+            // timer
+            int args[3] = {client, 0, 1};
+            soo_heat_thread_running = 0;
+
+            // stop old thread
+            if(soo_heat_th != NULL) {
+                sem_wait(&sem_mutex_heat);
+                printf("cancelling old SOO.heat thread\n");
+                // pthread_cancel(soo_heat_th);
+                sem_post(&sem_mutex_heat);
+            }
+
+            // if action is "clickDown" create timer.
+            if (strcmp(action, "clickDown") == 0) {
+                // start new thread
+                printf("starting soo.heat timer...\n");
+                soo_heat_thread_running = 1;
+                pthread_create(&soo_heat_th, NULL, soo_heat_thread, &args);
+                printf("soo.heat timer started\n");
+            }
+        } 
+        // heat-if-temp-decrease
+        else if(strcmp(id,"heat-if-temp-decrease") == 0) {
+            printf("event from heat-if-temp-decrease with %s\n", action);
+            // timer
+            int args[3] = {client, 1, 1};
+            soo_heat_thread_running = 0;
+
+            // stop old thread
+            if(soo_heat_th != NULL) {
+                sem_wait(&sem_mutex_heat);
+                printf("cancelling old SOO.heat thread\n");
+                // pthread_cancel(soo_heat_th);
+                sem_post(&sem_mutex_heat);
+            }
+
+            // if action is "clickDown" create timer.
+            if (strcmp(action, "clickDown") == 0) {
+                // start new thread
+                printf("starting soo.heat timer...\n");
+                soo_heat_thread_running = 1;
+                pthread_create(&soo_heat_th, NULL, soo_heat_thread, &args);
+                printf("soo.heat timer started\n");
+            }
+        } 
+        // heat-then-temp
+        else if(strcmp(id,"heat-then-temp") == 0) {
+            printf("event from heat-then-temp with action %s and value %s\n", action, value);
+            float number = strtod(value, NULL);
+            sem_wait(&sem_mutex_heat);
+            soo_heat.then_internal_heat = number;
+            sem_post(&sem_mutex_heat);
+        } 
+        // heat-then-temp-increase
+        else if(strcmp(id,"heat-then-temp-increase") == 0) {
+            printf("event from heat-then-temp-increase with %s\n", action);
+            // timer
+            int args[3] = {client, 0, 2};
+            soo_heat_thread_running = 0;
+
+            // stop old thread
+            if(soo_heat_th != NULL) {
+                sem_wait(&sem_mutex_heat);
+                printf("cancelling old SOO.heat thread\n");
+                // pthread_cancel(soo_heat_th);
+                sem_post(&sem_mutex_heat);
+            }
+
+            // if action is "clickDown" create timer.
+            if (strcmp(action, "clickDown") == 0) {
+                // start new thread
+                printf("starting soo.heat timer...\n");
+                soo_heat_thread_running = 1;
+                pthread_create(&soo_heat_th, NULL, soo_heat_thread, &args);
+                printf("soo.heat timer started\n");
+            }
+        }  
+        // heat-then-temp-decrease
+        else if(strcmp(id,"heat-then-temp-decrease") == 0) {
+            printf("event from heat-then-temp-decrease with %s\n", action);
+            // timer
+            int args[3] = {client, 1, 2};
+            soo_heat_thread_running = 0;
+
+            // stop old thread
+            if(soo_heat_th != NULL) {
+                sem_wait(&sem_mutex_heat);
+                printf("cancelling old SOO.heat thread\n");
+                // pthread_cancel(soo_heat_th);
+                sem_post(&sem_mutex_heat);
+            }
+
+            // if action is "clickDown" create timer.
+            if (strcmp(action, "clickDown") == 0) {
+                // start new thread
+                printf("starting soo.heat timer...\n");
+                soo_heat_thread_running = 1;
+                pthread_create(&soo_heat_th, NULL, soo_heat_thread, &args);
+                printf("soo.heat timer started\n");
+            }
+        }  
+        // heat-else-temp
+        else if(strcmp(id,"heat-else-temp") == 0) {
+            printf("event from heat-else-temp with action %s and value %s\n", action, value);
+            float number = strtod(value, NULL);
+            sem_wait(&sem_mutex_heat);
+            soo_heat.else_internal_heat = number;
+            sem_post(&sem_mutex_heat);
+        }  
+        // heat-else-temp-increase
+        else if(strcmp(id,"heat-else-temp-increase") == 0) {
+            printf("event from heat-else-temp-increase with %s\n", action);
+            /// timer
+            int args[3] = {client, 0, 3};
+            soo_heat_thread_running = 0;
+
+            // stop old thread
+            if(soo_heat_th != NULL) {
+                sem_wait(&sem_mutex_heat);
+                printf("cancelling old SOO.heat thread\n");
+                // pthread_cancel(soo_heat_th);
+                sem_post(&sem_mutex_heat);
+            }
+
+            // if action is "clickDown" create timer.
+            if (strcmp(action, "clickDown") == 0) {
+                // start new thread
+                printf("starting soo.heat timer...\n");
+                soo_heat_thread_running = 1;
+                pthread_create(&soo_heat_th, NULL, soo_heat_thread, &args);
+                printf("soo.heat timer started\n");
+            }
+        }  
+        // heat-else-temp-decrease
+        else if(strcmp(id,"heat-else-temp-decrease") == 0) {
+            printf("event from heat-else-temp-decrease with %s\n", action);
+            // timer
+            int args[3] = {client, 1, 3};
+            soo_heat_thread_running = 0;
+
+            // stop old thread
+            if(soo_heat_th != NULL) {
+                sem_wait(&sem_mutex_heat);
+                printf("cancelling old SOO.heat thread\n");
+                // pthread_cancel(soo_heat_th);
+                sem_post(&sem_mutex_heat);
+            }
+
+            // if action is "clickDown" create timer.
+            if (strcmp(action, "clickDown") == 0) {
+                // start new thread
+                printf("starting soo.heat timer...\n");
+                soo_heat_thread_running = 1;
+                pthread_create(&soo_heat_th, NULL, soo_heat_thread, &args);
+                printf("soo.heat timer started\n");
+            }
+        }  
+        // unkwown
+        else {
             printf("unknown event from %s\n", id);
         }
     }
@@ -783,16 +1085,11 @@ void manage_event(int client, vuihandler_pkt_t* message) {
 void *receive_thread(void *dummy) {
     
     struct sockaddr_rc loc_addr = { 0 }, rem_addr = { 0 };
-    char *buf;
-    // char size_buf[4] = {0};
-    // char get_mobile_entities_message [100] = {0};
     char message_block[BLOCK_SIZE] = {0};
     int s, client = 0;
-    // int bytes_read, total_bytes = 0;
     socklen_t opt = sizeof(rem_addr);
-    uint32_t size;
-    const uint8_t END_SYMBOL = 0x0A;
     int result = -1;
+    const char* payload;
  
 
     /* allocate socket */
@@ -819,10 +1116,11 @@ void *receive_thread(void *dummy) {
         printf("Client accepted!\n");
 
         do {
+            memset(message_block, '\0', sizeof(message_block));
             result = read(client, message_block, sizeof(message_block));
 
             printf("\nmessage received : ");
-            print_hex_n(message_block, sizeof(message_block));
+            // print_hex_n(message_block, sizeof(message_block));
 
             vuihandler_pkt_t* message = get_vuihandler_from_bt(message_block);
             switch (message->type)
@@ -830,10 +1128,11 @@ void *receive_thread(void *dummy) {
             case 0x01: ;
                 printf("case 0x01\n");
                 printf("sending message...\n");
-                const char* payload = generate_soo_list();
+                payload = generate_soo_list();
                 char spid[SPID_SIZE];
                 memset(spid, '\0', SPID_SIZE);
                 send_payload(client, spid, payload);
+                free((char*)payload);
                 printf("message send\n");
                 break;
             case 0x04:
@@ -846,9 +1145,9 @@ void *receive_thread(void *dummy) {
                 char spid_blind[SPID_SIZE];
                 char spid_heat[SPID_SIZE];
 
-                hexstring_to_byte("00000200000000000000000000000002", spid_outdoor, SPID_SIZE);
-                hexstring_to_byte("00000200000000000000000000000001", spid_blind, SPID_SIZE);
-                hexstring_to_byte("00000200000000000000000000000003", spid_heat, SPID_SIZE);
+                hexstring_to_byte(SOO_OUTDOOR_SPID, spid_outdoor, SPID_SIZE);
+                hexstring_to_byte(SOO_BLIND_SPID, spid_blind, SPID_SIZE);
+                hexstring_to_byte(SOO_HEAT_SPID, spid_heat, SPID_SIZE);
 
                 // Select the ME
                 if (compare_arrays(message->spid, spid_outdoor, SPID_SIZE) == 0) {
@@ -861,7 +1160,9 @@ void *receive_thread(void *dummy) {
 
                     // send new soo.outdoor model
                     printf("sending model...\n");
-                    send_payload(client, spid_outdoor, generate_soo_outdoor());
+                    payload = generate_soo_outdoor();
+                    send_payload(client, spid_outdoor, payload);
+                    free((char*)payload);
                     printf("model send\n");
                     
                     // start new thread
@@ -874,7 +1175,9 @@ void *receive_thread(void *dummy) {
 
                     // send new soo.blind model
                     printf("sending model...\n");
-                    send_payload(client, spid_blind, generate_soo_blind());
+                    payload = generate_soo_blind();
+                    send_payload(client, spid_blind, payload);
+                    free((char*)payload);
                     printf("model send\n");
                     
                 } else if (compare_arrays(message->spid, spid_heat, SPID_SIZE) == 0) {
@@ -882,7 +1185,9 @@ void *receive_thread(void *dummy) {
 
                     // send new soo.heat model
                     printf("sending model...\n");
-                    send_payload(client, spid_heat, generate_soo_heat());
+                    payload = generate_soo_heat();
+                    send_payload(client, spid_heat, payload);
+                    free((char*)payload);
                     printf("model send\n");
                     
                 } else {
@@ -906,11 +1211,12 @@ void *receive_thread(void *dummy) {
         printf("Waiting 2s before closing socket...\n");
         sleep(2);
 
+        soo_blind_thread_running = 0;
+        soo_outdoor_thread_running = 0;
+        soo_heat_thread_running = 0;
+
         printf("Closing socket...\n");
         close(client);
-        
-        free(buf);
-        // total_bytes = 0;
     }
     
     printf("Closing socket...\n");
