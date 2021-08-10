@@ -79,9 +79,9 @@ soo_blind_t soo_blind = {
     .store_position = 1,
     .min_pos = 0,
     .max_pos = 15,
-    .if_luminosity = 0.0f,
-    .then_action = NULL,
-    .on_me = NULL
+    .if_luminosity = 500.0f,
+    .then_action = "down",
+    .on_me = "north"
 };
 
 pthread_t soo_outdoor_th;
@@ -193,10 +193,7 @@ const char* generate_soo_list() {
         </mobile-entity>\
         <mobile-entity spid=\"00000200000000000000000000000002\">\
             <name>SOO.outdoor</name>\
-            <description>\
-            SOO.outdoor permet de récupérer des informations météorologique \
-            telle que la luminosité ambiante ou la température externe. \
-            </description>\
+            <description>SOO.outdoor permet de récupérer des informations météorologique telle que la luminosité ambiante ou la température externe.</description>\
         </mobile-entity>\
         <mobile-entity spid=\"00000200000000000000000000000001\">\
             <name>SOO.blind</name>\
@@ -319,30 +316,46 @@ const char* generate_soo_outdoor() {
 }
 
 const char* generate_soo_blind() {
-    return "<model spid=\"00000200000000000000000000000001\">\
-    <name>SOO.blind</name>\
-    <description>SOO.blind permet de gérer la position des stores.</description>\
-    <layout>\
-        <row>\
-            <col><label for=\"blind-up\">Position des stores</label></col>\
-            <col><button id=\"blind-up\" lockable=\"true\" lockable-after=\"2\">Monter</button></col>\
-            <col><button id=\"blind-down\" lockable=\"true\" lockable-after=\"2\">Descendre</button></col>\
-            <col><slider id=\"blind-slider\" max=\"15\" step=\"1\" orientation=\"vertical\">1</slider></col>\
-        </row>\
-        <row>\
-            <col><label for=\"blind-if-lux\">Condition 1</label></col>\
-        </row>\
-        <row>\
-            <col><text>Si la luminosité externe est plus petite que </text><number id=\"blind-if-lux\" value=\"500\"/><text>lux</text></col>\
-        </row>\
-        <row>\
-            <col><text>Alors </text><dropdown id=\"blind-then-lux\"><option value=\"up\">Monter</option><option value=\"down\" default=\"true\">Descendre</option></dropdown></col>\
-        </row>\
-        <row>\
-            <col><text>Sur </text><dropdown id=\"blind-on-lux\"><option value=\"nord\">SOO.outdoor Nord</option><option value=\"south\">SOO.outdoor Sud</option></dropdown></col>\
-        </row>\
-    </layout>\
-    </model>";
+    char* result = (char *) malloc(8192);
+    sem_wait(&sem_mutex_blind);
+    sprintf(
+        result,
+        "<model spid=\"00000200000000000000000000000001\">\
+        <name>SOO.blind</name>\
+        <description>SOO.blind permet de gérer la position des stores.</description>\
+        <layout>\
+            <row>\
+                <col><label for=\"blind-up\">Position des stores</label></col>\
+                <col><button id=\"blind-up\" lockable=\"true\" lockable-after=\"1.5\">Monter</button></col>\
+                <col><button id=\"blind-down\" lockable=\"true\" lockable-after=\"1.5\">Descendre</button></col>\
+                <col><slider id=\"blind-slider\" max=\"%i\" min=\"%i\" step=\"1\" orientation=\"vertical\">%i</slider></col>\
+            </row>\
+            <row>\
+                <col><label for=\"blind-if-lux\">Condition 1</label></col>\
+            </row>\
+            <row>\
+                <col><text>Si la luminosité externe est plus petite que </text><number id=\"blind-if-lux\" value=\"%.1f\"/><text>lux</text></col>\
+            </row>\
+            <row>\
+                <col><text>Alors </text><dropdown id=\"blind-then-lux\"><option value=\"up\" default=\"%s\">Monter</option><option value=\"down\" default=\"%s\">Descendre</option></dropdown></col>\
+            </row>\
+            <row>\
+                <col><text>Sur </text><dropdown id=\"blind-on-lux\"><option value=\"north\" default=\"%s\">SOO.outdoor Nord</option><option value=\"south\" default=\"%s\">SOO.outdoor Sud</option></dropdown></col>\
+            </row>\
+        </layout>\
+        </model>",
+        soo_blind.max_pos,
+        soo_blind.min_pos,
+        soo_blind.store_position,
+        soo_blind.if_luminosity,
+        strcmp(soo_blind.then_action, "up") == 0 ? "true" : "false",
+        strcmp(soo_blind.then_action, "down") == 0 ? "true" : "false",
+        strcmp(soo_blind.on_me, "north") == 0 ? "true" : "false",
+        strcmp(soo_blind.on_me, "south") == 0 ? "true" : "false"
+    );
+    sem_post(&sem_mutex_blind);
+
+    return result;
 }
 
 const char* generate_soo_heat() {
@@ -709,6 +722,7 @@ const char* manage_event(int client, vuihandler_pkt_t* message) {
 
     roxml_release(RELEASE_LAST);
     roxml_close(root);
+    printf("end event_manager\n");
 }
 
 /**
