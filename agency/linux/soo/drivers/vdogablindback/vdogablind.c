@@ -72,6 +72,9 @@ typedef struct {
 	struct gpio_desc *up_end_gpio;
 	struct gpio_desc *down_end_gpio;
 
+	int execute_cmd;
+	struct completion cmd_received;
+
 } vdogablind_priv_t;
 
 static struct vbus_device *vdogablind_dev = NULL;
@@ -88,7 +91,6 @@ void vdogablind_notify(struct vbus_device *vdev)
 	notify_remote_via_virq(vdogablind_priv->vdogablind.irq);
 }
 
-
 irqreturn_t vdogablind_interrupt(int irq, void *dev_id)
 {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
@@ -100,13 +102,16 @@ irqreturn_t vdogablind_interrupt(int irq, void *dev_id)
 
 	while ((ring_req = vdogablind_get_ring_request(&vdogablind_priv->vdogablind.ring)) != NULL) {
 
-		ring_rsp = vdogablind_new_ring_response(&vdogablind_priv->vdogablind.ring);
+		vdogablind_priv->execute_cmd = ring_req->cmd_blind;
+		complete(&vdogablind_priv->cmd_received);
 
-		memcpy(ring_rsp->buffer, ring_req->buffer, VDOGABLIND_PACKET_SIZE);
+		// ring_rsp = vdogablind_new_ring_response(&vdogablind_priv->vdogablind.ring);
 
-		vdogablind_ring_response_ready(&vdogablind_priv->vdogablind.ring);
+		// memcpy(ring_rsp->buffer, ring_req->buffer, VDOGABLIND_PACKET_SIZE);
 
-		notify_remote_via_virq(vdogablind_priv->vdogablind.irq);
+		// vdogablind_ring_response_ready(&vdogablind_priv->vdogablind.ring);
+
+		// notify_remote_via_virq(vdogablind_priv->vdogablind.irq);
 	}
 
 	return IRQ_HANDLED;
@@ -164,6 +169,54 @@ void vdoga_motor_set_direction(int dir) {
 		gpiod_set_value(vdogablind_priv->sleep_gpio, 1); //set the sleep gpio to 1
 	}
 }
+
+void vdogablind_stop_blind(void){
+
+	vdoga_motor_disable();
+}
+
+void vdogablind_down_blind(void){
+
+	vdoga_motor_set_percentage_speed(80);
+	vdoga_motor_set_direction(0);
+	vdoga_motor_enable();	
+}
+
+void vdogablind_up_blind(void){
+	
+	vdoga_motor_set_percentage_speed(80);
+	vdoga_motor_set_direction(1);
+	vdoga_motor_enable();	
+}
+
+static int vdogablind_blind_command(void *args) {
+
+
+	vdogablind_priv_t *vdogablind_priv = dev_get_drvdata(&vdogablind_dev->dev);
+
+	while(1) {
+
+		wait_for_completion(&vdogablind_priv->cmd_received);
+
+		switch (vdogablind_priv->execute_cmd) {
+			case VDOGABLIND_STOP_CMD:
+				vdogablind_stop_blind();
+				break;
+			case VDOGABLIND_UP_CMD:
+				vdogablind_up_blind();
+				break;
+			case VDOGABLIND_DOWN_CMD:
+				vdogablind_down_blind();
+				break;
+			
+			default:
+				printk(VDOGABLIND_PREFIX "Receive unknown blind command from FE\n");
+				break;
+		}
+	}
+}
+
+
 
 static int end_of_run_test(void *args) 
 {
@@ -303,6 +356,8 @@ void vdogablind_probe(struct vbus_device *vdev) {
 	vdogablind_priv->already_down = true;
 	vdogablind_priv->already_up = true;
 
+	init_completion(&vdogablind_priv->cmd_received);
+
 	gpiod_set_value(vdogablind_priv->mode_gpio, 0); //set the mode to 0 (H bridge)
 
 
@@ -311,6 +366,8 @@ void vdogablind_probe(struct vbus_device *vdev) {
 
 	//thread used to test the end of run
 	kthread_run(end_of_run_test, NULL, "end_of_run_test");
+
+	kthread_run(vdogablind_blind_command, NULL, "vdogablind_blind_command");
 
 	printk("%s BACKEND PROBE CALLED", VDOGABLIND_PREFIX);
 

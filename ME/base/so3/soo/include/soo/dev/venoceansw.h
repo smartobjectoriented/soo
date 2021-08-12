@@ -28,12 +28,17 @@
 #define VENOCEANSW_NAME		"venoceansw"
 #define VENOCEANSW_PREFIX		"[" VENOCEANSW_NAME "] "
 
+#define SWITCH_IS_RELEASED 	0x00 
+#define SWITCH_IS_DOWN 		0x50
+#define SWITCH_IS_UP 		0x70
+
 typedef struct {
-	char buffer[VENOCEANSW_PACKET_SIZE];
+	/* empty */
 } venoceansw_request_t;
 
 typedef struct  {
-	char buffer[VENOCEANSW_PACKET_SIZE];
+	int sw_cmd;
+	int sw_id;
 } venoceansw_response_t;
 
 /*
@@ -62,5 +67,7 @@ static inline venoceansw_t *to_venoceansw(struct vbus_device *vdev) {
 	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
 	return container_of(vdevback, venoceansw_t, vdevfront);
 }
+
+void get_sw_data(int *sw_cmd, int *sw_id);
 
 #endif /* VENOCEANSW_H */

@@ -59,9 +59,7 @@ typedef struct {
 
 	/* Must be the first field */
 	venoceansw_t venoceansw;
-
 	venoceansw_ascii_data_t ascii_data;
-	int enOcean_mode;
 
 } venoceansw_priv_t;
 
@@ -87,22 +85,41 @@ irqreturn_t venoceansw_interrupt(int irq, void *dev_id)
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	venoceansw_priv_t *venoceansw_priv = dev_get_drvdata(&vdev->dev);
 	venoceansw_request_t *ring_req;
-	venoceansw_response_t *ring_rsp;
+	// venoceansw_response_t *ring_rsp;
 
 	DBG("%d\n", dev->otherend_id);
 
 	while ((ring_req = venoceansw_get_ring_request(&venoceansw_priv->venoceansw.ring)) != NULL) {
 
-		ring_rsp = venoceansw_new_ring_response(&venoceansw_priv->venoceansw.ring);
+		// ring_rsp = venoceansw_new_ring_response(&venoceansw_priv->venoceansw.ring);
 
-		memcpy(ring_rsp->buffer, ring_req->buffer, VENOCEANSW_PACKET_SIZE);
+		// memcpy(ring_rsp->buffer, ring_req->buffer, VENOCEANSW_PACKET_SIZE);
 
-		venoceansw_ring_response_ready(&venoceansw_priv->venoceansw.ring);
+		// venoceansw_ring_response_ready(&venoceansw_priv->venoceansw.ring);
 
-		notify_remote_via_virq(venoceansw_priv->venoceansw.irq);
+		// notify_remote_via_virq(venoceansw_priv->venoceansw.irq);
 	}
 
 	return IRQ_HANDLED;
+}
+
+/**
+ * Send Switch command & ID to frontend
+ **/
+void send_cmd_to_fe(int sw_cmd, int sw_id) {
+
+	venoceansw_response_t *ring_rsp;
+	venoceansw_priv_t *venoceansw_priv = dev_get_drvdata(&venoceansw_dev->dev);
+
+	ring_rsp = venoceansw_new_ring_response(&venoceansw_priv->venoceansw.ring);
+
+	ring_rsp->sw_id = sw_id;
+	ring_rsp->sw_cmd = sw_cmd;
+
+	venoceansw_ring_response_ready(&venoceansw_priv->venoceansw.ring);
+
+	notify_remote_via_virq(venoceansw_priv->venoceansw.irq);
+
 }
 
 //Used to regroup the 4 ID bytes into one 32bits 
@@ -123,6 +140,7 @@ static int click_monitor_fn(void *args) {
 	int parity = 'n';
 	int flow = 'n';
 	bool problem = false;
+	int sw_id;
 
 	venoceansw_priv_t *venoceansw_priv = dev_get_drvdata(&venoceansw_dev->dev);
 
@@ -177,34 +195,50 @@ static int click_monitor_fn(void *args) {
 		//Test the differents possibilities of position
 		if (venoceansw_priv->ascii_data.switch_data == SWITCH_IS_UP)
 		{
+			sw_id = Switch_ID_Reconstitution(venoceansw_priv->ascii_data.switch_ID);
 			//print the informations about the switch state
-			printk("switch (ID: 0x%08X) is up", Switch_ID_Reconstitution(venoceansw_priv->ascii_data.switch_ID));
+			printk("switch (ID: 0x%08X) is up", sw_id);
 
+			send_cmd_to_fe(SWITCH_IS_UP, sw_id);
+
+// bypass FE to test
+#if 0
 			vdoga_motor_set_direction(1);
 			vdoga_motor_set_percentage_speed(100);
 			vdoga_motor_enable();
 			
 			vanalog_valve_open();
-
+#endif
 		} else if(venoceansw_priv->ascii_data.switch_data == SWITCH_IS_DOWN) {
-
+			
+			sw_id = Switch_ID_Reconstitution(venoceansw_priv->ascii_data.switch_ID);
 			//print the informations about the switch state
-			printk("switch (ID: 0x%08X) is down", Switch_ID_Reconstitution(venoceansw_priv->ascii_data.switch_ID));
+			printk("switch (ID: 0x%08X) is down", sw_id);
 
-			// vdoga_blind_down();
+			send_cmd_to_fe(SWITCH_IS_DOWN, sw_id);
+// bypass FE to test
+#if 0
+
 			vdoga_motor_set_direction(0);
 			vdoga_motor_set_percentage_speed(100);
 			vdoga_motor_enable();
 
 			vanalog_valve_close();
+#endif
 
 
 		} else if(venoceansw_priv->ascii_data.switch_data == SWITCH_IS_RELEASED) {
 
+			sw_id = Switch_ID_Reconstitution(venoceansw_priv->ascii_data.switch_ID);
 			//print the informations about the switch state
-			printk("switch (ID: 0x%08X) is released", Switch_ID_Reconstitution(venoceansw_priv->ascii_data.switch_ID));
+			printk("switch (ID: 0x%08X) is released", sw_id);
+
+			send_cmd_to_fe(SWITCH_IS_RELEASED, sw_id);
+// bypass FE to test
+#if 0			
 			vdoga_motor_disable();
 
+#endif
 		}  else {
 
 			printk("invalid param");
@@ -225,7 +259,6 @@ void venoceansw_probe(struct vbus_device *vdev) {
 	dev_set_drvdata(&vdev->dev, venoceansw_priv);
 
 	venoceansw_dev = vdev;
-	venoceansw_priv->enOcean_mode = ENOCEAN_MODE_BLIND; // set Blind mode by default
 
 	printk("%s BACKEND PROBE CALLED", VENOCEANSW_PREFIX);
 

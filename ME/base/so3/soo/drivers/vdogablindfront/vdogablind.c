@@ -60,33 +60,28 @@ irq_return_t vdogablind_interrupt(int irq, void *dev_id) {
 
 		DBG("%s, cons=%d\n", __func__, i);
 
-		/* Do something with the response */
-
-#if 0 /* Debug */
-		lprintk("## Got from the backend: %s\n", ring_rsp->buffer);
-#endif
 	}
 
 	return IRQ_COMPLETED;
 }
 
-#if 0
-static int i1 = 1, i2 = 2;
-/*
- * The following function is given as an example.
- *
- */
 
-void vdogablind_generate_request(char *buffer) {
-	vdogablind_request_t *ring_req;
+void vdogablind_send_blind_cmd(int cmd) {
+
+
 	vdogablind_priv_t *vdogablind_priv;
+	vdogablind_request_t *ring_req;
 
 	if (!vdogablind_dev)
-		return ;
+		return;
 
 	vdogablind_priv = (vdogablind_priv_t *) dev_get_drvdata(vdogablind_dev->dev);
 
+
 	vdevfront_processing_begin(vdogablind_dev);
+
+
+	lprintk(VDOGABLIND_PREFIX ", FE sending %02hhx to BE\n", cmd);
 
 	/*
 	 * Try to generate a new request to the backend
@@ -94,7 +89,7 @@ void vdogablind_generate_request(char *buffer) {
 	if (!RING_REQ_FULL(&vdogablind_priv->vdogablind.ring)) {
 		ring_req = vdogablind_new_ring_request(&vdogablind_priv->vdogablind.ring);
 
-		memcpy(ring_req->buffer, buffer, VDOGABLIND_PACKET_SIZE);
+		ring_req->cmd_blind = cmd;
 
 		vdogablind_ring_request_ready(&vdogablind_priv->vdogablind.ring);
 
@@ -102,8 +97,8 @@ void vdogablind_generate_request(char *buffer) {
 	}
 
 	vdevfront_processing_end(vdogablind_dev);
+
 }
-#endif
 
 static void vdogablind_probe(struct vbus_device *vdev) {
 	int res;

@@ -44,12 +44,14 @@
 #define VENOCEANSW_PREFIX		"[" VENOCEANSW_NAME "] "
 
 typedef struct {
-	char buffer[VENOCEANSW_PACKET_SIZE];
+	/* empty */
 } venoceansw_request_t;
 
 typedef struct  {
-	char buffer[VENOCEANSW_PACKET_SIZE];
+	int sw_cmd;
+	int sw_id;
 } venoceansw_response_t;
+
 
 /*
  * Generate ring structures and types.

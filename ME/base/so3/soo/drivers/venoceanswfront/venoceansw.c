@@ -42,6 +42,9 @@ typedef struct {
 
 	/* Must be the first field */
 	venoceansw_t venoceansw;
+	int sw_cmd;
+	int sw_id;
+	struct completion cmd_receive;
 
 } venoceansw_priv_t;
 
@@ -50,6 +53,7 @@ static struct vbus_device *venoceansw_dev = NULL;
 static bool thread_created = false;
 
 irq_return_t venoceansw_interrupt(int irq, void *dev_id) {
+
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	venoceansw_priv_t *venoceansw_priv = dev_get_drvdata(vdev->dev);
 	venoceansw_response_t *ring_rsp;
@@ -58,52 +62,33 @@ irq_return_t venoceansw_interrupt(int irq, void *dev_id) {
 
 	while ((ring_rsp = venoceansw_get_ring_response(&venoceansw_priv->venoceansw.ring)) != NULL) {
 
-		DBG("%s, cons=%d\n", __func__, i);
+		venoceansw_priv->sw_cmd = ring_rsp->sw_cmd;
+		venoceansw_priv->sw_id = ring_rsp->sw_id;
+		lprintk(VENOCEANSW_PREFIX " FE received %d, %d\n", venoceansw_priv->sw_cmd, venoceansw_priv->sw_id);
 
-		/* Do something with the response */
-
-#if 0 /* Debug */
-		lprintk("## Got from the backend: %s\n", ring_rsp->buffer);
-#endif
+		complete(&venoceansw_priv->cmd_receive);
 	}
 
 	return IRQ_COMPLETED;
 }
 
-#if 0
-static int i1 = 1, i2 = 2;
-/*
- * The following function is given as an example.
- *
- */
+/**
+ * @brief block until switch data is retourned from BE
+ * @return in param
+ * 	\param sw_cmd: pressed command by switch
+ * 	\param sw_id: switch id
+ **/
+void get_sw_data(int *sw_cmd, int *sw_id) {
 
-void venoceansw_generate_request(char *buffer) {
-	venoceansw_request_t *ring_req;
-	venoceansw_priv_t *venoceansw_priv;
+	venoceansw_priv_t *venoceansw_priv = dev_get_drvdata(venoceansw_dev->dev);
 
-	if (!venoceansw_dev)
-		return ;
+	wait_for_completion(&venoceansw_priv->cmd_receive);
 
-	venoceansw_priv = (venoceansw_priv_t *) dev_get_drvdata(venoceansw_dev->dev);
+	lprintk(VENOCEANSW_PREFIX "FE _____________cmd_receive completed\n");
 
-	vdevfront_processing_begin(venoceansw_dev);
-
-	/*
-	 * Try to generate a new request to the backend
-	 */
-	if (!RING_REQ_FULL(&venoceansw_priv->venoceansw.ring)) {
-		ring_req = venoceansw_new_ring_request(&venoceansw_priv->venoceansw.ring);
-
-		memcpy(ring_req->buffer, buffer, VENOCEANSW_PACKET_SIZE);
-
-		venoceansw_ring_request_ready(&venoceansw_priv->venoceansw.ring);
-
-		notify_remote_via_virq(venoceansw_priv->venoceansw.irq);
-	}
-
-	vdevfront_processing_end(venoceansw_dev);
+	*sw_cmd = venoceansw_priv->sw_cmd;
+	*sw_id = venoceansw_priv->sw_id;
 }
-#endif
 
 static void venoceansw_probe(struct vbus_device *vdev) {
 	int res;
@@ -120,6 +105,8 @@ static void venoceansw_probe(struct vbus_device *vdev) {
 	venoceansw_priv = dev_get_drvdata(vdev->dev);
 
 	venoceansw_dev = vdev;
+
+	init_completion(&venoceansw_priv->cmd_receive);
 
 	DBG("Frontend: Setup ring\n");
 
