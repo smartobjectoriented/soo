@@ -1556,6 +1556,13 @@ static void uart_close(struct tty_struct *tty, struct file *filp)
 	tty_port_close(tty->port, tty, filp);
 }
 
+/* SOO.tech */
+void uart_do_close(struct tty_struct *tty) {
+
+	uart_close(tty, NULL);
+}
+EXPORT_SYMBOL_GPL(uart_do_close);
+
 static void uart_tty_port_shutdown(struct tty_port *port)
 {
 	struct uart_state *state = container_of(port, struct uart_state, port);

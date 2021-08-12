@@ -278,6 +278,13 @@ void remove_vbstore_entries(void) {
 		DBG("%s: removing vvalve from vbstore...\n", __func__);
 		vbstore_dev_remove(ME_domID(), "vvalve");
 	}
+
+	/* vknxblind node */
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "vknxblind,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: removing vknxblind from vbstore...\n", __func__);
+		vbstore_dev_remove(ME_domID(), "vknxblind");
+	}
 }
 
 /*
@@ -350,6 +357,13 @@ void vbstore_devices_populate(void) {
 	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
 		DBG("%s: init vvalve...\n", __func__);
 		vbstore_dev_init(ME_domID(), "vvalve", false, "vvalve,frontend");
+	}
+
+	/* vknxblind node */
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "vknxblind,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: init vknxblind...\n", __func__);
+		vbstore_dev_init(ME_domID(), "vknxblind", false, "vknxblind,frontend");
 	}
 
 }

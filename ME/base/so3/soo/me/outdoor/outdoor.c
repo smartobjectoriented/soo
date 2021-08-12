@@ -228,6 +228,7 @@ void ui_update_app_spid(uint8_t *spid) {
 	}
 }
 
+#ifdef CONFIG_VUIHANDLER_FRONTEND
 
 /**
  * Task that sends a vUIHandler packet with the SOO.outdoor info periodically.
@@ -247,12 +248,15 @@ static int send_vuihandler_pkt_task_fn(void *arg) {
 
 	return 0;
 }
-
+#endif
 /**
  * Start the threads.
  */
 void outdoor_start_threads(void) {
+
+#ifdef CONFIG_VUIHANDLER_FRONTEND
 	kernel_thread(send_vuihandler_pkt_task_fn, "vUIHandler", NULL, 0);
+#endif
 }
 
 /**
@@ -337,7 +341,9 @@ void outdoor_init(void) {
 	for (i = 0; i < MAX_DESC; i++)
 		reset_outdoor_desc(i);
 
+#ifdef CONFIG_VUIHANDLER_FRONTEND
 	vuihandler_register_callback(ui_update_app_spid, ui_interrupt);
+#endif
 	vweather_register_interrupt(weather_data_update_interrupt);
 
 	/* Allocate the outgoing vUIHandler packet */

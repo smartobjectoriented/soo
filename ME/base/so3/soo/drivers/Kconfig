@@ -40,6 +40,9 @@ config VDOGABLIND_FRONTEND
 config VENOCEANSW_FRONTEND
 	bool "vEnOceanSW frontend for the SOO.Blind (EnOcean Switch)"
 
+config VKNXBLIND_FRONTEND
+	bool "vKNXBlind frontend for the SOO.knxblind (Lahoco Blind using KNX)"
+
 source "soo/drivers/vnetfront/Kconfig"
 
 endmenu

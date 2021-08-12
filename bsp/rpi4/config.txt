@@ -61,7 +61,6 @@ dtparam=audio=on
 dtoverlay=vc4-fkms-v3d
 max_framebuffers=2
 
-#enable_uart=0
 enable_uart=1
 
 # SOO.mp

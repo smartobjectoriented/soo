@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2021 Thomas Rieder <thomas.rieder@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,35 +16,18 @@
  *
  */
 
-/dts-v1/;
+#ifndef KNXBLIND_H
+#define KNXBLIND_H
 
-/ {
-	description = "SO3 image for the SOO.heat ME (without rootfs)";
+#include <completion.h>
 
-	images {
-	
-		so3 {
-			description = "SO3 OS kernel";
-			data = /incbin/("../so3/so3.bin");
-			type = "ME";
-			arch = "arm";
-			os = "linux";
-			compression = "none";
-			
-			hash {
-				algo = "crc32";
-			};
-		};
+typedef struct {
+    int blind_cmd;
+    int sw_id;
+    struct completion sw_cmd_receive;
+} knxblind_data;
 
-		fdt {
-			description = "Flattened Device Tree blob";
-			data = /incbin/("../so3/dts/heat.dtb");
-			type = "flat_dt";
-			arch = "arm";
-			compression = "none";
-			hash {
-				algo = "crc32";
-			};
-		};	
-    };
-};
+
+extern knxblind_data *g_knxblind_data;
+
+#endif /* KNXBLIND_H */

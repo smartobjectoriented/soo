@@ -96,7 +96,7 @@
     };
 	
     configurations {
-		default = "agency_rpi4";
+		default = "agency_rpi4_knx";
 		
 		agency_rpi4 {
 			description = "SOO Agency on Raspberry Pi 4 B";

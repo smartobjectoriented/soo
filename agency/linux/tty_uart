@@ -1,0 +1,41 @@
+put_char:soo/drivers/vknxblindback/vknxblind.c:	return tty->ops->write(vknxblind_priv->tty_uart, data, len);
+put_char:soo/drivers/vknxblindback/vknxblind.c:		tty->ops->put_char(vknxblind_priv->tty_uart, reset_tx[i]);
+soo/drivers/vknxblindback/vknxblind.c:	vknxblind_ring_response_ready(&vknxblind_priv->vknxblind.ring);
+soo/drivers/vknxblindback/vknxblind.c:	notify_remote_via_virq(vknxblind_priv->vknxblind.irq);
+soo/drivers/vknxblindback/vknxblind.c:	while ((ring_req = vknxblind_get_ring_request(&vknxblind_priv->vknxblind.ring)) != NULL) {
+soo/drivers/vknxblindback/vknxblind.c:		ring_rsp = vknxblind_new_ring_response(&vknxblind_priv->vknxblind.ring);
+soo/drivers/vknxblindback/vknxblind.c:		vknxblind_priv->cmd_blind = ring_req->knxblind_cmd;
+soo/drivers/vknxblindback/vknxblind.c:		printk(VKNXBLIND_PREFIX "BE receive %d from FE\n", vknxblind_priv->cmd_blind);
+soo/drivers/vknxblindback/vknxblind.c:		complete(&vknxblind_priv->wait_cmd);
+soo/drivers/vknxblindback/vknxblind.c:		// vknxblind_ring_response_ready(&vknxblind_priv->vknxblind.ring);
+soo/drivers/vknxblindback/vknxblind.c:		// notify_remote_via_virq(vknxblind_priv->vknxblind.irq);
+soo/drivers/vknxblindback/vknxblind.c:	len = tty_do_read(vknxblind_priv->tty_uart, rx_buffer, 256);
+soo/drivers/vknxblindback/vknxblind.c:	// struct tty_struct *tty = vknxblind_priv->tty_uart;
+soo/drivers/vknxblindback/vknxblind.c:	struct tty_struct *tty = vknxblind_priv->tty_uart;
+soo/drivers/vknxblindback/vknxblind.c:	// rx_length = tty_do_read(vknxblind_priv->tty_uart, (void*)rx_buffer, 255);
+soo/drivers/vknxblindback/vknxblind.c:	uart_do_write(vknxblind_priv->tty_uart, prop_read_req, 14);
+soo/drivers/vknxblindback/vknxblind.c:		rx_length = tty_do_read(vknxblind_priv->tty_uart, (void*)rx_buffer, 255);
+soo/drivers/vknxblindback/vknxblind.c:					uart_do_write(vknxblind_priv->tty_uart, prop_write_req, 15);
+soo/drivers/vknxblindback/vknxblind.c:					uart_do_write(vknxblind_priv->tty_uart, prop_read_req4, 15);
+soo/drivers/vknxblindback/vknxblind.c:					uart_do_write(vknxblind_priv->tty_uart, stop_blind_cmd, 18);
+soo/drivers/vknxblindback/vknxblind.c:	// rx_length = tty_do_read(vknxblind_priv->tty_uart, (void*)rx_buffer, 255);
+soo/drivers/vknxblindback/vknxblind.c:	uart_do_write(vknxblind_priv->tty_uart, prop_read_req, 14);
+soo/drivers/vknxblindback/vknxblind.c:		rx_length = tty_do_read(vknxblind_priv->tty_uart, (void*)rx_buffer, 255);
+soo/drivers/vknxblindback/vknxblind.c:					uart_do_write(vknxblind_priv->tty_uart, prop_write_req, 15);
+soo/drivers/vknxblindback/vknxblind.c:					uart_do_write(vknxblind_priv->tty_uart, prop_read_req4, 15);
+soo/drivers/vknxblindback/vknxblind.c:					uart_do_write(vknxblind_priv->tty_uart, up_blind_cmd, 18);
+soo/drivers/vknxblindback/vknxblind.c:	printk("================ c_iflag %u\n", vknxblind_priv->tty_uart->termios.c_iflag);
+soo/drivers/vknxblindback/vknxblind.c:	printk("================ c_oflag %u\n", vknxblind_priv->tty_uart->termios.c_oflag);
+soo/drivers/vknxblindback/vknxblind.c:	printk("================ c_cflag %u\n", vknxblind_priv->tty_uart->termios.c_cflag);
+soo/drivers/vknxblindback/vknxblind.c:	printk("================ c_lflag %u\n", vknxblind_priv->tty_uart->termios.c_lflag);
+soo/drivers/vknxblindback/vknxblind.c:	printk("================ c_ispeed %u\n", vknxblind_priv->tty_uart->termios.c_ispeed);
+soo/drivers/vknxblindback/vknxblind.c:	printk("================ c_ospeed %u\n", vknxblind_priv->tty_uart->termios.c_ospeed);
+soo/drivers/vknxblindback/vknxblind.c:	printk("================ c_line %02hhx\n", vknxblind_priv->tty_uart->termios.c_line);
+soo/drivers/vknxblindback/vknxblind.c:		printk("%02hhx", vknxblind_priv->tty_uart->termios.c_cc[i]);
+soo/drivers/vknxblindback/vknxblind.c:			rx_length += tty_do_read(vknxblind_priv->tty_uart, rx_buffer + rx_length, 1);
+soo/drivers/vknxblindback/vknxblind.c:	printk(VKNXBLIND_PREFIX "BE receive %d\n", vknxblind_priv->cmd_blind);
+soo/drivers/vknxblindback/vknxblind.c:		wait_for_completion(&vknxblind_priv->wait_cmd);
+soo/drivers/vknxblindback/vknxblind.c:		switch (vknxblind_priv->cmd_blind)
+soo/drivers/vknxblindback/vknxblind.c:	vknxblind_priv->tty_uart = tty_kopen(dev);
+soo/drivers/vknxblindback/vknxblind.c:	tty_add_file(vknxblind_priv->tty_uart, f);
+soo/drivers/vknxblindback/vknxblind.c:	uart_do_open(vknxblind_priv->tty_uart

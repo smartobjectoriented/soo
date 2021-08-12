@@ -496,9 +496,14 @@ void vbstorage_agency_init(void) {
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/venoceansw");
 
-	/* Agency backend side of virtual vdoga blind motor (SOO.Blind) */
+	/* Agency backend side of virtual doga blind motor (SOO.Blind) */
 	np = of_find_compatible_node(NULL, NULL, "vdogablind,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vdogablind");
+
+	/* Agency backend side of virtual knx blind (SOO.Blind) */
+	np = of_find_compatible_node(NULL, NULL, "vknxblind,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vknxblind");
 
 }

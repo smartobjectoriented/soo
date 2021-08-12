@@ -16,6 +16,8 @@ dtb-$(CONFIG_SOO_AGENCY) += agency.dtb
 dtb-$(CONFIG_SOO_NET) += net.dtb
 dtb-$(CONFIG_SOO_HEAT) += heat.dtb
 dtb-$(CONFIG_SOO_INDOOR) += indoor.dtb
+dtb-$(CONFIG_SOO_KNXBLIND) += knxblind.dtb
+dtb-$(CONFIG_SOO_DOGABLIND) += dogablind.dtb
 dtb-$(CONFIG_SOO_DOMO) += domo.dtb
 
 

@@ -126,28 +126,12 @@ irqreturn_t vtemp_interrupt(int irq, void *dev_id)
 void vtemp_probe(struct vbus_device *vdev) {
 	
 	int ret;
-	struct device_node *np = vdev->dev.of_node;
-	const char *port_name = "ttyAMA3";
 	vtemp_priv_t *vtemp_priv;
 
 
 	printk("%s BACKEND PROBE V2 CALLED\n", VTEMP_PREFIX);
-	
-
-	/* GET TTY PORT FROM DTB */
-	ret = of_property_read_string(np, "tty_port", &port_name);
-
-	if(ret == -EINVAL) {
-		printk("%s property tty_port doesn't exist !\n", VTEMP_PREFIX);
-
-	} else if (ret == -ENODATA) {
-		printk("%s property port is null !\n", VTEMP_PREFIX);
-	}
-
-
 
 	/* SETUP PRIVATE STRUCTURE */
-
 	vtemp_priv = kzalloc(sizeof(vtemp_priv_t), GFP_ATOMIC);
 	BUG_ON(!vtemp_priv);
 
@@ -155,7 +139,7 @@ void vtemp_probe(struct vbus_device *vdev) {
 
 	vtemp_dev = vdev;
 	
-	vtemp_priv->last_temp = 60;
+	vtemp_priv->last_temp = 22;
 
 	init_completion(&vtemp_priv->wait_send_temp);
 

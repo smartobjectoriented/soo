@@ -50,5 +50,15 @@ choice
 		help
 			SOO.domo is used to TEST several BE/FE drivers.
 		
+	config SOO_KNXBLIND
+		bool "SOO.knxblind Mobile Entity"
+		help
+			SOO.knxblind is used to command the Lahoco Blind using KNX protocol.
+		
+	config SOO_DOGABLIND
+		bool "SOO.dogablind Mobile Entity"
+		help
+			SOO.dogablind is used to command the Doga Blind and receive command from EnOcean Switch.
+		
 endchoice
 

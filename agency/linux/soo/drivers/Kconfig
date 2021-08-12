@@ -84,6 +84,13 @@ config VNET_BACKEND
     help
       This driver implements the backend of the network driver of the SOO environment.
 
+config VKNXBLIND_BACKEND
+        bool "vKnx Blind backend"
+		depends on TTY
+		default n
+		help
+		  Support for SOO.blind to control the KNX blind.
+
 source "soo/drivers/vnetback/Kconfig"
 
 endmenu

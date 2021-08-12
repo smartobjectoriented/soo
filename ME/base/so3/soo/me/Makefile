@@ -7,6 +7,8 @@ obj-$(CONFIG_SOO_NET) += net/
 obj-$(CONFIG_SOO_HEAT) += heat/
 obj-$(CONFIG_SOO_INDOOR) += indoor/
 obj-$(CONFIG_SOO_DOMO) += domo/
+obj-$(CONFIG_SOO_KNXBLIND) += knxblind/
+obj-$(CONFIG_SOO_DOGABLIND) += dogablind/
 
 # obj-y += eco_stability.o
 

@@ -18,4 +18,5 @@ obj-$(CONFIG_VVALVE_BACKEND)  += vvalveback/
 obj-$(CONFIG_VENOCEANSW_BACKEND)  += venoceanswback/
 obj-$(CONFIG_VDOGABLIND_BACKEND)  += vdogablindback/
 obj-$(CONFIG_VOUTSENSE_BACKEND)  += voutsenseback/
+obj-$(CONFIG_VKNXBLIND_BACKEND)  += vknxblindback/
 

@@ -25,8 +25,11 @@
 #include <list.h>
 
 #include <asm/atomic.h>
+
 #include <me/indoor/indoor.h>
 #include <me/heat/heat.h>
+#include <me/knxblind/knxblind.h>
+#include <me/dogablind/dogablind.h>
 
 
 #define MAX_ME_DOMAINS				5
@@ -189,6 +192,8 @@ typedef struct {
 	/*final*/
 	temp_data temp;
 	heat_data data_heat;
+	dogablind_data data_dogablind;
+	knxblind_data data_knxblind;
 
 } common_data;
 

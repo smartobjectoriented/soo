@@ -36,8 +36,8 @@
 #include <soo/debug/dbgvar.h>
 #include <soo/debug/logbool.h>
 #include <soo/evtchn.h>
-#include <soo/dev/vvalve.h>
-#include <me/heat/heat.h>
+#include <soo/dev/vknxblind.h>
+#include <me/knxblind/knxblind.h>
 
 #include <completion.h>
 
@@ -88,44 +88,37 @@ struct completion compl;
 mutex_t lock1, lock2;
 
 extern void *localinfo_data;
-heat_data *g_heat_data;
+knxblind_data *g_knxblind_data;
 
 /**
- * @brief Main thread sending command to the valve when SOO.indoor cooperate
+ * @brief Main thread sending command to the Lahoco blind via KNX
  **/
-int soo_heat_command_valve(void *args)
+int soo_knxblind_command_blind(void *args)
 {
 
-	int valve_id;
-	int tmp_wanted = 100;
+	lprintk("SOO.knxblind, ME: cmd_blind thread running...\n");
 
 	while (1) {
 
-		lprintk("ME SOO.heat is waiting for ME SOO.indoor\n");
-		wait_for_completion(&g_heat_data->wait_me_indoor);
-		lprintk("ME SOO.heat going to send valve cmd !!!\n");
+		wait_for_completion(&g_knxblind_data->sw_cmd_receive);
 
-		/* Get ID of the valve connected on the current Smart Object*/
-		valve_id = vvalve_get_id();
+		lprintk("ME SOO.knxblind : receive cmd:%d, sw:0x%08X from SOO.dogablind\n ", g_knxblind_data->blind_cmd);
 
-		lprintk("----- ME SOO.heat, temp_id: %d, valve_id: %d, temp_wanted: %d, real_temp: %d\n",
-			   g_heat_data->temp_dev_id, valve_id, tmp_wanted, g_heat_data->temp);
-
-		/* Compare the temperature Sensor ID from SOO.indoor with the valve ID */
-		if(g_heat_data->temp_dev_id == valve_id) {
-
-			if(g_heat_data->temp > tmp_wanted) {
-
-				vvalve_send_cmd(VALVE_CMD_CLOSE);
-
-			} else {
-				
-				vvalve_send_cmd(VALVE_CMD_OPEN);
-			}
-		} else {
-
-			/*TODO: ME SOO.indoor should migrate on another Smart Object */
-		}
+		switch (g_knxblind_data->blind_cmd)
+		{
+		case VKNXBLIND_STOP_CMD:
+			vknxblind_stop_blind();
+			break;
+		case VKNXBLIND_UP_CMD:
+			vknxblind_up_blind();
+			break;
+		case VKNXBLIND_DOWN_CMD:
+			vknxblind_down_blind();
+			break;
+		default:
+			lprintk("SOO.knxblind receive unknown command from SOO.dogablind\n");
+			break;
+		}		
 	}
 
 	return 0;
@@ -171,10 +164,13 @@ int app_thread_main(void *args) {
 	spad_enable_cooperate();
 
 
-	kernel_thread(soo_heat_command_valve, "soo_heat_command_valve", NULL, 0);
+	msleep(2000);
+
+
+	kernel_thread(soo_knxblind_command_blind, "soo_knxblind_command_blind", NULL, 0);
 
 	//init_timer(&timer, timer_fn, NULL);
-	lprintk("SOO.heat Mobile Entity -- Copyright (c) 2016-2021 REDS Institute (HEIG-VD)\n\n");
+	lprintk("SOO.knxblind Mobile Entity -- Copyright (c) 2016-2021 REDS Institute (HEIG-VD)\n\n");
 
 	return 0;
 }

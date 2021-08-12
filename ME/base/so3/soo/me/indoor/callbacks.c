@@ -168,7 +168,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
-	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
+	// DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
 	pre_propagate_args->propagate_status = 0;
 

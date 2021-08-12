@@ -11,8 +11,8 @@
 	chosen {
 	 	/* bootargs = "console=ttyAMA0,115200n8 root=/dev/ram rw slub_debug=PUZ"; */
  	   /*  bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=serial0,115200 console=tty1 root=/dev/ram elevator=deadline fsck.repair=yes rootwait"; */
-	/*bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=ttyS0,115200 root=/dev/ram elevator=deadline fsck.repair=yes rootwait";*/
-	bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=ttyAMA2,115200 root=/dev/ram elevator=deadline fsck.repair=yes rootwait";
+	bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=ttyS0,115200 root=/dev/ram elevator=deadline fsck.repair=yes rootwait";
+	/*bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=ttyAMA2,115200 root=/dev/ram elevator=deadline fsck.repair=yes rootwait";*/
 
 #if 0 /* SOO.tech */
 		/* 8250 auxiliary UART instead of pl011 */
@@ -29,7 +29,8 @@
 	aliases {
 		serial0 = &uart1;
 		serial1 = &uart0;
-		serial2 = &uart5;
+		/*serial2 = &uart5;*/
+		serial3 = &uart3;
 		mmc0 = &emmc2;
 		mmc2 = &sdhost;
 		i2c3 = &i2c3;
@@ -104,14 +105,10 @@
 				status = "ok";
 			};
 
-			vlahocoblind {
-				compatible = "vlahocoblind,backend";
+			vknxblind {
+				compatible = "vknxblind,backend";
 				status = "okay";
-			};
-
-			vknxswitch {
-				compatible = "vknxswitch,backend";
-				status = "okay";
+				tty_port = "ttyAMA3";
 			};
 		
 		};
@@ -355,11 +352,18 @@
 	status = "okay";
 };
 
-&uart5 {
+/* SOO.kBerry access to kBerry module*/
+&uart3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_gpio4>;
+	status = "okay";
+};
+
+/*&uart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart5_gpio12>;
 	status = "okay";
-};
+};*/
 
 
 &i2c1 {

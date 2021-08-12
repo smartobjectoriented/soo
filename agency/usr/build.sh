@@ -89,6 +89,7 @@ install_file_root build/apps/saveme
 install_file_root build/apps/restoreme
 install_file_root build/apps/shutdownme
 install_file_root build/apps/melist
+install_file_root build/apps/usart
 
 # And modules if any
 cp module/*.ko build/deploy 2>/dev/null

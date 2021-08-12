@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@soo.tech>
- * Copyright (C) March 2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2021 Thomas Rieder <thomas.rieder@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -32,7 +31,7 @@
 #include <soo/soo.h>
 #include <soo/console.h>
 #include <soo/debug.h>
-#include <me/heat/heat.h>
+#include <me/knxblind/knxblind.h>
 
 /*
  * ME Description:
@@ -49,12 +48,12 @@ common_data* localData;
 common_data* RxData;
 
 
-/* SPID of the SOO.heat ME */
-uint8_t SOO_heat_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x61, 0xd0, 0x0b };
+/* SPID of the SOO.knxblind ME */
+uint8_t SOO_knxblind_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x61, 0xd0, 0x0c };
 
 
 /* SPID of the SOO.indoor ME needed to cooperate with */
-uint8_t SOO_indoor_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x61, 0xd0, 0x0a };
+uint8_t SOO_dogablind_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x61, 0xd0, 0x0d };
 
 
 #if 0
@@ -76,7 +75,7 @@ static uint32_t migration_count = 0;
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
 
-	lprintk("SOO.heat cb_pre_activate\n");
+	lprintk("SOO.knxblind cb_pre_activate\n");
 	return 0;
 }
 
@@ -89,7 +88,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 	
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 	
-	// lprintk("SOO.heat cb_pre_propagate\n");
+	// lprintk("SOO.knxblind cb_pre_propagate\n");
 	
 	pre_propagate_args->propagate_status = 0;
 
@@ -101,7 +100,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
  */
 int cb_kill_me(soo_domcall_arg_t *args) {
 
-	lprintk("SOO.heat cb_kill_me\n");
+	lprintk("SOO.knxblind cb_kill_me\n");
 	DBG(">> ME %d: cb_kill_me...\n", ME_domID());
 
 	/* Do we accept to be killed? yes... */
@@ -118,7 +117,7 @@ int cb_kill_me(soo_domcall_arg_t *args) {
  * Returns 0 if no propagation to the user space is required, 1 otherwise
  */
 int cb_pre_suspend(soo_domcall_arg_t *args) {
-	lprintk("SOO.heat cb_pre_suspend\n");
+	lprintk("SOO.knxblind cb_pre_suspend\n");
 	DBG(">> ME %d: cb_pre_suspend...\n", ME_domID());
 
 	/* No propagation to the user space */
@@ -141,10 +140,10 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	// unsigned char idexEnd;
 	uint32_t pfn;
 
-	// lprintk("SOO.heat cb_cooperate\n");
+	// lprintk("SOO.knxblind cb_cooperate\n");
 
 
-	lprintk("[soo:me:SOO.refSO3] ME %d: cb_cooperate...\n", ME_domID());
+	lprintk("[soo:me:SOO.knxblind] ME %d: cb_cooperate...\n", ME_domID());
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
@@ -183,20 +182,22 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		RxData = (common_data *) io_map(pfn_to_phys(pfn), sizeof(RxData));
 
 
-		/* Cooperate With SOO.indoor*/
-		if(memcmp(RxData->type, SOO_indoor_spid, SPID_SIZE) == 0){
+		/* Cooperate with ME SOO.dogablind */
+		if(memcmp(RxData->type, SOO_dogablind_spid, SPID_SIZE) == 0){
 				
-			// lprintk("SOO.heat detect SOO.indoor\n");
+			// lprintk("SOO.knxblind detect SOO.indoor\n");
 
-			localData->data_heat.temp = RxData->temp.temp;
-			localData->data_heat.temp_dev_id = RxData->temp.dev_id;
+			lprintk("___ CALLBACK RxData : cmd = %d\n", RxData->data_dogablind.blind_cmd);
+
+			localData->data_knxblind.blind_cmd = RxData->data_dogablind.blind_cmd;
+			localData->data_knxblind.sw_id = RxData->data_dogablind.sw_id;
 
 			// WAKE UP ME THREAD !
-			complete(&g_heat_data->wait_me_indoor);
+			complete(&g_knxblind_data->sw_cmd_receive);
 
 		}
 
-		/* KILL initiatore ME */
+		/*KILL initiatore ME*/
 		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
 		agency_ctl_args.slotID = RxData->slotID;
 		args->__agency_ctl(&agency_ctl_args);
@@ -224,7 +225,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
  * Returns 0 if no propagation to the user space is required, 1 otherwise
  */
 int cb_pre_resume(soo_domcall_arg_t *args) {
-	lprintk("SOO.heat cb_post_activate\n");
+	lprintk("SOO.knxblind cb_post_activate\n");
 	DBG(">> ME %d: cb_pre_resume...\n", ME_domID());
 
 	return 0;
@@ -234,7 +235,7 @@ int cb_pre_resume(soo_domcall_arg_t *args) {
  * POST_ACTIVATE callback (async)
  */
 int cb_post_activate(soo_domcall_arg_t *args) {
-	lprintk("SOO.heat cb_post_activate\n");
+	lprintk("SOO.knxblind cb_post_activate\n");
 #if 0
 	agency_ctl_args_t agency_ctl_args;
 	static uint32_t count = 0;
@@ -254,7 +255,7 @@ int cb_post_activate(soo_domcall_arg_t *args) {
  */
 int cb_localinfo_update(void) {
 
-	lprintk("SOO.heat cb_localinfo_update\n");
+	lprintk("SOO.knxblind cb_localinfo_update\n");
 	return 0;
 }
 
@@ -266,7 +267,7 @@ int cb_localinfo_update(void) {
  */
 
 int cb_force_terminate(void) {
-	lprintk("SOO.heat cb_force_terminate\n");
+	lprintk("SOO.knxblind cb_force_terminate\n");
 	DBG(">> ME %d: cb_force_terminate...\n", ME_domID());
 	DBG("ME state: %d\n", get_ME_state());
 
@@ -281,7 +282,7 @@ int cb_force_terminate(void) {
 
 void callbacks_init(void) {
 
-	lprintk("SOO.heat callbacks_init\n");
+	lprintk("SOO.knxblind callbacks_init\n");
 
 	/* Allocate localinfo */
 	localinfo_data = (void *) get_contig_free_vpages(1);
@@ -293,11 +294,11 @@ void callbacks_init(void) {
 	localData->timeStamp = 0;
 	localData->nb_device_visited = 0;
 	
-	g_heat_data = &localData->data_heat;
+	g_knxblind_data = &localData->data_knxblind;
 
-	init_completion(&g_heat_data->wait_me_indoor);
+	init_completion(&g_knxblind_data->sw_cmd_receive);
 
-	memcpy(localData->type, SOO_heat_spid, SPID_SIZE);
+	memcpy(localData->type, SOO_knxblind_spid, SPID_SIZE);
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
