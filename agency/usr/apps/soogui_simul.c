@@ -241,9 +241,9 @@ const char* generate_soo_outdoor() {
         <name>SOO.outdoor</name>\
         <description>SOO.outdoor permet de récupérer les informations d'une station météorologique.</description>\
         <layout>\
+            <row><col><label for=\"temp-per-day-graph\">Luminosité selon l'heure de la journée :</label></col></row>\
             <row>\
-                <col>\
-                    <label for=\"temp-per-day-graph\">Luminosité selon l'heure de la journée</label>\
+                <col offset=\"1\" span=\"10\">\
                     <graph id=\"temp-per-day-graph\" type=\"line\">\
                         <axes display-series-name=\"true\">\
                             <axis type=\"datetime\" format=\"hh:mm\">Heure</axis>\
@@ -281,8 +281,7 @@ const char* generate_soo_outdoor() {
                 </col>\
             </row>\
             <row>\
-                <col>\
-                    <label for=\"summary-graph\">Luminosité selon l'heure de la journée</label>\
+                <col offset=\"1\" span=\"10\">\
                     <graph id=\"summary-graph\" type=\"table\">\
                         <axes display-series-name=\"true\">\
                             <axis type=\"number\">Temperature</axis>\
@@ -351,22 +350,38 @@ const char* generate_soo_blind() {
         <description>SOO.blind permet de gérer la position des stores.</description>\
         <layout>\
             <row>\
-                <col><label for=\"blind-up\">Position des stores</label></col>\
-                <col><button id=\"blind-up\" lockable=\"true\" lockable-after=\"1.5\">Monter</button></col>\
-                <col><button id=\"blind-down\" lockable=\"true\" lockable-after=\"1.5\">Descendre</button></col>\
-                <col><slider id=\"blind-slider\" max=\"%i\" min=\"%i\" step=\"1\" orientation=\"vertical\">%i</slider></col>\
+                <col span=\"2\"><label for=\"blind-up\">Position des stores :</label></col>\
+                <col span=\"2\"><button id=\"blind-up\" lockable=\"true\" lockable-after=\"1.5\">Monter</button></col>\
+                <col span=\"2\"><button id=\"blind-down\" lockable=\"true\" lockable-after=\"1.5\">Descendre</button></col>\
+                <col span=\"4\"><slider id=\"blind-slider\" max=\"%i\" min=\"%i\" step=\"1\" orientation=\"vertical\">%i</slider></col>\
             </row>\
             <row>\
-                <col><label for=\"blind-if-lux\">Condition 1</label></col>\
+                <col><text>Condition 1 :</text></col>\
             </row>\
             <row>\
-                <col><text>Si la luminosité externe est plus petite que </text><number id=\"blind-if-lux\" value=\"%.1f\"/><text>lux</text></col>\
+                <col span=\"6\" offset=\"1\">\
+                    <label for=\"blind-if-lux\">Si la luminosité externe est plus petite que </label>\
+                    <number id=\"blind-if-lux\" value=\"%.1f\"/>\
+                    <label for=\"blind-if-lux\"> lux</label>\
+                </col>\
             </row>\
             <row>\
-                <col><text>Alors </text><dropdown id=\"blind-then-lux\"><option value=\"up\" default=\"%s\">Monter</option><option value=\"down\" default=\"%s\">Descendre</option></dropdown></col>\
+                <col span=\"2\" offset=\"1\"><label for=\"blind-then-lux\">Alors </label></col>\
+                <col span=\"3\">\
+                    <dropdown id=\"blind-then-lux\">\
+                        <option value=\"up\" default=\"%s\">Monter</option>\
+                        <option value=\"down\" default=\"%s\">Descendre</option>\
+                    </dropdown>\
+                </col>\
             </row>\
             <row>\
-                <col><text>Sur </text><dropdown id=\"blind-on-lux\"><option value=\"north\" default=\"%s\">SOO.outdoor Nord</option><option value=\"south\" default=\"%s\">SOO.outdoor Sud</option></dropdown></col>\
+                <col span=\"2\" offset=\"1\"><label for=\"blind-else-lux\">Sur </label></col>\
+                <col span=\"3\">\
+                    <dropdown id=\"blind-on-lux\">\
+                        <option value=\"north\" default=\"%s\">SOO.outdoor Nord</option>\
+                        <option value=\"south\" default=\"%s\">SOO.outdoor Sud</option>\
+                    </dropdown>\
+                </col>\
             </row>\
         </layout>\
         </model>",
@@ -395,30 +410,31 @@ const char* generate_soo_heat() {
         <description>SOO.heat permet de gérer le termostat des radiateurs.</description>\
         <layout>\
             <row>\
-                <col><number id=\"heat-current-temp\" step=\"0.5\">%.1f</number></col>\
-                <col><button id=\"heat-decrease-temp\" lockable=\"true\">-0.5°C</button></col>\
-                <col><button id=\"heat-increase-temp\" lockable=\"true\">+0.5°C</button></col>\
+                <col span=\"2\"><text>Température actuelle :</text></col>\
+                <col span=\"2\"><number id=\"heat-current-temp\" step=\"0.5\">%.1f</number><label for=\"heat-current-temp\"> °C</label></col>\
+                <col span=\"2\"><button id=\"heat-decrease-temp\" lockable=\"true\">-0.5 °C</button></col>\
+                <col span=\"2\"><button id=\"heat-increase-temp\" lockable=\"true\">+0.5 °C</button></col>\
             </row>\
             <row>\
-                <col><label for=\"heat-if-temp\">Palier 1</label></col>\
+                <col><text>Palier 1 :</text></col>\
             </row>\
             <row>\
-                <col><text>Si la température externe est plus petite que </text></col>\
-                <col><number id=\"heat-if-temp\" step=\"0.5\">%.1f</number></col>\
-                <col><button id=\"heat-if-temp-decrease\" lockable=\"true\">-0.5°C</button></col>\
-                <col><button id=\"heat-if-temp-increase\" lockable=\"true\">+0.5°C</button></col>\
+                <col span=\"2\"><label for=\"heat-if-temp\">Si la température externe est plus petite que </label></col>\
+                <col span=\"2\"><number id=\"heat-if-temp\" step=\"0.5\">%.1f</number><label for=\"heat-if-temp\"> °C</label></col>\
+                <col span=\"2\"><button id=\"heat-if-temp-decrease\" lockable=\"true\">-0.5 °C</button></col>\
+                <col span=\"2\"><button id=\"heat-if-temp-increase\" lockable=\"true\">+0.5 °C</button></col>\
             </row>\
             <row>\
-                <col><text>Alors la température interne vaut </text></col>\
-                <col><number id=\"heat-then-temp\" step=\"0.5\">%.1f</number></col>\
-                <col><button id=\"heat-then-temp-decrease\" lockable=\"true\">-0.5°C</button></col>\
-                <col><button id=\"heat-then-temp-increase\" lockable=\"true\">+0.5°C</button></col>\
+                <col span=\"2\"><label for=\"heat-then-temp\">Alors la température interne vaut </label></col>\
+                <col span=\"2\"><number id=\"heat-then-temp\" step=\"0.5\">%.1f</number><label for=\"heat-then-temp\"> °C</label></col>\
+                <col span=\"2\"><button id=\"heat-then-temp-decrease\" lockable=\"true\">-0.5 °C</button></col>\
+                <col span=\"2\"><button id=\"heat-then-temp-increase\" lockable=\"true\">+0.5 °C</button></col>\
             </row>\
             <row>\
-                <col><text>Sinon la température interne vaut </text></col>\
-                <col><number id=\"heat-else-temp\" step=\"0.5\">%.1f</number></col>\
-                <col><button id=\"heat-else-temp-decrease\" lockable=\"true\">-0.5°C</button></col>\
-                <col><button id=\"heat-else-temp-increase\" lockable=\"true\">+0.5°C</button></col>\
+                <col span=\"2\"><label for=\"heat-else-temp\">Sinon la température interne vaut </label></col>\
+                <col span=\"2\"><number id=\"heat-else-temp\" step=\"0.5\">%.1f</number><label for=\"heat-else-temp\"> °C</label></col>\
+                <col span=\"2\"><button id=\"heat-else-temp-decrease\" lockable=\"true\">-0.5 °C</button></col>\
+                <col span=\"2\"><button id=\"heat-else-temp-increase\" lockable=\"true\">+0.5 °C</button></col>\
             </row>\
         </layout>\
         </model>",
@@ -1118,6 +1134,9 @@ void *receive_thread(void *dummy) {
         do {
             memset(message_block, '\0', sizeof(message_block));
             result = read(client, message_block, sizeof(message_block));
+            if(result == -1) {
+                break;
+            }
 
             printf("\nmessage received : ");
             // print_hex_n(message_block, sizeof(message_block));
