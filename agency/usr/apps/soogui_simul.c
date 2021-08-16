@@ -90,8 +90,8 @@ soo_blind_t soo_blind = {
     .min_pos = 0,
     .max_pos = 15,
     .if_luminosity = 500.0f,
-    .then_action = "down",
-    .on_me = "north"
+    .then_action = NULL,
+    .on_me = NULL
 };
 
 pthread_t soo_outdoor_th;
@@ -903,14 +903,20 @@ void manage_event(int client, vuihandler_pkt_t* message) {
         else if(strcmp(id,"blind-then-lux") == 0) {
             printf("event from blind-then-lux with action %s and value %s\n", action, value);
             sem_wait(&sem_mutex_blind);
-            soo_blind.then_action = value;
+            free(soo_blind.then_action);
+            char* tmp_value = (char*)malloc(256);
+            strncpy(tmp_value, value, 256);
+            soo_blind.then_action = tmp_value;
             sem_post(&sem_mutex_blind);
         } 
         // blind-on-lux
         else if(strcmp(id,"blind-on-lux") == 0) {
             printf("event from blind-on-lux with action %s and value %s\n", action, value);
             sem_wait(&sem_mutex_blind);
-            soo_blind.on_me = value;
+            free(soo_blind.on_me);
+            char* tmp_value = (char*)malloc(256);
+            strncpy(tmp_value, value, 256);
+            soo_blind.on_me = tmp_value;
             sem_post(&sem_mutex_blind);
         } 
 
@@ -1181,6 +1187,16 @@ void *receive_thread(void *dummy) {
 
 
     while(running) {
+        free(soo_blind.then_action);
+        free(soo_blind.on_me);
+
+        char* tmp_value = (char*)malloc(256);
+        strncpy(tmp_value, "down", 256);
+        soo_blind.then_action = tmp_value;
+        tmp_value = (char*)malloc(256);
+        strncpy(tmp_value, "north", 256);
+        soo_blind.on_me = tmp_value;
+
         /* accept one connection */
         printf("RFCOMM: Now accepting client...\n");
         client = accept(s, (struct sockaddr *)&rem_addr, &opt);
@@ -1201,6 +1217,12 @@ void *receive_thread(void *dummy) {
             {
             case 0x01: ;
                 printf("case 0x01\n");
+                printf("resetting threads\n");
+                soo_outdoor_thread_running = 0;
+                soo_blind_thread_running = 0;
+                soo_blind_outdoor_interaction_thread_running = 0;
+                soo_heat_thread_running = 0;
+                soo_heat_outdoor_interaction_thread_running = 0;
                 printf("sending message...\n");
                 payload = generate_soo_list();
                 char spid[SPID_SIZE];
