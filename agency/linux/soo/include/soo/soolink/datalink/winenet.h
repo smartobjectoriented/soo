@@ -51,15 +51,32 @@
 #define WNET_N_PACKETS_IN_FRAME 8
 #endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
 
-#define WNET_TSPEAKER_ACK_MS	800
+#define WNET_ACK_TIMEOUT_MS		800
+#define WNET_LISTENER_TIMEOUT_MS	600
+
+/*
+ * State of TX processing, storedin pendig field, as follows:
+ *
+ * - TX_NO_DATA 		no producer required to send data out.
+ * - TX_DATA_READY 		a set of frames is available and ready to be sent out.
+ * - TX_DATA_COMPLETED		The producer finished to send data entirely.
+ * - TX_DATA_IN_PROGRESS	Between a set of frames, waiting for subsequent send
+ *
+ */
+#define TX_NO_DATA		0
+#define TX_DATA_READY		1
+#define TX_DATA_COMPLETED	2
+#define TX_DATA_IN_PROGRESS	3
 
 /* The following values are called ACK cause and
  * enables to check the status of an acknowledgment message
  */
-#define ACK_STATUS_TIMEOUT	-1
-#define ACK_STATUS_OK		0x0
-#define ACK_STATUS_BEACON	0x1
-#define ACK_STATUS_ABORT	0x10
+typedef enum {
+	ACK_STATUS_OK = 0,
+	ACK_STATUS_TIMEOUT,
+	ACK_STATUS_BEACON,
+	ACK_STATUS_ABORT
+} wnet_ack_status_t;
 
 /*
  * Winenet states FSM
@@ -77,14 +94,19 @@ typedef enum {
 } wnet_state_t;
 
 /*
- * When a new smart object wants to join the neighborhood.
+ * For PING beacon, When a new smart object wants to join the neighborhood.
  * The rule is that the smart object with the lower agencyUID sends
  * a PING REQUEST and waits for the response to be considered as valid.
+ *
+ * For a QUERY_STATE request, the response will contain the general state of the
+ * smart object.
  */
+
 typedef enum {
-	WNET_PING_REQUEST = 0,
-	WNET_PING_RESPONSE = 1,
-} wnet_ping_t;
+	WNET_NONE = 0,
+	WNET_REQUEST = 1,
+	WNET_RESPONSE = 2,
+} wnet_reqrsp_t;
 
 /*
  * Winenet beacons:
@@ -101,14 +123,16 @@ typedef enum {
  *   this beacon must check its agencyUID against the sender. The lowest agencyUID is
  *   the new speaker. It responds with a PING (RESPONSE)
  *
+ * - QUERY_STATE: ask a smart object its current state, i.e. the paired speaker and the processing state.
+ *
  */
-typedef enum {
-	WNET_BEACON_GO_SPEAKER = 0,
-	WNET_BEACON_ACKNOWLEDGMENT = 1,
-	WNET_BEACON_BROADCAST_SPEAKER = 2,
-	WNET_BEACON_PING = 3,
-	WNET_BEACON_N
-} wnet_beacon_id_t;
+
+#define WNET_BEACON_ANY			(0xffff)
+#define WNET_BEACON_GO_SPEAKER		(1)
+#define WNET_BEACON_ACKNOWLEDGMENT	(1 << 1)
+#define WNET_BEACON_BROADCAST_SPEAKER	(1 << 2)
+#define WNET_BEACON_PING		(1 << 3)
+#define WNET_BEACON_QUERY_STATE		(1 << 4)
 
 typedef struct {
 
@@ -126,11 +150,22 @@ typedef struct {
 } wnet_beacon_t;
 
 typedef struct {
+
+	/* Used to store pending beacons */
+	struct list_head list;
+
+	/* Source */
+	agencyUID_t agencyUID_from;
+
+	wnet_beacon_t *this;
+
+} pending_beacon_t;
+
+typedef struct {
 	sl_desc_t *sl_desc;
-	uint32_t transID;
 
-	volatile bool pending;
-
+	volatile uint32_t transID;
+	volatile int pending;
 	volatile int ret;
 
 	struct completion xmit_event;
@@ -138,13 +173,37 @@ typedef struct {
 } wnet_tx_t;
 
 typedef struct {
-	sl_desc_t *sl_desc;
-	uint32_t transID;
 
-	/* Last received beacon */
-	wnet_beacon_t *last_beacon;
+	sl_desc_t *sl_desc;
+	volatile uint32_t transID;
 
 } wnet_rx_t;
+
+/*
+ * General state of the neighbour (paired speaker, processing state)
+ * Used by the WNET_BEACON_QUERY_STATE
+ */
+typedef struct {
+
+	/*
+	 * Paired speaker is used to bind a listener to a speaker during transmission
+	 * from ack'd broadcast untill the last frame reception.
+	 */
+	uint8_t paired_speaker[SOO_AGENCY_UID_SIZE];
+
+	/*
+	 * Keep track of the ongoing frame processing (used with PKT_DATA)
+	 * Used for specific ACK operations.
+	 */
+	uint32_t transID;
+	bool pkt_data;
+
+	/*
+	 * Random 32-bit number to help deciding which take over the speaker state.
+	 */
+	uint32_t randnr;
+
+} neighbour_state_t;
 
 typedef struct {
 	struct list_head list;
@@ -157,7 +216,10 @@ typedef struct {
 
 	neighbour_desc_t *neighbour;
 	uint32_t last_transID;
-	uint8_t speakerUID[SOO_AGENCY_UID_SIZE];
+
+	void *paired_speaker;
+
+	uint32_t randnr;
 
 } wnet_neighbour_t;
 
@@ -171,7 +233,6 @@ typedef struct {
 } wnet_fsm_handle_t;
 
 uint8_t *winenet_get_state_string(wnet_state_t state);
-uint8_t *winenet_get_beacon_id_string(wnet_beacon_id_t beacon_id);
 
 void winenet_xmit_data_processed(int ret);
 void winenet_wait_xmit_event(void);
