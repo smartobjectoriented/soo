@@ -94,7 +94,10 @@ void lprintk(char *format, ...) {
 void __soo_log(char *info, char *buf) {
 	char prefix[50];
 	static char __internal_buf[CONSOLEIO_BUFFER_SIZE] = { };
-	int i, j;
+	int i;
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+	int j;
+#endif
 	bool outlog = false;
 	static bool force_log = false;
 
