@@ -82,6 +82,15 @@ static struct fb_var_screeninfo rpisense_fb_var = {
 	.blue		= {0, 5, 0},
 };
 
+/* SOO.tech */
+
+/* Used to combine the display filled by vsenseled for example */
+uint8_t __matrix[193];
+
+void update_rpisense_fb_mem(uint8_t *matrix) {
+	memcpy(__matrix, matrix, 193);
+}
+
 static ssize_t rpisense_fb_write(struct fb_info *info,
 				 const char __user *buf, size_t count,
 				 loff_t *ppos)
@@ -133,6 +142,11 @@ static void rpisense_fb_deferred_io(struct fb_info *info,
 				gamma[(mem[(j * 8) + i]) & 0x1F];
 		}
 	}
+
+	/* SOO.tech */
+	for (i = 0; i < 193; i++)
+		vmem_work[i] |= __matrix[i];
+
 	rpisense_block_write(rpisense, vmem_work, 193);
 }
 
@@ -196,6 +210,9 @@ static int rpisense_fb_probe(struct platform_device *pdev)
 	struct fb_info *info;
 	int ret = -ENOMEM;
 	struct rpisense_fb *rpisense_fb;
+
+	/* SOO.tech */
+	memset(__matrix, 0, 193);
 
 	rpisense = rpisense_get_dev();
 	rpisense_fb = &rpisense->framebuffer;
