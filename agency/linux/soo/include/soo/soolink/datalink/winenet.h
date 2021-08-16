@@ -74,7 +74,6 @@
 typedef enum {
 	ACK_STATUS_OK = 0,
 	ACK_STATUS_TIMEOUT,
-	ACK_STATUS_BEACON,
 	ACK_STATUS_ABORT
 } wnet_ack_status_t;
 
