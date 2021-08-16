@@ -1197,7 +1197,7 @@ next_speaker:
 
 	/* Okay, we pair ourself to this speaker */
 	current_soo_winenet->ourself->paired_speaker = &next_speaker->neighbour->agencyUID;
-
+#if 0
 	if ((beacon = next_beacon(WNET_BEACON_GO_SPEAKER)) != NULL) {
 
 		tmp = find_neighbour(&beacon->agencyUID_from);
@@ -1220,6 +1220,7 @@ next_speaker:
 
 		beacon_del(beacon);
 	}
+#endif
 out:
 	neighbour_list_protection(old);
 
