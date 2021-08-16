@@ -843,7 +843,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_blind_th != NULL) {
                 sem_wait(&sem_mutex_blind); // avoid the existing thread to take the mutex
                 printf("cancelling old SOO.blind thread\n");
-                // pthread_cancel(soo_blind_th);
+                pthread_cancel(soo_blind_th);
                 sem_post(&sem_mutex_blind);
             }
 
@@ -867,7 +867,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_blind_th != NULL) {
                 sem_wait(&sem_mutex_blind);
                 printf("cancelling old SOO.blind thread\n");
-                // pthread_cancel(soo_blind_th);
+                pthread_cancel(soo_blind_th);
                 sem_post(&sem_mutex_blind);
             }
 
@@ -934,7 +934,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_heat_th != NULL) {
                 sem_wait(&sem_mutex_heat);
                 printf("cancelling old SOO.heat thread\n");
-                // pthread_cancel(soo_heat_th);
+                pthread_cancel(soo_heat_th);
                 sem_post(&sem_mutex_heat);
             }
 
@@ -958,7 +958,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_heat_th != NULL) {
                 sem_wait(&sem_mutex_heat);
                 printf("cancelling old SOO.heat thread\n");
-                // pthread_cancel(soo_heat_th);
+                pthread_cancel(soo_heat_th);
                 sem_post(&sem_mutex_heat);
             }
 
@@ -990,7 +990,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_heat_th != NULL) {
                 sem_wait(&sem_mutex_heat);
                 printf("cancelling old SOO.heat thread\n");
-                // pthread_cancel(soo_heat_th);
+                pthread_cancel(soo_heat_th);
                 sem_post(&sem_mutex_heat);
             }
 
@@ -1014,7 +1014,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_heat_th != NULL) {
                 sem_wait(&sem_mutex_heat);
                 printf("cancelling old SOO.heat thread\n");
-                // pthread_cancel(soo_heat_th);
+                pthread_cancel(soo_heat_th);
                 sem_post(&sem_mutex_heat);
             }
 
@@ -1046,7 +1046,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_heat_th != NULL) {
                 sem_wait(&sem_mutex_heat);
                 printf("cancelling old SOO.heat thread\n");
-                // pthread_cancel(soo_heat_th);
+                pthread_cancel(soo_heat_th);
                 sem_post(&sem_mutex_heat);
             }
 
@@ -1070,7 +1070,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_heat_th != NULL) {
                 sem_wait(&sem_mutex_heat);
                 printf("cancelling old SOO.heat thread\n");
-                // pthread_cancel(soo_heat_th);
+                pthread_cancel(soo_heat_th);
                 sem_post(&sem_mutex_heat);
             }
 
@@ -1102,7 +1102,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_heat_th != NULL) {
                 sem_wait(&sem_mutex_heat);
                 printf("cancelling old SOO.heat thread\n");
-                // pthread_cancel(soo_heat_th);
+                pthread_cancel(soo_heat_th);
                 sem_post(&sem_mutex_heat);
             }
 
@@ -1126,7 +1126,7 @@ void manage_event(int client, vuihandler_pkt_t* message) {
             if(soo_heat_th != NULL) {
                 sem_wait(&sem_mutex_heat);
                 printf("cancelling old SOO.heat thread\n");
-                // pthread_cancel(soo_heat_th);
+                pthread_cancel(soo_heat_th);
                 sem_post(&sem_mutex_heat);
             }
 
