@@ -1121,8 +1121,6 @@ void s_go_next_speaker(void) {
 	wnet_ack_status_t ack;
 	int retry_count;
 	bool old;
-	pending_beacon_t *beacon;
-	wnet_neighbour_t *tmp;
 
 	old = neighbour_list_protection(true);
 
@@ -1197,30 +1195,7 @@ next_speaker:
 
 	/* Okay, we pair ourself to this speaker */
 	current_soo_winenet->ourself->paired_speaker = &next_speaker->neighbour->agencyUID;
-#if 0
-	if ((beacon = next_beacon(WNET_BEACON_GO_SPEAKER)) != NULL) {
 
-		tmp = find_neighbour(&beacon->agencyUID_from);
-
-		if (tmp) {
-			if (current_soo_winenet->ourself->randnr > tmp->randnr)
-				wnet_send_ack(&beacon->agencyUID_from, ACK_STATUS_ABORT, false);
-			else {
-				wnet_trace("[soo:soolink:winenet:ack] We decide to abort (lower randnr) and to get paired...\n");
-
-				current_soo_winenet->ourself->paired_speaker = &tmp->neighbour->agencyUID;
-
-				wnet_send_ack(&beacon->agencyUID_from, ACK_STATUS_OK, false);
-				change_state(WNET_STATE_LISTENER);
-
-				beacon_del(beacon);
-				goto out;
-			}
-		}
-
-		beacon_del(beacon);
-	}
-#endif
 out:
 	neighbour_list_protection(old);
 
