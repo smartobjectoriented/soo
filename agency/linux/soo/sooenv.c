@@ -56,7 +56,6 @@
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 
 #define SOO_NR_MAX	8
-
 soo_env_t *soo1, *soo2, *soo3, *soo4, *soo5, *soo6, *soo7, *soo8;
 
 #else
@@ -88,7 +87,6 @@ LIST_HEAD(sooenv_up_list);
 /* SOO instance handling */
 struct list_head soo_environment;
 
-static int count = 0;
 static struct mutex env_lock;
 
 /**
@@ -196,8 +194,6 @@ static int soo_task_rx_fn(void *args) {
 static int soo_task_tx_fn(void *args) {
 	int i;
 
-	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
-
 	for (i = 0; i < BUFFER_SIZE; i++)
 		current_soo_simul->buffer[i] = i;
 
@@ -273,8 +269,6 @@ void buffer_count_read(char *str) {
 static int soo_task_tx_fn(void *args) {
 	int i;
 
-	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIM, SL_MODE_UNIBROAD);
-
 	for (i = 0; i < BUFFER_SIZE; i++)
 		current_soo_simul->buffer[i] = i;
 
@@ -310,8 +304,6 @@ static int soo_task_tx_fn(void *args) {
 static int soo3_task_tx_fn(void *args) {
 	int i;
 	bool here = true;
-
-	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIM, SL_MODE_UNIBROAD);
 
 	for (i = 0; i < BUFFER_SIZE; i++)
 		current_soo_simul->buffer[i] = i;
@@ -355,6 +347,7 @@ static int soo3_task_tx_fn(void *args) {
 int soo_env_fn(void *args) {
 	soo_env_t *soo_env;
 	sooenv_up_t *sooenv_up, *tmp;
+	static int count = 0;
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	int i;
@@ -448,6 +441,8 @@ int soo_env_fn(void *args) {
 	soo_env->soo_simul = kzalloc(sizeof(struct soo_simul_env), GFP_KERNEL);
 	BUG_ON(!soo_env->soo_simul);
 
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
+
 	current_soo_simul->recv_count = 0;
 
 	__ts = kthread_create(soo_task_tx_fn, NULL, "soo_task_tx");
@@ -474,6 +469,8 @@ int soo_env_fn(void *args) {
 	BUG_ON(!soo_env->soo_simul);
 
 	INIT_LIST_HEAD(&soo_env->soo_simul->topo_links);
+
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIM, SL_MODE_UNIBROAD);
 
 	current_soo_simul->recv_count = 0;
 
@@ -540,34 +537,58 @@ void register_sooenv_up(sooenv_up_fn_t sooenv_up_fn, void *args) {
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 
+/**
+ * Define the SOO topology
+ */
 void sooenv_init_topology(soo_env_t *sooenv, void *args) {
 
 	soo1 = get_soo_by_name("SOO-1");
 	soo2 = get_soo_by_name("SOO-2");
-	soo3 = get_soo_by_name("SOO-3");
-	soo4 = get_soo_by_name("SOO-4");
 
-	BUG_ON(!soo1 || !soo2 || !soo3 || !soo4);
-
-	/* Define the SOO topology */
-
-#if 0
-	/* Topology #1 with 6 SOOs */
-
-	soo5 = get_soo_by_name("SOO-5");
-	soo6 = get_soo_by_name("SOO-6");
-
-	BUG_ON(!soo5 || !soo6);
+	BUG_ON(!soo1 || !soo2);
 
 	node_link(soo1, soo2); node_link(soo2, soo1);
-	node_link(soo1, soo3); node_link(soo3, soo1);
+
+#if 1
+	soo3 = get_soo_by_name("SOO-3");
+	BUG_ON(!soo3);
+
+	//node_link(soo1, soo3); node_link(soo3, soo1);
 	node_link(soo2, soo3); node_link(soo3, soo2);
-	node_link(soo3, soo4); node_link(soo4, soo3);
-	node_link(soo4, soo5); node_link(soo5, soo4);
-	node_link(soo5, soo6); node_link(soo6, soo5);
+
 #endif
 
 #if 1
+	/* Topology #1 with 4 SOOs */
+
+	soo4 = get_soo_by_name("SOO-4");
+	BUG_ON(!soo4);
+
+	node_link(soo3, soo4); node_link(soo4, soo3);
+#endif
+
+#if 1
+	/* Topology #1 with 5 SOOs */
+
+	soo5 = get_soo_by_name("SOO-5");
+	BUG_ON(!soo5);
+
+	node_link(soo4, soo5); node_link(soo5, soo4);
+
+#endif
+
+#if 1
+	/* Topology #1 with 6 SOOs */
+
+
+	soo6 = get_soo_by_name("SOO-6");
+
+	BUG_ON(!soo6);
+
+	node_link(soo5, soo6); node_link(soo6, soo5);
+#endif
+
+#if 0
 	/* Topology #2 with 4 SOOs */
 
 	soo5 = get_soo_by_name("SOO-5");
@@ -575,7 +596,6 @@ void sooenv_init_topology(soo_env_t *sooenv, void *args) {
 
 	BUG_ON(!soo5 || !soo6);
 
-	node_link(soo1, soo2); node_link(soo2, soo1);
 	node_link(soo2, soo3); node_link(soo3, soo2);
 	node_link(soo3, soo4); node_link(soo4, soo3);
 
@@ -589,8 +609,6 @@ void sooenv_init_topology(soo_env_t *sooenv, void *args) {
 
 	BUG_ON(!soo7 || !soo8);
 
-	node_link(soo4, soo5); node_link(soo5, soo4);
-	node_link(soo5, soo6); node_link(soo6, soo5);
 	node_link(soo6, soo7); node_link(soo7, soo6);
 	node_link(soo7, soo8); node_link(soo8, soo7);
 
@@ -612,19 +630,24 @@ void sooenv_init(void) {
 	INIT_LIST_HEAD(&soo_environment);
 	mutex_init(&env_lock);
 
+	register_sooenv_up(sooenv_init_topology, NULL);
+
 	kthread_run(soo_env_fn, "SOO-1", "SOO-1");
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 
 	kthread_run(soo_env_fn, "SOO-2", "SOO-2");
 	kthread_run(soo_env_fn, "SOO-3", "SOO-3");
+
+#if 1
 	kthread_run(soo_env_fn, "SOO-4", "SOO-4");
 	kthread_run(soo_env_fn, "SOO-5", "SOO-5");
 	kthread_run(soo_env_fn, "SOO-6", "SOO-6");
+#endif
+#if 1
 	kthread_run(soo_env_fn, "SOO-7", "SOO-7");
 	kthread_run(soo_env_fn, "SOO-8", "SOO-8");
-
-	register_sooenv_up(sooenv_init_topology, NULL);
+#endif
 
 #endif
 

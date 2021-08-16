@@ -16,6 +16,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#include <linux/kthread.h>
+#include <linux/mutex.h>
 
 #include <soo/sooenv.h>
 
@@ -47,6 +49,9 @@ static bool log_soo_soolink_winenet_ack = false;
 
 static bool log_soo_soolink_plugin = false;
 
+struct mutex soo_log_lock;
+
+bool __soo_log_lock_initialized = false;
 
 extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
@@ -86,26 +91,28 @@ void lprintk(char *format, ...) {
 	va_end(va);
 }
 
-void soo_log(char *format, ...) {
-	va_list va;
-	char buf[CONSOLEIO_BUFFER_SIZE];
-	char prefix[20];
+void __soo_log(char *info, char *buf) {
+	char prefix[50];
 	static char __internal_buf[CONSOLEIO_BUFFER_SIZE] = { };
-	int i;
+	int i, j;
 	bool outlog = false;
 	static bool force_log = false;
-
-	va_start(va, format);
-
-	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
 
 	if (__internal_buf[0] == 0) {
 
 		if ((buf[0] == '*') && (buf[1] == '*') && (buf[2] == '*'))
 			force_log = true;
 
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+		/* Make a friendly indentation according to the SOO number */
+		sscanf(current_soo->name, "SOO-%d", &i);
+
+		for (j = 0; j < (i-1)*8; j++)
+			strcat(__internal_buf, " ");
+
+#endif
 		/* Add log information */
-		sprintf(prefix, "(%s) ", current_soo->name);
+		sprintf(prefix, "(%s) ", info);
 		strcat(__internal_buf, prefix);
 	}
 
@@ -158,8 +165,26 @@ void soo_log(char *format, ...) {
 			__printch(__internal_buf[i]);
 
 	__internal_buf[0] = 0;
+}
 
+void soo_log(char *format, ...) {
+	va_list va;
+	char buf[CONSOLEIO_BUFFER_SIZE];
+
+	if (unlikely(!__soo_log_lock_initialized)) {
+		mutex_init(&soo_log_lock);
+		__soo_log_lock_initialized = true;
+	}
+
+	mutex_lock(&soo_log_lock);
+
+	va_start(va, format);
+	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
 	va_end(va);
+
+	__soo_log(current_soo->name, buf);
+
+	mutex_unlock(&soo_log_lock);
 }
 
 /**
