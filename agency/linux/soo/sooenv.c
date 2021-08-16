@@ -630,12 +630,13 @@ void sooenv_init(void) {
 	INIT_LIST_HEAD(&soo_environment);
 	mutex_init(&env_lock);
 
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	register_sooenv_up(sooenv_init_topology, NULL);
+#endif
 
 	kthread_run(soo_env_fn, "SOO-1", "SOO-1");
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
-
 	kthread_run(soo_env_fn, "SOO-2", "SOO-2");
 	kthread_run(soo_env_fn, "SOO-3", "SOO-3");
 
