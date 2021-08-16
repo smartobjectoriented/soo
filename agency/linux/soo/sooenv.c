@@ -553,7 +553,7 @@ void sooenv_init_topology(soo_env_t *sooenv, void *args) {
 	soo3 = get_soo_by_name("SOO-3");
 	BUG_ON(!soo3);
 
-	//node_link(soo1, soo3); node_link(soo3, soo1);
+	node_link(soo1, soo3); node_link(soo3, soo1);
 	node_link(soo2, soo3); node_link(soo3, soo2);
 
 #endif

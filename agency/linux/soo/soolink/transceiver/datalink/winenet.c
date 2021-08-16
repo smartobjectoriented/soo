@@ -780,7 +780,7 @@ static pending_beacon_t *next_beacon(int beacon_id_mask) {
 	beacon = NULL; /* End of list */
 out:
 	if (beacon) {
-		wnet_trace("[soo:soolink:winenet] Processing next beacon: %s", beacon_str(beacon->this, &current_soo_winenet->ourself->neighbour->agencyUID));
+		wnet_trace("[soo:soolink:winenet:beacon] Processing next beacon: %s", beacon_str(beacon->this, &current_soo_winenet->ourself->neighbour->agencyUID));
 		wnet_trace(" from ");
 		soo_log_printlnUID(&beacon->agencyUID_from);
 	}
@@ -944,26 +944,7 @@ retry_waitack:
 
 	if (remaining > 0) {
 
-		/* If we are waiting for an ACK on GO_SPEAKER or BROADCAST_SPEAKER, we abort
-		 * all incoming beacons of these types.
-		 */
-
-		if (!neighbour_state.pkt_data) {
-			while ((beacon = next_beacon(WNET_BEACON_GO_SPEAKER | WNET_BEACON_BROADCAST_SPEAKER))) {
-				pos = find_neighbour(&beacon->agencyUID_from);
-
-				if (pos) {
-					if (current_soo_winenet->ourself->randnr > pos->randnr)
-						wnet_send_ack(&beacon->agencyUID_from, ACK_STATUS_ABORT, false);
-				} else
-					wnet_send_ack(&beacon->agencyUID_from, ACK_STATUS_ABORT, false);
-
-				beacon_del(beacon);
-			}
-		}
-
 		/* Make sure we have not been woken up by a simple complete on our wnet_event completion */
-
 		while ((beacon = next_beacon(WNET_BEACON_ACKNOWLEDGMENT))) {
 
 			if (!cmpUID(&current_soo_winenet->current_targetUID, &beacon->agencyUID_from)) {
@@ -1011,6 +992,24 @@ retry_waitack:
 			} else
 				/* Considered as spurious ack */
 				beacon_del(beacon);
+		}
+
+		/* If we are waiting for an ACK on GO_SPEAKER or BROADCAST_SPEAKER, we abort
+		 * all incoming beacons of these types.
+		 */
+
+		if (!neighbour_state.pkt_data) {
+			while ((beacon = next_beacon(WNET_BEACON_GO_SPEAKER | WNET_BEACON_BROADCAST_SPEAKER))) {
+				pos = find_neighbour(&beacon->agencyUID_from);
+
+				if (pos) {
+					if (current_soo_winenet->ourself->randnr > pos->randnr)
+						wnet_send_ack(&beacon->agencyUID_from, ACK_STATUS_ABORT, false);
+				} else
+					wnet_send_ack(&beacon->agencyUID_from, ACK_STATUS_ABORT, false);
+
+				beacon_del(beacon);
+			}
 		}
 
 		/* The beacon remains in the pending beacon list */
@@ -1240,10 +1239,7 @@ out:
  */
 bool s_broadcast_speaker(wnet_neighbour_t *neighbour, void *arg) {
 	wnet_ack_status_t ack;
-	wnet_neighbour_t *tmp;
 	int retry_count;
-	bool old, cont = true;
-	pending_beacon_t *beacon;
 
 	if (!cmpUID(&neighbour->neighbour->agencyUID, &current_soo_winenet->ourself->neighbour->agencyUID))
 		return true;
@@ -1297,46 +1293,9 @@ bool s_broadcast_speaker(wnet_neighbour_t *neighbour, void *arg) {
 			return false;
 		}
 	}
-#if 0
-	if ((beacon = next_beacon(WNET_BEACON_BROADCAST_SPEAKER)) != NULL) {
 
-		tmp = find_neighbour(&beacon->agencyUID_from);
-
-		if (tmp) {
-			if (current_soo_winenet->ourself->randnr > tmp->randnr)
-				wnet_send_ack(&beacon->agencyUID_from, ACK_STATUS_ABORT, false);
-			else {
-				wnet_trace("[soo:soolink:winenet:ack] We decide to abort (lower randnr) and to get paired...\n");
-
-				iterate_on_neighbours(true, s_unpair_neighbour, NULL);
-
-				current_soo_winenet->ourself->paired_speaker = &tmp->neighbour->agencyUID;
-
-				wnet_send_ack(&beacon->agencyUID_from, ACK_STATUS_OK, false);
-				change_state(WNET_STATE_LISTENER);
-
-				neighbour_list_protection(old);
-
-				/* Stop iterating */
-				cont = false;
-			}
-		}
-
-		beacon_del(beacon);
-	}
-#endif
-#if 0
-	/* At this point, we do not answer positively to a GO SPEAKER */
-	while ((beacon = next_beacon(WNET_BEACON_GO_SPEAKER)) != NULL) {
-
-		/* Other beacon (GO_SPEAKER) is not relevant in this context. */
-		wnet_send_ack(&beacon->agencyUID_from, ACK_STATUS_ABORT, false);
-
-		beacon_del(beacon);
-	}
-#endif
 	/* Continue iterating */
-	return cont;
+	return true;
 }
 
 /**
@@ -1615,12 +1574,11 @@ static void winenet_state_listener(wnet_state_t old_state) {
 
 		if (!first && list_empty(&current_soo_winenet->pending_beacons))
 			remaining = wait_for_completion_timeout(&current_soo_winenet->wnet_event, msecs_to_jiffies(WNET_LISTENER_TIMEOUT_MS));
-			//wait_for_completion(&current_soo_winenet->wnet_event);
 
 		/* Timeout? */
 		if (remaining == 0) {
 
-			wnet_trace("[soo:soolink:winenet] ----------------------- TIMEOUT \n");
+			wnet_trace("[soo:soolink:winenet:beacon] ----------------------- TIMEOUT \n");
 
 			/* Trigger the sending of a QUERY_REQUEST to get the state of our neighbour */
 			if (current_soo_winenet->ourself->paired_speaker)
@@ -1657,7 +1615,7 @@ static void winenet_state_listener(wnet_state_t old_state) {
 
 		reqrsp = handle_neighbour_query(&wnet_neighbour);
 
-		if (reqrsp == WNET_RESPONSE) {
+		if (reqrsp != WNET_NONE) {
 
 			/*
 			 * We become SPEAKER in the following conditions:
@@ -1683,6 +1641,9 @@ static void winenet_state_listener(wnet_state_t old_state) {
 
 						current_soo_winenet->ourself->paired_speaker = &current_soo_winenet->ourself->neighbour->agencyUID;
 
+						if (reqrsp == WNET_REQUEST)
+							neighbour_query(wnet_neighbour, WNET_RESPONSE);
+
 						change_state(WNET_STATE_SPEAKER);
 
 						neighbour_list_protection(old);
@@ -1698,27 +1659,8 @@ static void winenet_state_listener(wnet_state_t old_state) {
 
 					current_soo_winenet->ourself->paired_speaker = NULL;
 				}
-			}
-
-		} else if (reqrsp == WNET_REQUEST) {
-
-			if (wnet_neighbour) {
-
-				if (!current_soo_winenet->ourself->paired_speaker &&
-					(current_soo_winenet->ourself->randnr > wnet_neighbour->randnr) && !wnet_neighbour->paired_speaker) {
-
-					current_soo_winenet->ourself->paired_speaker = &current_soo_winenet->ourself->neighbour->agencyUID;
-
+				if (reqrsp == WNET_REQUEST)
 					neighbour_query(wnet_neighbour, WNET_RESPONSE);
-
-					change_state(WNET_STATE_SPEAKER);
-
-					neighbour_list_protection(old);
-
-					return ;
-				}
-
-				neighbour_query(wnet_neighbour, WNET_RESPONSE);
 			}
 		}
 
