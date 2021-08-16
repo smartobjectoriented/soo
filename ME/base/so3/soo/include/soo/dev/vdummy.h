@@ -42,7 +42,7 @@ typedef struct  {
 DEFINE_RING_TYPES(vdummy, vdummy_request_t, vdummy_response_t);
 
 /*
- * General structure for this virtual device (backend side)
+ * General structure for this virtual device (frontend side)
  */
 
 typedef struct {
@@ -58,9 +58,5 @@ typedef struct {
 
 } vdummy_t;
 
-static inline vdummy_t *to_vdummy(struct vbus_device *vdev) {
-	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
-	return container_of(vdevback, vdummy_t, vdevfront);
-}
 
 #endif /* VDUMMY_H */

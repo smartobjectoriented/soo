@@ -87,7 +87,7 @@ static int recv_thread_task_fn(void *data) {
 #endif
 
 	while (1) {
-		/* Receive data from Soolink */
+		/* Receive data from SOOlink */
 		datacomm_recv(&ME_compressed_buffer, &compressed_size);
 
 		/* If the decoder has nothing for us... */

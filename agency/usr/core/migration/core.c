@@ -236,9 +236,6 @@ void main_loop(int cycle_period) {
 		/* We start waiting a fixed delay between a send/receive lifecycle */
 		DBG0("Waiting between propagation...\n");
 
-		/* --> transform this into a ioctl for waiting OR triggering a cycle upon receival of MEs */
-		usleep(cycle_period * 1000);
-
 		do {
 			/* Try to receive a ME and deploy it */
 			available_ME = ME_processing_receive();
