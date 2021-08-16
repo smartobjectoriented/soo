@@ -97,14 +97,18 @@ soo_blind_t soo_blind = {
 pthread_t soo_outdoor_th;
 
 pthread_t soo_blind_th;
+pthread_t soo_blind_interaction_th;
 sem_t sem_mutex_blind;
 
 pthread_t soo_heat_th;
+pthread_t soo_heat_interaction_th;
 sem_t sem_mutex_heat;
 
 int soo_outdoor_thread_running = 0;
 int soo_blind_thread_running = 0;
+int soo_blind_outdoor_interaction_thread_running = 0;
 int soo_heat_thread_running = 0;
+int soo_heat_outdoor_interaction_thread_running = 0;
 
 int min(int x, int y) {
   return (x < y) ? x : y;
@@ -356,44 +360,14 @@ const char* generate_soo_blind() {
                 <col span=\"4\"><slider id=\"blind-slider\" max=\"%i\" min=\"%i\" step=\"1\" orientation=\"vertical\">%i</slider></col>\
             </row>\
             <row>\
-                <col><text>Condition 1 :</text></col>\
-            </row>\
-            <row>\
-                <col span=\"6\" offset=\"1\">\
-                    <label for=\"blind-if-lux\">Si la luminosité externe est plus petite que </label>\
-                    <number id=\"blind-if-lux\" value=\"%.1f\"/>\
-                    <label for=\"blind-if-lux\"> lux</label>\
-                </col>\
-            </row>\
-            <row>\
-                <col span=\"2\" offset=\"1\"><label for=\"blind-then-lux\">Alors </label></col>\
-                <col span=\"3\">\
-                    <dropdown id=\"blind-then-lux\">\
-                        <option value=\"up\" default=\"%s\">Monter</option>\
-                        <option value=\"down\" default=\"%s\">Descendre</option>\
-                    </dropdown>\
-                </col>\
-            </row>\
-            <row>\
-                <col span=\"2\" offset=\"1\"><label for=\"blind-else-lux\">Sur </label></col>\
-                <col span=\"3\">\
-                    <dropdown id=\"blind-on-lux\">\
-                        <option value=\"north\" default=\"%s\">SOO.outdoor Nord</option>\
-                        <option value=\"south\" default=\"%s\">SOO.outdoor Sud</option>\
-                    </dropdown>\
-                </col>\
+                <col id=\"blind-outdoor-interaction\"/>\
             </row>\
         </layout>\
         </model>",
         SOO_BLIND_SPID,
         soo_blind.max_pos,
         soo_blind.min_pos,
-        soo_blind.current_pos,
-        soo_blind.if_luminosity,
-        strcmp(soo_blind.then_action, "up") == 0 ? "true" : "false",
-        strcmp(soo_blind.then_action, "down") == 0 ? "true" : "false",
-        strcmp(soo_blind.on_me, "north") == 0 ? "true" : "false",
-        strcmp(soo_blind.on_me, "south") == 0 ? "true" : "false"
+        soo_blind.current_pos
     );
     sem_post(&sem_mutex_blind);
 
@@ -416,33 +390,12 @@ const char* generate_soo_heat() {
                 <col span=\"2\"><button id=\"heat-increase-temp\" lockable=\"true\">+0.5 °C</button></col>\
             </row>\
             <row>\
-                <col><text>Palier 1 :</text></col>\
-            </row>\
-            <row>\
-                <col span=\"2\"><label for=\"heat-if-temp\">Si la température externe est plus petite que </label></col>\
-                <col span=\"2\"><number id=\"heat-if-temp\" step=\"0.5\">%.1f</number><label for=\"heat-if-temp\"> °C</label></col>\
-                <col span=\"2\"><button id=\"heat-if-temp-decrease\" lockable=\"true\">-0.5 °C</button></col>\
-                <col span=\"2\"><button id=\"heat-if-temp-increase\" lockable=\"true\">+0.5 °C</button></col>\
-            </row>\
-            <row>\
-                <col span=\"2\"><label for=\"heat-then-temp\">Alors la température interne vaut </label></col>\
-                <col span=\"2\"><number id=\"heat-then-temp\" step=\"0.5\">%.1f</number><label for=\"heat-then-temp\"> °C</label></col>\
-                <col span=\"2\"><button id=\"heat-then-temp-decrease\" lockable=\"true\">-0.5 °C</button></col>\
-                <col span=\"2\"><button id=\"heat-then-temp-increase\" lockable=\"true\">+0.5 °C</button></col>\
-            </row>\
-            <row>\
-                <col span=\"2\"><label for=\"heat-else-temp\">Sinon la température interne vaut </label></col>\
-                <col span=\"2\"><number id=\"heat-else-temp\" step=\"0.5\">%.1f</number><label for=\"heat-else-temp\"> °C</label></col>\
-                <col span=\"2\"><button id=\"heat-else-temp-decrease\" lockable=\"true\">-0.5 °C</button></col>\
-                <col span=\"2\"><button id=\"heat-else-temp-increase\" lockable=\"true\">+0.5 °C</button></col>\
+                <col id=\"heat-outdoor-interaction\"/>\
             </row>\
         </layout>\
         </model>",
         SOO_HEAT_SPID,
-        soo_heat.current_heat,
-        soo_heat.if_external_heat,
-        soo_heat.then_internal_heat,
-        soo_heat.else_internal_heat
+        soo_heat.current_heat
     );
     sem_post(&sem_mutex_heat);
 
@@ -536,7 +489,7 @@ const char* create_messages(const char* id, const char* value, enum MESSAGE_TYPE
 
 void* soo_outdoor_thread(void* client_arg) {
     int client = *((int*) client_arg);
-    float temp, lum;
+    float temp;
     char low_buffer[80];
     char *buffer;
     char spid[SPID_SIZE];
@@ -549,7 +502,6 @@ void* soo_outdoor_thread(void* client_arg) {
         //generate random value
         printf("get random values\n");
         temp = rand_helper(13.9, 16);
-        lum = rand_helper(490, 500);
 
         printf("create root\n");
         root = roxml_add_node(NULL, 0, ROXML_PI_NODE, "xml", "version=\"1.0\" encoding=\"UTF-8\"");
@@ -660,6 +612,62 @@ void* soo_blind_thread(void* args) {
     return NULL;
 }
 
+void* soo_send_outdoor_interaction_with_blind(void* args) {
+    int client = *((int*) args);
+    printf("sleep 15 seconds before sending interaction with outdoor...\n");
+    sleep(15);
+    if(!soo_blind_outdoor_interaction_thread_running) {
+        return NULL;
+    }
+    char* result = (char *) malloc(8192);
+    char spid[SPID_SIZE];
+    hexstring_to_byte(SOO_BLIND_SPID, spid, SPID_SIZE);
+
+    sem_wait(&sem_mutex_blind);
+    sprintf(
+        result,
+        "<layout>\
+        <row>\
+            <col><text>Condition 1 :</text></col>\
+        </row>\
+        <row>\
+            <col span=\"6\" offset=\"1\">\
+                <label for=\"blind-if-lux\">Si la luminosité externe est plus petite que </label>\
+                <number id=\"blind-if-lux\" value=\"%.1f\"/>\
+                <label for=\"blind-if-lux\"> lux</label>\
+            </col>\
+        </row>\
+        <row>\
+            <col span=\"2\" offset=\"1\"><label for=\"blind-then-lux\">Alors </label></col>\
+            <col span=\"3\">\
+                <dropdown id=\"blind-then-lux\">\
+                    <option value=\"up\" default=\"%s\">Monter</option>\
+                    <option value=\"down\" default=\"%s\">Descendre</option>\
+                </dropdown>\
+            </col>\
+        </row>\
+        <row>\
+            <col span=\"2\" offset=\"1\"><label for=\"blind-else-lux\">Sur </label></col>\
+            <col span=\"3\">\
+                <dropdown id=\"blind-on-lux\">\
+                    <option value=\"north\" default=\"%s\">SOO.outdoor Nord</option>\
+                    <option value=\"south\" default=\"%s\">SOO.outdoor Sud</option>\
+                </dropdown>\
+            </col>\
+        </row>\
+        </layout>",
+        soo_blind.if_luminosity,
+        strcmp(soo_blind.then_action, "up") == 0 ? "true" : "false",
+        strcmp(soo_blind.then_action, "down") == 0 ? "true" : "false",
+        strcmp(soo_blind.on_me, "north") == 0 ? "true" : "false",
+        strcmp(soo_blind.on_me, "south") == 0 ? "true" : "false"
+    );
+    sem_post(&sem_mutex_blind);
+    const char* payload = create_messages("blind-outdoor-interaction", result, REPLACE);
+    send_payload(client, spid, payload);
+    free(payload);
+}
+
 void* soo_heat_thread(void* args) {
     int client = *((int*) args);
     int direction = *((int*) args + 1); // 0 = up; 1 = down
@@ -746,6 +754,53 @@ void* soo_heat_thread(void* args) {
 
     
     return NULL;
+}
+
+void* soo_send_outdoor_interaction_with_heat(void* args) {
+    int client = *((int*) args);
+    printf("sleep 15 seconds before sending interaction with outdoor...\n");
+    sleep(15);
+    if(!soo_heat_outdoor_interaction_thread_running) {
+        return NULL;
+    }
+    char* result = (char *) malloc(8192);
+    char spid[SPID_SIZE];
+    hexstring_to_byte(SOO_HEAT_SPID, spid, SPID_SIZE);
+
+    sem_wait(&sem_mutex_heat);
+    sprintf(
+        result,
+        "<layout>\
+        <row>\
+            <col><text>Palier 1 :</text></col>\
+        </row>\
+        <row>\
+            <col span=\"2\"><label for=\"heat-if-temp\">Si la température externe est plus petite que </label></col>\
+            <col span=\"2\"><number id=\"heat-if-temp\" step=\"0.5\">%.1f</number><label for=\"heat-if-temp\"> °C</label></col>\
+            <col span=\"2\"><button id=\"heat-if-temp-decrease\" lockable=\"true\">-0.5 °C</button></col>\
+            <col span=\"2\"><button id=\"heat-if-temp-increase\" lockable=\"true\">+0.5 °C</button></col>\
+        </row>\
+        <row>\
+            <col span=\"2\"><label for=\"heat-then-temp\">Alors la température interne vaut </label></col>\
+            <col span=\"2\"><number id=\"heat-then-temp\" step=\"0.5\">%.1f</number><label for=\"heat-then-temp\"> °C</label></col>\
+            <col span=\"2\"><button id=\"heat-then-temp-decrease\" lockable=\"true\">-0.5 °C</button></col>\
+            <col span=\"2\"><button id=\"heat-then-temp-increase\" lockable=\"true\">+0.5 °C</button></col>\
+        </row>\
+        <row>\
+            <col span=\"2\"><label for=\"heat-else-temp\">Sinon la température interne vaut </label></col>\
+            <col span=\"2\"><number id=\"heat-else-temp\" step=\"0.5\">%.1f</number><label for=\"heat-else-temp\"> °C</label></col>\
+            <col span=\"2\"><button id=\"heat-else-temp-decrease\" lockable=\"true\">-0.5 °C</button></col>\
+            <col span=\"2\"><button id=\"heat-else-temp-increase\" lockable=\"true\">+0.5 °C</button></col>\
+        </row>\
+        </layout>",
+        soo_heat.if_external_heat,
+        soo_heat.then_internal_heat,
+        soo_heat.else_internal_heat
+    );
+    sem_post(&sem_mutex_heat);
+    const char* payload = create_messages("heat-outdoor-interaction", result, REPLACE);
+    send_payload(client, spid, payload);
+    free(payload);
 }
 
 void manage_event(int client, vuihandler_pkt_t* message) {
@@ -1159,7 +1214,9 @@ void *receive_thread(void *dummy) {
                 printf("resetting threads\n");
                 soo_outdoor_thread_running = 0;
                 soo_blind_thread_running = 0;
+                soo_blind_outdoor_interaction_thread_running = 0;
                 soo_heat_thread_running = 0;
+                soo_heat_outdoor_interaction_thread_running = 0;
                 char spid_outdoor[SPID_SIZE];
                 char spid_blind[SPID_SIZE];
                 char spid_heat[SPID_SIZE];
@@ -1169,6 +1226,7 @@ void *receive_thread(void *dummy) {
                 hexstring_to_byte(SOO_HEAT_SPID, spid_heat, SPID_SIZE);
 
                 // Select the ME
+                // soo.outdoor
                 if (compare_arrays(message->spid, spid_outdoor, SPID_SIZE) == 0) {
                     printf("SOO.outdoor selected\n");
                     // stop old thread
@@ -1189,7 +1247,9 @@ void *receive_thread(void *dummy) {
                     soo_outdoor_thread_running = 1;
                     pthread_create(&soo_outdoor_th, NULL, soo_outdoor_thread, &client);
                     printf("soo.outdoor started\n");
-                } else if (compare_arrays(message->spid, spid_blind, SPID_SIZE) == 0) {
+                } 
+                // soo.blind
+                else if (compare_arrays(message->spid, spid_blind, SPID_SIZE) == 0) {
                     printf("SOO.blind selected\n");
 
                     // send new soo.blind model
@@ -1198,8 +1258,16 @@ void *receive_thread(void *dummy) {
                     send_payload(client, spid_blind, payload);
                     free((char*)payload);
                     printf("model send\n");
+
+                    // start new interaction thread
+                    printf("starting soo.blind interaction with soo.outdoor...\n");
+                    soo_blind_outdoor_interaction_thread_running = 1;
+                    pthread_create(&soo_blind_interaction_th, NULL, soo_send_outdoor_interaction_with_blind, &client);
+                    printf("soo.blind interaction started\n");
                     
-                } else if (compare_arrays(message->spid, spid_heat, SPID_SIZE) == 0) {
+                } 
+                // soo.heat
+                else if (compare_arrays(message->spid, spid_heat, SPID_SIZE) == 0) {
                     printf("SOO.heat selected\n");
 
                     // send new soo.heat model
@@ -1208,6 +1276,12 @@ void *receive_thread(void *dummy) {
                     send_payload(client, spid_heat, payload);
                     free((char*)payload);
                     printf("model send\n");
+
+                    // start new interaction thread
+                    printf("starting soo.heat interaction with soo.outdoor...\n");
+                    soo_heat_outdoor_interaction_thread_running = 1;
+                    pthread_create(&soo_heat_interaction_th, NULL, soo_send_outdoor_interaction_with_heat, &client);
+                    printf("soo.heat interaction started\n");
                     
                 } else {
                     printf("unknown spid :");
@@ -1232,7 +1306,9 @@ void *receive_thread(void *dummy) {
 
         soo_blind_thread_running = 0;
         soo_outdoor_thread_running = 0;
+        soo_heat_outdoor_interaction_thread_running = 0;
         soo_heat_thread_running = 0;
+        soo_heat_outdoor_interaction_thread_running = 0;
 
         printf("Closing socket...\n");
         close(client);
