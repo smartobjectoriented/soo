@@ -52,7 +52,7 @@
 #endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
 
 #define WNET_ACK_TIMEOUT_MS		800
-#define WNET_LISTENER_TIMEOUT_MS	600
+#define WNET_LISTENER_TIMEOUT_MS	800
 
 /*
  * State of TX processing, storedin pendig field, as follows:
@@ -128,7 +128,7 @@ typedef enum {
  */
 
 #define WNET_BEACON_ANY			(0xffff)
-#define WNET_BEACON_GO_SPEAKER		(1)
+#define WNET_BEACON_GO_SPEAKER		(1 << 0)
 #define WNET_BEACON_ACKNOWLEDGMENT	(1 << 1)
 #define WNET_BEACON_BROADCAST_SPEAKER	(1 << 2)
 #define WNET_BEACON_PING		(1 << 3)
