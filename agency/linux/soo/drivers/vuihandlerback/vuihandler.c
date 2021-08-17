@@ -104,24 +104,11 @@ typedef struct {
 	spinlock_t tx_lock;
 	struct completion tx_completion;
 
-	struct completion keepalive_completion;
-
 	sl_desc_t *vuihandler_bt_sl_desc;
+	
 	#if defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
 	sl_desc_t *vuihandler_tcp_sl_desc;
 	#endif /* CONFIG_SOOLINK_PLUGIN_ETHERNET */
-
-	/* Beacon for the connect response operation */
-	vuihandler_pkt_t *connect_rsp_pkt;
-
-	/* The payload of a beacon has only one byte */
-	size_t connect_rsp_pkt_size;
-
-	/* Beacon for the ping operation */
-	vuihandler_pkt_t *ping_pkt;
-
-	/* The payload of a beacon has only one byte */
-	size_t ping_pkt_size;
 
 	/* RFCOMM interfacing members */
 	int rfcomm_tty_pid;
@@ -255,120 +242,6 @@ void rfcomm_send_sigterm(void) {
 
 	mutex_unlock(&vdrv_priv->rfcomm_lock);
 }
-#if 0
-/* See if we still need this */
-/**
- * Update the connected application SPID.
- */
-void vuihandler_update_spid_vbstore(uint8_t spid[SPID_SIZE]) {
-	uint32_t i;
-	char connected_app_spid[3 * SPID_SIZE];
-	char spid_digit[3];
-	struct vbus_transaction vbt;
-
-	for (i = 0; i < SPID_SIZE; i++) {
-		sprintf(spid_digit, "%02x", spid[i]);
-		memcpy(&connected_app_spid[3 * i], spid_digit, 2);
-		connected_app_spid[3 * i + 2] = ':';
-	}
-	connected_app_spid[3 * SPID_SIZE - 1] = '\0';
-
-	DBG(VUIHANDLER_PREFIX "New connected_app_spid: %s\n", connected_app_spid);
-
-	vbus_transaction_start(&vbt);
-	vbus_printf(vbt, VUIHANDLER_APP_VBSTORE_DIR, VUIHANDLER_APP_VBSTORE_NODE, "%s", connected_app_spid);
-	vbus_transaction_end(vbt);
-
-	/* Set the device capability associated to the connected remote application */
-	devaccess_set_devcaps(DEVCAPS_CLASS_APP, DEVCAP_APP_BLIND, !memcmp(spid, SOO_blind_spid, SPID_SIZE));
-	devaccess_set_devcaps(DEVCAPS_CLASS_APP, DEVCAP_APP_OUTDOOR, !memcmp(spid, SOO_outdoor_spid, SPID_SIZE));
-}
-#endif
-
-/* See if we still need this */
-/**
- * Process a received vUIHandler beacon.
- */
-static void recv_beacon(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
-#if 1
-	unsigned long flags;
-
-	DBG0(VUIHANDLER_PREFIX "Recv beacon\n");
-
-	/* A beacon currently contains the SPID of the ME targeted by the remote application */
-
-	/* IsSOO command */
-	if (vuihandler_pkt->payload[0] == '?') {
-		DBG0(VUIHANDLER_PREFIX "IsSOO beacon\n");
-
-		/*
-		 * Temporarily set the SPID to 0xff..0xff.
-		 * - The SPID is not null so that the watchdog is active.
-		 * - This is a way to tell there is a connected tablet/smartphone with no particular
-		 *   app type (blind, outdoor).
-		 */
-		spin_lock_irqsave(&connected_app_lock, flags);
-		memset(connected_app.spid, 0xff, SPID_SIZE);
-		spin_unlock_irqrestore(&connected_app_lock, flags);
-
-		spin_lock_irqsave(&tx_lock, flags);
-		tx_pkt_size = connect_rsp_pkt_size;
-		tx_vuihandler_pkt->type = connect_rsp_pkt->type;
-		memcpy(tx_vuihandler_pkt->spid, connect_rsp_pkt->spid, SPID_SIZE);
-		memcpy(tx_vuihandler_pkt->payload, connect_rsp_pkt->payload, connect_rsp_pkt_size - sizeof(vuihandler_pkt_t));
-		spin_unlock_irqrestore(&tx_lock, flags);
-
-		complete(&tx_completion);
-
-		return ;
-	}
-
-	/* Ping response beacon (keepalive) */
-	if (vuihandler_pkt->payload[0] == '!') {
-		DBG0(VUIHANDLER_PREFIX "Ping response beacon\n");
-
-		complete(&keepalive_completion);
-
-		return ;
-	}
-
-	/* Explicit disconnection command */
-	if (vuihandler_pkt->payload[0] == 'C') {
-		DBG0(VUIHANDLER_PREFIX "Connect beacon\n");
-
-		spin_lock_irqsave(&connected_app_lock, flags);
-		memcpy(connected_app.spid, vuihandler_pkt->spid, SPID_SIZE);
-		spin_unlock_irqrestore(&connected_app_lock, flags);
-
-		/* Hard irqs must be enabled */
-		vuihandler_update_spid_vbstore(connected_app.spid);
-
-		return ;
-	}
-
-	/* Explicit disconnection command */
-	if (vuihandler_pkt->payload[0] == 'D') {
-		DBG0(VUIHANDLER_PREFIX "Disconnect beacon\n");
-
-		spin_lock_irqsave(&connected_app_lock, flags);
-		memcpy(connected_app.spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE);
-		spin_unlock_irqrestore(&connected_app_lock, flags);
-
-		/* Hard irqs must be enabled */
-		vuihandler_update_spid_vbstore(vdrv_priv->vuihandler_null_spid);
-
-#if defined(CONFIG_BT_RFCOMM)
-		/* Send SIGTERM to the current rfcomm instance if no application is detected */
-		rfcomm_send_sigterm();
-#endif /* CONFIG_BT_RFCOMM */
-
-		return ;
-	}
-
-	lprintk("Unknown beacon\n");
-	BUG();
-#endif
-}
 
 
 static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
@@ -500,12 +373,9 @@ static int rx_bt_task_fn(void *arg) {
 	while (1) {
 		size = sl_recv(vdrv_priv->vuihandler_bt_sl_desc, &priv_buffer);
 
-		printk("(B<%d)\n", size);
+		DBG("(B<%d)\n", size);
 
-
-		
-
-		// vuihandler_recv(priv_buffer, size);
+		vuihandler_recv(priv_buffer, size);
 	}
 	return 0;
 }
@@ -541,82 +411,6 @@ void vuihandler_open_rfcomm(pid_t pid) {
 	mutex_unlock(&vdrv_priv->rfcomm_lock);
 }
 
-/* See if we still need this */
-#if 0
-/**
- * Watchdog thread that detects a dead (disconnected) remote application and updates the connected
- * application SPID accordingly.
- */
-static int connected_app_watchdog_fn(void *arg) {
-	int ret;
-	unsigned long flags;
-	uint32_t failed_ping_count = 0;
-	bool update_spid = false;
-	uint8_t spid[SPID_SIZE];
-
-	while (1) {
-		msleep(VUIHANDLER_APP_WATCH_PERIOD);
-
-		spin_lock_irqsave(&connected_app_lock, flags);
-		memcpy(spid, connected_app.spid, SPID_SIZE);
-		spin_unlock_irqrestore(&connected_app_lock, flags);
-
-		/* If no tablet/smartphone is connected, just loop */
-		if (!memcmp(spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE))
-			continue;
-
-		failed_ping_count = 0;
-
-send_ping:
-		spin_lock_irqsave(&tx_lock, flags);
-		tx_pkt_size = ping_pkt_size;
-		tx_vuihandler_pkt->type = ping_pkt->type;
-		memcpy(tx_vuihandler_pkt->spid, ping_pkt->spid, SPID_SIZE);
-		memcpy(tx_vuihandler_pkt->payload, ping_pkt->payload, ping_pkt_size - sizeof(vuihandler_pkt_t));
-		spin_unlock_irqrestore(&tx_lock, flags);
-
-		complete(&tx_completion);
-
-		DBG0("PING\n");
-
-		if ((ret = wait_for_completion_interruptible_timeout(&keepalive_completion, msecs_to_jiffies(VUIHANDLER_APP_RSP_TIMEOUT))) <= 0) {
-			DBG0(VUIHANDLER_PREFIX "No keepalive beacon received, count = %d\n", failed_ping_count);
-
-			/* Send the ping again */
-			if (failed_ping_count < MAX_FAILED_PING_COUNT) {
-				failed_ping_count++;
-				goto send_ping;
-			}
-
-			spin_lock_irqsave(&connected_app_lock, flags);
-
-			/* Test if the current SPID is not NULL. If so, a notification will be sent to the ME. */
-			update_spid = (memcmp(connected_app.spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE) != 0);
-
-			memcpy(connected_app.spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE);
-			memcpy(spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE);
-
-			spin_unlock_irqrestore(&connected_app_lock, flags);
-
-			/* Hard irqs must be enabled */
-			if (update_spid)
-				vuihandler_update_spid_vbstore(spid);
-
-#if defined(CONFIG_BT_RFCOMM)
-			/* Send SIGTERM to the current rfcomm instance if no application is detected */
-			rfcomm_send_sigterm();
-#endif /* CONFIG_BT_RFCOMM */
-
-			continue;
-		}
-
-		DBG0(VUIHANDLER_PREFIX "Keepalive beacon received\n");
-	}
-
-	return 0;
-}
-
-#endif
 
 void vuihandler_probe(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv;
@@ -631,6 +425,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 	DBG(VUIHANDLER_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
 
+
 void vuihandler_remove(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&vdev->dev);
 
@@ -639,6 +434,7 @@ void vuihandler_remove(struct vbus_device *vdev) {
 	DBG("%s: freeing the vuihandler structure for %s\n", __func__,vdev->nodename);
 	kfree(vuihandler_priv);
 }
+
 
 void vuihandler_close(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&vdev->dev);
@@ -676,14 +472,17 @@ void vuihandler_suspend(struct vbus_device *vdev) {
 
 }
 
+
 void vuihandler_resume(struct vbus_device *vdev) {
 	DBG(VUIHANDLER_PREFIX "Backend resume: %d\n", vdev->otherend_id);
 }
+
 
 void vuihandler_connected(struct vbus_device *vdev) {
 
 	DBG(VUIHANDLER_PREFIX "Backend connected: %d\n",vdev->otherend_id);
 }
+
 
 void vuihandler_reconfigured(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&vdev->dev);
@@ -768,29 +567,11 @@ int vuihandler_init(void) {
 	memcpy(vdrv_priv->connected_app.spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE);
 	spin_lock_init(&vdrv_priv->connected_app_lock);
 
-	// kthread_run(connected_app_watchdog_fn, NULL, "vUIHandler-watch");
-
 	vdrv_priv->tx_vuihandler_pkt = (vuihandler_pkt_t *) kzalloc(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE, GFP_KERNEL);
 	spin_lock_init(&vdrv_priv->tx_lock);
 	init_completion(&vdrv_priv->tx_completion);
-	init_completion(&vdrv_priv->keepalive_completion);
 
 	mutex_init(&vdrv_priv->rfcomm_lock);
-
-	/* Connect response packet */
-	vdrv_priv->connect_rsp_pkt = (vuihandler_pkt_t *) kzalloc(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE, GFP_KERNEL);
-	vdrv_priv->connect_rsp_pkt->type = VUIHANDLER_BEACON;
-	memcpy(vdrv_priv->connect_rsp_pkt->spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE);
-	vdrv_priv->connect_rsp_pkt->payload[0] = '!';
-
-	/* Ping packet */
-	vdrv_priv->ping_pkt = (vuihandler_pkt_t *) kzalloc(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE, GFP_KERNEL);
-	vdrv_priv->ping_pkt->type = VUIHANDLER_BEACON;
-	memcpy(vdrv_priv->ping_pkt->spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE);
-	vdrv_priv->ping_pkt->payload[0] = '?';
-
-	vdrv_priv->connect_rsp_pkt_size = sizeof(vuihandler_pkt_t) + 1;
-	vdrv_priv->ping_pkt_size = sizeof(vuihandler_pkt_t) + 1;
 
 	/* Start the threads in a defferred way, to wait for the soolink to be ready */
 	register_sooenv_up(vuihandler_start_deferred, vdrv_priv);
