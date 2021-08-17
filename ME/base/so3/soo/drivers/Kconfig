@@ -30,5 +30,11 @@ config VNET_FRONTEND
 
 source "soo/drivers/vnetfront/Kconfig"
 
+config VSENSELED_FRONTEND
+    bool "vsenseled led matrix Sense HAT frontend"
+
+config VSENSEJ_FRONTEND
+    bool "vsensej joystick Sense HAT frontend"
+
 endmenu
 

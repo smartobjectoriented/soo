@@ -115,7 +115,7 @@ static decoder_block_t *new_block(sl_desc_t *sl_desc) {
 static decoder_block_t *get_block_by_sl_desc(sl_desc_t *sl_desc) {
 	decoder_block_t *block;
 
-	soo_log("[soo:soolink:transcoder] Agency UID: ");
+	soo_log("[soo:soolink:transcoder:block] Agency UID: ");
 	soo_log_printUID(&sl_desc->agencyUID_from);
 
 	list_for_each_entry(block, &current_soo_transcoder->block_list, list) {
@@ -155,7 +155,7 @@ static decoder_block_t *pick_next_available(sl_desc_t *sl_desc) {
  */
 int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	decoder_block_t *block;
-	size_t blk_size;
+	size_t size;
 
 	/* We still need to manage a timeout according to the specification */
 	wait_for_completion(&sl_desc->recv_event);
@@ -165,6 +165,8 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	/* At least, one block must be available, otherwise the completion has been badly set to true. */
 	block = pick_next_available(sl_desc);
 	BUG_ON(!block);
+
+	size = block->size;
 
 	/*
 	 * Copy received data so that the Decoder cannot free a buffer being used.
@@ -185,7 +187,7 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 
 	mutex_unlock(&current_soo_transcoder->decoder_lock);
 
-	return blk_size;
+	return size;
 }
 
 void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
@@ -262,7 +264,7 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 		if ((block->block_ext_in_progress) && (pkt->u.ext.packetID != block->cur_packetID+1)) {
 
-			printk("[soo:soolink:decoder] Discard current packetID: %d expected: %d", pkt->u.ext.packetID, block->cur_packetID+1);
+			soo_log("[soo:soolink:decoder] Discard current packetID: %d expected: %d", pkt->u.ext.packetID, block->cur_packetID+1);
 
 			/* If the received packetID is smaller than the expected one, it means
 			 * that a frame has been re-sent because the sender did not receive an ack.
@@ -314,10 +316,8 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		memcpy(block->cur_pos, pkt->payload, pkt->u.ext.payload_length);
 
 		block->cur_pos += pkt->u.ext.payload_length;
-
 		block->size += pkt->u.ext.payload_length;
 		block->cur_packetID = pkt->u.ext.packetID;
-
 
 		if (block->cur_packetID == pkt->u.ext.nr_packets) {
 

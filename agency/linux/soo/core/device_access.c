@@ -137,8 +137,12 @@ void devaccess_dump_devcaps(void) {
  * Set the Smart Object name.
  */
 void devaccess_set_soo_name(char *name) {
+
+#ifndef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	strcpy(current_soo->name, name);
+#endif
 }
+
 
 /**
  * Get the Smart Object name.

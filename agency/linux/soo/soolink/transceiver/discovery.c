@@ -117,24 +117,9 @@ static void callbacks_update_neighbour(neighbour_desc_t *neighbour) {
 
 	list_for_each_entry(cur_neighbour, &current_soo_discovery->discovery_listener_list, list) {
 
-		if (cur_neighbour->update_neighbour_priv_callback)
-			cur_neighbour->update_neighbour_priv_callback(neighbour);
+		if (cur_neighbour->update_neighbour_callback)
+			cur_neighbour->update_neighbour_callback(neighbour);
 	}
-}
-/**
- * Call the update callbacks in all the registered Discovery listeners.
- * The lock on the list must be taken.
- */
-static int callbacks_get_neighbour_priv(neighbour_desc_t *neighbour) {
-	discovery_listener_t *cur_neighbour;
-
-	list_for_each_entry(cur_neighbour, &current_soo_discovery->discovery_listener_list, list) {
-
-		if (cur_neighbour->get_neighbour_priv_callback)
-			/* Currently, only one listener can use this feature. */
-			return cur_neighbour->get_neighbour_priv_callback(neighbour);
-	}
-	return 0;
 }
 
 /*
@@ -278,15 +263,6 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 		neighbour->present = true;
 		neighbour->plugin = plugin_desc;
 
-		if (iamasoo_pkt->priv_len > 0) {
-			/* Retrieve the private data */
-
-			neighbour->priv = kzalloc(iamasoo_pkt->priv_len, GFP_KERNEL);
-			BUG_ON(!neighbour->priv);
-
-			memcpy(neighbour->priv, iamasoo_pkt->extra, iamasoo_pkt->priv_len);
-		}
-
 		soo_log("[soo:soolink:discovery] Adding the neighbour: %s - ", neighbour->name);
 		soo_log_printlnUID(&neighbour->agencyUID);
 
@@ -305,20 +281,6 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 		/* Reset the neighbour's missing_tick to 0. */
 		neighbour->missing_tick = 0;
 		neighbour->present = true;  /* If disappeared in between */
-
-		/* Update the private data */
-
-		/* Clear the current value */
-		kfree(neighbour->priv);
-		neighbour->priv = NULL;
-
-		if (iamasoo_pkt->priv_len > 0) {
-			/* Retrieve the private data */
-			neighbour->priv = kzalloc(iamasoo_pkt->priv_len, GFP_KERNEL);
-			BUG_ON(!neighbour->priv);
-
-			memcpy(neighbour->priv, iamasoo_pkt->extra, iamasoo_pkt->priv_len);
-		}
 
 		/* Call the update callbacks of listeners (currently one) */
 		update_neighbour(neighbour);
@@ -342,7 +304,7 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 static void send_beacon(void) {
 	iamasoo_pkt_t *iamasoo_pkt;
 	uint32_t size;
-	uint8_t priv_len = 0;
+
 #ifdef CONFIG_SOO_CORE_ASF
 	uint8_t *iamasoo_pkt_crypt;
 #endif
@@ -366,12 +328,6 @@ static void send_beacon(void) {
 			current_soo_discovery->ourself = NULL;
 	}
 
-	if (current_soo_discovery->ourself) {
-		/* Collect private data from data link */
-		priv_len = callbacks_get_neighbour_priv(current_soo_discovery->ourself);
-		size += priv_len;
-	}
-
 	iamasoo_pkt = kzalloc(size, GFP_ATOMIC);
 	BUG_ON(!iamasoo_pkt);
 
@@ -380,12 +336,6 @@ static void send_beacon(void) {
 	memset(iamasoo_pkt->name, 0, SOO_NAME_SIZE);
 
 	strcpy(iamasoo_pkt->name, current_soo->name);
-
-	/* Add the private data if any */
-	if (priv_len) {
-		iamasoo_pkt->priv_len = priv_len;
-		memcpy(iamasoo_pkt->extra, current_soo_discovery->ourself->priv, priv_len);
-	}
 
 	/* Beacon encryption */
 #ifdef CONFIG_SOO_CORE_ASF
@@ -479,10 +429,6 @@ static int iamasoo_task_fn(void *args) {
 				else {
 					/* Call the neighbour remove callbacks */
 					callbacks_remove_neighbour(neighbour);
-
-					/* Release the private data memory if any */
-					if (neighbour->priv)
-						kfree(neighbour->priv);
 
 					soo_log("[soo:soolink:discovery] Delete the neighbour: ");
 					soo_log_printlnUID(&neighbour->agencyUID);
@@ -615,7 +561,7 @@ void discovery_dump_neighbours(void) {
 
 	/* There is no neighbour in the list, I am alone */
 	if (list_empty(&current_soo_discovery->neighbour_list)) {
-		soo_log("*** [soo:soolink:discovery] No neighbour\n");
+		soo_log("[soo:soolink:discovery] No neighbour\n");
 		mutex_unlock(&current_soo_discovery->discovery_listener_lock);
 		return;
 	}
@@ -624,11 +570,11 @@ void discovery_dump_neighbours(void) {
 
 		neighbour = list_entry(cur, neighbour_desc_t, list);
 
-		soo_log("*** [soo:soolink:discovery] Neighbour %d: %s - ", count+1, neighbour->name);
+		soo_log("[soo:soolink:discovery] Neighbour %d: %s - ", count+1, neighbour->name);
 		soo_log_printlnUID(&neighbour->agencyUID);
 
 		if (!neighbour->plugin)
-			soo_log("*** [soo:soolink:discovery] ** ourself **\n");
+			soo_log("[soo:soolink:discovery] ** ourself **\n");
 
 		count++;
 	}

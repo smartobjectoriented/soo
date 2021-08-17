@@ -46,8 +46,6 @@ typedef struct {
 
 	bool present;
 
-	void *priv;
-
 	/* List of neighbours */
 	struct list_head list;
 
@@ -60,16 +58,6 @@ typedef struct {
 typedef struct {
 	uint8_t	agencyUID[SOO_AGENCY_UID_SIZE];
 	uint8_t name[SOO_NAME_SIZE];
-
-	/* State of the smart object regarding the datalink protocol */
-	uint8_t state;
-
-	uint8_t priv_len;
-
-	/* Start of private data followed by the friends belonging to this neighbour */
-	uint8_t extra[0];
-
-
 } iamasoo_pkt_t;
 
 typedef struct {
@@ -81,10 +69,7 @@ typedef struct {
 	void (*remove_neighbour_callback)(neighbour_desc_t *neighbour);
 
 	/* When a discovery beacon is received and has private data */
-	void (*update_neighbour_priv_callback)(neighbour_desc_t *neighbour);
-
-	/* Get information about the private data before sending a discovery beacon */
-	uint8_t (*get_neighbour_priv_callback)(neighbour_desc_t *neigh);
+	void (*update_neighbour_callback)(neighbour_desc_t *neighbour);
 
 	struct list_head list;
 
