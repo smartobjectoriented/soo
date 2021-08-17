@@ -251,9 +251,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 	vbus_printf(vbt, vdev->nodename, "rx_ring-evtchn", "%u", vuihandler_priv->vuihandler.rx_evtchn);
 
 	vbus_transaction_end(vbt);
-
-
-
+	
 	/* TX ring init */
 	vuihandler_priv->vuihandler.tx_ring_ref = GRANT_INVALID_REF;
 
