@@ -94,6 +94,16 @@
 
 			vnet {
 				compatible = "vnet,backend";
+				status = "disabled";
+			};
+			
+			vsenseled {
+				compatible = "vsenseled,backend";
+				status = "ok";
+			};
+			
+			vsensej {
+				compatible = "vsensej,backend";
 				status = "ok";
 			};
 
@@ -108,6 +118,7 @@
 				mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
 				in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
 			};
+
 		};
 	};
 

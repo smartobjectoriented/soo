@@ -65,8 +65,6 @@ typedef struct {
 	size_t	ME_size;
 	size_t	size_mig_structure;
 
-	unsigned int crc32;
-
 } ME_info_transfer_t;
 
 /*

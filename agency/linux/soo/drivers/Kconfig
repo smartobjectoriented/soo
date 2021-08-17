@@ -34,7 +34,7 @@ config VWEATHER_BACKEND
 	  product.
 	  
 config VUIHANDLER_BACKEND
-	bool "vUihandler backend driver"
+	bool "vuihandler backend driver"
 	default N
 	help
 	  vUihandler backend driver for remote UI over Bluetooth or WLAN.
@@ -56,6 +56,22 @@ config VNET_BACKEND
     help
       This driver implements the backend of the network driver of the SOO environment.
 
+config VSENSELED_BACKEND
+	depends on FB_RPISENSE
+	bool "vsenseled Sense-HAT led backend driver"
+	default n
+	help
+	  The vsenseled driver enables 5 logical LEDs that may be used to represent the joystick movement
+	  for example.
+
+config VSENSEJ_BACKEND
+	depends on FB_RPISENSE
+	bool "vsensej Sense-HAT joystick backend driver"
+	default n
+	help
+	  The vsensej driver captures joystick movements.
+	  
+	  
 source "soo/drivers/vnetback/Kconfig"
 
 endmenu

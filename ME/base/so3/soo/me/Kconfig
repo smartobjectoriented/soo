@@ -20,20 +20,29 @@ choice
 	config SOO_OUTDOOR
 		bool "SOO.outdoor Mobile Entity"
 		help
-			SOO.outdoor is able to manage the data coming from various sensors embedded
-			in a weather station.
+			SOO.outdoor is able to collect data from any weather station. This ME
+		 	can be used in conjunction with other MEs which can use this kind of data.
 	
 	config SOO_AGENCY
 		bool "SOO.agency Mobile Entity"
 		help
 			SOO.agency enables the upgrade of agency image within a smart object. The ME
-			has an embedded of the new version of agency.
+			has an embedded of the new version of agency. All smart objects can be updated.
 			
 	config SOO_NET
 		bool "SOO.net Mobile Entity"
 		help
-			SOO.net is an example of ME which can interact with the network.
-			The ME is configured with a simple ramfs which contains basic applications
+ 			SOO.net can transport networking data packet from a SOO.net smart object to any          
+            		other smart objects. The ME can then collect data packet to forward them to the network. 
+
+	config SOO_LEDCTRL
+		bool "SOO.ledctrl Mobile Entity"
+		help
+			SOO.ledctrl is the ME running in SOO.ledctrl smart object which is 
+			a Raspberry Pi 4 enhanced with the Sense HAT extension. This ME
+			basically uses the led matric and joystick. It is mainly used
+			for demonstration purposes.
+			
 		
 endchoice
 

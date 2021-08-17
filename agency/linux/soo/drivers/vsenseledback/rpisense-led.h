@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 David Truan <david.truan@heig-vd.ch>
+ * Copyright (C) 2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,20 +17,17 @@
  */
 
 
-#ifndef UPGRADER_H
-#define UPGRADER_H
+#ifndef RPISENSE_LED_H
+#define RPISENSE_LED_H
 
-/* Struct embedding the version numbers of three main the agency components*/
-typedef struct {
-    unsigned int itb;
-    unsigned int uboot;
-    unsigned int rootfs;
-} upgrade_versions_args_t;
+/* 8 (row) * 8 (column) * 3 (colors) + 1 (first byte needed blank) */
+#define SIZE_FB 193
 
-extern const unsigned char upgrade_image[];
-extern const unsigned long upgrade_image_length;
-
-extern upgrade_versions_args_t get_agency_versions(void);
+/* LED address on the I2C bus */
+#define LED_ADDR	0x46
 
 
-#endif /* UPGRADER_H */
+void senseled_init(void);
+void display_led(int led_nr, bool on);
+
+#endif /* RPISENSE_LED_H */
