@@ -74,7 +74,7 @@
 	
 			vuihandler {
 				compatible = "vuihandler,frontend";
-				status = "disabled";
+				status = "ok";
 			};
     
 			vuart {

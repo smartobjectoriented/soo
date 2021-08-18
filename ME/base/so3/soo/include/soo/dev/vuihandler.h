@@ -95,22 +95,20 @@ typedef struct {
 
 
 typedef struct {
-    vdevfront_t vdevfront;
+	vdevfront_t vdevfront;
 
-    vuihandler_tx_front_ring_t tx_ring;
-    unsigned int tx_irq;
-    grant_ref_t tx_ring_ref;
-	grant_handle_t tx_handle;
+	vuihandler_tx_front_ring_t tx_ring;
+	unsigned int tx_irq;
+	grant_ref_t tx_ring_ref;
 	uint32_t tx_evtchn;
 
     
-    vuihandler_rx_front_ring_t rx_ring;
-    unsigned int rx_irq;
-    grant_ref_t rx_ring_ref;
-	grant_handle_t rx_handle;
+	vuihandler_rx_front_ring_t rx_ring;
+	unsigned int rx_irq;
+	grant_ref_t rx_ring_ref;
 	uint32_t rx_evtchn;
 
-    char		*tx_data;
+    	char		*tx_data;
 	unsigned int	tx_pfn;
 
 	char		*rx_data;

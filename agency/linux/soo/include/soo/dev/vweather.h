@@ -124,9 +124,9 @@ typedef struct {
 } vweather_notification_t;
 
 typedef struct {
-	vweather_shared_buffer_t	weather_buffers[MAX_DOMAINS];
-	vweather_notification_t		update_notifications[MAX_DOMAINS];
-	struct vbus_device 		*vdev[MAX_DOMAINS];
+    vdevback_t vdevback;
+	vweather_shared_buffer_t	weather_buffers;
+	vweather_notification_t		update_notifications;
 
 } vweather_t;
 
@@ -141,7 +141,7 @@ void vweather_suspend(struct vbus_device *dev);
 void vweather_resume(struct vbus_device *dev);
 void vweather_connected(struct vbus_device *dev);
 void vweather_reconfigured(struct vbus_device *dev);
-void vweather_shutdown(struct vbus_device *dev);
+void vweather_remove(struct vbus_device *dev);
 
 /* Shared buffer setup */
 int vweather_setup_shared_buffer(struct vbus_device *dev);

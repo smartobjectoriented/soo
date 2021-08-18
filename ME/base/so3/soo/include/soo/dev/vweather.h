@@ -19,8 +19,12 @@
 #ifndef VWEATHER_H
 #define VWEATHER_H
 
+#include <types.h>
+
+#include <soo/soo.h>
 #include <soo/ring.h>
 #include <soo/grant_table.h>
+#include <soo/vdevfront.h>
 
 #define VWEATHER_NAME		"vweather"
 #define VWEATHER_PREFIX		"[" VWEATHER_NAME "] "
@@ -91,6 +95,8 @@ vweather_data_t *vweather_get_data(void);
 
 typedef struct {
 
+	vdevfront_t vdevfront;
+
 	bool		connected;
 	struct vbus_device  *dev;
 
@@ -102,10 +108,14 @@ typedef struct {
 
 } vweather_t;
 
-extern vweather_t vweather;
+static inline vweather_t *to_vweather(struct vbus_device *vdev) {
+	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
+	return container_of(vdevback, vweather_t, vdevfront);
+}
+
 
 /* ISR associated to the notification */
-//irq_return_t vweather_update_interrupt(int irq, void *dev_id);
+irq_return_t vweather_update_interrupt(int irq, void *dev_id);
 
 /*
  * Interface with the client.
@@ -113,16 +123,6 @@ extern vweather_t vweather;
  */
 void weather_data_update_interrupt(void);
 
-/* State management */
-void vweather_probe(void);
-void vweather_close(void);
-void vweather_suspend(void);
-void vweather_resume(void);
-void vweather_connected(void);
-void vweather_reconfiguring(void);
-void vweather_shutdown(void);
-
-void vweather_vbus_init(void);
 
 /* Processing and connected state management */
 void vweather_start(void);

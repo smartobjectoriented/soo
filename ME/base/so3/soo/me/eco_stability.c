@@ -33,7 +33,7 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-#include "eco_stability.h"
+#include <me/eco_stability.h>
 
 /**** Declarations for the interactions with the application ****/
 

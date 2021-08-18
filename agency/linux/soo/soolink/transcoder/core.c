@@ -175,6 +175,7 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 
 	*data = vmalloc(block->size);
 	BUG_ON(!data);
+	blk_size = block->size;
 
 	memcpy(*data, block->incoming_block, block->size);
 
@@ -193,7 +194,6 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 	transcoder_packet_t *pkt;
 	decoder_block_t *block;
 
-	/* Bypass the Decoder if the requester is of Bluetooth or TCP type */
 
 	mutex_lock(&current_soo_transcoder->decoder_lock);
 
@@ -218,6 +218,7 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		block = new_block(sl_desc);
 	}
 
+	/* Bypass the Decoder if the requester is of Bluetooth or TCP type */
 	if ((sl_desc->if_type == SL_IF_BT) || (sl_desc->if_type == SL_IF_TCP) || (sl_desc->req_type == SL_REQ_PEER)) {
 
 		pkt = (transcoder_packet_t *) data;

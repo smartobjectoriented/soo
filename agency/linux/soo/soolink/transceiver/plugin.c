@@ -277,7 +277,7 @@ static int plugin_rx_fn(void *args) {
 			continue;
 		}
 
-		if (rsp->mac_src) {
+		if (rsp->mac_src && rsp->req_type != SL_REQ_BT) {
 
 			/* If we receive a packet from a neighbour which is not known yet, we simply ignore the packet. */
 			found = identify_remote_soo(rsp->req_type, rsp->data, rsp->mac_src, &agencyUID_from);
@@ -289,7 +289,6 @@ static int plugin_rx_fn(void *args) {
 
 		/* Find out a corresponding sl_desc descriptor for this type of requester */
 		sl_desc = find_sl_desc_by_req_type(rsp->req_type);
-
 		if (!sl_desc)
 			/* We did not find any available descriptor able to process this data. Simply ignore it... */
 			continue;
