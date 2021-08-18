@@ -59,6 +59,7 @@ bool full = false;
 
 DECLARE_WAIT_QUEUE_HEAD(wq_prod);
 DECLARE_WAIT_QUEUE_HEAD(wq_cons);
+DECLARE_COMPLETION(me_ready_compl);
 
 /**
  * Initiate the injection of a ME.
@@ -140,6 +141,7 @@ size_t injector_get_ME_size(void) {
 
 void injector_prepare(uint32_t size) {
 	ME_size = size;
+	complete(&me_ready_compl);
 }
 
 
@@ -156,6 +158,10 @@ void injector_retrieve_ME(unsigned long arg) {
 	args.ME_data = ME_buffer;
 	args.size = ME_size;
 
+	/* Wait until a ME has started to be received. Will be woke up by 
+	   a call to injector_prepare from the vuihandler */
+	wait_for_completion(&me_ready_compl);
+
 	if ((copy_to_user((void *) arg, &args, sizeof(injector_ioctl_recv_args_t))) != 0) {
 		lprintk("Agency: %s:%d Failed to copy args to userspace\n", __func__, __LINE__);
 		BUG();
@@ -164,31 +170,27 @@ void injector_retrieve_ME(unsigned long arg) {
 
 ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
 	int maxbytes;
-        int bytes_to_read;
-        int bytes_read;
+	int bytes_to_read;
+	int bytes_read;
 	void *ME;
 
 	/* Wait for the Injector to produce data */
 	wait_event_interruptible(wq_cons, injector_is_full() == true);
-#if 0
-	void *ME = injector_get_ME_buffer();
-        maxbytes = injector_get_ME_size() - *ppos;
-#else
+
 	ME = injector_get_tmp_buf();
-        maxbytes = injector_get_tmp_size();
-#endif
+	maxbytes = injector_get_tmp_size();
 
-        if (maxbytes > length)
-                bytes_to_read = length;
-        else
-                bytes_to_read = maxbytes;	
+	if (maxbytes > length)
+			bytes_to_read = length;
+	else
+			bytes_to_read = maxbytes;	
 
-        bytes_read = copy_to_user(buff, ME, bytes_to_read);
+	bytes_read = copy_to_user(buff, ME, bytes_to_read);
 
 	/* Notify the Injector we read the buffer */
 	injector_set_full(false);
 	wake_up_interruptible(&wq_prod);
 
-        return bytes_to_read;
+    return bytes_to_read;
 }
 
