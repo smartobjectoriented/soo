@@ -24,7 +24,6 @@
 #include <asm/mmu.h>
 
 #include <memory.h>
-// #include <sync.h>
 
 #include <soo/avz.h>
 #include <soo/hypervisor.h>

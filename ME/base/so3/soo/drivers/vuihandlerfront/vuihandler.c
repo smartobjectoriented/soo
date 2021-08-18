@@ -62,41 +62,6 @@ static struct vbus_device *vuihandler_dev = NULL;
 /* In lib/vsprintf.c */
 unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
 
-#if 0
-/* See if it is still needed */
-/**
- * Read the current connected application ME SPID in vbstore.
- */
-static void get_app_spid(uint8_t spid[SPID_SIZE]) {
-	uint32_t i;
-	int len, res;
-	unsigned long spid_number;
-	char spid_digit[3] = { 0 };
-	char connected_app_spid[3 * SPID_SIZE];
-
-	res = vbus_scanf(VBT_NIL, VUIHANDLER_APP_VBSTORE_DIR, VUIHANDLER_APP_VBSTORE_NODE, "%s", connected_app_spid);
-	if (res != 1) {
-		lprintk(VUIHANDLER_PREFIX "Error when retrieving connected app ME SPID: %d\n", res);
-		BUG();
-		return ;
-	}
-
-	len = strlen(connected_app_spid);
-
-	if (len != (3 * SPID_SIZE - 1)) {
-		lprintk(VUIHANDLER_PREFIX "Invalid connected app ME SPID: %s\n", connected_app_spid);
-		BUG();
-		return ;
-	}
-
-	for (i = 0 ; i < SPID_SIZE ; i++) {
-		memcpy(spid_digit, &connected_app_spid[3 * i], 2);
-		spid_number = simple_strtoul(spid_digit, NULL, 16);
-		spid[i] = (uint8_t) spid_number;
-	}
-}
-#endif
-
 
 /**
  * Process pending responses in the tx_ It should not be used in this direction.
@@ -104,6 +69,7 @@ static void get_app_spid(uint8_t spid[SPID_SIZE]) {
 static void process_pending_tx_rsp(struct vbus_device *vdev) {
 	vuihandler_t *vuihandler = to_vuihandler(vdev);
 	vuihandler_tx_response_t *ring_req;
+	
 	dmb();
 	/* Consume the responses without doing anything */
 	while ((ring_req = vuihandler_tx_get_ring_response(&vuihandler->tx_ring)) != NULL);
@@ -155,6 +121,7 @@ irq_return_t vuihandler_rx_interrupt(int irq, void *dev_id) {
  */
 void vuihandler_send(void *data, size_t size) {
 	vuihandler_priv_t *vuihandler_priv;
+
 	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
 	vuihandler_priv->sp.data = data;
 	vuihandler_priv->sp.size = size;

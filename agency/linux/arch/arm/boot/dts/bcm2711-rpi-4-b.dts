@@ -136,7 +136,7 @@
 		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
 	};
     
-    /* DTN: Added SPI1 pin conf */
+    /* SOO.tech: Added SPI1 pin conf */
     spi1_pins: spi1_pins {
 		brcm,pins = <19 20 21>;
 		brcm,function = <BCM2835_FSEL_ALT4>;
@@ -207,8 +207,7 @@
 	};
 
 	i2c4_pins: i2c4 {
-        /* DTN */
-		// brcm,pins = <8 9>;
+        /* SOO.tech */
         brcm,pins = <6 7>;
 		brcm,function = <BCM2835_FSEL_ALT5>;
 		brcm,pull = <BCM2835_PUD_UP>;
@@ -382,9 +381,6 @@
 
 	/* SOO.tech */
 	drv8703q1@0 {
-		//pinctrl-names = "sleep_gpio", "mode-gpio";
-		// pinctrl-0 = <&drv8703q1_pins>;
-
 		compatible = "ti,drv8703q1";
 		status = "okay";
 		reg = <0>;
