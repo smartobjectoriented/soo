@@ -106,6 +106,19 @@
 				compatible = "vsensej,backend";
 				status = "ok";
 			};
+
+            vdoga {
+				compatible = "vdoga,backend";
+				status = "ok";
+
+				up_end-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
+				down_end-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
+
+				sleep-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
+				mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
+				in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
+			};
+
 		};
 	};
 
@@ -122,6 +135,18 @@
 		brcm,pins = <8 7>;
 		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
 	};
+    
+    /* SOO.tech: Added SPI1 pin conf */
+    spi1_pins: spi1_pins {
+		brcm,pins = <19 20 21>;
+		brcm,function = <BCM2835_FSEL_ALT4>;
+	};
+
+	spi1_cs_pins: spi1_cs_pins {
+		brcm,pins = <18>;
+		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
+	};
+
 
 	spi3_pins: spi3_pins {
 		brcm,pins = <1 2 3>;
@@ -182,7 +207,8 @@
 	};
 
 	i2c4_pins: i2c4 {
-		brcm,pins = <8 9>;
+        /* SOO.tech */
+        brcm,pins = <6 7>;
 		brcm,function = <BCM2835_FSEL_ALT5>;
 		brcm,pull = <BCM2835_PUD_UP>;
 	};
@@ -346,6 +372,37 @@
 	pinctrl-0 = <&uart1_gpio14>;
 	status = "okay";
 };
+
+
+&spi1 {
+	status = "okay";
+	cs-gpios = <&gpio 18 GPIO_ACTIVE_LOW>;
+	num-cs = <1>;
+
+	/* SOO.tech */
+	drv8703q1@0 {
+		compatible = "ti,drv8703q1";
+		status = "okay";
+		reg = <0>;
+		spi-max-frequency = <0x7735940>;
+		sleep-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>;
+		mode-gpio = <&gpio 10 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+/* SOO.tech */
+&i2c4 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c4_pins>;
+	clock-frequency = <100000>;
+
+    ds1050@28 {
+        compatible = "maxim,ds1050";
+        reg = <0x28>; /* This is due to the control byte (101) + A2, A1, A0 (000) combination (101000 = 0x28) */
+    };
+};
+
 
 
 &i2c1 {

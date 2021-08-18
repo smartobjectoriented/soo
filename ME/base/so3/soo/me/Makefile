@@ -7,5 +7,7 @@ obj-$(CONFIG_SOO_NET) += net/
 obj-$(CONFIG_SOO_LEDCTRL) += ledctrl/
 
 
+obj-y += eco_stability.o
+
 
 

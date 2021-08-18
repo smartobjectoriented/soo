@@ -4,9 +4,10 @@ BT_TTY="/dev/ttyAMA1"
 
 # The MAC address is generated using some agency UID bytes
 AGENCYUID_FILE="/sys/devices/system/soo/soo0/agencyUID"
-BDADDR=`cat ${AGENCYUID_FILE} | cut -c0-17`
+BDADDR=`cat ${AGENCYUID_FILE} | cut -c1-17`
 
-hciattach ${BT_TTY} bcm2035 3000000 flow - ${BDADDR}
+# Configure the controller with an address and load its firmware
+hciattach ${BT_TTY} bcm43xx 460800 flow - ${BDADDR}
 
 DEFAULT_HCI_NAME="soo-bt"
 
@@ -17,17 +18,31 @@ else
     HCI_NAME=${DEFAULT_HCI_NAME}
 fi
 
-/usr/libexec/bluetooth/bluetoothd &
+# Launch the BT daemon. The --compat is MANDATORY
+/usr/libexec/bluetooth/bluetoothd --compat &
 hciconfig hci0 up
-hciconfig hci0 name ${HCI_NAME}
-# Discoverable
-hciconfig hci0 piscan
-# Class Networking
 # Secure Simple Pairing Mode
 hciconfig hci0 sspmode 1
-# Class Networking
-hciconfig hci0 class 020300
+# Discoverable
+hciconfig hci0 piscan
+# Class Networking TTY interface
+hciconfig hci0 class 001101
+# Assign a name to the controller
+hciconfig hci0 name ${HCI_NAME}
+# Serial Port config
+sdptool add --channel=1 SP
+# Launch the agent with NoInputNoOutput so we don't have to enter a PIN 
+bt-agent -c NoInputNoOutput -d
 
+# This opens a rfcomm socket which will be hooked by vuihandler
+while true
+do
+    # Kill RFCOMM instance if any
+    killall -9 rfcomm > /dev/null 2>&1
+    rfcomm release all
+    # Watch for RFCOMM connections
+    rfcomm -r watch 1
+done
 
 
 
