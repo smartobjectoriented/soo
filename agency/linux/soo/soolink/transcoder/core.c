@@ -175,7 +175,6 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 
 	*data = vmalloc(block->size);
 	BUG_ON(!data);
-	blk_size = block->size;
 
 	memcpy(*data, block->incoming_block, block->size);
 
