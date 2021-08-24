@@ -38,7 +38,7 @@
 #include <soo/soolink/datalink.h>
 #include <soo/soolink/lib/tcpclient.h>
 
-static unsigned char servip[] = {10,192,166,48};
+static unsigned char servip[] = {172,17,0,1};
 static unsigned int PORT_SERVER = 7070;
 
 
