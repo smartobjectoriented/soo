@@ -120,8 +120,6 @@ typedef struct {
 	 */
 	unsigned char id[SOO_AGENCY_UID_SIZE];
 
-	struct list_head list;
-
 } agencyUID_t;
 
 extern agencyUID_t null_agencyUID;
@@ -421,10 +419,6 @@ typedef struct {
 } target_cooperate_args_t;
 
 typedef struct {
-	agencyUID_t agencyUID;
-} agencyUID_args_t;
-
-typedef struct {
 	uint32_t	class;
 	uint8_t		devcaps;
 	bool		supported;   /* OUT */
@@ -447,7 +441,7 @@ typedef struct {
 
 	union {
 		target_cooperate_args_t target_cooperate_args;
-		agencyUID_args_t agencyUID_args;
+		agencyUID_t agencyUID;
 		devcaps_args_t devcaps_args;
 		soo_name_args_t soo_name_args;
 		agency_upgrade_args_t agency_upgrade_args;
@@ -562,5 +556,9 @@ const char *get_me_shortdesc(void);
 const char *get_me_name(void);
 u64 get_spid(void);
 
+/* Helper function to compare agencyUID */
+static inline int cmpUID(agencyUID_t *u1, agencyUID_t *u2) {
+	return memcmp(u1, u2, SOO_AGENCY_UID_SIZE);
+}
 
 #endif /* SOO_H */

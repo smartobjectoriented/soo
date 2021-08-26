@@ -59,6 +59,9 @@ int process_led(void *args) {
 			vsenseled_set(sh_ledctrl->incoming_nr, 1);
 
 			sh_ledctrl->local_nr = sh_ledctrl->incoming_nr;
+
+			/* Need propagation to synchronize other SOOs */
+			sh_ledctrl->need_propagate = true;
 		}
 	}
 }
@@ -69,6 +72,7 @@ int process_led(void *args) {
  */
 int app_thread_main(void *args) {
 	struct input_event ie;
+	agency_ctl_args_t agency_ctl_args;
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
@@ -108,9 +112,13 @@ int app_thread_main(void *args) {
 
 		}
 
-		complete(&sh_ledctrl->upd_lock);
+		/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
+		agency_ctl_args.cmd = AG_AGENCY_UID;
+		agency_ctl(&agency_ctl_args);
 
-		sh_ledctrl->need_propagate = true;
+		memcpy(&sh_ledctrl->initiator, &agency_ctl_args.u.agencyUID, SOO_AGENCY_UID_SIZE);
+
+		complete(&sh_ledctrl->upd_lock);
 
 	}
 

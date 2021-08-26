@@ -1,0 +1,216 @@
+/*
+ * Copyright (C) 2021 Daniel Rossier <daniel.rossier@soo.tech>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
+
+#include <list.h>
+#include <heap.h>
+
+#include <soo/soo.h>
+
+#include <me/common.h>
+
+/**
+ * Build an array containing the list of hosts (visited soo)
+ *
+ * @param hosts_array
+ * @return the number of hosts
+ */
+int concat_hosts(struct list_head *hosts, uint8_t *hosts_array) {
+	host_t *host;
+	uint8_t *pos = hosts_array;
+	int nr = 0;
+
+	list_for_each_entry(host, hosts, list) {
+
+		memcpy(pos, &host->host_entry, sizeof(host_entry_t)-sizeof(void *));
+		memcpy(pos+sizeof(host_entry_t)-sizeof(void *), host->host_entry.priv, host->host_entry.priv_len);
+
+		pos += sizeof(host_entry_t)-sizeof(void *)+host->host_entry.priv_len;
+
+		nr++;
+	}
+
+	return nr;
+}
+
+/**
+ * Remove a specific host from our list.
+ *
+ * @param agencyUID
+ */
+void del_host(struct list_head *hosts, agencyUID_t *agencyUID) {
+	host_t *host;
+
+	list_for_each_entry(host, hosts, list) {
+		if (!cmpUID(&host->host_entry.uid, agencyUID)) {
+			list_del(&host->list);
+
+			if (host->host_entry.priv_len)
+				free(host->host_entry.priv);
+
+			free(host);
+
+			return ;
+		}
+	}
+}
+
+/**
+ * Add a new entry in the host list.
+ *
+ * @param me_common
+ * @param agencyUID
+ */
+void new_host(struct list_head *hosts, agencyUID_t *agencyUID, void *priv, int priv_len) {
+	host_t *host;
+
+	host = malloc(sizeof(host_t));
+	BUG_ON(!host);
+
+	memcpy(&host->host_entry.uid, agencyUID, SOO_AGENCY_UID_SIZE);
+
+	if (priv_len) {
+		priv = malloc(priv_len);
+		BUG_ON(!priv);
+
+		memcpy(host->host_entry.priv, priv, priv_len);
+	}
+
+	host->host_entry.priv_len = priv_len;
+
+	list_add_tail(&host->list, hosts);
+}
+
+/**
+ * Retrieve the list of host from an array.
+ *
+ * @param hosts_array
+ * @param nr
+ */
+void expand_hosts(struct list_head *hosts, uint8_t *hosts_array, int nr) {
+	int i;
+	host_entry_t *host_entry;
+
+	if (!nr)
+		return ;
+
+	for (i = 0; i < nr; i++) {
+
+		host_entry = (host_entry_t *) hosts_array;
+
+		new_host(hosts, &host_entry->uid, host_entry+sizeof(host_entry_t)-sizeof(void *), host_entry->priv_len);
+
+		hosts_array += sizeof(host_entry_t)-sizeof(void *)+host_entry->priv_len;
+	}
+}
+
+/**
+ * Reset the list of host
+ */
+void clear_hosts(struct list_head *hosts) {
+	host_t *host, *tmp;
+
+	list_for_each_entry_safe(host, tmp, hosts, list) {
+
+		list_del(&host->list);
+
+		if (host->host_entry.priv_len)
+			free(host->host_entry.priv);
+
+		free(host);
+	}
+}
+
+
+/**
+ * Search for a host corresponding to a specific agencyUID
+ *
+ * @param agencyUID	UID to compare
+ * @return		reference to the host_entry or NULL
+ */
+host_entry_t *find_host(struct list_head *hosts, agencyUID_t *agencyUID) {
+	host_t *host;
+
+	list_for_each_entry(host, hosts, list)
+		if (!cmpUID(&host->host_entry.uid, agencyUID))
+			return &host->host_entry;
+
+	return NULL;
+}
+
+/**
+ * Duplicate a list of hosts
+ *
+ * @param src The list to be copied
+ * @param dst The copied list
+ */
+void duplicate_hosts(struct list_head *src, struct list_head *dst) {
+	host_t *host;
+
+	list_for_each_entry(host, src, list)
+		new_host(dst, &host->host_entry.uid, host->host_entry.priv, host->host_entry.priv_len);
+}
+
+int cmpUID_fn(void *priv, struct list_head *a, struct list_head *b) {
+	host_t *host_a, *host_b;
+
+	host_a = list_entry(a, host_t, list);
+	host_b = list_entry(b, host_t, list);
+
+	return cmpUID(&host_a->host_entry.uid, &host_b->host_entry.uid);
+}
+
+/**
+ * Sort a list of host by its agencyUID
+ *
+ * @param hosts
+ */
+void sort_hosts(struct list_head *hosts) {
+	list_sort(NULL, hosts, cmpUID_fn);
+}
+
+/**
+ * Compare two list of hosts
+ *
+ * @param incoming_hosts
+ * @param visits
+ * @return
+ */
+bool hosts_equals(struct list_head *a, struct list_head *b) {
+	struct list_head tmp_a, tmp_b;
+	host_t *host_a, *host_b;
+
+	duplicate_hosts(a, &tmp_a);
+	duplicate_hosts(b, &tmp_b);
+
+	sort_hosts(&tmp_a);
+	sort_hosts(&tmp_b);
+
+	host_b = list_entry(tmp_b.next, host_t, list);
+	list_for_each_entry(host_a, &tmp_a, list) {
+
+		if ((&host_b->list == &tmp_b) || cmpUID(&host_a->host_entry.uid, &host_b->host_entry.uid))
+			return false;
+
+		host_b = list_entry(host_b->list.next, host_t, list);
+	}
+
+	/* Successful */
+	return true;
+}
+
+

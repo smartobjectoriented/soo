@@ -154,7 +154,7 @@ int agency_ctl(agency_ctl_args_t *args)
 		break;
 
 	case AG_AGENCY_UID:
-		memcpy(args->u.agencyUID_args.agencyUID.id, domains[0]->shared_info->dom_desc.u.agency.agencyUID.id, SOO_AGENCY_UID_SIZE);
+		memcpy(args->u.agencyUID.id, domains[0]->shared_info->dom_desc.u.agency.agencyUID.id, SOO_AGENCY_UID_SIZE);
 
 		return rc;
 

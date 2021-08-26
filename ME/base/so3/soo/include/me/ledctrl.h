@@ -21,7 +21,11 @@
 
 #include <completion.h>
 
+#include <me/common.h>
+
 typedef struct {
+
+	me_common_t me_common;
 
 	struct completion upd_lock;
 
@@ -32,6 +36,9 @@ typedef struct {
 	 * If it is the same state, no need to be propagated.
 	 */
 	bool need_propagate;
+
+	agencyUID_t here;
+	agencyUID_t initiator;
 
 } sh_ledctrl_t;
 
