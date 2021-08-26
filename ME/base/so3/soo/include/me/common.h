@@ -115,5 +115,11 @@ void sort_hosts(struct list_head *hosts);
  */
 bool hosts_equals(struct list_head *incoming_hosts, struct list_head *);
 
+/**
+ * Dump the contents of a list of hosts.
+ *
+ * @param hosts
+ */
+void dump_hosts(struct list_head *hosts);
 
 #endif /* ME_COMMON_H */
