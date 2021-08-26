@@ -18,8 +18,9 @@
 
 #include <list.h>
 #include <heap.h>
+#include <string.h>
 
-#include <soo/soo.h>
+#include <soo/console.h>
 
 #include <me/common.h>
 
@@ -191,7 +192,9 @@ void sort_hosts(struct list_head *hosts) {
  * @return
  */
 bool hosts_equals(struct list_head *a, struct list_head *b) {
-	struct list_head tmp_a, tmp_b;
+	LIST_HEAD(tmp_a);
+	LIST_HEAD(tmp_b);
+
 	host_t *host_a, *host_b;
 
 	duplicate_hosts(a, &tmp_a);
@@ -209,8 +212,28 @@ bool hosts_equals(struct list_head *a, struct list_head *b) {
 		host_b = list_entry(host_b->list.next, host_t, list);
 	}
 
+	/* The second list must be the same size. */
+	if (&host_b->list != &tmp_b)
+		return false;
+
 	/* Successful */
 	return true;
 }
 
+/**
+ * Dump the contents of a list of hosts.
+ *
+ * @param hosts
+ */
+void dump_hosts(struct list_head *hosts) {
+	host_t *host;
+
+	lprintk("## Dump of host list:\n\n");
+
+	list_for_each_entry(host, hosts, list) {
+		lprintk("  * "); lprintk_printlnUID(&host->host_entry.uid);
+	}
+
+	lprintk("\n--- End of list ---\n");
+}
 
