@@ -85,7 +85,7 @@ void new_host(struct list_head *hosts, agencyUID_t *agencyUID, void *priv, int p
 	memcpy(&host->host_entry.uid, agencyUID, SOO_AGENCY_UID_SIZE);
 
 	if (priv_len) {
-		priv = malloc(priv_len);
+		host->host_entry.priv = malloc(priv_len);
 		BUG_ON(!priv);
 
 		memcpy(host->host_entry.priv, priv, priv_len);
@@ -113,7 +113,7 @@ void expand_hosts(struct list_head *hosts, uint8_t *hosts_array, int nr) {
 
 		host_entry = (host_entry_t *) hosts_array;
 
-		new_host(hosts, &host_entry->uid, host_entry+sizeof(host_entry_t)-sizeof(void *), host_entry->priv_len);
+		new_host(hosts, &host_entry->uid, hosts_array+sizeof(host_entry_t)-sizeof(void *), host_entry->priv_len);
 
 		hosts_array += sizeof(host_entry_t)-sizeof(void *)+host_entry->priv_len;
 	}
