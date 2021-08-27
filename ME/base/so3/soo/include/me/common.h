@@ -25,6 +25,11 @@ typedef struct {
 	agencyUID_t uid;
 
 	int priv_len;
+
+	/*
+	 * MUST REMAIN the last field of this structure (since size computation
+	 * and structure organization during concatenation is made with this assumption).
+	 */
 	void *priv;
 
 } host_entry_t;
@@ -48,6 +53,7 @@ typedef struct {
 	/*
 	 * List of soo hosts by their agency UID. The first entry
 	 * is the smart object origin (set first in pre_activate).
+	 * MUST REMAIN the last field of this structure.
 	 */
 	uint8_t soohosts[0];
 
