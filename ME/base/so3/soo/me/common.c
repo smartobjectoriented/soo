@@ -206,15 +206,24 @@ bool hosts_equals(struct list_head *a, struct list_head *b) {
 	host_b = list_entry(tmp_b.next, host_t, list);
 	list_for_each_entry(host_a, &tmp_a, list) {
 
-		if ((&host_b->list == &tmp_b) || cmpUID(&host_a->host_entry.uid, &host_b->host_entry.uid))
+		if ((&host_b->list == &tmp_b) || cmpUID(&host_a->host_entry.uid, &host_b->host_entry.uid)) {
+			clear_hosts(&tmp_a);
+			clear_hosts(&tmp_b);
 			return false;
+		}
 
 		host_b = list_entry(host_b->list.next, host_t, list);
 	}
 
 	/* The second list must be the same size. */
-	if (&host_b->list != &tmp_b)
+	if (&host_b->list != &tmp_b) {
+		clear_hosts(&tmp_a);
+		clear_hosts(&tmp_b);
 		return false;
+	}
+
+	clear_hosts(&tmp_a);
+	clear_hosts(&tmp_b);
 
 	/* Successful */
 	return true;
