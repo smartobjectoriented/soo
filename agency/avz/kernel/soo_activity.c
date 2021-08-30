@@ -163,7 +163,7 @@ int agency_ctl(agency_ctl_args_t *args)
 
 		domcall_args.cmd = CB_COOPERATE;
 
-		/* Initiator slotID must be filled by the ME during the cooperation */
+		/* Initiator slotID must be filled by the ME - during the cooperation - through the target slotID */
 		domcall_args.u.cooperate_args.u.initiator_coop.slotID = args->u.target_cooperate_args.slotID;
 
 		/* target_cooperate_args must be provided by the initiator ME during the cooperation */
@@ -314,7 +314,9 @@ int soo_cooperate(unsigned int slotID)
 			/* If the ME authorizes us to enter into a cooperation process... */
 			if (domains[i]->shared_info->dom_desc.u.ME.spad.valid || itself) {
 
+				/* target_coop.slotID contains the slotID of the ME initiator in the cooperation process. */
 				domcall_args.u.cooperate_args.u.target_coop[avail_ME].slotID = i;
+
 				domcall_args.u.cooperate_args.u.target_coop[avail_ME].spad.valid = domains[i]->shared_info->dom_desc.u.ME.spad.valid;
 
 				/* Transfer the capabilities of the target ME */
