@@ -30,11 +30,16 @@
 char *soo_sysfs_names[] = {
 	[buffer_count] = "buffer_count",
 	[neighbours] = "neighbours",
+	[vsensej_js]= "vsensej_js",
 };
 
 static struct kobject *root_kobj;
 static struct kobject *soolink_kobj;
 static struct kobject *soolink_discovery_kobj;
+
+static struct kobject *backend_kobj;
+static struct kobject *backend_vsensej_kobj;
+
 
 /* Internal list structure to manage the diversity of callback functions related to attributes */
 typedef struct {
@@ -58,13 +63,10 @@ void soo_sysfs_register(soo_sysfs_attr_t attr, sysfs_handler_t show_handler, sys
 	list_add(&handler->list, &handlers);
 }
 
-
 ssize_t	attr_show(struct kobject *kobj, struct kobj_attribute *attr, char *str) {
-	struct list_head *cur;
 	handler_list_t *handler;
 
-	list_for_each(cur, &handlers) {
-		handler = list_entry(cur, handler_list_t, list);
+	list_for_each_entry(handler, &handlers, list) {
 
 		if (!strcmp(attr->attr.name, soo_sysfs_names[handler->attr])) {
 			if (handler->show_handler) {
@@ -80,11 +82,9 @@ ssize_t	attr_show(struct kobject *kobj, struct kobj_attribute *attr, char *str) 
 
 
 ssize_t	attr_store(struct kobject *kobj, struct kobj_attribute *attr, const char *str, size_t len) {
-	struct list_head *cur;
 	handler_list_t *handler;
 
-	list_for_each(cur, &handlers) {
-		handler = list_entry(cur, handler_list_t, list);
+	list_for_each_entry(handler, &handlers, list) {
 
 		if (!strcmp(attr->attr.name, soo_sysfs_names[handler->attr])) {
 			if (handler->store_handler)
@@ -106,6 +106,12 @@ ssize_t	attr_store(struct kobject *kobj, struct kobj_attribute *attr, const char
 static struct kobj_attribute buffer_count_attr = __ATTR(buffer_count, 0664, attr_show, attr_store);
 static struct kobj_attribute neighbours_attr = __ATTR(neighbours, 0664, attr_show, attr_store);
 
+/** Backends **/
+
+/**** vsensej ****/
+static struct kobj_attribute vsensej_js_attr = __ATTR(vsensej_js, 0664, attr_show, attr_store);
+
+
 /* Group of attributes for SOOlink Discovery */
 static struct attribute *soolink_discovery_attrs[] = {
 	&buffer_count_attr.attr,
@@ -115,6 +121,16 @@ static struct attribute *soolink_discovery_attrs[] = {
 
 static struct attribute_group soolink_discovery_group = {
 	.attrs = soolink_discovery_attrs,
+};
+
+/* Group of attributes for Backends */
+static struct attribute *backend_vsensej_attrs[] = {
+	&vsensej_js_attr.attr,
+	NULL,	/* need to NULL terminate the list of attributes */
+};
+
+static struct attribute_group backend_vsensej_group = {
+	.attrs = backend_vsensej_attrs,
 };
 
 void soo_sysfs_init(void) {
@@ -134,11 +150,22 @@ void soo_sysfs_init(void) {
 	soolink_kobj = kobject_create_and_add("soolink", root_kobj);
 	BUG_ON(!soolink_kobj);
 
-	/*** Discovery ***/
+	/**** Discovery ****/
 	soolink_discovery_kobj = kobject_create_and_add("discovery", soolink_kobj);
 	BUG_ON(!soolink_discovery_kobj);
 
 	ret = sysfs_create_group(soolink_discovery_kobj, &soolink_discovery_group);
+	BUG_ON(ret);
+
+	/** Backends **/
+	backend_kobj = kobject_create_and_add("backend", root_kobj);
+	BUG_ON(!backend_kobj);
+
+	/**** vsensej ****/
+	backend_vsensej_kobj = kobject_create_and_add("vsensej", backend_kobj);
+	BUG_ON(!backend_vsensej_kobj);
+
+	ret = sysfs_create_group(backend_vsensej_kobj, &backend_vsensej_group);
 	BUG_ON(ret);
 
 }

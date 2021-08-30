@@ -428,10 +428,10 @@ typedef struct {
 	unsigned char	spid[SPID_SIZE];
 	spad_t		spad;
 	pfn_coop_t 	pfn;
-} target_coop_slot_t;
+} target_coop_t;
 
 typedef struct {
-
+	unsigned int	slotID;
 	unsigned char	spid[SPID_SIZE];
 	unsigned char	spad_caps[SPAD_CAPS_SIZE];
 	pfn_coop_t 	pfn;
@@ -444,7 +444,7 @@ typedef struct {
 	bool alone; /* true if there is no ME in this SOO */
 
 	union {
-		target_coop_slot_t target_coop_slot[MAX_ME_DOMAINS]; /* In terms of ME domains */
+		target_coop_t target_coop[MAX_ME_DOMAINS]; /* In terms of ME domains */
 		initiator_coop_t initiator_coop;
 	} u;
 
@@ -488,7 +488,7 @@ typedef struct {
 } skip_activation_args_t;
 
 typedef struct {
-
+	unsigned int slotID;
 	unsigned char spid[SPID_SIZE];
 	unsigned char spad_caps[SPAD_CAPS_SIZE];
 

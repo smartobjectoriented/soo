@@ -26,6 +26,12 @@
 
 #include "rpisense-led.h"
 
+#ifdef CONFIG_ARCH_VEXPRESS
+
+bool leds[5]; /* 5 LEDs state */
+
+#else
+
 static struct rpisense *rpisense = NULL;
 
 uint8_t leds_array[SIZE_FB];
@@ -110,6 +116,18 @@ unsigned char leds[][64][2] = {
 /* In drivers/video/fbdev/rpisense-fb.c */
 void update_rpisense_fb_mem(uint8_t *matrix);
 
+#endif /* !CONFIG_ARCH_VEXPRESS */
+
+#ifdef CONFIG_ARCH_VEXPRESS
+
+void display_led(int led_nr, bool on) {
+	leds[led_nr] = on;
+
+	soo_log("[soo:backend:vsenseled] Setting LED %d to %s.\n", led_nr, (on ? "ON" : "OFF"));
+}
+
+#else
+
 void display_led(int led_nr, bool on) {
 	int i, j;
 	u16 *mem = (u16 *) leds[led_nr];
@@ -140,15 +158,27 @@ void display_led(int led_nr, bool on) {
 
 	i2c_master_send(rpisense->i2c_client, matrix, SIZE_FB);
 }
+
+#endif /* !CONFIG_ARCH_VEXPRESS */
+
 EXPORT_SYMBOL(display_led);
 
 void senseled_init(void) {
 	int i;
 
+#ifdef CONFIG_ARCH_VEXPRESS
+
+	for (i = 0; i < 5; i++)
+		leds[i] = false;
+
+#else
+
 	for (i = 0; i < SIZE_FB; i++)
 		matrix[i] = 0;
 
 	rpisense = rpisense_get_dev();
+
+#endif /* !CONFIG_ARCH_VEXPRESS */
 
 }
 EXPORT_SYMBOL(senseled_init);

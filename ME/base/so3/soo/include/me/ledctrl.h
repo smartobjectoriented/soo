@@ -20,14 +20,16 @@
 #define LEDCTRL_H
 
 #include <completion.h>
+#include <spinlock.h>
 
 #include <me/common.h>
 
 typedef struct {
 
-	me_common_t me_common;
-
 	struct completion upd_lock;
+
+	/* Protecting variables between domcalls and the active context */
+	spinlock_t lock;
 
 	int local_nr;
 	int incoming_nr;
@@ -37,8 +39,13 @@ typedef struct {
 	 */
 	bool need_propagate;
 
-	agencyUID_t here;
 	agencyUID_t initiator;
+
+	/*
+	 * MUST BE the last field, since it contains a field at the end which is used
+	 * as "payload" for a concatened list of hosts.
+	 */
+	me_common_t me_common;
 
 } sh_ledctrl_t;
 

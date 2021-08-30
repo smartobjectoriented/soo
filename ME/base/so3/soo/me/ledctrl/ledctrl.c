@@ -55,13 +55,23 @@ int process_led(void *args) {
 			if (sh_ledctrl->local_nr != -1)
 				vsenseled_set(sh_ledctrl->local_nr, 0);
 
+
 			/* Switch on the correct led */
 			vsenseled_set(sh_ledctrl->incoming_nr, 1);
 
 			sh_ledctrl->local_nr = sh_ledctrl->incoming_nr;
 
-			/* Need propagation to synchronize other SOOs */
-			sh_ledctrl->need_propagate = true;
+			/*
+			 * Need propagation to synchronize other SOOs (if initiator) or
+			 * to inform the initiator that we are up-to-date.
+			 * Except if we are resetting to 0 (hence we are the initiator).
+			 */
+
+			if (cmpUID(&sh_ledctrl->me_common.here, &sh_ledctrl->initiator)) {
+				spin_lock(&sh_ledctrl->lock);
+				sh_ledctrl->need_propagate = true;
+				spin_unlock(&sh_ledctrl->lock);
+			}
 		}
 	}
 }
@@ -72,7 +82,6 @@ int process_led(void *args) {
  */
 int app_thread_main(void *args) {
 	struct input_event ie;
-	agency_ctl_args_t agency_ctl_args;
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
@@ -113,10 +122,12 @@ int app_thread_main(void *args) {
 		}
 
 		/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
-		agency_ctl_args.cmd = AG_AGENCY_UID;
-		agency_ctl(&agency_ctl_args);
 
-		memcpy(&sh_ledctrl->initiator, &agency_ctl_args.u.agencyUID, SOO_AGENCY_UID_SIZE);
+		memcpyUID(&sh_ledctrl->initiator, &sh_ledctrl->me_common.here);
+
+		spin_lock(&sh_ledctrl->lock);
+		sh_ledctrl->need_propagate = true;
+		spin_unlock(&sh_ledctrl->lock);
 
 		complete(&sh_ledctrl->upd_lock);
 

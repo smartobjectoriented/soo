@@ -25,10 +25,16 @@
 typedef enum {
 	/* SOO */
 
-	/** SOOlink */
+	/** SOOlink **/
 
-	/*** Discovery ***/
-	buffer_count, neighbours
+	/**** Discovery ****/
+	buffer_count, neighbours,
+
+	/** Backend **/
+
+	/**** vsensej ****/
+	vsensej_js
+
 } soo_sysfs_attr_t;
 
 /* These callback types are used to make use of show/store sysfs callback as generic as possible. */

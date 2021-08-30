@@ -56,19 +56,14 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	agency_ctl_args.cmd = AG_AGENCY_UID;
 	args->__agency_ctl(&agency_ctl_args);
 
-	host_entry = find_host(&visits, &agency_ctl_args.u.agencyUID);
-	if (host_entry) {
+	memcpyUID(&sh_ledctrl->me_common.here, &agency_ctl_args.u.agencyUID);
 
+	host_entry = find_host(&visits, &sh_ledctrl->me_common.here);
+	if (host_entry)
 		/* We already visited this place. */
-
-		/* If we are not returning in our origin, we kill ourself */
-
-		if (cmpUID(&sh_ledctrl->initiator, &agency_ctl_args.u.agencyUID))
-			set_ME_state(ME_state_killed); /* Will be removed by the agency */
-
-	} else
-		new_host(&visits, &agency_ctl_args.u.agencyUID, NULL, 0);
-
+		set_ME_state(ME_state_killed); /* Will be removed by the agency */
+	else
+		new_host(&visits, &sh_ledctrl->me_common.here, NULL, 0);
 
 	return 0;
 }
@@ -81,10 +76,22 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 int cb_pre_propagate(soo_domcall_arg_t *args) {
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
+	spin_lock(&sh_ledctrl->lock);
+
 	pre_propagate_args->propagate_status = (sh_ledctrl->need_propagate ? PROPAGATE_STATUS_YES : PROPAGATE_STATUS_NO);
+
+	/* To be killed - only one propagation */
+	if (!pre_propagate_args->propagate_status && (get_ME_state() == ME_state_dormant))
+		set_ME_state(ME_state_killed);
+
+	/* In our case, the origin is updated if the smart object runs the ME */
+	if (pre_propagate_args->propagate_status && (get_ME_state() != ME_state_dormant))
+		memcpyUID(&sh_ledctrl->me_common.origin, &sh_ledctrl->me_common.here);
 
 	/* Only once */
 	sh_ledctrl->need_propagate = false;
+
+	spin_unlock(&sh_ledctrl->lock);
 
 	return 0;
 }
@@ -125,7 +132,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
 	agency_ctl_args_t agency_ctl_args;
 	unsigned int i;
-	struct list_head incoming_hosts;
+	LIST_HEAD(incoming_hosts);
 	sh_ledctrl_t *incoming_sh_ledctrl;
 
 	uint32_t pfn;
@@ -148,13 +155,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			 */
 			clear_hosts(&visits);
 
-			agency_ctl_args.cmd = AG_AGENCY_UID;
-			args->__agency_ctl(&agency_ctl_args);
-
-			/* Store the agencyUID in our structure */
-			memcpy(&sh_ledctrl->here, &agency_ctl_args.u.agencyUID, SOO_AGENCY_UID_SIZE);
-
-			new_host(&visits, &sh_ledctrl->here, NULL, 0);
+			new_host(&visits, &sh_ledctrl->me_common.here, NULL, 0);
 
 			complete(&sh_ledctrl->upd_lock);
 
@@ -162,78 +163,108 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		}
 
 		for (i = 0; i < MAX_ME_DOMAINS; i++) {
-			if (cooperate_args->u.target_coop_slot[i].spad.valid) {
+			if (cooperate_args->u.target_coop[i].spad.valid) {
 
 				/* Collaboration ... */
 
 				/* Update the list of hosts */
-				sh_ledctrl->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) &sh_ledctrl->me_common.soohosts);
+				sh_ledctrl->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_ledctrl->me_common.soohosts);
 
-				agency_ctl_args.u.target_cooperate_args.pfn.content =
-					phys_to_pfn(virt_to_phys_pt((uint32_t) sh_ledctrl));
+				agency_ctl_args.u.target_cooperate_args.pfn.content = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_ledctrl));
+				agency_ctl_args.u.target_cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
 				/* This pattern enables the cooperation with the target ME */
 
 				agency_ctl_args.cmd = AG_COOPERATE;
-				agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
+				agency_ctl_args.slotID = cooperate_args->u.target_coop[i].slotID;
 
 				/* Perform the cooperate in the target ME */
 				args->__agency_ctl(&agency_ctl_args);
 			}
 		}
 
-		/* Can disappear...*/
+		/* Can be dormant or be killed...*/
 
-		set_ME_state(ME_state_killed);
+		/*
+		 * If we reach the smart object initiator, we can disappear, otherwise we keep propagating once.
+		 */
+		if (!cmpUID(&sh_ledctrl->initiator, &sh_ledctrl->me_common.here))
+			set_ME_state(ME_state_killed);
+		else if (get_ME_state() != ME_state_killed) {
+
+			set_ME_state(ME_state_dormant);
+
+			spin_lock(&sh_ledctrl->lock);
+			sh_ledctrl->need_propagate = true;
+			spin_unlock(&sh_ledctrl->lock);
+		}
 
 		break;
 
 	case COOPERATE_TARGET:
 
-#if 0 /* Will trigger a force_terminate on us */
-		agency_ctl_args.cmd = AG_KILL_ME;
-		agency_ctl_args.slotID = args->slotID;
-		args->__agency_ctl(&agency_ctl_args);
-#endif
-
+		/* Map the content page of the incoming ME to retrieve its data. */
 		pfn = cooperate_args->u.initiator_coop.pfn.content;
 		incoming_sh_ledctrl = (sh_ledctrl_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
-		sh_ledctrl->incoming_nr = incoming_sh_ledctrl->local_nr;
+		/* Are we cooperating with the resident or another (migrating) ME ? */
+		if (get_ME_state() == ME_state_dormant) {
 
-		memcpy(&sh_ledctrl->initiator, &incoming_sh_ledctrl->initiator, SOO_AGENCY_UID_SIZE);
+			if (!cmpUID(&sh_ledctrl->me_common.origin, &incoming_sh_ledctrl->me_common.origin)) {
 
-		/* Check if we are in the initiator, if not we keep propagating */
-		if (cmpUID(&sh_ledctrl->here, &sh_ledctrl->initiator))
-			sh_ledctrl->need_propagate = true;
-		else {
+				/* Merge the visited hosts in our list and kill the other ME (initiator) */
+				expand_hosts(&incoming_hosts, incoming_sh_ledctrl->me_common.soohosts,
+						incoming_sh_ledctrl->me_common.soohost_nr);
+
+				merge_hosts(&visits, &incoming_hosts);
+				clear_hosts(&incoming_hosts);
+
+				/* Kill the ME */
+				agency_ctl_args.cmd = AG_KILL_ME;
+				agency_ctl_args.slotID = cooperate_args->u.initiator_coop.slotID;
+				args->__agency_ctl(&agency_ctl_args);
+
+			}
+
+		} else {
+
+			sh_ledctrl->incoming_nr = incoming_sh_ledctrl->local_nr;
+
+			memcpyUID(&sh_ledctrl->initiator, &incoming_sh_ledctrl->initiator);
 
 			/* Look for all known SOOs updated */
 
 			/* At the beginning? */
-			if (sh_ledctrl->incoming_nr == 0) {
-				if (!find_host(&known_soo_list, &incoming_sh_ledctrl->here))
+			if (!cmpUID(&sh_ledctrl->initiator, &sh_ledctrl->me_common.here)) {
+
+				if (!find_host(&known_soo_list, &incoming_sh_ledctrl->me_common.origin))
+
 					/* Insert this new SOO.ledctrl smart object */
-					new_host(&known_soo_list, &incoming_sh_ledctrl->here, NULL, 0);
-			} else {
+					new_host(&known_soo_list, &incoming_sh_ledctrl->me_common.origin, NULL, 0);
 
-				/* We compare the list of visits of this incoming ME against
-				 * our list of known SOOs.
-				 */
-				expand_hosts(&incoming_hosts, sh_ledctrl->me_common.soohosts, sh_ledctrl->me_common.soohost_nr);
+				else {
 
-				if (hosts_equals(&incoming_hosts, &known_soo_list)) {
+					/* We compare the list of visits of this incoming ME against
+					 * our list of known SOOs.
+					 */
+					expand_hosts(&incoming_hosts, incoming_sh_ledctrl->me_common.soohosts,
+						incoming_sh_ledctrl->me_common.soohost_nr);
 
-					/* We can reset our state */
-					sh_ledctrl->incoming_nr = 0;
+					/* Remove ourself, we are not in the known_soo_list */
+					del_host(&incoming_hosts, &sh_ledctrl->me_common.here);
+
+					if (hosts_equals(&incoming_hosts, &known_soo_list)) {
+
+						/* We can reset our state */
+						sh_ledctrl->incoming_nr = 0;
+					}
 				}
 			}
+
+			complete(&sh_ledctrl->upd_lock);
 		}
 
 		io_unmap((uint32_t) incoming_sh_ledctrl);
-
-		complete(&sh_ledctrl->upd_lock);
-
 		break;
 
 	default:
@@ -306,6 +337,8 @@ void callbacks_init(void) {
 	memset(sh_ledctrl, 0, PAGE_SIZE);
 
 	init_completion(&sh_ledctrl->upd_lock);
+
+	spin_lock_init(&sh_ledctrl->lock);
 
 	sh_ledctrl->local_nr = -1;
 	sh_ledctrl->incoming_nr = -1;
