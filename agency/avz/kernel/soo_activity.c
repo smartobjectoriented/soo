@@ -164,13 +164,13 @@ int agency_ctl(agency_ctl_args_t *args)
 		domcall_args.cmd = CB_COOPERATE;
 
 		/* Initiator slotID must be filled by the ME - during the cooperation - through the target slotID */
-		domcall_args.u.cooperate_args.u.initiator_coop.slotID = args->u.target_cooperate_args.slotID;
+		domcall_args.u.cooperate_args.u.initiator_coop.slotID = args->u.cooperate_args.slotID;
 
 		/* target_cooperate_args must be provided by the initiator ME during the cooperation */
-		memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.pfn, &args->u.target_cooperate_args.pfn, sizeof(pfn_coop_t));
+		domcall_args.u.cooperate_args.u.initiator_coop.pfn = args->u.cooperate_args.pfn;
 
 		/* Transfer the capabilities of the target ME */
-		memcpy(domcall_args.u.cooperate_args.u.initiator_coop.spad_caps, domains[args->slotID]->shared_info->dom_desc.u.ME.spad.caps, SPAD_CAPS_SIZE);
+		memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.spad, &domains[args->slotID]->shared_info->dom_desc.u.ME.spad, sizeof(spad_t));
 
 		/* Transfer the SPID of the target ME */
 		memcpy(domcall_args.u.cooperate_args.u.initiator_coop.spid, domains[args->slotID]->shared_info->dom_desc.u.ME.spid, SPID_SIZE);

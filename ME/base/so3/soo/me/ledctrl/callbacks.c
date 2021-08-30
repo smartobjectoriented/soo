@@ -170,8 +170,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 				/* Update the list of hosts */
 				sh_ledctrl->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_ledctrl->me_common.soohosts);
 
-				agency_ctl_args.u.target_cooperate_args.pfn.content = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_ledctrl));
-				agency_ctl_args.u.target_cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
+				agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_ledctrl));
+				agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
 				/* This pattern enables the cooperation with the target ME */
 
@@ -204,7 +204,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	case COOPERATE_TARGET:
 
 		/* Map the content page of the incoming ME to retrieve its data. */
-		pfn = cooperate_args->u.initiator_coop.pfn.content;
+		pfn = cooperate_args->u.initiator_coop.pfn;
 		incoming_sh_ledctrl = (sh_ledctrl_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
 		/* Are we cooperating with the resident or another (migrating) ME ? */

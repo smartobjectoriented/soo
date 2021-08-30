@@ -419,23 +419,11 @@ typedef struct {
 #define COOPERATE_TARGET	0x2
 
 typedef struct {
-	unsigned int	content;
-	unsigned int	imec;
-} pfn_coop_t;
-
-typedef struct {
 	unsigned int	slotID;
 	unsigned char	spid[SPID_SIZE];
 	spad_t		spad;
-	pfn_coop_t 	pfn;
-} target_coop_t;
-
-typedef struct {
-	unsigned int	slotID;
-	unsigned char	spid[SPID_SIZE];
-	unsigned char	spad_caps[SPAD_CAPS_SIZE];
-	pfn_coop_t 	pfn;
-} initiator_coop_t;
+	unsigned int 	pfn;
+} coop_t;
 
 typedef struct {
 
@@ -444,8 +432,8 @@ typedef struct {
 	bool alone; /* true if there is no ME in this SOO */
 
 	union {
-		target_coop_t target_coop[MAX_ME_DOMAINS]; /* In terms of ME domains */
-		initiator_coop_t initiator_coop;
+		coop_t target_coop[MAX_ME_DOMAINS]; /* In terms of ME domains */
+		coop_t initiator_coop;
 	} u;
 
 } cooperate_args_t;
@@ -488,18 +476,6 @@ typedef struct {
 } skip_activation_args_t;
 
 typedef struct {
-	unsigned int slotID;
-	unsigned char spid[SPID_SIZE];
-	unsigned char spad_caps[SPAD_CAPS_SIZE];
-
-	struct {
-		unsigned int content;
-		unsigned int imec;
-	} pfn;
-
-} target_cooperate_args_t;
-
-typedef struct {
 	uint32_t	class;
 	uint8_t		devcaps;
 	bool		supported;   /* OUT */
@@ -521,7 +497,7 @@ typedef struct {
 	unsigned int cmd;
 
 	union {
-		target_cooperate_args_t target_cooperate_args;
+		coop_t cooperate_args;
 		agencyUID_t agencyUID;
 		devcaps_args_t devcaps_args;
 		soo_name_args_t soo_name_args;
