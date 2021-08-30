@@ -50,6 +50,12 @@ typedef struct {
 	/* Number of visited (host) smart object */
 	int soohost_nr;
 
+	/* To store the agencyUID of the smart object in which we are now. */
+	agencyUID_t here;
+
+	/* Another UID to help keeping the origin */
+	agencyUID_t origin;
+
 	/*
 	 * List of soo hosts by their agency UID. The first entry
 	 * is the smart object origin (set first in pre_activate).
@@ -120,6 +126,15 @@ void sort_hosts(struct list_head *hosts);
  * @return
  */
 bool hosts_equals(struct list_head *incoming_hosts, struct list_head *);
+
+/**
+ * Merge the "b" list of hosts in the "a" list of hosts.
+ * if a host of list "b" is already in list "a", it is simply ignored.
+ *
+ * @param a
+ * @param b
+ */
+void merge_hosts(struct list_head *a, struct list_head *b);
 
 /**
  * Dump the contents of a list of hosts.

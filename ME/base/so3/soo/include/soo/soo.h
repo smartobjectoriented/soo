@@ -354,9 +354,10 @@ typedef struct {
 	unsigned char	spid[SPID_SIZE];
 	spad_t		spad;
 	pfn_coop_t 	pfn;
-} target_coop_slot_t;
+} target_coop_t;
 
 typedef struct {
+	unsigned int 	slotID;
 	unsigned char	spid[SPID_SIZE];
 	unsigned char	spad_caps[SPAD_CAPS_SIZE];
 	pfn_coop_t 	pfn;
@@ -369,7 +370,7 @@ typedef struct {
 	bool alone; /* true if there is no ME in this SOO */
 
 	union {
-		target_coop_slot_t target_coop_slot[MAX_ME_DOMAINS]; /* In terms of ME domains */
+		target_coop_t target_coop[MAX_ME_DOMAINS]; /* In terms of ME domains */
 		initiator_coop_t initiator_coop;
 	} u;
 
@@ -413,6 +414,7 @@ typedef struct {
 } skip_activation_args_t;
 
 typedef struct {
+	unsigned int slotID; /* Initiator slotID */
 	unsigned char spid[SPID_SIZE];
 	unsigned char spad_caps[SPAD_CAPS_SIZE];
 	pfn_coop_t pfn;
@@ -556,9 +558,14 @@ const char *get_me_shortdesc(void);
 const char *get_me_name(void);
 u64 get_spid(void);
 
-/* Helper function to compare agencyUID */
+/* Helper functions to compare agencyUID */
+
 static inline int cmpUID(agencyUID_t *u1, agencyUID_t *u2) {
 	return memcmp(u1, u2, SOO_AGENCY_UID_SIZE);
+}
+
+static inline void *memcpyUID(agencyUID_t *u1, agencyUID_t *u2) {
+	return memcpy(u1, u2, SOO_AGENCY_UID_SIZE);
 }
 
 #endif /* SOO_H */

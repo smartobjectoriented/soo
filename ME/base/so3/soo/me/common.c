@@ -82,11 +82,11 @@ void new_host(struct list_head *hosts, agencyUID_t *agencyUID, void *priv, int p
 	host = malloc(sizeof(host_t));
 	BUG_ON(!host);
 
-	memcpy(&host->host_entry.uid, agencyUID, SOO_AGENCY_UID_SIZE);
+	memcpyUID(&host->host_entry.uid, agencyUID);
 
 	if (priv_len) {
 		host->host_entry.priv = malloc(priv_len);
-		BUG_ON(!priv);
+		BUG_ON(!host->host_entry.priv);
 
 		memcpy(host->host_entry.priv, priv, priv_len);
 	}
@@ -227,6 +227,23 @@ bool hosts_equals(struct list_head *a, struct list_head *b) {
 
 	/* Successful */
 	return true;
+}
+
+/**
+ * Merge the "b" list of hosts in the "a" list of hosts.
+ * if a host of list "b" is already in list "a", it is simply ignored.
+ *
+ * @param a
+ * @param b
+ */
+void merge_hosts(struct list_head *a, struct list_head *b) {
+
+	host_t *host_b;
+
+	list_for_each_entry(host_b, b, list) {
+		if (!find_host(a, &host_b->host_entry.uid))
+			new_host(a, &host_b->host_entry.uid, host_b->host_entry.priv, host_b->host_entry.priv_len);
+	}
 }
 
 /**

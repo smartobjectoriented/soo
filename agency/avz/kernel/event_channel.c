@@ -395,7 +395,7 @@ void send_guest_virq(struct domain *d, int virq) {
 	if (!__already_locked)
 		spin_unlock(&d->sched->sched_data.schedule_lock);
 
-	out:
+out:
 	spin_unlock_irqrestore(&d->virq_lock, flags);
 }
 
