@@ -373,7 +373,14 @@ void rtdm_unbind_from_virqhandler(rtdm_irq_t *irq_handle)
 
 void unbind_from_virqhandler(unsigned int virq, void *dev_id)
 {
-	free_irq(VIRQ_BASE + virq, dev_id);
+	struct irq_desc *desc = irq_to_desc(VIRQ_BASE + virq);
+
+	/* If we have a virq only to manage notification (without handler),
+	 * we should not free an "already-free" irq in Linux.
+	 */
+	if (desc->action)
+		free_irq(VIRQ_BASE + virq, dev_id);
+
 	unbind_from_virq(virq);
 }
 
