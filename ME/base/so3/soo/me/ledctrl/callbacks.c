@@ -43,6 +43,13 @@ static LIST_HEAD(known_soo_list);
 /* Reference to the shared content helpful during synergy with other MEs */
 sh_ledctrl_t *sh_ledctrl;
 
+static volatile bool full_initd = false;
+
+struct completion upd_lock;
+
+/* Protecting variables between domcalls and the active context */
+spinlock_t propagate_lock;
+
 /**
  * PRE-ACTIVATE
  *
@@ -76,7 +83,12 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 int cb_pre_propagate(soo_domcall_arg_t *args) {
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
-	spin_lock(&sh_ledctrl->lock);
+	if (!full_initd) {
+		pre_propagate_args->propagate_status = PROPAGATE_STATUS_NO;
+		return 0;
+	}
+
+	spin_lock(&propagate_lock);
 
 	pre_propagate_args->propagate_status = (sh_ledctrl->need_propagate ? PROPAGATE_STATUS_YES : PROPAGATE_STATUS_NO);
 
@@ -91,7 +103,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 	/* Only once */
 	sh_ledctrl->need_propagate = false;
 
-	spin_unlock(&sh_ledctrl->lock);
+	spin_unlock(&propagate_lock);
 
 	return 0;
 }
@@ -157,7 +169,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 			new_host(&visits, &sh_ledctrl->me_common.here, NULL, 0);
 
-			complete(&sh_ledctrl->upd_lock);
+			complete(&upd_lock);
 
 			return 0;
 		}
@@ -194,9 +206,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 			set_ME_state(ME_state_dormant);
 
-			spin_lock(&sh_ledctrl->lock);
+			spin_lock(&propagate_lock);
 			sh_ledctrl->need_propagate = true;
-			spin_unlock(&sh_ledctrl->lock);
+			spin_unlock(&propagate_lock);
 		}
 
 		break;
@@ -261,7 +273,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 				}
 			}
 
-			complete(&sh_ledctrl->upd_lock);
+			complete(&upd_lock);
 		}
 
 		io_unmap((uint32_t) incoming_sh_ledctrl);
@@ -330,15 +342,15 @@ int cb_force_terminate(void) {
 
 void callbacks_init(void) {
 
-	/* Allocate localinfo */
+	/* Allocate the shared page. */
 	sh_ledctrl = (sh_ledctrl_t *) get_contig_free_vpages(1);
 
 	/* Initialize the shared content page used to exchange information between other MEs */
 	memset(sh_ledctrl, 0, PAGE_SIZE);
 
-	init_completion(&sh_ledctrl->upd_lock);
+	init_completion(&upd_lock);
 
-	spin_lock_init(&sh_ledctrl->lock);
+	spin_lock_init(&propagate_lock);
 
 	sh_ledctrl->local_nr = -1;
 	sh_ledctrl->incoming_nr = -1;
@@ -346,6 +358,7 @@ void callbacks_init(void) {
 	/* Set the SPAD capabilities (currently not used) */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
 
+	full_initd = true;
 }
 
 

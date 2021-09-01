@@ -46,65 +46,6 @@
 
 int fd_migration;
 
-
-/**
- * Set the personality.
- */
-static int set_personality(soo_personality_t personality) {
-	int rc;
-	struct agency_tx_args args;
-
-	args.value = (int) personality;
-
-	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_SET_PERSONALITY, &args)) < 0) {
-		printf("Failed to set personality (%d)\n", rc);
-		BUG();
-	}
-
-	return 0;
-}
-
-int get_personality(void) {
-	struct agency_tx_args args;
-
-	if (ioctl(fd_migration, AGENCY_IOCTL_GET_PERSONALITY, &args) < 0) {
-		printf("Failed to set personality.\n");
-		BUG();
-	}
-
-	return args.value;
-}
-
-int set_personality_initiator(void) {
-	return set_personality(SOO_PERSONALITY_INITIATOR);
-}
-
-int set_personality_target(void) {
-	return set_personality(SOO_PERSONALITY_TARGET);
-}
-
-int set_personality_selfreferent(void) {
-	return set_personality(SOO_PERSONALITY_SELFREFERENT);
-}
-
-/**
- * Initiate the migration process of a ME.
- * Returns 0 if the migration can go forward, -1 otherwise (if the ME got killed for instance).
- */
-int initialize_migration(unsigned int ME_slotID) {
-	int rc;
-	struct agency_tx_args args;
-
-	args.ME_slotID = ME_slotID;
-
-	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_INIT_MIGRATION, &args)) < 0) {
-		printf("Failed to initialize migration (%d)\n", rc);
-		BUG();
-	}
-
-	return args.value;
-}
-
 /**
  * Get an available ME slot from the hypervisor.
  */
@@ -232,20 +173,11 @@ void ME_inject(unsigned char *ME_buffer) {
 		return;
 	}
 
-	/* Set the personality to "selfreferent" so that the final migration path will be slightly different
-	 * than a "target" personality.
-	 */
-	set_personality_selfreferent();
-
 	/* Finalization of the injected ME involving the callback sequence */
 	if (finalize_migration(slotID)) {
 		printf("%s: finalize_migration failed.\n", __func__);
 		BUG();
 	}
-
-	/* Be ready for future migration */
-	set_personality_initiator();
-
 }
 
 /**
@@ -299,7 +231,7 @@ close_free:
 #define AGENCY_CORE_VERSION "3.0"
 
 /**
- * Initialization of the Migration Manager functional block of the Core subsystem.
+ * Initialization of the Injector functional block of the Core subsystem.
  */
 void injector_init(void) {
 	/* Open the migration SOO device */
@@ -320,7 +252,6 @@ int main(int argc, char *argv[]) {
 	injector_init();
 
 	inject_MEs_from_filesystem(argv[1]);
-
 
 	return 0;
 }

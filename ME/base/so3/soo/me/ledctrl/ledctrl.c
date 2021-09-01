@@ -47,7 +47,7 @@ int process_led(void *args) {
 
 	while (true) {
 
-		wait_for_completion(&sh_ledctrl->upd_lock);
+		wait_for_completion(&upd_lock);
 
 		if (sh_ledctrl->local_nr != sh_ledctrl->incoming_nr) {
 
@@ -68,9 +68,9 @@ int process_led(void *args) {
 			 */
 
 			if (cmpUID(&sh_ledctrl->me_common.here, &sh_ledctrl->initiator)) {
-				spin_lock(&sh_ledctrl->lock);
+				spin_lock(&propagate_lock);
 				sh_ledctrl->need_propagate = true;
-				spin_unlock(&sh_ledctrl->lock);
+				spin_unlock(&propagate_lock);
 			}
 		}
 	}
@@ -125,11 +125,11 @@ int app_thread_main(void *args) {
 
 		memcpyUID(&sh_ledctrl->initiator, &sh_ledctrl->me_common.here);
 
-		spin_lock(&sh_ledctrl->lock);
+		spin_lock(&propagate_lock);
 		sh_ledctrl->need_propagate = true;
-		spin_unlock(&sh_ledctrl->lock);
+		spin_unlock(&propagate_lock);
 
-		complete(&sh_ledctrl->upd_lock);
+		complete(&upd_lock);
 
 	}
 

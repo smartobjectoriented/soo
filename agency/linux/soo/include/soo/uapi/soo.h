@@ -86,26 +86,10 @@ extern atomic_t dc_incoming_domID[DC_EVENT_MAX];
 
 #endif /* __KERNEL__ */
 
-/*
- * SOO personality
- */
-
-/* SOO personality regarding migration */
-typedef enum {
-	SOO_PERSONALITY_SELFREFERENT,
-	SOO_PERSONALITY_INITIATOR,
-	SOO_PERSONALITY_TARGET
-} soo_personality_t;
-
 #ifdef __KERNEL__
-
-soo_personality_t soo_get_personality(void);
-void soo_set_personality(soo_personality_t pers);
 
 void set_pfn_offset(int pfn_offset);
 int get_pfn_offset(void);
-
-extern soo_personality_t soo_get_personality(void);
 
 #endif /* __KERNEL__ */
 
@@ -117,23 +101,21 @@ extern soo_personality_t soo_get_personality(void);
 /*
  * IOCTL codes
  */
-#define AGENCY_IOCTL_SET_PERSONALITY		_IOW('S', 0, agency_tx_args_t)
-#define AGENCY_IOCTL_INIT_MIGRATION		_IOWR('S', 1, agency_tx_args_t)
-#define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR('S', 2, agency_tx_args_t)
-#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 3, agency_tx_args_t)
-#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 4, agency_tx_args_t)
-#define AGENCY_IOCTL_FINAL_MIGRATION    	_IOW('S', 5, agency_tx_args_t)
-#define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 6, unsigned int)
-#define AGENCY_IOCTL_LOCALINFO_UPDATE		_IOW('S', 7, unsigned int)
-#define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 8, agency_tx_args_t)
-#define AGENCY_IOCTL_PICK_NEXT_UEVENT		_IO('S', 9)
-#define AGENCY_IOCTL_READY			_IO('S', 10)
-#define AGENCY_IOCTL_GET_ME_DESC		_IOWR('S', 11, agency_tx_args_t)
-#define AGENCY_IOCTL_GET_PERSONALITY		_IOR('S', 12, agency_tx_args_t)
-#define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOR('S', 13, upgrader_ioctl_recv_args_t)
-#define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW('S', 14, upgrade_versions_args_t)
-#define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 15, agency_tx_args_t)
-#define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 16, agency_tx_args_t)
+#define AGENCY_IOCTL_INIT_MIGRATION		_IOWR('S', 0, agency_tx_args_t)
+#define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR('S', 1, agency_tx_args_t)
+#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 2, agency_tx_args_t)
+#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 3, agency_tx_args_t)
+#define AGENCY_IOCTL_FINAL_MIGRATION    	_IOW('S', 4, agency_tx_args_t)
+#define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 5, unsigned int)
+#define AGENCY_IOCTL_LOCALINFO_UPDATE		_IOW('S', 6, unsigned int)
+#define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 7, agency_tx_args_t)
+#define AGENCY_IOCTL_PICK_NEXT_UEVENT		_IO('S', 8)
+#define AGENCY_IOCTL_READY			_IO('S', 9)
+#define AGENCY_IOCTL_GET_ME_DESC		_IOWR('S', 10, agency_tx_args_t)
+#define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOR('S', 11, upgrader_ioctl_recv_args_t)
+#define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW('S', 12, upgrade_versions_args_t)
+#define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 13, agency_tx_args_t)
+#define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 14, agency_tx_args_t)
 
 #define ME_IOCTL_FORCE_TERMINATE		100
 #define ME_IOCTL_PICK_NEXT_UEVENT		101

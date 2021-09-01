@@ -65,24 +65,27 @@ unsigned long vaddr_start_ME = 0;
  */
 int migration_init(soo_hyp_t *op) {
 	unsigned int slotID = *((unsigned int *) op->p_val1);
-	soo_personality_t pers = *((soo_personality_t *) op->p_val2);
 	struct domain *domME = domains[slotID];
 
 	DBG("Initializing migration of ME slotID=%d, pers=%d\n", slotID, pers);
 
-	switch (pers) {
-	case SOO_PERSONALITY_INITIATOR:
+	switch (get_ME_state(slotID)) {
+
+	case ME_state_suspended:
+		DBG("ME state suspended\n");
 
 		/* Initiator's side: the ME must be suspended during the migration */
 		domain_pause_by_systemcontroller(domME);
 
 		DBG0("ME paused OK\n");
+		DBG("Being migrated: preparing to copy in ME_slotID %d: ME @ paddr 0x%08x (mapped @ vaddr 0x%08x in hypervisor)\n",
+			slotID, (unsigned int) memslot[slotID].base_paddr, (unsigned int) vaddr_start_ME);
 
 		break;
 
-	case SOO_PERSONALITY_SELFREFERENT:
+	case ME_state_booting:
 
-		DBG("Self-referent\n");
+		DBG("ME state booting\n");
 
 		domME = domain_create(slotID, ME_CPU);
 		if (!domME)
@@ -101,9 +104,10 @@ int migration_init(soo_hyp_t *op) {
 
 		break;
 
-	case SOO_PERSONALITY_TARGET:
+	case ME_state_migrating:
+
 		/* Target's side: nothing to do in particular */
-		DBG("Target\n");
+		DBG("ME state migrating\n");
 
 		/* Create the basic domain context including the ME descriptor (in its shared info page) */
 
@@ -122,13 +126,14 @@ int migration_init(soo_hyp_t *op) {
 		domME->shared_info->dom_desc.u.ME.pfn = phys_to_pfn(memslot[slotID].base_paddr);
 
 		break;
+
+	default:
+		printk("Agency: %s:%d Invalid state at this point (%d)\n", __func__, __LINE__, get_ME_state(slotID));
+		BUG();
 	}
 
 	/* Used for future restore operation */
 	vaddr_start_ME  = (unsigned long) __lva(memslot[slotID].base_paddr);
-
-	if (pers == SOO_PERSONALITY_INITIATOR)
-		DBG("Initiator: Preparing to copy in ME_slotID %d: ME @ paddr 0x%08x (mapped @ vaddr 0x%08x in hypervisor)\n", slotID, (unsigned int) memslot[slotID].base_paddr, (unsigned int) vaddr_start_ME);
 
 	return 0;
 }

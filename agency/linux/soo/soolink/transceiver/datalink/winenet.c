@@ -981,7 +981,7 @@ retry_waitack:
 
 				default:
 					/* Should not happen... */
-					wnet_trace("*** Invalid ACK beacon cause...\n");
+					wnet_trace("*** Invalid ACK beacon cause %d...\n", beacon->this->cause);
 					BUG();
 				}
 
