@@ -140,6 +140,9 @@ void vsensej_close(struct vbus_device *vdev) {
 
 	BACK_RING_INIT(&vsensej_priv->vsensej.ring, (&vsensej_priv->vsensej.ring)->sring, PAGE_SIZE);
 
+	/* Unbind the irq */
+	unbind_from_virqhandler(vsensej_priv->vsensej.irq, vdev);
+
 	vbus_unmap_ring_vfree(vdev, vsensej_priv->vsensej.ring.sring);
 	vsensej_priv->vsensej.ring.sring = NULL;
 }
@@ -175,6 +178,10 @@ void vsensej_reconfigured(struct vbus_device *vdev) {
 	BUG_ON(res < 0);
 
 	BACK_RING_INIT(&vsensej_priv->vsensej.ring, sring, PAGE_SIZE);
+
+	/* No handler required, however used to notify the remote domain */
+	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, NULL, NULL, 0, VSENSEJ_NAME "-backend", vdev);
+	BUG_ON(res < 0);
 
 	vsensej_priv->vsensej.irq = res;
 }
