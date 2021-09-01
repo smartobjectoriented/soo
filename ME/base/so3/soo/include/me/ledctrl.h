@@ -24,12 +24,11 @@
 
 #include <me/common.h>
 
+/*
+ * Never use lock (completion, spinlock, etc.) in the shared page since
+ * the use of ldrex/strex instructions will fail with cache disabled.
+ */
 typedef struct {
-
-	struct completion upd_lock;
-
-	/* Protecting variables between domcalls and the active context */
-	spinlock_t lock;
 
 	int local_nr;
 	int incoming_nr;
@@ -51,6 +50,11 @@ typedef struct {
 
 /* Export the reference to the shared content structure */
 extern sh_ledctrl_t *sh_ledctrl;
+
+extern struct completion upd_lock;
+
+/* Protecting variables between domcalls and the active context */
+extern spinlock_t propagate_lock;
 
 #endif /* LEDCTRL_H */
 

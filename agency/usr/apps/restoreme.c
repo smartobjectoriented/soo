@@ -94,11 +94,6 @@ int main(int argc, char *argv[]) {
 	ioctl(fd_core, AGENCY_IOCTL_GET_ME_FREE_SLOT, &args);
 	assert(args.ME_slotID == 2);
 
-	/* Set personality to target */
-
-	args.value = SOO_PERSONALITY_TARGET;
-	ioctl(fd_core, AGENCY_IOCTL_SET_PERSONALITY, &args);
-
 	initialize_migration(2);
 
 	write_ME_snapshot(2, buffer, buffer_size);
@@ -106,9 +101,6 @@ int main(int argc, char *argv[]) {
 	args.ME_slotID = 2;
 
 	ioctl(fd_core, AGENCY_IOCTL_FINAL_MIGRATION, &args);
-	args.value = SOO_PERSONALITY_INITIATOR;
-
-	ioctl(fd_core, AGENCY_IOCTL_SET_PERSONALITY, &args);
 
 	close(fd_core);
 

@@ -75,19 +75,11 @@ void ME_inject(unsigned char *ME_buffer) {
 		return;
 	}
 
-	/* Set the personality to "selfreferent" so that the final migration path will be slightly different
-	 * than a "target" personality.
-	 */
-	set_personality_selfreferent();
-
 	/* Finalization of the injected ME involving the callback sequence */
 	if (finalize_migration(slotID)) {
 		printf("%s: finalize_migration failed.\n", __func__);
 		BUG();
 	}
-
-	/* Be ready for future migration */
-	set_personality_initiator();
 }
 
 

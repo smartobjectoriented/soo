@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -231,20 +231,6 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	unsigned int ME_slotID;
 
 	switch (cmd) {
-
-	case AGENCY_IOCTL_SET_PERSONALITY:
-		if ((rc = ioctl_set_personality(arg)) < 0) {
-			lprintk("%s: SET_PERSONALITY error (%d)\n", __func__, rc);
-			BUG();
-		}
-		break;
-
-	case AGENCY_IOCTL_GET_PERSONALITY:
-		if ((rc = ioctl_get_personality(arg)) < 0) {
-			lprintk("%s: GET_PERSONALITY error (%d)\n", __func__, rc);
-			BUG();
-		}
-		break;
 
 	case AGENCY_IOCTL_INIT_MIGRATION:
 		if ((rc = ioctl_initialize_migration(arg)) < 0) {
