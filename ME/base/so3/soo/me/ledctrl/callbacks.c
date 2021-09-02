@@ -269,11 +269,14 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 						/* We can reset our state */
 						sh_ledctrl->incoming_nr = 0;
+
+						complete(&upd_lock);
 					}
 				}
 			}
 
-			complete(&upd_lock);
+			if (!cmpUID(&incoming_sh_ledctrl->initiator, &incoming_sh_ledctrl->me_common.origin))
+				complete(&upd_lock);
 		}
 
 		io_unmap((uint32_t) incoming_sh_ledctrl);
