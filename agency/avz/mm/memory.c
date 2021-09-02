@@ -335,16 +335,14 @@ void release_memslot(unsigned int addr, unsigned int order) {
 	bitmap_release_region((unsigned long *) &memchunk_bitmap, pos, order);
 }
 
-
-/*
- * Get the next available memory slot for a ME hosting.
+/**
+ * Get the next available memory slot for ME hosting.
  *
- * Return the corresponding size and ME_slotID if any.
- * If no slot is available, it returns -1.
- *
+ * @param size		Requested size
+ * @param ME_state	Initial state of the ME
+ * @return		-1 if no slot is available or <slotID> if a slot is available.
  */
-int get_ME_free_slot(unsigned int size) {
-
+int get_ME_free_slot(unsigned int size, ME_state_t ME_state) {
 	unsigned int order, addr;
 	int slotID;
 	unsigned int bits_NR;
@@ -379,6 +377,13 @@ int get_ME_free_slot(unsigned int size) {
 	printk("get_ME_slot start %08x\n", (unsigned int) memslot[slotID].start);
 	printk("get_ME_slot size %d\n", memslot[slotID].size);
 #endif
+
+	/* Create a domain context including the ME descriptor before the ME gets injected. */
+
+	domains[slotID] = domain_create(slotID, ME_CPU);
+
+	/* Initialize the ME descriptor */
+	set_ME_state(slotID, ME_state);
 
 	return slotID;
 }

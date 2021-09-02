@@ -466,6 +466,7 @@ int do_soo_hypercall(soo_hyp_t *args) {
 		rc = migration_final(&op);
 		break;
 
+	/* The following hypercall is used during receive operation */
 	case AVZ_GET_ME_FREE_SLOT:
 	{
 		unsigned int ME_size = *((unsigned int *) op.p_val1);
@@ -475,7 +476,7 @@ int do_soo_hypercall(soo_hyp_t *args) {
 		 * Try to get an available slot for a ME with this size.
 		 * It will return -1 if no slot is available.
 		 */
-		slotID = get_ME_free_slot(ME_size);
+		slotID = get_ME_free_slot(ME_size, ME_state_migrating);
 
 		*((int *) op.p_val1) = slotID;
 

@@ -128,7 +128,6 @@ void vsensej_remove(struct vbus_device *vdev) {
 	kfree(vsensej_priv);
 }
 
-
 void vsensej_close(struct vbus_device *vdev) {
 	vsensej_priv_t *vsensej_priv = dev_get_drvdata(&vdev->dev);
 

@@ -47,23 +47,6 @@
 int fd_migration;
 
 /**
- * Get an available ME slot from the hypervisor.
- */
-int get_ME_free_slot(size_t ME_size) {
-	int rc;
-	struct agency_tx_args args;
-
-	args.value = ME_size;
-
-	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_GET_ME_FREE_SLOT, &args)) < 0) {
-		printf("Failed to get ME slot (%d)\n", rc);
-		BUG();
-	}
-
-	return args.ME_slotID;
-}
-
-/**
  * Retrieve the ME descriptor including the SPID, the state and the SPAD.
  * If no ME is present in the specified slot, the size of the ME descriptor is set to 0.
  * If the commands succeeds, it returns 0, otherwise the error code.

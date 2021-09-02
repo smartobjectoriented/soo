@@ -87,12 +87,6 @@ int migration_init(soo_hyp_t *op) {
 
 		DBG("ME state booting\n");
 
-		domME = domain_create(slotID, ME_CPU);
-		if (!domME)
-			panic("Error creating the ME");
-
-		domains[slotID] = domME;
-
 		/* Initialize the ME descriptor */
 		set_ME_state(slotID, ME_state_booting);
 
@@ -108,18 +102,6 @@ int migration_init(soo_hyp_t *op) {
 
 		/* Target's side: nothing to do in particular */
 		DBG("ME state migrating\n");
-
-		/* Create the basic domain context including the ME descriptor (in its shared info page) */
-
-		/* Create new ME domain */
-		domME = domain_create(slotID, ME_CPU);
-
-		domains[slotID] = domME;
-
-		if (domME == NULL) {
-			printk("Error creating the ME\n");
-			panic("Failure during domain creation ...\n");
-		}
 
 		/* Pre-init the basic information related to the ME */
 		domME->shared_info->dom_desc.u.ME.size = memslot[slotID].size;
@@ -370,20 +352,11 @@ int inject_me(soo_hyp_t *op)
 	}
 
 	/* Find a slotID to store this ME. */
-	slotID = get_ME_free_slot(dom_size);
+	slotID = get_ME_free_slot(dom_size, ME_state_booting);
 	if (slotID < 1)
 		goto out;
 
-	/* Create a domain context including the ME descriptor before the ME gets injected. */
-
-	domME = domain_create(slotID, ME_CPU);
-	if (!domME)
-		panic("Error creating the ME");
-
-	domains[slotID] = domME;
-
-	/* Initialize the ME descriptor */
-	set_ME_state(slotID, ME_state_booting);
+	domME = domains[slotID];
 
 	/* Set the size of this ME in its own descriptor */
 	domME->shared_info->dom_desc.u.ME.size = memslot[slotID].size;
