@@ -25,6 +25,8 @@
 #include <asm/mmu.h>
 #include <asm/bitops.h>
 
+#include <soo/uapi/me_access.h>
+
 struct domain;
 struct page_info;
 struct vcpu;
@@ -50,7 +52,7 @@ extern int __irq_safe[];
 
 extern struct domain *idle_domain[];
 
-int get_ME_free_slot(unsigned int size);
+int get_ME_free_slot(unsigned int size, ME_state_t ME_state);
 int put_ME_slot(unsigned int ME_slotID);
 
 void early_memory_init(void);

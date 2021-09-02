@@ -66,9 +66,10 @@ int ioctl_initialize_migration(unsigned long arg) {
 	}
 
 	ME_state = get_ME_state(args.ME_slotID);
-	BUG_ON(!((ME_state == ME_state_living) || (ME_state == ME_state_dormant) || (ME_state == ME_state_booting)));
 
-	if (ME_state != ME_state_booting) {
+	BUG_ON(!((ME_state == ME_state_living) || (ME_state == ME_state_dormant) || (ME_state == ME_state_migrating)));
+
+	if (!((ME_state == ME_state_booting) || (ME_state == ME_state_migrating))) {
 
 		if ((rc = soo_hypercall(AVZ_MIG_PRE_PROPAGATE, NULL, NULL, &args.ME_slotID, &propagate)) != 0) {
 			lprintk("Agency: %s:%d Failed to trigger pre-propagate callback (%d)\n", __func__, __LINE__, rc);
@@ -347,20 +348,21 @@ int ioctl_finalize_migration(unsigned long arg) {
 	} else {
 
 		ME_state = get_ME_state(args.ME_slotID);
-		BUG_ON((ME_state != ME_state_migrating) && (ME_state != ME_state_suspended));
+		BUG_ON(!((ME_state == ME_state_migrating) || (ME_state == ME_state_suspended) || (ME_state == ME_state_dormant)));
 
 		DBG0("SOO migration subsys: Entering post migration tasks...\n");
 
-		if ((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, NULL)) < 0) {
-			lprintk("Agency: %s:%d Failed to finalize migration (%d)\n", __func__, __LINE__, rc);
-			BUG();
+		if ((ME_state != ME_state_dormant) &&
+			((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, NULL)) < 0)) {
+				lprintk("Agency: %s:%d Failed to finalize migration (%d)\n", __func__, __LINE__, rc);
+				BUG();
 		}
 
 		DBG0("Call to AVZ_MIG_FINAL terminated\n");
 
 		ME_state = get_ME_state(args.ME_slotID);
 
-		if ((ME_state != ME_state_dead) && (ME_state != ME_state_dormant)) {
+		if (!((ME_state == ME_state_dead) || (ME_state == ME_state_dormant))) {
 			DBG0("Pinging ME for DC_RESUME...\n");
 			do_sync_dom(args.ME_slotID, DC_RESUME);
 
