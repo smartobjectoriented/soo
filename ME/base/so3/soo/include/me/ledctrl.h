@@ -33,6 +33,8 @@ typedef struct {
 	int local_nr;
 	int incoming_nr;
 
+	int stamp; /* A stamp to keep track of the current change and to know if we need to acknowledge */
+
 	/* To determine if the ME needs to be propagated.
 	 * If it is the same state, no need to be propagated.
 	 */
