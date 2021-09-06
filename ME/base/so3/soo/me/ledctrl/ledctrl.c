@@ -60,18 +60,16 @@ int process_led(void *args) {
 			vsenseled_set(sh_ledctrl->incoming_nr, 1);
 
 			sh_ledctrl->local_nr = sh_ledctrl->incoming_nr;
+		}
 
-			/*
-			 * Need propagation to synchronize other SOOs (if initiator) or
-			 * to inform the initiator that we are up-to-date.
-			 * Except if we are resetting to 0 (hence we are the initiator).
-			 */
+		/* Need propagation to synchronize other SOOs (if initiator) or
+		 * to inform the initiator that we are up-to-date.
+		 */
 
-			if (cmpUID(&sh_ledctrl->me_common.here, &sh_ledctrl->initiator)) {
-				spin_lock(&propagate_lock);
-				sh_ledctrl->need_propagate = true;
-				spin_unlock(&propagate_lock);
-			}
+		if (cmpUID(&sh_ledctrl->me_common.here, &sh_ledctrl->initiator)) {
+			spin_lock(&propagate_lock);
+			sh_ledctrl->need_propagate = true;
+			spin_unlock(&propagate_lock);
 		}
 	}
 }
