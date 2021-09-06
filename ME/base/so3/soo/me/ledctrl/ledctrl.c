@@ -61,16 +61,6 @@ int process_led(void *args) {
 
 			sh_ledctrl->local_nr = sh_ledctrl->incoming_nr;
 		}
-
-		/* Need propagation to synchronize other SOOs (if initiator) or
-		 * to inform the initiator that we are up-to-date.
-		 */
-
-		if (cmpUID(&sh_ledctrl->me_common.here, &sh_ledctrl->initiator)) {
-			spin_lock(&propagate_lock);
-			sh_ledctrl->need_propagate = true;
-			spin_unlock(&propagate_lock);
-		}
 	}
 }
 
@@ -122,6 +112,8 @@ int app_thread_main(void *args) {
 		/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
 
 		memcpyUID(&sh_ledctrl->initiator, &sh_ledctrl->me_common.here);
+
+		sh_ledctrl->stamp++;
 
 		spin_lock(&propagate_lock);
 		sh_ledctrl->need_propagate = true;
