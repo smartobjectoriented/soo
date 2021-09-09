@@ -267,7 +267,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 				/* Remove ourself, we are not in the known_soo_list */
 				del_host(&incoming_hosts, &sh_ledctrl->me_common.here);
-
+dump_hosts(&incoming_hosts);
+dump_hosts(&known_soo_list);
 				if (hosts_equals(&incoming_hosts, &known_soo_list))
 
 					/* We can reset our state */
@@ -279,7 +280,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			/* If the incoming ME has a more recent stamp (greater value), then
 			 * we can propagate ourself to say "hey, I got it, I acknowledge".
 			 */
-			if (sh_ledctrl->stamp > incoming_sh_ledctrl->stamp) {
+lprintk("## sh_stamp: %d incoming sh_stamp: %d\n", sh_ledctrl->stamp, incoming_sh_ledctrl->stamp);
+			if (incoming_sh_ledctrl->stamp > sh_ledctrl->stamp) {
 
 				spin_lock(&propagate_lock);
 				sh_ledctrl->need_propagate = true;
