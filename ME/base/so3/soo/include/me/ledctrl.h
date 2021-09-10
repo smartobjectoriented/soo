@@ -33,7 +33,11 @@ typedef struct {
 	int local_nr;
 	int incoming_nr;
 
-	int stamp; /* A stamp to keep track of the current change and to know if we need to acknowledge */
+	/* A stamp to keep track of the current change. A greater value means an update is required. */
+	int stamp;
+
+	/* If an acknowledge is required from all SOO.ledctrl smart objects */
+	bool waitack;
 
 	/* To determine if the ME needs to be propagated.
 	 * If it is the same state, no need to be propagated.
