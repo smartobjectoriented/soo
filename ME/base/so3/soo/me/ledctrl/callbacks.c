@@ -39,6 +39,7 @@
 
 static LIST_HEAD(visits);
 static LIST_HEAD(known_soo_list);
+static LIST_HEAD(ack_hosts);
 
 /* Reference to the shared content helpful during synergy with other MEs */
 sh_ledctrl_t *sh_ledctrl;
@@ -267,20 +268,29 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 				/* Remove ourself, we are not in the known_soo_list */
 				del_host(&incoming_hosts, &sh_ledctrl->me_common.here);
-dump_hosts(&incoming_hosts);
-dump_hosts(&known_soo_list);
-				if (hosts_equals(&incoming_hosts, &known_soo_list))
+
+				merge_hosts(&ack_hosts, &incoming_hosts);
+
+				if (sh_ledctrl->waitack && (incoming_sh_ledctrl->stamp == sh_ledctrl->stamp) &&
+					hosts_equals(&ack_hosts, &known_soo_list)) {
 
 					/* We can reset our state */
 					sh_ledctrl->incoming_nr = 0;
-			}
 
-			complete(&upd_lock);
+					/* Reset the boolean telling we need an ack */
+					sh_ledctrl->waitack = false;
+
+					clear_hosts(&ack_hosts);
+
+					complete(&upd_lock);
+				}
+			} else
+				complete(&upd_lock);
 
 			/* If the incoming ME has a more recent stamp (greater value), then
 			 * we can propagate ourself to say "hey, I got it, I acknowledge".
 			 */
-lprintk("## sh_stamp: %d incoming sh_stamp: %d\n", sh_ledctrl->stamp, incoming_sh_ledctrl->stamp);
+
 			if (incoming_sh_ledctrl->stamp > sh_ledctrl->stamp) {
 
 				spin_lock(&propagate_lock);

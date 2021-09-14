@@ -117,6 +117,10 @@ int app_thread_main(void *args) {
 
 		spin_lock(&propagate_lock);
 		sh_ledctrl->need_propagate = true;
+
+		/* Required an acknowledge of all SOO.ledctrl smart objects */
+		sh_ledctrl->waitack = true;
+
 		spin_unlock(&propagate_lock);
 
 		complete(&upd_lock);
