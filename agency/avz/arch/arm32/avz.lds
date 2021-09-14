@@ -79,7 +79,9 @@ SECTIONS
    
     	__bss_end = .;  
     }
-    
+   
+    . = ALIGN(4096);
+ 
     .heap :
     {
       __heap_base_addr = . ;
