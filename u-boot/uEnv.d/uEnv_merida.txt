@@ -1,7 +1,0 @@
-fdt_high=ffffffff
-initrd_high=ffffffff
-fastboot_soo=bootm 0x52000000
-soo=fatload mmc 0 0x52000000 merida.itb; bootm 0x52000000
-start=run soo
-
-
