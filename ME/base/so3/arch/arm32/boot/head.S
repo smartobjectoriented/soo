@@ -182,7 +182,8 @@ mmu_setup:
 __fdt_addr:
   .word 	0
 
-.align 4
+@ Keep the stack aligned on 8 KB according to EABI
+.align 13
 
 @ Before MMU is enabled, we cannot refer to the normal stack as declared in the linker script
 temp_stack_bottom:
