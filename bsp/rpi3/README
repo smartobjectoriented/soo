@@ -1,4 +1,0 @@
-
-start.elf comes from the old rpi-bsp since it seems the UART on RPi 3 B+ is corrupted with the last version (wrong baudrate?)
-
-
