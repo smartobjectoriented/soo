@@ -279,14 +279,6 @@
     };
 };
 
-/*
-&mmcnr {
-    pinctrl-names = "default";
-    pinctrl-0 = <&sdio_pins>;
-    bus-width = <4>;
-    status = "disabled";
-};*/
-
 &firmware {
 	expgpio: gpio {
 		compatible = "raspberrypi,firmware-gpio";
@@ -332,6 +324,7 @@
 &emmc2 {
 	vqmmc-supply = <&sd_io_1v8_reg>;
 	broken-cd;
+	mmc-ddr-3_3v;
 	status = "okay";
 };
 
