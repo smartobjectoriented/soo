@@ -250,9 +250,13 @@ int bootm_find_images(int flag, int argc, char *const argv[], ulong start,
 		      ulong size)
 {
 	int ret;
+
+/* SOO.tech */
+#ifdef CONFIG_BCM2711
 	int emmcbus_offset;
 	const struct fdt_property *emmcbus_prop_src;
 	int proplen;
+#endif /* CONFIG_BCM2711 */
 
 	/* find ramdisk */
 	ret = boot_get_ramdisk(argc, argv, &images, IH_INITRD_ARCH,
