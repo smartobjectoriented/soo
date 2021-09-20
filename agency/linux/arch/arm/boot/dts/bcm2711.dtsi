@@ -246,7 +246,7 @@
 			interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
- 
+
 	/*
 	 * emmc2 has different DMA constraints based on SoC revisions. It was
 	 * moved into its own bus, so as for RPi4's firmware to update them.
@@ -259,7 +259,7 @@
 		#size-cells = <1>;
 
 		ranges = <0x00000000 0x7e000000 0x00000000 0xfe000000 0x01800000>;
-		dma-ranges = <0x00000000 0x00000000 0x00000000 0x00000000 0xfc000000>;
+		dma-ranges = <0x00000000 0xc0000000 0x00000000 0x00000000 0x40000000>;
 
 		emmc2: mmc@7e340000 {
 			compatible = "brcm,bcm2711-emmc2";
@@ -269,7 +269,6 @@
 			status = "disabled";
 		};
 	};
- 
 	
 	arm-pmu {
 		compatible = "arm,cortex-a72-pmu", "arm,armv8-pmuv3";
