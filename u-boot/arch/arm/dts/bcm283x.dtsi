@@ -487,7 +487,7 @@
 					     "dsi0_ddr";
 
 		};
-#if 0
+
 		thermal: thermal@7e212000 {
 			compatible = "brcm,bcm2835-thermal";
 			reg = <0x7e212000 0x8>;
@@ -495,7 +495,7 @@
 			#thermal-sensor-cells = <0>;
 			status = "disabled";
 		};
-#endif
+
 		aux: aux@7e215000 {
 			compatible = "brcm,bcm2835-aux";
 			#clock-cells = <1>;

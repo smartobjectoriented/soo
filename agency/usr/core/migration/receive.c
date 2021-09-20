@@ -82,12 +82,6 @@ bool ME_processing_receive(void) {
 	slotID = get_ME_free_slot(ME_size);
 	if (slotID > 0) {
 
-		/* Set the personality to TARGET only and only if the incoming personality is INITIATOR.
-		 * If the personality is SELFREFERENT, the injection must proceed.
-		 */
-		if (get_personality() == SOO_PERSONALITY_INITIATOR)
-			set_personality_target();
-
 		printf("** Receiving a ME -> now in slot %d\n", slotID);
 
 		/* Tell AVZ to create a new domain context including the ME descriptor,
@@ -107,10 +101,6 @@ bool ME_processing_receive(void) {
 			force_print("%s: finalize_migration failed.\n", __func__);
 			BUG();
 		}
-
-		/* Be ready for future migration */
-		set_personality_initiator();
-
 	}
 
 	dcm_release_ME(ME_buffer);

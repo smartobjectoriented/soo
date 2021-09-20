@@ -16,7 +16,7 @@ if [ ! -f $BL31 ]; then
 	exit 0
 else
 	echo "$BL31 size: " >&2
-	ls -lct $BL31 | awk '{print $5}' >&2
+	stat -c %s $BL31 >&2
 fi
 
 BL32="tee.bin"
@@ -26,7 +26,7 @@ if [ ! -f $BL32 ]; then
 else
 	echo "Building with TEE support, make sure your $BL31 is compiled with spd. If you do not want tee, please delete $BL31" >&2
 	echo "$BL32 size: " >&2
-	ls -lct $BL32 | awk '{print $5}' >&2
+	stat -c %s $BL32 >&2
 fi
 
 BL33="u-boot-nodtb.bin"
@@ -36,13 +36,13 @@ if [ ! -f $BL33 ]; then
 	exit 0
 else
 	echo "u-boot-nodtb.bin size: " >&2
-	ls -lct u-boot-nodtb.bin | awk '{print $5}' >&2
+	stat -c %s u-boot-nodtb.bin >&2
 fi
 
 for dtname in $*
 do
 	echo "$dtname size: " >&2
-	ls -lct $dtname | awk '{print $5}' >&2
+	stat -c %s $dtname >&2
 done
 
 
@@ -62,6 +62,23 @@ cat << __HEADER_EOF
 			compression = "none";
 			load = <$BL33_LOAD_ADDR>;
 		};
+__HEADER_EOF
+
+cnt=1
+for dtname in $*
+do
+	cat << __FDT_IMAGE_EOF
+		fdt@$cnt {
+			description = "$(basename $dtname .dtb)";
+			data = /incbin/("$dtname");
+			type = "flat_dt";
+			compression = "none";
+		};
+__FDT_IMAGE_EOF
+cnt=$((cnt+1))
+done
+
+cat << __HEADER_EOF
 		atf@1 {
 			description = "ARM Trusted Firmware";
 			os = "arm-trusted-firmware";
@@ -88,20 +105,6 @@ cat << __HEADER_EOF
 __HEADER_EOF
 fi
 
-cnt=1
-for dtname in $*
-do
-	cat << __FDT_IMAGE_EOF
-		fdt@$cnt {
-			description = "$(basename $dtname .dtb)";
-			data = /incbin/("$dtname");
-			type = "flat_dt";
-			compression = "none";
-		};
-__FDT_IMAGE_EOF
-cnt=$((cnt+1))
-done
-
 cat << __CONF_HEADER_EOF
 	};
 	configurations {
@@ -116,8 +119,8 @@ if [ -f $BL32 ]; then
 cat << __CONF_SECTION_EOF
 		config@$cnt {
 			description = "$(basename $dtname .dtb)";
-			firmware = "atf@1";
-			loadables = "uboot@1", "tee@1";
+			firmware = "uboot@1";
+			loadables = "atf@1", "tee@1";
 			fdt = "fdt@$cnt";
 		};
 __CONF_SECTION_EOF
@@ -125,8 +128,8 @@ else
 cat << __CONF_SECTION1_EOF
 		config@$cnt {
 			description = "$(basename $dtname .dtb)";
-			firmware = "atf@1";
-			loadables = "uboot@1";
+			firmware = "uboot@1";
+			loadables = "atf@1";
 			fdt = "fdt@$cnt";
 		};
 __CONF_SECTION1_EOF

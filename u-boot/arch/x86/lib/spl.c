@@ -4,12 +4,23 @@
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <debug_uart.h>
+#include <dm.h>
+#include <hang.h>
+#include <image.h>
+#include <init.h>
+#include <irq_func.h>
+#include <log.h>
 #include <malloc.h>
 #include <spl.h>
+#include <syscon.h>
 #include <asm/cpu.h>
+#include <asm/cpu_common.h>
+#include <asm/global_data.h>
 #include <asm/mrccache.h>
 #include <asm/mtrr.h>
+#include <asm/pci.h>
 #include <asm/processor.h>
 #include <asm/spl.h>
 #include <asm-generic/sections.h>
@@ -21,6 +32,32 @@ __weak int arch_cpu_init_dm(void)
 	return 0;
 }
 
+#ifdef CONFIG_TPL
+
+static int set_max_freq(void)
+{
+	if (cpu_get_burst_mode_state() == BURST_MODE_UNAVAILABLE) {
+		/*
+		 * Burst Mode has been factory-configured as disabled and is not
+		 * available in this physical processor package
+		 */
+		debug("Burst Mode is factory-disabled\n");
+		return -ENOENT;
+	}
+
+	/* Enable burst mode */
+	cpu_set_burst_mode(true);
+
+	/* Enable speed step */
+	cpu_set_eist(true);
+
+	/* Set P-State ratio */
+	cpu_set_p_state_to_turbo_ratio();
+
+	return 0;
+}
+#endif
+
 static int x86_spl_init(void)
 {
 #ifndef CONFIG_TPL
@@ -30,11 +67,17 @@ static int x86_spl_init(void)
 	 * is not needed. We could make this a CONFIG option or perhaps
 	 * place it immediately below CONFIG_SYS_TEXT_BASE.
 	 */
-	char *ptr = (char *)0x110000;
+	__maybe_unused char *ptr = (char *)0x110000;
+#else
+	struct udevice *punit;
 #endif
 	int ret;
 
 	debug("%s starting\n", __func__);
+	if (IS_ENABLED(TPL))
+		ret = x86_cpu_reinit_f();
+	else
+		ret = x86_cpu_init_f();
 	ret = spl_init();
 	if (ret) {
 		debug("%s: spl_init() failed\n", __func__);
@@ -53,7 +96,7 @@ static int x86_spl_init(void)
 	}
 #endif
 	preloader_console_init();
-#ifndef CONFIG_TPL
+#if !defined(CONFIG_TPL) && !CONFIG_IS_ENABLED(CPU)
 	ret = print_cpuinfo();
 	if (ret) {
 		debug("%s: print_cpuinfo() failed\n", __func__);
@@ -72,8 +115,9 @@ static int x86_spl_init(void)
 			      __func__, ret);
 	}
 
-#ifndef CONFIG_TPL
+#ifndef CONFIG_SYS_COREBOOT
 	memset(&__bss_start, 0, (ulong)&__bss_end - (ulong)&__bss_start);
+# ifndef CONFIG_TPL
 
 	/* TODO(sjg@chromium.org): Consider calling cpu_init_r() here */
 	ret = interrupt_init();
@@ -101,6 +145,15 @@ static int x86_spl_init(void)
 		return ret;
 	}
 	mtrr_commit(true);
+# else
+	ret = syscon_get_by_driver_data(X86_SYSCON_PUNIT, &punit);
+	if (ret)
+		debug("Could not find PUNIT (err=%d)\n", ret);
+
+	ret = set_max_freq();
+	if (ret)
+		debug("Failed to set CPU frequency (err=%d)\n", ret);
+# endif
 #endif
 
 	return 0;
@@ -112,10 +165,10 @@ void board_init_f(ulong flags)
 
 	ret = x86_spl_init();
 	if (ret) {
-		debug("Error %d\n", ret);
-		panic("x86_spl_init fail");
+		printf("x86_spl_init: error %d\n", ret);
+		hang();
 	}
-#ifdef CONFIG_TPL
+#if IS_ENABLED(CONFIG_TPL) || IS_ENABLED(CONFIG_SYS_COREBOOT)
 	gd->bd = malloc(sizeof(*gd->bd));
 	if (!gd->bd) {
 		printf("Out of memory for bd_info size %x\n", sizeof(*gd->bd));
@@ -159,6 +212,19 @@ static int spl_board_load_image(struct spl_image_info *spl_image,
 	spl_image->load_addr = CONFIG_SYS_TEXT_BASE;
 	spl_image->os = IH_OS_U_BOOT;
 	spl_image->name = "U-Boot";
+
+	if (!IS_ENABLED(CONFIG_SYS_COREBOOT)) {
+		/*
+		 * Copy U-Boot from ROM
+		 * TODO(sjg@chromium.org): Figure out a way to get the text base
+		 * correctly here, and in the device-tree binman definition.
+		 *
+		 * Also consider using FIT so we get the correct image length
+		 * and parameters.
+		 */
+		memcpy((char *)spl_image->load_addr, (char *)0xfff00000,
+		       0x100000);
+	}
 
 	debug("Loading to %lx\n", spl_image->load_addr);
 

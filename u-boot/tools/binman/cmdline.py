@@ -37,6 +37,7 @@ controlled by a description in the board device tree.'''
         '3=info, 4=detail, 5=debug')
 
     subparsers = parser.add_subparsers(dest='cmd')
+    subparsers.required = True
 
     build_parser = subparsers.add_parser('build', help='Build firmware image')
     build_parser.add_argument('-a', '--entry-arg', type=str, action='append',
@@ -53,6 +54,11 @@ controlled by a description in the board device tree.'''
             help='Add a path to the list of directories to use for input files')
     build_parser.add_argument('-m', '--map', action='store_true',
         default=False, help='Output a map file for each image')
+    build_parser.add_argument('-M', '--allow-missing', action='store_true',
+        default=False, help='Allow external blobs to be missing')
+    build_parser.add_argument('-n', '--no-expanded', action='store_true',
+            help="Don't use 'expanded' versions of entries where available; "
+                 "normally 'u-boot' becomes 'u-boot-expanded', for example")
     build_parser.add_argument('-O', '--outdir', type=str,
         action='store', help='Path to directory to use for intermediate and '
         'output files')
@@ -63,7 +69,7 @@ controlled by a description in the board device tree.'''
         default=False, help='Update the binman node with offset/size info')
 
     entry_parser = subparsers.add_parser('entry-docs',
-        help='Write out entry documentation (see README.entries)')
+        help='Write out entry documentation (see entries.rst)')
 
     list_parser = subparsers.add_parser('ls', help='List files in an image')
     list_parser.add_argument('-i', '--image', type=str, required=True,

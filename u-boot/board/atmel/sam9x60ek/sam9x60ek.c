@@ -6,6 +6,8 @@
  */
 
 #include <common.h>
+#include <init.h>
+#include <asm/global_data.h>
 #include <asm/io.h>
 #include <asm/arch/at91sam9_smc.h>
 #include <asm/arch/at91_common.h>
@@ -101,6 +103,18 @@ int board_early_init_f(void)
 {
 #ifdef CONFIG_DEBUG_UART
 	debug_uart_init();
+#endif
+	return 0;
+}
+#endif
+
+#define MAC24AA_MAC_OFFSET     0xfa
+
+#ifdef CONFIG_MISC_INIT_R
+int misc_init_r(void)
+{
+#ifdef CONFIG_I2C_EEPROM
+	at91_set_ethaddr(MAC24AA_MAC_OFFSET);
 #endif
 	return 0;
 }

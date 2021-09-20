@@ -11,11 +11,13 @@
  */
 
 #include <common.h>
+#include <init.h>
 #include <spl.h>
 #include <asm/arch/cpu.h>
 #include <asm/arch/ddr_defs.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sys_proto.h>
+#include <asm/global_data.h>
 #include <power/tps65910.h>
 #include <jffs2/load_kernel.h>
 #include <mtd_node.h>
@@ -246,7 +248,7 @@ int board_init(void)
 }
 
 #ifdef CONFIG_OF_BOARD_SETUP
-int ft_board_setup(void *blob, bd_t *bd)
+int ft_board_setup(void *blob, struct bd_info *bd)
 {
 #ifdef CONFIG_FDT_FIXUP_PARTITIONS
 	static const struct node_info nodes[] = {

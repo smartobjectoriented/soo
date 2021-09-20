@@ -5,7 +5,7 @@
  *   Author: Masahiro Yamada <yamada.masahiro@socionext.com>
  */
 
-#include <common.h>
+#include <cpu_func.h>
 #include <linux/io.h>
 #include <asm/secure.h>
 
@@ -18,7 +18,7 @@
 #define __SECURE
 #endif
 
-void __SECURE reset_cpu(unsigned long ignored)
+void __SECURE reset_cpu(void)
 {
 	u32 tmp;
 

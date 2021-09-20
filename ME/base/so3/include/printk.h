@@ -24,6 +24,8 @@
 void lprintk(char *format, ...);
 void llprintk(char *format, ...);
 
+void lprintk_buffer(void *buffer, uint32_t n);
+
 void printk(const char *fmt, ...);
 
 #ifndef __ASSEMBLY__

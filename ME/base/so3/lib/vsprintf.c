@@ -18,13 +18,14 @@
 
 #include <limits.h>
 #include <types.h>
-#include <div64.h>
 #include <string.h>
 #include <ctype.h>
 #include <common.h>
 #include <heap.h>
 #include <memory.h>
 #include <string_helpers.h>
+
+#include <asm/div64.h>
 
 #include <device/irq.h>
 

@@ -10,6 +10,9 @@
 #define _SUNXI_DRAM_SUN50I_H6_H
 
 #include <stdbool.h>
+#ifndef __ASSEMBLY__
+#include <linux/bitops.h>
+#endif
 
 enum sunxi_dram_type {
 	SUNXI_DRAM_TYPE_DDR3 = 3,
@@ -315,6 +318,7 @@ struct dram_para {
 	u8 cols;
 	u8 rows;
 	u8 ranks;
+	u8 bus_full_width;
 	const u8 dx_read_delays[NR_OF_BYTE_LANES][RD_LINES_PER_BYTE_LANE];
 	const u8 dx_write_delays[NR_OF_BYTE_LANES][WR_LINES_PER_BYTE_LANE];
 };

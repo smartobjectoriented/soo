@@ -6,6 +6,7 @@
 /* #define DEBUG */
 
 #include <common.h>
+#include <asm/global_data.h>
 
 #include <command.h>
 #include <env.h>
@@ -22,25 +23,18 @@
 #define __STR(X) #X
 #define STR(X) __STR(X)
 
-#if defined(CONFIG_ENV_SIZE_REDUND) &&  \
-	(CONFIG_ENV_SIZE_REDUND != CONFIG_ENV_SIZE)
-#error CONFIG_ENV_SIZE_REDUND should be the same as CONFIG_ENV_SIZE
-#endif
-
 DECLARE_GLOBAL_DATA_PTR;
 
-#if !defined(CONFIG_ENV_OFFSET)
-#define CONFIG_ENV_OFFSET 0
-#endif
-
 #if CONFIG_IS_ENABLED(OF_CONTROL)
-static inline int mmc_offset_try_partition(const char *str, s64 *val)
+static inline int mmc_offset_try_partition(const char *str, int copy, s64 *val)
 {
-	disk_partition_t info;
+	struct disk_partition info;
 	struct blk_desc *desc;
 	int len, i, ret;
+	char dev_str[4];
 
-	ret = blk_get_device_by_str("mmc", STR(CONFIG_SYS_MMC_ENV_DEV), &desc);
+	snprintf(dev_str, sizeof(dev_str), "%d", mmc_get_env_dev());
+	ret = blk_get_device_by_str("mmc", dev_str, &desc);
 	if (ret < 0)
 		return (ret);
 
@@ -49,15 +43,15 @@ static inline int mmc_offset_try_partition(const char *str, s64 *val)
 		if (ret < 0)
 			return ret;
 
-		if (!strncmp((const char *)info.name, str, sizeof(str)))
+		if (!strncmp((const char *)info.name, str, sizeof(info.name)))
 			break;
 	}
 
 	/* round up to info.blksz */
-	len = (CONFIG_ENV_SIZE + info.blksz - 1) & ~(info.blksz - 1);
+	len = DIV_ROUND_UP(CONFIG_ENV_SIZE, info.blksz);
 
 	/* use the top of the partion for the environment */
-	*val = (info.start + info.size - 1) - len / info.blksz;
+	*val = (info.start + info.size - (1 + copy) * len) * info.blksz;
 
 	return 0;
 }
@@ -82,7 +76,7 @@ static inline s64 mmc_offset(int copy)
 	str = fdtdec_get_config_string(gd->fdt_blob, dt_prop.partition);
 	if (str) {
 		/* try to place the environment at end of the partition */
-		err = mmc_offset_try_partition(str, &val);
+		err = mmc_offset_try_partition(str, copy, &val);
 		if (!err)
 			return val;
 	}
@@ -121,11 +115,6 @@ __weak int mmc_get_env_addr(struct mmc *mmc, int copy, u32 *env_addr)
 	*env_addr = offset;
 
 	return 0;
-}
-
-__weak int mmc_get_env_dev(void)
-{
-	return CONFIG_SYS_MMC_ENV_DEV;
 }
 
 #ifdef CONFIG_SYS_MMC_ENV_PART
@@ -244,7 +233,6 @@ fini:
 	return ret;
 }
 
-#if defined(CONFIG_CMD_ERASEENV)
 static inline int erase_env(struct mmc *mmc, unsigned long size,
 			    unsigned long offset)
 {
@@ -290,7 +278,6 @@ static int env_mmc_erase(void)
 
 	return ret;
 }
-#endif /* CONFIG_CMD_ERASEENV */
 #endif /* CONFIG_CMD_SAVEENV && !CONFIG_SPL_BUILD */
 
 static inline int read_env(struct mmc *mmc, unsigned long size,
@@ -341,7 +328,7 @@ static int env_mmc_load(void)
 	read2_fail = read_env(mmc, CONFIG_ENV_SIZE, offset2, tmp_env2);
 
 	ret = env_import_redund((char *)tmp_env1, read1_fail, (char *)tmp_env2,
-				read2_fail);
+				read2_fail, H_EXTERNAL);
 
 fini:
 	fini_mmc_for_env(mmc);
@@ -362,6 +349,7 @@ static int env_mmc_load(void)
 	int ret;
 	int dev = mmc_get_env_dev();
 	const char *errmsg;
+	env_t *ep = NULL;
 
 	mmc = find_mmc_device(dev);
 
@@ -382,7 +370,11 @@ static int env_mmc_load(void)
 		goto fini;
 	}
 
-	ret = env_import(buf, 1);
+	ret = env_import(buf, 1, H_EXTERNAL);
+	if (!ret) {
+		ep = (env_t *)buf;
+		gd->env_addr = (ulong)&ep->data;
+	}
 
 fini:
 	fini_mmc_for_env(mmc);
@@ -400,8 +392,6 @@ U_BOOT_ENV_LOCATION(mmc) = {
 	.load		= env_mmc_load,
 #ifndef CONFIG_SPL_BUILD
 	.save		= env_save_ptr(env_mmc_save),
-#if defined(CONFIG_CMD_ERASEENV)
-	.erase		= env_mmc_erase,
-#endif
+	.erase		= ENV_ERASE_PTR(env_mmc_erase)
 #endif
 };

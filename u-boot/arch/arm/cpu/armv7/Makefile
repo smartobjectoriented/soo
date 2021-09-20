@@ -9,7 +9,6 @@ obj-y	+= cache_v7.o cache_v7_asm.o
 
 obj-y	+= cpu.o cp15.o
 obj-y	+= syslib.o
-obj-$(CONFIG_MACH_SUN50I) += pre_head.o
 
 obj-$(CONFIG_SYS_ARM_MPU) += mpu_v7r.o
 
@@ -43,3 +42,5 @@ obj-$(CONFIG_RMOBILE) += rmobile/
 obj-$(if $(filter stv0991,$(SOC)),y) += stv0991/
 obj-$(CONFIG_ARCH_SUNXI) += sunxi/
 obj-$(CONFIG_VF610) += vf610/
+obj-$(CONFIG_ARCH_S5P4418) += s5p4418/
+obj-$(CONFIG_ARCH_NEXELL) += s5p-common/

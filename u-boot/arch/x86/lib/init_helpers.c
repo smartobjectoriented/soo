@@ -5,6 +5,8 @@
  */
 
 #include <common.h>
+#include <init.h>
+#include <asm/global_data.h>
 #include <linux/errno.h>
 #include <asm/mtrr.h>
 
@@ -15,6 +17,9 @@ int init_cache_f_r(void)
 	bool do_mtrr = CONFIG_IS_ENABLED(X86_32BIT_INIT) ||
 		 IS_ENABLED(CONFIG_FSP_VERSION2);
 	int ret;
+
+	if (!ll_boot_init())
+		return 0;
 
 	do_mtrr &= !IS_ENABLED(CONFIG_FSP_VERSION1) &&
 		!IS_ENABLED(CONFIG_SYS_SLIMBOOTLOADER);

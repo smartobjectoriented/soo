@@ -6,10 +6,12 @@
  * Copyright (C) 2015-2016 Stefan Roese <sr@denx.de>
  */
 
+#include <init.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/crm_regs.h>
 #include <asm/arch/mx6-pins.h>
 #include <asm/arch/sys_proto.h>
+#include <asm/global_data.h>
 #include <asm/mach-imx/iomux-v3.h>
 #include <asm/mach-imx/mxc_i2c.h>
 #include <fsl_esdhc_imx.h>

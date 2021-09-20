@@ -47,6 +47,10 @@ config SAM9X60
 	bool
 	select CPU_ARM926EJS
 
+config SAMA7G5
+	bool
+	select CPU_V7A
+
 config SAMA5D2
 	bool
 	select CPU_V7A
@@ -129,11 +133,6 @@ config TARGET_AT91SAM9M10G45EK
 config TARGET_PM9G45
 	bool "Ronetix pm9g45 board"
 	select AT91SAM9G45
-
-config TARGET_PICOSAM9G45
-	bool "Mini-box picosam9g45 board"
-	select AT91SAM9M10G45
-	select SUPPORT_SPL
 
 config TARGET_AT91SAM9N12EK
 	bool "Atmel AT91SAM9N12-EK board"
@@ -261,6 +260,13 @@ config TARGET_CORVUS
 	select SUPPORT_SPL
 	imply CMD_DM
 
+config TARGET_SAMA7G5EK
+       bool "SAMA7G5 EK board"
+       select SAMA7G5
+       select BOARD_EARLY_INIT_F
+       select BOARD_LATE_INIT
+
+
 config TARGET_TAURUS
 	bool "Support taurus"
 	select AT91SAM9G20
@@ -292,19 +298,6 @@ config TARGET_VINCO
 	select SUPPORT_SPL
 	imply CMD_DM
 
-config TARGET_WB45N
-	bool "Support Laird WB45N"
-	select CPU_ARM926EJS
-	select SUPPORT_SPL
-
-config TARGET_WB50N
-	bool "Support Laird WB50N"
-	select BOARD_EARLY_INIT_F
-	select BOARD_LATE_INIT
-	select CPU_V7A
-	select SUPPORT_SPL
-	select ATMEL_SFR
-
 endchoice
 
 config ATMEL_SFR
@@ -323,6 +316,7 @@ source "board/atmel/at91sam9n12ek/Kconfig"
 source "board/atmel/at91sam9rlek/Kconfig"
 source "board/atmel/at91sam9x5ek/Kconfig"
 source "board/atmel/sam9x60ek/Kconfig"
+source "board/atmel/sama7g5ek/Kconfig"
 source "board/atmel/sama5d2_ptc_ek/Kconfig"
 source "board/atmel/sama5d2_xplained/Kconfig"
 source "board/atmel/sama5d27_som1_ek/Kconfig"
@@ -339,15 +333,12 @@ source "board/egnite/ethernut5/Kconfig"
 source "board/esd/meesc/Kconfig"
 source "board/gardena/smart-gateway-at91sam/Kconfig"
 source "board/l+g/vinco/Kconfig"
-source "board/mini-box/picosam9g45/Kconfig"
 source "board/ronetix/pm9261/Kconfig"
 source "board/ronetix/pm9263/Kconfig"
 source "board/ronetix/pm9g45/Kconfig"
 source "board/siemens/corvus/Kconfig"
 source "board/siemens/taurus/Kconfig"
 source "board/siemens/smartweb/Kconfig"
-source "board/laird/wb45n/Kconfig"
-source "board/laird/wb50n/Kconfig"
 
 config SPL_LDSCRIPT
 	default "arch/arm/mach-at91/arm926ejs/u-boot-spl.lds" if CPU_ARM926EJS

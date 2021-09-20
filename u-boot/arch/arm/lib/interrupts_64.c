@@ -5,6 +5,9 @@
  */
 
 #include <common.h>
+#include <asm/global_data.h>
+#include <asm/ptrace.h>
+#include <irq_func.h>
 #include <linux/compiler.h>
 #include <efi_loader.h>
 
@@ -12,6 +15,8 @@ DECLARE_GLOBAL_DATA_PTR;
 
 int interrupt_init(void)
 {
+	enable_interrupts();
+
 	return 0;
 }
 

@@ -34,10 +34,8 @@
 #ifdef CONFIG_ARMV7_LPAE
 	.global	switch_to_hypervisor_ret
 #endif
-	.extern __pre_head
 
 reset:
-
 	/* Allow the board to save important registers */
 	b	save_boot_params
 save_boot_params_ret:

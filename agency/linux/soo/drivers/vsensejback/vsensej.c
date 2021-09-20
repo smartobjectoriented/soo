@@ -128,17 +128,18 @@ void vsensej_remove(struct vbus_device *vdev) {
 	kfree(vsensej_priv);
 }
 
-
 void vsensej_close(struct vbus_device *vdev) {
 	vsensej_priv_t *vsensej_priv = dev_get_drvdata(&vdev->dev);
 
 	DBG(VSENSEJ_PREFIX "Backend close: %d\n", vdev->otherend_id);
 
 	/*
-	 * Free the ring and unbind evtchn.
+	 * Free the ring.
 	 */
 
 	BACK_RING_INIT(&vsensej_priv->vsensej.ring, (&vsensej_priv->vsensej.ring)->sring, PAGE_SIZE);
+
+	/* Unbind the irq */
 	unbind_from_virqhandler(vsensej_priv->vsensej.irq, vdev);
 
 	vbus_unmap_ring_vfree(vdev, vsensej_priv->vsensej.ring.sring);
@@ -170,15 +171,15 @@ void vsensej_reconfigured(struct vbus_device *vdev) {
 
 	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
-	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
+	DBG("BE: ring-ref=%ld, event-channel=%d\n", ring_ref, evtchn);
 
 	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 	BUG_ON(res < 0);
 
 	BACK_RING_INIT(&vsensej_priv->vsensej.ring, sring, PAGE_SIZE);
 
+	/* No handler required, however used to notify the remote domain */
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, NULL, NULL, 0, VSENSEJ_NAME "-backend", vdev);
-
 	BUG_ON(res < 0);
 
 	vsensej_priv->vsensej.irq = res;

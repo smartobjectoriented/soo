@@ -34,7 +34,7 @@ enum rproc_mem_type {
  * @mem_type: one of 'enum rproc_mem_type'
  * @driver_plat_data: driver specific platform data that may be needed.
  *
- * This can be accessed with dev_get_uclass_platdata() for any UCLASS_REMOTEPROC
+ * This can be accessed with dev_get_uclass_plat() for any UCLASS_REMOTEPROC
  * device.
  *
  */
@@ -227,19 +227,6 @@ int rproc_elf32_sanity_check(ulong addr, ulong size);
 int rproc_elf64_sanity_check(ulong addr, ulong size);
 
 /**
- * rproc_elf_sanity_check() - Verify if an image is a valid ELF one
- *
- * Check if a valid ELF image exists at the given memory location. Auto
- * detects ELF32/ELF64 and verifies basic ELF64/ELF32 format requirements
- * like magic number and sections size.
- *
- * @addr:	address of the image to verify
- * @size:	size of the image
- * @return 0 if the image looks good, else appropriate error value.
- */
-int rproc_elf_sanity_check(ulong addr, ulong size);
-
-/**
  * rproc_elf32_load_image() - load an ELF32 image
  * @dev:	device loading the ELF32 image
  * @addr:	valid ELF32 image address
@@ -277,6 +264,64 @@ int rproc_elf_load_image(struct udevice *dev, unsigned long addr, ulong size);
  * image.
  */
 ulong rproc_elf_get_boot_addr(struct udevice *dev, ulong addr);
+
+/**
+ * rproc_elf32_load_rsc_table() - load the resource table from an ELF32 image
+ *
+ * Search for the resource table in an ELF32 image, and if found, copy it to
+ * device memory.
+ *
+ * @dev:	device loading the resource table
+ * @fw_addr:	ELF image address
+ * @fw_size:	size of the ELF image
+ * @rsc_addr:	pointer to the found resource table address. Updated on
+ *		operation success
+ * @rsc_size:	pointer to the found resource table size. Updated on operation
+ *		success
+ *
+ * @return 0 if a valid resource table is successfully loaded, -ENODATA if there
+ * is no resource table (which is optional), or another appropriate error value.
+ */
+int rproc_elf32_load_rsc_table(struct udevice *dev, ulong fw_addr,
+			       ulong fw_size, ulong *rsc_addr, ulong *rsc_size);
+/**
+ * rproc_elf64_load_rsc_table() - load the resource table from an ELF64 image
+ *
+ * Search for the resource table in an ELF64 image, and if found, copy it to
+ * device memory.
+ *
+ * @dev:	device loading the resource table
+ * @fw_addr:	ELF image address
+ * @fw_size:	size of the ELF image
+ * @rsc_addr:	pointer to the found resource table address. Updated on
+ *		operation success
+ * @rsc_size:	pointer to the found resource table size. Updated on operation
+ *		success
+ *
+ * @return 0 if a valid resource table is successfully loaded, -ENODATA if there
+ * is no resource table (which is optional), or another appropriate error value.
+ */
+int rproc_elf64_load_rsc_table(struct udevice *dev, ulong fw_addr,
+			       ulong fw_size, ulong *rsc_addr, ulong *rsc_size);
+/**
+ * rproc_elf_load_rsc_table() - load the resource table from an ELF image
+ *
+ * Auto detects if the image is ELF32 or ELF64 image and search accordingly for
+ * the resource table, and if found, copy it to device memory.
+ *
+ * @dev:	device loading the resource table
+ * @fw_addr:	ELF image address
+ * @fw_size:	size of the ELF image
+ * @rsc_addr:	pointer to the found resource table address. Updated on
+ *		operation success
+ * @rsc_size:	pointer to the found resource table size. Updated on operation
+ *		success
+ *
+ * @return 0 if a valid resource table is successfully loaded, -ENODATA if there
+ * is no resource table (which is optional), or another appropriate error value.
+ */
+int rproc_elf_load_rsc_table(struct udevice *dev, ulong fw_addr,
+			     ulong fw_size, ulong *rsc_addr, ulong *rsc_size);
 #else
 static inline int rproc_init(void) { return -ENOSYS; }
 static inline int rproc_dev_init(int id) { return -ENOSYS; }
@@ -304,6 +349,18 @@ static inline int rproc_elf_load_image(struct udevice *dev, ulong addr,
 { return -ENOSYS; }
 static inline ulong rproc_elf_get_boot_addr(struct udevice *dev, ulong addr)
 { return 0; }
+static inline int rproc_elf32_load_rsc_table(struct udevice *dev, ulong fw_addr,
+					     ulong fw_size, ulong *rsc_addr,
+					     ulong *rsc_size)
+{ return -ENOSYS; }
+static inline int rproc_elf64_load_rsc_table(struct udevice *dev, ulong fw_addr,
+					     ulong fw_size, ulong *rsc_addr,
+					     ulong *rsc_size)
+{ return -ENOSYS; }
+static inline int rproc_elf_load_rsc_table(struct udevice *dev, ulong fw_addr,
+					   ulong fw_size, ulong *rsc_addr,
+					   ulong *rsc_size)
+{ return -ENOSYS; }
 #endif
 
 #endif	/* _RPROC_H_ */

@@ -8,7 +8,7 @@
 #define __MESON64_CONFIG_H
 
 /* Generic Interrupt Controller Definitions */
-#if defined(CONFIG_MESON_AXG)
+#if (defined(CONFIG_MESON_AXG) || defined(CONFIG_MESON_G12A))
 #define GICD_BASE			0xffc01000
 #define GICC_BASE			0xffc02000
 #else /* MESON GXL and GXBB */
@@ -18,12 +18,6 @@
 
 /* For splashscreen */
 #ifdef CONFIG_DM_VIDEO
-#define CONFIG_VIDEO_BMP_RLE8
-#define CONFIG_BMP_16BPP
-#define CONFIG_BMP_24BPP
-#define CONFIG_BMP_32BPP
-#define CONFIG_SPLASH_SCREEN
-#define CONFIG_SPLASH_SCREEN_ALIGN
 #define STDOUT_CFG "vidconsole,serial"
 #else
 #define STDOUT_CFG "serial"
@@ -37,9 +31,6 @@
 
 #define CONFIG_CPU_ARMV8
 #define CONFIG_REMAKE_ELF
-#ifndef CONFIG_ENV_SIZE
-#define CONFIG_ENV_SIZE			0x2000
-#endif
 #define CONFIG_SYS_MAXARGS		32
 #define CONFIG_SYS_MALLOC_LEN		(32 << 20)
 #define CONFIG_SYS_CBSIZE		1024
@@ -67,6 +58,12 @@
 #define BOOT_TARGET_DEVICES_USB(func)
 #endif
 
+#ifdef CONFIG_CMD_NVME
+	#define BOOT_TARGET_NVME(func) func(NVME, nvme, 0)
+#else
+	#define BOOT_TARGET_NVME(func)
+#endif
+
 #ifndef BOOT_TARGET_DEVICES
 #define BOOT_TARGET_DEVICES(func) \
 	func(ROMUSB, romusb, na)  \
@@ -74,9 +71,12 @@
 	func(MMC, mmc, 1) \
 	func(MMC, mmc, 2) \
 	BOOT_TARGET_DEVICES_USB(func) \
+	BOOT_TARGET_NVME(func) \
 	func(PXE, pxe, na) \
 	func(DHCP, dhcp, na)
 #endif
+
+#include <config_distro_bootcmd.h>
 
 #ifndef CONFIG_EXTRA_ENV_SETTINGS
 #define CONFIG_EXTRA_ENV_SETTINGS \
@@ -87,11 +87,11 @@
 	"scriptaddr=0x08000000\0" \
 	"kernel_addr_r=0x08080000\0" \
 	"pxefile_addr_r=0x01080000\0" \
+	"fdtoverlay_addr_r=0x01000000\0" \
 	"ramdisk_addr_r=0x13000000\0" \
 	"fdtfile=amlogic/" CONFIG_DEFAULT_DEVICE_TREE ".dtb\0" \
 	BOOTENV
 #endif
 
-#include <config_distro_bootcmd.h>
 
 #endif /* __MESON64_CONFIG_H */

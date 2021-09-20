@@ -61,7 +61,7 @@ dtparam=audio=on
 dtoverlay=vc4-fkms-v3d
 max_framebuffers=2
 
-enable_uart=1
-
 [all]
 #dtoverlay=vc4-fkms-v3d
+
+enable_uart=1

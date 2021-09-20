@@ -43,49 +43,6 @@
  */
 static uint8_t buffer[32 * 1024]; /* 32 Ko */
 
-/*
- * Set the personality.
- */
-int ioctl_set_personality(unsigned long arg) {
-	int rc;
-	agency_tx_args_t args;
-	soo_personality_t pers;
-
-	if ((rc = copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	pers = (soo_personality_t) args.value;
-
-	if ((pers != SOO_PERSONALITY_INITIATOR) && (pers != SOO_PERSONALITY_TARGET) &&
-	    (pers != SOO_PERSONALITY_SELFREFERENT)) {
-		lprintk("Agency: %s:%d Invalid personality value (%d)\n", __func__, __LINE__, pers);
-		BUG();
-	}
-
-	soo_set_personality(pers);
-
-	return 0;
-}
-
-/*
- * Get the personality.
- */
-int ioctl_get_personality(unsigned long arg) {
-	int rc;
-	agency_tx_args_t args;
-
-	args.value = soo_get_personality();
-
-	if ((rc = copy_to_user((void *) arg, &args, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to transmit args to userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	return 0;
-}
-
 /**
  * Initialize the migration process of a ME.
  *
@@ -100,15 +57,19 @@ int ioctl_get_personality(unsigned long arg) {
 int ioctl_initialize_migration(unsigned long arg) {
 	int rc;
 	agency_tx_args_t args;
-	soo_personality_t pers = soo_get_personality();
 	int propagate = 0;
+	ME_state_t ME_state;
 
 	if ((rc = copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
 		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
 		BUG();
 	}
 
-	if (pers == SOO_PERSONALITY_INITIATOR) {
+	ME_state = get_ME_state(args.ME_slotID);
+
+	BUG_ON(!((ME_state == ME_state_living) || (ME_state == ME_state_dormant) || (ME_state == ME_state_migrating)));
+
+	if (!((ME_state == ME_state_booting) || (ME_state == ME_state_migrating))) {
 
 		if ((rc = soo_hypercall(AVZ_MIG_PRE_PROPAGATE, NULL, NULL, &args.ME_slotID, &propagate)) != 0) {
 			lprintk("Agency: %s:%d Failed to trigger pre-propagate callback (%d)\n", __func__, __LINE__, rc);
@@ -151,7 +112,7 @@ int ioctl_initialize_migration(unsigned long arg) {
 		do_sync_dom(args.ME_slotID, DC_SUSPEND);
 	}
 
-	if ((rc = soo_hypercall(AVZ_MIG_INIT, NULL, NULL, &args.ME_slotID, &pers)) != 0) {
+	if ((rc = soo_hypercall(AVZ_MIG_INIT, NULL, NULL, &args.ME_slotID, NULL)) != 0) {
 		lprintk("Agency: %s:%d Failed to initialize migration (%d)\n", __func__, __LINE__, rc);
 		return rc;
 	}
@@ -306,7 +267,6 @@ int ioctl_read_snapshot(unsigned long arg) {
 int ioctl_finalize_migration(unsigned long arg) {
 	int rc;
 	agency_tx_args_t args;
-	soo_personality_t pers = soo_get_personality();
 	int ME_slotID, ME_state;
 
 	if ((rc = copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) != 0) {
@@ -314,7 +274,8 @@ int ioctl_finalize_migration(unsigned long arg) {
 		return rc;
 	}
 
-	if (pers == SOO_PERSONALITY_SELFREFERENT) {
+	if (get_ME_state(args.ME_slotID) == ME_state_booting) {
+
 		ME_slotID = args.ME_slotID;
 
 		DBG("Unpause the ME (slot %d)...\n", ME_slotID);
@@ -355,7 +316,7 @@ int ioctl_finalize_migration(unsigned long arg) {
 		if ((get_ME_state(ME_slotID) == ME_state_dead) || (get_ME_state(ME_slotID) == ME_state_dormant))
 			return 0;
 
-		if ((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, &pers)) < 0) {
+		if ((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, NULL)) < 0) {
 			lprintk("Agency: %s:%d Failed to finalize migration (%d)\n", __func__, __LINE__, rc);
 			BUG();
 		}
@@ -386,18 +347,22 @@ int ioctl_finalize_migration(unsigned long arg) {
 
 	} else {
 
+		ME_state = get_ME_state(args.ME_slotID);
+		BUG_ON(!((ME_state == ME_state_migrating) || (ME_state == ME_state_suspended) || (ME_state == ME_state_dormant)));
+
 		DBG0("SOO migration subsys: Entering post migration tasks...\n");
 
-		if ((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, &pers)) < 0) {
-			lprintk("Agency: %s:%d Failed to finalize migration (%d)\n", __func__, __LINE__, rc);
-			BUG();
+		if ((ME_state != ME_state_dormant) &&
+			((rc = soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &args.ME_slotID, NULL)) < 0)) {
+				lprintk("Agency: %s:%d Failed to finalize migration (%d)\n", __func__, __LINE__, rc);
+				BUG();
 		}
 
 		DBG0("Call to AVZ_MIG_FINAL terminated\n");
 
 		ME_state = get_ME_state(args.ME_slotID);
 
-		if ((ME_state != ME_state_dead) && (ME_state != ME_state_dormant)) {
+		if (!((ME_state == ME_state_dead) || (ME_state == ME_state_dormant))) {
 			DBG0("Pinging ME for DC_RESUME...\n");
 			do_sync_dom(args.ME_slotID, DC_RESUME);
 

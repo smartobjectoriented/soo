@@ -15,6 +15,17 @@
 
 	chosen {
 		stdout-path = &dbgu;
+		i2c0 = &flx0;
+	};
+
+	clocks {
+		slow_xtal: slow_xtal {
+			clock-frequency = <32768>;
+		};
+
+		main_xtal: main_xtal {
+			clock-frequency = <24000000>;
+		};
 	};
 
 	onewire_tm: onewire {
@@ -45,6 +56,28 @@
 				};
 			};
 
+			flx0: flexcom@f801c600 {
+				atmel,flexcom-mode = <3>;
+				status = "okay";
+
+				i2c@600 {
+					compatible = "atmel,sama5d2-i2c";
+					reg = <0x600 0x200>;
+					pinctrl-names = "default";
+					pinctrl-0 = <&pinctrl_flx0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					clocks = <&pmc PMC_TYPE_PERIPHERAL 5>;
+					status = "okay";
+
+					eeprom@53 {
+						compatible = "atmel,24c32";
+						reg = <0x53>;
+						pagesize = <16>;
+					};
+				};
+			};
+
 			pinctrl {
 					pinctrl_qspi: qspi {
 						atmel,pins =
@@ -54,6 +87,12 @@
 							 AT91_PIOB 22 AT91_PERIPH_A AT91_PINCTRL_PULL_UP
 							 AT91_PIOB 23 AT91_PERIPH_A AT91_PINCTRL_PULL_UP
 							 AT91_PIOB 24 AT91_PERIPH_A AT91_PINCTRL_PULL_UP>;
+					};
+
+					pinctrl_flx0: flx0_default {
+						atmel,pins =
+							<AT91_PIOA 0 AT91_PERIPH_A AT91_PINCTRL_NONE
+							 AT91_PIOA 1 AT91_PERIPH_A AT91_PINCTRL_NONE>;
 					};
 
 					pinctrl_onewire_tm_default: onewire_tm_default {

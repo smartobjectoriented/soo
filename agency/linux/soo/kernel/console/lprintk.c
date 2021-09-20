@@ -49,6 +49,9 @@ static bool log_soo_soolink_winenet_ack = false;
 
 static bool log_soo_soolink_plugin = false;
 
+/* Backends */
+static bool log_soo_backend_vsenseled = true;
+
 struct mutex soo_log_lock;
 
 bool __soo_log_lock_initialized = false;
@@ -153,6 +156,9 @@ void __soo_log(char *info, char *buf) {
 	    )
 		outlog = true;
 
+	/* Backends */
+	if ((log_soo_backend_vsenseled && (strstr(__internal_buf, "[soo:backend:vsenseled"))))
+		outlog = true;
 
 	/* Print out to the console */
 	if (!outlog && !force_log) {

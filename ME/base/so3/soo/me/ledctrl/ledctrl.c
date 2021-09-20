@@ -47,13 +47,14 @@ int process_led(void *args) {
 
 	while (true) {
 
-		wait_for_completion(&sh_ledctrl->upd_lock);
+		wait_for_completion(&upd_lock);
 
 		if (sh_ledctrl->local_nr != sh_ledctrl->incoming_nr) {
 
 			/* Check if we are not at the beginning, otherwise switch off first. */
 			if (sh_ledctrl->local_nr != -1)
 				vsenseled_set(sh_ledctrl->local_nr, 0);
+
 
 			/* Switch on the correct led */
 			vsenseled_set(sh_ledctrl->incoming_nr, 1);
@@ -108,9 +109,21 @@ int app_thread_main(void *args) {
 
 		}
 
-		complete(&sh_ledctrl->upd_lock);
+		/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
 
+		memcpyUID(&sh_ledctrl->initiator, &sh_ledctrl->me_common.here);
+
+		sh_ledctrl->stamp++;
+
+		spin_lock(&propagate_lock);
 		sh_ledctrl->need_propagate = true;
+
+		/* Required an acknowledge of all SOO.ledctrl smart objects */
+		sh_ledctrl->waitack = true;
+
+		spin_unlock(&propagate_lock);
+
+		complete(&upd_lock);
 
 	}
 

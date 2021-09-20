@@ -5,9 +5,9 @@
 
 from collections import OrderedDict
 
-from entry import Entry, EntryArg
-import fdt_util
-import tools
+from binman.entry import Entry, EntryArg
+from dtoc import fdt_util
+from patman import tools
 
 
 class Entry_text(Entry):
@@ -25,7 +25,7 @@ class Entry_text(Entry):
         <text>: The text to place in the entry (overrides the above mechanism).
             This is useful when the text is constant.
 
-    Example node:
+    Example node::
 
         text {
             size = <50>;
@@ -38,7 +38,7 @@ class Entry_text(Entry):
 
     and binman will insert that string into the entry.
 
-    It is also possible to put the string directly in the node:
+    It is also possible to put the string directly in the node::
 
         text {
             size = <8>;
@@ -46,7 +46,7 @@ class Entry_text(Entry):
             message = "a message directly in the node"
         };
 
-    or just:
+    or just::
 
         text {
             size = <8>;
@@ -57,7 +57,7 @@ class Entry_text(Entry):
     by setting the size of the entry to something larger than the text.
     """
     def __init__(self, section, etype, node):
-        Entry.__init__(self, section, etype, node)
+        super().__init__(section, etype, node)
         value = fdt_util.GetString(self._node, 'text')
         if value:
             value = tools.ToBytes(value)

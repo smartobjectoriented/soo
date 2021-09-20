@@ -6,7 +6,9 @@
 #ifndef _RESET_MANAGER_H_
 #define _RESET_MANAGER_H_
 
-void reset_cpu(ulong addr);
+phys_addr_t socfpga_get_rstmgr_addr(void);
+
+void reset_cpu(void);
 
 void socfpga_per_reset(u32 reset, int set);
 void socfpga_per_reset_all(void);
@@ -41,8 +43,8 @@ void socfpga_per_reset_all(void);
 #include <asm/arch/reset_manager_gen5.h>
 #elif defined(CONFIG_TARGET_SOCFPGA_ARRIA10)
 #include <asm/arch/reset_manager_arria10.h>
-#elif defined(CONFIG_TARGET_SOCFPGA_STRATIX10)
-#include <asm/arch/reset_manager_s10.h>
+#elif defined(CONFIG_TARGET_SOCFPGA_SOC64)
+#include <asm/arch/reset_manager_soc64.h>
 #endif
 
 #endif /* _RESET_MANAGER_H_ */

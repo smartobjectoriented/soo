@@ -7,6 +7,7 @@
 #include <common.h>
 #include <clk-uclass.h>
 #include <dm.h>
+#include <log.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/imx-regs.h>
 #include <dt-bindings/clock/imx6qdl-clock.h>
@@ -89,6 +90,9 @@ static struct clk_ops imx6q_clk_ops = {
 };
 
 static const char *const usdhc_sels[] = { "pll2_pfd2_396m", "pll2_pfd0_352m", };
+static const char *const periph_sels[]	= { "periph_pre", "periph_clk2", };
+static const char *const periph_pre_sels[] = { "pll2_bus", "pll2_pfd2_396m",
+					       "pll2_pfd0_352m", "pll2_198m", };
 
 static int imx6q_clk_probe(struct udevice *dev)
 {
@@ -109,10 +113,14 @@ static int imx6q_clk_probe(struct udevice *dev)
 	       imx_clk_pfd("pll2_pfd0_352m", "pll2_bus", base + 0x100, 0));
 	clk_dm(IMX6QDL_CLK_PLL2_PFD2_396M,
 	       imx_clk_pfd("pll2_pfd2_396m", "pll2_bus", base + 0x100, 2));
+	clk_dm(IMX6QDL_CLK_PLL6,
+	       imx_clk_pllv3(IMX_PLLV3_ENET, "pll6", "osc", base + 0xe0, 0x3));
+	clk_dm(IMX6QDL_CLK_PLL6_ENET,
+	       imx_clk_gate("pll6_enet", "pll6", base + 0xe0, 13));
 
 	/* CCM clocks */
 	base = dev_read_addr_ptr(dev);
-	if (base == (void *)FDT_ADDR_T_NONE)
+	if (!base)
 		return -EINVAL;
 
 	clk_dm(IMX6QDL_CLK_USDHC1_SEL,
@@ -160,6 +168,28 @@ static int imx6q_clk_probe(struct udevice *dev)
 	       imx_clk_gate2("usdhc3", "usdhc3_podf", base + 0x80, 6));
 	clk_dm(IMX6QDL_CLK_USDHC4,
 	       imx_clk_gate2("usdhc4", "usdhc4_podf", base + 0x80, 8));
+
+	clk_dm(IMX6QDL_CLK_PERIPH_PRE,
+	       imx_clk_mux("periph_pre", base + 0x18, 18, 2, periph_pre_sels,
+			   ARRAY_SIZE(periph_pre_sels)));
+	clk_dm(IMX6QDL_CLK_PERIPH,
+	       imx_clk_busy_mux("periph",  base + 0x14, 25, 1, base + 0x48,
+				5, periph_sels,  ARRAY_SIZE(periph_sels)));
+	clk_dm(IMX6QDL_CLK_AHB,
+	       imx_clk_busy_divider("ahb", "periph", base + 0x14, 10, 3,
+				    base + 0x48, 1));
+	clk_dm(IMX6QDL_CLK_IPG,
+	       imx_clk_divider("ipg", "ahb", base + 0x14, 8, 2));
+	clk_dm(IMX6QDL_CLK_IPG_PER,
+	       imx_clk_divider("ipg_per", "ipg", base + 0x1c, 0, 6));
+	clk_dm(IMX6QDL_CLK_I2C1,
+	       imx_clk_gate2("i2c1", "ipg_per", base + 0x70, 6));
+	clk_dm(IMX6QDL_CLK_I2C2,
+	       imx_clk_gate2("i2c2", "ipg_per", base + 0x70, 8));
+
+	clk_dm(IMX6QDL_CLK_ENET, imx_clk_gate2("enet", "ipg", base + 0x6c, 10));
+	clk_dm(IMX6QDL_CLK_ENET_REF,
+	       imx_clk_fixed_factor("enet_ref", "pll6_enet", 1, 1));
 
 	return 0;
 }

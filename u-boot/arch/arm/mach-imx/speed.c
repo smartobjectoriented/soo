@@ -8,8 +8,10 @@
  */
 
 #include <common.h>
+#include <clock_legacy.h>
 #include <asm/arch/imx-regs.h>
 #include <asm/arch/clock.h>
+#include <asm/global_data.h>
 
 #ifdef CONFIG_FSL_ESDHC_IMX
 DECLARE_GLOBAL_DATA_PTR;

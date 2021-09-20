@@ -189,9 +189,8 @@ __fdt_addr:
 .LC_virt_secondary_entry:
   .word secondary_start_kernel
 
-.align 8
+.align 13
 
-@ Before MMU is enabled, we cannot refer to the normal stack as declared in the linker script
 cpu0_stack_bottom:
     .fill STACK_SIZE, 1, 0
 cpu0_stack:

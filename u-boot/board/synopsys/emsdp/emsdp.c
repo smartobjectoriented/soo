@@ -4,8 +4,13 @@
  */
 
 #include <common.h>
+#include <command.h>
+#include <cpu_func.h>
 #include <dwmmc.h>
+#include <init.h>
 #include <malloc.h>
+#include <asm/global_data.h>
+#include <linux/bitops.h>
 
 #include <asm/arcregs.h>
 
@@ -85,35 +90,6 @@ int board_early_init_r(void)
 	return 0;
 }
 
-int board_mmc_init(bd_t *bis)
-{
-	struct dwmci_host *host = NULL;
-
-	host = malloc(sizeof(struct dwmci_host));
-	if (!host) {
-		printf("dwmci_host malloc fail!\n");
-		return 1;
-	}
-
-	memset(host, 0, sizeof(struct dwmci_host));
-	host->name = "Synopsys Mobile storage";
-	host->ioaddr = SDIO_BASE;
-	host->buswidth = 4;
-	host->dev_index = 0;
-	host->bus_hz = 50000000;
-
-	add_dwmci(host, host->bus_hz / 2, 400000);
-
-	return 0;
-}
-
-int board_mmc_getcd(struct mmc *mmc)
-{
-	struct dwmci_host *host = mmc->priv;
-
-	return !(dwmci_readl(host, DWMCI_CDETECT) & 1);
-}
-
 #define CREG_BASE		0xF0001000
 #define CREG_BOOT		(void *)(CREG_BASE + 0x0FF0)
 #define CREG_IP_SW_RESET	(void *)(CREG_BASE + 0x0FF0)
@@ -122,14 +98,15 @@ int board_mmc_getcd(struct mmc *mmc)
 /* Bits in CREG_BOOT register */
 #define CREG_BOOT_WP_BIT	BIT(8)
 
-void reset_cpu(ulong addr)
+void reset_cpu(void)
 {
 	writel(1, CREG_IP_SW_RESET);
 	while (1)
 		; /* loop forever till reset */
 }
 
-static int do_emsdp_rom(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
+static int do_emsdp_rom(struct cmd_tbl *cmdtp, int flag, int argc,
+			char *const argv[])
 {
 	u32 creg_boot = readl(CREG_BOOT);
 
@@ -145,13 +122,14 @@ static int do_emsdp_rom(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[]
 	return CMD_RET_SUCCESS;
 }
 
-cmd_tbl_t cmd_emsdp[] = {
+struct cmd_tbl cmd_emsdp[] = {
 	U_BOOT_CMD_MKENT(rom, 2, 0, do_emsdp_rom, "", ""),
 };
 
-static int do_emsdp(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
+static int do_emsdp(struct cmd_tbl *cmdtp, int flag, int argc,
+		    char *const argv[])
 {
-	cmd_tbl_t *c;
+	struct cmd_tbl *c;
 
 	c = find_cmd_tbl(argv[1], cmd_emsdp, ARRAY_SIZE(cmd_emsdp));
 
