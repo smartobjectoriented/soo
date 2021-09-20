@@ -5,10 +5,14 @@
  */
 
 #include <common.h>
+#include <init.h>
 #include <asm/armv8/mmu.h>
+#include <asm/cache.h>
+#include <asm/global_data.h>
 #include <asm/io.h>
 #include <asm/arch/hardware.h>
 #include <asm/arch/sys_proto.h>
+#include <asm/cache.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -81,6 +85,15 @@ void mem_map_fill(void)
 		if (!gd->bd->bi_dram[i].size)
 			break;
 
+#if defined(CONFIG_VERSAL_NO_DDR)
+		if (gd->bd->bi_dram[i].start < 0x80000000UL ||
+		    gd->bd->bi_dram[i].start > 0x100000000UL) {
+			printf("Ignore caches over %llx/%llx\n",
+			       gd->bd->bi_dram[i].start,
+			       gd->bd->bi_dram[i].size);
+			continue;
+		}
+#endif
 		versal_mem_map[banks].virt = gd->bd->bi_dram[i].start;
 		versal_mem_map[banks].phys = gd->bd->bi_dram[i].start;
 		versal_mem_map[banks].size = gd->bd->bi_dram[i].size;
@@ -98,7 +111,7 @@ u64 get_page_table_size(void)
 }
 
 #if defined(CONFIG_SYS_MEM_RSVD_FOR_MMU)
-int reserve_mmu(void)
+int arm_reserve_mmu(void)
 {
 	tcm_init(TCM_LOCK);
 	gd->arch.tlb_size = PGTABLE_SIZE;
@@ -107,28 +120,3 @@ int reserve_mmu(void)
 	return 0;
 }
 #endif
-
-int versal_pm_request(u32 api_id, u32 arg0, u32 arg1, u32 arg2,
-		      u32 arg3, u32 *ret_payload)
-{
-	struct pt_regs regs;
-
-	if (current_el() == 3)
-		return 0;
-
-	regs.regs[0] = PM_SIP_SVC | api_id;
-	regs.regs[1] = ((u64)arg1 << 32) | arg0;
-	regs.regs[2] = ((u64)arg3 << 32) | arg2;
-
-	smc_call(&regs);
-
-	if (ret_payload) {
-		ret_payload[0] = (u32)regs.regs[0];
-		ret_payload[1] = upper_32_bits(regs.regs[0]);
-		ret_payload[2] = (u32)regs.regs[1];
-		ret_payload[3] = upper_32_bits(regs.regs[1]);
-		ret_payload[4] = (u32)regs.regs[2];
-	}
-
-	return regs.regs[0];
-}

@@ -5,6 +5,8 @@
  * Author: Tim Harvey <tharvey@gateworks.com>
  */
 
+#include <common.h>
+#include <log.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/mx6-pins.h>
 #include <asm/arch/sys_proto.h>
@@ -13,6 +15,7 @@
 #include <env.h>
 #include <fsl_esdhc_imx.h>
 #include <hwconfig.h>
+#include <linux/delay.h>
 #include <power/pmic.h>
 #include <power/ltc3676_pmic.h>
 #include <power/pfuze100_pmic.h>
@@ -967,7 +970,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		.rs485en = IMX_GPIO_NR(3, 24),
 		.dioi2c_en = IMX_GPIO_NR(4,  5),
 		.pcie_sson = IMX_GPIO_NR(1, 20),
-		.otgpwr_en = IMX_GPIO_NR(3, 22),
 		.mmc_cd = IMX_GPIO_NR(7, 0),
 	},
 
@@ -987,7 +989,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		.gps_shdn = IMX_GPIO_NR(1, 2),
 		.vidin_en = IMX_GPIO_NR(5, 20),
 		.wdis = IMX_GPIO_NR(7, 12),
-		.otgpwr_en = IMX_GPIO_NR(3, 22),
 		.nand = true,
 	},
 
@@ -1011,7 +1012,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		.wdis = IMX_GPIO_NR(7, 12),
 		.msata_en = GP_MSATA_SEL,
 		.rs232_en = GP_RS232_EN,
-		.otgpwr_en = IMX_GPIO_NR(3, 22),
 		.vsel_pin = IMX_GPIO_NR(6, 14),
 		.mmc_cd = IMX_GPIO_NR(7, 0),
 		.nand = true,
@@ -1036,7 +1036,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		.wdis = IMX_GPIO_NR(7, 12),
 		.msata_en = GP_MSATA_SEL,
 		.rs232_en = GP_RS232_EN,
-		.otgpwr_en = IMX_GPIO_NR(3, 22),
 		.vsel_pin = IMX_GPIO_NR(6, 14),
 		.mmc_cd = IMX_GPIO_NR(7, 0),
 		.nand = true,
@@ -1063,7 +1062,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		.wdis = IMX_GPIO_NR(5, 17),
 		.msata_en = GP_MSATA_SEL,
 		.rs232_en = GP_RS232_EN,
-		.otgpwr_en = IMX_GPIO_NR(3, 22),
 		.vsel_pin = IMX_GPIO_NR(6, 14),
 		.mmc_cd = IMX_GPIO_NR(7, 0),
 		.nand = true,
@@ -1114,7 +1112,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		.pcie_rst = IMX_GPIO_NR(1, 0),
 		.vidin_en = IMX_GPIO_NR(5, 20),
 		.wdis = IMX_GPIO_NR(7, 12),
-		.otgpwr_en = IMX_GPIO_NR(3, 22),
 		.vsel_pin = IMX_GPIO_NR(6, 14),
 		.mmc_cd = IMX_GPIO_NR(7, 0),
 		.nand = true,
@@ -1137,7 +1134,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		.rs232_en = GP_RS232_EN,
 		.vidin_en = IMX_GPIO_NR(3, 31),
 		.wdis = IMX_GPIO_NR(7, 12),
-		.otgpwr_en = IMX_GPIO_NR(4, 15),
 		.mmc_cd = IMX_GPIO_NR(7, 0),
 	},
 
@@ -1163,7 +1159,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		},
 		.pcie_rst = IMX_GPIO_NR(1, 0),
 		.rs232_en = GP_RS232_EN,
-		.otgpwr_en = IMX_GPIO_NR(3, 23),
 		.nand = true,
 	},
 
@@ -1176,7 +1171,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		.leds = {
 			IMX_GPIO_NR(6, 14),
 		},
-		.otgpwr_en = IMX_GPIO_NR(4, 15),
 		.mmc_cd = IMX_GPIO_NR(6, 11),
 	},
 
@@ -1194,7 +1188,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		.pcie_rst = IMX_GPIO_NR(1, 0),
 		.mezz_pwren = IMX_GPIO_NR(2, 19),
 		.mezz_irq = IMX_GPIO_NR(2, 18),
-		.otgpwr_en = IMX_GPIO_NR(3, 22),
 	},
 
 	/* GW5905 */
@@ -1276,7 +1269,6 @@ struct ventana gpio_cfg[GW_UNKNOWN] = {
 		.pcie_rst = IMX_GPIO_NR(1, 0),
 		.mezz_pwren = IMX_GPIO_NR(2, 19),
 		.mezz_irq = IMX_GPIO_NR(2, 18),
-		.otgpwr_en = IMX_GPIO_NR(3, 22),
 	},
 };
 
@@ -1377,12 +1369,6 @@ void setup_iomux_gpio(int board, struct ventana_board_info *info)
 	if (gpio_cfg[board].wdis) {
 		gpio_request(gpio_cfg[board].wdis, "wlan_dis");
 		gpio_direction_output(gpio_cfg[board].wdis, 1);
-	}
-
-	/* OTG power off */
-	if (gpio_cfg[board].otgpwr_en) {
-		gpio_request(gpio_cfg[board].otgpwr_en, "usbotg_pwr");
-		gpio_direction_output(gpio_cfg[board].otgpwr_en, 0);
 	}
 
 	/* sense vselect pin to see if we support uhs-i */
@@ -1660,7 +1646,7 @@ void setup_pmic(void)
 #ifdef CONFIG_FSL_ESDHC_IMX
 static struct fsl_esdhc_cfg usdhc_cfg[2];
 
-int board_mmc_init(bd_t *bis)
+int board_mmc_init(struct bd_info *bis)
 {
 	struct ventana_board_info ventana_info;
 	int board_type = read_eeprom(CONFIG_I2C_GSC, &ventana_info);

@@ -6,9 +6,11 @@
 #include <common.h>
 #include <config.h>
 #include <dm.h>
+#include <malloc.h>
 #include <dm/of_access.h>
 #include <dm/of_addr.h>
 #include <fdt_support.h>
+#include <linux/bitops.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
 #include <miiphy.h>
@@ -495,7 +497,7 @@ static int luton_initialize(struct luton_private *priv)
 static int luton_write_hwaddr(struct udevice *dev)
 {
 	struct luton_private *priv = dev_get_priv(dev);
-	struct eth_pdata *pdata = dev_get_platdata(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
 
 	mscc_mac_table_add(priv->regs[ANA], luton_regs_ana_table,
 			   pdata->enetaddr, PGID_UNICAST);
@@ -508,7 +510,7 @@ static int luton_write_hwaddr(struct udevice *dev)
 static int luton_start(struct udevice *dev)
 {
 	struct luton_private *priv = dev_get_priv(dev);
-	struct eth_pdata *pdata = dev_get_platdata(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
 	const unsigned char mac[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff,
 					      0xff };
 	int ret;
@@ -586,7 +588,6 @@ static int luton_probe(struct udevice *dev)
 	struct luton_private *priv = dev_get_priv(dev);
 	int i, ret;
 	struct resource res;
-	fdt32_t faddr;
 	phys_addr_t addr_base;
 	unsigned long addr_size;
 	ofnode eth_node, node, mdio_node;
@@ -656,9 +657,7 @@ static int luton_probe(struct udevice *dev)
 
 		if (ofnode_read_resource(mdio_node, 0, &res))
 			return -ENOMEM;
-		faddr = cpu_to_fdt32(res.start);
-
-		addr_base = ofnode_translate_address(mdio_node, &faddr);
+		addr_base = res.start;
 		addr_size = res.end - res.start;
 
 		/* If the bus is new then create a new bus */
@@ -735,6 +734,6 @@ U_BOOT_DRIVER(luton) = {
 	.probe	  = luton_probe,
 	.remove	  = luton_remove,
 	.ops	  = &luton_ops,
-	.priv_auto_alloc_size = sizeof(struct luton_private),
-	.platdata_auto_alloc_size = sizeof(struct eth_pdata),
+	.priv_auto	= sizeof(struct luton_private),
+	.plat_auto	= sizeof(struct eth_pdata),
 };

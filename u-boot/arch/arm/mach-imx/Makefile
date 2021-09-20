@@ -16,6 +16,7 @@ endif
 obj-$(CONFIG_ENV_IS_IN_MMC) += mmc_env.o
 obj-$(CONFIG_FEC_MXC) += mac.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
+obj-$(CONFIG_IMX_HAB) += hab.o
 obj-y += cpu.o
 endif
 
@@ -27,14 +28,16 @@ endif
 obj-$(CONFIG_GPT_TIMER) += timer.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
 endif
-ifeq ($(SOC),$(filter $(SOC),mx7 mx6 mxs imx8m imx8))
+ifeq ($(SOC),$(filter $(SOC),mx7 mx6 mxs imx8m imx8 imxrt))
 obj-y	+= misc.o
+obj-$(CONFIG_CMD_PRIBLOB) += priblob.o
 obj-$(CONFIG_SPL_BUILD)	+= spl.o
 endif
 ifeq ($(SOC),$(filter $(SOC),mx7))
 obj-y 	+= cpu.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
 obj-$(CONFIG_ENV_IS_IN_MMC) += mmc_env.o
+obj-$(CONFIG_FSL_MFGPROT) += cmd_mfgprot.o
 endif
 ifeq ($(SOC),$(filter $(SOC),mx5 mx6 mx7))
 obj-$(CONFIG_IMX_VIDEO_SKIP) += video.o
@@ -155,9 +158,7 @@ ifeq ($(DEPFILE_EXISTS),0)
 endif
 
 flash.bin: spl/u-boot-spl-ddr.bin u-boot.itb FORCE
-ifeq ($(DEPFILE_EXISTS),0)
 	$(call if_changed,mkimage)
-endif
 endif
 
 ifeq ($(CONFIG_ARCH_IMX8), y)
@@ -204,10 +205,10 @@ append = cat $(filter-out $< $(PHONY), $^) >> $@
 quiet_cmd_pad_cat = CAT     $@
 cmd_pad_cat = $(cmd_objcopy) && $(append) || rm -f $@
 
-u-boot-with-spl.imx: SPL u-boot.uim FORCE
+u-boot-with-spl.imx: SPL $(if $(CONFIG_OF_SEPARATE),u-boot.img,u-boot.uim) FORCE
 	$(call if_changed,pad_cat)
 
-u-boot-with-nand-spl.imx: spl/u-boot-nand-spl.imx u-boot.uim FORCE
+u-boot-with-nand-spl.imx: spl/u-boot-nand-spl.imx $(if $(CONFIG_OF_SEPARATE),u-boot.img,u-boot.uim) FORCE
 	$(call if_changed,pad_cat)
 
 quiet_cmd_u-boot-nand-spl_imx = GEN     $@
@@ -220,7 +221,7 @@ endif
 
 targets += $(addprefix ../../../,SPL spl/u-boot-spl.cfgout u-boot-dtb.cfgout u-boot.cfgout u-boot.uim spl/u-boot-nand-spl.imx)
 
-obj-$(CONFIG_ARM64) += lowlevel.o sip.o
+obj-$(CONFIG_ARM64) += lowlevel.o
 
 obj-$(CONFIG_MX5) += mx5/
 obj-$(CONFIG_MX6) += mx6/
@@ -228,3 +229,6 @@ obj-$(CONFIG_MX7) += mx7/
 obj-$(CONFIG_ARCH_MX7ULP) += mx7ulp/
 obj-$(CONFIG_IMX8M) += imx8m/
 obj-$(CONFIG_ARCH_IMX8) += imx8/
+obj-$(CONFIG_ARCH_IMXRT) += imxrt/
+
+obj-$(CONFIG_SPL_BOOTROM_SUPPORT) += spl_imx_romapi.o

@@ -53,46 +53,6 @@
 int fd_core;
 
 /**
- * Set the personality.
- */
-static int set_personality(soo_personality_t personality) {
-	int rc;
-	struct agency_tx_args args;
-
-	args.value = (int) personality;
-
-	if ((rc = ioctl(fd_core, AGENCY_IOCTL_SET_PERSONALITY, &args)) < 0) {
-		printf("Failed to set personality (%d)\n", rc);
-		BUG();
-	}
-
-	return 0;
-}
-
-int get_personality(void) {
-	struct agency_tx_args args;
-
-	if (ioctl(fd_core, AGENCY_IOCTL_GET_PERSONALITY, &args) < 0) {
-		printf("Failed to set personality.\n");
-		BUG();
-	}
-
-	return args.value;
-}
-
-int set_personality_initiator(void) {
-	return set_personality(SOO_PERSONALITY_INITIATOR);
-}
-
-int set_personality_target(void) {
-	return set_personality(SOO_PERSONALITY_TARGET);
-}
-
-int set_personality_selfreferent(void) {
-	return set_personality(SOO_PERSONALITY_SELFREFERENT);
-}
-
-/**
  * Initiate the migration process of a ME.
  * In any case, the function can't fail. As a principle, any error leads to BUG().
  */

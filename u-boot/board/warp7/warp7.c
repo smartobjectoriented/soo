@@ -4,10 +4,13 @@
  * Author: Fabio Estevam <fabio.estevam@nxp.com>
  */
 
+#include <init.h>
+#include <net.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/imx-regs.h>
 #include <asm/arch/mx7-pins.h>
 #include <asm/arch/sys_proto.h>
+#include <asm/global_data.h>
 #include <asm/gpio.h>
 #include <asm/mach-imx/hab.h>
 #include <asm/mach-imx/iomux-v3.h>
@@ -66,7 +69,7 @@ int power_init_board(void)
 	struct udevice *dev;
 	int ret, dev_id, rev_id;
 
-	ret = pmic_get("pfuze3000", &dev);
+	ret = pmic_get("pfuze3000@8", &dev);
 	if (ret == -ENODEV)
 		return 0;
 	if (ret != 0)
@@ -83,7 +86,7 @@ int power_init_board(void)
 }
 #endif
 
-int board_eth_init(bd_t *bis)
+int board_eth_init(struct bd_info *bis)
 {
 	int ret = 0;
 

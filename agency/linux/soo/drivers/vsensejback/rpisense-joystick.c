@@ -19,19 +19,65 @@
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <linux/kthread.h>
+
+#include "rpisense-joystick.h"
+
+static joystick_handler_t __joystick_handler = NULL;
+static struct vbus_device *__vdev;
+
+#ifdef CONFIG_ARCH_VEXPRESS
+
+#include <soo/core/sysfs.h>
+
+/*
+ * A joystick command simulation is performed via sysfs.
+ * The joystick position is given by a number between 0 and 4 as follows:
+ * - 0 for center
+ * - 1 for right
+ * - 2 for down
+ * - 3 for left
+ * - 4 for up
+ */
+void sysfs_sensej_store(char *str) {
+	int key;
+
+	switch (str[0]) {
+	case '0':
+		key = RPISENSE_JS_CENTER;
+		break;
+	case '1':
+		key = RPISENSE_JS_RIGHT;
+		break;
+	case '2':
+		key = RPISENSE_JS_DOWN;
+		break;
+	case '3':
+		key = RPISENSE_JS_LEFT;
+		break;
+	case '4':
+		key = RPISENSE_JS_UP;
+		break;
+	}
+
+	__joystick_handler(__vdev, key);
+}
+
+void rpisense_joystick_handler_register(struct vbus_device *vdev, joystick_handler_t joystick_handler) {
+
+	__joystick_handler = joystick_handler;
+	__vdev = vdev;
+
+}
+
+#else
+
 #include <linux/interrupt.h>
 
 #include <linux/mfd/rpisense/core.h>
 
 #include <linux/platform_device.h>
 
-#include "rpisense-joystick.h"
-
 static struct rpisense *rpisense = NULL;
-
-static joystick_handler_t __joystick_handler = NULL;
-static struct vbus_device *__vdev;
-
 
 static irqreturn_t keys_irq_handler_bh(int irq, void *pdev) {
 	int key;
@@ -69,9 +115,18 @@ void rpisense_joystick_handler_register(struct vbus_device *vdev, joystick_handl
 		BUG();
 	}
 }
+
+#endif /* !CONFIG_ARCH_VEXPRESS */
+
 EXPORT_SYMBOL(rpisense_joystick_handler_register);
 
 void sensej_init(void) {
+
+#ifdef CONFIG_ARCH_VEXPRESS
+
+	soo_sysfs_register(vsensej_js, NULL, sysfs_sensej_store);
+
+#else
 	int ret;
 
 	rpisense = rpisense_get_dev();
@@ -86,6 +141,8 @@ void sensej_init(void) {
 		printk("Could not determine keys-int IRQ.\n");
 		BUG();
 	}
+
+#endif /* !CONFIG_ARCH_VEXPRESS */
 
 }
 EXPORT_SYMBOL(sensej_init);

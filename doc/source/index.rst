@@ -23,6 +23,7 @@
    rootfs/rootfs
    user_guide
    logging
+   board_issues
    aarch64
    dev_flow
    glossary

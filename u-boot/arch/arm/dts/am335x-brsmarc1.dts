@@ -247,6 +247,14 @@
 
 &davinci_mdio {
 	status = "okay";
+
+	ethphy0: ethernet-phy@1 {
+		reg = <1>;
+	};
+
+	ethphy1: ethernet-phy@3 {
+		reg = <3>;
+	};
 };
 
 &mac {
@@ -259,12 +267,14 @@
 
 &cpsw_emac0 {
 	phy_id = <&davinci_mdio>, <1>;
+	phy-handle = <&ethphy0>;
 	phy-mode = "rmii";
 	ti,ledcr = <0x0480>;
 };
 
 &cpsw_emac1 {
 	phy_id = <&davinci_mdio>, <3>;
+	phy-handle = <&ethphy1>;
 	phy-mode = "rmii";
 	ti,ledcr = <0x0480>;
 };
@@ -287,10 +297,21 @@
 	status = "okay";
 };
 
-&lcdc {
-	status = "okay";
-	ti,no-reset-on-init;
-	ti,no-idle-on-init;
+&l4_per {
+
+	segment@300000 {
+
+		target-module@e000 {
+			u-boot,dm-pre-reloc;
+
+			lcdc: lcdc@0 {
+				u-boot,dm-pre-reloc;
+				status = "okay";
+				ti,no-reset-on-init;
+				ti,no-idle-on-init;
+			};
+		};
+	};
 };
 
 &elm {

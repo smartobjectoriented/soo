@@ -15,29 +15,29 @@ if you want to help out.
 .. toctree::
    :maxdepth: 2
 
-Unified Extensible Firmware (UEFI)
-----------------------------------
+User-oriented documentation
+---------------------------
 
-U-Boot provides an implementation of the UEFI API allowing to run UEFI
-compliant software like Linux, GRUB, and iPXE. Furthermore U-Boot itself
-can be run an UEFI payload.
-
-.. toctree::
-   :maxdepth: 2
-
-   uefi/index
-
-Driver-Model documentation
---------------------------
-
-The following holds information on the U-Boot device driver framework:
-driver-model, including the design details of itself and several driver
-subsystems.
+The following manuals are written for *users* of the U-Boot - those who are
+trying to get it to work optimally on a given system.
 
 .. toctree::
    :maxdepth: 2
 
-   driver-model/index
+   build/index
+   usage/index
+
+Developer-oriented documentation
+--------------------------------
+
+The following manuals are written for *developers* of the U-Boot - those who
+want to contribute to U-Boot.
+
+.. toctree::
+   :maxdepth: 2
+
+   develop/index
+
 
 U-Boot API documentation
 ------------------------
@@ -64,6 +64,17 @@ implementation.
 
    arch/index
 
+Machine-specific doc
+--------------------
+
+These books provide programming details about machine-specific
+implementation.
+
+.. toctree::
+   :maxdepth: 2
+
+   imx/index
+
 Board-specific doc
 ------------------
 
@@ -74,6 +85,26 @@ organized in a vendor subdirectory.
    :maxdepth: 2
 
    board/index
+
+Android-specific doc
+--------------------
+
+These books provide information about booting the Android OS from U-Boot,
+manipulating Android images from U-Boot shell and discusses other
+Android-specific features available in U-Boot.
+
+.. toctree::
+   :maxdepth: 2
+
+   android/index
+
+Chromium OS-specific doc
+------------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   chromium/index
 
 Indices and tables
 ==================

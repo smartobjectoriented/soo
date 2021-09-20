@@ -3,8 +3,6 @@
 #
 # Sanity check of the FIT handling in U-Boot
 
-from __future__ import print_function
-
 import os
 import pytest
 import struct
@@ -19,7 +17,7 @@ base_its = '''
         #address-cells = <1>;
 
         images {
-                kernel@1 {
+                kernel-1 {
                         data = /incbin/("%(kernel)s");
                         type = "kernel";
                         arch = "sandbox";
@@ -28,7 +26,7 @@ base_its = '''
                         load = <0x40000>;
                         entry = <0x8>;
                 };
-                kernel@2 {
+                kernel-2 {
                         data = /incbin/("%(loadables1)s");
                         type = "kernel";
                         arch = "sandbox";
@@ -37,19 +35,19 @@ base_its = '''
                         %(loadables1_load)s
                         entry = <0x0>;
                 };
-                fdt@1 {
+                fdt-1 {
                         description = "snow";
                         data = /incbin/("%(fdt)s");
                         type = "flat_dt";
                         arch = "sandbox";
                         %(fdt_load)s
                         compression = "%(compression)s";
-                        signature@1 {
+                        signature-1 {
                                 algo = "sha1,rsa2048";
                                 key-name-hint = "dev";
                         };
                 };
-                ramdisk@1 {
+                ramdisk-1 {
                         description = "snow";
                         data = /incbin/("%(ramdisk)s");
                         type = "ramdisk";
@@ -58,7 +56,7 @@ base_its = '''
                         %(ramdisk_load)s
                         compression = "%(compression)s";
                 };
-                ramdisk@2 {
+                ramdisk-2 {
                         description = "snow";
                         data = /incbin/("%(loadables2)s");
                         type = "ramdisk";
@@ -69,10 +67,10 @@ base_its = '''
                 };
         };
         configurations {
-                default = "conf@1";
-                conf@1 {
-                        kernel = "kernel@1";
-                        fdt = "fdt@1";
+                default = "conf-1";
+                conf-1 {
+                        kernel = "kernel-1";
+                        fdt = "fdt-1";
                         %(ramdisk_config)s
                         %(loadables_config)s
                 };
@@ -85,13 +83,16 @@ base_fdt = '''
 /dts-v1/;
 
 / {
-        model = "Sandbox Verified Boot Test";
-        compatible = "sandbox";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	model = "Sandbox Verified Boot Test";
+	compatible = "sandbox";
 
 	reset@0 {
 		compatible = "sandbox,reset";
+		reg = <0>;
 	};
-
 };
 '''
 
@@ -155,7 +156,7 @@ def test_fit(u_boot_console):
         src = make_fname('u-boot.dts')
         dtb = make_fname('u-boot.dtb')
         with open(src, 'w') as fd:
-            print(base_fdt, file=fd)
+            fd.write(base_fdt)
         util.run_and_log(cons, ['dtc', src, '-O', 'dtb', '-o', dtb])
         return dtb
 
@@ -188,7 +189,7 @@ def test_fit(u_boot_console):
         its = make_its(params)
         util.run_and_log(cons, [mkimage, '-f', its, fit])
         with open(make_fname('u-boot.dts'), 'w') as fd:
-            print(base_fdt, file=fd)
+            fd.write(base_fdt)
         return fit
 
     def make_kernel(filename, text):
@@ -409,7 +410,7 @@ def test_fit(u_boot_console):
 
         # Try a ramdisk
         with cons.log.section('Kernel + FDT + Ramdisk load'):
-            params['ramdisk_config'] = 'ramdisk = "ramdisk@1";'
+            params['ramdisk_config'] = 'ramdisk = "ramdisk-1";'
             params['ramdisk_load'] = 'load = <%#x>;' % params['ramdisk_addr']
             fit = make_fit(mkimage, params)
             cons.restart_uboot()
@@ -418,7 +419,7 @@ def test_fit(u_boot_console):
 
         # Configuration with some Loadables
         with cons.log.section('Kernel + FDT + Ramdisk load + Loadables'):
-            params['loadables_config'] = 'loadables = "kernel@2", "ramdisk@2";'
+            params['loadables_config'] = 'loadables = "kernel-2", "ramdisk-2";'
             params['loadables1_load'] = ('load = <%#x>;' %
                                          params['loadables1_addr'])
             params['loadables2_load'] = ('load = <%#x>;' %

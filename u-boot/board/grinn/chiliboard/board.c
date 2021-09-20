@@ -5,6 +5,8 @@
  */
 
 #include <common.h>
+#include <init.h>
+#include <net.h>
 #include <asm/arch/chilisom.h>
 #include <asm/arch/cpu.h>
 #include <asm/arch/hardware.h>
@@ -14,6 +16,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/emif.h>
+#include <asm/global_data.h>
 #include <asm/io.h>
 #include <cpsw.h>
 #include <env.h>

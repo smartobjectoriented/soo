@@ -4,7 +4,9 @@
  */
 
 #include <common.h>
+#include <command.h>
 #include <div64.h>
+#include <log.h>
 #include <asm/io.h>
 #include <linux/errno.h>
 #include <asm/arch/imx-regs.h>
@@ -1279,14 +1281,24 @@ unsigned int mxc_get_clock(enum mxc_clock clk)
 void enable_ipu_clock(void)
 {
 	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
-	int reg;
-	reg = readl(&mxc_ccm->CCGR3);
-	reg |= MXC_CCM_CCGR3_IPU1_IPU_MASK;
-	writel(reg, &mxc_ccm->CCGR3);
+
+	setbits_le32(&mxc_ccm->CCGR3, MXC_CCM_CCGR3_IPU1_IPU_MASK);
 
 	if (is_mx6dqp()) {
 		setbits_le32(&mxc_ccm->CCGR6, MXC_CCM_CCGR6_PRG_CLK0_MASK);
 		setbits_le32(&mxc_ccm->CCGR3, MXC_CCM_CCGR3_IPU2_IPU_MASK);
+	}
+}
+
+void disable_ipu_clock(void)
+{
+	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
+
+	clrbits_le32(&mxc_ccm->CCGR3, MXC_CCM_CCGR3_IPU1_IPU_MASK);
+
+	if (is_mx6dqp()) {
+		clrbits_le32(&mxc_ccm->CCGR6, MXC_CCM_CCGR6_PRG_CLK0_MASK);
+		clrbits_le32(&mxc_ccm->CCGR3, MXC_CCM_CCGR3_IPU2_IPU_MASK);
 	}
 }
 #endif
@@ -1295,7 +1307,8 @@ void enable_ipu_clock(void)
 /*
  * Dump some core clockes.
  */
-int do_mx6_showclocks(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_mx6_showclocks(struct cmd_tbl *cmdtp, int flag, int argc,
+		      char *const argv[])
 {
 	u32 freq;
 	freq = decode_pll(PLL_SYS, MXC_HCLK);
@@ -1328,7 +1341,7 @@ int do_mx6_showclocks(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 
 #if defined(CONFIG_MX6Q) || defined(CONFIG_MX6D) || defined(CONFIG_MX6DL) || \
-	defined(CONFIG_MX6S)
+	defined(CONFIG_MX6S) || defined(CONFIG_MX6QDL)
 static void disable_ldb_di_clock_sources(void)
 {
 	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;

@@ -31,7 +31,7 @@ deb http://ports.ubuntu.com/ubuntu-ports/ bionic-updates main universe
 
 Network activation:
 ip address add 192.168.1.99 dev eth0
-link set dev eth0 up
+ip link set dev eth0 up
 ip route add 192.168.1.1 dev eth0
 
 service systemd-resolve start

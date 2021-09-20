@@ -17,8 +17,13 @@
 
 static void enetc_mdio_wait_bsy(struct enetc_mdio_priv *priv)
 {
-	while (enetc_read(priv, ENETC_MDIO_CFG) & ENETC_EMDIO_CFG_BSY)
+	int to = 10000;
+
+	while ((enetc_read(priv, ENETC_MDIO_CFG) & ENETC_EMDIO_CFG_BSY) &&
+	       --to)
 		cpu_relax();
+	if (!to)
+		printf("T");
 }
 
 int enetc_mdio_read_priv(struct enetc_mdio_priv *priv, int addr, int devad,
@@ -107,7 +112,7 @@ static int enetc_mdio_bind(struct udevice *dev)
 	 * and some are not, use different naming scheme - enetc-N based on
 	 * PCI function # and enetc#N based on interface count
 	 */
-	if (ofnode_valid(dev->node))
+	if (ofnode_valid(dev_ofnode(dev)))
 		sprintf(name, "emdio-%u", PCI_FUNC(pci_get_devfn(dev)));
 	else
 		sprintf(name, "emdio#%u", eth_num_devices++);
@@ -139,7 +144,7 @@ U_BOOT_DRIVER(enetc_mdio) = {
 	.bind	= enetc_mdio_bind,
 	.probe	= enetc_mdio_probe,
 	.ops	= &enetc_mdio_ops,
-	.priv_auto_alloc_size = sizeof(struct enetc_mdio_priv),
+	.priv_auto	= sizeof(struct enetc_mdio_priv),
 };
 
 static struct pci_device_id enetc_mdio_ids[] = {

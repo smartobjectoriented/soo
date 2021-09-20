@@ -35,18 +35,12 @@ SECTIONS
 	 */
 	/DISCARD/ : { *(.rel._secure*) }
 #endif
-	. = 0x00000000;	
-	
+	. = 0x00000000;
+
 	. = ALIGN(4);
 	.text :
 	{
 		*(.__image_copy_start)
-
-/* SOO.tech */		
-#ifdef CONFIG_MACH_SUN50I /* MERIDAv2 */
-		KEEP(*(.pre_head.text));
-#endif
-
 		*(.vectors)
 		CPUDIR/start.o (.text*)
 	}

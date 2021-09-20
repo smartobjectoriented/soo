@@ -23,7 +23,7 @@ static u32 notify_call_count;
 static bool convert_pointer_failed;
 
 /**
- * notify () - notification function
+ * notify() - notification function
  *
  * This function is called when the EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE event
  * occurs. The correct output of ConvertPointer() is checked.
@@ -201,7 +201,7 @@ static int execute(void)
 
 EFI_UNIT_TEST(virtaddrmap) = {
 	.name = "virtual address map",
-	.phase = EFI_SETUP_BEFORE_BOOTTIME_EXIT,
+	.phase = EFI_SETTING_VIRTUAL_ADDRESS_MAP,
 	.setup = setup,
 	.execute = execute,
 };

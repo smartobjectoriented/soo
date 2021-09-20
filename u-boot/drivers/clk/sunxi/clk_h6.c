@@ -11,6 +11,7 @@
 #include <asm/arch/ccu.h>
 #include <dt-bindings/clock/sun50i-h6-ccu.h>
 #include <dt-bindings/reset/sun50i-h6-ccu.h>
+#include <linux/bitops.h>
 
 static struct ccu_clk_gate h6_gates[] = {
 	[CLK_BUS_MMC0]		= GATE(0x84c, BIT(0)),
@@ -42,6 +43,7 @@ static struct ccu_clk_gate h6_gates[] = {
 	[CLK_BUS_OHCI0]		= GATE(0xa8c, BIT(0)),
 	[CLK_BUS_OHCI3]		= GATE(0xa8c, BIT(3)),
 	[CLK_BUS_EHCI0]		= GATE(0xa8c, BIT(4)),
+	[CLK_BUS_XHCI]		= GATE(0xa8c, BIT(5)),
 	[CLK_BUS_EHCI3]		= GATE(0xa8c, BIT(7)),
 	[CLK_BUS_OTG]		= GATE(0xa8c, BIT(8)),
 };
@@ -70,6 +72,7 @@ static struct ccu_reset h6_resets[] = {
 	[RST_BUS_OHCI0]		= RESET(0xa8c, BIT(16)),
 	[RST_BUS_OHCI3]		= RESET(0xa8c, BIT(19)),
 	[RST_BUS_EHCI0]		= RESET(0xa8c, BIT(20)),
+	[RST_BUS_XHCI]		= RESET(0xa8c, BIT(21)),
 	[RST_BUS_EHCI3]		= RESET(0xa8c, BIT(23)),
 	[RST_BUS_OTG]		= RESET(0xa8c, BIT(24)),
 };
@@ -94,7 +97,7 @@ U_BOOT_DRIVER(clk_sun50i_h6) = {
 	.name		= "sun50i_h6_ccu",
 	.id		= UCLASS_CLK,
 	.of_match	= h6_ccu_ids,
-	.priv_auto_alloc_size	= sizeof(struct ccu_priv),
+	.priv_auto	= sizeof(struct ccu_priv),
 	.ops		= &sunxi_clk_ops,
 	.probe		= sunxi_clk_probe,
 	.bind		= h6_clk_bind,

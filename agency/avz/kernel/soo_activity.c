@@ -108,6 +108,7 @@ void check_killed_ME(void) {
 
 		if (memslot[i].busy && (get_ME_state(i) == ME_state_killed))
 			shutdown_ME(i);
+
 	}
 }
 
@@ -154,7 +155,7 @@ int agency_ctl(agency_ctl_args_t *args)
 		break;
 
 	case AG_AGENCY_UID:
-		memcpy(args->u.agencyUID_args.agencyUID.id, domains[0]->shared_info->dom_desc.u.agency.agencyUID.id, SOO_AGENCY_UID_SIZE);
+		memcpy(args->u.agencyUID.id, domains[0]->shared_info->dom_desc.u.agency.agencyUID.id, SOO_AGENCY_UID_SIZE);
 
 		return rc;
 
@@ -162,12 +163,14 @@ int agency_ctl(agency_ctl_args_t *args)
 
 		domcall_args.cmd = CB_COOPERATE;
 
-		/* This information must be provided by the initiator ME during the cooperation */
+		/* Initiator slotID must be filled by the ME - during the cooperation - through the target slotID */
+		domcall_args.u.cooperate_args.u.initiator_coop.slotID = args->u.cooperate_args.slotID;
 
-		memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.pfn, &args->u.target_cooperate_args.pfn, sizeof(pfn_coop_t));
+		/* target_cooperate_args must be provided by the initiator ME during the cooperation */
+		domcall_args.u.cooperate_args.u.initiator_coop.pfn = args->u.cooperate_args.pfn;
 
 		/* Transfer the capabilities of the target ME */
-		memcpy(domcall_args.u.cooperate_args.u.initiator_coop.spad_caps, domains[args->slotID]->shared_info->dom_desc.u.ME.spad.caps, SPAD_CAPS_SIZE);
+		memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.spad, &domains[args->slotID]->shared_info->dom_desc.u.ME.spad, sizeof(spad_t));
 
 		/* Transfer the SPID of the target ME */
 		memcpy(domcall_args.u.cooperate_args.u.initiator_coop.spid, domains[args->slotID]->shared_info->dom_desc.u.ME.spid, SPID_SIZE);
@@ -311,14 +314,16 @@ int soo_cooperate(unsigned int slotID)
 			/* If the ME authorizes us to enter into a cooperation process... */
 			if (domains[i]->shared_info->dom_desc.u.ME.spad.valid || itself) {
 
-				domcall_args.u.cooperate_args.u.target_coop_slot[avail_ME].slotID = i;
-				domcall_args.u.cooperate_args.u.target_coop_slot[avail_ME].spad.valid = domains[i]->shared_info->dom_desc.u.ME.spad.valid;
+				/* target_coop.slotID contains the slotID of the ME initiator in the cooperation process. */
+				domcall_args.u.cooperate_args.u.target_coop[avail_ME].slotID = i;
+
+				domcall_args.u.cooperate_args.u.target_coop[avail_ME].spad.valid = domains[i]->shared_info->dom_desc.u.ME.spad.valid;
 
 				/* Transfer the capabilities of the target ME */
-				memcpy(domcall_args.u.cooperate_args.u.target_coop_slot[avail_ME].spad.caps, domains[i]->shared_info->dom_desc.u.ME.spad.caps, SPAD_CAPS_SIZE);
+				memcpy(domcall_args.u.cooperate_args.u.target_coop[avail_ME].spad.caps, domains[i]->shared_info->dom_desc.u.ME.spad.caps, SPAD_CAPS_SIZE);
 
 				/* Transfer the SPID of the target ME */
-				memcpy(domcall_args.u.cooperate_args.u.target_coop_slot[avail_ME].spid, domains[i]->shared_info->dom_desc.u.ME.spid, SPID_SIZE);
+				memcpy(domcall_args.u.cooperate_args.u.target_coop[avail_ME].spid, domains[i]->shared_info->dom_desc.u.ME.spid, SPID_SIZE);
 
 				avail_ME++;
 			}
@@ -412,11 +417,13 @@ void get_dom_desc(unsigned int slotID, dom_desc_t *dom_desc) {
 	 * If no ME is present in the slot specified by slotID, we assign a size of 0 in the ME descriptor.
 	 * We presume that the slotID of agency is never free...
 	 */
+
 	if ((slotID > 1) && !memslot[slotID].busy)
 		dom_desc->u.ME.size = 0;
 	else
 		/* Copy the content to the target desc */
 		memcpy(dom_desc, &domains[slotID]->shared_info->dom_desc, sizeof(dom_desc_t));
+
 }
 
 /**
@@ -459,6 +466,7 @@ int do_soo_hypercall(soo_hyp_t *args) {
 		rc = migration_final(&op);
 		break;
 
+	/* The following hypercall is used during receive operation */
 	case AVZ_GET_ME_FREE_SLOT:
 	{
 		unsigned int ME_size = *((unsigned int *) op.p_val1);
@@ -468,7 +476,7 @@ int do_soo_hypercall(soo_hyp_t *args) {
 		 * Try to get an available slot for a ME with this size.
 		 * It will return -1 if no slot is available.
 		 */
-		slotID = get_ME_free_slot(ME_size);
+		slotID = get_ME_free_slot(ME_size, ME_state_migrating);
 
 		*((int *) op.p_val1) = slotID;
 

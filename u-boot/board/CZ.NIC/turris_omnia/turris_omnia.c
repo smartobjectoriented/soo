@@ -10,14 +10,20 @@
 #include <common.h>
 #include <env.h>
 #include <i2c.h>
+#include <init.h>
+#include <log.h>
 #include <miiphy.h>
+#include <net.h>
 #include <netdev.h>
+#include <asm/global_data.h>
 #include <asm/io.h>
 #include <asm/arch/cpu.h>
 #include <asm/arch/soc.h>
 #include <dm/uclass.h>
 #include <fdt_support.h>
 #include <time.h>
+#include <linux/bitops.h>
+#include <u-boot/crc.h>
 # include <atsha204a-i2c.h>
 
 #include "../drivers/ddr/marvell/a38x/ddr3_init.h"
@@ -280,6 +286,7 @@ static struct mv_ddr_topology_map board_topology_map_1g = {
 	    MV_DDR_TIM_2T} },		/* timing */
 	BUS_MASK_32BIT,			/* Busses mask */
 	MV_DDR_CFG_DEFAULT,		/* ddr configuration data source */
+	NOT_COMBINED,			/* ddr twin-die combined */
 	{ {0} },			/* raw spd data */
 	{0}				/* timing parameters */
 };
@@ -302,6 +309,7 @@ static struct mv_ddr_topology_map board_topology_map_2g = {
 	    MV_DDR_TIM_2T} },		/* timing */
 	BUS_MASK_32BIT,			/* Busses mask */
 	MV_DDR_CFG_DEFAULT,		/* ddr configuration data source */
+	NOT_COMBINED,			/* ddr twin-die combined */
 	{ {0} },			/* raw spd data */
 	{0}				/* timing parameters */
 };
@@ -329,28 +337,18 @@ static int set_regdomain(void)
 	return env_set("regdomain", rd);
 }
 
-/*
- * default factory reset bootcommand on Omnia first sets all the front LEDs
- * to green and then tries to load the rescue image from SPI flash memory and
- * boot it
- */
-#define OMNIA_FACTORY_RESET_BOOTCMD \
-	"i2c dev 2; " \
-	"i2c mw 0x2a.1 0x3 0x1c 1; " \
-	"i2c mw 0x2a.1 0x4 0x1c 1; " \
-	"mw.l 0x01000000 0x00ff000c; " \
-	"i2c write 0x01000000 0x2a.1 0x5 4 -s; " \
-	"setenv bootargs \"earlyprintk console=ttyS0,115200" \
-			" omniarescue=$omnia_reset\"; " \
-	"sf probe; " \
-	"sf read 0x1000000 0x100000 0x700000; " \
-	"bootm 0x1000000; " \
-	"bootz 0x1000000"
-
 static void handle_reset_button(void)
 {
+	const char * const vars[1] = { "bootcmd_rescue", };
 	int ret;
 	u8 reset_status;
+
+	/*
+	 * Ensure that bootcmd_rescue has always stock value, so that running
+	 *   run bootcmd_rescue
+	 * always works correctly.
+	 */
+	env_set_default_vars(1, (char * const *)vars, 0);
 
 	ret = omnia_mcu_read(CMD_GET_RESET, &reset_status, 1);
 	if (ret) {
@@ -362,8 +360,35 @@ static void handle_reset_button(void)
 	env_set_ulong("omnia_reset", reset_status);
 
 	if (reset_status) {
+		const char * const vars[2] = {
+			"bootcmd",
+			"distro_bootcmd",
+		};
+
+		/*
+		 * Set the above envs to their default values, in case the user
+		 * managed to break them.
+		 */
+		env_set_default_vars(2, (char * const *)vars, 0);
+
+		/* Ensure bootcmd_rescue is used by distroboot */
+		env_set("boot_targets", "rescue");
+
 		printf("RESET button was pressed, overwriting bootcmd!\n");
-		env_set("bootcmd", OMNIA_FACTORY_RESET_BOOTCMD);
+	} else {
+		/*
+		 * In case the user somehow managed to save environment with
+		 * boot_targets=rescue, reset boot_targets to default value.
+		 * This could happen in subsequent commands if bootcmd_rescue
+		 * failed.
+		 */
+		if (!strcmp(env_get("boot_targets"), "rescue")) {
+			const char * const vars[1] = {
+				"boot_targets",
+			};
+
+			env_set_default_vars(1, (char * const *)vars, 0);
+		}
 	}
 }
 #endif

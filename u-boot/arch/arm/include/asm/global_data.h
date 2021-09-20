@@ -7,10 +7,21 @@
 #ifndef	__ASM_GBL_DATA_H
 #define __ASM_GBL_DATA_H
 
+#ifndef __ASSEMBLY__
+
+#include <config.h>
+
+#include <asm/types.h>
+#include <linux/types.h>
+
 /* Architecture-specific global data */
 struct arch_global_data {
 #if defined(CONFIG_FSL_ESDHC) || defined(CONFIG_FSL_ESDHC_IMX)
 	u32 sdhc_clk;
+#endif
+
+#if defined(CONFIG_FSL_ESDHC)
+	u32 sdhc_per_clk;
 #endif
 
 #if defined(CONFIG_U_QE)
@@ -82,7 +93,7 @@ struct arch_global_data {
 
 #include <asm-generic/global_data.h>
 
-#ifdef __clang__
+#if defined(__clang__) || defined(CONFIG_LTO)
 
 #define DECLARE_GLOBAL_DATA_PTR
 #define gd	get_gd()
@@ -92,10 +103,6 @@ static inline gd_t *get_gd(void)
 	gd_t *gd_ptr;
 
 #ifdef CONFIG_ARM64
-	/*
-	 * Make will already error that reserving x18 is not supported at the
-	 * time of writing, clang: error: unknown argument: '-ffixed-x18'
-	 */
 	__asm__ volatile("mov %0, x18\n" : "=r" (gd_ptr));
 #else
 	__asm__ volatile("mov %0, r9\n" : "=r" (gd_ptr));
@@ -112,5 +119,18 @@ static inline gd_t *get_gd(void)
 #define DECLARE_GLOBAL_DATA_PTR		register volatile gd_t *gd asm ("r9")
 #endif
 #endif
+
+static inline void set_gd(volatile gd_t *gd_ptr)
+{
+#ifdef CONFIG_ARM64
+	__asm__ volatile("ldr x18, %0\n" : : "m"(gd_ptr));
+#elif __ARM_ARCH >= 7
+	__asm__ volatile("ldr r9, %0\n" : : "m"(gd_ptr));
+#else
+	__asm__ volatile("mov r9, %0\n" : : "r"(gd_ptr));
+#endif
+}
+
+#endif /* __ASSEMBLY__ */
 
 #endif /* __ASM_GBL_DATA_H */

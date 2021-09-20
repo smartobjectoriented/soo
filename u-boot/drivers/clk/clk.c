@@ -6,6 +6,7 @@
 
 #include <common.h>
 #include <clk-uclass.h>
+#include <log.h>
 #include <dm/device.h>
 #include <dm/uclass.h>
 #include <dm/lists.h>
@@ -20,11 +21,13 @@ int clk_register(struct clk *clk, const char *drv_name,
 	int ret;
 
 	ret = uclass_get_device_by_name(UCLASS_CLK, parent_name, &parent);
-	if (ret)
-		printf("%s: UCLASS parent: 0x%p\n", __func__, parent);
-
-	debug("%s: name: %s parent: %s [0x%p]\n", __func__, name, parent->name,
-	      parent);
+	if (ret) {
+		printf("%s: failed to get %s device (parent of %s)\n",
+		       __func__, parent_name, name);
+	} else {
+		debug("%s: name: %s parent: %s [0x%p]\n", __func__, name,
+		      parent->name, parent);
+	}
 
 	drv = lists_driver_lookup_name(drv_name);
 	if (!drv) {
@@ -33,7 +36,7 @@ int clk_register(struct clk *clk, const char *drv_name,
 		return -ENOENT;
 	}
 
-	ret = device_bind(parent, drv, name, NULL, -1, &clk->dev);
+	ret = device_bind(parent, drv, name, NULL, ofnode_null(), &clk->dev);
 	if (ret) {
 		printf("%s: CLK: %s driver bind error [%d]!\n", __func__, name,
 		       ret);
@@ -41,8 +44,10 @@ int clk_register(struct clk *clk, const char *drv_name,
 	}
 
 	clk->enable_count = 0;
+
 	/* Store back pointer to clk from udevice */
-	clk->dev->uclass_priv = clk;
+	/* FIXME: This is not allowed...should be allocated by driver model */
+	dev_set_uclass_priv(clk->dev, clk);
 
 	return 0;
 }
@@ -54,12 +59,15 @@ ulong clk_generic_get_rate(struct clk *clk)
 
 const char *clk_hw_get_name(const struct clk *hw)
 {
+	assert(hw);
+	assert(hw->dev);
+
 	return hw->dev->name;
 }
 
 bool clk_dev_binded(struct clk *clk)
 {
-	if (clk->dev && (clk->dev->flags & DM_FLAG_BOUND))
+	if (clk->dev && (dev_get_flags(clk->dev) & DM_FLAG_BOUND))
 		return true;
 
 	return false;

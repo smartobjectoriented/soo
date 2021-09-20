@@ -21,6 +21,7 @@
 #define CONSOLE_H
 
 #include <types.h>
+#include <soo/soo.h>
 
 #define CONSOLEIO_BUFFER_SIZE 256
 
@@ -39,6 +40,22 @@ void lprintk_buffer_separator(void *buffer, uint32_t n, char separator);
 
 void lprintk_int64_post(s64 number, char *post);
 void lprintk_int64(s64 number);
+
+/* Helper function to display agencyUID */
+static inline void lprintk_printUID(agencyUID_t *uid) {
+
+	/* Normally, the length of agencyUID is SOO_AGENCY_UID_SIZE bytes, but we display less. */
+	if (!uid)
+		lprintk("(null)");
+	else
+		lprintk_buffer(uid, 5);
+}
+
+/* Helper function to display agencyUID */
+static inline void lprintk_printlnUID(agencyUID_t *uid) {
+	lprintk_printUID(uid);
+	lprintk("\n");
+}
 
 /* Return the current active domain for the uart console */
 int avzcons_get_focus(void);

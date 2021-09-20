@@ -49,22 +49,19 @@ extern long pfn_offset;
 int migration_final(soo_hyp_t *op) {
 	int rc;
 	unsigned int slotID = *((unsigned int *) op->p_val1);
-	soo_personality_t pers = *((soo_personality_t *) op->p_val2);
 	struct domain *domME = domains[slotID];
 
-	DBG("Personality: %d, ME state: %d\n", pers, get_ME_state(slotID));
+	DBG("ME state: %d\n", get_ME_state(slotID));
 
-	switch (pers) {
-	case SOO_PERSONALITY_INITIATOR:
-		DBG("Initiator\n");
+	switch (get_ME_state(slotID)) {
 
-		if (get_ME_state(slotID) != ME_state_dormant)
-			domain_unpause_by_systemcontroller(domME);
-
+	case ME_state_suspended:
+		DBG("ME state suspended\n");
+		domain_unpause_by_systemcontroller(domME);
 		break;
 
-	case SOO_PERSONALITY_TARGET:
-		DBG("Target\n");
+	case ME_state_migrating:
+		DBG("ME_state_migrating\n");
 
 		flush_dcache_all();
 
@@ -72,11 +69,10 @@ int migration_final(soo_hyp_t *op) {
 			printk("Agency: %s:%d Failed to restore migrated domain (%d)\n", __func__, __LINE__, rc);
 			BUG();
 		}
-
 		break;
 
-	case SOO_PERSONALITY_SELFREFERENT:
-		DBG("Self-referent\n");
+	case ME_state_preparing:
+		DBG("ME state preparing\n");
 
 		flush_dcache_all();
 
@@ -87,11 +83,10 @@ int migration_final(soo_hyp_t *op) {
 			BUG();
 			return rc;
 		}
-
 		break;
 
 	default:
-		printk("Agency: %s:%d Invalid personality value (%d)\n", __func__, __LINE__, pers);
+		printk("Agency: %s:%d Invalid state at this point (%d)\n", __func__, __LINE__, get_ME_state(slotID));
 		BUG();
 
 		break;
@@ -513,8 +508,11 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 	 * We check if the ME has been killed during the pre_activate callback.
 	 * If yes, we do not pursue our re-activation process.
 	 */
-	if (get_ME_state(ME_slotID) == ME_state_dead)
+	if (get_ME_state(ME_slotID) == ME_state_dead) {
+		switch_mm(agency, &prev_addrspace);
+
 		return 0;
+	}
 
 	ASSERT(smp_processor_id() == 0);
 

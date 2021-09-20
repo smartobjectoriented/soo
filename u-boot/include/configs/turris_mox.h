@@ -45,12 +45,8 @@
  * Other required minimal configurations
  */
 #define CONFIG_SYS_LOAD_ADDR	0x00800000	/* default load adr- 8M */
-#define CONFIG_SYS_MEMTEST_START 0x00800000	/* 8M */
-#define CONFIG_SYS_MEMTEST_END	0x00ffffff	/*(_16M -1) */
 #define CONFIG_SYS_RESET_ADDRESS 0xffff0000	/* Rst Vector Adr */
 #define CONFIG_SYS_MAXARGS	32	/* max number of command args */
-
-#define CONFIG_SYS_ALT_MEMTEST
 
 /* End of 16M scrubbed by training in bootrom */
 #define CONFIG_SYS_INIT_SP_ADDR         (CONFIG_SYS_TEXT_BASE + 0xFF0000)
@@ -62,17 +58,12 @@
 #define CONFIG_SYS_I2C_SLAVE		0x0
 
 /* Environment in SPI NOR flash */
-#define CONFIG_ENV_OFFSET		0x180000 /* as Marvell U-Boot version */
-#define CONFIG_ENV_SIZE			(64 << 10) /* 64KiB */
-#define CONFIG_ENV_SECT_SIZE		(64 << 10) /* 64KiB sectors */
 
 /*
  * Ethernet Driver configuration
  */
-#define CONFIG_ENV_OVERWRITE	/* ethaddr can be reprogrammed */
 #define CONFIG_ARP_TIMEOUT	200
 #define CONFIG_NET_RETRY_COUNT	50
-#define CONFIG_PHY_MARVELL
 
 #define CONFIG_USB_MAX_CONTROLLER_COUNT (3 + 3)
 
@@ -84,12 +75,22 @@
 
 #include <config_distro_bootcmd.h>
 
+#define TURRIS_MOX_BOOTCMD_RESCUE \
+	"setenv bootargs \"console=ttyMV0,115200 " \
+			  "earlycon=ar3700_uart,0xd0012000\" && " \
+	"sf probe && " \
+	"sf read 0x5000000 0x190000 && " \
+	"lzmadec 0x5000000 0x5800000 && " \
+	"bootm 0x5800000"
+
 #define CONFIG_EXTRA_ENV_SETTINGS	\
 	"scriptaddr=0x4d00000\0"	\
 	"pxefile_addr_r=0x4e00000\0"	\
 	"fdt_addr_r=0x4f00000\0"	\
 	"kernel_addr_r=0x5000000\0"	\
 	"ramdisk_addr_r=0x8000000\0"	\
+	"fdtfile=marvell/" CONFIG_DEFAULT_DEVICE_TREE ".dtb\0" \
+	"bootcmd_rescue=" TURRIS_MOX_BOOTCMD_RESCUE "\0" \
 	BOOTENV
 
 #endif /* _CONFIG_TURRIS_MOX_H */

@@ -11,7 +11,6 @@
 #include "ventana_eeprom.h"
 
 /* GPIO's common to all baseboards */
-#define GP_PHY_RST	IMX_GPIO_NR(1, 30)
 #define GP_RS232_EN	IMX_GPIO_NR(2, 11)
 #define GP_MSATA_SEL	IMX_GPIO_NR(2, 8)
 
@@ -75,7 +74,6 @@ struct ventana {
 	int wdis;
 	int msata_en;
 	int rs232_en;
-	int otgpwr_en;
 	int vsel_pin;
 	int mmc_cd;
 	/* various features */

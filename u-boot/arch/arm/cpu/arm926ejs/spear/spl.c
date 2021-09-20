@@ -7,9 +7,11 @@
  */
 
 #include <common.h>
+#include <init.h>
 #include <spl.h>
 #include <version.h>
 #include <asm/io.h>
+#include <asm/ptrace.h>
 #include <asm/arch/hardware.h>
 #include <asm/arch/spr_defs.h>
 #include <asm/arch/spr_misc.h>
@@ -20,7 +22,7 @@
  * The BSS cannot be used for this purpose because it will be zeroed after
  * having stored the pointer, so force the location to the data section.
  */
-u32 bootrom_stash_sp __attribute__((section(".data")));
+u32 bootrom_stash_sp __section(".data");
 
 static void ddr_clock_init(void)
 {

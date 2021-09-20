@@ -7,9 +7,9 @@
 
 import struct
 
-from blob import Entry_blob
+from binman.etype.blob_ext import Entry_blob_ext
 
-class Entry_intel_fit(Entry_blob):
+class Entry_intel_fit(Entry_blob_ext):
     """Intel Firmware Image Table (FIT)
 
     This entry contains a dummy FIT as required by recent Intel CPUs. The FIT
@@ -19,14 +19,14 @@ class Entry_intel_fit(Entry_blob):
     At present binman only supports a basic FIT with no microcode.
     """
     def __init__(self, section, etype, node):
-        Entry_blob.__init__(self, section, etype, node)
+        super().__init__(section, etype, node)
 
     def ReadNode(self):
         """Force 16-byte alignment as required by FIT pointer"""
-        Entry_blob.ReadNode(self)
+        super().ReadNode()
         self.align = 16
 
     def ObtainContents(self):
-        data = struct.pack('<8sIHBB', '_FIT_   ', 1, 0x100, 0x80, 0x7d)
+        data = struct.pack('<8sIHBB', b'_FIT_   ', 1, 0x100, 0x80, 0x7d)
         self.SetContents(data)
         return True

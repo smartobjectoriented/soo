@@ -20,23 +20,47 @@
 #define LEDCTRL_H
 
 #include <completion.h>
+#include <spinlock.h>
 
+#include <me/common.h>
+
+/*
+ * Never use lock (completion, spinlock, etc.) in the shared page since
+ * the use of ldrex/strex instructions will fail with cache disabled.
+ */
 typedef struct {
-
-	struct completion upd_lock;
 
 	int local_nr;
 	int incoming_nr;
+
+	/* A stamp to keep track of the current change. A greater value means an update is required. */
+	int stamp;
+
+	/* If an acknowledge is required from all SOO.ledctrl smart objects */
+	bool waitack;
 
 	/* To determine if the ME needs to be propagated.
 	 * If it is the same state, no need to be propagated.
 	 */
 	bool need_propagate;
 
+	agencyUID_t initiator;
+
+	/*
+	 * MUST BE the last field, since it contains a field at the end which is used
+	 * as "payload" for a concatened list of hosts.
+	 */
+	me_common_t me_common;
+
 } sh_ledctrl_t;
 
 /* Export the reference to the shared content structure */
 extern sh_ledctrl_t *sh_ledctrl;
+
+extern struct completion upd_lock;
+
+/* Protecting variables between domcalls and the active context */
+extern spinlock_t propagate_lock;
 
 #endif /* LEDCTRL_H */
 

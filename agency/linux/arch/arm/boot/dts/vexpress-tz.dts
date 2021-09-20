@@ -18,6 +18,7 @@
  
 /dts-v1/; 
 #include "vexpress-v2m-rs1.dtsi"
+#include "soo.dtsi"
 
 / {
 	model = "V2P-CA15";
@@ -365,42 +366,28 @@
 				<0 3 &gic 0 39 4>;
 	};
 	
-	agency {
-		domain-size = <0x20000000>; /* 512 MB */	
-	
-		compatible = "agency,vexpress"; 
-				
-		/* Backends */
-
-		backends {
-
-			vdummy {
-				compatible = "vdummy,backend";
-				status = "ok";
-			};
-	
-			vuart {
-				compatible = "vuart,backend";
-				status = "ok";
-			};
-		
-			vuihandler {
-				compatible = "vuihandler,backend";
-				status = "disabled";
-			};
-			
-			vnet {
-				compatible = "vnet,backend";
-				status = "disabled";
-			};
-
-		};
-	};
-
 	firmware {
 		optee {
 			compatible = "linaro,optee-tz";
 			method = "smc";
+		};
+	};
+};
+
+&agency {
+		
+	backends {
+	
+		vuart {
+			status = "ok";
+		};
+						
+		vsenseled {
+		       	status = "ok";
+		};
+						
+		vsensej {
+			status = "ok";
 		};
 	};
 };

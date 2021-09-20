@@ -4,6 +4,8 @@
 #include "bcm2835-rpi.dtsi"
 #include "bcm283x-rpi-usb-peripheral.dtsi"
 
+#include "soo.dtsi"
+
 / {
 	compatible = "raspberrypi,4-model-b", "brcm,bcm2711";
 	model = "Raspberry Pi 4 Model B";
@@ -68,60 +70,6 @@
 			  3300000 0x0>;
 		status = "okay";
 	};
-
-	agency {
-		domain-size = <0x20000000>; /* 512 MB */
-	
-		compatible = "agency,rpi4"; 
-	
-		/* Backends */
-		backends {
-	
-			vdummy {
-				compatible = "vdummy,backend";
-				status = "ok";
-			};
-	
-			vuart {
-				compatible = "vuart,backend";
-				status = "ok";
-			};
-		
-			vuihandler {
-				compatible = "vuihandler,backend";
-				status = "ok";
-			};
-
-			vnet {
-				compatible = "vnet,backend";
-				status = "disabled";
-			};
-			
-			vsenseled {
-				compatible = "vsenseled,backend";
-				status = "ok";
-			};
-			
-			vsensej {
-				compatible = "vsensej,backend";
-				status = "ok";
-			};
-
-            vdoga {
-				compatible = "vdoga,backend";
-				status = "ok";
-
-				up_end-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
-				down_end-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
-
-				sleep-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
-				mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
-				in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
-			};
-
-		};
-	};
-
 };
 
 
@@ -285,6 +233,41 @@
 	};
 };
 
+&agency {
+	
+	/* Backends */
+	backends {
+		
+		vuart {
+		status = "ok";
+		};
+			
+		vuihandler {
+			status = "ok";
+		};
+				
+		vsenseled {
+			status = "ok";
+		};
+				
+		vsensej {
+			status = "ok";
+		};
+
+                vdoga {
+			status = "ok";
+
+			up_end-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
+			down_end-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
+
+			sleep-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
+			mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
+			in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
+		};
+
+	};
+
+};
 
 &soc {
     virtgpio: virtgpio {
@@ -295,14 +278,6 @@
         status = "okay";
     };
 };
-
-/*
-&mmcnr {
-    pinctrl-names = "default";
-    pinctrl-0 = <&sdio_pins>;
-    bus-width = <4>;
-    status = "disabled";
-};*/
 
 &firmware {
 	expgpio: gpio {
@@ -349,6 +324,7 @@
 &emmc2 {
 	vqmmc-supply = <&sd_io_1v8_reg>;
 	broken-cd;
+	mmc-ddr-3_3v;
 	status = "okay";
 };
 

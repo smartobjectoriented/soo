@@ -5,13 +5,16 @@
 
 #include <common.h>
 #include <dm.h>
+#include <malloc.h>
 #include <power-domain-uclass.h>
+#include <asm/global_data.h>
 #include <asm/io.h>
 #include <asm/arch/power-domain.h>
 #include <asm/mach-imx/sys_proto.h>
 #include <dm/device-internal.h>
 #include <dm/device.h>
 #include <imx_sip.h>
+#include <linux/arm-smccc.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -28,8 +31,9 @@ static int imx8m_power_domain_free(struct power_domain *power_domain)
 static int imx8m_power_domain_on(struct power_domain *power_domain)
 {
 	struct udevice *dev = power_domain->dev;
-	struct imx8m_power_domain_platdata *pdata;
-	pdata = dev_get_platdata(dev);
+	struct imx8m_power_domain_plat *pdata;
+
+	pdata = dev_get_plat(dev);
 
 	if (pdata->resource_id < 0)
 		return -EINVAL;
@@ -37,7 +41,8 @@ static int imx8m_power_domain_on(struct power_domain *power_domain)
 	if (pdata->has_pd)
 		power_domain_on(&pdata->pd);
 
-	call_imx_sip(IMX_SIP_GPC, IMX_SIP_GPC_PM_DOMAIN, pdata->resource_id, 1);
+	arm_smccc_smc(IMX_SIP_GPC, IMX_SIP_GPC_PM_DOMAIN,
+		      pdata->resource_id, 1, 0, 0, 0, 0, NULL);
 
 	return 0;
 }
@@ -45,13 +50,14 @@ static int imx8m_power_domain_on(struct power_domain *power_domain)
 static int imx8m_power_domain_off(struct power_domain *power_domain)
 {
 	struct udevice *dev = power_domain->dev;
-	struct imx8m_power_domain_platdata *pdata;
-	pdata = dev_get_platdata(dev);
+	struct imx8m_power_domain_plat *pdata;
+	pdata = dev_get_plat(dev);
 
 	if (pdata->resource_id < 0)
 		return -EINVAL;
 
-	call_imx_sip(IMX_SIP_GPC, IMX_SIP_GPC_PM_DOMAIN, pdata->resource_id, 0);
+	arm_smccc_smc(IMX_SIP_GPC, IMX_SIP_GPC_PM_DOMAIN,
+		      pdata->resource_id, 0, 0, 0, 0, 0, NULL);
 
 	if (pdata->has_pd)
 		power_domain_off(&pdata->pd);
@@ -99,9 +105,9 @@ static int imx8m_power_domain_probe(struct udevice *dev)
 	return 0;
 }
 
-static int imx8m_power_domain_ofdata_to_platdata(struct udevice *dev)
+static int imx8m_power_domain_of_to_plat(struct udevice *dev)
 {
-	struct imx8m_power_domain_platdata *pdata = dev_get_platdata(dev);
+	struct imx8m_power_domain_plat *pdata = dev_get_plat(dev);
 
 	pdata->resource_id = fdtdec_get_int(gd->fdt_blob, dev_of_offset(dev),
 					    "reg", -1);
@@ -114,12 +120,14 @@ static int imx8m_power_domain_ofdata_to_platdata(struct udevice *dev)
 
 static const struct udevice_id imx8m_power_domain_ids[] = {
 	{ .compatible = "fsl,imx8mq-gpc" },
+	{ .compatible = "fsl,imx8mm-gpc" },
+	{ .compatible = "fsl,imx8mn-gpc" },
 	{ }
 };
 
 struct power_domain_ops imx8m_power_domain_ops = {
 	.request = imx8m_power_domain_request,
-	.free = imx8m_power_domain_free,
+	.rfree = imx8m_power_domain_free,
 	.on = imx8m_power_domain_on,
 	.off = imx8m_power_domain_off,
 	.of_xlate = imx8m_power_domain_of_xlate,
@@ -131,7 +139,7 @@ U_BOOT_DRIVER(imx8m_power_domain) = {
 	.of_match = imx8m_power_domain_ids,
 	.bind = imx8m_power_domain_bind,
 	.probe = imx8m_power_domain_probe,
-	.ofdata_to_platdata = imx8m_power_domain_ofdata_to_platdata,
-	.platdata_auto_alloc_size = sizeof(struct imx8m_power_domain_platdata),
+	.of_to_plat = imx8m_power_domain_of_to_plat,
+	.plat_auto	= sizeof(struct imx8m_power_domain_plat),
 	.ops = &imx8m_power_domain_ops,
 };

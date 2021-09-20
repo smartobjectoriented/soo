@@ -6,6 +6,12 @@
  * Author: Neil Armstrong <narmstrong@baylibre.com>
  */
 
+#include <common.h>
+#include <dm.h>
+#include <asm/io.h>
+#include <linux/bitfield.h>
+#include <linux/bitops.h>
+
 #include "meson_vpu.h"
 
 /* OSDx_BLKx_CFG */
@@ -94,7 +100,7 @@ meson_vpp_disable_interlace_vscaler_osd1(struct meson_vpu_priv *priv)
 
 void meson_vpu_setup_plane(struct udevice *dev, bool is_interlaced)
 {
-	struct video_uc_platdata *uc_plat = dev_get_uclass_platdata(dev);
+	struct video_uc_plat *uc_plat = dev_get_uclass_plat(dev);
 	struct video_priv *uc_priv = dev_get_uclass_priv(dev);
 	struct meson_vpu_priv *priv = dev_get_priv(dev);
 	u32 osd1_ctrl_stat;

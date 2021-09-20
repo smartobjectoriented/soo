@@ -39,10 +39,6 @@ extern bool opt_nosend;
 /* To indicate f the main agency cycle loop is interrupted */
 extern bool ag_cycle_interrupted;
 
-int set_personality_initiator(void);
-int set_personality_target(void);
-int set_personality_selfreferent(void);
-int get_personality(void);
 int initialize_migration(unsigned int ME_slotID);
 
 int get_ME_free_slot(size_t ME_size);

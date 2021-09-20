@@ -14,14 +14,14 @@
 #include <clk-uclass.h>
 #include <dm.h>
 #include <errno.h>
+#include <log.h>
+#include <asm/global_data.h>
 #include <asm/io.h>
 
 #include <dt-bindings/clock/renesas-cpg-mssr.h>
 
 #include "renesas-cpg-mssr.h"
 #include "rcar-gen2-cpg.h"
-
-#define CPG_RST_MODEMR		0x0060
 
 #define CPG_PLL0CR		0x00d8
 #define CPG_SDCKCR		0x0074
@@ -61,14 +61,14 @@ static int gen2_clk_enable(struct clk *clk)
 {
 	struct gen2_clk_priv *priv = dev_get_priv(clk->dev);
 
-	return renesas_clk_endisable(clk, priv->base, true);
+	return renesas_clk_endisable(clk, priv->base, priv->info, true);
 }
 
 static int gen2_clk_disable(struct clk *clk)
 {
 	struct gen2_clk_priv *priv = dev_get_priv(clk->dev);
 
-	return renesas_clk_endisable(clk, priv->base, false);
+	return renesas_clk_endisable(clk, priv->base, priv->info, false);
 }
 
 static ulong gen2_clk_get_rate(struct clk *clk)
@@ -282,7 +282,7 @@ int gen2_clk_probe(struct udevice *dev)
 	u32 cpg_mode;
 	int ret;
 
-	priv->base = (struct gen2_base *)devfdt_get_addr(dev);
+	priv->base = dev_read_addr_ptr(dev);
 	if (!priv->base)
 		return -EINVAL;
 
@@ -291,7 +291,8 @@ int gen2_clk_probe(struct udevice *dev)
 	if (ret < 0)
 		return ret;
 
-	rst_base = fdtdec_get_addr(gd->fdt_blob, ret, "reg");
+	rst_base = fdtdec_get_addr_size_auto_noparent(gd->fdt_blob, ret, "reg",
+						      0, NULL, false);
 	if (rst_base == FDT_ADDR_T_NONE)
 		return -EINVAL;
 

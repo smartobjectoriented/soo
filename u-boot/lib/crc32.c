@@ -10,6 +10,7 @@
 
 #ifdef USE_HOSTCC
 #include <arpa/inet.h>
+#include <u-boot/crc.h>
 #else
 #include <common.h>
 #include <efi_loader.h>
@@ -25,6 +26,7 @@
 #ifdef USE_HOSTCC
 #define __efi_runtime
 #define __efi_runtime_data
+#define __efi_runtime_rodata
 #endif
 
 #define tole(x) cpu_to_le32(x)
@@ -87,7 +89,7 @@ static void __efi_runtime make_crc_table(void)
  * Table of CRC-32's of all single-byte values (made by make_crc_table)
  */
 
-static const uint32_t __efi_runtime_data crc_table[256] = {
+static const uint32_t __efi_runtime_rodata crc_table[256] = {
 tole(0x00000000L), tole(0x77073096L), tole(0xee0e612cL), tole(0x990951baL),
 tole(0x076dc419L), tole(0x706af48fL), tole(0xe963a535L), tole(0x9e6495a3L),
 tole(0x0edb8832L), tole(0x79dcb8a4L), tole(0xe0d5e91eL), tole(0x97d2d988L),
@@ -244,12 +246,12 @@ uint32_t crc32_wd(uint32_t crc, const unsigned char *buf, uInt len,
 		chunk = end - curr;
 		if (chunk > chunk_sz)
 			chunk = chunk_sz;
-		crc = crc32 (crc, curr, chunk);
+		crc = crc32(crc, curr, chunk);
 		curr += chunk;
 		WATCHDOG_RESET ();
 	}
 #else
-	crc = crc32 (crc, buf, len);
+	crc = crc32(crc, buf, len);
 #endif
 
 	return crc;

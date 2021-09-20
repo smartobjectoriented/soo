@@ -13,6 +13,8 @@
 
 #define SANDBOX_PCI_VENDOR_ID		0x1234
 #define SANDBOX_PCI_SWAP_CASE_EMUL_ID	0x5678
+#define SANDBOX_PCI_PMC_EMUL_ID		0x5677
+#define SANDBOX_PCI_P2SB_EMUL_ID	0x5676
 #define SANDBOX_PCI_CLASS_CODE		PCI_CLASS_CODE_COMM
 #define SANDBOX_PCI_CLASS_SUB_CODE	PCI_CLASS_SUB_CODE_COMM_SERIAL
 
@@ -43,12 +45,23 @@
 #define PCI_EA_BAR2_MAGIC		0x72727272
 #define PCI_EA_BAR4_MAGIC		0x74747474
 
+enum {
+	SANDBOX_IRQN_PEND = 1,	/* Interrupt number for 'pending' test */
+};
+
 /* System controller driver data */
 enum {
 	SYSCON0		= 32,
 	SYSCON1,
 
 	SYSCON_COUNT
+};
+
+/**
+ */
+enum cros_ec_test_t {
+	CROSECT_BREAK_HELLO	= BIT(1),
+	CROSECT_LID_OPEN	= BIT(2),
 };
 
 /**
@@ -71,6 +84,13 @@ void sandbox_i2c_eeprom_set_test_mode(struct udevice *dev,
 				      enum sandbox_i2c_eeprom_test_mode mode);
 
 void sandbox_i2c_eeprom_set_offset_len(struct udevice *dev, int offset_len);
+
+void sandbox_i2c_eeprom_set_chip_addr_offset_mask(struct udevice *dev,
+						  uint mask);
+
+uint sanbox_i2c_eeprom_get_prev_addr(struct udevice *dev);
+
+uint sanbox_i2c_eeprom_get_prev_offset(struct udevice *dev);
 
 /**
  * sandbox_i2c_rtc_set_offset() - set the time offset from system/base time
@@ -157,6 +177,13 @@ int sandbox_get_i2s_sum(struct udevice *dev);
 int sandbox_get_setup_called(struct udevice *dev);
 
 /**
+ * sandbox_get_sound_active() - Returns whether sound play is in progress
+ *
+ * @return true if active, false if not
+ */
+int sandbox_get_sound_active(struct udevice *dev);
+
+/**
  * sandbox_get_sound_sum() - Read back the sum of the sound data so far
  *
  * This data is provided to the sandbox driver by the sound play() method.
@@ -181,6 +208,22 @@ void sandbox_set_allow_beep(struct udevice *dev, bool allow);
  * @return frequency of beep, if there is an active beep, else 0
  */
 int sandbox_get_beep_frequency(struct udevice *dev);
+
+/**
+ * sandbox_spi_get_speed() - Get current speed setting of a sandbox spi bus
+ *
+ * @dev: Device to check
+ * @return current bus speed
+ */
+uint sandbox_spi_get_speed(struct udevice *dev);
+
+/**
+ * sandbox_spi_get_mode() - Get current mode setting of a sandbox spi bus
+ *
+ * @dev: Device to check
+ * @return current mode
+ */
+uint sandbox_spi_get_mode(struct udevice *dev);
 
 /**
  * sandbox_get_pch_spi_protect() - Get the PCI SPI protection status
@@ -212,5 +255,24 @@ int sandbox_get_pci_ep_irq_count(struct udevice *dev);
  * @return BAR value to return from emulator
  */
 uint sandbox_pci_read_bar(u32 barval, int type, uint size);
+
+/**
+ * sandbox_set_enable_memio() - Enable readl/writel() for sandbox
+ *
+ * Normally these I/O functions do nothing with sandbox. Certain tests need them
+ * to work as for other architectures, so this function can be used to enable
+ * them.
+ *
+ * @enable: true to enable, false to disable
+ */
+void sandbox_set_enable_memio(bool enable);
+
+/**
+ * sandbox_cros_ec_set_test_flags() - Set behaviour for testing purposes
+ *
+ * @dev: Device to check
+ * @flags: Flags to control behaviour (CROSECT_...)
+ */
+void sandbox_cros_ec_set_test_flags(struct udevice *dev, uint flags);
 
 #endif

@@ -22,11 +22,6 @@ case "$1" in
         /root/btmanager.sh &
         echo "OK"
 
-        # Set up wifi
-        echo -n "Configuring wi-fi... "
-        /root/wifimanager.sh
-        echo "OK"
-
         echo -n "Starting Agency Core... "
         /root/agency &
         echo "OK"

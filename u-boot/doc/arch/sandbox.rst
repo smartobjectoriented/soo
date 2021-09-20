@@ -17,6 +17,12 @@ of the sandbox U-Boot. The purpose of running U-Boot under Linux is to test
 all the generic code, not specific to any one architecture. The idea is to
 create unit tests which we can run to test this upper level code.
 
+Sandbox allows development of many types of new features in a traditional way,
+rather than needing to test each iteration on real hardware. Many U-Boot
+features were developed on sandbox, including the core driver model, most
+uclasses, verified boot, bloblist, logging and dozens of others. Sandbox has
+enabled many large-scale code refactors as well.
+
 CONFIG_SANDBOX is defined when building a native board.
 
 The board name is 'sandbox' but the vendor name is unset, so there is a
@@ -34,6 +40,16 @@ integers can only be built on 64-bit hosts.
 Note that standalone/API support is not available at present.
 
 
+Prerequisites
+-------------
+
+Here are some packages that are worth installing if you are doing sandbox or
+tools development in U-Boot:
+
+   python3-pytest lzma lzma-alone lz4 python3 python3-virtualenv
+   libssl1.0-dev
+
+
 Basic Operation
 ---------------
 
@@ -43,7 +59,7 @@ To run sandbox U-Boot use something like::
    ./u-boot
 
 Note: If you get errors about 'sdl-config: Command not found' you may need to
-install libsdl1.2-dev or similar to get SDL support. Alternatively you can
+install libsdl2.0-dev or similar to get SDL support. Alternatively you can
 build sandbox without SDL (i.e. no display/keyboard support) by removing
 the CONFIG_SANDBOX_SDL line in include/configs/sandbox.h or using::
 
@@ -66,7 +82,7 @@ console::
 You can issue commands as your would normally. If the command you want is
 not supported you can add it to include/configs/sandbox.h.
 
-To exit, type 'reset' or press Ctrl-C.
+To exit, type 'poweroff' or press Ctrl-C.
 
 
 Console / LCD support
@@ -87,30 +103,46 @@ Command-line Options
 --------------------
 
 Various options are available, mostly for test purposes. Use -h to see
-available options. Some of these are described below.
+available options. Some of these are described below:
 
-The terminal is normally in what is called 'raw-with-sigs' mode. This means
-that you can use arrow keys for command editing and history, but if you
-press Ctrl-C, U-Boot will exit instead of handling this as a keypress.
+-t, --terminal <arg>
+  The terminal is normally in what is called 'raw-with-sigs' mode. This means
+  that you can use arrow keys for command editing and history, but if you
+  press Ctrl-C, U-Boot will exit instead of handling this as a keypress.
+  Other options are 'raw' (so Ctrl-C is handled within U-Boot) and 'cooked'
+  (where the terminal is in cooked mode and cursor keys will not work, Ctrl-C
+  will exit).
 
-Other options are 'raw' (so Ctrl-C is handled within U-Boot) and 'cooked'
-(where the terminal is in cooked mode and cursor keys will not work, Ctrl-C
-will exit).
+-l
+  Show the LCD emulation window.
 
-As mentioned above, -l causes the LCD emulation window to be shown.
+-d <device_tree>
+  A device tree binary file can be provided with -d. If you edit the source
+  (it is stored at arch/sandbox/dts/sandbox.dts) you must rebuild U-Boot to
+  recreate the binary file.
 
-A device tree binary file can be provided with -d. If you edit the source
-(it is stored at arch/sandbox/dts/sandbox.dts) you must rebuild U-Boot to
-recreate the binary file.
+-D
+  To use the default device tree, use -D.
 
-To use the default device tree, use -D. To use the test device tree, use -T.
+-T
+  To use the test device tree, use -T.
 
-To execute commands directly, use the -c option. You can specify a single
-command, or multiple commands separated by a semicolon, as is normal in
-U-Boot. Be careful with quoting as the shell will normally process and
-swallow quotes. When -c is used, U-Boot exits after the command is complete,
-but you can force it to go to interactive mode instead with -i.
+-c [<cmd>;]<cmd>
+  To execute commands directly, use the -c option. You can specify a single
+  command, or multiple commands separated by a semicolon, as is normal in
+  U-Boot. Be careful with quoting as the shell will normally process and
+  swallow quotes. When -c is used, U-Boot exits after the command is complete,
+  but you can force it to go to interactive mode instead with -i.
 
+-i
+  Go to interactive mode after executing the commands specified by -c.
+
+Environment Variables
+---------------------
+
+UBOOT_SB_TIME_OFFSET
+    This environment variable stores the offset of the emulated real time clock
+    to the host's real time clock in seconds. The offset defaults to zero.
 
 Memory Emulation
 ----------------
@@ -306,19 +338,29 @@ SPI Emulation
 
 Sandbox supports SPI and SPI flash emulation.
 
-This is controlled by the spi_sf argument, the format of which is::
+The device can be enabled via a device tree, for example::
 
-   bus:cs:device:file
+    spi@0 {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            reg = <0 1>;
+            compatible = "sandbox,spi";
+            cs-gpios = <0>, <&gpio_a 0>;
+            spi.bin@0 {
+                    reg = <0>;
+                    compatible = "spansion,m25p16", "jedec,spi-nor";
+                    spi-max-frequency = <40000000>;
+                    sandbox,filename = "spi.bin";
+            };
+    };
 
-   bus    - SPI bus number
-   cs     - SPI chip select number
-   device - SPI device emulation name
-   file   - File on disk containing the data
+The file must be created in advance::
 
-For example::
+   $ dd if=/dev/zero of=spi.bin bs=1M count=2
+   $ u-boot -T
 
-   dd if=/dev/zero of=spi.bin bs=1M count=4
-   ./u-boot --spi_sf 0:0:M25P16:spi.bin
+Here, you can use "-T" or "-D" option to specify test.dtb or u-boot.dtb,
+respectively, or "-d <file>" for your own dtb.
 
 With this setup you can issue SPI flash commands as normal::
 
@@ -336,22 +378,6 @@ also use low-level SPI commands::
 This is issuing a READ_ID command and getting back 20 (ST Micro) part
 0x2015 (the M25P16).
 
-Drivers are connected to a particular bus/cs using sandbox's state
-structure (see the 'spi' member). A set of operations must be provided
-for each driver.
-
-
-Configuration settings for the curious are:
-
-CONFIG_SANDBOX_SPI_MAX_BUS:
-  The maximum number of SPI buses supported by the driver (default 1).
-
-CONFIG_SANDBOX_SPI_MAX_CS:
-  The maximum number of chip selects supported by the driver (default 10).
-
-CONFIG_SPI_IDLE_VAL:
-  The idle value on the SPI bus
-
 
 Block Device Emulation
 ----------------------
@@ -362,6 +388,8 @@ the contents of the root directory on the second partion of the image
 
    =>host bind 0 ./disk.raw
    =>ls host 0:2
+
+The device can be marked removeable with 'host bind -r'.
 
 A disk image can be created using the following commands::
 
@@ -466,42 +494,10 @@ Testing
 -------
 
 U-Boot sandbox can be used to run various tests, mostly in the test/
-directory. These include:
+directory.
 
-command_ut:
-  Unit tests for command parsing and handling
-compression:
-  Unit tests for U-Boot's compression algorithms, useful for
-  security checking. It supports gzip, bzip2, lzma and lzo.
-driver model:
-  Run this pytest::
-
-   ./test/py/test.py --bd sandbox --build -k ut_dm -v
-
-image:
-  Unit tests for images:
-  test/image/test-imagetools.sh - multi-file images
-  test/image/test-fit.py        - FIT images
-tracing:
-  test/trace/test-trace.sh tests the tracing system (see README.trace)
-verified boot:
-  See test/vboot/vboot_test.sh for this
-
-If you change or enhance any of the above subsystems, you shold write or
-expand a test and include it with your patch series submission. Test
-coverage in U-Boot is limited, as we need to work to improve it.
-
-Note that many of these tests are implemented as commands which you can
-run natively on your board if desired (and enabled).
-
-To run all tests use "make check".
-
-To run a single test in an existing sandbox build, you can use -T to use the
-test device tree, and -c to select the test:
-
-  /tmp/b/sandbox/u-boot -T -c "ut dm pci_busdev"
-
-This runs dm_test_pci_busdev() which is in test/dm/pci.c
+See :doc:`../develop/tests_sandbox` for more information and
+:doc:`../develop/testing` for information about testing generally.
 
 
 Memory Map
@@ -517,5 +513,7 @@ Addr      Config                     Usage
    e000   CONFIG_BLOBLIST_ADDR       Blob list
   10000   CONFIG_MALLOC_F_ADDR       Early memory allocation
   f0000   CONFIG_PRE_CON_BUF_ADDR    Pre-console buffer
- 100000   CONFIG_TRACE_EARLY_ADDR    Early trace buffer (if enabled)
+ 100000   CONFIG_TRACE_EARLY_ADDR    Early trace buffer (if enabled). Also used
+                                     as the SPL load buffer in spl_test_load().
+ 200000   CONFIG_SYS_TEXT_BASE       Load buffer for U-Boot (sandbox_spl only)
 =======   ========================   ===============================

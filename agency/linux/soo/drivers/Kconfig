@@ -57,7 +57,7 @@ config VNET_BACKEND
       This driver implements the backend of the network driver of the SOO environment.
 
 config VSENSELED_BACKEND
-	depends on FB_RPISENSE
+	depends on FB_RPISENSE || ARCH_VEXPRESS
 	bool "vsenseled Sense-HAT led backend driver"
 	default n
 	help
@@ -65,7 +65,7 @@ config VSENSELED_BACKEND
 	  for example.
 
 config VSENSEJ_BACKEND
-	depends on FB_RPISENSE
+	depends on FB_RPISENSE || ARCH_VEXPRESS
 	bool "vsensej Sense-HAT joystick backend driver"
 	default n
 	help

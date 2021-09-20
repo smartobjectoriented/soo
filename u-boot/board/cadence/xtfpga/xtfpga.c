@@ -7,6 +7,7 @@
 #include <common.h>
 #include <command.h>
 #include <dm.h>
+#include <init.h>
 #include <dm/platform_data/net_ethoc.h>
 #include <env.h>
 #include <linux/ctype.h>
@@ -45,14 +46,6 @@ const char *description = "";
 int checkboard(void)
 {
 	printf("Board: %s: %sTensilica bitstream\n", board, description);
-	return 0;
-}
-
-int dram_init_banksize(void)
-{
-	gd->bd->bi_memstart = PHYSADDR(CONFIG_SYS_SDRAM_BASE);
-	gd->bd->bi_memsize = CONFIG_SYS_SDRAM_SIZE;
-
 	return 0;
 }
 
@@ -100,7 +93,7 @@ int misc_init_r(void)
 	return 0;
 }
 
-U_BOOT_DEVICE(sysreset) = {
+U_BOOT_DRVINFO(sysreset) = {
 	.name = "xtfpga_sysreset",
 };
 
@@ -111,7 +104,7 @@ static struct ethoc_eth_pdata ethoc_pdata = {
 	.packet_base = CONFIG_SYS_ETHOC_BUFFER_ADDR,
 };
 
-U_BOOT_DEVICE(ethoc) = {
+U_BOOT_DRVINFO(ethoc) = {
 	.name = "ethoc",
-	.platdata = &ethoc_pdata,
+	.plat = &ethoc_pdata,
 };

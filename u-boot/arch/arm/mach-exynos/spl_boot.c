@@ -5,7 +5,11 @@
 
 #include <common.h>
 #include <config.h>
+#include <init.h>
+#include <log.h>
+#include <asm/global_data.h>
 
+#include <asm/cache.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/clk.h>
 #include <asm/arch/dmc.h>
@@ -275,7 +279,7 @@ void memzero(void *s, size_t n)
  */
 static void setup_global_data(gd_t *gdp)
 {
-	gd = gdp;
+	set_gd(gdp);
 	memzero((void *)gd, sizeof(gd_t));
 	gd->flags |= GD_FLG_RELOC;
 	gd->baudrate = CONFIG_BAUDRATE;

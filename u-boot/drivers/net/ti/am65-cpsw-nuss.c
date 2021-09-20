@@ -7,10 +7,13 @@
  */
 
 #include <common.h>
+#include <malloc.h>
+#include <asm/cache.h>
 #include <asm/io.h>
 #include <asm/processor.h>
 #include <clk.h>
 #include <dm.h>
+#include <dm/device_compat.h>
 #include <dm/lists.h>
 #include <dma-uclass.h>
 #include <dm/of_access.h>
@@ -18,11 +21,12 @@
 #include <net.h>
 #include <phy.h>
 #include <power-domain.h>
+#include <linux/bitops.h>
 #include <linux/soc/ti/ti-udma.h>
 
 #include "cpsw_mdio.h"
 
-#define AM65_CPSW_CPSWNU_MAX_PORTS 2
+#define AM65_CPSW_CPSWNU_MAX_PORTS 9
 
 #define AM65_CPSW_SS_BASE		0x0
 #define AM65_CPSW_SGMII_BASE	0x100
@@ -57,8 +61,12 @@
 #define AM65_CPSW_ALE_PN_CTL_REG_MODE_FORWARD	0x3
 #define AM65_CPSW_ALE_PN_CTL_REG_MAC_ONLY	BIT(11)
 
+#define AM65_CPSW_ALE_THREADMAPDEF_REG		0x134
+#define AM65_CPSW_ALE_DEFTHREAD_EN		BIT(15)
+
 #define AM65_CPSW_MACSL_CTL_REG			0x0
 #define AM65_CPSW_MACSL_CTL_REG_IFCTL_A		BIT(15)
+#define AM65_CPSW_MACSL_CTL_EXT_EN		BIT(18)
 #define AM65_CPSW_MACSL_CTL_REG_GIG		BIT(7)
 #define AM65_CPSW_MACSL_CTL_REG_GMII_EN		BIT(5)
 #define AM65_CPSW_MACSL_CTL_REG_LOOPBACK	BIT(1)
@@ -99,7 +107,6 @@ struct am65_cpsw_common {
 
 	u32			port_num;
 	struct am65_cpsw_port	ports[AM65_CPSW_CPSWNU_MAX_PORTS];
-	u32			rflow_id_base;
 
 	struct mii_dev		*bus;
 	u32			bus_freq;
@@ -186,6 +193,9 @@ static int am65_cpsw_update_link(struct am65_cpsw_priv *priv)
 			      AM65_CPSW_MACSL_CTL_REG_GMII_EN;
 		if (phy->speed == 1000)
 			mac_control |= AM65_CPSW_MACSL_CTL_REG_GIG;
+		if (phy->speed == 10 && phy_interface_is_rgmii(phy))
+			/* Can be used with in band mode only */
+			mac_control |= AM65_CPSW_MACSL_CTL_EXT_EN;
 		if (phy->duplex == DUPLEX_FULL)
 			mac_control |= AM65_CPSW_MACSL_CTL_REG_FULL_DUPLEX;
 		if (phy->speed == 100)
@@ -234,11 +244,11 @@ static void am65_cpsw_gmii_sel_k3(struct am65_cpsw_priv *priv,
 		break;
 
 	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
 		mode = AM65_GMII_SEL_MODE_RGMII;
 		break;
 
 	case PHY_INTERFACE_MODE_RGMII_ID:
-	case PHY_INTERFACE_MODE_RGMII_RXID:
 	case PHY_INTERFACE_MODE_RGMII_TXID:
 		mode = AM65_GMII_SEL_MODE_RGMII;
 		rgmii_id = true;
@@ -271,11 +281,12 @@ static void am65_cpsw_gmii_sel_k3(struct am65_cpsw_priv *priv,
 
 static int am65_cpsw_start(struct udevice *dev)
 {
-	struct eth_pdata *pdata = dev_get_platdata(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
 	struct am65_cpsw_priv *priv = dev_get_priv(dev);
 	struct am65_cpsw_common	*common = priv->cpsw_common;
 	struct am65_cpsw_port *port = &common->ports[priv->port_id];
 	struct am65_cpsw_port *port0 = &common->ports[0];
+	struct ti_udma_drv_chan_cfg_data *dma_rx_cfg_data;
 	int ret, i;
 
 	ret = power_domain_on(&common->pwrdmn);
@@ -341,8 +352,11 @@ static int am65_cpsw_start(struct udevice *dev)
 	writel(PKTSIZE_ALIGN, port0->port_base + AM65_CPSW_PN_RX_MAXLEN_REG);
 
 	/* set base flow_id */
-	writel(common->rflow_id_base,
+	dma_get_cfg(&common->dma_rx, 0, (void **)&dma_rx_cfg_data);
+	writel(dma_rx_cfg_data->flow_id_base,
 	       port0->port_base + AM65_CPSW_P0_FLOW_ID_REG);
+	dev_info(dev, "K3 CPSW: rflow_id_base: %u\n",
+		 dma_rx_cfg_data->flow_id_base);
 
 	/* Reset and enable the ALE */
 	writel(AM65_CPSW_ALE_CTL_REG_ENABLE | AM65_CPSW_ALE_CTL_REG_RESET_TBL |
@@ -352,6 +366,9 @@ static int am65_cpsw_start(struct udevice *dev)
 	/* port 0 put into forward mode */
 	writel(AM65_CPSW_ALE_PN_CTL_REG_MODE_FORWARD,
 	       common->ale_base + AM65_CPSW_ALE_PN_CTL_REG(0));
+
+	writel(AM65_CPSW_ALE_DEFTHREAD_EN,
+	       common->ale_base + AM65_CPSW_ALE_THREADMAPDEF_REG);
 
 	/* PORT x configuration */
 
@@ -497,7 +514,7 @@ static int am65_cpsw_read_rom_hwaddr(struct udevice *dev)
 {
 	struct am65_cpsw_priv *priv = dev_get_priv(dev);
 	struct am65_cpsw_common *common = priv->cpsw_common;
-	struct eth_pdata *pdata = dev_get_platdata(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
 	u32 mac_hi, mac_lo;
 
 	if (common->mac_efuse == FDT_ADDR_T_NONE)
@@ -546,7 +563,7 @@ static int am65_cpsw_phy_init(struct udevice *dev)
 {
 	struct am65_cpsw_priv *priv = dev_get_priv(dev);
 	struct am65_cpsw_common *cpsw_common = priv->cpsw_common;
-	struct eth_pdata *pdata = dev_get_platdata(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
 	struct phy_device *phydev;
 	u32 supported = PHY_GBIT_FEATURES;
 	int ret;
@@ -582,7 +599,7 @@ static int am65_cpsw_phy_init(struct udevice *dev)
 
 static int am65_cpsw_ofdata_parse_phy(struct udevice *dev, ofnode port_np)
 {
-	struct eth_pdata *pdata = dev_get_platdata(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
 	struct am65_cpsw_priv *priv = dev_get_priv(dev);
 	struct ofnode_phandle_args out_args;
 	const char *phy_mode;
@@ -632,7 +649,7 @@ out:
 static int am65_cpsw_probe_cpsw(struct udevice *dev)
 {
 	struct am65_cpsw_priv *priv = dev_get_priv(dev);
-	struct eth_pdata *pdata = dev_get_platdata(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
 	struct am65_cpsw_common *cpsw_common;
 	ofnode ports_np, node;
 	int ret, i;
@@ -669,12 +686,7 @@ static int am65_cpsw_probe_cpsw(struct udevice *dev)
 				AM65_CPSW_CPSW_NU_ALE_BASE;
 	cpsw_common->mdio_base = cpsw_common->ss_base + AM65_CPSW_MDIO_BASE;
 
-	cpsw_common->rflow_id_base = 0;
-	cpsw_common->rflow_id_base =
-			dev_read_u32_default(dev, "ti,rx-flow-id-base",
-					     cpsw_common->rflow_id_base);
-
-	ports_np = dev_read_subnode(dev, "ports");
+	ports_np = dev_read_subnode(dev, "ethernet-ports");
 	if (!ofnode_valid(ports_np)) {
 		ret = -ENOENT;
 		goto out;
@@ -707,11 +719,11 @@ static int am65_cpsw_probe_cpsw(struct udevice *dev)
 		if (!port_id)
 			continue;
 
-		priv->port_id = port_id;
 		cpsw_common->ports[port_id].disabled = disabled;
 		if (disabled)
 			continue;
 
+		priv->port_id = port_id;
 		ret = am65_cpsw_ofdata_parse_phy(dev, node);
 		if (ret)
 			goto out;
@@ -740,13 +752,6 @@ static int am65_cpsw_probe_cpsw(struct udevice *dev)
 		goto out;
 	}
 
-	node = dev_read_subnode(dev, "mdio");
-	if (!ofnode_valid(node)) {
-		dev_err(dev, "can't find mdio\n");
-		ret = -ENOENT;
-		goto out;
-	}
-
 	cpsw_common->bus_freq =
 			dev_read_u32_default(dev, "bus_freq",
 					     AM65_CPSW_MDIO_BUS_FREQ_DEF);
@@ -761,12 +766,11 @@ static int am65_cpsw_probe_cpsw(struct udevice *dev)
 	if (ret)
 		goto out;
 
-	dev_info(dev, "K3 CPSW: nuss_ver: 0x%08X cpsw_ver: 0x%08X ale_ver: 0x%08X Ports:%u rflow_id_base:%u mdio_freq:%u\n",
+	dev_info(dev, "K3 CPSW: nuss_ver: 0x%08X cpsw_ver: 0x%08X ale_ver: 0x%08X Ports:%u mdio_freq:%u\n",
 		 readl(cpsw_common->ss_base),
 		 readl(cpsw_common->cpsw_base),
 		 readl(cpsw_common->ale_base),
 		 cpsw_common->port_num,
-		 cpsw_common->rflow_id_base,
 		 cpsw_common->bus_freq);
 
 out:
@@ -777,6 +781,8 @@ out:
 
 static const struct udevice_id am65_cpsw_nuss_ids[] = {
 	{ .compatible = "ti,am654-cpsw-nuss" },
+	{ .compatible = "ti,j721e-cpsw-nuss" },
+	{ .compatible = "ti,am642-cpsw-nuss" },
 	{ }
 };
 
@@ -786,7 +792,7 @@ U_BOOT_DRIVER(am65_cpsw_nuss_slave) = {
 	.of_match = am65_cpsw_nuss_ids,
 	.probe	= am65_cpsw_probe_cpsw,
 	.ops	= &am65_cpsw_ops,
-	.priv_auto_alloc_size = sizeof(struct am65_cpsw_priv),
-	.platdata_auto_alloc_size = sizeof(struct eth_pdata),
+	.priv_auto	= sizeof(struct am65_cpsw_priv),
+	.plat_auto	= sizeof(struct eth_pdata),
 	.flags = DM_FLAG_ALLOC_PRIV_DMA,
 };

@@ -13,6 +13,10 @@
 #include <common.h>
 #include <dm.h>
 #include <env.h>
+#include <hang.h>
+#include <image.h>
+#include <init.h>
+#include <log.h>
 #include <mmc.h>
 #include <axp_pmic.h>
 #include <generic-phy.h>
@@ -23,7 +27,11 @@
 #include <asm/arch/dram.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/mmc.h>
+#include <asm/arch/prcm.h>
 #include <asm/arch/spl.h>
+#include <asm/global_data.h>
+#include <linux/delay.h>
+#include <u-boot/crc.h>
 #ifndef CONFIG_ARM64
 #include <asm/armv7.h>
 #endif
@@ -32,20 +40,12 @@
 #include <u-boot/crc.h>
 #include <env_internal.h>
 #include <linux/libfdt.h>
+#include <fdt_support.h>
 #include <nand.h>
 #include <net.h>
 #include <spl.h>
 #include <sy8106a.h>
 #include <asm/setup.h>
-
-/* SOO.tech */
-#include <fastboot.h>
-#include <g_dnl.h>
-#include <console.h>
-
-/* SOO.tech */
-extern void sunxi_musb_board_init(void);
-extern char fastboot_dl_in_progress;
 
 #if defined CONFIG_VIDEO_LCD_PANEL_I2C && !(defined CONFIG_SPL_BUILD)
 /* So that we can use pin names in Kconfig and sunxi_name_to_gpio() */
@@ -103,6 +103,10 @@ void i2c_init_board(void)
 #elif defined(CONFIG_MACH_SUN6I)
 	sunxi_gpio_set_cfgpin(SUNXI_GPH(14), SUN6I_GPH_TWI0);
 	sunxi_gpio_set_cfgpin(SUNXI_GPH(15), SUN6I_GPH_TWI0);
+	clock_twi_onoff(0, 1);
+#elif defined(CONFIG_MACH_SUN8I_V3S)
+	sunxi_gpio_set_cfgpin(SUNXI_GPB(6), SUN8I_V3S_GPB_TWI0);
+	sunxi_gpio_set_cfgpin(SUNXI_GPB(7), SUN8I_V3S_GPB_TWI0);
 	clock_twi_onoff(0, 1);
 #elif defined(CONFIG_MACH_SUN8I)
 	sunxi_gpio_set_cfgpin(SUNXI_GPH(2), SUN8I_GPH_TWI0);
@@ -194,6 +198,10 @@ void i2c_init_board(void)
 	clock_twi_onoff(5, 1);
 	sunxi_gpio_set_cfgpin(SUNXI_GPL(8), SUN50I_GPL_R_TWI);
 	sunxi_gpio_set_cfgpin(SUNXI_GPL(9), SUN50I_GPL_R_TWI);
+#elif CONFIG_MACH_SUN50I_H616
+	clock_twi_onoff(5, 1);
+	sunxi_gpio_set_cfgpin(SUNXI_GPL(0), SUN50I_H616_GPL_R_TWI);
+	sunxi_gpio_set_cfgpin(SUNXI_GPL(1), SUN50I_H616_GPL_R_TWI);
 #else
 	clock_twi_onoff(5, 1);
 	sunxi_gpio_set_cfgpin(SUNXI_GPL(0), SUN8I_H3_GPL_R_TWI);
@@ -262,20 +270,30 @@ int board_init(void)
 	if (ret)
 		return ret;
 
-#ifdef CONFIG_SATAPWR
-	satapwr_pin = sunxi_name_to_gpio(CONFIG_SATAPWR);
-	gpio_request(satapwr_pin, "satapwr");
-	gpio_direction_output(satapwr_pin, 1);
-	/* Give attached sata device time to power-up to avoid link timeouts */
-	mdelay(500);
-#endif
-#ifdef CONFIG_MACPWR
-	macpwr_pin = sunxi_name_to_gpio(CONFIG_MACPWR);
-	gpio_request(macpwr_pin, "macpwr");
-	gpio_direction_output(macpwr_pin, 1);
-#endif
+	/* strcmp() would look better, but doesn't get optimised away. */
+	if (CONFIG_SATAPWR[0]) {
+		satapwr_pin = sunxi_name_to_gpio(CONFIG_SATAPWR);
+		if (satapwr_pin >= 0) {
+			gpio_request(satapwr_pin, "satapwr");
+			gpio_direction_output(satapwr_pin, 1);
 
-#ifdef CONFIG_DM_I2C
+			/*
+			 * Give the attached SATA device time to power-up
+			 * to avoid link timeouts
+			 */
+			mdelay(500);
+		}
+	}
+
+	if (CONFIG_MACPWR[0]) {
+		macpwr_pin = sunxi_name_to_gpio(CONFIG_MACPWR);
+		if (macpwr_pin >= 0) {
+			gpio_request(macpwr_pin, "macpwr");
+			gpio_direction_output(macpwr_pin, 1);
+		}
+	}
+
+#if CONFIG_IS_ENABLED(DM_I2C)
 	/*
 	 * Temporary workaround for enabling I2C clocks until proper sunxi DM
 	 * clk, reset and pinctrl drivers land.
@@ -320,6 +338,17 @@ static struct boot_file_head * get_spl_header(uint8_t req_version)
 	}
 
 	return spl;
+}
+
+static const char *get_spl_dt_name(void)
+{
+	struct boot_file_head *spl = get_spl_header(SPL_DT_HEADER_VERSION);
+
+	/* Check if there is a DT name stored in the SPL header. */
+	if (spl != INVALID_SPL_HEADER && spl->dt_name_offset)
+		return (char *)spl + spl->dt_name_offset;
+
+	return NULL;
 }
 
 int dram_init(void)
@@ -576,7 +605,7 @@ static void mmc_pinmux_setup(int sdc)
 	}
 }
 
-int board_mmc_init(bd_t *bis)
+int board_mmc_init(struct bd_info *bis)
 {
 	__maybe_unused struct mmc *mmc0, *mmc1;
 
@@ -621,16 +650,18 @@ void sunxi_board_init(void)
 #endif
 
 #if defined CONFIG_AXP152_POWER || defined CONFIG_AXP209_POWER || \
-	defined CONFIG_AXP221_POWER || defined CONFIG_AXP809_POWER || \
-	defined CONFIG_AXP818_POWER
+	defined CONFIG_AXP221_POWER || defined CONFIG_AXP305_POWER || \
+	defined CONFIG_AXP809_POWER || defined CONFIG_AXP818_POWER
 	power_failed = axp_init();
 
 #if defined CONFIG_AXP221_POWER || defined CONFIG_AXP809_POWER || \
 	defined CONFIG_AXP818_POWER
 	power_failed |= axp_set_dcdc1(CONFIG_AXP_DCDC1_VOLT);
 #endif
+#if !defined(CONFIG_AXP305_POWER)
 	power_failed |= axp_set_dcdc2(CONFIG_AXP_DCDC2_VOLT);
 	power_failed |= axp_set_dcdc3(CONFIG_AXP_DCDC3_VOLT);
+#endif
 #if !defined(CONFIG_AXP209_POWER) && !defined(CONFIG_AXP818_POWER)
 	power_failed |= axp_set_dcdc4(CONFIG_AXP_DCDC4_VOLT);
 #endif
@@ -643,8 +674,10 @@ void sunxi_board_init(void)
 	defined CONFIG_AXP818_POWER
 	power_failed |= axp_set_aldo1(CONFIG_AXP_ALDO1_VOLT);
 #endif
+#if !defined(CONFIG_AXP305_POWER)
 	power_failed |= axp_set_aldo2(CONFIG_AXP_ALDO2_VOLT);
-#if !defined(CONFIG_AXP152_POWER)
+#endif
+#if !defined(CONFIG_AXP152_POWER) && !defined(CONFIG_AXP305_POWER)
 	power_failed |= axp_set_aldo3(CONFIG_AXP_ALDO3_VOLT);
 #endif
 #ifdef CONFIG_AXP209_POWER
@@ -690,6 +723,41 @@ void sunxi_board_init(void)
 		clock_set_pll1(CONFIG_SYS_CLK_FREQ);
 	else
 		printf("Failed to set core voltage! Can't set CPU frequency\n");
+}
+#endif
+
+#ifdef CONFIG_USB_GADGET
+int g_dnl_board_usb_cable_connected(void)
+{
+	struct udevice *dev;
+	struct phy phy;
+	int ret;
+
+	ret = uclass_get_device(UCLASS_USB_GADGET_GENERIC, 0, &dev);
+	if (ret) {
+		pr_err("%s: Cannot find USB device\n", __func__);
+		return ret;
+	}
+
+	ret = generic_phy_get_by_name(dev, "usb", &phy);
+	if (ret) {
+		pr_err("failed to get %s USB PHY\n", dev->name);
+		return ret;
+	}
+
+	ret = generic_phy_init(&phy);
+	if (ret) {
+		pr_debug("failed to init %s USB PHY\n", dev->name);
+		return ret;
+	}
+
+	ret = sun4i_usb_phy_vbus_detect(&phy);
+	if (ret == 1) {
+		pr_err("A charger is plugged into the OTG\n");
+		return -ENODEV;
+	}
+
+	return ret;
 }
 #endif
 
@@ -741,6 +809,38 @@ static void parse_spl_header(const uint32_t spl_addr)
 	env_set_hex("fel_scriptaddr", spl->fel_script_address);
 }
 
+static bool get_unique_sid(unsigned int *sid)
+{
+	if (sunxi_get_sid(sid) != 0)
+		return false;
+
+	if (!sid[0])
+		return false;
+
+	/*
+	 * The single words 1 - 3 of the SID have quite a few bits
+	 * which are the same on many models, so we take a crc32
+	 * of all 3 words, to get a more unique value.
+	 *
+	 * Note we only do this on newer SoCs as we cannot change
+	 * the algorithm on older SoCs since those have been using
+	 * fixed mac-addresses based on only using word 3 for a
+	 * long time and changing a fixed mac-address with an
+	 * u-boot update is not good.
+	 */
+#if !defined(CONFIG_MACH_SUN4I) && !defined(CONFIG_MACH_SUN5I) && \
+    !defined(CONFIG_MACH_SUN6I) && !defined(CONFIG_MACH_SUN7I) && \
+    !defined(CONFIG_MACH_SUN8I_A23) && !defined(CONFIG_MACH_SUN8I_A33)
+	sid[3] = crc32(0, (unsigned char *)&sid[1], 12);
+#endif
+
+	/* Ensure the NIC specific bytes of the mac are not all 0 */
+	if ((sid[3] & 0xffffff) == 0)
+		sid[3] |= 0x800000;
+
+	return true;
+}
+
 /*
  * Note this function gets called multiple times.
  * It must not make any changes to env variables which already exist.
@@ -751,66 +851,46 @@ static void setup_environment(const void *fdt)
 	unsigned int sid[4];
 	uint8_t mac_addr[6];
 	char ethaddr[16];
-	int i, ret;
+	int i;
 
-	ret = sunxi_get_sid(sid);
-	if (ret == 0 && sid[0] != 0) {
-		/*
-		 * The single words 1 - 3 of the SID have quite a few bits
-		 * which are the same on many models, so we take a crc32
-		 * of all 3 words, to get a more unique value.
-		 *
-		 * Note we only do this on newer SoCs as we cannot change
-		 * the algorithm on older SoCs since those have been using
-		 * fixed mac-addresses based on only using word 3 for a
-		 * long time and changing a fixed mac-address with an
-		 * u-boot update is not good.
-		 */
-#if !defined(CONFIG_MACH_SUN4I) && !defined(CONFIG_MACH_SUN5I) && \
-    !defined(CONFIG_MACH_SUN6I) && !defined(CONFIG_MACH_SUN7I) && \
-    !defined(CONFIG_MACH_SUN8I_A23) && !defined(CONFIG_MACH_SUN8I_A33)
-		sid[3] = crc32(0, (unsigned char *)&sid[1], 12);
-#endif
+	if (!get_unique_sid(sid))
+		return;
 
-		/* Ensure the NIC specific bytes of the mac are not all 0 */
-		if ((sid[3] & 0xffffff) == 0)
-			sid[3] |= 0x800000;
+	for (i = 0; i < 4; i++) {
+		sprintf(ethaddr, "ethernet%d", i);
+		if (!fdt_get_alias(fdt, ethaddr))
+			continue;
 
-		for (i = 0; i < 4; i++) {
-			sprintf(ethaddr, "ethernet%d", i);
-			if (!fdt_get_alias(fdt, ethaddr))
-				continue;
+		if (i == 0)
+			strcpy(ethaddr, "ethaddr");
+		else
+			sprintf(ethaddr, "eth%daddr", i);
 
-			if (i == 0)
-				strcpy(ethaddr, "ethaddr");
-			else
-				sprintf(ethaddr, "eth%daddr", i);
+		if (env_get(ethaddr))
+			continue;
 
-			if (env_get(ethaddr))
-				continue;
+		/* Non OUI / registered MAC address */
+		mac_addr[0] = (i << 4) | 0x02;
+		mac_addr[1] = (sid[0] >>  0) & 0xff;
+		mac_addr[2] = (sid[3] >> 24) & 0xff;
+		mac_addr[3] = (sid[3] >> 16) & 0xff;
+		mac_addr[4] = (sid[3] >>  8) & 0xff;
+		mac_addr[5] = (sid[3] >>  0) & 0xff;
 
-			/* Non OUI / registered MAC address */
-			mac_addr[0] = (i << 4) | 0x02;
-			mac_addr[1] = (sid[0] >>  0) & 0xff;
-			mac_addr[2] = (sid[3] >> 24) & 0xff;
-			mac_addr[3] = (sid[3] >> 16) & 0xff;
-			mac_addr[4] = (sid[3] >>  8) & 0xff;
-			mac_addr[5] = (sid[3] >>  0) & 0xff;
+		eth_env_set_enetaddr(ethaddr, mac_addr);
+	}
 
-			eth_env_set_enetaddr(ethaddr, mac_addr);
-		}
+	if (!env_get("serial#")) {
+		snprintf(serial_string, sizeof(serial_string),
+			"%08x%08x", sid[0], sid[3]);
 
-		if (!env_get("serial#")) {
-			snprintf(serial_string, sizeof(serial_string),
-				"%08x%08x", sid[0], sid[3]);
-
-			env_set("serial#", serial_string);
-		}
+		env_set("serial#", serial_string);
 	}
 }
 
 int misc_init_r(void)
 {
+	const char *spl_dt_name;
 	uint boot;
 
 	env_set("fel_booted", NULL);
@@ -829,19 +909,63 @@ int misc_init_r(void)
 		env_set("mmc_bootdev", "1");
 	}
 
+	/* Set fdtfile to match the FIT configuration chosen in SPL. */
+	spl_dt_name = get_spl_dt_name();
+	if (spl_dt_name) {
+		char *prefix = IS_ENABLED(CONFIG_ARM64) ? "allwinner/" : "";
+		char str[64];
+
+		snprintf(str, sizeof(str), "%s%s.dtb", prefix, spl_dt_name);
+		env_set("fdtfile", str);
+	}
+
 	setup_environment(gd->fdt_blob);
-
-#ifdef CONFIG_USB_ETHER
-	usb_ether_init();
-#endif
-
-	/* SOO.tech */
-	sunxi_musb_board_init();
 
 	return 0;
 }
 
-int ft_board_setup(void *blob, bd_t *bd)
+int board_late_init(void)
+{
+#ifdef CONFIG_USB_ETHER
+	usb_ether_init();
+#endif
+
+	return 0;
+}
+
+static void bluetooth_dt_fixup(void *blob)
+{
+	/* Some devices ship with a Bluetooth controller default address.
+	 * Set a valid address through the device tree.
+	 */
+	uchar tmp[ETH_ALEN], bdaddr[ETH_ALEN];
+	unsigned int sid[4];
+	int i;
+
+	if (!CONFIG_BLUETOOTH_DT_DEVICE_FIXUP[0])
+		return;
+
+	if (eth_env_get_enetaddr("bdaddr", tmp)) {
+		/* Convert between the binary formats of the corresponding stacks */
+		for (i = 0; i < ETH_ALEN; ++i)
+			bdaddr[i] = tmp[ETH_ALEN - i - 1];
+	} else {
+		if (!get_unique_sid(sid))
+			return;
+
+		bdaddr[0] = ((sid[3] >>  0) & 0xff) ^ 1;
+		bdaddr[1] = (sid[3] >>  8) & 0xff;
+		bdaddr[2] = (sid[3] >> 16) & 0xff;
+		bdaddr[3] = (sid[3] >> 24) & 0xff;
+		bdaddr[4] = (sid[0] >>  0) & 0xff;
+		bdaddr[5] = 0x02;
+	}
+
+	do_fixup_by_compat(blob, CONFIG_BLUETOOTH_DT_DEVICE_FIXUP,
+			   "local-bd-address", bdaddr, ETH_ALEN, 1);
+}
+
+int ft_board_setup(void *blob, struct bd_info *bd)
 {
 	int __maybe_unused r;
 
@@ -850,6 +974,8 @@ int ft_board_setup(void *blob, bd_t *bd)
 	 * ethernet aliases the u-boot copy does not have.
 	 */
 	setup_environment(blob);
+
+	bluetooth_dt_fixup(blob);
 
 #ifdef CONFIG_VIDEO_DT_SIMPLEFB
 	r = sunxi_simplefb_setup(blob);
@@ -860,123 +986,72 @@ int ft_board_setup(void *blob, bd_t *bd)
 }
 
 #ifdef CONFIG_SPL_LOAD_FIT
+
+static void set_spl_dt_name(const char *name)
+{
+	struct boot_file_head *spl = get_spl_header(SPL_ENV_HEADER_VERSION);
+
+	if (spl == INVALID_SPL_HEADER)
+		return;
+
+	/* Promote the header version for U-Boot proper, if needed. */
+	if (spl->spl_signature[3] < SPL_DT_HEADER_VERSION)
+		spl->spl_signature[3] = SPL_DT_HEADER_VERSION;
+
+	strcpy((char *)&spl->string_pool, name);
+	spl->dt_name_offset = offsetof(struct boot_file_head, string_pool);
+}
+
 int board_fit_config_name_match(const char *name)
 {
-	struct boot_file_head *spl = get_spl_header(SPL_DT_HEADER_VERSION);
-	const char *cmp_str = (const char *)spl;
-
-	/* Check if there is a DT name stored in the SPL header and use that. */
-	if (spl != INVALID_SPL_HEADER && spl->dt_name_offset) {
-		cmp_str += spl->dt_name_offset;
-	} else {
-#ifdef CONFIG_DEFAULT_DEVICE_TREE
-		cmp_str = CONFIG_DEFAULT_DEVICE_TREE;
-#else
-		return 0;
-#endif
-	};
-
-#ifdef CONFIG_PINE64_DT_SELECTION
-/* Differentiate the two Pine64 board DTs by their DRAM size. */
-	if (strstr(name, "-pine64") && strstr(cmp_str, "-pine64")) {
-		if ((gd->ram_size > 512 * 1024 * 1024))
-			return !strstr(name, "plus");
-		else
-			return !!strstr(name, "plus");
-	} else {
-		return strcmp(name, cmp_str);
-	}
-#endif
-	return strcmp(name, cmp_str);
-}
-#endif
-
-/* SOO.tech */
-static int enter_fastboot(void)
-{
-	const int controller_index = 0;
+	const char *best_dt_name = get_spl_dt_name();
 	int ret;
-	ulong timestamp_begin, timestamp;
 
-	printf("SYS_CLK: %u\n", CONFIG_SYS_CLK_FREQ);
-	printf("DRAM_CLK: %u\n", CONFIG_DRAM_CLK);
+#ifdef CONFIG_DEFAULT_DEVICE_TREE
+	if (best_dt_name == NULL)
+		best_dt_name = CONFIG_DEFAULT_DEVICE_TREE;
+#endif
 
-	/* enter fastboot mode */
-	printf("Entering fastboot mode...\n");
-
-	g_dnl_clear_detach();
-	ret = g_dnl_register("usb_dnl_fastboot");
-	if (ret)
-		return ret;
-
-	printf("Fastboot mode - You can send fastboot commands during 5 secs...\n");
-
-	/* non persistent Fastboot */
-	timestamp_begin = get_timer(0);
-	while (1) {
-		if (g_dnl_detach())
-			break;
-		if (ctrlc())
-			break;
-
-		/* non persistent Fastboot */
-		timestamp = get_timer(timestamp_begin);
-		if ((!fastboot_dl_in_progress) && (timestamp >= FASTBOOT_MODE_DURATION_MS))
-			break;
-		usb_gadget_handle_interrupts(controller_index);
+	if (best_dt_name == NULL) {
+		/* No DT name was provided, so accept the first config. */
+		return 0;
 	}
+#ifdef CONFIG_PINE64_DT_SELECTION
+	if (strstr(best_dt_name, "-pine64-plus")) {
+		/* Differentiate the Pine A64 boards by their DRAM size. */
+		if ((gd->ram_size == 512 * 1024 * 1024))
+			best_dt_name = "sun50i-a64-pine64";
+	}
+#endif
+#ifdef CONFIG_PINEPHONE_DT_SELECTION
+	if (strstr(best_dt_name, "-pinephone")) {
+		/* Differentiate the PinePhone revisions by GPIO inputs. */
+		prcm_apb0_enable(PRCM_APB0_GATE_PIO);
+		sunxi_gpio_set_pull(SUNXI_GPL(6), SUNXI_GPIO_PULL_UP);
+		sunxi_gpio_set_cfgpin(SUNXI_GPL(6), SUNXI_GPIO_INPUT);
+		udelay(100);
 
-	fastboot_dl_in_progress = 0;
+		/* PL6 is pulled low by the modem on v1.2. */
+		if (gpio_get_value(SUNXI_GPL(6)) == 0)
+			best_dt_name = "sun50i-a64-pinephone-1.2";
+		else
+			best_dt_name = "sun50i-a64-pinephone-1.1";
 
-	ret = 0;
+		sunxi_gpio_set_cfgpin(SUNXI_GPL(6), SUNXI_GPIO_DISABLE);
+		sunxi_gpio_set_pull(SUNXI_GPL(6), SUNXI_GPIO_PULL_DISABLE);
+		prcm_apb0_disable(PRCM_APB0_GATE_PIO);
+	}
+#endif
 
-	g_dnl_unregister();
-	g_dnl_clear_detach();
-	board_usb_cleanup(controller_index, USB_INIT_DEVICE);
+	ret = strcmp(name, best_dt_name);
+
+	/*
+	 * If one of the FIT configurations matches the most accurate DT name,
+	 * update the SPL header to provide that DT name to U-Boot proper.
+	 */
+	if (ret == 0)
+		set_spl_dt_name(best_dt_name);
 
 	return ret;
 }
-
-#warning TODO detect if we are in FEL-mode and adapt the bootcmd command (which at the end will read the MMC !)
-
-/* SOO.tech */
-/* Adding a last stage init to prepare fastboot/JTAG to be used. */
-int last_stage_init(void)
-{
-	int fastboot;
-
-	/* Using the standard bootcmd. */
-	env_set("fastboot_bootcmd", CONFIG_FASTBOOTCOMMAND);
-
-#ifdef CONFIG_AUTO_JTAG
-    volatile int *pb_cfg0_reg = (int *) PB_CFG0_REG_ADDR;
 #endif
-    
-#ifdef CONFIG_AUTO_JTAG
-    /* Enable JTAG pins */
-    *pb_cfg0_reg = (int) PB_CFG0_REG_ENABLE_JTAG;
-#endif
-
-#ifdef CONFIG_AUTO_FASTBOOT
-	/* Enter in fastboot mode */
-	return enter_fastboot();
-#endif
-
-	/* check if GPIO_1v8_9 is high */
-	gpio_request(SUNXI_GPG(6), "fastboot-pin1");
-	gpio_direction_input(SUNXI_GPG(6));
-	fastboot = gpio_get_value(SUNXI_GPG(6));
-
-	if (fastboot != 0)
-		return enter_fastboot();
-
-	/* check if JTAG_MS0 is low */
-	gpio_request(SUNXI_GPB(0), "fastboot-pin2");
-	gpio_direction_input(SUNXI_GPB(0));
-	fastboot = gpio_get_value(SUNXI_GPB(0));
-
-	if (fastboot == 0)
-		return enter_fastboot();
-
-	return 0;
-}

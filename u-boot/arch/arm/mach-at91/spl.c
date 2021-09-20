@@ -5,6 +5,7 @@
  */
 
 #include <common.h>
+#include <hang.h>
 #include <asm/io.h>
 #include <asm/arch/at91_common.h>
 #include <asm/arch/at91_wdt.h>
@@ -25,7 +26,7 @@ void at91_disable_wdt(void)
 #include <asm/arch/sama5_boot.h>
 struct {
 	u32	r4;
-} bootrom_stash __attribute__((section(".data")));
+} bootrom_stash __section(".data");
 
 u32 spl_boot_device(void)
 {

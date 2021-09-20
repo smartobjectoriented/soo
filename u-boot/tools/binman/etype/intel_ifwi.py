@@ -7,13 +7,13 @@
 
 from collections import OrderedDict
 
-from entry import Entry
-from blob import Entry_blob
-import fdt_util
-import tools
+from binman.entry import Entry
+from binman.etype.blob_ext import Entry_blob_ext
+from dtoc import fdt_util
+from patman import tools
 
-class Entry_intel_ifwi(Entry_blob):
-    """Entry containing an Intel Integrated Firmware Image (IFWI) file
+class Entry_intel_ifwi(Entry_blob_ext):
+    """Intel Integrated Firmware Image (IFWI) file
 
     Properties / Entry arguments:
         - filename: Filename of file to read into entry. This is either the
@@ -37,21 +37,21 @@ class Entry_intel_ifwi(Entry_blob):
     sub-partition (and optional entry name).
 
     Properties for subnodes:
-        ifwi-subpart - sub-parition to put this entry into, e.g. "IBBP"
-        ifwi-entry - entry name t use, e.g. "IBBL"
-        ifwi-replace - if present, indicates that the item should be replaced
-            in the IFWI. Otherwise it is added.
+        - ifwi-subpart: sub-parition to put this entry into, e.g. "IBBP"
+        - ifwi-entry: entry name t use, e.g. "IBBL"
+        - ifwi-replace: if present, indicates that the item should be replaced
+          in the IFWI. Otherwise it is added.
 
     See README.x86 for information about x86 binary blobs.
     """
     def __init__(self, section, etype, node):
-        Entry_blob.__init__(self, section, etype, node)
+        super().__init__(section, etype, node)
         self._convert_fit = fdt_util.GetBool(self._node, 'convert-fit')
         self._ifwi_entries = OrderedDict()
 
     def ReadNode(self):
         self._ReadSubnodes()
-        Entry_blob.ReadNode(self)
+        super().ReadNode()
 
     def _BuildIfwi(self):
         """Build the contents of the IFWI and write it to the 'data' property"""
@@ -71,7 +71,7 @@ class Entry_intel_ifwi(Entry_blob):
 
         for entry in self._ifwi_entries.values():
             # First get the input data and put it in a file
-            data = entry.GetData()
+            data = entry.GetPaddedData()
             uniq = self.GetUniqueName()
             input_fname = tools.GetOutputFilename('input.%s' % uniq)
             tools.WriteFile(input_fname, data)
@@ -84,7 +84,7 @@ class Entry_intel_ifwi(Entry_blob):
         return True
 
     def ObtainContents(self):
-        """Get the contects for the IFWI
+        """Get the contents for the IFWI
 
         Unfortunately we cannot create anything from scratch here, as Intel has
         tools which create precursor binaries with lots of data and settings,
@@ -97,13 +97,21 @@ class Entry_intel_ifwi(Entry_blob):
         After that we delete the OBBP sub-partition and add each of the files
         that we want in the IFWI file, one for each sub-entry of the IWFI node.
         """
-        self._pathname = tools.GetInputFilename(self._filename)
+        self._pathname = tools.GetInputFilename(self._filename,
+                                                self.section.GetAllowMissing())
+        # Allow the file to be missing
+        if not self._pathname:
+            self.SetContents(b'')
+            self.missing = True
+            return True
         for entry in self._ifwi_entries.values():
             if not entry.ObtainContents():
                 return False
         return self._BuildIfwi()
 
     def ProcessContents(self):
+        if self.missing:
+            return True
         orig_data = self.data
         self._BuildIfwi()
         same = orig_data == self.data
@@ -121,5 +129,6 @@ class Entry_intel_ifwi(Entry_blob):
 
     def WriteSymbols(self, section):
         """Write symbol values into binary files for access at run time"""
-        for entry in self._ifwi_entries.values():
-            entry.WriteSymbols(self)
+        if not self.missing:
+            for entry in self._ifwi_entries.values():
+                entry.WriteSymbols(self)
