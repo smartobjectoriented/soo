@@ -250,6 +250,9 @@ int bootm_find_images(int flag, int argc, char *const argv[], ulong start,
 		      ulong size)
 {
 	int ret;
+	int emmcbus_offset;
+	const struct fdt_property *emmcbus_prop_src;
+	int proplen;
 
 	/* find ramdisk */
 	ret = boot_get_ramdisk(argc, argv, &images, IH_INITRD_ARCH,
@@ -272,6 +275,7 @@ int bootm_find_images(int flag, int argc, char *const argv[], ulong start,
 	}
 
 #if IMAGE_ENABLE_OF_LIBFDT
+
 	/* find flattened device tree */
 	ret = boot_get_fdt(flag, argc, argv, IH_ARCH_DEFAULT, &images,
 			   &images.ft_addr, &images.ft_len);
@@ -290,6 +294,42 @@ int bootm_find_images(int flag, int argc, char *const argv[], ulong start,
 		       start, start + size);
 		return 1;
 	}
+
+
+/* SOO.tech */
+
+#ifdef CONFIG_BCM2711
+	/*
+	 * With Raspberry Pi 4, the firmware will patch the device tree got from
+	 * the boot partition (bcm2711.dtb) to adapt the dma address ranges of the
+	 * emmc2 device. It appeared with the 8 GB version where the bus address
+	 * can be more than 1 GB.
+	 *
+	 * Since we are using a static DT, we perform the patch now once we got the
+	 * DT stored in the ITB file.
+	 */
+
+	/* Find the node related to emmc2bus in order to path it with the patched DT from RPi4 FW */
+	emmcbus_offset = fdt_path_offset(gd->fdt_blob, "/emmc2bus");
+	if (emmcbus_offset < 0) {
+		printf("ERROR: Can't find emmc2bus in the got patched FT (RPi 4)\n");
+		return 1;
+	}
+	emmcbus_prop_src = fdt_get_property(gd->fdt_blob, emmcbus_offset, "dma-ranges", &proplen);
+	if (!emmcbus_prop_src) {
+		printf("ERROR: Can't find the dma-ranges property in the emmc2bus node.\n");
+		return 1;
+	}
+
+	emmcbus_offset = fdt_path_offset(images.ft_addr, "/emmc2bus");
+	if (emmcbus_offset < 0) {
+		printf("ERROR: Can't find emmc2bus in the DT stored in the ITB\n");
+		return 1;
+	}
+
+	fdt_setprop(images.ft_addr, emmcbus_offset, "dma-ranges", emmcbus_prop_src->data, proplen);
+
+#endif /* CONFIG_BCM2711 */
 
 	if (CONFIG_IS_ENABLED(CMD_FDT))
 		set_working_fdt_addr(map_to_sysmem(images.ft_addr));
