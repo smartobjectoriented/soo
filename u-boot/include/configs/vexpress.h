@@ -11,6 +11,9 @@
 #ifndef __VEXPRESS_H
 #define __VEXPRESS_H
 
+/* SOO.tech */
+#define CONFIG_SYS_BOOTM_LEN	64 << 20
+
 /*
  * Definitions copied from linux kernel:
  * arch/arm/mach-vexpress/include/mach/motherboard.h
@@ -158,8 +161,7 @@
 			"bootm ${kernel_addr} ${ramdisk_addr_r}\0"
 #endif /* 0 */
 #define CONFIG_BOOTCOMMAND \
-            "fatload mmc 0 0x82000000 uEnv.txt; env import 0x82000000; run start\0" \
-            "bootdelay=0\0"
+            "fatload mmc 0 0x82000000 uEnv.txt; env import 0x82000000; run start\0" 
 
 /* FLASH and environment organization */
 #define PHYS_FLASH_SIZE			0x04000000	/* 64MB */

@@ -316,23 +316,24 @@ int bootm_find_images(int flag, int argc, char *const argv[], ulong start,
 	/* Find the node related to emmc2bus in order to path it with the patched DT from RPi4 FW */
 	emmcbus_offset = fdt_path_offset(gd->fdt_blob, "/emmc2bus");
 	if (emmcbus_offset < 0) {
-		printf("ERROR: Can't find emmc2bus in the got patched FT (RPi 4)\n");
-		return 1;
+		printf("WARNING: Can't find emmc2bus in the got patched FT (RPi 4)\n");
+		goto out;
 	}
+
 	emmcbus_prop_src = fdt_get_property(gd->fdt_blob, emmcbus_offset, "dma-ranges", &proplen);
 	if (!emmcbus_prop_src) {
-		printf("ERROR: Can't find the dma-ranges property in the emmc2bus node.\n");
-		return 1;
+		printf("WARNING: Can't find the dma-ranges property in the emmc2bus node.\n");
+		goto out;
 	}
 
 	emmcbus_offset = fdt_path_offset(images.ft_addr, "/emmc2bus");
 	if (emmcbus_offset < 0) {
-		printf("ERROR: Can't find emmc2bus in the DT stored in the ITB\n");
-		return 1;
+		printf("WARNING: Can't find emmc2bus in the DT stored in the ITB\n");
+		goto out;
 	}
 
 	fdt_setprop(images.ft_addr, emmcbus_offset, "dma-ranges", emmcbus_prop_src->data, proplen);
-
+out:
 #endif /* CONFIG_BCM2711 */
 
 	if (CONFIG_IS_ENABLED(CMD_FDT))

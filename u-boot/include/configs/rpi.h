@@ -57,9 +57,12 @@
 #define CONFIG_SYS_MALLOC_LEN		SZ_4M
 #define CONFIG_LOADADDR			0x00200000
 
+#if 0 /* SOO.tech */
 #ifdef CONFIG_ARM64
 #define CONFIG_SYS_BOOTM_LEN		SZ_64M
 #endif
+#endif /* 0 */
+#define CONFIG_SYS_BOOTM_LEN		SZ_64M
 
 /* Devices */
 /* GPIO */

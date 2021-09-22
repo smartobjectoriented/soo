@@ -29,8 +29,6 @@
 #include <uapi/linux/dma-buf.h>
 #include <uapi/linux/magic.h>
 
-#include <soo/uapi/console.h>
-
 static inline int is_dma_buf_file(struct file *);
 
 struct dma_buf_list {

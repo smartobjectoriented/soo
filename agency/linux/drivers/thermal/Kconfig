@@ -210,12 +210,6 @@ config THERMAL_MMIO
 	  register or shared memory, is a potential candidate to work with this
 	  driver.
 
-# SOO.tech
-config SUNXI_THS
-	bool "Sunxi THS"
-	help
-	  Sunxi thermal sensor. Direct access to the THS registers.
-
 config HISI_THERMAL
 	tristate "Hisilicon thermal driver"
 	depends on ARCH_HISI || COMPILE_TEST

@@ -20,12 +20,6 @@
 #include <linux/regmap.h>
 #include <linux/stmmac.h>
 
-/* SOO.tech */
-#include <linux/gpio.h>
-#include <linux/of_gpio.h>
-
-#include <soo/uapi/console.h>
-
 #include "stmmac.h"
 #include "stmmac_platform.h"
 
@@ -1119,9 +1113,6 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
 	struct net_device *ndev;
 	struct regmap *regmap;
 
-	/* SOO.tech */
-	int reset_gpio;
-
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return ret;
@@ -1145,32 +1136,6 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
 		dev_err(dev, "Could not get TX clock\n");
 		return PTR_ERR(gmac->tx_clk);
 	}
-
-	/* SOO.tech */
-	/* force reset */
-
-	reset_gpio = of_get_named_gpio(dev->of_node, "reset-gpio", 0);
-	if (reset_gpio == -EPROBE_DEFER)
-		return reset_gpio;
-	if (reset_gpio < 0) {
-		lprintk("Error acquiring reset gpio: %d\n", reset_gpio);
-		return reset_gpio;
-	}
-	ret = devm_gpio_request_one(dev, reset_gpio, 0, "dwmac-sun8i reset");
-	if (ret) {
-		lprintk("Error acquiring reset gpio: %d\n", reset_gpio);
-		return ret;
-	}
-
-	/* Set the RESET GPIO pin to 0 */
-	gpio_set_value(reset_gpio, 0);
-	msleep(100);
-
-	/* Set the RESET GPIO pin to 1 */
-	gpio_set_value(reset_gpio, 1);
-	msleep(100);
-
-	/* end of paravirt */
 
 	/* Optional regulator for PHY */
 	gmac->regulator = devm_regulator_get_optional(dev, "phy");

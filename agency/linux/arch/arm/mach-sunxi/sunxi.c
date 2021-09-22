@@ -110,14 +110,3 @@ static const char * const suniv_board_dt_compat[] = {
 DT_MACHINE_START(SUNIV_DT, "Allwinner suniv Family")
 	.dt_compat	= suniv_board_dt_compat,
 MACHINE_END
-
-/* SOO.tech */
-
-static const char * const sun50i_board_dt_compat[] = {
-	"allwinner,sun50i-a64",
-	NULL,
-};
-
-DT_MACHINE_START(SUN50I_DT, "Allwinner sun50i (A64) Family")
-	.dt_compat	= sun50i_board_dt_compat,
-MACHINE_END

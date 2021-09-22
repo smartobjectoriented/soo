@@ -1,12 +1,11 @@
 #
-# Automatically generated make config: don't edit
-# AVZ Configuration
+# Automatically generated file; DO NOT EDIT.
+# AVZ Hypervisor configuration
 #
-
-#
-# General
-#
-CONFIG_CROSS_COMPILE="arm-none-linux-gnueabihf-"
+CONFIG_ARCH_ARM32=y
+# CONFIG_ARCH_ARM64 is not set
+CONFIG_ARCH="arm32"
+CONFIG_CROSS_COMPILE="arm-linux-gnueabihf-"
 
 #
 # Platform
@@ -14,7 +13,7 @@ CONFIG_CROSS_COMPILE="arm-none-linux-gnueabihf-"
 # CONFIG_VEXPRESS is not set
 CONFIG_RPI4=y
 CONFIG_RAM_BASE=0x00000000
-CONFIG_RAM_SIZE=0x3f000000
+CONFIG_RAM_SIZE=0x3b000000
 # end of Platform
 
 #
