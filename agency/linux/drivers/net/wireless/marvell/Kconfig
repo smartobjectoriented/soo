@@ -25,29 +25,4 @@ config MWL8K
 	  To compile this driver as a module, choose M here: the module
 	  will be called mwl8k.  If unsure, say N.
 
-# SOO.tech
-# +MARVELL_MWIFIEX_MLAN +MARVELL_MWIFIEX_MOAL
-config MARVELL_MWIFIEX_MLAN
-	bool "Marvell mlan core"
-
-config MARVELL_MWIFIEX_MOAL
-	bool "Marvell linux control abstraction layer"
-
-	---help---
-	  This adds support for wireless adapters based on Marvell
-	  802.11n/ac chipsets.
-
-	  If you choose to build it as a module, it will be called
-	  mwifiex.
-	
-# SOO.tech
-# This option selects WIRELESS_EXT and WEXT_PRIV, which should be enabled
-# if you are planning to use iwpriv. Please note that the WEXT features
-# are mutually exclusive with the CFG80211 ones, that is, you will not be
-# able to use iw if MARVELL_WEXT is enabled.
-config MARVELL_WEXT
-	bool "Wireless extensions for Marvell"
-	select WIRELESS_EXT
-	select WEXT_PRIV
-
 endif # WLAN_VENDOR_MARVELL
