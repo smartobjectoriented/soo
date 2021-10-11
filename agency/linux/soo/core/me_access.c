@@ -26,6 +26,7 @@
 #include <soo/vbus.h>
 #include <soo/roxml.h>
 
+#include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
 #include <soo/uapi/debug.h>
 #include <soo/uapi/me_access.h>
