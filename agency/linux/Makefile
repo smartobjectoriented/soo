@@ -368,7 +368,7 @@ endif
 
 ifeq ($(PLATFORM),$(filter $(PLATFORM),vexpress rpi4))
 ARCH = arm
-CROSS_COMPILE = arm-linux-gnueabihf-
+CROSS_COMPILE = arm-none-linux-gnueabihf-
 endif
 
 # Architecture as present in compile.h
