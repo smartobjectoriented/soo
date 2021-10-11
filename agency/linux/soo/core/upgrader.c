@@ -22,6 +22,8 @@
 
 #include <soo/vbus.h>
 
+#include <soo/uapi/console.h>
+
 #include <soo/core/upgrader.h>
 
 /* For the upgrade */
