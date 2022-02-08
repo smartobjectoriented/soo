@@ -1,0 +1,21 @@
+
+menu "Sizes and static limits"
+
+config XENO_OPT_REGISTRY_NRSLOTS
+	int "Number of registry slots"
+	default 512
+	help
+	The registry is used by the Cobalt kernel to export named
+	resources to user-space programs via the /proc interface.
+	Each named resource occupies a registry slot. This option sets
+	the maximum number of resources the registry can handle.
+
+config XENO_OPT_SYS_HEAPSZ
+	int "Size of system heap (Kb)"
+	default 512
+	help
+	The system heap is used for various internal allocations by
+	the Cobalt kernel. The size is expressed in Kilobytes.
+
+
+endmenu
