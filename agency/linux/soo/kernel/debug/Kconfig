@@ -1,9 +1,0 @@
-menuconfig VIRTSHARE_DEBUG
-	default y
-	bool "Virtshare debugging tools"
-
-if VIRTSHARE_DEBUG
-
-
-
-endif # VIRTSHARE_DEBUG
