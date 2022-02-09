@@ -21,16 +21,9 @@
 
 #include <soo/sooenv.h>
 
-#include <soo/dev/vuart.h>
-
 #include <soo/hypervisor.h>
 
 #include <soo/uapi/console.h>
-
-#ifdef CONFIG_X86
-#include <linux/smp.h>
-#include <opencn/frontend/vlog.h>
-#endif
 
 /* Agency Core */
 static bool log_soo_core = false;
@@ -57,28 +50,21 @@ static bool log_soo_soolink_winenet_ack = false;
 
 static bool log_soo_soolink_plugin = false;
 
+/* Backends */
+static bool log_soo_backend_vsenseled = true;
+
 struct mutex soo_log_lock;
 
 bool __soo_log_lock_initialized = false;
 
 extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
-#ifdef CONFIG_X86
-extern bool send_to_uart(char *str);
-extern void smp_kick_vt_out(void);
-
-atomic64_t str_to_print;
-
-#endif
-
 void (*__printch)(char c) = NULL;
 
 void __lprintk(const char *format, va_list va) {
 	char buf[CONSOLEIO_BUFFER_SIZE];
 	char *__start;
-#ifndef CONFIG_X86
 	int i;
-#endif
 
 	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
 
@@ -88,47 +74,9 @@ void __lprintk(const char *format, va_list va) {
 	if ((*__start != 0) && (*__start < 10))
 		__start += 2;
 
-#ifdef CONFIG_X86
-	if (vlog_enabled && (smp_processor_id() == AGENCY_RT_CPU)) {
-
-			vlog_send(__start);
-			return;
-		}
-
-		if (!send_to_uart(__start)) {
-			if (smp_processor_id() == AGENCY_RT_CPU) {
-				/* Make sure a previous IPI is not being processed... */
-				while (atomic64_cmpxchg(&str_to_print, 0ull, (u64) __start) != 0ull) ;
-
-				smp_kick_vt_out();
-			} else {
-				if (*__start == 0) {
-					/* On OPENCN_CPU0, printk() is executed natively */
-					printk("%s", (char *) atomic64_read(&str_to_print));
-
-					atomic64_set(&str_to_print, 0);
-				} else
-					printk("%s", __start);
-			}
-		}
-
-#else /* !CONFIG_X86 */
-
-	if (vuart_ready() && (smp_processor_id() == AGENCY_RT_CPU)) {
-
-		/* Output to the virtual uart */
-		vuart_send(__start);
-		return;
-
-	} else {
-
-		for (i = 0; i < strlen(__start); i++)
-			if (likely(__printch))
-				__printch(__start[i]);
-
-	}
-
-#endif /* !CONFIG_X86 */
+	for (i = 0; i < strlen(__start); i++)
+		if (likely(__printch))
+			__printch(__start[i]);
 
 }
 
@@ -151,6 +99,9 @@ void __soo_log(char *info, char *buf) {
 	char prefix[50];
 	static char __internal_buf[CONSOLEIO_BUFFER_SIZE] = { };
 	int i;
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+	int j;
+#endif
 	bool outlog = false;
 	static bool force_log = false;
 
@@ -159,6 +110,14 @@ void __soo_log(char *info, char *buf) {
 		if ((buf[0] == '*') && (buf[1] == '*') && (buf[2] == '*'))
 			force_log = true;
 
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+		/* Make a friendly indentation according to the SOO number */
+		sscanf(current_soo->name, "SOO-%d", &i);
+
+		for (j = 0; j < (i-1)*8; j++)
+			strcat(__internal_buf, " ");
+
+#endif
 		/* Add log information */
 		sprintf(prefix, "(%s) ", info);
 		strcat(__internal_buf, prefix);
@@ -196,6 +155,10 @@ void __soo_log(char *info, char *buf) {
 	    (log_soo_soolink_winenet_beacon && (strstr(__internal_buf, "[soo:soolink:winenet:beacon"))) ||
 	    (log_soo_soolink_plugin && (strstr(__internal_buf, "[soo:soolink:plugin")))
 	    )
+		outlog = true;
+
+	/* Backends */
+	if ((log_soo_backend_vsenseled && (strstr(__internal_buf, "[soo:backend:vsenseled"))))
 		outlog = true;
 
 	/* Print out to the console */

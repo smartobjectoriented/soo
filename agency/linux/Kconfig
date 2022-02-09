@@ -33,6 +33,3 @@ source "Documentation/Kconfig"
 
 # (SOO.tech) SOO subsystems and drivers
 source "soo/Kconfig"
-
-# OpenCN: OpenCN subsystems
-source "opencn/Kconfig"

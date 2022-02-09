@@ -21,9 +21,7 @@
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
-
 #include <soo/vdevback.h>
-#include <soo/vdevfront.h>
 
 #define VDUMMY_PACKET_SIZE	32
 
@@ -56,23 +54,5 @@ typedef struct {
 	unsigned int irq;
 
 } vdummy_t;
-
-typedef struct {
-
-	/* Must be the first field */
-	vdevback_t vdevback;
-
-	vdummy_front_ring_t ring;
-
-	rtdm_irq_t rtdm_irq;
-	unsigned int irq;
-
-	struct page *ring_pages;
-
-	grant_ref_t ring_ref;
-	grant_handle_t handle;
-	uint32_t evtchn;
-
-} vdummyrt_t;
 
 #endif /* VDUMMY_H */

@@ -25,6 +25,14 @@
 #include <soo/uapi/soo.h>
 #include <soo/uapi/console.h>
 
+extern uint8_t devcaps_class[DEVCAPS_CLASS_NR];
+
+/* ME SPIDs */
+extern uint8_t SOO_heat_spid[SPID_SIZE];
+extern uint8_t SOO_ambient_spid[SPID_SIZE];
+extern uint8_t SOO_blind_spid[SPID_SIZE];
+extern uint8_t SOO_outdoor_spid[SPID_SIZE];
+
 agencyUID_t *get_null_agencyUID(void);
 agencyUID_t *get_my_agencyUID(void);
 
@@ -36,9 +44,24 @@ static inline bool agencyUID_is_valid(agencyUID_t *agencyUID) {
 
 void devaccess_dump_agencyUID(void);
 
+bool devaccess_is_devcaps_class_supported(uint32_t class);
+bool devaccess_is_devcaps_supported(uint32_t class, uint8_t devcaps);
+
+void devaccess_set_devcaps(uint32_t class, uint8_t devcaps, bool available);
+void devaccess_dump_devcaps(void);
+
 void devaccess_set_soo_name(char *name);
 void devaccess_get_soo_name(char *ptr);
 void devaccess_dump_soo_name(void);
+
+void devaccess_store_upgrade_addr(uint32_t update_buffer_pfn, uint32_t buffer_size);
+uint32_t devaccess_get_upgrade_img(void **upgrade_img);
+
+uint32_t devaccess_get_upgrade_size(void);
+uint32_t devaccess_get_upgrade_pfn(void);
+unsigned int devaccess_get_upgrade_ME_slotID(void);
+
+void devaccess_store_upgrade(uint32_t update_buffer_pfn, uint32_t buffer_size, unsigned int ME_slotID);
 
 void devaccess_init(void);
 

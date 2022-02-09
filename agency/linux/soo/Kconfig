@@ -9,7 +9,8 @@ config SOO_RT_APP
 	help
 		Simple app to try various things related to Cobalt API and others
 	default Y
-	
+
+source "soo/dcm/Kconfig"
 source "soo/soolink/Kconfig"
 source "soo/drivers/Kconfig"
 

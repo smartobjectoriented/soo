@@ -9,10 +9,22 @@
 #else
 #define NR_IRQS NR_IRQS_LEGACY
 #endif
+ 
+/* SOO.tech */
+
+#define	NR_PIRQS	256
+#define PIRQ_BASE       0
+
+#define VIRQ_BASE       (PIRQ_BASE + NR_PIRQS)
+#define NR_VIRQS        256
 
 #ifndef irq_canonicalize
 #define irq_canonicalize(i)	(i)
 #endif
+
+/* SOO.tech */
+/* Max number of possible IPIs */
+#define NR_IPIS			16
 
 /*
  * Use this value to indicate lack of interrupt

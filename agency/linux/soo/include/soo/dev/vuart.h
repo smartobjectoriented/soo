@@ -20,13 +20,8 @@
 #ifndef VUART_H
 #define VUART_H
 
-#include <soo/uapi/console.h>
-
 #include <soo/ring.h>
 #include <soo/grant_table.h>
-
-#include <soo/vdevback.h>
-#include <soo/vdevfront.h>
 
 #include <linux/vt_kern.h>
 
@@ -37,11 +32,11 @@
 #define SERIAL_GWINSZ   '\254'
 
 typedef struct {
-	char str[CONSOLEIO_BUFFER_SIZE];
+	char c;
 } vuart_request_t;
 
 typedef struct {
-	char dummy;
+	char c;
 } vuart_response_t;
 
 DEFINE_RING_TYPES(vuart, vuart_request_t, vuart_response_t);
@@ -51,38 +46,14 @@ DEFINE_RING_TYPES(vuart, vuart_request_t, vuart_response_t);
  */
 
 typedef struct {
-
-	/* Must be the first field */
 	vdevback_t vdevback;
 
+	spinlock_t ring_lock;
 	vuart_back_ring_t ring;
 	unsigned int irq;
 
 } vuart_t;
 
-typedef struct {
-
-	/* Must be the first field */
-	vdevback_t vdevback;
-
-	vuart_front_ring_t ring;
-
-	rtdm_irq_t rtdm_irq;
-	unsigned int irq;
-
-	struct page *ring_pages;
-
-	grant_ref_t ring_ref;
-	grant_handle_t handle;
-	uint32_t evtchn;
-
-} vuartrt_t;
-
 bool vuart_ready(void);
-void vuart_send(char *str);
-
-bool rt_log_enabled(void);
-void rt_log_enable(void);
-void rt_log_disable(void);
 
 #endif /* VUART_H */

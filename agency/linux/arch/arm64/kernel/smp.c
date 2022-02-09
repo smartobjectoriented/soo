@@ -93,31 +93,29 @@ static int cpus_stuck_in_kernel;
 enum ipi_msg_type {
 	IPI_RESCHEDULE,
 	IPI_CALL_FUNC,
-	IPI_CPU_STOP,
 	IPI_CPU_CRASH_STOP,
 	IPI_TIMER,
+
+	/* SOO.tech */
+
+	/* We move IPI_CPU_STOP here to be compatible with the 32-bit version.
+	 * This number (4) is known in AVZ.
+	 */
+	IPI_CPU_STOP,
+
 	IPI_IRQ_WORK,
 	IPI_WAKEUP,
 
 	/* SOO.tech */
 	IPI_IRQ_HANDLE,
 
-/* OpenCN - Temporary deactivated until the zcu106 can manage IPI 8 & 9 */
-#if 0
-	IPI_RT_TASK_CREATE,
-
-	/* avz */
-	IPI_AVZ_EVENT_CHECK,
-#endif
-
 	NR_IPI
 };
 
 /* SOO.tech */
-/* OpenCN - Temorary deactivated until the zcu106 can manage IPI 8 & 9 */
 
-#define IPI_RT_TASK_CREATE	IPI_CPU_STOP
-#define IPI_AVZ_EVENT_CHECK	IPI_CPU_CRASH_STOP
+#define IPI_RT_TASK_CREATE	IPI_CPU_CRASH_STOP
+#define IPI_AVZ_EVENT_CHECK	IPI_CPU_STOP
 
 /* SOO.tech */
 struct xnthread __root_task;
@@ -1112,8 +1110,9 @@ static void do_handle_IPI(int ipinr)
 
 	/* SOO.tech */
 	/* case IPI_CPU_STOP: */
-	case IPI_RT_TASK_CREATE:
-		complete(&cpu_running);
+	case IPI_AVZ_EVENT_CHECK:
+		evtchn_do_upcall(get_irq_regs());
+
 #if 0 /* Temporary */
 		local_cpu_stop();
 #endif
@@ -1128,8 +1127,8 @@ static void do_handle_IPI(int ipinr)
 		}
 		break;
 #endif
-	case IPI_AVZ_EVENT_CHECK:
-		evtchn_do_upcall(get_irq_regs());
+	case IPI_RT_TASK_CREATE:
+		complete(&cpu_running);
 		break;
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST

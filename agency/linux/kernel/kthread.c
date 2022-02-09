@@ -393,7 +393,7 @@ struct task_struct *__kthread_create_on_node(int (*threadfn)(void *data),
 		/* Enforce the (non-RT) thread to run on CPU #0 */
 
 		DBG("Binding thread (pid %d) to non-RT agency CPU (#0)\n", task->pid);
-		kthread_bind(task, AGENCY_CPU0);
+		kthread_bind(task, AGENCY_CPU);
 
 #if 0 /* SOO.tech */				
 		set_cpus_allowed_ptr(task,

@@ -26,6 +26,12 @@
 
 #ifdef CONFIG_MMU
 
+/* SOO.tech */
+void __stack_alignment_fault(void) {
+	panic("### wrong stack alignment (8-bytes not respected) !! ###");
+}
+
+
 /*
  * This is useful to dump out the page tables associated with
  * 'addr' in mm 'mm'.

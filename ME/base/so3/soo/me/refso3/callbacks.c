@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2014-2021 Daniel Rossier <daniel.rossier@soo.tech>
  * Copyright (C) March 2018 Baptiste Delporte <bonel@bonel.net>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -33,6 +33,11 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
+#include <me/refso3.h>
+
+static LIST_HEAD(visits);
+static LIST_HEAD(known_soo_list);
+
 /*
  * ME Description:
  * The ME resides in one (and only one) Smart Object.
@@ -42,20 +47,8 @@
  * The ME must stay dormant in the Smart Objects different than the origin and the one with UID 0x08.
  */
 
-/* Localinfo buffer used during cooperation processing */
-void *localinfo_data;
-
-#if 0
-static int live_count = 0;
-#endif
-
-/*
- * migrated_once allows the dormant ME to control its oneshot propagation, i.e.
- * the ME must be broadcast in the neighborhood, then disappear from the smart object.
- */
-#if 1
-static uint32_t migration_count = 0;
-#endif
+/* Reference to the shared content helpful during synergy with other MEs */
+sh_refso3_t *sh_refso3;
 
 /**
  * PRE-ACTIVATE
@@ -64,55 +57,12 @@ static uint32_t migration_count = 0;
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
 
-#if 0
-	agency_ctl_args_t agency_ctl_args;
-#endif
-#if 0
-	agencyUID_t refUID = {
-		.id = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08}
-	};
-#endif /* 0 */
-
 	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
 
-#if 0
+#if 0 /* To be implemented... */
 	logmsg("[soo:me:SOO.refSO3] ME %d: cb_pre_activate..\n", ME_domID());
 #endif
 
-#if 0 /* dummy_activity */
-	/* Kill MEs that are in slot 3 or beyond to keep only 2 MEs */
-	if (ME_domID() > 2) {
-		lprintk("> kill\n");
-		set_ME_state(ME_state_killed);
-	}
-#endif
-
-
-#if 0 /* alphabet */
-
-	if (get_ME_state() != ME_state_preparing) {
-
-		/* Keep the ME in dormant state; the ME is temporary here in order to be propagated. */
-		migration_count = 0;
-		set_ME_state(ME_state_dormant);
-	}
-
-	/* Retrieve the agency UID of the Smart Object on which the ME has migrated */
-	agency_ctl_args.cmd = AG_AGENCY_UID;
-	args->__agency_ctl(&agency_ctl_args);
-
-	if (!memcmp(&refUID, &agency_ctl_args.u.agencyUID_args.agencyUID, SOO_AGENCY_UID_SIZE)) {
-		if (*((char *) localinfo_data+1) == 1) /* already ? */ {
-
-			lprintk("## already found: killing...\n");
-			set_ME_state(ME_state_killed);
-		} else {
-			/* Second byte of localinfo_data tells we found the smart object with UID 0x08. */
-			*((char *) localinfo_data+1) = 1;
-			lprintk("##################################### (slotID: %d) found with %c\n", args->slotID, *((char *) localinfo_data));
-		}
-	}
-#endif
 	return 0;
 }
 
@@ -127,31 +77,16 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-#if 0 /* dummy_activity */
-	pre_propagate_args->propagate_status = 1;
-#endif
 
-#if 1 /* Alphabet */
 
 	pre_propagate_args->propagate_status = 0;
-
+#if 0
 	/* Enable migration - here, we migrate 3 times before being killed. */
 	if ((get_ME_state() != ME_state_dormant) || (migration_count != 3)) {
 		pre_propagate_args->propagate_status = 1;
 		migration_count++;
 	} else
 		set_ME_state(ME_state_killed);
-
-#endif
-
-#if 0
-	live_count++;
-
-	if (live_count == 5) {
-		lprintk("##################### ME %d disappearing..\n", ME_domID());
-		set_ME_state(ME_state_killed);
-	}
-
 #endif
 
 	return 0;
@@ -191,16 +126,9 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
  */
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
-#if 1
 	agency_ctl_args_t agency_ctl_args;
-#endif
+
 	unsigned int i;
-#if 1
-	void *recv_data;
-	uint32_t pfn;
-	bool target_found, initiator_found;
-	char target_char, initiator_char;
-#endif
 
 	lprintk("[soo:me:SOO.refSO3] ME %d: cb_cooperate...\n", ME_domID());
 
@@ -211,129 +139,32 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			return 0;
 
 		for (i = 0; i < MAX_ME_DOMAINS; i++) {
-			if (cooperate_args->u.target_coop_slot[i].spad.valid) {
+			if (cooperate_args->u.target_coop[i].spad.valid) {
 
-
-#if 1 /* Alphabet */
 				/* Collaboration ... */
-				agency_ctl_args.u.target_cooperate_args.pfn.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
+
+				/* Update the list of hosts */
+				sh_refso3->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_refso3->me_common.soohosts);
+
+				agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_refso3));
+				agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
 				/* This pattern enables the cooperation with the target ME */
 
 				agency_ctl_args.cmd = AG_COOPERATE;
-				agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
+				agency_ctl_args.slotID = cooperate_args->u.target_coop[i].slotID;
 
 				/* Perform the cooperate in the target ME */
 				args->__agency_ctl(&agency_ctl_args);
 
-#if 1
-				/* Now incrementing us */
-				*((char *) localinfo_data) = *((char *) localinfo_data) + 1;
-#endif
-
-#endif
-#if 0 /* Arrived ME disappears now... */
-				set_ME_state(ME_state_killed);
-#endif
 			}
 		}
-
-#if 0 /* This pattern is used to remove this (just arrived) ME even before its activation. */
-		if (!cooperate_args->alone) {
-
-			DBG("Killing ME #%d\n", ME_domID());
-
-			set_ME_state(ME_state_killed);
-		}
-#endif
 
 		break;
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
 
-		DBG("SPID of the initiator: ");
-		DBG_BUFFER(cooperate_args->u.initiator_coop.spid, SPID_SIZE);
-		DBG("SPAD caps of the initiator: ");
-		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
-
-#if 0 /* Will trigger a force_terminate on us */
-		agency_ctl_args.cmd = AG_KILL_ME;
-		agency_ctl_args.slotID = args->slotID;
-		args->__agency_ctl(&agency_ctl_args);
-#endif
-
-#if 1 /* Alphabet */
-		pfn = cooperate_args->u.initiator_coop.pfn.content;
-		recv_data = (void *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-
-		target_found = *((char *) localinfo_data+1);
-		initiator_found = *((char *) recv_data+1);
-
-		target_char = *((char *) localinfo_data);
-		initiator_char = *((char *) recv_data);
-#endif
-
-#if 1 /* Alphabet - Increment the alphabet in this case. */
-		if (get_ME_state() != ME_state_dormant)  {
-
-			if (initiator_found)
-			{
-				(*((char *) localinfo_data))++;
-				if (*((char *) localinfo_data) > 'Z')
-					*((char *) localinfo_data) = 'A';
-				*((char *) localinfo_data+1) = 0; /* Reset */
-			}
-
-			/* In any case, the arrived ME must disappeared */
-			agency_ctl_args.cmd = AG_KILL_ME;
-			agency_ctl_args.slotID = args->slotID;
-
-			args->__agency_ctl(&agency_ctl_args);
-
-
-		} else {
-
-			if (*((char *) localinfo_data) > (*((char *) recv_data))) {
-
-				agency_ctl_args.cmd = AG_KILL_ME;
-				agency_ctl_args.slotID = args->slotID;
-
-				args->__agency_ctl(&agency_ctl_args);
-
-			} else {
-
-				target_found = *((char *) localinfo_data+1);
-				initiator_found = *((char *) recv_data+1);
-
-				target_char = *((char *) localinfo_data);
-				initiator_char = *((char *) recv_data);
-
-				if ((target_char < initiator_char) ||
-				    (initiator_found && (!target_found || (initiator_char >= target_char))))
-
-					set_ME_state(ME_state_killed);
-
-				else {
-					agency_ctl_args.cmd = AG_KILL_ME;
-					agency_ctl_args.slotID = args->slotID;
-
-					args->__agency_ctl(&agency_ctl_args);
-				}
-			}
-		}
-
-#endif
-
-#if 0 /* This pattern forces the termination of the residing ME (a kill ME is prohibited at the moment) */
-		DBG("Force the termination of this ME #%d\n", ME_domID());
-		agency_ctl_args.cmd = AG_FORCE_TERMINATE;
-		agency_ctl_args.slotID = ME_domID();
-
-		args->__agency_ctl(&agency_ctl_args);
-#endif
-
-		io_unmap((uint32_t) recv_data);
 		break;
 
 	default:
@@ -405,11 +236,11 @@ int cb_force_terminate(void) {
 
 void callbacks_init(void) {
 
-	/* Allocate localinfo */
-	localinfo_data = (void *) get_contig_free_vpages(1);
+	/* Allocate the shared page. */
+	sh_refso3 = (sh_refso3_t *) get_contig_free_vpages(1);
 
-	*((char *) localinfo_data) = 'A';
-	*((char *) localinfo_data+1) = 0;
+	/* Initialize the shared content page used to exchange information between other MEs */
+	memset(sh_refso3, 0, PAGE_SIZE);
 
 	/* Set the SPAD capabilities */
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);

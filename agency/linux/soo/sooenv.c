@@ -47,7 +47,23 @@
 #include <soo/core/sysfs.h>
 #include <soo/core/device_access.h>
 
+
+/*
+ * The following value is used to determine the last SOO thread of
+ * sooenv to get initialized before executing the deferred processing.
+ */
+
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
+#define SOO_NR_MAX	8
+soo_env_t *soo1, *soo2, *soo3, *soo4, *soo5, *soo6, *soo7, *soo8;
+
+#else
+
 #define SOO_NR_MAX	1
+
+#endif /* CONFIG_SOOLINK_PLUGIN_SIMULATION */
+
 
 /*
  * The following structure is used to maintain a list
@@ -82,6 +98,9 @@ soo_env_t *__current_soo(void) {
 	soo_env_thread_t *soo_thread;
 
 	BUG_ON(list_empty(&soo_environment));
+
+	if (__domcall_in_progress)
+		return list_first_entry(&soo_environment, soo_env_t, list);
 
 	list_for_each_entry(soo, &soo_environment, list)
 	{
@@ -135,6 +154,193 @@ void add_thread(soo_env_t *soo, unsigned int pid) {
 
 }
 
+#if 0 /* For bandwidth performance measurement */
+static int soo_task_rx_fn(void *args) {
+	uint32_t size;
+	char *data;
+	int i;
+
+	int soo_count_table[SOO_NR_MAX] = { 0 };
+
+	while (true) {
+
+		size = sl_recv(current_soo_simul->sl_desc, (void *) &data);
+
+		for (i = 1; i < BUFFER_SIZE; i++)
+			if (((unsigned char *) data)[i] != current_soo_simul->buffer[i]) {
+				lprintk("## Data corruption : failure on byte %d\n", i);
+				break;
+			}
+
+		soo_count_table[((int) data[0])-1]++;
+
+		if (i == BUFFER_SIZE) {
+			current_soo_simul->recv_count++;
+			lprintk("## (%s) ******************** Got a buffer (count %d got %d bytes)\n", current_soo->name, current_soo_simul->recv_count, size);
+			lprintk("## stats: ");
+			for (i = 0; i < SOO_NR_MAX; i++)
+				lprintk(" (SOO-%d): %d ", i+1, soo_count_table[i]);
+
+			lprintk("\n");
+		}
+
+		/* Must release th e allocated buffer */
+		vfree(data);
+	}
+
+	return 0;
+}
+
+static int soo_task_tx_fn(void *args) {
+	int i;
+
+	for (i = 0; i < BUFFER_SIZE; i++)
+		current_soo_simul->buffer[i] = i;
+
+	while (true) {
+		if (discovery_neighbour_count() > 0) {
+			lprintk("*** (%s) sending buffer ****\n", current_soo->name);
+
+			/* Encode the SOO number */
+			current_soo_simul->buffer[0] = current_soo->id;
+
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+
+			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
+
+			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			lprintk("*** (%s) End. ***\n", current_soo->name);
+
+
+		} else
+			schedule();
+	}
+
+	return 0;
+}
+#endif /* 0 */
+
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
+static int soo_task_rx_fn(void *args) {
+	uint32_t size;
+	char *data;
+	int i;
+
+	int soo_count_table[SOO_NR_MAX] = { 0 };
+
+	while (true) {
+
+		size = sl_recv(current_soo_simul->sl_desc, (void *) &data);
+
+		for (i = 1; i < BUFFER_SIZE; i++)
+			if (((unsigned char *) data)[i] != current_soo_simul->buffer[i]) {
+				lprintk("## Data corruption : failure on byte %d\n", i);
+				break;
+			}
+
+		soo_count_table[((int) data[0])-1]++;
+
+		if (i == BUFFER_SIZE) {
+			current_soo_simul->recv_count++;
+			lprintk("## (%s) ******************** Got a buffer (count %d got %d bytes)\n", current_soo->name, current_soo_simul->recv_count, size);
+			lprintk("## stats: ");
+			for (i = 0; i < SOO_NR_MAX; i++)
+				lprintk(" (SOO-%d): %d ", i+1, soo_count_table[i]);
+
+			lprintk("\n");
+		}
+
+		/* Must release the allocated buffer */
+		vfree(data);
+	}
+
+	return 0;
+}
+
+void buffer_count_read(char *str) {
+	sprintf(str, "%d", current_soo_simul->recv_count);
+}
+
+/*
+ * Testing RT task to send data to a specific smart object.
+ * This is mainly used for debugging purposes and performance assessment.
+ */
+static int soo_task_tx_fn(void *args) {
+	int i;
+
+	for (i = 0; i < BUFFER_SIZE; i++)
+		current_soo_simul->buffer[i] = i;
+
+	soo_sysfs_register(buffer_count, buffer_count_read, NULL);
+
+	while (true) {
+		if (discovery_neighbour_count() > 0) {
+			lprintk("*** (%s) sending buffer ****\n", current_soo->name);
+
+			/* Encode the SOO number */
+			current_soo_simul->buffer[0] = current_soo->id;
+
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+
+			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
+
+			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			lprintk("*** (%s) End. ***\n", current_soo->name);
+
+			//msleep(1000);
+
+		} else
+			schedule();
+	}
+
+	return 0;
+}
+
+/**
+ *
+ * Specific behaviour of SOO3 emitter side.
+ */
+static int soo3_task_tx_fn(void *args) {
+	int i;
+	bool here = true;
+
+	for (i = 0; i < BUFFER_SIZE; i++)
+		current_soo_simul->buffer[i] = i;
+
+	soo_sysfs_register(buffer_count, buffer_count_read, NULL);
+
+	i = 0;
+	while (true) {
+		if (here && discovery_neighbour_count() > 0) {
+			lprintk("*** (%s) sending buffer ****\n", current_soo->name);
+
+			/* Encode the SOO number */
+			current_soo_simul->buffer[0] = current_soo->id;
+
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+
+			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
+
+			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			lprintk("*** (%s) End. ***\n", current_soo->name);
+
+#if 0
+			i++;
+			if (i == 5) {
+				node_unlink(soo3, soo1);
+				node_unlink(soo3, soo2);
+				here = false;
+			}
+#endif
+		} else
+			schedule();
+	}
+
+	return 0;
+}
+#endif /* CONFIG_SOOLINK_PLUGIN_SIMULATION */
+
 /*
  * Thread function dedicated to a smart object (SOO).
  */
@@ -142,6 +348,11 @@ int soo_env_fn(void *args) {
 	soo_env_t *soo_env;
 	sooenv_up_t *sooenv_up, *tmp;
 	static int count = 0;
+
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+	int i;
+	struct task_struct *__ts;
+#endif
 
 	soo_env = kzalloc(sizeof(soo_env_t), GFP_KERNEL);
 	BUG_ON(!soo_env);
@@ -167,14 +378,23 @@ int soo_env_fn(void *args) {
 	add_thread(soo_env, current->pid);
 
 	/* Generate a unique agencyUID. */
+#ifndef CONFIG_SOOLINK_PLUGIN_SIMULATION
 
 	get_random_bytes((void *) &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
 
+#else
+
+	for (i = 0; i < SOO_AGENCY_UID_SIZE; i++)
+		soo_env->agencyUID.id[i] = 0x00;
+
+	soo_env->agencyUID.id[3] = 0x99;
+
+	soo_env->agencyUID.id[4] = count;
+
+#endif /* CONFIG_SOOLINK_PLUGIN_SIMULATION */
 
 	soo_log("[soo:core:device_access] On CPU %d, SOO %s has the Agency UID: ", smp_processor_id(), soo_env->name);
 	soo_log_printlnUID(&current_soo->agencyUID);
-
-#ifndef CONFIG_X86
 
 	/* Initializing SOOlink subsystem */
 	soolink_init();
@@ -210,7 +430,68 @@ int soo_env_fn(void *args) {
 	/* Transcoder initialization */
 	transcoder_init();
 
-#endif /* !CONFIG_X86 */
+	/* In simulation mode, we do not manage several instances of DCM yet. */
+#ifndef CONFIG_SOOLINK_PLUGIN_SIMULATION
+	/* Ready to initializing the DCM subsystem */
+	dcm_init();
+#endif
+
+	/* Bandwidth assessment */
+#if 0
+	soo_env->soo_simul = kzalloc(sizeof(struct soo_simul_env), GFP_KERNEL);
+	BUG_ON(!soo_env->soo_simul);
+
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_WLAN, SL_MODE_UNIBROAD);
+
+	current_soo_simul->recv_count = 0;
+
+	__ts = kthread_create(soo_task_tx_fn, NULL, "soo_task_tx");
+	BUG_ON(!__ts);
+
+	add_thread(soo_env, __ts->pid);
+	wake_up_process(__ts);
+
+	__ts = kthread_create(soo_task_rx_fn, NULL, "soo_task_rx");
+	BUG_ON(!__ts);
+
+	add_thread(soo_env, __ts->pid);
+	wake_up_process(__ts);
+#endif
+
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
+	lprintk("[soo:core] Now, starting SOO simulation threads...\n");
+
+	/* Start activities - Simulation mode */
+
+	/* Prepare the environment */
+	soo_env->soo_simul = kzalloc(sizeof(struct soo_simul_env), GFP_KERNEL);
+	BUG_ON(!soo_env->soo_simul);
+
+	INIT_LIST_HEAD(&soo_env->soo_simul->topo_links);
+
+	current_soo_simul->sl_desc = sl_register(SL_REQ_DCM, SL_IF_SIM, SL_MODE_UNIBROAD);
+
+	current_soo_simul->recv_count = 0;
+
+	if (!strcmp(soo_env->name, "SOO-3")) {
+		__ts = kthread_create(soo3_task_tx_fn, NULL, "soo3_task_tx");
+		BUG_ON(!__ts);
+
+	} else {
+		__ts = kthread_create(soo_task_tx_fn, NULL, "soo_task_tx");
+		BUG_ON(!__ts);
+	}
+
+	add_thread(soo_env, __ts->pid);
+	wake_up_process(__ts);
+
+	__ts = kthread_create(soo_task_rx_fn, NULL, "soo_task_rx");
+	BUG_ON(!__ts);
+
+	add_thread(soo_env, __ts->pid);
+	wake_up_process(__ts);
+#endif
 
 	soo_env->ready = true;
 
@@ -253,6 +534,89 @@ void register_sooenv_up(sooenv_up_fn_t sooenv_up_fn, void *args) {
 
 	list_add_tail(&sooenv_up->list, &sooenv_up_list);
 };
+
+#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
+
+/**
+ * Define the SOO topology
+ */
+void sooenv_init_topology(soo_env_t *sooenv, void *args) {
+
+	soo1 = get_soo_by_name("SOO-1");
+	soo2 = get_soo_by_name("SOO-2");
+
+	BUG_ON(!soo1 || !soo2);
+
+	node_link(soo1, soo2); node_link(soo2, soo1);
+
+#if 1
+	soo3 = get_soo_by_name("SOO-3");
+	BUG_ON(!soo3);
+
+	node_link(soo1, soo3); node_link(soo3, soo1);
+	node_link(soo2, soo3); node_link(soo3, soo2);
+
+#endif
+
+#if 1
+	/* Topology #1 with 4 SOOs */
+
+	soo4 = get_soo_by_name("SOO-4");
+	BUG_ON(!soo4);
+
+	node_link(soo3, soo4); node_link(soo4, soo3);
+#endif
+
+#if 1
+	/* Topology #1 with 5 SOOs */
+
+	soo5 = get_soo_by_name("SOO-5");
+	BUG_ON(!soo5);
+
+	node_link(soo4, soo5); node_link(soo5, soo4);
+
+#endif
+
+#if 1
+	/* Topology #1 with 6 SOOs */
+
+
+	soo6 = get_soo_by_name("SOO-6");
+
+	BUG_ON(!soo6);
+
+	node_link(soo5, soo6); node_link(soo6, soo5);
+#endif
+
+#if 0
+	/* Topology #2 with 4 SOOs */
+
+	soo5 = get_soo_by_name("SOO-5");
+	soo6 = get_soo_by_name("SOO-6");
+
+	BUG_ON(!soo5 || !soo6);
+
+	node_link(soo2, soo3); node_link(soo3, soo2);
+	node_link(soo3, soo4); node_link(soo4, soo3);
+
+#endif
+
+#if 1
+	/* Topology #3 with 4 additional SOOs */
+
+	soo7 = get_soo_by_name("SOO-7");
+	soo8 = get_soo_by_name("SOO-8");
+
+	BUG_ON(!soo7 || !soo8);
+
+	node_link(soo6, soo7); node_link(soo7, soo6);
+	node_link(soo7, soo8); node_link(soo8, soo7);
+
+#endif
+
+}
+
+#endif
 
 /**
  * sooenv_init() is called from a thread at the end

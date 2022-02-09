@@ -43,7 +43,25 @@
 #define DBG0(...)
 #endif
 
+
+/*
+ * Entry for a list of uevent which are propagated to the user space
+ */
+typedef struct {
+	struct list_head list;
+	unsigned int uevent_type;
+	unsigned int slotID;
+} soo_uevent_t;
+
+int soo_uevent(struct device *dev, struct kobj_uevent_env *env);
+int agency_ctl(agency_ctl_args_t *agency_ctl_args);
+
+int get_ME_state(unsigned int ME_slotID);
+int set_ME_state(unsigned int ME_slotID, ME_state_t state);
+
 int get_agency_desc(agency_desc_t *SOO_desc);
+void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc);
+void get_ME_spid(unsigned int slotID, unsigned char *spid);
 
 void vunmap_page_range(unsigned long addr, unsigned long end);
 

@@ -107,6 +107,8 @@ int avz_switch_console(char ch)
 		/* We eat CTRL-<switch_char> in groups of 2 to switch console input. */
 		if (++switch_code_count == 1) {
 
+#if 0 /* Only switch between the agency and ME #1 */
+
 			if (avzcons_get_focus() == 0) {
 
 				active = 2;
@@ -116,12 +118,21 @@ int avz_switch_console(char ch)
 				active = 0;
 				next = 2;
 			}
+
+#endif /* 0 */
+
+
+#if 1 /* All MEs considered */
+
+			active = (avzcons_get_focus() + 1) % N_SWITCH_FOCUS;
+			active = ((active == 1) ? active+1 : active);
+
+			next = (active + 1) % N_SWITCH_FOCUS;
+			next = ((next == 1) ? next+1 : next);
+#endif
+
 			avzcons_set_focus(active);
 
-#if 0
-			active = avzcons_set_focus((avzcons_get_focus() + 1) % N_SWITCH_FOCUS);
-			next = (avzcons_get_focus() + 1) % N_SWITCH_FOCUS;
-#endif
 			switch_code_count = 0;
 
 			lprintk("*** Serial input -> %s (type 'CTRL-%c' twice to switch input to %s).\n", input_str[active], 'a', input_str[next]);

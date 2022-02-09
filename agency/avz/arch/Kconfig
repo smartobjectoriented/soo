@@ -18,7 +18,7 @@ config ARCH
 
 config CROSS_COMPILE
 	string
-	default "arm-linux-gnueabihf-" if ARCH_ARM32
+	default "arm-none-linux-gnueabihf-" if ARCH_ARM32
 	default "aarch64-none-linux-gnu-" if ARCH_ARM64
 
 

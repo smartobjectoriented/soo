@@ -92,6 +92,19 @@ void vdevback_processing_end(struct vbus_device *vdev) {
 }
 
 /*
+ * Check if the frontend state and tell whether it is connected.
+ */
+bool vdevfront_is_connected(struct vbus_device *vdev) {
+	void *priv = dev_get_drvdata(&vdev->dev);
+	vdevback_t *vdevback = (vdevback_t *) priv;
+
+	if (!vdev)
+		return false;
+
+	return vdevback->vdevfront_connected;
+}
+
+/*
  * Probe entry point for our vbus backend.
  * The probe is executed as soon as a frontend is showing up.
  */
@@ -165,6 +178,9 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state fronten
 
 	case VbusStateConnected:
 		DBG0("vdummy frontend connected, all right.\n");
+
+		vdevback->vdevfront_connected = true;
+
 		vdrvback->connected(vdev);
 
 		complete(&vdevback->sync);
@@ -180,6 +196,8 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state fronten
 
 		/* Prepare the sync completion to coordinate the removal of device. */
 		reinit_completion(&vdevback->sync);
+
+		vdevback->vdevfront_connected = false;
 
 		vdrvback->close(vdev);
 		break;
@@ -248,4 +266,44 @@ void vdevback_init(char *name, vdrvback_t *vbackdrv) {
 	vbackdrv->vdrv.resume = __resume;
 
 	vbus_register_backend(&vbackdrv->vdrv);
+}
+
+
+
+void vdevback_add_entry(struct vbus_device *vdev, struct list_head *list) {
+	vdev_entry_t *entry;
+
+	entry = kzalloc(sizeof(vdev_entry_t), GFP_ATOMIC);
+	BUG_ON(!entry);
+
+	entry->vdev = vdev;
+
+	list_add(&entry->list, list);
+}
+
+/*
+ * Search for a console related to a specific ME according to its domid.
+ */
+struct vbus_device *vdevback_get_entry(uint32_t domid, struct list_head *_list) {
+	vdev_entry_t *entry;
+
+	list_for_each_entry(entry, _list, list)
+		if (entry->vdev->otherend_id == domid)
+			return entry->vdev;
+	return NULL;
+}
+
+/*
+ * Remove a console attached to a specific ME
+ */
+void vdevback_del_entry(struct vbus_device *vdev, struct list_head *_list) {
+	vdev_entry_t *entry;
+
+	list_for_each_entry(entry, _list, list)
+		if (entry->vdev == vdev) {
+			list_del(&entry->list);
+			kfree(entry);
+			return ;
+		}
+	BUG();
 }

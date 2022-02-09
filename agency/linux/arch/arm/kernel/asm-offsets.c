@@ -25,6 +25,9 @@
 #include <linux/kbuild.h>
 #include "signal.h"
 
+/* SOO.tech */
+#include <soo/uapi/avz.h>
+
 /*
  * Make sure that the compiler and target are compatible.
  */
@@ -170,5 +173,9 @@ int main(void)
   DEFINE(MPU_RGN_PRBAR,	offsetof(struct mpu_rgn, prbar));
   DEFINE(MPU_RGN_PRLAR,	offsetof(struct mpu_rgn, prlar));
 #endif
+
+  /* SOO.tech */
+  DEFINE(AVZ_DOM_PHYS_OFFSET, offsetof(start_info_t, dom_phys_offset));
+
   return 0; 
 }

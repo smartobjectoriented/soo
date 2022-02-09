@@ -1374,8 +1374,8 @@ static int wq_select_unbound_cpu(int cpu)
 	int new_cpu;
 
 	/* SOO.tech */
-	__this_cpu_write(wq_rr_cpu_last, AGENCY_CPU0);
-	return AGENCY_CPU0;
+	__this_cpu_write(wq_rr_cpu_last, AGENCY_CPU);
+	return AGENCY_CPU;
 
 	if (likely(!wq_debug_force_rr_cpu)) {
 		if (cpumask_test_cpu(cpu, wq_unbound_cpumask))
@@ -1425,7 +1425,7 @@ static void __queue_work(int cpu, struct workqueue_struct *wq,
 
 	/* SOO.tech */
 	/* Enfore the work to go on CPU #0 */
-	cpu = AGENCY_CPU0;
+	cpu = AGENCY_CPU;
 
 	debug_work_activate(work);
 
@@ -1442,7 +1442,7 @@ retry:
 		pwq = unbound_pwq_by_node(wq, cpu_to_node(cpu));
 	} else {
 		if (req_cpu == WORK_CPU_UNBOUND)
-			cpu = AGENCY_CPU0;
+			cpu = AGENCY_CPU;
 #if 0 /* SOO.tech */
 			cpu = raw_smp_processor_id();
 #endif
@@ -1537,7 +1537,7 @@ bool queue_work_on(int cpu, struct workqueue_struct *wq,
 	unsigned long flags;
 
 	/* SOO.tech */
-	cpu = AGENCY_CPU0;
+	cpu = AGENCY_CPU;
 
 	local_irq_save(flags);
 
@@ -1615,7 +1615,7 @@ bool queue_work_node(int node, struct workqueue_struct *wq,
 	/* SOO.tech */
 	/* Make sure this is never called on RT CPU */
 
-	BUG_ON(smp_processor_id() != AGENCY_CPU0);
+	BUG_ON(smp_processor_id() != AGENCY_CPU);
 
 	/*
 	 * This current implementation is specific to unbound workqueues.
@@ -1634,7 +1634,7 @@ bool queue_work_node(int node, struct workqueue_struct *wq,
 #if 0 /* SOO.tech */
 		int cpu = workqueue_select_cpu_near(node);
 #endif
-		int cpu = AGENCY_CPU0;
+		int cpu = AGENCY_CPU;
 
 		__queue_work(cpu, wq, work);
 		ret = true;
@@ -1888,7 +1888,7 @@ static void worker_attach_to_pool(struct worker *worker,
 #if 0
 	set_cpus_allowed_ptr(worker->task, pool->attrs->cpumask);
 #endif
-	set_cpus_allowed_ptr(worker->task, cpumask_of(AGENCY_CPU0));
+	set_cpus_allowed_ptr(worker->task, cpumask_of(AGENCY_CPU));
 
 	/*
 	 * The wq_pool_attach_mutex ensures %POOL_DISASSOCIATED remains
@@ -1975,7 +1975,7 @@ static struct worker *create_worker(struct worker_pool *pool)
 
 	/* SOO.tech */
 	/* We bind this thread to the agency CPU */
-	kthread_bind(worker->task, AGENCY_CPU0);
+	kthread_bind(worker->task, AGENCY_CPU);
 
 	set_user_nice(worker->task, pool->attrs->nice);
 	kthread_bind_mask(worker->task, pool->attrs->cpumask);
@@ -2512,7 +2512,7 @@ static int rescuer_thread(void *__rescuer)
 	bool should_stop;
 
 	/* SOO.tech */
-	BUG_ON(smp_processor_id() != AGENCY_CPU0);
+	BUG_ON(smp_processor_id() != AGENCY_CPU);
 
 	set_user_nice(current, RESCUER_NICE_LEVEL);
 
@@ -3341,15 +3341,15 @@ int schedule_on_each_cpu(work_func_t func)
 	get_online_cpus();
 #endif
 	{
-		struct work_struct *work = per_cpu_ptr(works, AGENCY_CPU0);
+		struct work_struct *work = per_cpu_ptr(works, AGENCY_CPU);
 
 		INIT_WORK(work, func);
-		schedule_work_on(AGENCY_CPU0, work);
+		schedule_work_on(AGENCY_CPU, work);
 	}
 #if 0 /* SOO.tech */
 	for_each_online_cpu(cpu)
 #endif
-		flush_work(per_cpu_ptr(works, AGENCY_CPU0));
+		flush_work(per_cpu_ptr(works, AGENCY_CPU));
 
 #if 0 /* SOO.tech */
 	put_online_cpus();
@@ -3421,7 +3421,7 @@ struct workqueue_attrs *alloc_workqueue_attrs(void)
 	cpumask_copy(attrs->cpumask, cpu_possible_mask);
 #endif
 	cpumask_clear(attrs->cpumask);
-	cpumask_set_cpu(AGENCY_CPU0, attrs->cpumask);
+	cpumask_set_cpu(AGENCY_CPU, attrs->cpumask);
 
 	cpumask_copy(attrs->cpumask, cpu_possible_mask);
 	return attrs;
@@ -4238,9 +4238,9 @@ static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 #endif
 			{
 			struct pool_workqueue *pwq =
-				per_cpu_ptr(wq->cpu_pwqs, AGENCY_CPU0);
+				per_cpu_ptr(wq->cpu_pwqs, AGENCY_CPU);
 			struct worker_pool *cpu_pools =
-				per_cpu(cpu_worker_pools, AGENCY_CPU0);
+				per_cpu(cpu_worker_pools, AGENCY_CPU);
 
 			init_pwq(pwq, wq, &cpu_pools[highpri]);
 
@@ -4312,7 +4312,7 @@ static int init_rescuer(struct workqueue_struct *wq)
 	kthread_bind_mask(rescuer->task, cpu_possible_mask);
 #endif
 	/* We bind this thread to the agency CPU */
-	kthread_bind(rescuer->task, AGENCY_CPU0);
+	kthread_bind(rescuer->task, AGENCY_CPU);
 	
 	wake_up_process(rescuer->task);
 
@@ -4619,7 +4619,7 @@ bool workqueue_congested(int cpu, struct workqueue_struct *wq)
 #if 0 /* SOO.tech */
 		cpu = smp_processor_id();
 #endif
-		cpu = AGENCY_CPU0;
+		cpu = AGENCY_CPU;
 
 	if (!(wq->flags & WQ_UNBOUND))
 		pwq = per_cpu_ptr(wq->cpu_pwqs, cpu);
@@ -5116,7 +5116,7 @@ static void restore_unbound_workers_cpumask(struct worker_pool *pool, int cpu)
 	cpumask_and(&cpumask, pool->attrs->cpumask, cpu_online_mask);
 #endif
 	cpumask_empty(pool->attrs->cpumask);
-	cpumask_set_cpu(AGENCY_CPU0, pool->attrs->cpumask);
+	cpumask_set_cpu(AGENCY_CPU, pool->attrs->cpumask);
 
 
 	/* as we're called from CPU_ONLINE, the following shouldn't fail */
@@ -5129,7 +5129,7 @@ int workqueue_prepare_cpu(unsigned int cpu)
 	struct worker_pool *pool;
 
 	/* SOO.tech */
-	if (cpu != AGENCY_CPU0)
+	if (cpu != AGENCY_CPU)
 		return 0;
 
 	for_each_cpu_worker_pool(pool, cpu) {
@@ -5244,7 +5244,7 @@ long work_on_cpu_safe(int cpu, long (*fn)(void *), void *arg)
 	if (cpu_online(cpu))
 #endif /* 0 */
 
-		ret = work_on_cpu(AGENCY_CPU0, fn, arg);
+		ret = work_on_cpu(AGENCY_CPU, fn, arg);
 
 #if 0 /* SOO.tech */
 	put_online_cpus();
@@ -6005,13 +6005,13 @@ static void __init wq_numa_init(void)
 #if 0 /* SOO.tech */
 	for_each_possible_cpu(cpu) {
 #endif
-		node = cpu_to_node(AGENCY_CPU0);
+		node = cpu_to_node(AGENCY_CPU);
 		if (WARN_ON(node == NUMA_NO_NODE)) {
-			pr_warn("workqueue: NUMA node mapping not available for cpu%d, disabling NUMA support\n", AGENCY_CPU0 /* cpu */);
+			pr_warn("workqueue: NUMA node mapping not available for cpu%d, disabling NUMA support\n", AGENCY_CPU /* cpu */);
 			/* happens iff arch is bonkers, let's just proceed */
 			return;
 		}
-		cpumask_set_cpu(AGENCY_CPU0, tbl[node]);
+		cpumask_set_cpu(AGENCY_CPU, tbl[node]);
 #if 0 /* SOO.tech */
 	}
 #endif
@@ -6055,12 +6055,12 @@ void __init workqueue_init_early(void)
 		struct worker_pool *pool;
 
 		i = 0;
-		for_each_cpu_worker_pool(pool, AGENCY_CPU0) {
+		for_each_cpu_worker_pool(pool, AGENCY_CPU) {
 			BUG_ON(init_worker_pool(pool));
-			pool->cpu = AGENCY_CPU0;
-			cpumask_copy(pool->attrs->cpumask, cpumask_of(AGENCY_CPU0));
+			pool->cpu = AGENCY_CPU;
+			cpumask_copy(pool->attrs->cpumask, cpumask_of(AGENCY_CPU));
 			pool->attrs->nice = std_nice[i++];
-			pool->node = cpu_to_node(AGENCY_CPU0);
+			pool->node = cpu_to_node(AGENCY_CPU);
 
 			/* alloc pool ID */
 			mutex_lock(&wq_pool_mutex);
@@ -6140,8 +6140,8 @@ void __init workqueue_init(void)
 #if 0 /* SOO.tech */
 	for_each_possible_cpu(cpu) {
 #endif
-		for_each_cpu_worker_pool(pool, AGENCY_CPU0) {
-			pool->node = cpu_to_node(AGENCY_CPU0);
+		for_each_cpu_worker_pool(pool, AGENCY_CPU) {
+			pool->node = cpu_to_node(AGENCY_CPU);
 		}
 #if 0 /* SOO.tech */
 	}
@@ -6151,7 +6151,7 @@ void __init workqueue_init(void)
 #if 0 /* SOO.tech */
 		wq_update_unbound_numa(wq, smp_processor_id(), true);
 #endif
-		wq_update_unbound_numa(wq, AGENCY_CPU0, true);
+		wq_update_unbound_numa(wq, AGENCY_CPU, true);
 		WARN(init_rescuer(wq),
 		     "workqueue: failed to create early rescuer for %s",
 		     wq->name);
@@ -6163,7 +6163,7 @@ void __init workqueue_init(void)
 #if 0 /* SOO.tech */
 	for_each_online_cpu(cpu) {
 #endif
-		for_each_cpu_worker_pool(pool, AGENCY_CPU0) {
+		for_each_cpu_worker_pool(pool, AGENCY_CPU) {
 			pool->flags &= ~POOL_DISASSOCIATED;
 			BUG_ON(!create_worker(pool));
 		}

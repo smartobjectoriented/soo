@@ -1370,6 +1370,9 @@ config ARCH_NR_GPIO
 
 	  If unsure, leave the default value.
 
+# SOO.tech
+source "kernel/ipipe/Kconfig"
+
 config HZ_FIXED
 	int
 	default 200 if ARCH_EBSA110

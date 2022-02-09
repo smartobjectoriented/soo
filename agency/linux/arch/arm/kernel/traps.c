@@ -38,6 +38,9 @@
 #include <asm/system_misc.h>
 #include <asm/opcodes.h>
 
+/* SOO.tech */
+
+#include <soo/uapi/console.h>
 
 static const char *handler[]= {
 	"prefetch abort",
@@ -62,16 +65,18 @@ __setup("user_debug=", user_debug_setup);
 
 static void dump_mem(const char *, const char *, unsigned long, unsigned long);
 
+/* SOO.tech */
+/* printk > lprintk */
 void dump_backtrace_entry(unsigned long where, unsigned long from,
 			  unsigned long frame, const char *loglvl)
 {
 	unsigned long end = frame + 4 + sizeof(struct pt_regs);
 
 #ifdef CONFIG_KALLSYMS
-	printk("%s[<%08lx>] (%ps) from [<%08lx>] (%pS)\n",
+	lprintk("%s[<%08lx>] (%ps) from [<%08lx>] (%pS)\n",
 		loglvl, where, (void *)where, from, (void *)from);
 #else
-	printk("%sFunction entered at [<%08lx>] from [<%08lx>]\n",
+	lprintk("%sFunction entered at [<%08lx>] from [<%08lx>]\n",
 		loglvl, where, from);
 #endif
 
@@ -271,13 +276,15 @@ void show_stack(struct task_struct *tsk, unsigned long *sp, const char *loglvl)
 #define S_ISA " ARM"
 #endif
 
+/* SOO.tech */
+/* pr_emerg > lprintk */
 static int __die(const char *str, int err, struct pt_regs *regs)
 {
 	struct task_struct *tsk = current;
 	static int die_counter;
 	int ret;
 
-	pr_emerg("Internal error: %s: %x [#%d]" S_PREEMPT S_SMP S_ISA "\n",
+	lprintk("Internal error: %s: %x [#%d]" S_PREEMPT S_SMP S_ISA "\n",
 	         str, err, ++die_counter);
 
 	/* trap and error numbers are mostly meaningless on ARM */
@@ -287,7 +294,7 @@ static int __die(const char *str, int err, struct pt_regs *regs)
 
 	print_modules();
 	__show_regs(regs);
-	pr_emerg("Process %.*s (pid: %d, stack limit = 0x%p)\n",
+	lprintk("Process %.*s (pid: %d, stack limit = 0x%p)\n",
 		 TASK_COMM_LEN, tsk->comm, task_pid_nr(tsk), end_of_stack(tsk));
 
 	if (!user_mode(regs) || in_interrupt()) {
@@ -341,6 +348,10 @@ static void oops_end(unsigned long flags, struct pt_regs *regs, int signr)
 		arch_spin_unlock(&die_lock);
 	raw_local_irq_restore(flags);
 	oops_exit();
+
+	/* SOO.tech */
+	/* Automatically reboot */
+	machine_restart("");
 
 	if (in_interrupt())
 		panic("Fatal exception in interrupt");

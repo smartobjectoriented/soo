@@ -33,10 +33,19 @@
 
 #include <asm/io.h>
 
+/* Device capabilities bitmap */
+uint8_t devcaps_class[DEVCAPS_CLASS_NR];
+
 /* Null agency UID */
 static agencyUID_t null_agencyUID = {
 	.id = { 0 }
 };
+
+/* SPID of the SOO.blind ME */
+uint8_t SOO_blind_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0b, 0x11, 0x8d };
+
+/* SPID of the SOO.outdoor ME */
+uint8_t SOO_outdoor_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x61, 0xd0, 0x08 };
 
 /**
  * Return a NULL agency UID.
@@ -57,12 +66,83 @@ void devaccess_dump_agencyUID(void) {
 	soo_log_printlnUID(&current_soo->agencyUID);
 }
 
+/*
+ * Retrieve the agency descriptor.
+ */
+int get_agency_desc(agency_desc_t *agency_desc)
+{
+	int rc;
+	dom_desc_t dom_desc;
+	unsigned int slotID;
+
+	slotID = 1;  /* Agency slot */
+
+	rc = soo_hypercall(AVZ_GET_DOM_DESC, NULL, NULL, &slotID, &dom_desc);
+	if (rc != 0) {
+		printk("%s: failed to retrieve the SOO descriptor for slot ID %d.\n", __func__, rc);
+		return rc;
+	}
+
+	memcpy(agency_desc, &dom_desc.u.agency, sizeof(agency_desc_t));
+
+	return 0;
+}
+
+/**
+ * Check if a devcaps class is supported or not.
+ * The class is considered as "supported" if there is at least one active attribute belonging to the class.
+ * This function accepts a bit map as argument to validate several devcaps classes at once (all classes must be supported).
+ * Return true if the requested devcaps is supported, false otherwise.
+ */
+bool devaccess_is_devcaps_class_supported(uint32_t class) {
+	int i;
+
+	/* If at least one class is not present as requested, it returns false */
+	for (i = 0; i < DEVCAPS_CLASS_NR; i++)
+		if (((i << 8) & class) && (devcaps_class[i] == 0))
+			return false;
+
+	return true;
+}
+/**
+ * Parse the device capabilities bitmap and find out if the requested device capability is supported.
+ * Return true if the requested dev cap is supported, false otherwise.
+ */
+bool devaccess_is_devcaps_supported(uint32_t class, uint8_t devcaps) {
+	if (unlikely(((class >> 8) > DEVCAPS_CLASS_NR) || (devcaps > 0xff)))
+		return false;
+
+	return (devcaps_class[class >> 8] & devcaps);
+}
+
+/**
+ * Set or clear the flag associated to a device capability.
+ */
+void devaccess_set_devcaps(uint32_t class, uint8_t devcaps, bool available) {
+	if (unlikely(((class >> 8) > DEVCAPS_CLASS_NR) || (devcaps > 0xff)))
+		return;
+
+	if (available)
+		devcaps_class[class >> 8] |= devcaps;
+	else
+		devcaps_class[class >> 8] &= ~devcaps;
+}
+
+void devaccess_dump_devcaps(void) {
+	pr_cont("[soo:core:device_access] devcaps: ");
+	printk_buffer(devcaps_class, DEVCAPS_CLASS_NR);
+}
+
 /**
  * Set the Smart Object name.
  */
 void devaccess_set_soo_name(char *name) {
+
+#ifndef CONFIG_SOOLINK_PLUGIN_SIMULATION
 	strcpy(current_soo->name, name);
+#endif
 }
+
 
 /**
  * Get the Smart Object name.
@@ -116,9 +196,7 @@ void set_agencyUID(uint8_t val) {
 
 	current_soo->agencyUID.id[15] = val;
 
-#ifndef CONFIG_X86
 	discovery_update_ourself(&current_soo->agencyUID);
-#endif
 
 	soo_log("[soo:core:device_access] New SOO Agency UID: ");
 	soo_log_printlnUID(&current_soo->agencyUID);
@@ -150,4 +228,6 @@ ssize_t soo_name_store(struct device *dev, struct device_attribute *attr, const 
 
 void devaccess_init(void) {
 
+	/* Initialize the device capabilities bitmap */
+	memset(devcaps_class, 0, DEVCAPS_CLASS_NR);
 }

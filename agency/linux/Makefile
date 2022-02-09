@@ -515,7 +515,6 @@ LINUXINCLUDE    := \
 		-I$(objtree)/include \
 		$(USERINCLUDE) \
 		-Isoo/include \
-		-Iopencn/include \
 		-Iarch/$(SRCARCH)/xenomai/include -Iinclude/xenomai
 
 
@@ -1135,9 +1134,6 @@ core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/
 # (SOO.tech) SOO subsystems and drivers
 core-y	 += soo/
 core-y	 += arch/$(SRCARCH)/xenomai/
-
-# OpenCN subsystems
-core-y		+= opencn/
 
 vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, \
 		     $(core-y) $(core-m) $(drivers-y) $(drivers-m) \

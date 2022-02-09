@@ -17,7 +17,10 @@
 #include <asm/page.h>
 
 OUTPUT_ARCH(arm)
+#if 0 /* SOO.tech */
 ENTRY(stext)
+#endif /* 0 */
+ENTRY(_text)
 
 #ifndef __ARMEB__
 jiffies = jiffies_64;
@@ -50,6 +53,10 @@ SECTIONS
 	. = PAGE_OFFSET + TEXT_OFFSET;
 	.head.text : {
 		_text = .;
+
+		/* SOO.tech */
+		*(.init.fromavz_start)
+
 		HEAD_TEXT
 	}
 

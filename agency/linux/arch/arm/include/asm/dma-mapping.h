@@ -7,8 +7,12 @@
 #include <linux/mm_types.h>
 #include <linux/scatterlist.h>
 
+#include <asm/memory.h>
+
+#if 0 /* SOO.tech */
 #include <xen/xen.h>
 #include <asm/xen/hypervisor.h>
+#endif
 
 extern const struct dma_map_ops arm_dma_ops;
 extern const struct dma_map_ops arm_coherent_dma_ops;

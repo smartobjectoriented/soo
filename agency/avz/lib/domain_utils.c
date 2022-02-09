@@ -31,8 +31,6 @@
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
 
-#define L_TEXT_OFFSET	0x8000
-
 /**
  * We put all the guest domains in ELF format on top of memory so
  * that the domain_build will be able to elf-parse and load to their final destination.
@@ -199,8 +197,6 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 	}
 
 	dest_ME_vaddr = (void *) __lva(memslot[slotID].base_paddr);
-
-	dest_ME_vaddr += L_TEXT_OFFSET;
 
 	/* Move the kernel binary within the domain slotID. */
 	memcpy(dest_ME_vaddr, ME_vaddr, size);

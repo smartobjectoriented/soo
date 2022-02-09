@@ -439,7 +439,7 @@ void gic_secondary_init(unsigned int gic_nr)
 	gic_cpu_init(&gic_data[gic_nr]);
 }
 
-void smp_cross_call(int target_cpu, unsigned int irq)
+void smp_cross_call(long cpu_mask, unsigned int irq)
 {
 	unsigned long flags;
 	int cpu = smp_processor_id();
@@ -453,7 +453,7 @@ void smp_cross_call(int target_cpu, unsigned int irq)
 	smp_mb();
 
 	/* This always happens on GIC0 */
-	writel((1 << target_cpu) << 16 | irq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
+	writel((cpu_mask << 16) | irq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
 
 	spin_unlock_irqrestore(&per_cpu(intc_lock, cpu), flags);
 }

@@ -384,9 +384,8 @@ typedef struct {
 #define AG_INJECT_ME		0x12
 #define AG_IMEC_SETUP_PEER	0x13
 #define AG_FORCE_TERMINATE	0x14
-#define AG_LOCALINFO_UPDATE	0x15
-#define AG_KILL_ME		0x16
-#define AG_COOPERATE		0x17
+#define AG_KILL_ME		0x15
+#define AG_COOPERATE		0x16
 
 #define AG_AGENCY_UID		0x20
 #define AG_SOO_NAME		0x21

@@ -406,7 +406,7 @@ static void gic_handle_cascade_irq(struct irq_desc *desc)
 }
 
 
-/* OpenCN */
+/* SOO.tech */
 unsigned int gic_irq_startup(struct irq_data *data) {
 	gic_unmask_irq(data);
 	return 0;
@@ -420,7 +420,7 @@ static const struct irq_chip gic_chip = {
 	.irq_retrigger          = gic_retrigger,
 	.irq_get_irqchip_state	= gic_irq_get_irqchip_state,
 	.irq_set_irqchip_state	= gic_irq_set_irqchip_state,
-/* OpenCN */
+/* SOO.tech */
 	.irq_startup		= gic_irq_startup,
 
 	.flags			= IRQCHIP_SET_TYPE_MASKED |
@@ -894,22 +894,18 @@ static __init void gic_smp_init(void)
 	/* Proceed with registration of this handler on RT CPU */
 	cpurthp_setup_state(CPUHP_AP_IRQ_GIC_STARTING, "irqchip/arm/gic:starting", gic_starting_cpu, NULL);
 
-#if 1 /* SOO.tech */
-	base_sgi = __irq_domain_alloc_irqs(gic_data[0].domain, -1, 8,
+	/* SOO.tech */
+	base_sgi = __irq_domain_alloc_irqs(gic_data[0].domain, -1, 11,
 					   NUMA_NO_NODE, &sgi_fwspec,
 					   false, NULL);
-#endif /* 0 */
-#if 0
-	base_sgi = __irq_domain_alloc_irqs(gic_data[0].domain, -1, NR_IPI_MAX+1,
-					   NUMA_NO_NODE, &sgi_fwspec,
-					   false, NULL);
-#endif
+
+
 	if (WARN_ON(base_sgi <= 0))
 		return;
-#if 1 /* SOO.tech */
-	set_smp_ipi_range(base_sgi, 8);
-#endif
-	//set_smp_ipi_range(base_sgi, NR_IPI_MAX+1);
+
+	/* SOO.tech */
+	set_smp_ipi_range(base_sgi, 11);
+
 }
 #else
 #define gic_smp_init()		do { } while(0)

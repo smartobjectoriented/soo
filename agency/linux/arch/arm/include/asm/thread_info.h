@@ -9,6 +9,12 @@
 
 #ifdef __KERNEL__
 
+/* SOO.tech */
+/* We redefine AGENCY_RT_CPU here to avoid including soo/uapi/soo.h and thus
+ * avoiding a lot of recompilation when soo.h changes.
+ */
+#define AGENCY_RT_CPU 	1
+
 #include <linux/compiler.h>
 #include <asm/fpstate.h>
 #include <asm/page.h>
@@ -80,10 +86,26 @@ struct thread_info {
  */
 static inline struct thread_info *current_thread_info(void) __attribute_const__;
 
+/* SOO.tech */
+static inline int smp_processor_id(void) {
+        int cpu;
+
+        /* Read Multiprocessor ID register */
+        asm volatile ("mrc p15, 0, %0, c0, c0, 5": "=r" (cpu));
+
+        /* Mask out all but CPU ID bits */
+        return (cpu & 0x3);
+}
+
+extern struct thread_info *xnthread_current_ti(void);
+
 static inline struct thread_info *current_thread_info(void)
 {
-	return (struct thread_info *)
-		(current_stack_pointer & ~(THREAD_SIZE - 1));
+	/* SOO.tech */
+	if (smp_processor_id() == AGENCY_RT_CPU)
+		return xnthread_current_ti();
+	else
+		return (struct thread_info *) (current_stack_pointer & ~(THREAD_SIZE - 1));
 }
 
 #define thread_saved_pc(tsk)	\
