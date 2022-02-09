@@ -1,0 +1,6 @@
+config DCM_LZ4
+	depends on LZ4_DECOMPRESS
+	bool "DCM Compressor"
+	help
+		Compression and decompression of the MEs in the DCM
+	default N
