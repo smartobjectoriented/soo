@@ -1356,7 +1356,7 @@ setup_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
 	set_bit(IRQTF_AFFINITY, &new->thread_flags);
 #endif /* 0 */
 
-	kthread_bind(t, AGENCY_CPU0);
+	kthread_bind(t, AGENCY_CPU);
 
 	return 0;
 }

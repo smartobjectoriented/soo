@@ -18,7 +18,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -54,6 +54,8 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 #include <soo/uapi/logbool.h>
+
+#include <soo/debug/dbgvar.h>
 
 #define SYNC_BACKFRONT_COMPLETE		0
 #define SYNC_BACKFRONT_SUSPEND		1
@@ -777,11 +779,6 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	case DC_LOCALINFO_UPDATE:
 	case DC_TRIGGER_DEV_PROBE:
 
-	/* OpenCN events */
-	case DC_VLOG_INIT:
-	case DC_LCEC_INIT:
-	case DC_VLOG_FLUSH:
-	case DC_EC_IOCTL_SOE_READ:
 		/* FALLTHROUGH */
 
 		/* Check if it is the response to a dc_event. Can be done immediately in the top half. */

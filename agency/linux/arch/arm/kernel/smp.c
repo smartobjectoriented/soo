@@ -48,8 +48,31 @@
 #include <asm/mach/arch.h>
 #include <asm/mpu.h>
 
+/* SOO.tech */
+
+#include <linux/ipipe.h>
+
+#include <soo/evtchn.h>
+
+#include <soo/uapi/console.h>
+#include <soo/uapi/logbool.h>
+#include <soo/uapi/soo.h>
+
+#include <cobalt/kernel/sched.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
+
+/* SOO.tech */
+extern void xenomai_init(void);
+volatile bool __xenomai_ready_to_go = false;
+extern void __smp_vfp_enable(void);
+extern bool in_upcall_process(void);
+extern void xntimer_raise(void);
+
+#ifdef CONFIG_ARCH_BCM2835
+extern volatile int __irq_in_process;
+#endif
 
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
@@ -66,6 +89,12 @@ enum ipi_msg_type {
 	IPI_CPU_STOP,
 	IPI_IRQ_WORK,
 	IPI_COMPLETION,
+
+	/* SOO.tech */
+	IPI_IRQ_HANDLE,
+
+	IPI_RT_TASK_CREATE,
+
 	NR_IPI,
 	/*
 	 * CPU_BACKTRACE is special and not included in NR_IPI
@@ -77,8 +106,13 @@ enum ipi_msg_type {
 	 * not be usable by the kernel. Please keep the above limited
 	 * to at most 8 entries.
 	 */
+
 	MAX_IPI
 };
+
+/* SOO.tech */
+
+#define IPI_AVZ_EVENT_CHECK	IPI_CPU_STOP
 
 static int ipi_irq_base __read_mostly;
 static int nr_ipi __read_mostly = NR_IPI;
@@ -104,6 +138,9 @@ static unsigned long get_arch_pgd(pgd_t *pgd)
 	return virt_to_phys(pgd);
 #endif
 }
+
+/* SOO.tech */
+struct xnthread __root_task;
 
 #if defined(CONFIG_BIG_LITTLE) && defined(CONFIG_HARDEN_BRANCH_PREDICTOR)
 static int secondary_biglittle_prepare(unsigned int cpu)
@@ -144,7 +181,13 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 	 * We need to tell the secondary core where to find
 	 * its stack and the page tables.
 	 */
+
+#if 0 /* SOO.tech */
 	secondary_data.stack = task_stack_page(idle) + THREAD_START_SP;
+#endif
+	xnarch_init_thread(&__root_task);
+	secondary_data.stack = (void *)  __root_task.tcb.sp;
+
 #ifdef CONFIG_ARM_MPU
 	secondary_data.mpu_rgn_info = &mpu_rgn_info;
 #endif
@@ -396,6 +439,9 @@ static void smp_store_cpu_info(unsigned int cpuid)
 	check_cpu_icache_size(cpuid);
 }
 
+/* SOO.tech */
+static void smp_cross_call(const struct cpumask *target, unsigned int ipinr);
+
 /*
  * This is the secondary CPU boot entry.  We're using this CPUs
  * idle thread stack, but a set of temporary page tables.
@@ -413,17 +459,35 @@ asmlinkage void secondary_start_kernel(void)
 	 */
 	cpu_switch_mm(mm->pgd, mm);
 	local_flush_bp_all();
+
+	/* SOO.tech */
+#if 0 /* actually, unused */
 	enter_lazy_tlb(mm, current);
+#endif
 	local_flush_tlb_all();
+	
+	/* SOO.tech */
+
+	/*
+	 * With CONFIG_IPIPE debug_smp_processor_id requires access
+	 * to percpu data.
+	 */
+	set_my_cpu_offset(per_cpu_offset(ipipe_processor_id()));
 
 	/*
 	 * All kernel threads share the same mm context; grab a
 	 * reference and switch to it.
 	 */
 	cpu = smp_processor_id();
+
+	/* SOO.tech */
+#if 0
 	mmgrab(mm);
 	current->active_mm = mm;
 	cpumask_set_cpu(cpu, mm_cpumask(mm));
+#endif /* 0 */
+
+	__xnthread_current = &__root_task;
 
 	cpu_init();
 
@@ -449,6 +513,10 @@ asmlinkage void secondary_start_kernel(void)
 
 	smp_store_cpu_info(cpu);
 
+	/* SOO.tech */
+	if (smp_processor_id() == AGENCY_RT_CPU)
+		__smp_vfp_enable();
+
 	/*
 	 * OK, now it's safe to let the boot CPU continue.  Wait for
 	 * the CPU migration code to notice that the CPU is online
@@ -460,14 +528,46 @@ asmlinkage void secondary_start_kernel(void)
 
 	complete(&cpu_running);
 
+	/* SOO.tech */
+
+	if (cpu == AGENCY_RT_CPU)
+		smp_cross_call(cpumask_of(AGENCY_CPU), IPI_RESCHEDULE);
+
 	local_irq_enable();
 	local_fiq_enable();
 	local_abt_enable();
 
+	/* SOO.tech */
+
+	/* Wait until major subsystems and Linux framework (kobject) is fully initialized */
+
+	lprintk("%s: waiting on CPU %d for starting Xenomai initialization ...\n", __func__, smp_processor_id());
+
+	/* Set the CPU as online so that smp_init() on domain 0 can go ahead. */
+	cpuhp_online_idle(CPUHP_AP_ONLINE_IDLE);
+
+#ifndef CONFIG_ARM_PSCI
+	__asm("dsb");
+	__asm("wfi");
+#endif
+
+	xenomai_init();
+
+	while (true) {
+		BUG_ON(hard_irqs_disabled());
+
+		__asm("dsb");
+		__asm("wfi");
+
+		BUG_ON(in_upcall_process());
+	}
+
 	/*
 	 * OK, it's off to the idle thread for us
 	 */
+#if 0 /* SOO.tech */
 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
+#endif
 }
 
 void __init smp_cpus_done(unsigned int max_cpus)
@@ -523,7 +623,16 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 	}
 }
 
+static void (*__smp_cross_call)(const struct cpumask *, unsigned int);
+
+void __init set_smp_cross_call(void (*fn)(const struct cpumask *, unsigned int))
+{
+	if (!__smp_cross_call)
+		__smp_cross_call = fn;
+}
+
 static const char *ipi_types[NR_IPI] __tracepoint_string = {
+
 #define S(x,s)	[x] = s
 	S(IPI_WAKEUP, "CPU wakeup interrupts"),
 	S(IPI_TIMER, "Timer broadcast interrupts"),
@@ -532,6 +641,9 @@ static const char *ipi_types[NR_IPI] __tracepoint_string = {
 	S(IPI_CPU_STOP, "CPU stop interrupts"),
 	S(IPI_IRQ_WORK, "IRQ work interrupts"),
 	S(IPI_COMPLETION, "completion interrupts"),
+
+	/* SOO.tech */
+	S(IPI_IRQ_HANDLE, "(cross-CPU) IRQ handle interrupts"),
 };
 
 static void smp_cross_call(const struct cpumask *target, unsigned int ipinr);
@@ -549,7 +661,10 @@ void show_ipi_list(struct seq_file *p, int prec)
 		irq = irq_desc_get_irq(ipi_desc[i]);
 		seq_printf(p, "%*s%u: ", prec - 1, "IPI", i);
 
+#if 0 /* SOO.tech */
 		for_each_online_cpu(cpu)
+#endif
+		for (cpu = 0; cpu < 2; cpu++)
 			seq_printf(p, "%10u ", kstat_irqs_cpu(irq, cpu));
 
 		seq_printf(p, " %s\n", ipi_types[i]);
@@ -580,11 +695,28 @@ void arch_irq_work_raise(void)
 #endif
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
+
+/* SOO.tech */
+static inline void ipi_timer(void)
+{
+	tick_receive_broadcast();
+}
+
+#endif
+
+
+#ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
 void tick_broadcast(const struct cpumask *mask)
 {
+/* SOO.tech */
+/* Not required. CPU #1 is the RT Agency CPU and has its own clock handler. */
+#if 0 
 	smp_cross_call(mask, IPI_TIMER);
+#endif
 }
 #endif
+
+#if 0 /* SOO.tech */
 
 static DEFINE_RAW_SPINLOCK(stop_lock);
 
@@ -610,6 +742,7 @@ static void ipi_cpu_stop(unsigned int cpu)
 		wfe();
 	}
 }
+#endif /* 0 */
 
 static DEFINE_PER_CPU(struct completion *, cpu_completion);
 
@@ -624,12 +757,76 @@ static void ipi_complete(unsigned int cpu)
 	complete(per_cpu(cpu_completion, cpu));
 }
 
+/* SOO.tech */
+
+void smp_kick_rt_agency_for_wakeup(void) {
+	smp_cross_call(cpumask_of(AGENCY_RT_CPU), IPI_WAKEUP);
+}
+
+void smp_irq_handle(int cpu) {
+	smp_cross_call(cpumask_of(cpu), IPI_IRQ_HANDLE);
+}
+
+/*
+ * Send a RESCHEDULE event to CPU #1 to proceed with the initialization/starting of an xnthread.
+ */
+void smp_kick_rt_agency_for_task_create(void) {
+	smp_cross_call(cpumask_of(AGENCY_RT_CPU), IPI_RT_TASK_CREATE);
+}
+
+void smp_trigger_tick(void) {
+	smp_cross_call(cpumask_of(AGENCY_RT_CPU), IPI_TIMER);
+}
+
 /*
  * Main handler for inter-processor interrupts
  */
 asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 {
 	handle_IPI(ipinr, regs);
+}
+
+/* SOO.tech */
+static void do_handle_rt_IPI(int ipinr)
+{
+	unsigned int cpu = smp_processor_id();
+	BUG_ON(cpu != AGENCY_RT_CPU);
+
+	switch (ipinr) {
+
+	/* SOO.tech */
+	case IPI_RT_TASK_CREATE:
+		xnthread_do_task_create();
+		break;
+
+#ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
+	case IPI_TIMER:
+		/* Propagate a first interrupt on the clock handler for periodic task */
+		xntimer_raise();
+		break;
+#endif
+	case IPI_WAKEUP:
+		break;
+
+	case IPI_AVZ_EVENT_CHECK:
+		evtchn_do_upcall(get_irq_regs());
+		break;
+
+#warning to re-adjust...
+		/* SOO.tech */
+#ifdef CONFIG_ARCH_BCM2835
+	case IPI_IRQ_HANDLE:
+		BUG_ON((__irq_in_process == -1) || (__irq_in_process == 0));
+
+		__ipipe_grab_irq(__irq_in_process, true);
+
+		break;
+#endif /* CONFIG_ARCH_BCM2835 */
+
+	default:
+		pr_crit("CPU%u: Unknown IPI message 0x%x on RT CPU.\n", cpu, ipinr);
+		BUG();
+	}
 }
 
 static void do_handle_IPI(int ipinr)
@@ -645,20 +842,37 @@ static void do_handle_IPI(int ipinr)
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
 	case IPI_TIMER:
+		/* SOO.tech */
+		if (smp_processor_id() == AGENCY_CPU)
+			ipi_timer();
+		else  /* Propagate a first interrupt on the clock handler for periodic task */
+			xntimer_raise();
+#if 0 /* SOO.tech */
 		tick_receive_broadcast();
+#endif /* 0 */
 		break;
 #endif
 
 	case IPI_RESCHEDULE:
-		scheduler_ipi();
+		/* SOO.tech */
+		irq_enter();
+		if (smp_processor_id() != AGENCY_RT_CPU)
+			scheduler_ipi();
+		irq_exit();
 		break;
 
 	case IPI_CALL_FUNC:
 		generic_smp_call_function_interrupt();
 		break;
 
-	case IPI_CPU_STOP:
-		ipi_cpu_stop(cpu);
+	/* SOO.tech */
+	/* case IPI_CPU_STOP: */
+	case IPI_AVZ_EVENT_CHECK:
+		evtchn_do_upcall(get_irq_regs());
+
+#if 0 /* Temporary */
+		ipi_cpu_stop();
+#endif
 		break;
 
 #ifdef CONFIG_IRQ_WORK
@@ -705,6 +919,11 @@ static irqreturn_t ipi_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/* SOO.tech */
+void rt_ipi_handler(int hwirq) {
+	do_handle_rt_IPI(hwirq);
+}
+
 static void smp_cross_call(const struct cpumask *target, unsigned int ipinr)
 {
 	trace_ipi_raise_rcuidle(target, ipi_types[ipinr]);
@@ -748,6 +967,9 @@ void __init set_smp_ipi_range(int ipi_base, int n)
 
 void smp_send_reschedule(int cpu)
 {
+	/* SOO.tech */
+	BUG_ON(cpu == AGENCY_RT_CPU);
+
 	smp_cross_call(cpumask_of(cpu), IPI_RESCHEDULE);
 }
 

@@ -67,32 +67,5 @@
 
 #endif
 
-void debug_function_print(const char *function_name, int diff);
-
-#if 0
-#define FNIN    debug_function_print(__FUNCTION__, +1);
-#define FNOUT   debug_function_print(__FUNCTION__, -1);
-
-#ifdef __cplusplus
-    struct FNTrace {
-        const char* _name;
-        FNTrace(const char* name): _name(name) {debug_function_print(_name, +1);}
-        ~FNTrace() {debug_function_print(_name, -1);}
-    };
-    #define FNTRACE FNTrace opencn_fntrace(__FUNCTION__);
-#endif
-#else
-
-#define FNIN
-#define FNOUT
-#define FNTRACE
-
-#endif
-
-#define ASCII_GREEN "\033[1;32m"
-#define ASCII_BLUE "\033[1;34m"
-#define ASCII_CYAN "\033[1;36m"
-#define ASCII_RED "\033[1;31m"
-#define ASCII_RESET "\033[0m"
-
 #endif /* UAPI_DEBUG_H */
+

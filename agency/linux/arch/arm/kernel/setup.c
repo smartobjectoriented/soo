@@ -46,7 +46,10 @@
 #include <asm/cacheflush.h>
 #include <asm/cachetype.h>
 #include <asm/tlbflush.h>
+
+#if 0 /* SOO.tech */
 #include <asm/xen/hypervisor.h>
+#endif
 
 #include <asm/prom.h>
 #include <asm/mach/arch.h>
@@ -60,7 +63,6 @@
 #include <asm/virt.h>
 
 #include "atags.h"
-
 
 #if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
 char fpe_type[8];
@@ -548,35 +550,41 @@ void notrace cpu_init(void)
 #define PLC	"I"
 #endif
 
-	/*
-	 * setup stacks for re-entrant exception handlers
-	 */
-	__asm__ (
-	"msr	cpsr_c, %1\n\t"
-	"add	r14, %0, %2\n\t"
-	"mov	sp, r14\n\t"
-	"msr	cpsr_c, %3\n\t"
-	"add	r14, %0, %4\n\t"
-	"mov	sp, r14\n\t"
-	"msr	cpsr_c, %5\n\t"
-	"add	r14, %0, %6\n\t"
-	"mov	sp, r14\n\t"
-	"msr	cpsr_c, %7\n\t"
-	"add	r14, %0, %8\n\t"
-	"mov	sp, r14\n\t"
-	"msr	cpsr_c, %9"
-	    :
-	    : "r" (stk),
-	      PLC (PSR_F_BIT | PSR_I_BIT | IRQ_MODE),
-	      "I" (offsetof(struct stack, irq[0])),
-	      PLC (PSR_F_BIT | PSR_I_BIT | ABT_MODE),
-	      "I" (offsetof(struct stack, abt[0])),
-	      PLC (PSR_F_BIT | PSR_I_BIT | UND_MODE),
-	      "I" (offsetof(struct stack, und[0])),
-	      PLC (PSR_F_BIT | PSR_I_BIT | FIQ_MODE),
-	      "I" (offsetof(struct stack, fiq[0])),
-	      PLC (PSR_F_BIT | PSR_I_BIT | SVC_MODE)
-	    : "r14");
+	/* SOO.tech */
+
+	/* For the realtime agency, avz did not initialize the different stacks. We do that here... */
+	if (cpu == AGENCY_RT_CPU) {
+
+		/*
+		 * setup stacks for re-entrant exception handlers
+		 */
+		__asm__ (
+				"msr	cpsr_c, %1\n\t"
+				"add	r14, %0, %2\n\t"
+				"mov	sp, r14\n\t"
+				"msr	cpsr_c, %3\n\t"
+				"add	r14, %0, %4\n\t"
+				"mov	sp, r14\n\t"
+				"msr	cpsr_c, %5\n\t"
+				"add	r14, %0, %6\n\t"
+				"mov	sp, r14\n\t"
+				"msr	cpsr_c, %7\n\t"
+				"add	r14, %0, %8\n\t"
+				"mov	sp, r14\n\t"
+				"msr	cpsr_c, %9"
+				:
+				: "r" (stk),
+				  PLC (PSR_F_BIT | PSR_I_BIT | IRQ_MODE),
+				  "I" (offsetof(struct stack, irq[0])),
+				  PLC (PSR_F_BIT | PSR_I_BIT | ABT_MODE),
+				  "I" (offsetof(struct stack, abt[0])),
+				  PLC (PSR_F_BIT | PSR_I_BIT | UND_MODE),
+				  "I" (offsetof(struct stack, und[0])),
+				  PLC (PSR_F_BIT | PSR_I_BIT | FIQ_MODE),
+				  "I" (offsetof(struct stack, fiq[0])),
+				  PLC (PSR_F_BIT | PSR_I_BIT | SVC_MODE)
+				  : "r14");
+	}
 #endif
 }
 
@@ -598,8 +606,10 @@ void __init smp_setup_processor_id(void)
 	 * access percpu variable inside lock_release
 	 */
 	set_my_cpu_offset(0);
-
+#if 0 /* SOO.tech */
 	pr_info("Booting Linux on physical CPU 0x%x\n", mpidr);
+#endif /* 0 */
+	pr_info("Booting Linux on physical CPU 0x%x\n", read_cpuid_mpidr());
 }
 
 struct mpidr_hash mpidr_hash;
@@ -1122,7 +1132,11 @@ void __init setup_arch(char **cmdline_p)
 	early_mm_init(mdesc);
 #endif
 	setup_dma_zone(mdesc);
+
+#if 0 /* SOO.tech */
 	xen_early_init();
+#endif /* 0 */
+
 	efi_init();
 	/*
 	 * Make sure the calculation for lowmem/highmem is set appropriately

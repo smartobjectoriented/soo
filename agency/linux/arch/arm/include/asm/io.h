@@ -140,6 +140,9 @@ extern void __iomem *__arm_ioremap_pfn(unsigned long, unsigned long, size_t, uns
 extern void __iomem *__arm_ioremap_exec(phys_addr_t, size_t, bool cached);
 extern void __iounmap(volatile void __iomem *addr);
 
+/* SOO.tech */
+extern void __iomem *__arm_ioremap(phys_addr_t, size_t, unsigned int);
+
 extern void __iomem * (*arch_ioremap_caller)(phys_addr_t, size_t,
 	unsigned int, void *);
 extern void (*arch_iounmap)(volatile void __iomem *);

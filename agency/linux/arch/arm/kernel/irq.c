@@ -33,6 +33,10 @@
 #include <linux/proc_fs.h>
 #include <linux/export.h>
 
+/* SOO.tech */
+#include <soo/uapi/soo.h>
+#include <soo/evtchn.h>
+
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/hardware/cache-uniphier.h>
 #include <asm/outercache.h>
@@ -78,6 +82,9 @@ asm_do_IRQ(unsigned int irq, struct pt_regs *regs)
 void __init init_IRQ(void)
 {
 	int ret;
+
+	/* SOO.tech */
+	virq_init();
 
 	if (IS_ENABLED(CONFIG_OF) && !machine_desc->init_irq)
 		irqchip_init();

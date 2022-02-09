@@ -112,7 +112,9 @@ static __always_inline void set_domain(unsigned int val)
 }
 #endif
 
-#ifdef CONFIG_CPU_USE_DOMAINS
+/* SOO.tech */
+/* #ifdef CONFIG_CPU_USE_DOMAINS */
+#if 1
 #define modify_domain(dom,type)					\
 	do {							\
 		unsigned int domain = get_domain();		\

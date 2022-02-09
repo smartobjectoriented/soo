@@ -138,6 +138,9 @@ struct vbus_driver {
 
 	struct device_driver driver;
 
+	/* Private stucture for this vbus driver */
+	void *priv;
+
 	void (*probe)(struct vbus_device *dev);
 	void (*remove)(struct vbus_device *dev);
 
@@ -151,28 +154,38 @@ struct vbus_driver {
 	void (*read_otherend_details)(struct vbus_device *dev);
 };
 
-static inline const char *vbus_strstate(enum vbus_state state)
-{
-	static const char *const name[] = {
-		[ VbusStateUnknown      ] = "Unknown",
-		[ VbusStateInitialising ] = "Initialising",
-		[ VbusStateInitWait     ] = "InitWait",
-		[ VbusStateInitialised  ] = "Initialised",
-		[ VbusStateConnected    ] = "Connected",
-		[ VbusStateClosing      ] = "Closing",
-		[ VbusStateClosed	      ] = "Closed",
-		[ VbusStateReconfiguring] = "Reconfiguring",
-		[ VbusStateReconfigured ] = "Reconfigured",
-		[ VbusStateSuspending   ] = "Suspending",
-		[ VbusStateSuspended    ] = "Suspended",
-		[ VbusStateResuming     ] = "Resuming",
-	};
-	return (state < ARRAY_SIZE(name)) ? name[state] : "INVALID";
-}
-
 static inline struct vbus_driver *to_vbus_driver(struct device_driver *drv)
 {
 	return container_of(drv, struct vbus_driver, driver);
+}
+
+/*
+ * Attach a private structure to a vbus driver
+ */
+static inline void vdrv_set_priv(struct vbus_driver *vdrv, void *priv) {
+	vdrv->priv = priv;
+}
+
+/*
+ * Retrieve the private structure attached to a specific vbus driver
+ */
+static inline void *vdrv_get_priv(struct vbus_driver *vdrv) {
+	return vdrv->priv;
+}
+
+/*
+ * Retrieve the private structure attached to a vbus driver from a particular vbus device
+ */
+static inline void *vdrv_get_vdevpriv(struct vbus_device *vdev) {
+	return vdrv_get_priv(to_vbus_driver(vdev->dev.driver));
+}
+
+void __vbus_register_frontend(struct vbus_driver *drv, struct module *owner, const char *mod_name);
+
+static inline void vbus_register_frontend(struct vbus_driver *drv)
+{
+	WARN_ON(drv->owner != THIS_MODULE);
+	return __vbus_register_frontend(drv, THIS_MODULE, KBUILD_MODNAME);
 }
 
 void __vbus_register_backend(struct vbus_driver *drv, struct module *owner, const char *mod_name);
@@ -271,6 +284,7 @@ int vbus_suspend_devices(unsigned int domID);
 int vbus_resume_devices(unsigned int domID);
 
 int vdev_probe(char *node);
+void vbus_probe_frontend_init(void);
 
 #define VBUS_IS_ERR_READ(str) ({			\
 	if (!IS_ERR(str) && strlen(str) == 0) {		\

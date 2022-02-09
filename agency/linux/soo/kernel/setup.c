@@ -36,18 +36,15 @@ unsigned long avz_guest_phys_offset;
 
 volatile unsigned long *HYPERVISOR_hypercall_addr;
 
-#ifndef CONFIG_X86
 volatile shared_info_t *HYPERVISOR_shared_info;
-#endif
 
 extern unsigned long __pv_phys_pfn_offset;
 extern u64 __pv_offset;
 
 void __init avz_setup(void)
 {
-#ifndef CONFIG_X86
 	int ret;
-#endif
+
 	__printch = avz_start_info->printch;
 
 	/* Immediately prepare for hypercall processing */
@@ -77,12 +74,10 @@ void __init avz_setup(void)
 
  	lprintk("done.\n");
 
-#ifndef CONFIG_X86
  	lprintk("Set HYPERVISOR_set_callbacks at %lx\n", (unsigned long) avz_linux_callback);
 
-	ret = hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_linux_callback, 0, 0, 0);
+	ret = hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_linux_callback, (unsigned long) domcall, 0, 0);
 	BUG_ON(ret < 0);
-#endif
 
 	lprintk("No problem\n");
 }

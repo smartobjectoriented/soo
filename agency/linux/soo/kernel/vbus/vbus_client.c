@@ -38,12 +38,7 @@
 
 #include <linux/ipipe_base.h>
 
-/**
- * vbus_watch_path - register a watch
- * @dev: vbus device
- * @path: path to watch
- * @watch: watch to register
- * @callback: callbconst char *vbus_strstate(enum vbus_state state)
+const char *vbus_strstate(enum vbus_state state)
 {
 	static const char *const name[] = {
 		[ VbusStateUnknown      ] = "Unknown",
@@ -61,7 +56,13 @@
 	};
 	return (state < ARRAY_SIZE(name)) ? name[state] : "INVALID";
 }
- * ack to register
+
+/**
+ * vbus_watch_path - register a watch
+ * @dev: vbus device
+ * @path: path to watch
+ * @watch: watch to register
+ * @callback: callback to register
  *
  * Register a @watch on the given path, using the given vbus_watch structure
  * for storage, and the given @callback function as the callback.  Return 0 on

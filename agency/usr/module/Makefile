@@ -2,7 +2,7 @@
 include $(PWD)/../build.conf
 
 
-KDIR = ../../linux
+KDIR = $(PWD)/../linux
 
 ifeq ($(PLATFORM),$(filter $(PLATFORM),rpi4))
 obj-m := senseled.o

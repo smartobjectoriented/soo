@@ -35,6 +35,10 @@
 #include <asm/mach/pci.h>
 #include <asm/fixmap.h>
 
+/* SOO.tech */
+#include <soo/hypervisor.h>
+#include <soo/uapi/console.h>
+
 #include "fault.h"
 #include "mm.h"
 #include "tcm.h"
@@ -1330,8 +1334,18 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 	/*
 	 * Clear page table except top pmd used by early fixmaps
 	 */
+
+#if 0 /* SOO.tech */
 	for (addr = VMALLOC_START; addr < (FIXADDR_TOP & PMD_MASK); addr += PMD_SIZE)
 		pmd_clear(pmd_off_k(addr));
+#endif /* 0 */
+
+	for (addr = VMALLOC_START; addr < 0xff000000; addr += PMD_SIZE)
+			pmd_clear(pmd_off_k(addr));
+
+	for (addr = FIXADDR_START; addr < (FIXADDR_TOP & PMD_MASK); addr += PMD_SIZE)
+		pmd_clear(pmd_off_k(addr));
+
 
 	/*
 	 * Map the kernel if it is XIP.

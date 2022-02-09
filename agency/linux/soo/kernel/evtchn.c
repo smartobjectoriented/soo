@@ -40,9 +40,7 @@
 #include <asm/ptrace.h>
 #include <asm/irqflags.h>
 
-#ifndef CONFIG_X86
 #include <asm-generic/irq_regs.h>
-#endif
 
 #include <asm/ipipe.h>
 #include <soo/uapi/soo.h>
@@ -54,6 +52,8 @@
 #include <soo/uapi/console.h>
 
 #include <soo/uapi/debug.h>
+#include <soo/debug/dbgvar.h>
+
 #include <soo/uapi/physdev.h>
 
 /* Convenient shorthand for packed representation of an unbound IRQ. */
@@ -179,11 +179,7 @@ retry:
 
 		clear_evtchn(evtchn_from_virq(virq));
 
-#ifdef CONFIG_X86
-		asm_do_IRQ(VIRQ_BASE + virq, regs);
-#else
 		__handle_domain_irq(NULL, VIRQ_BASE + virq, false, regs);
-#endif
 
 		BUG_ON(!hard_irqs_disabled());
 	};

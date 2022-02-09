@@ -143,8 +143,7 @@ static void my_rt_task1_fn(void *args) {
 		//rtdm_event_wait(&rt_event);
 		//lprintk("## Got %d\n", i++);
 
-		if (rt_log_enabled())
-			printk("## thread task1, idx: %d\n", i++);
+		printk("## thread task1, idx: %d\n", i++);
 #if 0
 		if (!toggle) {
 
@@ -379,7 +378,7 @@ int rtapp_main(void *args) {
 	}
 #endif
 
-#if 1
+
 	//rtdm_mutex_init(&rt_mutex);
 
 	//rtdm_task_init(&rt_isr, "rt_isr_t", rtdm_isr_thread, NULL, 90, 0);
@@ -390,7 +389,7 @@ int rtapp_main(void *args) {
 
 	//rtdm_task_init(&rt_task3, "rt_task_3", my_rt_task_sub, NULL, 50, 1000000000);
 
-#endif
+
 #if 0
 	rtdm_event_init(&rt_event, 0);
 	//rtdm_timer_init(&rt_timer, rt_timer_fn);

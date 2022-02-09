@@ -61,13 +61,10 @@
 #define DOMID_SELF (0x7FF0U)
 
 /* Agency */
-#define DOMID_AGENCY		0
+#define DOMID_AGENCY	0
 
 /* Realtime agency subdomain */
-#define DOMID_AGENCY_RT		1
-
-#define DOMID_AGENCY_CPU2	2
-#define DOMID_AGENCY_CPU3	3
+#define DOMID_AGENCY_RT	1
 
 #define DOMID_INVALID (0x7FF4U)
 

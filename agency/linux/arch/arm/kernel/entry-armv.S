@@ -33,6 +33,9 @@
 #include <asm/entry-macro-multi.S>
 #include <asm/probes.h>
 
+/* SOO.tech */
+.extern __stack_alignment_fault
+
 /*
  * Interrupt handling.
  */
@@ -808,6 +811,25 @@ ENTRY(__switch_to)
  THUMB(	ldr	pc, [ip]		   )
  UNWIND(.fnend		)
 ENDPROC(__switch_to)
+
+/* SOO.tech */
+.align 5
+ENTRY(avz_linux_callback)
+
+	@ Check if the stack is 8-byte aligned.
+	tst		sp, #0x7
+	bne		__stack_alignment_fault
+
+	bl 		evtchn_do_upcall
+
+	ldr		r5, [sp, #S_PSR]
+	msr		spsr_cxsf, r5
+
+	ldmia	sp, {r0 - pc}^			@ load r0 - pc, cpsr
+
+1:
+    b       1b
+ENDPROC(avz_linux_callback)
 
 	__INIT
 

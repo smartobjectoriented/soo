@@ -17,6 +17,21 @@ config VINPUT_BACKEND
     default n
     help
       This driver implements the backend of the input (keyboard/mouse) driver of the SOO environment.
+	
+config VDOGA12V6NM_BACKEND
+	bool "vDOGA12V6NM backend"
+	depends on TTY
+	default n
+	help
+	  Support for DOGA 12V 6Nm blind motor.
+
+config VWEATHER_BACKEND
+	bool "vWeather backend"
+	depends on TTY
+	default n
+	help
+	  Support for multi-purpose weather station, for the SOO.outdoor
+	  product.
 	  
 config VUIHANDLER_BACKEND
 	bool "vUihandler backend driver"
@@ -41,15 +56,23 @@ config VNET_BACKEND
     help
       This driver implements the backend of the network driver of the SOO environment.
 
+config VSENSELED_BACKEND
+	depends on FB_RPISENSE || ARCH_VEXPRESS
+	bool "vsenseled Sense-HAT led backend driver"
+	default n
+	help
+	  The vsenseled driver enables 5 logical LEDs that may be used to represent the joystick movement
+	  for example.
+
+config VSENSEJ_BACKEND
+	depends on FB_RPISENSE || ARCH_VEXPRESS
+	bool "vsensej Sense-HAT joystick backend driver"
+	default n
+	help
+	  The vsensej driver captures joystick movements.
+	  
+	  
 source "soo/drivers/vnetback/Kconfig"
-
-config VUART_FRONTEND
-	bool "RTDM (realtime) vuart serial driver frontend"
-
-config VDUMMY_FRONTEND
-	select VDUMMY_BACKEND
-        bool "RTDM (realtime) vdummy driver frontend support debugging and testing"
-
 
 endmenu
 	

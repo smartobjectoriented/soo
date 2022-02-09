@@ -237,10 +237,14 @@ static void finish_upgrade(upgrader_args_t *args) {
 		}
 	} while (desc.state != ME_state_living);
 	
+
+#warning Why a localinfo_update here ??
+#if 0
 	if ((ioctl(fd_core, AGENCY_IOCTL_LOCALINFO_UPDATE, &args->ME_slotID)) < 0) {
 		DBG0("ioctl AGENCY_IOCTL_LOCALINFO_UPDATE failed.\n");
 		BUG();
 	}
+#endif
 
 	upgrade_done = true;
 

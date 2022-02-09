@@ -6,6 +6,10 @@
 
 #include <asm/ptrace.h>
 
+/* SOO.tech */
+#include <asm/percpu.h>
+
+
 /*
  * CPU interrupt mask handling.
  */
@@ -18,6 +22,13 @@
 #define IRQMASK_REG_NAME_W "cpsr_c"
 #define IRQMASK_I_BIT	PSR_I_BIT
 #endif
+
+/* SOO.tech */
+/*
+ * This boolean is true if we are in progress within the do_evtchn_upcall execution.
+ * We should never re-enable the IRQs during a evtchn_upcall execution.
+ */
+DECLARE_PER_CPU(bool, in_upcall_progress);
 
 #if __LINUX_ARM_ARCH__ >= 6
 

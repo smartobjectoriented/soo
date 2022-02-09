@@ -6,6 +6,9 @@
 #include <linux/types.h>
 #include <asm/opcodes.h>
 
+/* SOO.tech */
+#include <soo/uapi/console.h>
+
 /*
  * Use a suitable undefined instruction to use for ARM/Thumb2 bug handling.
  * We need to be careful not to conflict with those used by other modules and
@@ -32,8 +35,12 @@
  * avoid multiple copies of the string appearing in the kernel image.
  */
 
+/* SOO.tech */
+
 #define __BUG(__file, __line, __value)				\
 do {								\
+	lprintk("BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
+	while(1); \
 	asm volatile("1:\t" BUG_INSTR(__value) "\n"  \
 		".pushsection .rodata.str, \"aMS\", %progbits, 1\n" \
 		"2:\t.asciz " #__file "\n" 			\

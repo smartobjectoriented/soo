@@ -15,7 +15,24 @@
 # error "<asm/smp.h> included in non-SMP build"
 #endif
 
+/* SOO.tech */
+#if 0
 #define raw_smp_processor_id() (current_thread_info()->cpu)
+#endif
+
+/* SOO.tech */
+static inline int ____smp_processor_id(void) {
+        int cpu;
+
+        /* Read Multiprocessor ID register */
+        asm volatile ("mrc p15, 0, %0, c0, c0, 5": "=r" (cpu));
+
+        /* Mask out all but CPU ID bits */
+        return (cpu & 0x3);
+}
+
+#define raw_smp_processor_id() ____smp_processor_id()
+
 
 struct seq_file;
 
@@ -50,6 +67,12 @@ extern void set_smp_ipi_range(int ipi_base, int nr_ipi);
  */
 asmlinkage void secondary_start_kernel(void);
 
+/* SOO.tech */
+void __ipipe_ipis_request(void);
+void smp_kick_rt_agency_for_task_create(void);
+void smp_kick_rt_agency_for_wakeup(void);
+
+void smp_trigger_tick(void);
 
 /*
  * Initial data for bringing up a secondary CPU.

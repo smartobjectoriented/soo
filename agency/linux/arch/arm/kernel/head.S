@@ -45,6 +45,11 @@
 #define PMD_ORDER	2
 #endif
 
+/* SOO.tech */
+	.extern avz_setup
+	.extern guest_phys_offset
+	.extern __atags_pointer
+
 	.globl	swapper_pg_dir
 	.equ	swapper_pg_dir, KERNEL_RAM_VADDR - PG_DIR_SIZE
 
@@ -77,6 +82,12 @@
 ENTRY(stext)
  ARM_BE8(setend	be )			@ ensure we are in BE8 mode
 
+/* SOO.tech */
+
+.type   _start, %function
+.section ".init.fromavz_start", "ax"
+ENTRY(_start)
+
  THUMB(	badr	r9, 1f		)	@ Kernel is always entered in ARM.
  THUMB(	bx	r9		)	@ If this is a Thumb-2 kernel,
  THUMB(	.thumb			)	@ switch to Thumb now.
@@ -85,6 +96,96 @@ ENTRY(stext)
 #ifdef CONFIG_ARM_VIRT_EXT
 	bl	__hyp_stub_install
 #endif
+
+/* SOO.tech */
+@ -------------------
+	@ (see head-common.S: __mmap_switched_data for data organization)
+
+	@ Set the by default DACR
+	mov	r5, #DACR_INIT
+	mcr	p15, 0, r5, c3, c0, 0		@ load domain access register
+
+	@ prepare r2 arg (dtb pointer)
+	ldr r0, =__mmap_switched_data
+	ldr r3, [r0, #20]	@ Get dtb pointer address
+	str r2, [r3]
+
+	@ prepare to clear bss and zero fp
+	ldr	r6, [r0]		@ __bss_start
+	ldr r7, [r0, #4]	@ _end
+
+	mov	fp, #0				@ Clear BSS (and zero fp)
+1:	cmp	r6, r7
+	strcc	fp, [r6],#4
+	bcc	1b
+
+	ldr r10, =avz_start_info
+	str r12, [r10]
+
+	@ Temporary stack
+    ldr sp, __init_sp
+
+	@ AVZ setup
+	bl	avz_setup
+
+	mrc	p15, 0, r9, c0, c0		@ get processor id
+
+	@ To get the MMU flags correctly
+	bl	__lookup_processor_type
+
+	@ Assume the processor is valid; set to proc-info
+	mov 	r10, r5
+
+	ldr r2, =__atags_pointer
+	ldr r2, [r2]
+
+	ldr r11, =avz_start_info
+	ldr r11, [r11]
+	ldr	r8, [r11, #AVZ_DOM_PHYS_OFFSET]
+
+	ldr r4, =swapper_pg_dir
+
+	mov	r5, #DACR_INIT
+	mcr	p15, 0, r5, c3, c0, 0		@ load domain access register
+
+	@ At least, to get the dtb visible...
+	bl	__create_page_tables
+
+	badr	lr, 1f				@ return (PIC) address
+
+	add r8, r8, #PG_DIR_SIZE
+
+	ldr	r12, [r10, #PROCINFO_INITFUNC]
+	add	r12, r12, r10
+	ret	r12
+1:
+	bic	r0, r0, #CR_A
+
+	mov	r0, r0
+	instr_sync
+	mcr	p15, 0, r0, c1, c0, 0		@ write control reg
+	mrc	p15, 0, r3, c0, c0, 0		@ read id reg
+	instr_sync
+
+	@ cr_alignment is used in the kernel
+    ldr r10, .LCcr_alignment
+    str r0, [r10]
+
+ 	b   start_kernel
+
+.ltorg
+
+.LCcr_alignment:
+    .long   cr_alignment
+
+__init_sp:
+    .long   init_thread_union+8192          @ sp
+
+
+	.align 2
+
+#if 0 /* SOO.tech */
+
 	@ ensure svc mode and all interrupts masked
 	safe_svcmode_maskall r9
 
@@ -163,6 +264,10 @@ ENDPROC(stext)
 	.long	PAGE_OFFSET
 #endif
 
+
+#endif /* 0 */
+
+
 /*
  * Setup the initial page tables.  We only setup the barest
  * amount which are required to get the kernel running, which
@@ -175,6 +280,8 @@ ENDPROC(stext)
  *  r4 = physical page table address
  */
 __create_page_tables:
+
+#if 0 /* SOO.tech */
 	pgtbl	r4, r8				@ page table address
 
 	/*
@@ -218,7 +325,11 @@ __create_page_tables:
 #endif
 #endif
 
+#endif /* 0 */
+
 	ldr	r7, [r10, #PROCINFO_MM_MMUFLAGS] @ mm_mmuflags
+
+#if 0 /* SOO.tech */
 
 	/*
 	 * Create identity mapping to cater for __enable_mmu.
@@ -269,6 +380,9 @@ __create_page_tables:
 	bls	1b
 #endif
 
+#endif /* 0 */
+
+
 	/*
 	 * Then map boot params address in r2 if specified.
 	 * We map 2 sections in case the ATAGs/DTB crosses a section boundary.
@@ -287,6 +401,10 @@ __create_page_tables:
 	sub	r4, r4, #4			@ Fixup page table pointer
 						@ for 64-bit descriptors
 #endif
+	@ SOO.tech
+	mcr p15, 0, r3, c7, c10, 1
+
+#if 0 /* SOO.tech */
 
 #ifdef CONFIG_DEBUG_LL
 #if !defined(CONFIG_DEBUG_ICEDCC) && !defined(CONFIG_DEBUG_SEMIHOSTING)
@@ -348,6 +466,9 @@ __create_page_tables:
 #ifdef CONFIG_ARM_LPAE
 	sub	r4, r4, #0x1000		@ point to the PGD table
 #endif
+
+#endif /* 0 */
+
 	ret	lr
 ENDPROC(__create_page_tables)
 	.ltorg
@@ -377,7 +498,9 @@ ENTRY(secondary_startup)
  ARM_BE8(setend	be)				@ ensure we are in BE8 mode
 
 #ifdef CONFIG_ARM_VIRT_EXT
+#if 0 /* SOO.tech */
 	bl	__hyp_stub_install_secondary
+#endif /* 0 */
 #endif
 	safe_svcmode_maskall r9
 

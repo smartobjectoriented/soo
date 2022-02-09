@@ -162,6 +162,50 @@ ENDPROC(ret_from_fork)
  *-----------------------------------------------------------------------------
  */
 
+/* SOO.tech */
+    .align 5
+    /*
+     * Hypercall trampoline has the following arguments:
+     * - r0: hypercall number
+     * - r1: first arg (-> r0)
+     * - r2: second arg
+     * - r3: third arg
+     * - r4: fourth arg
+     * - r5: work register
+     * - r7: hypecall number (ABI)
+     * - r11: cpsr
+     */
+ENTRY(hypercall_trampoline)
+    @ Stack alignment must stay on 8 bytes.
+    sub     sp, sp, #16*4
+    stmia   sp, {r1-r12, lr}
+
+    mov r7, r0
+    mov r0, r1
+    mov r1, r2
+    mov r2, r3
+    mov r3, r4
+    mov r4, r5
+
+    mrs r11, cpsr
+
+    ldr r5, =HYPERVISOR_hypercall_addr
+    ldr r5, [r5]
+
+    bl  __trampoline
+
+    ldmia   sp, {r1-r12, lr}
+    add     sp, sp, #16*4
+
+    mov pc, lr
+
+__trampoline:
+    mov pc, r5
+    nop
+    nop
+    nop
+ENDPROC(hypercall_trampoline)
+
 	.align	5
 ENTRY(vector_swi)
 #ifdef CONFIG_CPU_V7M

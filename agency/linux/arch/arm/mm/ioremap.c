@@ -113,6 +113,11 @@ int ioremap_page(unsigned long virt, unsigned long phys,
 }
 EXPORT_SYMBOL(ioremap_page);
 
+/* SOO.tech */
+int arm_ioremap_page_range(unsigned long start, unsigned long end, unsigned long phys, const struct mem_type *mtype) {
+	return ioremap_page_range(start, end, phys, __pgprot(mtype->prot_pte));
+}
+
 void __check_vmalloc_seq(struct mm_struct *mm)
 {
 	unsigned int seq;
@@ -284,8 +289,19 @@ static void __iomem * __arm_ioremap_pfn_caller(unsigned long pfn,
 	 * Don't allow RAM to be mapped with mismatched attributes - this
 	 * causes problems with ARMv6+
 	 */
+
+	/* SOO.tech */
+	/*
+	 * We authorize to use ioremap() for RAM pages as long as these pages are used
+	 * for shared pages between domains, and not really for I/O purposes. The page should be allocated
+	 * using __get_free_page(), and the returned address should *NEVER* be used as such.
+	 * You have to use the address returned by ioremap() only.
+	 */
+
+#if 0 /* SOO.tech */
 	if (WARN_ON(pfn_valid(pfn) && mtype != MT_MEMORY_RW))
 		return NULL;
+#endif
 
 	area = get_vm_area_caller(size, VM_IOREMAP, caller);
  	if (!area)
@@ -314,6 +330,11 @@ static void __iomem * __arm_ioremap_pfn_caller(unsigned long pfn,
  	}
 
 	flush_cache_vmap(addr, addr + size);
+
+	/* SOO.tech */
+	flush_tlb_all();
+	flush_cache_all();
+
 	return (void __iomem *) (offset + addr);
 }
 
@@ -334,6 +355,15 @@ void __iomem *__arm_ioremap_caller(phys_addr_t phys_addr, size_t size,
 	return __arm_ioremap_pfn_caller(pfn, offset, size, mtype,
 			caller);
 }
+
+/* SOO.tech */
+void __iomem *
+__arm_ioremap(phys_addr_t phys_addr, size_t size, unsigned int mtype)
+{
+	return arch_ioremap_caller(phys_addr, size, mtype,
+		__builtin_return_address(0));
+}
+EXPORT_SYMBOL(__arm_ioremap);
 
 /*
  * Remap an arbitrary physical address space into the kernel virtual
@@ -363,6 +393,13 @@ void __iomem *ioremap(resource_size_t res_cookie, size_t size)
 				   __builtin_return_address(0));
 }
 EXPORT_SYMBOL(ioremap);
+
+/* SOO.tech */
+
+void __iomem *__ioremap(resource_size_t res_cookie, size_t size) {
+	return arch_ioremap_caller(res_cookie, size, MT_HIGH_VECTORS, __builtin_return_address(0));
+}
+EXPORT_SYMBOL(__ioremap);
 
 void __iomem *ioremap_cache(resource_size_t res_cookie, size_t size)
 {

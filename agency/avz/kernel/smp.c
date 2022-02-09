@@ -72,12 +72,13 @@ int read_pen_release(void) {
 void smp_trigger_event(int target_cpu)
 {
 	int cpu = smp_processor_id();
+	long cpu_mask = 1 << target_cpu;
 
 	spin_lock(&per_cpu(softint_lock, cpu));
 
 	/* We keep forcing a send of IPI since the other CPU could be in WFI in an idle loop */
 
-	smp_cross_call(target_cpu, IPI_EVENT_CHECK);
+	smp_cross_call(cpu_mask, IPI_EVENT_CHECK);
 
 	spin_unlock(&per_cpu(softint_lock, cpu));
 }

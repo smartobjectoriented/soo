@@ -42,8 +42,6 @@
 
 #include <soo/dev/vuart.h>
 
-#include <opencn/logfile.h>
-
 typedef struct {
 
 	/* Must be the first field */
@@ -51,75 +49,154 @@ typedef struct {
 
 } vuart_priv_t;
 
-void me_cons_sendc(domid_t domid, uint8_t ch) {
-	/* Nothing in the RT domain */
-}
+/*
+ * We maintain a list of vdev_console
+ */
 
-/* Reference to the RT vuart */
-static struct vbus_device *vuart_dev = NULL;
+struct vdev_console {
+	struct list_head list;
+	struct vbus_device *vdev_console;
+};
+
+struct list_head vdev_consoles;
 
 /*
- * In case of logging in a file, the processing is done in a bottom half interrupt
- * handler since VFS will enable interrupts.
+ * Add a new console for a new ME.
  */
-irqreturn_t vuart_interrupt_bh(int irq, void *dev_id) {
-	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+void add_console(struct vbus_device *vdev_console) {
+	struct vdev_console *console;
+
+	console = kzalloc(sizeof(vdev_console), GFP_ATOMIC);
+	BUG_ON(!console);
+
+	console->vdev_console = vdev_console;
+
+	list_add(&console->list, &vdev_consoles);
+}
+
+/*
+ * Search for a console related to a specific ME according to its domid.
+ */
+struct vbus_device *get_console(uint32_t domid) {
+	struct vdev_console *entry;
+
+	list_for_each_entry(entry, &vdev_consoles, list)
+		if (entry->vdev_console->otherend_id == domid)
+			return entry->vdev_console;
+	return NULL;
+}
+
+/*
+ * Remove a console attached to a specific ME
+ */
+void del_console(struct vbus_device *vdev_console) {
+	struct vdev_console *entry;
+
+	list_for_each_entry(entry, &vdev_consoles, list)
+		if (entry->vdev_console == vdev_console) {
+			list_del(&entry->list);
+			kfree(entry);
+			return ;
+		}
+	BUG();
+}
+
+void process_response(struct vbus_device *vdev) {
 	vuart_priv_t *vuart_priv = dev_get_drvdata(&vdev->dev);
 	vuart_request_t *ring_req;
+	vuart_response_t *ring_rsp;
+	struct winsize wsz;
 
-	while ((ring_req = vuart_get_ring_request(&vuart_priv->vuart.ring)) != NULL)
-		logfile_write(ring_req->str);
+	vdevback_processing_begin(vdev);
 
-	return IRQ_HANDLED;
+	while ((ring_req = vuart_get_ring_request(&vuart_priv->vuart.ring)) != NULL) {
+
+		if (ring_req->c == SERIAL_GWINSZ) {
+			/* Process the window size info */
+
+			/* At the moment, we hardcode these values */
+			wsz.ws_col = 80;
+			wsz.ws_row = 25;
+
+			ring_rsp = vuart_new_ring_response(&vuart_priv->vuart.ring);
+			ring_rsp->c = wsz.ws_row;
+			ring_rsp = vuart_new_ring_response(&vuart_priv->vuart.ring);
+			ring_rsp->c = wsz.ws_col;
+			vuart_ring_response_ready(&vuart_priv->vuart.ring);
+
+			notify_remote_via_virq(vuart_priv->vuart.irq);
+
+		} else
+			lprintch(ring_req->c);
+	}
+
+	vdevback_processing_end(vdev);
+
 }
 
-/*
- * Top half processing of the incoming data from the frontend.
- */
 irqreturn_t vuart_interrupt(int irq, void *dev_id)
 {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	vuart_priv_t *vuart_priv = dev_get_drvdata(&vdev->dev);
-	vuart_request_t *ring_req;
 
-	DBG("%d\n", vdev->otherend_id);
-
-	/*
-	 * Check if logfile is enabled because we need to switch to
-	 * a bottom half processing since VFS will enable interrupts
-	 * during the write operation.
-	 */
-
-	if (logfile_enabled())
-
-		return IRQ_WAKE_THREAD;
-
-	else {
-
-		/* Output to the console */
-		while ((ring_req = vuart_get_ring_request(&vuart_priv->vuart.ring)) != NULL)
-			lprintk(ring_req->str);
-
-	}
+	process_response(vdev);
 
 	return IRQ_HANDLED;
 }
 
-static void vuart_probe(struct vbus_device *vdev) {
+/**
+ * This function is called in interrupt context.
+ * - If the state is Connected, the character can directly be pushed in the ring.
+ * - If the state is not Connected, the character is pushed into a circular buffer that
+ *   will be flushed at the next call to the Connected callback.
+ */
+void me_cons_sendc(domid_t domid, uint8_t ch) {
+	struct vbus_device *console;
+	vuart_priv_t *vuart_priv;
+	vuart_response_t *vuart_rsp;
+
+	console = get_console(domid);
+
+	if (!vdevfront_is_connected(console))
+		return ;
+
+	vdevback_processing_begin(console);
+
+	vuart_priv = dev_get_drvdata(&console->dev);
+
+	spin_lock(&vuart_priv->vuart.ring_lock);
+	vuart_rsp = vuart_new_ring_response(&vuart_priv->vuart.ring);
+
+	vuart_rsp->c = ch;
+
+	spin_unlock(&vuart_priv->vuart.ring_lock);
+
+	vuart_ring_response_ready(&vuart_priv->vuart.ring);
+
+	if (console->state == VbusStateConnected)
+		notify_remote_via_virq(vuart_priv->vuart.irq);
+
+	vdevback_processing_end(console);
+}
+
+void vuart_probe(struct vbus_device *vdev) {
 	vuart_priv_t *vuart_priv;
 
 	vuart_priv = kzalloc(sizeof(vuart_priv_t), GFP_ATOMIC);
 	BUG_ON(!vuart_priv);
 
+	spin_lock_init(&vuart_priv->vuart.ring_lock);
+
 	dev_set_drvdata(&vdev->dev, vuart_priv);
 
-	vuart_dev = vdev;
+	add_console(vdev);
 
 	DBG(VUART_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
 
 void vuart_remove(struct vbus_device *vdev) {
 	vuart_priv_t *vuart_priv = dev_get_drvdata(&vdev->dev);
+
+	del_console(vdev);
 
 	DBG("%s: freeing the vuart structure for %s\n", __func__,vdev->nodename);
 	kfree(vuart_priv);
@@ -173,18 +250,18 @@ void vuart_reconfigured(struct vbus_device *vdev) {
 
 	BACK_RING_INIT(&vuart_priv->vuart.ring, sring, PAGE_SIZE);
 
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vuart_interrupt, vuart_interrupt_bh, 0, VUART_NAME "-backend", vdev);
+	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vuart_interrupt, NULL, 0, VUART_NAME "-backend", vdev);
 
 	BUG_ON(res < 0);
 
 	vuart_priv->vuart.irq = res;
-
-	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
-
 }
 
 void vuart_connected(struct vbus_device *vdev) {
+
 	DBG(VUART_PREFIX "Backend connected: %d\n",vdev->otherend_id);
+
+	process_response(vdev);
 }
 
 vdrvback_t vuartdrv = {
@@ -206,6 +283,7 @@ int vuart_init(void) {
 	if (!of_device_is_available(np))
 		return 0;
 
+	INIT_LIST_HEAD(&vdev_consoles);
 
 	vdevback_init(VUART_NAME, &vuartdrv);
 

@@ -136,4 +136,7 @@ static inline bool arch_timer_have_evtstrm_feature(void)
 }
 #endif
 
+/* SOO.tech */
+extern int __ipipe_timer_handler(unsigned int irq, void *cookie);
+
 #endif

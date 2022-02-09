@@ -327,7 +327,8 @@ int evtchn_send(struct domain *d, unsigned int levtchn) {
 	
 	if (lchn->state != ECS_INTERDOMAIN) {
 		/* Abnormal situation */
-		printk("%s: failure, undefined state: %d, local domain: %d, remote domain: %d, revtchn: %d, levtchn: %d, CPU: %d\n", __func__, lchn->state, ld->domain_id, ((rd != NULL) ? rd->domain_id : -1), revtchn, levtchn, smp_processor_id());
+		printk("%s: failure, undefined state: %d, local domain: %d, remote domain: %d, revtchn: %d, levtchn: %d, CPU: %d\n",
+			__func__, lchn->state, ld->domain_id, ((rd != NULL) ? rd->domain_id : -1), revtchn, levtchn, smp_processor_id());
 
 		BUG();
 	}

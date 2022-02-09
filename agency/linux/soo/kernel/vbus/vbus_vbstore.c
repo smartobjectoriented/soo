@@ -48,8 +48,6 @@
 #include <soo/uapi/soo.h>
 #include <soo/evtchn.h>
 
-#include <soo/vbus_me.h>
-
 #include <soo/uapi/avz.h>
 
 #include <soo/uapi/soo.h>
@@ -1019,10 +1017,6 @@ int vbus_vbstore_init(void)
 	param.sched_priority = 60;
 
 	sched_setscheduler_nocheck(task, SCHED_FIFO, &param);
-
-#ifndef CONFIG_X86
-	vbus_probe_frontend_init();
-#endif
 
 	lprintk("%s: done.\n", __func__);
 

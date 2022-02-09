@@ -90,7 +90,7 @@ static void rtdm_dc_isr_task_fn(void *arg) {
 
 	while (true) {
 		rtdm_event_wait(&dc_isr_event);
-lprintk("## GOT a dc event :-)\n");
+
 		dc_event = atomic_read((const atomic_t *) &avz_shared_info->dc_event);
 
 		/* Reset the dc_event now so that the domain can send another dc_event */
@@ -147,12 +147,8 @@ static int rtdm_dc_isr(rtdm_irq_t *unused) {
 	/* Work to be done on RT CPU */
 	switch (dc_event) {
 
-	/* OpenCN events */
 	case DC_TRIGGER_DEV_PROBE:
-	case DC_VLOG_INIT:
-	case DC_LCEC_INIT:
-	case DC_VLOG_FLUSH:
-	case DC_EC_IOCTL_SOE_READ:
+
 		/* FALLTHROUGH */
 
 		if (atomic_read(&rtdm_dc_outgoing_domID[dc_event]) != -1)
@@ -269,7 +265,6 @@ void rtdm_vbus_task_fn(void *unused) {
 	/* Entering the watch monitor loop */
 
 	rtdm_vbus_watch_monitor();
-
 }
 
 static int __rtdm_task_prologue(void *args) {

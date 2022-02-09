@@ -14,7 +14,6 @@ choice
     
 endchoice
 
-
 source "arch/arm32/vexpress/Kconfig"
 source "arch/arm32/rpi4/Kconfig"
 
