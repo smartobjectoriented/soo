@@ -1,6 +1,0 @@
-It is a port of the newlib/libm math library in the kernel
-link: https://sourceware.org/newlib/
-
-The following fonction are currently available:
-    cos()
-
