@@ -19,9 +19,6 @@
 #ifndef MIGMGR_H
 #define MIGMGR_H
 
-int ioctl_set_personality(unsigned long arg);
-int ioctl_get_personality(unsigned long arg);
-
 int ioctl_initialize_migration(unsigned long arg);
 int ioctl_finalize_migration(unsigned long arg);
 

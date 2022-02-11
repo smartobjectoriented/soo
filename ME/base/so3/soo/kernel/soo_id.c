@@ -27,19 +27,6 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-/* Personality informs about the current behaviour on outside world. */
-
-static soo_personality_t personality = SOO_PERSONALITY_INITIATOR;
-
-soo_personality_t soo_get_personality(void) {
-	return personality;
-}
-
-void soo_set_personality(soo_personality_t pers) {
-	personality = pers;
-	DBG("Set personality: %d\n", pers);
-}
-
 /* ME ID related information management */
 
 /**

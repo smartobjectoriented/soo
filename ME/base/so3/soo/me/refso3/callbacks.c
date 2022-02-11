@@ -38,14 +38,6 @@
 static LIST_HEAD(visits);
 static LIST_HEAD(known_soo_list);
 
-/*
- * ME Description:
- * The ME resides in one (and only one) Smart Object.
- * It is propagated to other Smart Objects until it meets the one with the UID 0x08.
- * At this moment, the ME keeps the info (localinfo_data+1) until the ME comes back to its origin (the running ME instance).
- * The letter is then incremented and the ME is ready for a new trip.
- * The ME must stay dormant in the Smart Objects different than the origin and the one with UID 0x08.
- */
 
 /* Reference to the shared content helpful during synergy with other MEs */
 sh_refso3_t *sh_refso3;
@@ -198,18 +190,6 @@ int cb_post_activate(soo_domcall_arg_t *args) {
 #endif
 
 	DBG(">> ME %d: cb_post_activate...\n", ME_domID());
-
-	return 0;
-}
-
-/**
- * LOCALINFO_UPDATE callback (async)
- *
- * This callback is executed when a localinfo_update DC event is received (normally async).
- *
- * Returns 0 if no propagation to the user space is required, 1 otherwise
- */
-int cb_localinfo_update(void) {
 
 	return 0;
 }
