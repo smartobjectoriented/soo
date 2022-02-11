@@ -37,8 +37,6 @@
 #include <soo/console.h>
 #include <soo/debug/logbool.h>
 
-#define MAX_PENDING_UEVENT 	10
-
 /*
  * Used to keep track of the target domain for a certain (outgoing) dc_event.
  * Value -1 means no dc_event in progress.
@@ -51,15 +49,6 @@ atomic_t dc_outgoing_domID[DC_EVENT_MAX];
 atomic_t dc_incoming_domID[DC_EVENT_MAX];
 
 static struct completion dc_stable_lock[DC_EVENT_MAX];
-
-static struct completion sooeventd_lock;
-static struct completion usr_feedback_lock;
-
-static soo_uevent_t uevents;
-static char uevent_str[80];
-
-static unsigned int current_pending_uevent = 0;
-static volatile pending_uevent_request_t pending_uevent_req[MAX_PENDING_UEVENT];
 
 int __pfn_offset = 0;
 
@@ -154,106 +143,6 @@ int set_dc_event(unsigned int domID, dc_event_t dc_event)
 	return 0;
 }
 
-int sooeventd_resume(void)
-{
-	/* Increment the semaphore */
-	complete(&sooeventd_lock);
-
-	return 0;
-}
-
-
-void wait_for_usr_feedback(void)
-{
-	wait_for_completion(&usr_feedback_lock);
-}
-
-void usr_feedback_ready(void)
-{
-	complete(&usr_feedback_lock);
-}
-
-#if 0
-int soo_uevent(struct device *dev, struct kobj_uevent_env *env)
-{
-	return add_uevent_var(env, uevent_str);
-}
-#endif
-
-/*
- * Configure the uevent which will be retrieved from the user space with the sooeventd utility
- */
-void set_uevent(unsigned int uevent_type, unsigned int ME_slotID)
-{
-	char strSlotID[3];
-
-	switch (uevent_type) {
-
-	case ME_FORCE_TERMINATE:
-		strcpy(uevent_str, "SOO_CALLBACK=FORCE_TERMINATE:");
-		break;
-
-	case ME_POST_ACTIVATE:
-		strcpy(uevent_str, "SOO_CALLBACK=POST_ACTIVATE:");
-		break;
-
-	case ME_PRE_SUSPEND:
-		strcpy(uevent_str, "SOO_CALLBACK=PRE_SUSPEND:");
-		break;
-
-	case ME_LOCALINFO_UPDATE:
-		strcpy(uevent_str, "SOO_CALLBACK=LOCALINFO_UPDATE:");
-		break;
-
-	}
-
-	sprintf(strSlotID, "%d", ME_slotID);
-	strcat(uevent_str, strSlotID);
-
-	/* uevent entries should be processed by means of netlink sockets.
-	 * However, at the moment, we just read the /sys file, and we do not
-	 * get the right size of the string. So, that's why we put a delimiter at the end of our string.
-	 */
-
-	strcat(uevent_str, ":");
-}
-
-/*
- * Propagate the cooperate callback in the user space if necessary.
- */
-static void add_soo_uevent(unsigned int uevent_type, unsigned int slotID)
-{
-	soo_uevent_t *cur;
-
-	cur = (soo_uevent_t *) malloc(sizeof(soo_uevent_t));
-
-	cur->uevent_type = uevent_type;
-	cur->slotID = slotID;
-
-	/* Insert the thread at the end of the list */
-	list_add_tail(&cur->list, &uevents.list);
-
-	/* Resume the eventd daemon */
-	sooeventd_resume();
-
-}
-
-/*
- * queue_uevent is used by both agency and ME.
- *
- * At the agency side, most of callback processing is performed by the agency (CPU #0), hence
- * in the context of a hypercall. It means that during the final upcall in the agency,
- * the uevent will be inserted in the
- */
-void queue_uevent(unsigned int uevent_type, unsigned int slotID)
-{
-	pending_uevent_req[current_pending_uevent].slotID = slotID;
-	pending_uevent_req[current_pending_uevent].uevent_type = uevent_type;
-	pending_uevent_req[current_pending_uevent].pending = true;
-
-	current_pending_uevent++;
-}
-
 /*
  * SOO Migration hypercall
  *
@@ -268,7 +157,7 @@ void queue_uevent(unsigned int uevent_type, unsigned int slotID)
 int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
 {
 	soo_hyp_t soo_hyp;
-	int ret, i;
+	int ret;
 
 	soo_hyp.cmd = cmd;
 	soo_hyp.vaddr = (unsigned long) vaddr;
@@ -281,48 +170,10 @@ int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
 	if (ret < 0)
 		goto out;
 
-	/* Complete possible pending uevent request done during the work performed at the hypervisor level. */
-	DBG("current_pending_uevent=%d\n", current_pending_uevent);
-	for (i = 0; i < current_pending_uevent; i++)
-		if (pending_uevent_req[i].pending) {
-			add_soo_uevent(pending_uevent_req[i].uevent_type, pending_uevent_req[i].slotID);
-			pending_uevent_req[i].pending = false;
-		}
-
-	current_pending_uevent = 0;
-
 out:
 	return ret;
 
 }
-
-/*
- * Check for any available uevent. If not, the running thread (eventd daemon) is suspended.
- */
-int pick_next_uevent(void)
-{
-	soo_uevent_t *cur;
-
-	/*
-	 * If a uevent is available, it will be retrieved and released to the user space.
-	 * If no uevent is available, the thread is suspended.
-	 */
-
-	wait_for_completion(&sooeventd_lock);
-
-	cur = list_first_entry(&uevents.list, soo_uevent_t, list);
-
-	/* Process usr space notification & tasks */
-	/* Prepare a uevent for further activities in user space if any... */
-	set_uevent(cur->uevent_type, cur->slotID);
-
-	list_del(&cur->list);
-
-	free(cur);
-
-	return 0;
-}
-
 
 /*
  * Set the pfn offset after migration
@@ -355,63 +206,15 @@ void perform_task(dc_event_t dc_event)
 	soo_domcall_arg_t args;
 	int rc;
 
-#if 0
-	static int last = -1;
-	int seq = 0;
-	static int count = 0;
-
-	count++;
-	if ((count % 500) == 0)
-		lprintk("## count event received: %d\n", count);
-
-	switch (dc_event) {
-	case DC_SUSPEND:
-		//lprintk("A");
-		seq = 0;
-		break;
-
-	case DC_RESUME:
-		//lprintk("B");
-		seq = 1;
-		break;
-
-	default:
-		lprintk("X");
-	}
-
-	if (seq != (last + 1) % 2)
-		lprintk("########## FAULT got: %d and last = %d\n", seq, last);
-
-	last = seq;
-#endif
-
 	switch (dc_event) {
 
 	case DC_FORCE_TERMINATE:
 		/* The ME will initiate the force_terminate processing on its own. */
 
-		/* The sooeventd process must access the SOO driver so that it can initiate
-		 * the device shutdown properly, and once all devices are stable, we can
-		 * ask the hypervisor to kill ourselves. This has to be performed by the this daemon.
-		 *
-		 * Subsequently, the daemon will be periodically ping by the agency so that the agency
-		 * can decide to interrupt in a brute force way the running ME (something weird happens)
-		 *
-		 */
-
 		DBG("perform a CB_FORCE_TERMINATE on this ME %d\n", ME_domID());
 		rc = cb_force_terminate();
 
 		if (get_ME_state() == ME_state_terminated) {
-
-			if (rc) {
-				/* Process usr space notification & tasks */
-
-				add_soo_uevent(ME_FORCE_TERMINATE, ME_domID());
-
-				/* Synchronous waiting until the user space has finished its work. */
-				wait_for_usr_feedback();
-			}
 
 			/* Prepare vbus to stop everything with the frontend */
 			/* (interactions with vbus) */
@@ -444,14 +247,11 @@ void perform_task(dc_event_t dc_event)
 		DBG("Now resuming vbstore...\n");
 		vbs_resume();
 
-		/* Re-init watch for device/<domID> */
-		if (soo_get_personality() == SOO_PERSONALITY_TARGET) {
+		/* After a migration, re-init watch for device/<domID> */
+		if (get_ME_state() == ME_state_migrating)
 			postmig_setup();
-			soo_set_personality(SOO_PERSONALITY_INITIATOR);
-		}
 
 		DBG("vbstore resumed.\n");
-
 		break;
 
 	case DC_SUSPEND:
@@ -460,7 +260,6 @@ void perform_task(dc_event_t dc_event)
 
 		vbs_suspend();
 		DBG("vbstore suspended.\n");
-
 		break;
 
 	case DC_PRE_SUSPEND:
@@ -476,19 +275,6 @@ void perform_task(dc_event_t dc_event)
 
 		args.cmd = CB_POST_ACTIVATE;
 		do_soo_activity(&args);
-		break;
-
-	case DC_LOCALINFO_UPDATE:
-
-		DBG("Localinfo update callback for ME %d\n", ME_domID());
-
-		rc = cb_localinfo_update();
-		if (rc > 0) {
-			/* Asynchronous processing for localinfo_update */
-			add_soo_uevent(ME_LOCALINFO_UPDATE, ME_domID());
-
-			wait_for_usr_feedback();
-		}
 		break;
 
 	default:
@@ -514,23 +300,12 @@ int do_soo_activity(void *arg)
 		DBG("Pre-suspend callback for ME %d\n", ME_domID());
 
 		rc = cb_pre_suspend(arg);
-
-		if (rc > 0) {
-			add_soo_uevent(ME_PRE_SUSPEND, ME_domID());
-
-			wait_for_usr_feedback();
-		}
-
 		break;
 
 	case CB_PRE_RESUME: /* Called from vbus/vbs.c */
 		DBG("Pre-resume callback for ME %d\n", ME_domID());
-		rc = cb_pre_resume(arg);
-		if (rc > 0) {
-			add_soo_uevent(ME_PRE_RESUME, ME_domID());
 
-			wait_for_usr_feedback();
-		}
+		rc = cb_pre_resume(arg);
 		break;
 
 	case CB_PRE_ACTIVATE: /* DOMCALL */
@@ -567,13 +342,6 @@ int do_soo_activity(void *arg)
 		DBG("Post_activate callback for ME %d\n", ME_domID());
 
 		rc = cb_post_activate(args);
-		if (rc > 0) {
-			/* Asynchronous processing for localinfo_update */
-			add_soo_uevent(ME_POST_ACTIVATE, ME_domID());
-
-			wait_for_usr_feedback();
-		}
-
 		break;
 
 	case CB_DUMP_BACKTRACE: /* DOMCALL */
@@ -618,20 +386,12 @@ void soo_guest_activity_init(void)
 {
 	unsigned int i;
 
-	init_completion(&sooeventd_lock);
-	init_completion(&usr_feedback_lock);
-
 	for (i = 0; i < DC_EVENT_MAX; i++) {
 		atomic_set(&dc_outgoing_domID[i], -1);
 		atomic_set(&dc_incoming_domID[i], -1);
 
 		init_completion(&dc_stable_lock[i]);
 	}
-
-	for (i = 0; i < MAX_PENDING_UEVENT; i++)
-		pending_uevent_req[i].pending = false;
-
-	INIT_LIST_HEAD(&uevents.list);
 
 }
 

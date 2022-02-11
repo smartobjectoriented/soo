@@ -68,7 +68,6 @@ typedef enum {
 	DC_RESUME,
 	DC_FORCE_TERMINATE,
 	DC_POST_ACTIVATE,
-	DC_LOCALINFO_UPDATE,
 	DC_TRIGGER_DEV_PROBE,
 
 	DC_EVENT_MAX			/* Used to determine the number of DC events */

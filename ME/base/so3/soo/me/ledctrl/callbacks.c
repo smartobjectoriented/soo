@@ -334,18 +334,6 @@ int cb_post_activate(soo_domcall_arg_t *args) {
 }
 
 /**
- * LOCALINFO_UPDATE callback (async)
- *
- * This callback is executed when a localinfo_update DC event is received (normally async).
- *
- * Returns 0 if no propagation to the user space is required, 1 otherwise
- */
-int cb_localinfo_update(void) {
-
-	return 0;
-}
-
-/**
  * FORCE_TERMINATE callback (async)
  *
  * Returns 0 if no propagation to the user space is required, 1 otherwise
