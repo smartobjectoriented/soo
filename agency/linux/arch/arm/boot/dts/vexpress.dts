@@ -377,7 +377,10 @@
 &agency {
 		
 	backends {
-	
+		vdummy {
+			status = "ok";
+		};
+				
 		vuart {
 			status = "ok";
 		};

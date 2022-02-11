@@ -30,6 +30,7 @@
 
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
+#include <asm/setup.h>
 
 /**
  * We put all the guest domains in ELF format on top of memory so
@@ -197,6 +198,8 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 	}
 
 	dest_ME_vaddr = (void *) __lva(memslot[slotID].base_paddr);
+
+	dest_ME_vaddr += L_TEXT_OFFSET;
 
 	/* Move the kernel binary within the domain slotID. */
 	memcpy(dest_ME_vaddr, ME_vaddr, size);
