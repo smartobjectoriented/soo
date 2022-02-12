@@ -25,6 +25,11 @@
  * RFCOMM TTY.
  */
 
+/* SOO.tech */
+#if 0
+#define DEBUG
+#endif
+
 #include <linux/module.h>
 
 #include <linux/tty.h>
@@ -34,6 +39,25 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/rfcomm.h>
+
+/* SOO.tech */
+#include <uapi/linux/if_ether.h>
+
+#if defined(CONFIG_SOOLINK_PLUGIN_BLUETOOTH)
+#include <soo/soolink/plugin/bluetooth.h>
+#endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
+
+#if defined(CONFIG_SOOLINK_PLUGIN_WLAN)
+#include <soo/soolink/plugin/wlan.h>
+#endif /* CONFIG_SOOLINK_PLUGIN_WLAN */
+
+#include <soo/uapi/debug.h>
+
+#ifdef CONFIG_VUIHANDLER_BACKEND
+#include <soo/dev/vuihandler.h>
+#endif
+
+/*********/
 
 #define RFCOMM_TTY_MAGIC 0x6d02		/* magic number for rfcomm struct */
 #define RFCOMM_TTY_PORTS RFCOMM_MAX_DEV	/* whole lotta rfcomm devices */
@@ -75,6 +99,16 @@ static DEFINE_MUTEX(rfcomm_dev_lock);
 static void rfcomm_dev_data_ready(struct rfcomm_dlc *dlc, struct sk_buff *skb);
 static void rfcomm_dev_state_change(struct rfcomm_dlc *dlc, int err);
 static void rfcomm_dev_modem_status(struct rfcomm_dlc *dlc, u8 v24_sig);
+
+/* SOO.tech */
+
+#if defined(CONFIG_VUIHANDLER_BACKEND)
+extern void vuihandler_open_rfcomm(pid_t pid);
+#endif /* CONFIG_VUIHANDLER_BACKEND */
+
+struct tty_struct *rfcomm_tty_struct = NULL;
+
+/***********/
 
 /* ---- Device functions ---- */
 
@@ -615,11 +649,39 @@ static void rfcomm_dev_data_ready(struct rfcomm_dlc *dlc, struct sk_buff *skb)
 
 	BT_DBG("dlc %p len %d", dlc, skb->len);
 
+	/* SOO.tech */
+
+	/*
+	 * By default, if there is a RFCOMM backend, the data is not processed by the
+	 * RFCOMM TTY of the agency to avoid overflows.
+	 */
+#if defined(CONFIG_SOOLINK_PLUGIN_BLUETOOTH)
+
+
+	/* Force the protocol of the SKB to ETH_P_SOOLINK_BT */
+	skb->protocol = htons(ETH_P_SOOLINK_BT);
+
+        /* Binding with Soolink. skb will be freed by Soolink */
+        plugin_bt_rx(skb);
+
+	return ;
+#else
+
+	/* Fallback path if the RT wifi is disabled, identical to the original one */
+
+	/* Original path */
 	tty_insert_flip_string(&dev->port, skb->data, skb->len);
 	tty_flip_buffer_push(&dev->port);
 
 	kfree_skb(skb);
+
+	return ;
+
+#endif /* CONFIG_SOOLINK_PLUGIN_BLUETOOTH */
+
 }
+
+/*******************/
 
 static void rfcomm_dev_state_change(struct rfcomm_dlc *dlc, int err)
 {
@@ -747,6 +809,11 @@ static int rfcomm_tty_open(struct tty_struct *tty, struct file *filp)
 	struct rfcomm_dev *dev = tty->driver_data;
 	int err;
 
+	/* SOO.tech */
+#ifdef CONFIG_VUIHANDLER_BACKEND
+	vuihandler_open_rfcomm(current->pid);
+#endif
+
 	BT_DBG("tty %p id %d", tty, tty->index);
 
 	BT_DBG("dev %p dst %pMR channel %d opened %d", dev, &dev->dst,
@@ -765,12 +832,18 @@ static int rfcomm_tty_open(struct tty_struct *tty, struct file *filp)
 
 	rfcomm_dlc_unthrottle(dev->dlc);
 
+	/* SOO.tech */
+	rfcomm_tty_struct = tty;
+
 	return 0;
 }
 
 static void rfcomm_tty_close(struct tty_struct *tty, struct file *filp)
 {
 	struct rfcomm_dev *dev = (struct rfcomm_dev *) tty->driver_data;
+
+	/* SOO.tech */
+	rfcomm_tty_struct = NULL;
 
 	BT_DBG("tty %p dev %p dlc %p opened %d", tty, dev, dev->dlc,
 						dev->port.count);
@@ -805,6 +878,15 @@ static int rfcomm_tty_write(struct tty_struct *tty, const unsigned char *buf, in
 	}
 
 	return sent;
+}
+
+/* SOO.tech */
+int rfcomm_tty_write_sl_plugin(const unsigned char *buf, int count)
+{
+	if (likely(rfcomm_tty_struct))
+		return rfcomm_tty_write(rfcomm_tty_struct, buf, count);
+	else
+		return -EIO;
 }
 
 static int rfcomm_tty_write_room(struct tty_struct *tty)

@@ -11,7 +11,10 @@
 		watchdog = &watchdog;
 		random = &random;
 		mailbox = &mailbox;
-		gpio = &gpio;
+		
+		/* SOO.tech - avoid a compilation warning */
+		/*gpio = &gpio;*/
+		
 		uart0 = &uart0;
 		uart1 = &uart1;
 		sdhost = &sdhost;

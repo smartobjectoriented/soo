@@ -65,7 +65,6 @@
 
 /* SOO.tech */
 extern void xenomai_init(void);
-volatile bool __xenomai_ready_to_go = false;
 extern void __smp_vfp_enable(void);
 extern bool in_upcall_process(void);
 extern void xntimer_raise(void);
@@ -526,7 +525,11 @@ asmlinkage void secondary_start_kernel(void)
 
 	check_other_bugs();
 
-	complete(&cpu_running);
+
+	if (smp_processor_id() == AGENCY_RT_CPU)
+		smp_cross_call(cpumask_of(AGENCY_CPU), IPI_RT_TASK_CREATE);
+	else
+		complete(&cpu_running);
 
 	/* SOO.tech */
 
@@ -539,35 +542,34 @@ asmlinkage void secondary_start_kernel(void)
 
 	/* SOO.tech */
 
-	/* Wait until major subsystems and Linux framework (kobject) is fully initialized */
+	if (smp_processor_id() == AGENCY_RT_CPU) {
 
-	lprintk("%s: waiting on CPU %d for starting Xenomai initialization ...\n", __func__, smp_processor_id());
+		/* Wait until major subsystems and Linux framework (kobject) is fully initialized */
 
-	/* Set the CPU as online so that smp_init() on domain 0 can go ahead. */
-	cpuhp_online_idle(CPUHP_AP_ONLINE_IDLE);
+		lprintk("%s: waiting on CPU %d for starting Xenomai initialization ...\n", __func__, smp_processor_id());
 
-#ifndef CONFIG_ARM_PSCI
-	__asm("dsb");
-	__asm("wfi");
-#endif
+		/* Set the CPU as online so that smp_init() on domain 0 can go ahead. */
+		cpuhp_online_idle(CPUHP_AP_ONLINE_IDLE);
 
-	xenomai_init();
+		while (!__rt_wakeup) ;
 
-	while (true) {
-		BUG_ON(hard_irqs_disabled());
+		xenomai_init();
 
-		__asm("dsb");
-		__asm("wfi");
+		while (true) {
+			BUG_ON(hard_irqs_disabled());
 
-		BUG_ON(in_upcall_process());
-	}
+			__asm("dsb");
+			__asm("wfi");
 
-	/*
-	 * OK, it's off to the idle thread for us
-	 */
-#if 0 /* SOO.tech */
-	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
-#endif
+			BUG_ON(in_upcall_process());
+		}
+
+		/*
+		 * OK, it's off to the idle thread for us
+		 */
+	} else
+		cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
+
 }
 
 void __init smp_cpus_done(unsigned int max_cpus)

@@ -2524,7 +2524,6 @@ skip:
 	}
 #endif
 
-
 		if (console_lock_spinning_disable_and_check()) {
 			printk_safe_exit_irqrestore(flags);
 			return;
