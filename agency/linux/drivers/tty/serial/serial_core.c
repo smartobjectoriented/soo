@@ -1781,6 +1781,12 @@ static int uart_open(struct tty_struct *tty, struct file *filp)
 	return retval;
 }
 
+/* SOO.tech */
+void uart_do_open(struct tty_struct *tty) {
+	uart_open(tty, NULL);
+}
+
+
 static int uart_port_activate(struct tty_port *port, struct tty_struct *tty)
 {
 	struct uart_state *state = container_of(port, struct uart_state, port);
