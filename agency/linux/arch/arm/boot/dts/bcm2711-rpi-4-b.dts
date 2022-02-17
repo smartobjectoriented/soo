@@ -81,16 +81,36 @@
 	
 	/* Backends */
 	backends {
-		vuart {
-			compatible = "vuart,backend";
-			status = "ok";
-		};
 		
-		vdummy {
-			compatible = "vdummy,backend";
+		vuart {
+		status = "ok";
+		};
+			
+		vuihandler {
 			status = "ok";
 		};
+				
+		vsenseled {
+			status = "ok";
+		};
+				
+		vsensej {
+			status = "ok";
+		};
+
+                vdoga {
+			status = "ok";
+
+			up_end-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
+			down_end-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
+
+			sleep-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
+			mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
+			in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
+		};
+
 	};
+
 };
 
 &pcie0 {
@@ -118,6 +138,18 @@
 		brcm,pins = <8 7>;
 		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
 	};
+    
+    /* SOO.tech: Added SPI1 pin conf */
+    spi1_pins: spi1_pins {
+		brcm,pins = <19 20 21>;
+		brcm,function = <BCM2835_FSEL_ALT4>;
+	};
+
+	spi1_cs_pins: spi1_cs_pins {
+		brcm,pins = <18>;
+		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
+	};
+
 
 	spi3_pins: spi3_pins {
 		brcm,pins = <1 2 3>;
@@ -178,7 +210,9 @@
 	};
 
 	i2c4_pins: i2c4 {
-		brcm,pins = <8 9>;
+		
+        /* SOO.tech */
+        brcm,pins = <6 7>;
 		brcm,function = <BCM2835_FSEL_ALT5>;
 		brcm,pull = <BCM2835_PUD_UP>;
 	};
@@ -345,6 +379,83 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_gpio14>;
 	status = "okay";
+};
+
+
+&spi1 {
+	status = "okay";
+	cs-gpios = <&gpio 18 GPIO_ACTIVE_LOW>;
+	num-cs = <1>;
+
+	/* SOO.tech */
+	drv8703q1@0 {
+		compatible = "ti,drv8703q1";
+		status = "okay";
+		reg = <0>;
+		spi-max-frequency = <0x7735940>;
+		sleep-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>;
+		mode-gpio = <&gpio 10 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+/* SOO.tech */
+&i2c4 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c4_pins>;
+	clock-frequency = <100000>;
+
+    ds1050@28 {
+        compatible = "maxim,ds1050";
+        reg = <0x28>; /* This is due to the control byte (101) + A2, A1, A0 (000) combination (101000 = 0x28) */
+    };
+};
+
+
+
+&i2c1 {
+    compatible = "brcm,bcm2711-i2c", "brcm,bcm2835-i2c";
+	interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
+
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	clock-frequency = <100000>;
+
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	rpi-sense@46 {
+		compatible = "rpi,rpi-sense";
+		reg = <0x46>;
+		keys-int-gpios = <&gpio 23 1>;
+		status = "okay";
+	};
+
+	lsm9ds1-magn@1c {
+		compatible = "st,lsm9ds1-magn";
+		reg = <0x1c>;
+		status = "okay";
+	};
+
+	lsm9ds1-accel@6a {
+		compatible = "st,lsm9ds1-accel";
+		reg = <0x6a>;
+		status = "okay";
+	};
+
+	lps25h-press@5c {
+		compatible = "st,lps25h-press";
+		reg = <0x5c>;
+		status = "okay";
+	};
+
+	hts221-humid@5f {
+		compatible = "st,hts221-humid";
+		reg = <0x5f>;
+		status = "okay";
+	};
 };
 
 &vchiq {
