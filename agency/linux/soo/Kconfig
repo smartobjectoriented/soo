@@ -1,0 +1,17 @@
+menu "SOO Framework and subsystems"
+
+config SOO_CORE_ASF
+	bool "Enabling the security framework capabilities"
+	depends on ARM_PSCI
+
+config SOO_RT_APP
+	bool "Simple RT application"
+	help
+		Simple app to try various things related to Cobalt API and others
+	default Y
+
+source "soo/dcm/Kconfig"
+source "soo/soolink/Kconfig"
+source "soo/drivers/Kconfig"
+
+endmenu # SOO
