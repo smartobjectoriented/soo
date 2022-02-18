@@ -44,9 +44,6 @@ typedef struct {
 /* Export the reference to the shared content structure */
 extern sh_refso3_t *sh_refso3;
 
-/* Protecting variables between domcalls and the active context */
-extern spinlock_t propagate_lock;
-
 #endif /* REFSO3_H */
 
 

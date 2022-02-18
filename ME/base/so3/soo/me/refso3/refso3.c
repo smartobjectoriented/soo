@@ -43,16 +43,15 @@
 #include <me/refso3.h>
 
 /**
- * This ME is used as a reference to develop new mobile entities.
+ * This ME does nothing particular. It is aimed at giving a template to develop
+ * a new ME.
  *
- * The ME does the following:
+ * Please, have a look at the SOO.ledctrl which is an example of ME intended to
+ * pilot LEDs on the Sense HAT extension.
  *
- * - At its origin, the ME displays a letter in a periodic thread.
+ * Note that SOO.refso3 can be configured with a rootfs (ramfs) which contains
+ * small applications like a shell and the LVGL demo application.
  *
- * - The letter is incremented (alphabet ordering) each time all "known" smart objects
- *   have been visited once by the current letter (issued from the origin host).
- *
- * - There is no resident ME except in the origin host.
  */
 int app_thread_main(void *args) {
 
@@ -65,7 +64,6 @@ int app_thread_main(void *args) {
 
 		msleep(500);
 
-		/* Simply display the current letter which is incremented each time a ME comes back */
 		lprintk("(%d)",  ME_domID());
 		printk("%c ", sh_refso3->cur_letter);
 
