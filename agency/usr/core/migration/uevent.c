@@ -72,18 +72,6 @@ int process_uevent(int fd) {
 
 	}
 
-	if (!strcmp(uevent_cmd, "LOCALINFO_UPDATE")) {
-		uevent_cmd = strsep(&pos, delim); /* Get the slot ID */
-
-		sscanf(uevent_cmd, "%u", &ME_slotID);
-
-		rc = ioctl(fd, AGENCY_IOCTL_LOCALINFO_UPDATE, &ME_slotID);
-		if (rc < 0) {
-			printf("%s: LOCALINFO_UPDATE ioctl failed with %d\n", __func__, rc);
-			return rc;
-		}
-
-	}
 	close(fd_uevent);
 
 	return 0;
@@ -115,9 +103,6 @@ void check_for_uevent(void) {
 
 		if (strstr(buf, "FORCE_TERMINATE"))
 			sscanf(buf, "FORCE_TERMINATE=%s", scriptFile[ME_FORCE_TERMINATE]);
-
-		if (strstr(buf, "LOCALINFO_UPDATE"))
-		  sscanf(buf, "LOCALINFO_UPDATE=%s", scriptFile[ME_LOCALINFO_UPDATE]);
 
 	}
 

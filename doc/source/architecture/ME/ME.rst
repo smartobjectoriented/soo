@@ -112,12 +112,53 @@ the following function in the main application of the ME:
 Lifecycle of a Mobile Entity
 ============================
 
-When a ME is injected into a smart object by the user or simply arrives from another smart object,
-the agency initiates a sequence of callback function execution within the context of the ME, but
-from the CPU's agency (CPU #0 normally).
+The ME may frequently migrate from one smart object to another one. Actually, a memory snapshot
+of the ME to migrate is performed by the agency, which is transfered to the other smart object.
+Of course, the snapshot requires the ME to be in a consistent state; that is why the ME must
+suspend its frontend drivers before the snapshot is done. All frontend drivers will be resumed
+right after the copy; these operations happen with efficient inter-CPU interrupt (IPI) mechanisms and
+are performed very quickly; In most cases, the running ME is briefly interrupted and does not cause
+any significant latency.
 
-The ME will then prepare the initialization of ``vbstore`` entries related to itself as well as to
-the frontend drivers which are managed by the ME.
+Hence, when a ME is injected into a smart object by the user, or coming from another smart object,
+the agency initiates a sequence of callbacks function execution within the context of the ME, but
+from the CPU's agency, i.e. CPU #0. The residing ME has its own callback sequence which involves
+suspending (before the snapshot) and resuming (after the snapshot) the backend drivers. 
+The callback sequences are therefore slightly different between the residing ME and the migrated ME.
+
+Furthermore, in the migrating (arriving) ME, the ME has to create and initialize the ``vbstore`` entries 
+related to itself as well as to all frontend drivers managed by the ME.
+
+
+Callback functions
+------------------
+
+There are two kinds of callback functions in a ME: ``domcalls`` and ``dc_event`` based callbacks.
+Domcalls are functions which are called by the agency directly, on its dedicated CPU (CPU #0), 
+in the context of the ME. Callbaks using *dc_event* are triggered from the CPU agency through an IPI
+(Inter-Processor Interrupt) and the ME executes the code itself, enabling the possibility to use
+its scheduler (it is not the case with *domcalls* of course).
+
+.. c:function::
+   int cb_pre_propagate(soo_domcall_arg_t *args) 
+
+   It is called right before the migration, i.e. the snapshot of the ME. 
+   ``args`` is of type ``pre_propagate_args_t`` and has a ``status`` field which
+   can have the following value: ``PROPAGATE_STATUS_YES`` or ``PROPAGATE_STATUS_NO``
+   indicating if the ME can be propagated or not.
+   If the ME is not propagated, no further callback functions are executed.
+
+
+Callback sequence in the residing ME
+------------------------------------
+
+
+
+Callback sequence in the migrating ME
+-------------------------------------
+
+
+
 
 ME Interactions with the User Interface application
 ===================================================
@@ -135,7 +176,7 @@ This function prepare a XML message based on its ID and value:
 .. c:function:: 
    void xml_prepare_message(char *buffer, char *id, char *value)
 
-The buffer is allocated by the caller and will contain the XML formatted message.
+   The buffer is allocated by the caller and will contain the XML formatted message.
   
 
 Event handling
@@ -144,8 +185,8 @@ Event handling
 .. c:function::
    void xml_parse_event(char *buffer, char *id, char *action)
 
-The event message (pointed by *buffer*) contains a specific action with an associated ID. These fields can be retrieved
-with this function. The caller must allocate the memory.
+   The event message (pointed by *buffer*) contains a specific action with an associated ID. These fields can be retrieved
+   with this function. The caller must allocate the memory.
 
 
 

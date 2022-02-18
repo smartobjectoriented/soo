@@ -139,8 +139,12 @@ int construct_agency(struct domain *d) {
 	 * Create the first thread associated to this domain.
 	 * The initial stack of the domain is put at the top of the domain memory area.
 	 */
-	new_thread(d, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
-
+#ifdef CONFIG_ARCH_ARM32
+	/* We start at 0x8000 since ARM-32 Linux is configured as such with the 1st level page table placed at 0x4000 */
+	new_thread(d, v_start + 0x8000, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
+#else
+	new_thread(d, v_start, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
+#endif
 
 	return 0;
 }

@@ -4,14 +4,12 @@
 #include <config.h>
 
 /*
- * The following IPIs are reserved to AVZ.
- * IPI nr prior to 12 can be processed by the Cobalt realtime agency.
+ * The following IPIs are specific to AVZ.
  */
 
-#define IPI_AVZ_BASE	12
+#define IPI_WAKEUP		0
 
-#define IPI_WAKEUP		IPI_AVZ_BASE
-#define IPI_EVENT_CHECK		(IPI_AVZ_BASE + 1)
+#define IPI_EVENT_CHECK		4
 
 void handle_IPI(int ipinr);
 
@@ -28,7 +26,7 @@ struct secondary_data {
 
 extern volatile int pen_release;
 
-void smp_cross_call(int cpu, unsigned int ipinr);
+void smp_cross_call(long cpu_mask, unsigned int ipinr);
 void smp_trigger_event(int target_cpu);
 
 void smp_prepare_cpus(unsigned int max_cpus);

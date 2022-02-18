@@ -45,6 +45,7 @@ int do_physdev_op(int cmd, void *args)
 	int val;
 	struct domain *__current;
 	addrspace_t prev_addrspace;
+	send_ipi_args_t send_ipi_args;
 
 	switch (cmd) {
 
@@ -70,6 +71,13 @@ int do_physdev_op(int cmd, void *args)
 
 		break;
 	}
+
+	case PHYSDEVOP_send_ipi:
+
+		memcpy(&send_ipi_args, args, sizeof(send_ipi_args_t));
+
+		smp_cross_call(send_ipi_args.cpu_mask, send_ipi_args.ipinr);
+		break;
 
 	default:
 		BUG();

@@ -43,6 +43,11 @@
 
 #include <me/ledctrl.h>
 
+/**
+ *
+ * @param args - To be compliant... Actually not used.
+ * @return
+ */
 int process_led(void *args) {
 
 	while (true) {
@@ -62,6 +67,8 @@ int process_led(void *args) {
 			sh_ledctrl->local_nr = sh_ledctrl->incoming_nr;
 		}
 	}
+
+	return 0;
 }
 
 /*
