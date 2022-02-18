@@ -14,6 +14,7 @@ endif
 
 
 module:
+	@make -C $(KDIR) modules_prepare
 	@make -C $(KDIR) M=$(PWD)/module modules
 	
 clean:
