@@ -17,7 +17,7 @@
 # (CFG_* variables only).
 
 # Cross-compiler prefix and suffix
-CROSS_COMPILE ?= arm-linux-gnueabihf-
+CROSS_COMPILE ?= arm-none-linux-gnueabihf-
 CROSS_COMPILE32 ?= $(CROSS_COMPILE)
 CROSS_COMPILE64 ?= aarch64-linux-gnu-
 COMPILER ?= gcc

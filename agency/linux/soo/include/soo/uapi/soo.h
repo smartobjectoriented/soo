@@ -20,12 +20,14 @@
 #ifndef SOO_H
 #define SOO_H
 
+#ifndef __ASSEMBLY__
 #include <soo/uapi/me_access.h>
 
 #define MAX_ME_DOMAINS		5
 
 /* We include the (non-RT & RT) agency domain */
 #define MAX_DOMAINS	    (2 + MAX_ME_DOMAINS)
+#endif /* __ASSEMBLY__ */
 
 #define AGENCY_CPU	        	0
 #define AGENCY_RT_CPU	 		1
