@@ -24,7 +24,9 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 
+#ifndef CONFIG_ARM64
 #include <asm/mach/map.h>
+#endif
 
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
