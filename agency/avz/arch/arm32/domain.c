@@ -65,7 +65,7 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 	d->addrspace.ttbr0[d->processor] |= d->addrspace.pgtable_paddr;
 
 	/* Manage the new system page table dedicated to the domain. */
-	new_pt = (uint32_t *) __lva(vpt_start - v_start + p_start); /* Ex.: 0xc0c04000 */
+	new_pt = (uint32_t *) __lva(vpt_start - v_start + p_start);
 
 	/* copy page table of idle domain to guest domain */
 	memcpy(new_pt, __sys_l1pgtable, TTB_L1_SIZE);

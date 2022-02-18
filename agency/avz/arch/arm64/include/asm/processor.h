@@ -33,7 +33,7 @@
 #define wfe()           asm volatile("wfe" : : : "memory")
 #define wfi()           asm volatile("wfi" : : : "memory")
 
-#define isb()           asm volatile("isb" : : : "memory")
+#define isb()           asm volatile("isb sy" : : : "memory")
 #define dsb(scope)      asm volatile("dsb " #scope : : : "memory")
 #define dmb(scope)      asm volatile("dmb " #scope : : : "memory")
 

@@ -198,3 +198,4 @@ temp_stack:
 
 .LCvectors:
   .word __vectors_start
+

@@ -36,7 +36,7 @@
  */
 /* (DRE) Crucial !! */
 
-#define PAGE_OFFSET	UL(0xff000000)
+#define PAGE_OFFSET	((u32) CONFIG_HYPERVISOR_VIRT_ADDR)
 #define L_PAGE_OFFSET	UL(0xc0000000)
 
 #define TTB_L1_SYS_OFFSET	0x4000

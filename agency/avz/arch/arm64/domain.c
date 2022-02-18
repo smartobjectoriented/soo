@@ -60,7 +60,13 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 	d->addrspace.ttbr1[d->processor] = __pa(new_pt);
 
 	/* Copy the hypervisor area */
+#ifdef CONFIG_VA_BITS_48
 	*l0pte_offset(new_pt, CONFIG_HYPERVISOR_VIRT_ADDR) = *l0pte_offset(__sys_l0pgtable, CONFIG_HYPERVISOR_VIRT_ADDR);
+#elif CONFIG_VA_BITS_39
+	*(new_pt + l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)) = *(__sys_l0pgtable + l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR));
+#else
+#error "Wrong VA_BITS configuration."
+#endif
 
 	/* Do the mapping of new domain at its virtual address location */
 	create_mapping(new_pt, v_start, p_start, map_size, false);

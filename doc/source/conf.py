@@ -144,7 +144,6 @@ html_theme_options = {'body_max_width': '100%'}
 html_static_path = ['_static']
 html_css_files = ['theme_overrides.css']
 
-
 # -- Options for HTMLHelp output ------------------------------------------
 # If not None, a 'Last updated on:' timestamp is inserted at every page
 # bottom, using the given strftime format.

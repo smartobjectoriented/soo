@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,24 +16,34 @@
  *
  */
 
-#include <types.h>
+#ifndef REFSO3_H
+#define REFSO3_H
 
-#include <device/arch/pl011.h>
+#include <completion.h>
+#include <spinlock.h>
 
-#include <mach/uart.h>
+#include <me/common.h>
 
-#include <asm/io.h>
+/*
+ * Never use lock (completion, spinlock, etc.) in the shared page since
+ * the use of ldrex/strex instructions will fail with cache disabled.
+ */
+typedef struct {
 
-volatile void *__uart_vaddr = (void *) UART_BASE;
+	/* Current letter */
+	char cur_letter;
 
-int printch(char c) {
+	/*
+	 * MUST BE the last field, since it contains a field at the end which is used
+	 * as "payload" for a concatened list of hosts.
+	 */
+	me_common_t me_common;
 
-	while (ioread16(((addr_t) __uart_vaddr) + UART01x_FR) & UART01x_FR_TXFF) ;
+} sh_refso3_t;
 
-	iowrite16(((addr_t) __uart_vaddr) + UART01x_DR, c);
+/* Export the reference to the shared content structure */
+extern sh_refso3_t *sh_refso3;
 
-	return 1;
-}
-
+#endif /* REFSO3_H */
 
 

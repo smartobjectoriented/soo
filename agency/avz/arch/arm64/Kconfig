@@ -14,6 +14,21 @@ menu "Platform"
 			
 	endchoice
 		
+	choice
+    	prompt "Virtual address space size"
+		help
+		  Allows choosing one of multiple possible virtual address
+		  space sizes. The level of translation table is determined by
+		  a combination of page size and virtual address space size.
+		  
+        config VA_BITS_39
+                bool "39-bit"
+                
+        config VA_BITS_48
+                bool "48-bit"
+        
+	endchoice
+                
 source "arch/arm64/virt64/Kconfig"
 source "arch/arm64/rpi4_64/Kconfig"
 

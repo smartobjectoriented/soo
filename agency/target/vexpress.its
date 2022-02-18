@@ -49,9 +49,9 @@
 			};
 		};
 			
-        fdt_tz {
+                fdt {
 			description = "SOO Agency device tree blob";
-			data = /incbin/("../linux/arch/arm/boot/dts/vexpress-tz.dtb");
+			data = /incbin/("../linux/arch/arm/boot/dts/vexpress.dtb");
 			type = "flat_dt";
 			arch = "arm";
 			compression = "none";
@@ -62,19 +62,6 @@
 			};
 		};
 		
-		fdt_notz {
-			description = "SOO Agency device tree blob";
-			data = /incbin/("../linux/arch/arm/boot/dts/vexpress-notz.dtb");
-			type = "flat_dt";
-			arch = "arm";
-			compression = "none";
-			
-			load = <0x90a00000>;
-			hash {
-				algo = "crc32";
-			};
-		};
-	
 		initrd {
 			description = "Agency initial rootfs (initrd)";
 			data = /incbin/("../rootfs/board/vexpress/initrd.cpio");
@@ -91,23 +78,14 @@
 	};
 	
 	configurations {
-		default = "agency_tz";
+		default = "agency";
 		
-		agency_tz {
+		agency {
 			description = "SOO Agency on vExpress";
-            loadables = "linux";
-            kernel = "avz";
-            fdt = "fdt_tz";
-            ramdisk = "initrd";
+                        loadables = "linux";
+                        kernel = "avz";
+                        fdt = "fdt";
+                        ramdisk = "initrd";
 		};
-		
-		agency_notz {
-			description = "SOO Agency on vExpress";
-            loadables = "linux";
-            kernel = "avz";
-            fdt = "fdt_notz";
-            ramdisk = "initrd";
-		};
-		
 	};
 };

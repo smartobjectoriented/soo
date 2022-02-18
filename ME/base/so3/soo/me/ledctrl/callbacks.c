@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@soo.tech>
  * Copyright (C) March 2018 Baptiste Delporte <bonel@bonel.net>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -82,6 +82,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
  * The callback is executed in first stage to give a chance to a resident ME to stay or disappear, for example.
  */
 int cb_pre_propagate(soo_domcall_arg_t *args) {
+
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
 	if (!full_initd) {
@@ -329,18 +330,6 @@ int cb_pre_resume(soo_domcall_arg_t *args) {
  * POST_ACTIVATE callback (async)
  */
 int cb_post_activate(soo_domcall_arg_t *args) {
-
-	return 0;
-}
-
-/**
- * LOCALINFO_UPDATE callback (async)
- *
- * This callback is executed when a localinfo_update DC event is received (normally async).
- *
- * Returns 0 if no propagation to the user space is required, 1 otherwise
- */
-int cb_localinfo_update(void) {
 
 	return 0;
 }

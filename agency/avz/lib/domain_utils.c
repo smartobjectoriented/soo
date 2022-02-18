@@ -30,8 +30,7 @@
 
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
-
-#define L_TEXT_OFFSET	0x8000
+#include <asm/setup.h>
 
 /**
  * We put all the guest domains in ELF format on top of memory so

@@ -198,6 +198,130 @@ void parsexml(char *buffer) {
 
 }
 
+
+/**
+ * Prepare a XML message for sending to the UI app
+ *
+ * @param buffer	buffer allocated by the caller
+ * @param id		unique ID which identifies the message
+ * @param value		Message content
+ */
+void xml_prepare_message(char *buffer, char *id, char *value) {
+	char *__buffer;
+	node_t *root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
+	node_t *messages, *msg;
+
+	/* Adding attributes to xml node */
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
+
+	/* Adding the messages node */
+	messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "messages", NULL);
+
+	/* Adding the message itself */
+	msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
+
+	roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", id);
+
+	roxml_add_node(msg, 0, ROXML_TXT_NODE, NULL, value);
+
+	roxml_commit_changes(root, NULL, &__buffer, 1);
+
+	strcpy(buffer, __buffer);
+
+	roxml_release(RELEASE_LAST);
+	roxml_close(root);
+
+}
+
+/**
+ * Retrieve the content of an event message
+ *
+ * @param buffer	The source event message
+ * @param id		The ID of this event
+ * @param action	The action of this event message
+ */
+void xml_parse_event(char *buffer, char *id, char *action) {
+
+	node_t *root, *xml;
+	node_t *events, *event, *__from, *__action;
+
+	root = roxml_load_buf(buffer);
+	xml =  roxml_get_chld(root, NULL,  0);
+
+	events = roxml_get_chld(xml, NULL, 0);
+	event = roxml_get_chld(events, NULL, 0);
+	__from = roxml_get_attr(event, "from", 0);
+	__action = roxml_get_attr(event, "action", 0);
+
+
+	strcpy(id, roxml_get_content(__from, NULL, 0, NULL));
+	strcpy(action, roxml_get_content(__action, NULL, 0, NULL));
+
+	roxml_release(RELEASE_LAST);
+	roxml_close(root);
+
+}
+
+/**
+ * Prepare a well-formated XML string which is compliant with the
+ * table UI application.
+ *
+ * @param buffer	allocated by the caller, will contain the resulting string
+ * @param ME_id_array	ME IDs array to process
+ *
+ */
+void *xml_prepare_id_array(char *buffer, ME_id_t *ME_id_array) {
+	uint32_t pos;
+	char *__buffer;
+	node_t *root, *messages, *msg, *me, *name, *shortdesc;
+	char spid[SPID_SIZE];
+
+	/* Adding attributes to xml node */
+	root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
+
+	/* Adding the messages node */
+	messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "mobile-entities", NULL);
+
+	for (pos = 0; pos < MAX_ME_DOMAINS; pos++) {
+
+		if (ME_id_array[pos].state != ME_state_dead) {
+
+			/* Adding the message itself */
+			me = roxml_add_node(messages, 0, ROXML_ELM_NODE, "mobile-entity", NULL);
+
+			/* Add SPID */
+			sprintf(spid, "%llx", ME_id_array[pos].spid);
+			roxml_add_node(me, 0, ROXML_ATTR_NODE, "spid", spid);
+
+			/* Add short name */
+			name = roxml_add_node(me, 0, ROXML_ELM_NODE, "name", NULL);
+			roxml_add_node(name, 0, ROXML_TXT_NODE, NULL, ME_id_array[pos].name);
+
+			/* And the short description */
+			shortdesc = roxml_add_node(me, 0, ROXML_ELM_NODE, "description", NULL);
+			roxml_add_node(shortdesc, 0, ROXML_TXT_NODE, NULL, ME_id_array[pos].shortdesc);
+		}
+
+	}
+
+	roxml_commit_changes(root, NULL, &__buffer, 1);
+
+	strcpy(buffer, __buffer);
+
+	roxml_release(RELEASE_LAST);
+	roxml_close(root);
+
+}
+
+typedef struct {
+
+	me_common_t me_common;
+	char hello[20];
+
+} ctrl_t;
+
 /*
  * Main entry point of so3 app in kernel standalone configuration.
  * Mainly for debugging purposes.
@@ -205,10 +329,113 @@ void parsexml(char *buffer) {
 int app_thread_main(void *args)
 {
 	char *buffer;
-
-	char src[300];
+	int i;
+	char src[800];
 	char id[100];
 	char action[100];
+	ME_id_t ME_id[MAX_ME_DOMAINS];
+
+	agencyUID_t a1 = { .id = { 0x00, 0x00, 0x00, 0x00, 0x01 } };
+	agencyUID_t a2 = { .id = { 0x00, 0x00, 0x00, 0x00, 0x05 } };
+	agencyUID_t a3 = { .id = { 0x00, 0x00, 0x00, 0x00, 0x08 } };
+	agencyUID_t a4 = { .id = { 0x00, 0x00, 0x00, 0x00, 0x10 } };
+	agencyUID_t a5 = { .id = { 0x00, 0x00, 0x00, 0xbb, 0xbb } };
+	agencyUID_t a6 = { .id = { 0x00, 0x00, 0x00, 0xbb, 0xbc } };
+	agencyUID_t a7 = { .id = { 0x00, 0x00, 0x00, 0xbb, 0xbd } };
+
+
+	agencyUID_t b1 = { .id = { 0x00, 0x00, 0x00, 0x01, 0x01 } };
+	agencyUID_t b2 = { .id = { 0x00, 0x00, 0x00, 0x01, 0x05 } };
+	agencyUID_t b3 = { .id = { 0x00, 0x00, 0x00, 0x01, 0x08 } };
+
+	host_entry_t *host_entry;
+
+	ctrl_t *ctrl = (ctrl_t *) get_contig_free_vpages(1);
+	int nr;
+
+	strcpy(ctrl->hello, "Hello the world\n");
+
+dump_heap("A");
+
+	new_host(&known_soo_list, &a5, NULL, 0);
+	new_host(&known_soo_list, &a3, NULL, 0);
+	new_host(&known_soo_list, &a4, ctrl->hello, strlen(ctrl->hello)+1);
+	new_host(&known_soo_list, &a1, NULL, 0);
+	new_host(&known_soo_list, &a2, NULL, 0);
+
+	dump_hosts(&known_soo_list);
+
+	del_host(&known_soo_list, &a1);
+
+	sort_hosts(&known_soo_list);
+
+	dump_hosts(&known_soo_list);
+
+	lprintk("## concatenating...\n");
+	nr = concat_hosts(&known_soo_list, (uint8_t *) &ctrl->me_common.soohosts);
+	lprintk("### nr = %d\n", nr);
+
+	expand_hosts(&visits,  (uint8_t *) &ctrl->me_common.soohosts, nr);
+	dump_hosts(&visits);
+
+	host_entry = find_host(&known_soo_list, &a4);
+	ASSERT(host_entry);
+
+	lprintk("--> %s\n", (char *) host_entry->priv);
+	lprintk("--> %d\n", host_entry->priv_len);
+
+	new_host(&known_soo_list, &a6, NULL, 0);
+	new_host(&known_soo_list, &a7, NULL, 0);
+
+	merge_hosts(&visits, &known_soo_list);
+	lprintk("## after merge\n");
+
+	dump_hosts(&visits);
+
+	lprintk("## sorting...\n");
+
+	sort_hosts(&known_soo_list);
+
+	dump_hosts(&known_soo_list);
+
+	//lprintk("## duplicating ..\n");
+
+	//duplicate_hosts(&known_soo_list, &visits);
+
+	clear_hosts(&visits);
+
+	new_host(&visits, &a3, NULL, 0);
+	new_host(&visits, &a2, NULL, 0);
+	//new_host(&visits, &a1, NULL, 0);
+	new_host(&visits, &a5, NULL, 0);
+	new_host(&visits, &a4, NULL, 0);
+
+	//new_host(&visits, &b1, NULL, 0);
+
+	dump_hosts(&visits);
+
+	lprintk("## comparing...\n");
+
+	if (hosts_equals(&known_soo_list, &visits))
+		lprintk("## EQUAL\n");
+	else
+		lprintk("!!! NOT EQUAL !!!\n");
+
+	host_entry = find_host(&visits, &a5);
+
+	if (host_entry) {
+		lprintk("### found: "); lprintk_printlnUID(&host_entry->uid);
+	} else
+		lprintk("## NOT FOUND\n");
+
+	clear_hosts(&visits);
+
+	dump_hosts(&visits);
+
+	clear_hosts(&known_soo_list);
+
+dump_heap("C");
+	while(1);
 
 #if 0
 	void *ptr;
@@ -247,6 +474,7 @@ int app_thread_main(void *args)
 	printk("Going to infinite loop...\n");
 	printk("Kill Qemu with CTRL-a + x or reset the board\n");
 	printk("***********************************************\n");
+
 #if 0
 	ptr = malloc(40);
 	ptr = malloc(268);
@@ -258,7 +486,31 @@ int app_thread_main(void *args)
 	while (1);
 #endif
 
-#if 1
+#if 0
+
+	for (i = 0; i < MAX_ME_DOMAINS; i++)
+		ME_id[i].state = ME_state_dead;
+
+	ME_id[0].state = ME_state_living;
+	ME_id[0].spid = 0x1122334455667788ull;
+
+	strcpy(ME_id[0].name, "SOO.heat");
+	strcpy(ME_id[0].shortdesc, "A simple heater where you can only increase or decrease the temperature.");
+
+	ME_id[1].state = ME_state_living;
+	ME_id[1].spid = 0x8877665544332211ull;
+
+	strcpy(ME_id[1].name, "SOO.blind");
+	strcpy(ME_id[1].shortdesc, "A simple blind motor control.");
+
+	xml_prepare_id_array(src, ME_id);
+
+	printk("result: %s\n", src);
+
+	while (1);
+
+#endif
+#if 0
 	/* Example of a message */
 	xml_prepare_message(src, "8b4-4941", "16.5 C");
 

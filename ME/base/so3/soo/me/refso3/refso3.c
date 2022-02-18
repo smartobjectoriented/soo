@@ -27,6 +27,8 @@
 #include <heap.h>
 #include <memory.h>
 
+#include <device/irq.h>
+
 #include <soo/avz.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
@@ -38,164 +40,34 @@
 #include <soo/debug/logbool.h>
 #include <soo/evtchn.h>
 
+#include <me/refso3.h>
 
-#include <device/irq.h>
-
-/* Null agency UID to check if an agency UID is valid */
-agencyUID_t null_agencyUID = {
-	.id = { 0 }
-};
-
-/* My agency UID */
-agencyUID_t my_agencyUID = {
-	.id = { 0 }
-};
-
-/* Bool telling that at least 1 post-activate has been performed */
-bool post_activate_done = false;
-
-struct completion compl;
-mutex_t lock1, lock2;
-
-extern void *localinfo_data;
-
-/*
- * Just an example using a thread.
- */
-int thread1(void *args)
-{
-	while (1) {
-		printk("%s: in loop within domain %d...\n", __func__, ME_domID());
-#if defined(CONFIG_RTOS)
-		/* avz_sched_sleep_ms(300); */
-		msleep(300);
-#else
-		msleep(300);
-#endif /* CONFIG_RTOS */
-
-	}
-
-	return 0;
-}
-
-void dumpPage(unsigned int phys_addr, unsigned int size) {
-	int i, j;
-
-	lprintk("%s: phys_addr: %lx\n\n", __func__,  phys_addr);
-
-	for (i = 0; i < size; i += 16) {
-		lprintk(" [%lx]: ", i);
-		for (j = 0; j < 16; j++) {
-			lprintk("%02x ", *((unsigned char *) __va(phys_addr)));
-			phys_addr++;
-		}
-		lprintk("\n");
-	}
-}
-
-timer_t timer;
-
-void timer_fn(void *dummy) {
-	lprintk("### TIMER FIRED\n");
-}
-
-
-irq_return_t evt_interrupt(int irq, void *dev_id) {
-
-	lprintk("## got evt interrupt (irq %d)\n", irq);
-
-	return IRQ_COMPLETED;
-}
-
-#if 0 /* Stress test on evtchn and IRQs */
-static int alphabet_fn(void *arg) {
-	int res;
-	unsigned int evtchn;
-	struct evtchn_alloc_unbound alloc_unbound;
-
-	printk("Alphabet roundtrip...\n");
-
-#if 0
-	set_timer(&timer, NOW() + SECONDS(10));
-#endif
-
-	/* Allocate an event channel associated to the ring */
-	alloc_unbound.remote_dom = 0;
-	alloc_unbound.dom = DOMID_SELF;
-
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
-	evtchn = alloc_unbound.evtchn;
-	lprintk("## evtchn got from avz: %d\n", evtchn);
-
-	res = bind_evtchn_to_irq_handler(evtchn, evt_interrupt, NULL, NULL);
-
-	do_sync_dom(0, DC_PRE_SUSPEND);
-
-	while (1) {
-
-		/* printk("### heap size: %x\n", heap_size()); */
-		msleep(500);
-
-		/* Simply display the current letter which is incremented each time a ME comes back */
-		lprintk("(%d)",  ME_domID());
-		//printk("%c ", *((char *) localinfo_data));
-		lprintk("X ");
-	}
-
-	return 0;
-}
-
-#endif
-
-
-#if 1
-
-
-/* Used to test a ME trip within a scalable network */
-
-static int alphabet_fn(void *arg) {
-
-	printk("Alphabet roundtrip...\n");
-
-#if 0
-	set_timer(&timer, NOW() + SECONDS(10));
-#endif
-
-	while (1) {
-
-		/* printk("### heap size: %x\n", heap_size()); */
-		msleep(500);
-
-		/* Simply display the current letter which is incremented each time a ME comes back */
-		lprintk("(%d)",  ME_domID());
-		printk("%c ", *((char *) localinfo_data));
-
-	}
-
-	return 0;
-}
-#endif
-
-/*
- * The main application of the ME is executed right after the bootstrap. It may be empty since activities can be triggered
- * by external events based on frontend activities.
+/**
+ * This ME does nothing particular. It is aimed at giving a template to develop
+ * a new ME.
+ *
+ * Please, have a look at the SOO.ledctrl which is an example of ME intended to
+ * pilot LEDs on the Sense HAT extension.
+ *
+ * Note that SOO.refso3 can be configured with a rootfs (ramfs) which contains
+ * small applications like a shell and the LVGL demo application.
+ *
  */
 int app_thread_main(void *args) {
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
 
-#if 0
-	kernel_thread(thread1, "thread1", NULL, 0);
-#endif
+	sh_refso3->cur_letter = 'A';
 
-	//init_timer(&timer, timer_fn, NULL);
-#if 1
-	*((char *) localinfo_data) = 'A';
+	while (1) {
 
-	kernel_thread(alphabet_fn, "alphabet", NULL, 0);
-#endif
+		msleep(500);
 
+		lprintk("(%d)",  ME_domID());
+		printk("%c ", sh_refso3->cur_letter);
+
+	}
 
 	return 0;
 }

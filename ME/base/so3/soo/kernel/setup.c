@@ -52,9 +52,6 @@ int do_presetup_adjust_variables(void *arg)
 {
 	struct DOMCALL_presetup_adjust_variables_args *args = arg;
 
-	/* We begin to configure this ME as a target-personality */
-	soo_set_personality(SOO_PERSONALITY_TARGET);
-
 	/* Normally, avz_start_info virt address is retrieved from r12 at guest bootstrap (head.S)
 	 * We need to readjust this address after migration.
 	 */

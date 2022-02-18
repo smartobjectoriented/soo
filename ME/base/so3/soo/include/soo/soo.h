@@ -41,7 +41,6 @@ typedef enum {
 	DC_RESUME,
 	DC_FORCE_TERMINATE,
 	DC_POST_ACTIVATE,
-	DC_LOCALINFO_UPDATE,
 	DC_TRIGGER_DEV_PROBE,
 	DC_EVENT_MAX			/* Used to determine the number of DC events */
 } dc_event_t;
@@ -49,24 +48,8 @@ typedef enum {
 extern atomic_t dc_outgoing_domID[DC_EVENT_MAX];
 extern atomic_t dc_incoming_domID[DC_EVENT_MAX];
 
-/*
- * SOO personality
- */
-
-/* SOO personality regarding migration */
-typedef enum {
-	SOO_PERSONALITY_SELFREFERENT,
-	SOO_PERSONALITY_INITIATOR,
-	SOO_PERSONALITY_TARGET
-} soo_personality_t;
-
-soo_personality_t soo_get_personality(void);
-void soo_set_personality(soo_personality_t pers);
-
 void set_pfn_offset(int pfn_offset);
 int get_pfn_offset(void);
-
-extern soo_personality_t soo_get_personality(void);
 
 /*
  * ME states:
@@ -208,9 +191,6 @@ typedef struct {
 #define DEVCAP_AUDIO_RECORDING		(1 << 2)
 #define DEVCAP_AUDIO_RT_STREAM		(1 << 3)
 
-#define DEVCAPS_CLASS_LOCALINFO		0x0200
-#define DEVCAP_LOCALINFO_BUFFER		(1 << 0)
-
 #define DEVCAPS_CLASS_FRAMEBUFFER	0x0300
 #define DEVCAP_FRAMEBUFFER_FB0		(1 << 0)
 
@@ -287,9 +267,8 @@ typedef struct {
 #define ME_FORCE_TERMINATE		0
 #define ME_PRE_SUSPEND			1
 #define ME_PRE_RESUME			2
-#define ME_LOCALINFO_UPDATE		3
-#define ME_POST_ACTIVATE		4
-#define ME_IMEC_SETUP_PEER		5
+#define ME_POST_ACTIVATE		3
+#define ME_IMEC_SETUP_PEER		4
 
 
 /* Hypercall commands */
@@ -384,9 +363,8 @@ typedef struct {
 #define AG_INJECT_ME		0x12
 #define AG_IMEC_SETUP_PEER	0x13
 #define AG_FORCE_TERMINATE	0x14
-#define AG_LOCALINFO_UPDATE	0x15
-#define AG_KILL_ME		0x16
-#define AG_COOPERATE		0x17
+#define AG_KILL_ME		0x15
+#define AG_COOPERATE		0x16
 
 #define AG_AGENCY_UID		0x20
 #define AG_SOO_NAME		0x21
@@ -513,7 +491,6 @@ int cb_post_activate(soo_domcall_arg_t *args);
 int cb_kill_me(soo_domcall_arg_t *args);
 
 int cb_force_terminate(void);
-int cb_localinfo_update(void);
 int cb_imec_setup_peer(void);
 
 void callbacks_init(void);
