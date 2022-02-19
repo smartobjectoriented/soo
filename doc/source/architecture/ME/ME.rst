@@ -129,6 +129,49 @@ The callback sequences are therefore slightly different between the residing ME 
 Furthermore, in the migrating (arriving) ME, the ME has to create and initialize the ``vbstore`` entries 
 related to itself as well as to all frontend drivers managed by the ME.
 
+Finally, the newly injected ME (from a tablet/smartphone or automatically from the SD-card at the boot time)
+has a dedicated callback sequence as well. 
+
+All these callback sequences are described in the next sections.
+
+State of a Mobile Entity
+------------------------
+
+Any ME has an internal state to manage its behaviour. The state can be changed at any time by the different callbacks.
+The following functions are available to manage the ME state:
+
+.. c:function::
+   void set_ME_state(ME_state_t state)
+
+   To set a ME in a specific state
+
+.. c:function::
+   int get_ME_state(void)
+
+   To get the current a ME state.
+ 
+
++-----------------------+-------------------------------------------------------------------------------------------------------------+
+| State                 | Description                                                                                                 |
++=======================+=============================================================================================================+
+| *ME_state_booting*    | ME is currently booting...                                                                                  |
++-----------------------+-------------------------------------------------------------------------------------------------------------+
+| *ME_state_preparing*  | ME is being paused during the boot process, in the case of an injection, before the frontend initialization |
++-----------------------+-------------------------------------------------------------------------------------------------------------+
+| *ME_state_living*     | ME is full-functional and activated (all frontend devices are consistent)                                   |
++-----------------------+-------------------------------------------------------------------------------------------------------------+
+| *ME_state_suspended*  | ME is suspended before migrating. This state is maintained for the resident ME instance                     |
++-----------------------+-------------------------------------------------------------------------------------------------------------+
+| *ME_state_migrating*  | ME just arrived in SOO                                                                                      |
++-----------------------+-------------------------------------------------------------------------------------------------------------+
+| *ME_state_dormant*    | ME is resident, but not living (running)                                                                    |
++-----------------------+-------------------------------------------------------------------------------------------------------------+
+| *ME_state_killed*     | ME has been killed before to be resumed                                                                     |
++-----------------------+-------------------------------------------------------------------------------------------------------------+
+| *ME_state_terminated* | ME has been terminated (by a force_terminate)                                                               |
++-----------------------+-------------------------------------------------------------------------------------------------------------+
+| *ME_state_dead*       | ME does not exist                                                                                           |
++-----------------------+-------------------------------------------------------------------------------------------------------------+
 
 Callback functions
 ------------------
@@ -139,6 +182,13 @@ in the context of the ME. Callbaks using *dc_event* are triggered from the CPU a
 (Inter-Processor Interrupt) and the ME executes the code itself, enabling the possibility to use
 its scheduler (it is not the case with *domcalls* of course).
 
+Callback functions - *domcalls*
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A *domcall* function is typically called by the agency and executed on the agency CPU. There is
+an switch of address space to reach the memory context of the ME and to be able to access its variables.
+Consequently, asynchronous activities which could require access to the ME scheduler is **strictly forbidden**.
+
 .. c:function::
    int cb_pre_propagate(soo_domcall_arg_t *args) 
 
@@ -147,17 +197,89 @@ its scheduler (it is not the case with *domcalls* of course).
    can have the following value: ``PROPAGATE_STATUS_YES`` or ``PROPAGATE_STATUS_NO``
    indicating if the ME can be propagated or not.
    If the ME is not propagated, no further callback functions are executed.
+   
+.. c:function::   
+   int cb_pre_activate(soo_domcall_arg_t *args) 
+
+   Called after a migration to see if it makes sense for this ME to be resumed
+   in this smart object. If not, the ME state can be set to ``ME_state_killed``
+   
+.. c:function::
+   int cb_cooperate(soo_domcall_arg_t *args)
+   
+   This a very important callback function which allows the migrated ME to exchange
+   information with other MEs which reside in the smart object.
+   ``args`` is of type `cooperate_args_t` containing a field called ``role``
+   
+   The role can be ``COOPERATE_INITIATOR`` or ``COOPERATE_TARGET`` depending in 
+   which ME the *cooperate()* function is executed. The first role is given to
+   the migrated ME while the second role is given to the residing ME when the
+   migrated ME performed a call to the *cooperate()* function in this (residing) ME.
+   This mechanism clearly enables inter-ME collaboration and is useful to decide
+   which ME must stay alive or be killed.  
+   
+
+Callback functions - *dc_event*
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following callback functions are executed in the ME context on the CPU belonging to the ME. 
+Asynchronous activities requiring the ME scheduler are authorized. 
+
+.. c:function::
+   int cb_pre_suspend(soo_domcall_arg_t *args)
+
+   Called before suspending the frontend drivers.
+   
+.. c:function::   
+   int cb_pre_resume(soo_domcall_arg_t *args)
+
+   Called before resuming the frontend drivers
+
+.. c:function::
+   int cb_post_activate(soo_domcall_arg_t *args)
+   
+   This callback function is called once all frontend drivers have been resumed. It is
+   the final callback function called at the end of each migration process.
+      
+.. c:function::
+   int cb_force_terminate(void)
+
+   Tell the ME that a *force terminate* will be performed for this ME.
+   The ME state is changed during this callback and is typically 
+   set to ``ME_state_terminated``
+    
+
+.. note::
+
+   The *suspend* and *resume* callbacks are not specific to a particular ME and is a generic
+   procedure to suspend and to resume frontend drivers. The code of this callbacks should **NOT** be changed.
+  
+
+Callback sequence in the injected ME
+------------------------------------
+
+| The following sequence is executed during a ME injection:
+| ``pre_activate`` -> ``cooperate`` 
+
+The ME state is set to ``ME_state_living``
 
 
 Callback sequence in the residing ME
 ------------------------------------
 
+| The following sequence is executed during a migration process:
+| ``pre_propagate`` -> ``pre_suspend`` -> ``suspend`` (snapshot) ``resume`` -> ``post_activate`` 
+
+The ME state is set to ``ME_state_living``
 
 
 Callback sequence in the migrating ME
 -------------------------------------
 
+| The following sequence is executed during a migration process:
+| ``pre_propagate`` -> ``pre_suspend`` -> ``suspend`` (snapshot & migrating) ``pre_activate`` -> ``cooperate`` -> ``resume`` -> ``post_activate``
 
+The ME state is set to ``ME_state_living``
 
 
 ME Interactions with the User Interface application
