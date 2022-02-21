@@ -430,24 +430,7 @@ void xnintr_attach(struct xnintr *intr, void *cookie)
 	intr->cookie = cookie;
 	clear_irqstats(intr);
 
-#ifndef CONFIG_X86
-	if (intr->irq == GPIO_17_ETHERCAT_IRQ) {
-
-		/* Use the GIC number for the affinity/gic-enable */
-		irqdescs[GPIO_17_ETHERCAT_IRQ].irq_data.hwirq = GPIO_17_ETHERCAT_IRQ_GIC;
-
-		ipipe_set_irq_affinity(GPIO_17_ETHERCAT_IRQ, cobalt_cpu_affinity);
-		ipipe_set_gic_enable(GPIO_17_ETHERCAT_IRQ);
-
-		/* Fall back to our HW number */
-		irqdescs[GPIO_17_ETHERCAT_IRQ].irq_data.hwirq = GPIO_17_ETHERCAT_IRQ;
-
-	} else {
-		ipipe_set_irq_affinity(intr->irq, cobalt_cpu_affinity);
-	}
-#else
 	ipipe_set_irq_affinity(intr->irq, cobalt_cpu_affinity);
-#endif
 
 	raw_spin_lock(&intr->lock);
 
@@ -520,7 +503,7 @@ void xnintr_enable(struct xnintr *intr)
 	if (test_and_clear_bit(XN_IRQSTAT_DISABLED, &intr->status))
 		ipipe_enable_irq(intr->irq);
 
-	/* OpenCN */
+	/* SOO.tech */
 	ipipe_set_irq_affinity(intr->irq, cobalt_cpu_affinity);
 
 	raw_spin_unlock_irqrestore(&intr->lock, flags);

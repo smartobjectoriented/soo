@@ -44,19 +44,6 @@
 #define XN_IRQSTAT_DISABLED   1
 #define _XN_IRQSTAT_DISABLED  (1 << XN_IRQSTAT_DISABLED)
 
-/* OpenCN */
-/**
- * IRQ 17 is the hwirq number for the GPIO17 interrupt.
- * For now, we only support the GPIO based interrupt on this gpio,
- * because Xenomai/Linux needs to be patched for a generic multi level
- * interrupt handling (both by GIC and pinctrl subsystems).
- * This is needed for now until the full translation is supported.
- */
-#define GPIO_17_ETHERCAT_IRQ 		17
-
-/* GIC mapping */
-#define GPIO_17_ETHERCAT_IRQ_GIC 	145
-
 struct xnintr;
 struct xnsched;
 

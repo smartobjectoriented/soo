@@ -87,10 +87,7 @@ EXPORT_SYMBOL_GPL(ipipe_set_gic_enable);
  */
 void __ipipe_grab_irq(int irq, bool reset)
 {
-	/* OPENCN RPi4: custom translation for the EC interrupt 17 */
-	int irq_translate = irq == GPIO_17_ETHERCAT_IRQ_GIC ? GPIO_17_ETHERCAT_IRQ : irq;
-
 	ipipe_trace_irq_entry(irq);
-	__ipipe_dispatch_irq(irq_translate, reset);
+	__ipipe_dispatch_irq(irq, reset);
 	ipipe_trace_irq_exit(irq);
 }

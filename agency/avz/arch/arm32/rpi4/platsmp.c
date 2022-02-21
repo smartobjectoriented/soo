@@ -39,11 +39,11 @@ void smp_prepare_cpus(unsigned int max_cpus)
 void smp_boot_secondary(unsigned int cpu)
 {
 	unsigned long secondary_startup_phys = (unsigned long) virt_to_phys((void *) secondary_startup);
-	void *intc_vaddr;
+	addr_t *intc_vaddr;
 
 	printk("%s: booting CPU: %d...\n", __func__, cpu);
 
-	intc_vaddr = (void *) io_map(LOCAL_INTC_PHYS, LOCAL_INTC_SIZE);
+	intc_vaddr = (addr_t *) io_map(LOCAL_INTC_PHYS, LOCAL_INTC_SIZE);
 
 	writel(secondary_startup_phys, intc_vaddr + LOCAL_MAILBOX3_SET0 + 16 * cpu);
 
@@ -54,3 +54,4 @@ void smp_boot_secondary(unsigned int cpu)
 void smp_secondary_init(unsigned int cpu) {
 	/* Nothing to do for Rpi4 */
 }
+

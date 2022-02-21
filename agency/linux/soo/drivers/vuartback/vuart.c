@@ -279,7 +279,7 @@ int vuart_init(void) {
 
 	np = of_find_compatible_node(NULL, NULL, "vuart,backend");
 
-	/* Check if DTS has vuihandler enabled */
+	/* Check if DTS has vuart enabled */
 	if (!of_device_is_available(np))
 		return 0;
 
