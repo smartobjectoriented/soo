@@ -1007,33 +1007,10 @@ void handle_percpu_devid_fasteoi_nmi(struct irq_desc *desc)
 void ipipe_enable_irq(unsigned int irq)
 {
 	ipipe_irqdesc_t *desc;
-	struct irq_desc *linux_desc;
 	struct irq_chip *chip;
 	unsigned long flags;
 
-	/* (OpenCN)
-	 * For now, check if the IRQ is the 17 (EC IRQ).
-	 * If it's the case: Retrieve the irqchip (should be pinctrl-bcm2835) from
-	 * Linux and proceed to do the GPIO controller enabling here.
-	 */
-	if (irq == GPIO_17_ETHERCAT_IRQ) {
-		linux_desc = irq_to_desc(61);
-		desc = ipipe_irq_to_desc(linux_desc->irq_data.hwirq);
-
-		/* Copy the retrieved irq_data in our ipipe desc */
-		memcpy(&desc->irq_data, &linux_desc->irq_data, sizeof(linux_desc->irq_data));
-		irq_domain_activate_irq(&desc->irq_data, false);
-
-		gpiochip_lock_as_irq(desc->irq_data.chip_data, GPIO_17_ETHERCAT_IRQ);
-
-		/* Not done anywhere by ipipe otherwise. */
-		chip = ipipe_irq_desc_get_chip(desc);
-		chip->irq_set_type(&desc->irq_data, IRQF_TRIGGER_RISING);
-
-	} else {
-		desc = ipipe_irq_to_desc(irq);
-	}
-		
+	desc = ipipe_irq_to_desc(irq);		
 	if (desc == NULL) {
 		printk("%s: Requested RTDM IRQ desc not present!\n", __func__);
 		return;
