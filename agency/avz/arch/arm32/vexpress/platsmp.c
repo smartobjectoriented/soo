@@ -58,7 +58,8 @@ void smp_boot_secondary(unsigned int cpu) {
 	 * the boot monitor to read the system wide flags register,
 	 * and branch to the address found there.
 	 */
-	smp_cross_call(cpu, IPI_WAKEUP);
+
+	smp_cross_call((long) (1 << cpu), IPI_WAKEUP);
 
 	do {
 		dmb();
