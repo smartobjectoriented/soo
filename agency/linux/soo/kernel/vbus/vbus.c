@@ -723,7 +723,10 @@ void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus) {
 	struct vbus_device *vdev;
 
 	vdev = vbus_device_find(node, &bus->bus);
-	BUG_ON(vdev);
+	if (vdev) {
+		lprintk("## (agency) Node %s already exits. It should not!\n", node);
+		BUG();
+	}
 
 	vbus_probe_node(bus, type, node);
 }
