@@ -198,6 +198,12 @@ int get_ME_state(void)
 
 void set_ME_state(ME_state_t state)
 {
+	/* Be careful if the ME is in living state and suddently is set to killed.
+	 * Backends will be in a weird state.
+	 */
+	if ((state == ME_state_killed) && (avz_shared_info->dom_desc.u.ME.state == ME_state_living))
+		lprintk("## WARNING ! ME %d is set to killed while living!\n", ME_domID());
+
 	avz_shared_info->dom_desc.u.ME.state = state;
 }
 

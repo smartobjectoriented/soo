@@ -98,10 +98,6 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 	if (!pre_propagate_args->propagate_status && (get_ME_state() == ME_state_dormant))
 		set_ME_state(ME_state_killed);
 
-	/* In our case, the origin is updated if the smart object runs the ME */
-	if (pre_propagate_args->propagate_status && (get_ME_state() != ME_state_dormant))
-		memcpyUID(&sh_ledctrl->me_common.origin, &sh_ledctrl->me_common.here);
-
 	/* Only once */
 	sh_ledctrl->need_propagate = false;
 
@@ -170,6 +166,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			clear_hosts(&visits);
 
 			new_host(&visits, &sh_ledctrl->me_common.here, NULL, 0);
+
+			memcpyUID(&sh_ledctrl->me_common.origin, &sh_ledctrl->me_common.here);
 
 			complete(&upd_lock);
 

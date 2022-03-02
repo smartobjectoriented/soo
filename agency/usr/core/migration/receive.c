@@ -54,7 +54,6 @@ bool ME_processing_receive(void) {
 	static uint8_t toggle = 0;
 #endif
 
-	DBG0("Recv ME\n");
 	/* Perform receive processing as long as there are available MEs */
 
 	dcm_recv_ME(&ME_buffer, &buffer_size, &ME_size);
