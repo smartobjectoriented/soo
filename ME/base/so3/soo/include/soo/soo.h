@@ -357,14 +357,14 @@ typedef struct {
 
 /*
  * Further agency ctl commands that may be used by MEs.
+ * !! WARNING !! Must be strictly identical to the definitions in linux/soo/include/soo/uapi/soo.h
  */
-#define AG_BROADCAST_MODE	0x10
-#define AG_AGENCY_UPGRADE	0x11
-#define AG_INJECT_ME		0x12
-#define AG_IMEC_SETUP_PEER	0x13
-#define AG_FORCE_TERMINATE	0x14
-#define AG_KILL_ME		0x15
-#define AG_COOPERATE		0x16
+
+#define AG_AGENCY_UPGRADE	0x10
+#define AG_INJECT_ME		0x11
+#define AG_FORCE_TERMINATE	0x12
+#define AG_KILL_ME		0x13
+#define AG_COOPERATE		0x14
 
 #define AG_AGENCY_UID		0x20
 #define AG_SOO_NAME		0x21

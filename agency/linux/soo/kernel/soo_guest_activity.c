@@ -439,11 +439,6 @@ int agency_ctl(agency_ctl_args_t *agency_ctl_args)
 		queue_uevent(ME_FORCE_TERMINATE, agency_ctl_args->slotID);
 		break;
 
-	case AG_IMEC_SETUP_PEER:
-		DBG0("Before do_sync_ME DC_IMEC\n");
-		queue_uevent(ME_IMEC_SETUP_PEER, agency_ctl_args->slotID);
-		break;
-
 	case AG_CHECK_DEVCAPS_CLASS:
 		agency_ctl_args->u.devcaps_args.supported = devaccess_is_devcaps_class_supported(agency_ctl_args->u.devcaps_args.class);
 		break;
