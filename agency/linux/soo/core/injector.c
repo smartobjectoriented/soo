@@ -155,12 +155,13 @@ void injector_clean_ME(void) {
 void injector_retrieve_ME(unsigned long arg) {
 	injector_ioctl_recv_args_t args;
 
-	args.ME_data = ME_buffer;
-	args.size = ME_size;
 
 	/* Wait until a ME has started to be received. Will be woke up by 
 	   a call to injector_prepare from the vuihandler */
 	wait_for_completion(&me_ready_compl);
+
+	args.ME_data = ME_buffer;
+	args.size = ME_size;
 
 	if ((copy_to_user((void *) arg, &args, sizeof(injector_ioctl_recv_args_t))) != 0) {
 		lprintk("Agency: %s:%d Failed to copy args to userspace\n", __func__, __LINE__);
@@ -191,6 +192,6 @@ ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
 	injector_set_full(false);
 	wake_up_interruptible(&wq_prod);
 
-    return bytes_to_read;
+    	return bytes_to_read;
 }
 

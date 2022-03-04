@@ -41,7 +41,7 @@
 typedef struct {
 	uint8_t		type;
 	uint8_t		spid[SPID_SIZE];
-	uint8_t		payload[0];
+	uint8_t		payload[0]; // TODO describe this payload better!
 } vuihandler_pkt_t;
 
 #define VUIHANDLER_MAX_PACKETS		8
@@ -58,6 +58,25 @@ typedef struct {
 #define VUIHANDLER_ME_SIZE	3
 
 #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
+
+/* Number of TX packets which can be queued in the TX buffer */
+#define VUIHANDLER_TX_BUF_SIZE 	8
+
+
+typedef struct {
+	vuihandler_pkt_t *pkt;
+	uint32_t size;
+} tx_pkt_t;
+
+/* Ring buffer used to queue the TX packets */
+typedef struct {
+	tx_pkt_t ring[VUIHANDLER_TX_BUF_SIZE];
+	// uint32_t data_sizes[VUIHANDLER_TX_BUF_SIZE];
+	uint32_t put_index;
+	uint32_t get_index;
+	uint32_t cur_size;
+} vuihandler_tx_buf_t;
+
 
 typedef struct {
 	uint32_t		id;
@@ -141,6 +160,8 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id);
 irqreturn_t vuihandler_rx_interrupt(int irq, void *dev_id);
 
 void vuihandler_update_spid_vbstore(uint8_t spid[SPID_SIZE]);
+
+int vuihandler_send_from_agency(uint8_t *data, uint32_t size, uint8_t type);
 
 /* State management */
 void vuihandler_probe(struct vbus_device *dev);
