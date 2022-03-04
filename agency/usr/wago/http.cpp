@@ -77,9 +77,9 @@ namespace HTTP
 
         std::string url = server_access + route + args;
 
-        if (curl_easy_setopt(curl, CURLOPT_URL, url.c_str()) != 0)
+        if ((res = curl_easy_setopt(curl, CURLOPT_URL, url.c_str())) != 0)
         {
-            std::cout << "Failed to set option URL : " << url << std::endl;
+            std::cout << curl_easy_strerror(res) << url << std::endl;
             return -1;
         }
         
