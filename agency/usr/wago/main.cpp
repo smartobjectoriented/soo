@@ -1,19 +1,19 @@
 #include <iostream>
 #include <unistd.h>
-#include "http.h"
+#include "ledcontrol.h"
 
-#define SLEEP               1000000
-#define BASE_ADDR           "192.168.1.10"
-#define PORT                "8080"
-#define GET_TOPOLOGY        "dali/topology"
-#define GET_STATUS          "dali/led"
-#define POST_LED_ON         "dali/led/on"
-#define POST_LED_OFF        "dali/led/off"
+#define SEC                 1000000
+#define MSEC                1000
+#define SLEEP               0.5 * SEC
 
 
-int main()
+int main(int argc, char *argv[])
 {
-    HTTP::Request client(BASE_ADDR, PORT);
+
+    LED::Ledctrl ctl;
+
+    ctl.init();
+    /* HTTP::Request client(BASE_ADDR, PORT);
 
     std::string resp;
 
@@ -61,7 +61,7 @@ int main()
         if (id > 12) {
             id = 1;
         } 
-    }
+    } */
     
 
     return 0;
