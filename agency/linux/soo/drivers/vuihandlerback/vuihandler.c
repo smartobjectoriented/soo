@@ -80,7 +80,7 @@
 #define MAX_FAILED_PING_COUNT	3
 
 /* List of all vuihandler vbus_device managed by this BE */
-struct list_head *vdev_list;
+static struct list_head *vdev_list;
 
 
 /* vbus_device private structure */
@@ -100,6 +100,7 @@ typedef struct {
 	uint32_t recv_count;
 
 	vuihandler_pkt_t *tx_vuihandler_pkt;
+	vuihandler_tx_buf_t tx_buf;
 	size_t tx_pkt_size;
 	spinlock_t tx_lock;
 	struct completion tx_completion;
@@ -175,8 +176,74 @@ static int get_otherend_id_from_spid(uint8_t *spid) {
 	return -ENOENT;
 }
 
+
+/**
+ * @brief Enqueue a packet to be sent in the internal circular buffer.
+ * The fact we don't pass it a vuihandler_pkt_t is to avoid having to create one in the caller.
+ * 
+ * @param data Packet payload
+ * @param size Payload size
+ * @param spid The SPID of the original sender in case of an ME, NULL if comming from the agency itself
+ * @param type The packet type (ex: VUIHANDLER_DATA)  
+ * 
+ * @return 0 on success, -1 on error
+ */ 
+int tx_buffer_put(uint8_t *data, uint32_t size, uint8_t *spid, uint8_t type) {
+	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
+	vuihandler_pkt_t *cur_elem = vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.put_index].pkt;
+
+	/* abort if there are no place left on the circular buffer */
+	if (vdrv_priv->tx_buf.cur_size == VUIHANDLER_TX_BUF_SIZE) 
+		return -1;
+
+	spin_lock(&vdrv_priv->tx_lock);
+
+	/* Copy the data into the circular buffer */
+	vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.put_index].size = VUIHANDLER_BT_PKT_HEADER_SIZE + size;
+	/* In the case the packet is comming from the agency, there is no SPID */
+	if (spid != NULL)
+		memcpy(cur_elem->spid, spid, SPID_SIZE);
+	memcpy(cur_elem->payload, data, size);
+	cur_elem->type = type;
+
+	/* Update the circular buffer info */
+	vdrv_priv->tx_buf.put_index = (vdrv_priv->tx_buf.put_index + 1) % VUIHANDLER_TX_BUF_SIZE;
+	vdrv_priv->tx_buf.cur_size++;
+
+	/* TODO: should we let this here or let the caller do the completion? */
+	complete(&vdrv_priv->tx_completion);
+
+	spin_unlock(&vdrv_priv->tx_lock);
+
+	return 0;
+}
+
+/**
+ * @brief Get the latest packet ready to be sent 
+ * 
+ * @return The tx_pkt_t pointer containing the next packet to be sent. NULL if no packet is ready.
+ */
+tx_pkt_t *tx_buffer_get(void) {
+	tx_pkt_t *tx_pkt;
+	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
+
+	if (vdrv_priv->tx_buf.cur_size == 0) return NULL;
+
+	spin_lock(&vdrv_priv->tx_lock);
+	tx_pkt = &vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.get_index];
+
+	vdrv_priv->tx_buf.get_index = (vdrv_priv->tx_buf.get_index + 1) % VUIHANDLER_TX_BUF_SIZE;
+	vdrv_priv->tx_buf.cur_size--;
+
+	spin_unlock(&vdrv_priv->tx_lock);
+
+	return tx_pkt;
+}
+
 /**
  * tx_ring interrupt.
+ * It handles packet comming from the MEs. All packets comming from the MEs
+ * destined to be sent to the tablet.
  */
 irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
@@ -188,7 +255,7 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	while ((ring_req = vuihandler_tx_get_ring_request(&vuihandler->tx_rings.ring)) != NULL) {
 
 		DBG(VUIHANDLER_PREFIX "%d, %d\n", ring_req->id, ring_req->size);
-		continue;
+		// continue;
 
 		/* The slot ID is equal to the otherend ID */
 		if ((spid = get_spid_from_otherend_id(vdev->otherend_id)) == NULL)
@@ -198,17 +265,23 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 		if (memcmp(vdrv_priv->connected_app.spid, spid, SPID_SIZE) != 0)
 			continue;
 
-		spin_lock(&vdrv_priv->tx_lock);
-		vdrv_priv->tx_pkt_size = VUIHANDLER_BT_PKT_HEADER_SIZE + ring_req->size;
-		memcpy(vdrv_priv->tx_vuihandler_pkt->spid, spid, SPID_SIZE);
-		memcpy(vdrv_priv->tx_vuihandler_pkt->payload, vuihandler->tx_buffers.data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_req->size);
-		vdrv_priv->tx_vuihandler_pkt->type = VUIHANDLER_DATA;
-		spin_unlock(&vdrv_priv->tx_lock);
-
-		complete(&vdrv_priv->tx_completion);
+		/* Let the circular buffer add the packet to itself */
+		if (tx_buffer_put(vuihandler->tx_buffers.data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_req->size, spid, VUIHANDLER_DATA) == -1) {
+			printk("Error: could not put the TX packet in the circular buffer!\n");
+			continue;
+		}
 	}
 
 	return IRQ_HANDLED;
+}
+
+int vuihandler_send_from_agency(uint8_t *data, uint32_t size, uint8_t type) {
+
+	if (tx_buffer_put(data, size, NULL, type) == -1) {
+		return -1;
+		printk("Error: could not put the TX packet in the circular buffer!\n");
+	}
+	return 0;
 }
 
 /**
@@ -268,40 +341,48 @@ static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, si
 	vdrv_priv->recv_count++;
 }
 
-
-void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
-	size_t size, ME_size;
-	int me_id;
+/** Handles and route the packet coming from the tablet that are 
+ * destined to the agency core, such as injector packets or update packets 
+*/
+void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
 	uint8_t *ME_pkt_payload;
+	size_t ME_size;
 
+	switch (vuihandler_pkt->type) {
 	/* This is the ME size (1B type + 4B size) */
-	if (vuihandler_pkt->type == VUIHANDLER_ME_SIZE) {
+	case VUIHANDLER_ME_SIZE:
 		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
 
-		DBG("ME size: %u\n", *((uint32_t *)(ME_pkt_payload+1)));
+		printk("ME size: %u\n", *((uint32_t *)(ME_pkt_payload+1)));
 		ME_size = *((uint32_t *)(ME_pkt_payload+1));
 		
 		/* Forward the size to the injector so it knows the ME size. */
 		injector_prepare(ME_size);
-		vfree((void *) ME_pkt_payload);
-		return;
-	}
+		break;
 
 	/* This is the ME data which needs to be forwarded to the Injector */
-	if (vuihandler_pkt->type == VUIHANDLER_ME_INJECT) {
+	case VUIHANDLER_ME_INJECT:
 		/* As we bypass the full vuiHandler protocol, we first use a uint8_t array to
 		easily access the data instead of the vuihandler_pkt */
 		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
 
 		injector_receive_ME((void *)(ME_pkt_payload+1), vuihandler_pkt_size-1);
-		return ;
+		break;
 	}
+}
 
+void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
+	size_t size;
+	int me_id;
 
+	if (vuihandler_pkt->type == VUIHANDLER_ME_SIZE || vuihandler_pkt->type == VUIHANDLER_ME_INJECT) {
+		handle_agency_packet(vuihandler_pkt, vuihandler_pkt_size);
+		return;
+	}
 	
 	if (vuihandler_pkt->type == VUIHANDLER_BEACON) {
 		/* This is a vUIHandler beacon */
-		recv_beacon(vuihandler_pkt, vuihandler_pkt_size);
+		// recv_beacon(vuihandler_pkt, vuihandler_pkt_size);
 
 		return ;
 	}
@@ -327,12 +408,15 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 	rx_push_response(me_id, vuihandler_pkt, vuihandler_pkt_size);
 }
 
+
+
 /**
  * TX task.
  * BT and TCP/IP interfaces are mutually exclusive, thus a common thread is sufficient.
  */
 static int tx_task_fn(void *arg) {
 	vuihandler_pkt_t *vuihandler_pkt;
+	tx_pkt_t *tx_pkt;
 	size_t pkt_size;
 	unsigned long flags;
 	int rfcomm_pid;
@@ -341,10 +425,17 @@ static int tx_task_fn(void *arg) {
 	while (1) {
 		wait_for_completion(&vdrv_priv->tx_completion);
 
+		tx_pkt = tx_buffer_get();
+
+		if (tx_pkt == NULL) {
+			printk("An error occured while getting the next TX packet!\n");
+			continue;
+		}
+
 		/* Retrieve parameters from TX ISR */
 		spin_lock_irqsave(&vdrv_priv->tx_lock, flags);
-		vuihandler_pkt = vdrv_priv->tx_vuihandler_pkt;
-		pkt_size = vdrv_priv->tx_pkt_size;
+		vuihandler_pkt = tx_pkt->pkt;
+		pkt_size = tx_pkt->size;
 		spin_unlock_irqrestore(&vdrv_priv->tx_lock, flags);
 
 		/* Priority is not supported yet */
@@ -376,6 +467,8 @@ static int rx_bt_task_fn(void *arg) {
 		DBG("(B<%d)\n", size);
 
 		vuihandler_recv(priv_buffer, size);
+		/* It's our job to clean it there */
+		vfree(priv_buffer);
 	}
 	return 0;
 }
@@ -549,6 +642,7 @@ void vuihandler_start_deferred(soo_env_t * sooenv, void *args) {
 
 int vuihandler_init(void) {
 	struct device_node *np;
+	int i;
 
 	vuihandler_drv_priv_t *vdrv_priv = kzalloc(sizeof(vuihandler_drv_priv_t), GFP_ATOMIC);
 	vdrv_set_priv(&vuihandlerdrv.vdrv, (void *)vdrv_priv);
@@ -567,7 +661,10 @@ int vuihandler_init(void) {
 	memcpy(vdrv_priv->connected_app.spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE);
 	spin_lock_init(&vdrv_priv->connected_app_lock);
 
-	vdrv_priv->tx_vuihandler_pkt = (vuihandler_pkt_t *) kzalloc(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE, GFP_KERNEL);
+	/* Allocate the circular TX buffer containers */
+	for (i = 0; i < VUIHANDLER_TX_BUF_SIZE; ++i) {
+		vdrv_priv->tx_buf.ring[i].pkt = (vuihandler_pkt_t *) kzalloc(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE, GFP_KERNEL);
+	}
 	spin_lock_init(&vdrv_priv->tx_lock);
 	init_completion(&vdrv_priv->tx_completion);
 

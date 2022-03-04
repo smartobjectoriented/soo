@@ -1,10 +1,13 @@
 #!/bin/bash
 
-BT_TTY="/dev/ttyAMA1"
+BT_TTY="/dev/ttyAMA0"
+
 
 # The MAC address is generated using some agency UID bytes
 AGENCYUID_FILE="/sys/devices/system/soo/soo0/agencyUID"
 BDADDR=`cat ${AGENCYUID_FILE} | cut -c1-17`
+
+echo "Bluetooth configuration..."
 
 # Configure the controller with an address and load its firmware
 hciattach ${BT_TTY} bcm43xx 460800 flow - ${BDADDR}
@@ -33,6 +36,8 @@ hciconfig hci0 name ${HCI_NAME}
 sdptool add --channel=1 SP
 # Launch the agent with NoInputNoOutput so we don't have to enter a PIN 
 bt-agent -c NoInputNoOutput -d
+
+echo "Bluetooth configutation DONE!"
 
 # This opens a rfcomm socket which will be hooked by vuihandler
 while true
