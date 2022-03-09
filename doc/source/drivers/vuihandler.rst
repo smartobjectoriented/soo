@@ -225,22 +225,37 @@ It does the following:
 * Unmap and unbind the event channels.
 
 
-FE to BE communication
-**********************
-This describes a typical TX communication. It is used when an ME application wants to send data to the tablet.
-
-.. figure:: /img/SOO_drivers_vuihandler_FE_send.png
-   :align: center
-   
-   Sequence diagram showing the FE sending a TX packet to the tablet
-
-
-The diagram above is a bit simplified as it doesn't fully show the layers between the FE and the BE. You can refer the the TBD document for more information about this layer.
-It still shows the basic concept to send a packet from the ME to the tablet. As every sending/receiving`are asynchronous, the `vuihandler_send_fn` (FE) and the `tx_task_fn` (BE) are running as threads and are completed once the data are ready to be sent.
-
 
 External interfaces
 *******************
 This section describes the interfaces from the BE point of view.
 
-TBD
+Interfacing with the RFCOMM layer
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The *RFCOMM* driver is patched to be able to transmit the BT packets it receives to the *vuihandler*. In the same way, it has a custom function which allows it to be used by *SOOlink* when sending packets via BT.
+
+
+Interfacing with the ME
+^^^^^^^^^^^^^^^^^^^^^^^
+The interfacing with the ME frontend is done using *VBStore*, shared buffers, rings and event channels. 
+The FE must provide a way to notify the BE through one of its event channel.
+
+Once the notification arrives in the BE, it can then retrieve the data from the shared buffers and notify with a completion that a packet needs to be sent to the tablet or forwarded to the agency.
+
+
+.. figure:: /img/SOO_drivers_vuihandler_FE_send.png
+   :align: center
+   
+   Sequence diagram showing the FE sending a TX packet to the tablet, through the BE
+
+
+The diagram above is a bit simplified as it doesn't fully show the layers between the FE and the BE. You can refer the the TBD document for more information about this layer.
+It still shows the basic concept to send a packet from the ME to the tablet. As every sending/receiving are asynchronous, the `vuihandler_send_fn` (FE) and the `tx_task_fn` (BE) are running as threads and are notified once the data are ready to be sent.
+
+
+Interfacing with the agency modules
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Another client from the *vuihandler* is the agency. It has multiple modules (injector, XML engine) which can ask the vuihandler to send data or which need to receive data from it. 
+The sending is done using the `vuihandler_send_from_agency` function, which will put the data in the circular TX buffer to be sent later on.
+
+The data reception is a bit trickier, as we receive raw packets in the *vuihandler*. The packets are decoded and routed to the corresponding agency modules if needed, stripped from the *vuihandler* header.
