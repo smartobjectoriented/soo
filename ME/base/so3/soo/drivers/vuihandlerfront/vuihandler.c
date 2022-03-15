@@ -21,6 +21,7 @@
 #define DEBUG
 #endif
 
+
 #include <mutex.h>
 #include <heap.h>
 #include <completion.h>
@@ -148,7 +149,7 @@ int vuihandler_send_fn(void *arg) {
 			ring_req->id = vuihandler_priv->send_count;
 			ring_req->size = vuihandler_priv->sp.size;
 
-			memcpy(vuihandler_priv->vuihandler.tx_data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, vuihandler_priv->sp.data, vuihandler_priv->sp.size);
+			memcpy(ring_req->buf, vuihandler_priv->sp.data, vuihandler_priv->sp.size);
 
 			vuihandler_priv->send_count++;
 

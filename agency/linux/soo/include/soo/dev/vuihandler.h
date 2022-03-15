@@ -53,9 +53,11 @@ typedef struct {
 #define VUIHANDLER_BUFFER_SIZE		(VUIHANDLER_MAX_PACKETS * VUIHANDLER_MAX_PKT_SIZE)
 
 #define VUIHANDLER_BEACON	0
-#define VUIHANDLER_DATA		1
-#define VUIHANDLER_ME_INJECT	2
-#define VUIHANDLER_ME_SIZE	3
+#define VUIHANDLER_DATA		1 /* Simple ME state data, could be anything to update the ME state */
+#define VUIHANDLER_ME_INJECT	2 /* Specify the packet contains a chunk of the ME to be injected  */
+#define VUIHANDLER_ME_SIZE	3 /* Specify that a ME injection is to be initiated. The packet contains the ME size */
+#define VUIHANDLER_ASK_LIST	4 /* Ask for the XML ME list */
+#define VUIHANDLER_EVENT	5 /* Specify that the packet contains an event data to be forwarded to the ME */
 
 #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
 
@@ -81,6 +83,7 @@ typedef struct {
 typedef struct {
 	uint32_t		id;
 	size_t			size;
+	uint8_t 		buf[2048];
 } vuihandler_tx_request_t;
 
 /* Not used */
@@ -98,6 +101,7 @@ typedef struct {
 typedef struct {
 	uint32_t		id;
 	size_t			size;
+	uint8_t 		buf[2048];
 } vuihandler_rx_response_t;
 
 DEFINE_RING_TYPES(vuihandler_rx, vuihandler_rx_request_t, vuihandler_rx_response_t);

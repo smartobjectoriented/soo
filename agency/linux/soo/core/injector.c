@@ -98,13 +98,13 @@ int ioctl_inject_ME(unsigned long arg) {
  */
 int injector_receive_ME(void *ME, size_t size) {
 
-#if 0
-	printk("%d\n", size);
-#endif	
+
 	wait_event_interruptible(wq_prod, !full);
 
 	current_size += size;
-
+#if 0
+	printk("cur_size %d\n", current_size);
+#endif	
 	tmp_buf = ME;
 	tmp_size = size;
 
@@ -191,6 +191,8 @@ ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
 	/* Notify the Injector we read the buffer */
 	injector_set_full(false);
 	wake_up_interruptible(&wq_prod);
+
+	vfree(ME-1);
 
     	return bytes_to_read;
 }
