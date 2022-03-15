@@ -76,6 +76,10 @@
  * connected to Internet.
  */
 
+#if 0
+#define TEST_RX 1
+#endif
+
 /* Max missed keepalive beacon count for disconnection */
 #define MAX_FAILED_PING_COUNT	3
 
@@ -131,6 +135,15 @@ vdrvback_t vuihandlerdrv = {
 	.suspend = vuihandler_suspend
 };
 
+static void print_spid(uint8_t *spid) {
+	int i;
+
+	for (i = 0; i < SPID_SIZE; ++i) {
+
+		printk("%02x", spid[i]);
+	}
+}
+
 
 /**
  * Return the SPID of the ME whose "otherend ID" is given as parameter.
@@ -162,15 +175,22 @@ static int get_otherend_id_from_spid(uint8_t *spid) {
 	vuihandler_t *vuihandler;
 	vuihandler_priv_t *vuihandler_priv;
 	struct vbus_device *vdev;
+	printk("Searching for ");
+	print_spid(spid);
 	
 
 	for (i = 1; i < MAX_DOMAINS; i++) {
 		vdev = vdevback_get_entry(i, vdev_list);
-		vuihandler_priv = dev_get_drvdata(&vdev->dev);
-		vuihandler = &vuihandler_priv->vuihandler;
+		if (vdev != NULL) {
+			printk("Slot %d is not empty!\n", i);
+			vuihandler_priv = dev_get_drvdata(&vdev->dev);
+			vuihandler = &vuihandler_priv->vuihandler;
+			printk("Getting ");
 
-		if (!memcmp(spid, vuihandler->spid, SPID_SIZE))
-			return i;
+			print_spid(vuihandler->spid);
+			if (!memcmp(spid, vuihandler->spid, SPID_SIZE))
+				return i;
+		}
 	}
 
 	return -ENOENT;
@@ -192,6 +212,8 @@ int tx_buffer_put(uint8_t *data, uint32_t size, uint8_t *spid, uint8_t type) {
 	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
 	vuihandler_pkt_t *cur_elem = vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.put_index].pkt;
 
+	printk("Putting %dB of type %d in the TX buffer\n", size, type);
+
 	/* abort if there are no place left on the circular buffer */
 	if (vdrv_priv->tx_buf.cur_size == VUIHANDLER_TX_BUF_SIZE) 
 		return -1;
@@ -203,6 +225,8 @@ int tx_buffer_put(uint8_t *data, uint32_t size, uint8_t *spid, uint8_t type) {
 	/* In the case the packet is comming from the agency, there is no SPID */
 	if (spid != NULL)
 		memcpy(cur_elem->spid, spid, SPID_SIZE);
+	else
+		memset(cur_elem->spid, 0, SPID_SIZE);	
 	memcpy(cur_elem->payload, data, size);
 	cur_elem->type = type;
 
@@ -255,7 +279,6 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	while ((ring_req = vuihandler_tx_get_ring_request(&vuihandler->tx_rings.ring)) != NULL) {
 
 		DBG(VUIHANDLER_PREFIX "%d, %d\n", ring_req->id, ring_req->size);
-		// continue;
 
 		/* The slot ID is equal to the otherend ID */
 		if ((spid = get_spid_from_otherend_id(vdev->otherend_id)) == NULL)
@@ -266,7 +289,7 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 			continue;
 
 		/* Let the circular buffer add the packet to itself */
-		if (tx_buffer_put(vuihandler->tx_buffers.data + (ring_req->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_req->size, spid, VUIHANDLER_DATA) == -1) {
+		if (tx_buffer_put(ring_req->buf, ring_req->size, spid, VUIHANDLER_DATA) == -1) {
 			printk("Error: could not put the TX packet in the circular buffer!\n");
 			continue;
 		}
@@ -330,7 +353,7 @@ static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, si
 	ring_rsp->id = vdrv_priv->recv_count;
 	ring_rsp->size = size;
 
-	memcpy(vuihandler->rx_buffers.data + (ring_rsp->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, data, size);
+	memcpy(ring_rsp->buf, data, size);
 
 	DBG(VUIHANDLER_PREFIX "id: %d\n", ring_rsp->id);
 
@@ -353,11 +376,12 @@ void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pk
 	case VUIHANDLER_ME_SIZE:
 		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
 
-		printk("ME size: %u\n", *((uint32_t *)(ME_pkt_payload+1)));
+		DBG("ME size: %u\n", *((uint32_t *)(ME_pkt_payload+1)));
 		ME_size = *((uint32_t *)(ME_pkt_payload+1));
 		
 		/* Forward the size to the injector so it knows the ME size. */
 		injector_prepare(ME_size);
+		vfree(vuihandler_pkt);
 		break;
 
 	/* This is the ME data which needs to be forwarded to the Injector */
@@ -365,19 +389,54 @@ void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pk
 		/* As we bypass the full vuiHandler protocol, we first use a uint8_t array to
 		easily access the data instead of the vuihandler_pkt */
 		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
-
+		/* The packet is freed in the injector agency_read callback */
 		injector_receive_ME((void *)(ME_pkt_payload+1), vuihandler_pkt_size-1);
 		break;
 	}
 }
 
+
+/**
+ * Ask the agency for the XML ME list and put it in the TX buffer
+ * 
+ * 
+ * @return 0 on success, -1 on error
+*/
+int send_ME_list_xml(void) {
+	ME_id_t *ME_buf_raw = kzalloc(MAX_ME_DOMAINS * sizeof(ME_id_t), GFP_ATOMIC);
+	uint8_t *ME_buf_xml = NULL;
+
+	get_ME_id_array(ME_buf_raw);
+	ME_buf_xml = xml_prepare_id_array(ME_buf_raw);
+
+	if (ME_buf_xml == NULL) {
+		return -1;
+	}
+
+	tx_buffer_put(ME_buf_xml, strlen(ME_buf_xml)+1, NULL, 0);
+
+	kfree(ME_buf_raw);
+	return 0;
+
+}
+
+
 void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
 	size_t size;
 	int me_id;
 
+	/* Check for packet destinated to to agency, mainly ME injection related */
 	if (vuihandler_pkt->type == VUIHANDLER_ME_SIZE || vuihandler_pkt->type == VUIHANDLER_ME_INJECT) {
 		handle_agency_packet(vuihandler_pkt, vuihandler_pkt_size);
 		return;
+	}
+
+	
+	if (vuihandler_pkt->type == VUIHANDLER_ASK_LIST) {
+		/* This is a vUIHandler beacon */
+		send_ME_list_xml();
+
+		return ;
 	}
 	
 	if (vuihandler_pkt->type == VUIHANDLER_BEACON) {
@@ -387,10 +446,11 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 		return ;
 	}
 
-	/* We expect the BT packet to be a vUIHandler data packet */
-	if (vuihandler_pkt->type != VUIHANDLER_DATA)
+	/* We expect the BT packet to be a vUIHandler data packet or an event packet */
+	if (!(vuihandler_pkt->type == VUIHANDLER_DATA || vuihandler_pkt->type == VUIHANDLER_EVENT))
 		return ;
 
+	/* From there, the packet is forwarded to the corresponding ME */
 	size = vuihandler_pkt_size - VUIHANDLER_BT_PKT_HEADER_SIZE;
 
 	if (unlikely(size > VUIHANDLER_MAX_PAYLOAD_SIZE))
@@ -398,14 +458,21 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 
 	DBG(VUIHANDLER_PREFIX "Size: %d\n", size);
 
+	// TODO: Change this in order to route the packet not using the SPID
 	/* Find the ME targeted by the packet using its SPID */
 	me_id = get_otherend_id_from_spid(vuihandler_pkt->spid);
-	if (me_id < 0)
-		return ;
-
+#ifdef TEST_RX
+	me_id = 2;
+#else	
+	if (me_id < 0) 
+		return;
+#endif /* TEST_RX */	
+	
 	DBG(VUIHANDLER_PREFIX "ME ID: %d\n", me_id);
 
 	rx_push_response(me_id, vuihandler_pkt, vuihandler_pkt_size);
+
+	vfree(vuihandler_pkt);
 }
 
 
@@ -466,9 +533,11 @@ static int rx_bt_task_fn(void *arg) {
 
 		DBG("(B<%d)\n", size);
 
+		/* We dont free the packet here, as its lifetime can be longer
+		depending on the packet handler (ex: the injector must ensure it's data can
+		be read from the userspace correctly). It implies that it is the handler 
+		which MUST vfree the packet after using it */ 
 		vuihandler_recv(priv_buffer, size);
-		/* It's our job to clean it there */
-		vfree(priv_buffer);
 	}
 	return 0;
 }
@@ -485,7 +554,7 @@ static int rx_tcp_task_fn(void *arg) {
 	while (1) {
 		size = sl_recv(vdrv_priv->vuihandler_tcp_sl_desc, &priv_buffer);
 
-		lprintk("(T<%d)", size);
+		DBG("(T<%d)", size);
 
 		vuihandler_recv(priv_buffer, size);
 	}
@@ -512,7 +581,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 	BUG_ON(!vuihandler_priv);
 
 	dev_set_drvdata(&vdev->dev, vuihandler_priv);
-	
+
 	vdevback_add_entry(vdev, vdev_list);
 
 	DBG(VUIHANDLER_PREFIX "Backend probe: %d\n", vdev->otherend_id);
@@ -567,6 +636,16 @@ void vuihandler_suspend(struct vbus_device *vdev) {
 
 
 void vuihandler_resume(struct vbus_device *vdev) {
+	uint8_t spid[SPID_SIZE];
+	vuihandler_priv_t *vuihandler_priv;
+
+
+	get_ME_spid(vdev->otherend_id, &spid[0]);
+
+	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(&vdev->dev);
+
+	memcpy(vuihandler_priv->vuihandler.spid, spid, SPID_SIZE);
+
 	DBG(VUIHANDLER_PREFIX "Backend resume: %d\n", vdev->otherend_id);
 }
 
@@ -618,6 +697,32 @@ void vuihandler_reconfigured(struct vbus_device *vdev) {
 	DBG(VUIHANDLER_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
 }
 
+
+
+
+#ifdef TEST_RX
+static int test_rx_fn(void *args) {
+	vuihandler_pkt_t *test_pkt;
+	char *msg = "Hello from BE!";
+
+	msleep(20000);
+	
+	test_pkt = (vuihandler_pkt_t *) kzalloc(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE, GFP_KERNEL);
+	memset(test_pkt, 0, sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE);
+	test_pkt->spid[0] = 0x02;
+	test_pkt->spid[7] = 0x10;
+	test_pkt->type = VUIHANDLER_DATA;
+	memcpy(test_pkt->payload, msg, strlen(msg));
+	while(1) {
+		msleep(1000);
+		vuihandler_recv(test_pkt, sizeof(vuihandler_pkt_t) + strlen(msg));
+	}
+
+	return 0;
+}
+#endif
+
+
 /**
  * Start the communication threads. 
  */
@@ -625,6 +730,10 @@ static void vuihandler_start_threads(void *args) {
 
 	kthread_run(tx_task_fn, args, "vUIHandler-TX");
 	kthread_run(rx_bt_task_fn, args, "vUIHandler-BT-RX");
+
+#ifdef TEST_RX
+	kthread_run(test_rx_fn, args, "vuihandler-test-RX");
+#endif
 
 #if defined(CONFIG_SOOLINK_PLUGIN_ETHERNET)
 	kthread_run(rx_tcp_task_fn, args, "vUIHandler-TCP-RX");
@@ -639,6 +748,10 @@ void vuihandler_start_deferred(soo_env_t * sooenv, void *args) {
 	/* We need to start the threads here as they need a reference on vuihandler */
 	vuihandler_start_threads(args);
 }
+
+
+
+
 
 int vuihandler_init(void) {
 	struct device_node *np;

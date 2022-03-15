@@ -213,14 +213,15 @@ EXPORT_SYMBOL(get_ME_id_array);
 /**
  * Prepare a XML message which contains the list of MEs with their specific ID information
  * (SPID, name, short desc)
- * The caller must allocate the memory area required to store the result
+ * 
  *
- * @param buffer	Buffer allocated by the caller which contains the XML message
+ * @return buffer	Buffer allocated by the which contains the XML message. Caller must free it.
  * @param ME_id_array	Array of ME_id_t entries (got with get_ME_id_array())
  */
-void xml_prepare_id_array(char *buffer, ME_id_t *ME_id_array) {
+char *xml_prepare_id_array(ME_id_t *ME_id_array) {
 	uint32_t pos;
 	char *__buffer;
+	char *buffer; /* Output buffer */
 	node_t *root, *messages, *me, *name, *shortdesc;
 	char spid[SPID_SIZE];
 
@@ -256,11 +257,18 @@ void xml_prepare_id_array(char *buffer, ME_id_t *ME_id_array) {
 
 	roxml_commit_changes(root, NULL, &__buffer, 1);
 
+	/* Allocate the buffer here, as the caller has no way to determine it */
+	buffer = (char *) kzalloc(strlen(__buffer), GFP_KERNEL);
+	if (buffer == NULL) {
+		return NULL;
+	}
+
 	strcpy(buffer, __buffer);
 
 	roxml_release(RELEASE_LAST);
 	roxml_close(root);
 
+	return buffer;
 }
 EXPORT_SYMBOL(xml_prepare_id_array);
 

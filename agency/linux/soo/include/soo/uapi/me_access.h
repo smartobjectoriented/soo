@@ -147,7 +147,7 @@ int ioctl_get_ME_free_slot(unsigned long arg);
 int ioctl_get_ME_desc(unsigned long arg);
 
 void get_ME_id_array(ME_id_t *ME_id_array);
-void xml_prepare_id_array(char *buffer, ME_id_t *ME_id_array);
+char *xml_prepare_id_array(ME_id_t *ME_id_array);
 
 void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc);
 

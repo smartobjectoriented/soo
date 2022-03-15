@@ -67,6 +67,7 @@ typedef struct {
 typedef struct {
 	uint32_t		id;
 	size_t			size;
+	uint8_t 		buf[2048];
 } vuihandler_tx_request_t;
 
 /* Not used */
@@ -84,6 +85,7 @@ typedef struct {
 typedef struct {
 	uint32_t		id;
 	size_t			size;
+	uint8_t 		buf[2048];
 } vuihandler_rx_response_t;
 
 DEFINE_RING_TYPES(vuihandler_rx, vuihandler_rx_request_t, vuihandler_rx_response_t);
