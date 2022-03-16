@@ -126,6 +126,8 @@ void vsensej_remove(struct vbus_device *vdev) {
 
 	DBG("%s: freeing the vsensej structure for %s\n", __func__,vdev->nodename);
 	kfree(vsensej_priv);
+
+	rpisense_joystick_handler_unregister(vdev);
 }
 
 void vsensej_close(struct vbus_device *vdev) {
@@ -179,8 +181,6 @@ void vsensej_reconfigured(struct vbus_device *vdev) {
 	/* No handler required, however used to notify the remote domain */
 
 	vsensej_priv->vsensej.irq = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, NULL, NULL, 0, VSENSEJ_NAME "-backend", vdev);
-
-	lprintk("######## IRQ: %d\n", vsensej_priv->vsensej.irq);
 }
 
 void vsensej_connected(struct vbus_device *vdev) {
