@@ -6,10 +6,7 @@
 
 namespace LED
 {
-    Ledctrl::Ledctrl() : client(BASE_ADDR, PORT)
-    {
-        // client = HTTP::Request(BASE_ADDR, PORT);
-    }
+    Ledctrl::Ledctrl() : client(BASE_ADDR, PORT) {}
 
     Ledctrl::~Ledctrl()
     {
