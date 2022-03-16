@@ -1,5 +1,7 @@
 #include <iostream>
 #include <cstring>
+#include <stdexcept>
+
 #include "http.h"
 
 namespace HTTP
@@ -25,15 +27,16 @@ namespace HTTP
 
     void Request::set_callback_func()
     {
+        CURLcode res;
 
-        if (curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cb) != 0)
+        if ((res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cb)) != 0)
         {
-            std::cout << "Failed to set CURLOPT_WRITEFUNCTION" << std::endl;
+            throw std::runtime_error(curl_easy_strerror(res));
         }
 
-        if (curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response) != 0)
+        if ((res = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response)) != 0)
         {
-            std::cout << "Failed to set CURLOPT_WRITEDATA" << std::endl;
+            throw std::runtime_error(curl_easy_strerror(res));
         }
     }
 
@@ -44,22 +47,22 @@ namespace HTTP
 
         std::string url = server_access + route + args;
 
-        if (curl_easy_setopt(curl, CURLOPT_URL, url.c_str()) != 0)
+        if ((res = curl_easy_setopt(curl, CURLOPT_URL, url.c_str())) != 0)
         {
-            std::cout << "Failed to set option URL : " << url << std::endl;
+            std::cout << curl_easy_strerror(res) << url << std::endl;
             return -1;
         }
 
-        if (curl_easy_setopt(curl, CURLOPT_HTTPGET, 1) != 0)
+        if ((res = curl_easy_setopt(curl, CURLOPT_HTTPGET, 1)) != 0)
         {
-            std::cout << "Failed to set option HTTPGET" << std::endl;
+            std::cout << curl_easy_strerror(res) << std::endl;
             return -1;
         }
 
         res = curl_easy_perform(curl);
-        if (res = CURLE_OK)
+        if (res != CURLE_OK)
         {
-            std::cout << "Failed to perform request" << std::endl;
+            std::cout << curl_easy_strerror(res) << std::endl;
             return -1;
         }
 
@@ -72,8 +75,6 @@ namespace HTTP
     {
         CURLcode res;
         response.clear();
-
-        // curl_easy_cleanup(curl);
 
         std::string url = server_access + route + args;
 
