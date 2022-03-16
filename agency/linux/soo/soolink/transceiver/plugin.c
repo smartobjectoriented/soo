@@ -81,7 +81,7 @@ uint8_t *get_mac_addr(uint64_t agencyUID) {
  * to-agency UID conversion.
  * This function returns true if the remote SOO has been found in the list, false otherwise.
  */
-static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packet, uint8_t *mac_src, uint64_t agencyUID_from) {
+static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packet, uint8_t *mac_src, uint64_t *agencyUID_from) {
 	struct list_head *cur;
 	plugin_remote_soo_desc_t *remote_soo_desc_cur;
 	unsigned long flags;
@@ -99,7 +99,7 @@ static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packe
 			soo_log("[soo:soolink:plugin] Found agency UID: ");
 			soo_log_printlnUID(remote_soo_desc_cur->agencyUID);
 
-			agencyUID_from = remote_soo_desc_cur->agencyUID;
+			*agencyUID_from = remote_soo_desc_cur->agencyUID;
 
 			spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 
@@ -280,7 +280,7 @@ static int plugin_rx_fn(void *args) {
 		if (rsp->mac_src && rsp->req_type != SL_REQ_BT) {
 
 			/* If we receive a packet from a neighbour which is not known yet, we simply ignore the packet. */
-			found = identify_remote_soo(rsp->req_type, rsp->data, rsp->mac_src, agencyUID_from);
+			found = identify_remote_soo(rsp->req_type, rsp->data, rsp->mac_src, &agencyUID_from);
 
 			if (!found)
 				continue;

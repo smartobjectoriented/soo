@@ -199,7 +199,7 @@ char *beacon_str(wnet_beacon_t *beacon, uint64_t uid) {
 
 	/* Display the agency UID with the fifth first bytes (enough) */
 	for (i = 0; i < 8 ; i++) {
-		sprintf(idstr, "%02x ", *c++);
+		sprintf(idstr, "%02x ", *(c+7-i));
 		strcat(current_soo_winenet->__beacon_str, idstr);
 	}
 
@@ -226,7 +226,7 @@ void wnet_trace(char *format, ...) {
 		strcpy(uid, "");
 		c = (uint8_t *) &current_soo_winenet->ourself->paired_speaker;
 		for (i = 0 ; i < 8 ; i++) {
-			sprintf(tmpstr, "%02x ", *c++);
+			sprintf(tmpstr, "%02x ", *(c+7-i));
 			strcat(uid, tmpstr);
 		}
 		uid[strlen(uid)-1] = 0;
@@ -1645,7 +1645,8 @@ static void winenet_state_listener(wnet_state_t old_state) {
 		 */
 		if ((beacon = next_beacon(WNET_BEACON_GO_SPEAKER))) {
 
-			if (current_soo_winenet->ourself->paired_speaker != beacon->agencyUID_from) {
+			if (current_soo_winenet->ourself->paired_speaker &&
+			    (current_soo_winenet->ourself->paired_speaker != beacon->agencyUID_from)) {
 
 				wnet_send_ack(beacon->agencyUID_from, ACK_STATUS_ABORT, false);
 
@@ -1687,7 +1688,8 @@ static void winenet_state_listener(wnet_state_t old_state) {
 				goto listener_cont;
 			}
 
-			if (beacon->agencyUID_from != current_soo_winenet->ourself->paired_speaker) {
+			if (current_soo_winenet->ourself->paired_speaker &&
+			    (beacon->agencyUID_from != current_soo_winenet->ourself->paired_speaker)) {
 
 				wnet_send_ack(beacon->agencyUID_from, ACK_STATUS_ABORT, false);
 
