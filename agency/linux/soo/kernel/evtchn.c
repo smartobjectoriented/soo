@@ -43,22 +43,21 @@
 #include <asm-generic/irq_regs.h>
 
 #include <asm/ipipe.h>
-#include <soo/uapi/soo.h>
+
+#include <soo/debug/dbgvar.h>
 
 #include <soo/hypervisor.h>
 #include <soo/evtchn.h>
 
+#include <soo/uapi/soo.h>
 #include <soo/uapi/event_channel.h>
 #include <soo/uapi/console.h>
 
 #include <soo/uapi/debug.h>
-#include <soo/debug/dbgvar.h>
-
 #include <soo/uapi/physdev.h>
 
 /* Convenient shorthand for packed representation of an unbound IRQ. */
 #define IRQ_UNBOUND	mk_virq_info(IRQT_UNBOUND, 0, 0)
-
 
 /*
  * This lock protects updates to the following mapping and reference-count

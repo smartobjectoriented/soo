@@ -35,5 +35,6 @@ typedef void(*joystick_handler_t)(struct vbus_device *vdev, int key);
 
 void sensej_init(void);
 void rpisense_joystick_handler_register(struct vbus_device *vdev, joystick_handler_t joystick_handler);
+void rpisense_joystick_handler_unregister(struct vbus_device *vdev);
 
 #endif /* RPISENSE_JOYSTICK_H */

@@ -69,6 +69,12 @@ void rpisense_joystick_handler_register(struct vbus_device *vdev, joystick_handl
 
 }
 
+void rpisense_joystick_handler_unregister(struct vbus_device *vdev) {
+	__joystick_handler = NULL;
+	__vdev = NULL;
+}
+EXPORT_SYMBOL(rpisense_joystick_handler_unregister);
+
 #else
 
 #include <linux/interrupt.h>
@@ -100,7 +106,6 @@ static irqreturn_t keys_irq_handler(int irq, void *pdev)
 	return IRQ_WAKE_THREAD;
 }
 
-
 void rpisense_joystick_handler_register(struct vbus_device *vdev, joystick_handler_t joystick_handler) {
 	int ret;
 
@@ -111,10 +116,18 @@ void rpisense_joystick_handler_register(struct vbus_device *vdev, joystick_handl
 				  keys_irq_handler, keys_irq_handler_bh, IRQF_TRIGGER_RISING,
 				  "keys", __vdev);
 	if (ret) {
-		printk("IRQ request failed ret = %d.\n", ret);
+		lprintk("IRQ request failed ret = %d.\n", ret);
 		BUG();
 	}
 }
+
+void rpisense_joystick_handler_unregister(struct vbus_device *vdev) {
+	__joystick_handler = NULL;
+	__vdev = NULL;
+
+	free_irq(rpisense->joystick.keys_irq, vdev);
+}
+EXPORT_SYMBOL(rpisense_joystick_handler_unregister);
 
 #endif /* !CONFIG_ARCH_VEXPRESS */
 
