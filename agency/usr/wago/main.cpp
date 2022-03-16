@@ -4,15 +4,46 @@
 
 #define SEC                 1000000
 #define MSEC                1000
-#define SLEEP               0.5 * SEC
-
+#define SLEEP               1 * SEC
 
 int main(int argc, char *argv[])
 {
-
+    int count = 0;
+    std::vector<int> ids{1, 2, 3, 4, 5, 6};
     LED::Ledctrl ctl;
 
     ctl.init();
+
+    ctl.turn_all_off();
+
+    while(1) 
+    {
+        if (count > 5)
+        {
+            ctl.turn_all_on();
+        }
+        else
+        {
+            ctl.turn_on(ids);
+        }
+        
+        usleep(SLEEP);
+
+        if (count > 5)
+        {
+            ctl.turn_all_off();
+            usleep(SLEEP);
+            count = 0;
+        }
+        else
+        {
+            ctl.turn_off(ids);
+            for (int& x : ids) (x < 7) ? x += 6 : x -= 6;
+        }
+        
+        count++;
+    }
+    
     /* HTTP::Request client(BASE_ADDR, PORT);
 
     std::string resp;
