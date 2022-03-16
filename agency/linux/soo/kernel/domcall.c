@@ -20,10 +20,10 @@
 
 extern int do_sync_vbstore(void *arg);
 
-extern int do_post_migration_sync_ctrl(void *arg);
-extern int do_domcall_evtchn_from_irq(void *arg);
-extern int do_soo_activity(void *arg);
-extern int do_sync_directcomm(void *arg);
+extern void do_post_migration_sync_ctrl(void *arg);
+extern void do_domcall_evtchn_from_irq(void *arg);
+extern void do_soo_activity(void *arg);
+extern void do_sync_directcomm(void *arg);
 
 /*
  * Used to track activities induced by a ME such as agency_ctl commands.
@@ -37,34 +37,31 @@ bool __domcall_in_progress = false;
  * Domcall routines - Called by the hypervisor to run some domain routines
  */
 
-int domcall(int cmd, void *arg)
+void domcall(int cmd, void *arg)
 {
-	int rc = 0;
 
 	/* No concurrency here */
 	__domcall_in_progress = true;
 
 	switch (cmd) {
 	case DOMCALL_sync_vbstore:
-		rc = do_sync_vbstore(arg);
+		do_sync_vbstore(arg);
 		break;
+
 	case DOMCALL_sync_directcomm:
-		rc = do_sync_directcomm(arg);
+		do_sync_directcomm(arg);
 		break;
 
 	/* SOO Activity control */
 	case DOMCALL_soo:
-		rc = do_soo_activity(arg);
+		do_soo_activity(arg);
 		break;
 
 	default:
 		printk("Unknowmn cmd %#x\n", cmd);
-		rc = -1;
 		break;
 	}
 
 	__domcall_in_progress = false;
-
-	return rc;
 }
 

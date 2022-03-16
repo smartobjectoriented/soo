@@ -43,8 +43,6 @@ extern u64 __pv_offset;
 
 void __init avz_setup(void)
 {
-	int ret;
-
 	__printch = avz_start_info->printch;
 
 	/* Immediately prepare for hypercall processing */
@@ -76,8 +74,7 @@ void __init avz_setup(void)
 
  	lprintk("Set HYPERVISOR_set_callbacks at %lx\n", (unsigned long) avz_linux_callback);
 
-	ret = hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_linux_callback, (unsigned long) domcall, 0, 0);
-	BUG_ON(ret < 0);
+	hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_linux_callback, (unsigned long) domcall, 0, 0);
 
 	lprintk("No problem\n");
 }

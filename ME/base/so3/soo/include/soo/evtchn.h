@@ -54,11 +54,11 @@ static inline void clear_evtchn(u32 evtchn) {
 	dmb();
 
 }
-static inline int notify_remote_via_evtchn(uint32_t evtchn) {
+static inline void notify_remote_via_evtchn(uint32_t evtchn) {
 	evtchn_send_t op;
 	op.evtchn = evtchn;
 
-	return hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_send, (long) &op, 0, 0);
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_send, (long) &op, 0, 0);
 }
 
 /* Entry point for notifications into Linux subsystems. */
@@ -89,7 +89,7 @@ extern int bind_existing_interdomain_evtchn(unsigned int local_channel, unsigned
  * made with bind_evtchn_to_irqhandler()).
  */
 extern void unbind_from_irqhandler(unsigned int irq);
-extern int unbind_domain_evtchn(unsigned int domID, unsigned int evtchn);
+extern void unbind_domain_evtchn(unsigned int domID, unsigned int evtchn);
 
 extern void mask_evtchn(int );
 extern void unmask_evtchn(int );

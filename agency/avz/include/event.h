@@ -31,7 +31,7 @@ void send_guest_virq(struct domain *d, int virq);
 int send_guest_pirq(struct domain *d, int pirq);
 
 /* Send a notification from a given domain's event-channel port. */
-int evtchn_send(struct domain *d, unsigned int lport);
+void evtchn_send(struct domain *d, unsigned int lport);
 
 /* Bind a local event-channel port to the specified VCPU. */
 long evtchn_bind_vcpu(unsigned int port, unsigned int vcpu_id);

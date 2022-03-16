@@ -380,21 +380,16 @@ int soo_env_fn(void *args) {
 	/* Generate a unique agencyUID. */
 #ifndef CONFIG_SOOLINK_PLUGIN_SIMULATION
 
-	get_random_bytes((void *) &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	soo_env->agencyUID = get_random_u64();
 
 #else
 
-	for (i = 0; i < SOO_AGENCY_UID_SIZE; i++)
-		soo_env->agencyUID.id[i] = 0x00;
-
-	soo_env->agencyUID.id[3] = 0x99;
-
-	soo_env->agencyUID.id[4] = count;
+	soo_env->agencyUID = (0x99 << 16) | count;
 
 #endif /* CONFIG_SOOLINK_PLUGIN_SIMULATION */
 
 	soo_log("[soo:core:device_access] On CPU %d, SOO %s has the Agency UID: ", smp_processor_id(), soo_env->name);
-	soo_log_printlnUID(&current_soo->agencyUID);
+	soo_log_printlnUID(soo_env->agencyUID);
 
 	/* Initializing SOOlink subsystem */
 	soolink_init();
@@ -406,17 +401,17 @@ int soo_env_fn(void *args) {
 #endif
 
 #ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
 	plugin_ethernet_init();
 #endif
 
 #ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
 	plugin_wlan_init();
 #endif
 
 #ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
 	plugin_bt_init();
 #endif
 

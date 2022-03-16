@@ -60,12 +60,17 @@ The vuihandler interface is split in two parts:
 * A frontend: used to send/receive the ME application data to/from the backend.
 
 The data transfers uses the following structures:
+
 * There are two shared rings (circular buffers) per ME:
+
    - tx_ring is dedicated to the TX path, from the ME to the remote device.
    - rx_ring is dedicated to the RX path, from the remote device to the ME.
+
 * There are two shared buffers per ME to store the outgoing and incoming packets:
+
    - One shared buffer is dedicated to the TX path.
    - One shared buffer is dedicated to the RX path. 
+   
 * There is a TX buffer used to queue TX packets in the backend. It is needed as we only have one TX thread and multiple TX sources (agency or MEs). It is implemented as a limited circular buffer.
 * Every packet, TX or RX goes through SOOlink before/after being transmitted/received.
 

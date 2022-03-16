@@ -22,7 +22,7 @@
 #include <soo/soo.h>
 
 typedef struct {
-	agencyUID_t uid;
+	uint64_t uid;
 
 	int priv_len;
 
@@ -51,10 +51,10 @@ typedef struct {
 	int soohost_nr;
 
 	/* To store the agencyUID of the smart object in which we are now. */
-	agencyUID_t here;
+	uint64_t here;
 
 	/* Another UID to help keeping the origin */
-	agencyUID_t origin;
+	uint64_t origin;
 
 	/*
 	 * List of soo hosts by their agency UID. The first entry
@@ -72,7 +72,7 @@ int concat_hosts(struct list_head *hosts, uint8_t *hosts_array);
  *
  * @param agencyUID
  */
-void del_host(struct list_head *hosts, agencyUID_t *agencyUID);
+void del_host(struct list_head *hosts, uint64_t agencyUID);
 
 /**
  * Add a new entry in the host list.
@@ -80,7 +80,7 @@ void del_host(struct list_head *hosts, agencyUID_t *agencyUID);
  * @param me_common
  * @param agencyUID
  */
-void new_host(struct list_head *hosts, agencyUID_t *agencyUID, void *priv, int priv_len);
+void new_host(struct list_head *hosts, uint64_t agencyUID, void *priv, int priv_len);
 
 /**
  * Retrieve the list of host from an array.
@@ -101,7 +101,7 @@ void clear_hosts(struct list_head *hosts);
  * @param agencyUID	UID to compare
  * @return		reference to the host_entry or NULL
  */
-host_entry_t *find_host(struct list_head *hosts, agencyUID_t *agencyUID);
+host_entry_t *find_host(struct list_head *hosts, uint64_t agencyUID);
 
 /**
  * Duplicate a list of hosts

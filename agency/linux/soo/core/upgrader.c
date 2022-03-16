@@ -27,7 +27,7 @@
 #include <soo/core/upgrader.h>
 
 /* For the upgrade */
-uint32_t upgrade_buffer_pfn = 0;
+addr_t upgrade_buffer_pfn = 0;
 uint32_t upgrade_buffer_size = 0;
 unsigned int upgrade_ME_slotID = 5;
 
@@ -44,7 +44,7 @@ unsigned int upg_get_ME_slotID(void) {
     return upgrade_ME_slotID;
 }
 
-void upg_store_addr(uint32_t buffer_pfn, uint32_t buffer_size) {
+void upg_store_addr(addr_t buffer_pfn, uint32_t buffer_size) {
 
     upgrade_buffer_pfn = buffer_pfn;
     upgrade_buffer_size = buffer_size;
@@ -59,38 +59,17 @@ void upg_store(uint32_t buffer_pfn, uint32_t buffer_size, unsigned int ME_slotID
     upgrade_ME_slotID = ME_slotID;
 }
 
-int ioctl_get_upgrade_image(unsigned long arg) {
-	upgrader_ioctl_recv_args_t args;
+void get_upgrade_image(uint32_t *size, uint32_t *slotID) {
 
-	args.size = upg_get_size();
-	args.ME_slotID = upg_get_ME_slotID();
-
-	/* Check if an upgrade image is available */
-	if (args.size == 0) {
-		return 1;
-	}
-
-	if ((copy_to_user((void *) arg, &args, sizeof(upgrader_ioctl_recv_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	return 0;
+	*size = upg_get_size();
+	*slotID = upg_get_ME_slotID();
 }
 
-int ioctl_store_versions(unsigned long arg) {
-	upgrade_versions_args_t version_args;
+void store_versions(upgrade_versions_args_t *versions) {
 
-	if (copy_from_user(&version_args, (const void *) arg, sizeof(upgrade_versions_args_t)) != 0) {
-		printk("Agency: %s:%d failed to retrieve args from userspace\n", __func__, __LINE__);
-		return -EFAULT;
-	}
-
-	vbus_printf(VBT_NIL, "/soo", "itb-version", "%u", version_args.itb);
-	vbus_printf(VBT_NIL, "/soo", "uboot-version", "%u", version_args.uboot);
-	vbus_printf(VBT_NIL, "/soo", "rootfs-version", "%u", version_args.rootfs);
-
-	return 0;
+	vbus_printf(VBT_NIL, "/soo", "itb-version", "%u", versions->itb);
+	vbus_printf(VBT_NIL, "/soo", "uboot-version", "%u", versions->uboot);
+	vbus_printf(VBT_NIL, "/soo", "rootfs-version", "%u", versions->rootfs);
 }
 
 /**

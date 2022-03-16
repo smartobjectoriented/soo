@@ -51,7 +51,7 @@
  */
 int inject_ME(void *ME_buffer) {
 	int rc;
-	struct agency_tx_args args;
+	agency_ioctl_args_t args;
 
 	args.buffer = ME_buffer;
 
@@ -60,7 +60,7 @@ int inject_ME(void *ME_buffer) {
 		BUG();
 	}
 
-	return args.ME_slotID;
+	return args.slotID;
 }
 
 /**
@@ -185,44 +185,42 @@ void save_itb(void *ME_buffer, size_t size) {
 
 
 void *ME_retrieve_fn(void *dummy) {
-
-	injector_ioctl_recv_args_t args;
-
+	agency_ioctl_args_t args;
 	void *ME;
 	int br = 0;
 	int current_size = 0;
 	int chunk = 2000;
 
-	memset(&args, 0, sizeof(injector_ioctl_recv_args_t));
+	memset(&args, 0, sizeof(agency_ioctl_args_t));
 
 	printf("Injector: ME retrieve thread started\n");
 	while(1) {
 		
-		if ((ioctl(fd_core, INJECTOR_IOCTL_RETRIEVE_ME, &args)) < 0) {
+		if ((ioctl(fd_core, AGENCY_IOCTL_INJECTOR_RETRIEVE_ME, &args)) < 0) {
 			DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
 			BUG();
 		}
 		
-		if (args.size != 0) {
+		if (args.value != 0) {
 
-			printf("Injector: An ME is ready to be retrieved (%d B)\n", args.size);
-			ME = malloc(args.size);
+			printf("Injector: An ME is ready to be retrieved (%ld B)\n", args.value);
+			ME = malloc(args.value);
 			if (!ME) {
 				printf("%s: failure during malloc...\n", __func__);
 				BUG();
 			}
 
-			while (current_size != args.size) {
+			while (current_size != args.value) {
 				br = read(fd_core, ME+current_size, chunk);
 				current_size += br;
-			}
+ 			}
 
 			printf("Injector: ME fully received, now injecting it...\n");
 
 			ME_inject(ME);
 
 			printf("Injector: ME injected!\n");
-			if ((ioctl(fd_core, INJECTOR_IOCTL_CLEAN_ME, NULL)) < 0) {
+			if ((ioctl(fd_core, AGENCY_IOCTL_INJECTOR_CLEAN_ME, NULL)) < 0) {
 				DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
 				BUG();
 			}

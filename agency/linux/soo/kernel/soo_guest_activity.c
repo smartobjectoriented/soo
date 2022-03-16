@@ -35,6 +35,7 @@
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
 
+#include <soo/evtchn.h>
 #include <soo/vbus.h>
 #include <soo/vbstore.h>
 
@@ -46,8 +47,6 @@
 
 #include <soo/core/device_access.h>
 #include <soo/core/upgrader.h>
-
-#define MAX_PENDING_UEVENT		10
 
 /*
  * Used to keep track of the target domain for a certain (outgoing) dc_event.
@@ -64,14 +63,6 @@ extern atomic_t rtdm_dc_incoming_domID[DC_EVENT_MAX];
 
 static struct completion dc_stable_lock[DC_EVENT_MAX];
 extern rtdm_event_t rtdm_dc_stable_event[DC_EVENT_MAX];
-
-static DEFINE_SEMAPHORE(sooeventd_lock);
-
-struct list_head uevents;
-static char uevent_str[80];
-
-static unsigned int current_pending_uevent = 0;
-static volatile pending_uevent_request_t pending_uevent_req[MAX_PENDING_UEVENT];
 
 void dc_stable(int dc_event)
 {
@@ -94,7 +85,6 @@ void dc_stable(int dc_event)
 void set_dc_event(domid_t domID, dc_event_t dc_event)
 {
 	soo_hyp_dc_event_t dc_event_args;
-	int rc = -EBUSY;
 	int cpu = smp_processor_id();
 
 	DBG("%s(%d, %d)\n", __func__, domID, dc_event);
@@ -102,13 +92,14 @@ void set_dc_event(domid_t domID, dc_event_t dc_event)
 	dc_event_args.domID = domID;
 	dc_event_args.dc_event = dc_event;
 
-	rc = soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
-	while (rc == -EBUSY) {
+	soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
+	while (dc_event_args.state == -EBUSY) {
 		if (cpu == AGENCY_RT_CPU)
 			xnsched_run();
 		else
 			schedule();
-		rc = soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
+
+		soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
 	}
 }
 
@@ -183,111 +174,6 @@ void tell_dc_stable(int dc_event)  {
 
 }
 
-
-int sooeventd_resume(void)
-{
-	/* Increment the semaphore */
-	up(&sooeventd_lock);
-
-	return 0;
-}
-
-int soo_uevent(struct device *dev, struct kobj_uevent_env *env)
-{
-	return add_uevent_var(env, uevent_str);
-}
-
-/*
- * Configure the uevent which will be retrieved from the user space with the sooeventd utility
- */
-void set_uevent(unsigned int uevent_type, unsigned int ME_slotID)
-{
-	char strSlotID[3];
-
-	switch (uevent_type) {
-
-	case ME_FORCE_TERMINATE:
-		strcpy(uevent_str, "SOO_CALLBACK=FORCE_TERMINATE:");
-		break;
-
-	case ME_POST_ACTIVATE:
-		strcpy(uevent_str, "SOO_CALLBACK=POST_ACTIVATE:");
-		break;
-
-	case ME_PRE_SUSPEND:
-		strcpy(uevent_str, "SOO_CALLBACK=PRE_SUSPEND:");
-		break;
-
-	case ME_LOCALINFO_UPDATE:
-		strcpy(uevent_str, "SOO_CALLBACK=LOCALINFO_UPDATE:");
-		break;
-
-	}
-
-	sprintf(strSlotID, "%d", ME_slotID);
-	strcat(uevent_str, strSlotID);
-
-	/* uevent entries should be processed by means of netlink sockets.
-	 * However, at the moment, we just read the /sys file, and we do not
-	 * get the right size of the string. So, that's why we put a delimiter at the end of our string.
-	 */
-
-	strcat(uevent_str, ":");
-}
-
-/*
- * Check if an uevent already exists for a specific slotID.
- */
-static bool check_uevent(unsigned int uevent_type, unsigned int slotID) {
-	soo_uevent_t *cur;
-
-	list_for_each_entry(cur, &uevents, list)
-	if ((cur->uevent_type == uevent_type) && (cur->slotID == slotID))
-		return true;
-
-	return false;
-}
-
-/*
- * Propagate the cooperate callback in the user space if necessary.
- */
-static void add_soo_uevent(unsigned int uevent_type, unsigned int slotID)
-{
-	soo_uevent_t *cur;
-
-	/* Consider only one uevent_type for a given slotID */
-	if (!check_uevent(uevent_type, slotID)) {
-
-		cur = (soo_uevent_t *) kmalloc(sizeof(soo_uevent_t), GFP_ATOMIC);
-
-		cur->uevent_type = uevent_type;
-		cur->slotID = slotID;
-
-		/* Insert the thread at the end of the list */
-		list_add_tail(&cur->list, &uevents);
-
-#ifdef CONFIG_SOO_ME
-		/* Resume the eventd daemon */
-		sooeventd_resume();
-#endif
-	}
-}
-
-/*
- * queue_uevent is used by both agency and ME.
- *
- * At the agency side, most of callback processing is performed by the agency (CPU #0), hence
- * in the context of a hypercall. It means that during the final upcall in the agency,
- * the uevent will be inserted in the
- */
-void queue_uevent(unsigned int uevent_type, unsigned int slotID)
-{
-	pending_uevent_req[current_pending_uevent].slotID = slotID;
-	pending_uevent_req[current_pending_uevent].uevent_type = uevent_type;
-	pending_uevent_req[current_pending_uevent].pending = true;
-
-	current_pending_uevent++;
-}
 /*
  * SOO hypercall
  *
@@ -299,10 +185,9 @@ void queue_uevent(unsigned int uevent_type, unsigned int slotID)
  * - p_val2: a (virtual) address to a second value
  */
 
-int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
+void soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
 {
 	soo_hyp_t soo_hyp;
-	int ret, i;
 
 	soo_hyp.cmd = cmd;
 	soo_hyp.vaddr = (unsigned long) vaddr;
@@ -316,26 +201,7 @@ int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
 		panic("Unauthorized.\n");
 	}
 
-	ret = hypercall_trampoline(__HYPERVISOR_soo_hypercall, (long) &soo_hyp, 0, 0, 0);
-
-	if (ret < 0)
-		goto out;
-
-	/* Complete possible pending uevent request done during the work performed at the hypervisor level. */
-#ifdef DEBUG
-	lprintk("current_pending_uevent=%d\n", current_pending_uevent);
-#endif
-	for (i = 0; i < current_pending_uevent; i++)
-		if (pending_uevent_req[i].pending) {
-			add_soo_uevent(pending_uevent_req[i].uevent_type, pending_uevent_req[i].slotID);
-			pending_uevent_req[i].pending = false;
-		}
-
-	current_pending_uevent = 0;
-
-out:
-	return ret;
-
+	hypercall_trampoline(__HYPERVISOR_soo_hypercall, (long) &soo_hyp, 0, 0, 0);
 }
 
 void dump_threads(void)
@@ -350,38 +216,17 @@ void dump_threads(void)
 	}
 }
 
-/*
- * Check for any available uevent in the agency.
- * This version is sequential.
- * Returns 0 if no uevent is present, 1 if any.
+/**
+ * This callback is executed when the TRIGGER_DEV_PROBE dc_event is received.
+ * All vbstore entries required by the frontends are created and ready to
+ * proceed with backend initialization.
+ *
+ * @param dc_event	Normal callback argument, must be TRIGGER_DEV_PROBE
  */
-int pick_next_uevent(void)
-{
-	soo_uevent_t *cur;
-
-	/*
-	 * If a uevent is available, it will be retrieved and released to the user space.
-	 * If no uevent is available, the thread is suspended.
-	 */
-
-	if (list_empty(&uevents))
-		return 0;
-
-	cur = list_first_entry(&uevents, soo_uevent_t, list);
-
-	/* Process usr space notification & tasks */
-	/* Prepare a uevent for further activities in user space if any... */
-	set_uevent(cur->uevent_type, cur->slotID);
-
-	list_del(&cur->list);
-
-	kfree(cur);
-
-	return 1;
-}
-
 void dc_trigger_dev_probe_fn(dc_event_t dc_event) {
+
 	vbus_probe_backend(atomic_read(&dc_incoming_domID[dc_event]));
+
 	tell_dc_stable(dc_event);
 }
 
@@ -389,9 +234,8 @@ void dc_trigger_dev_probe_fn(dc_event_t dc_event) {
  * do_soo_activity() may be called from the hypervisor as a DOMCALL, but not necessary.
  * The function may also be called as a deferred work during the ME kernel execution.
  */
-int do_soo_activity(void *arg)
+void do_soo_activity(void *arg)
 {
-	int rc = 0;
 	soo_domcall_arg_t *args = (soo_domcall_arg_t *) arg;
 	agency_ctl_args_t agency_ctl_args;
 
@@ -400,13 +244,11 @@ int do_soo_activity(void *arg)
 	case CB_DUMP_BACKTRACE: /* DOMCALL */
 
 		dump_threads();
-
 		break;
 
 	case CB_DUMP_VBSTORE: /* DOMCALL */
 
 		vbs_dump();
-
 		break;
 
 	case CB_AGENCY_CTL: /* DOMCALL */
@@ -414,37 +256,30 @@ int do_soo_activity(void *arg)
 		/* Prepare the arguments to pass to the agency ctl */
 		memcpy(&agency_ctl_args, &args->u.agency_ctl_args, sizeof(agency_ctl_args_t));
 
-		rc = agency_ctl(&agency_ctl_args);
+		agency_ctl(&agency_ctl_args);
 
 		/* Copy the agency ctl args back to retrieve the results (if relevant) */
 		memcpy(&args->u.agency_ctl_args, &agency_ctl_args, sizeof(agency_ctl_args_t));
-
 		break;
 
 	}
-
-	return rc;
 }
 
 /*
  * Agency ctl operations
  */
 
-int agency_ctl(agency_ctl_args_t *agency_ctl_args)
+void agency_ctl(agency_ctl_args_t *agency_ctl_args)
 {
 
 	switch (agency_ctl_args->cmd) {
 
-	case AG_FORCE_TERMINATE:
-		queue_uevent(ME_FORCE_TERMINATE, agency_ctl_args->slotID);
-		break;
-
 	case AG_CHECK_DEVCAPS_CLASS:
-		agency_ctl_args->u.devcaps_args.supported = devaccess_is_devcaps_class_supported(agency_ctl_args->u.devcaps_args.class);
+		agency_ctl_args->u.devcaps_args.supported = devaccess_devcaps_class_supported(agency_ctl_args->u.devcaps_args.class);
 		break;
 
 	case AG_CHECK_DEVCAPS:
-		agency_ctl_args->u.devcaps_args.supported = devaccess_is_devcaps_supported(agency_ctl_args->u.devcaps_args.class, agency_ctl_args->u.devcaps_args.devcaps);
+		agency_ctl_args->u.devcaps_args.supported = devaccess_devcaps_supported(agency_ctl_args->u.devcaps_args.class, agency_ctl_args->u.devcaps_args.devcaps);
 		break;
 
 	case AG_SOO_NAME:
@@ -462,16 +297,11 @@ int agency_ctl(agency_ctl_args_t *agency_ctl_args)
 
 		BUG();
 	}
-
-
-	return 0;
 }
 
 void soo_guest_activity_init(void)
 {
 	unsigned int i;
-
-	sema_init(&sooeventd_lock, 0);
 
 	for (i = 0; i < DC_EVENT_MAX; i++) {
 		atomic_set(&dc_outgoing_domID[i], -1);
@@ -480,12 +310,6 @@ void soo_guest_activity_init(void)
 		init_completion(&dc_stable_lock[i]);
 	}
 
-	for (i = 0; i < MAX_PENDING_UEVENT; i++)
-		pending_uevent_req[i].pending = false;
-
 	register_dc_event_callback(DC_TRIGGER_DEV_PROBE, dc_trigger_dev_probe_fn);
-
-	INIT_LIST_HEAD(&uevents);
-
 }
 

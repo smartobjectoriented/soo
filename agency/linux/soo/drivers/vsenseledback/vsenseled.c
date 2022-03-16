@@ -130,7 +130,6 @@ void vsenseled_resume(struct vbus_device *vdev) {
 }
 
 void vsenseled_reconfigured(struct vbus_device *vdev) {
-	int res;
 	unsigned long ring_ref;
 	unsigned int evtchn;
 	vsenseled_sring_t *sring;
@@ -146,17 +145,12 @@ void vsenseled_reconfigured(struct vbus_device *vdev) {
 
 	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
 
-	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
-	BUG_ON(res < 0);
+	vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 
 	BACK_RING_INIT(&vsenseled_priv->vsenseled.ring, sring, PAGE_SIZE);
 
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vsenseled_interrupt, vsenseled_interrupt_bh,
-						     0, VSENSELED_NAME "-backend", vdev);
-
-	BUG_ON(res < 0);
-
-	vsenseled_priv->vsenseled.irq = res;
+	vsenseled_priv->vsenseled.irq = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vsenseled_interrupt, vsenseled_interrupt_bh,
+					0, VSENSELED_NAME "-backend", vdev);
 }
 
 void vsenseled_connected(struct vbus_device *vdev) {

@@ -122,7 +122,6 @@ static void vdummy_resume(struct vbus_device *vdev) {
 }
 
 static void vdummy_reconfigured(struct vbus_device *vdev) {
-	int res;
 	unsigned long ring_ref;
 	unsigned int evtchn;
 	vdummy_sring_t *sring;
@@ -138,16 +137,11 @@ static void vdummy_reconfigured(struct vbus_device *vdev) {
 
 	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
 
-	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
-	BUG_ON(res < 0);
+	vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 
 	BACK_RING_INIT(&vdummy_priv->vdummy.ring, sring, PAGE_SIZE);
 
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vdummy_interrupt, NULL, 0, VDUMMY_NAME "-backend", vdev);
-
-	BUG_ON(res < 0);
-
-	vdummy_priv->vdummy.irq = res;
+	vdummy_priv->vdummy.irq = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vdummy_interrupt, NULL, 0, VDUMMY_NAME "-backend", vdev);
 }
 
 static void vdummy_connected(struct vbus_device *vdev) {

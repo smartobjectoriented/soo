@@ -118,16 +118,8 @@ void vbus_watch_pathfmt(struct vbus_device *dev, struct vbus_watch *watch, void 
  */
 int vbus_grant_ring(struct vbus_device *dev, unsigned long ring_pfn)
 {
-	int err = gnttab_grant_foreign_access(dev->otherend_id, ring_pfn, 0);
-
-	if (err < 0) {
-		lprintk("%s - line %d: granting access to ring page failed / dev name: %s ring_pfn: %u\n", __func__, __LINE__, dev->nodename, ring_pfn);
-		BUG();
-	}
-
-	return err;
+	return gnttab_grant_foreign_access(dev->otherend_id, ring_pfn, 0);
 }
-
 
 /**
  * Allocate an event channel for the given vbus_device, assigning the newly
@@ -135,10 +127,9 @@ int vbus_grant_ring(struct vbus_device *dev, unsigned long ring_pfn)
  * error, the device will switch to VbusStateClosing, and the error will be
  * saved in the store.
  */
-int vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
+void vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
 {
 	struct evtchn_alloc_unbound alloc_unbound;
-	int err;
 
 	alloc_unbound.dom = DOMID_SELF;
 
@@ -147,14 +138,9 @@ int vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
 	else
 		alloc_unbound.remote_dom = dev->otherend_id;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
-	if (err) {
-	  	lprintk("%s - line %d: allocating event channel failed / dev name: %s evtchn: %d\n", __func__, __LINE__, dev->nodename, evtchn);
-		BUG();
-	} else
-		*evtchn = alloc_unbound.evtchn;
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
 
-	return err;
+	*evtchn = alloc_unbound.evtchn;
 }
 
 
@@ -163,43 +149,29 @@ int vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
  * on success and stores the local evtchn in *evtchn. On error, returns -errno,
  * switches the device to VbusStateClosing, and saves the error in VBstore.
  */
-int vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_evtchn, uint32_t *evtchn)
+void vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_evtchn, uint32_t *evtchn)
 {
 	struct evtchn_bind_interdomain bind_interdomain;
-	int err;
 
 	bind_interdomain.remote_dom = dev->otherend_id;
 	bind_interdomain.remote_evtchn = remote_evtchn;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
-	if (err) {
-		lprintk("%s - line %d: Binding to event channel %d from domain %d failed for device %s\n", __func__, __LINE__, remote_evtchn, dev->otherend_id, dev->nodename);
-		BUG();
-	} else {
-		*evtchn = bind_interdomain.local_evtchn;
-		DBG("%s: got local evtchn: %d for remote evtchn: %d\n", __func__, *evtchn, remote_evtchn);
-	}
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
 
-	return err;
+	*evtchn = bind_interdomain.local_evtchn;
+	DBG("%s: got local evtchn: %d for remote evtchn: %d\n", __func__, *evtchn, remote_evtchn);
 }
 
 /**
  * Free an existing event channel. Returns 0 on success or -errno on error.
  */
-int vbus_free_evtchn(struct vbus_device *dev, uint32_t evtchn)
+void vbus_free_evtchn(struct vbus_device *dev, uint32_t evtchn)
 {
 	struct evtchn_close close;
-	int err;
 
 	close.evtchn = evtchn;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &close, 0, 0);
-	if (err) {
-		lprintk("%s - line %d: Freeing event channel %d failed for device %s\n", __func__, __LINE__, evtchn, dev->otherend_id, dev->nodename);
-		BUG();
-	}
-
-	return err;
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &close, 0, 0);
 }
 
 /**

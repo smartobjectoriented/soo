@@ -63,7 +63,7 @@ unsigned long vaddr_start_ME = 0;
 /**
  * Initiate the migration process of a ME.
  */
-int migration_init(soo_hyp_t *op) {
+void migration_init(soo_hyp_t *op) {
 	unsigned int slotID = *((unsigned int *) op->p_val1);
 	struct domain *domME = domains[slotID];
 
@@ -116,8 +116,6 @@ int migration_init(soo_hyp_t *op) {
 
 	/* Used for future restore operation */
 	vaddr_start_ME  = (unsigned long) __lva(memslot[slotID].base_paddr);
-
-	return 0;
 }
 
 /*------------------------------------------------------------------------------
@@ -188,7 +186,7 @@ static void build_domain_migration_info(unsigned int ME_slotID, struct domain *m
 /**
  * Read the migration info structures.
  */
-int read_migration_structures(soo_hyp_t *op) {
+void read_migration_structures(soo_hyp_t *op) {
 	unsigned int ME_slotID = *((unsigned int *) op->p_val1);
 	struct domain *domME = domains[ME_slotID];
 
@@ -200,8 +198,6 @@ int read_migration_structures(soo_hyp_t *op) {
 
 	/* Update op->size with valid data size */
 	*((unsigned int *) op->p_val2) = sizeof(dom_info);
-
-	return 0;
 }
 
 /*------------------------------------------------------------------------------
@@ -308,12 +304,10 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 /**
  * Write the migration info structures.
  */
-int write_migration_structures(soo_hyp_t *op) {
+void write_migration_structures(soo_hyp_t *op) {
 
 	/* Get the migration info structures */
 	memcpy(&dom_info, (void *) op->vaddr, sizeof(dom_info));
-
-	return 0;
 }
 
 /*
@@ -321,10 +315,9 @@ int write_migration_structures(soo_hyp_t *op) {
  *
  * Returns 0 in case of success, -1 otherwise.
  */
-int inject_me(soo_hyp_t *op)
+void inject_me(soo_hyp_t *op)
 {
-	int rc = 0;
-	unsigned int slotID;
+	int slotID;
 	size_t fdt_size;
 	void *fdt_vaddr;
 	int dom_size;
@@ -353,7 +346,7 @@ int inject_me(soo_hyp_t *op)
 
 	/* Find a slotID to store this ME. */
 	slotID = get_ME_free_slot(dom_size, ME_state_booting);
-	if (slotID < 1)
+	if (slotID == -1)
 		goto out;
 
 	domME = domains[slotID];
@@ -388,8 +381,6 @@ out:
 	*((unsigned int *) op->p_val1) = slotID;
 
 	local_irq_restore(flags);
-
-	return rc;
 }
 
 /*******************************************************************************

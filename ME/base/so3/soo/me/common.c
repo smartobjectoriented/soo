@@ -53,11 +53,11 @@ int concat_hosts(struct list_head *hosts, uint8_t *hosts_array) {
  *
  * @param agencyUID
  */
-void del_host(struct list_head *hosts, agencyUID_t *agencyUID) {
+void del_host(struct list_head *hosts, uint64_t agencyUID) {
 	host_t *host;
 
 	list_for_each_entry(host, hosts, list) {
-		if (!cmpUID(&host->host_entry.uid, agencyUID)) {
+		if (host->host_entry.uid == agencyUID) {
 			list_del(&host->list);
 
 			if (host->host_entry.priv_len)
@@ -76,13 +76,13 @@ void del_host(struct list_head *hosts, agencyUID_t *agencyUID) {
  * @param me_common
  * @param agencyUID
  */
-void new_host(struct list_head *hosts, agencyUID_t *agencyUID, void *priv, int priv_len) {
+void new_host(struct list_head *hosts, uint64_t agencyUID, void *priv, int priv_len) {
 	host_t *host;
 
 	host = malloc(sizeof(host_t));
 	BUG_ON(!host);
 
-	memcpyUID(&host->host_entry.uid, agencyUID);
+	host->host_entry.uid = agencyUID;
 
 	if (priv_len) {
 		host->host_entry.priv = malloc(priv_len);
@@ -113,7 +113,7 @@ void expand_hosts(struct list_head *hosts, uint8_t *hosts_array, int nr) {
 
 		host_entry = (host_entry_t *) hosts_array;
 
-		new_host(hosts, &host_entry->uid, hosts_array+sizeof(host_entry_t)-sizeof(void *), host_entry->priv_len);
+		new_host(hosts, host_entry->uid, hosts_array+sizeof(host_entry_t)-sizeof(void *), host_entry->priv_len);
 
 		hosts_array += sizeof(host_entry_t)-sizeof(void *)+host_entry->priv_len;
 	}
@@ -143,11 +143,11 @@ void clear_hosts(struct list_head *hosts) {
  * @param agencyUID	UID to compare
  * @return		reference to the host_entry or NULL
  */
-host_entry_t *find_host(struct list_head *hosts, agencyUID_t *agencyUID) {
+host_entry_t *find_host(struct list_head *hosts, uint64_t agencyUID) {
 	host_t *host;
 
 	list_for_each_entry(host, hosts, list)
-		if (!cmpUID(&host->host_entry.uid, agencyUID))
+		if (host->host_entry.uid == agencyUID)
 			return &host->host_entry;
 
 	return NULL;
@@ -163,7 +163,7 @@ void duplicate_hosts(struct list_head *src, struct list_head *dst) {
 	host_t *host;
 
 	list_for_each_entry(host, src, list)
-		new_host(dst, &host->host_entry.uid, host->host_entry.priv, host->host_entry.priv_len);
+		new_host(dst, host->host_entry.uid, host->host_entry.priv, host->host_entry.priv_len);
 }
 
 int cmpUID_fn(void *priv, struct list_head *a, struct list_head *b) {
@@ -172,7 +172,7 @@ int cmpUID_fn(void *priv, struct list_head *a, struct list_head *b) {
 	host_a = list_entry(a, host_t, list);
 	host_b = list_entry(b, host_t, list);
 
-	return cmpUID(&host_a->host_entry.uid, &host_b->host_entry.uid);
+	return (host_a->host_entry.uid != host_b->host_entry.uid);
 }
 
 /**
@@ -206,7 +206,7 @@ bool hosts_equals(struct list_head *a, struct list_head *b) {
 	host_b = list_entry(tmp_b.next, host_t, list);
 	list_for_each_entry(host_a, &tmp_a, list) {
 
-		if ((&host_b->list == &tmp_b) || cmpUID(&host_a->host_entry.uid, &host_b->host_entry.uid)) {
+		if ((&host_b->list == &tmp_b) || (host_a->host_entry.uid != host_b->host_entry.uid)) {
 			clear_hosts(&tmp_a);
 			clear_hosts(&tmp_b);
 			return false;
@@ -241,8 +241,8 @@ void merge_hosts(struct list_head *a, struct list_head *b) {
 	host_t *host_b;
 
 	list_for_each_entry(host_b, b, list) {
-		if (!find_host(a, &host_b->host_entry.uid))
-			new_host(a, &host_b->host_entry.uid, host_b->host_entry.priv, host_b->host_entry.priv_len);
+		if (!find_host(a, host_b->host_entry.uid))
+			new_host(a, host_b->host_entry.uid, host_b->host_entry.priv, host_b->host_entry.priv_len);
 	}
 }
 
@@ -257,7 +257,7 @@ void dump_hosts(struct list_head *hosts) {
 	lprintk("## Dump of host list:\n\n");
 
 	list_for_each_entry(host, hosts, list) {
-		lprintk("  * "); lprintk_printlnUID(&host->host_entry.uid);
+		lprintk("  * "); lprintk_printlnUID(host->host_entry.uid);
 	}
 
 	lprintk("\n--- End of list ---\n");

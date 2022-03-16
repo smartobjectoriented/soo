@@ -29,7 +29,7 @@
 #define MAX_ME_DOMAINS				5
 
 /* We include the (non-RT & RT) agency domain */
-#define MAX_DOMAINS				(2 + MAX_ME_DOMAINS)
+#define MAX_DOMAINS	(2 + MAX_ME_DOMAINS)
 
 /*
  * Directcomm event management
@@ -87,67 +87,40 @@ typedef enum {
 	ME_SLOT_BUSY
 } ME_slotState_t;
 
-#define SOO_AGENCY_UID_SIZE			16
-
 #define SOO_NAME_SIZE				16
 
-/*
- * SOO agencyUID unique ID - Allowing to identify a SOO device.
- * agencyUID 0 is NOT valid.
- */
-typedef struct {
-
-	/*
-	 * As id is the first attribute, it can be accessed directly by using
-	 * a pointer to the agencyUID_t.
-	 */
-	unsigned char id[SOO_AGENCY_UID_SIZE];
-
-} agencyUID_t;
-
-extern agencyUID_t null_agencyUID;
-extern agencyUID_t my_agencyUID;
-
-static inline bool agencyUID_is_valid(agencyUID_t *agencyUID) {
-	return (memcmp(agencyUID, &null_agencyUID, SOO_AGENCY_UID_SIZE) != 0);
-}
+extern uint64_t my_agencyUID;
 
 /*
  * Agency descriptor
  */
 typedef struct {
-	agencyUID_t agencyUID; /* Agency UID */
+
+	/*
+	 * SOO agencyUID unique ID - Allowing to identify a SOO device.
+	 * agencyUID 0 is NOT valid.
+	 */
+
+	uint64_t agencyUID; /* Agency UID */
+
 } agency_desc_t;
 
 /* This part is shared between the kernel and user spaces */
 
 /*
  * Capabilities for the Species Aptitude Descriptor (SPAD) structure
- * The SPAD contains a table of 16 chars called "capabilities".
- * A capability refers to a functionality.
- * - The numbers correspond to the index of the char dedicated to a particular
- *   SPAD capability class in the SPAD capability table.
- * - The bit shiftings designate a particular SPAD capability.
  *
  */
 
-#define SPAD_CAP_HEATING_CONTROL		(1 << 0)
-#define SPAD_CAP_SOUND_PRESENCE_DETECTION	(1 << 1)
-
-#define SPAD_CAP_SOUND_MIX			(1 << 2)
-#define SPAD_CAP_SOUND_STREAM			(1 << 3)
-
-#define SPAD_CAPS_SIZE				16
+#define SPADCAP_HEATING_CONTROL		(1 << 0)
 
 /*
  * Species Aptitude Descriptor (SPAD)
  */
 typedef struct {
-	bool		valid; /* True means that the ME accepts to collaborate with other ME */
-	unsigned char	caps[SPAD_CAPS_SIZE];
+	bool valid; /* True means that the ME accepts to collaborate with other ME */
+	uint64_t spadcaps;
 } spad_t;
-
-#define SPID_SIZE	16
 
 /*
  * ME descriptor
@@ -156,13 +129,14 @@ typedef struct {
  * the same structure used in AVZ and Agency.
  */
 typedef struct {
+	unsigned int	slotID;
+
 	ME_state_t	state;
 
-	unsigned int	slotID;
 	unsigned int	size; /* Size of the ME */
 	unsigned int	pfn;
 
-	unsigned char	spid[SPID_SIZE]; /* Species ID */
+	uint64_t	spid; /* Species ID */
 	spad_t		spad; /* ME Species Aptitude Descriptor */
 } ME_desc_t;
 
@@ -177,46 +151,42 @@ typedef struct {
 
 /*
  * Device Capabilities (Devcaps)
+ *
  * The agency holds a table of devcaps (device capabilities).
- * A device capability refers to a peripheral.
- * DEVCAPS are organized in classes and attributes.
+
+ * A device capability is a 32-bit number.
+ *
+ * DEVCAPS are organized in classes and attributes. For each devcaps, the 8 first higher bits are the
+ * class number while attributes are encoded in the 24 lower bits.
+ *
  * A devcap class represents a global functionality while devcap attributes are the *real* devcaps belongig to a specific class.
  *
- * - The bit shiftings designate a particular device capability.
- *
  */
-#define DEVCAPS_CLASS_AUDIO		0x0100
-#define DEVCAP_AUDIO_CAPTURE		(1 << 0)
-#define DEVCAP_AUDIO_PLAYBACK		(1 << 1)
-#define DEVCAP_AUDIO_RECORDING		(1 << 2)
-#define DEVCAP_AUDIO_RT_STREAM		(1 << 3)
 
-#define DEVCAPS_CLASS_FRAMEBUFFER	0x0300
+#define DEVCAPS_CLASS_FRAMEBUFFER	0x01000000
 #define DEVCAP_FRAMEBUFFER_FB0		(1 << 0)
 
-#define DEVCAPS_CLASS_INPUT		0x0400
+#define DEVCAPS_CLASS_INPUT		0x02000000
 #define DEVCAP_INPUT_EVENT		(1 << 0)
 #define DEVCAP_REMOTE_TABLET		(1 << 1)
 
-#define DEVCAPS_CLASS_COMM		0x0500
+#define DEVCAPS_CLASS_COMM		0x03000000
 #define DEVCAP_COMM_UIHANDLER		(1 << 0)
 
-#define DEVCAPS_CLASS_LED		0x0600
+#define DEVCAPS_CLASS_LED		0x04000000
 #define DEVCAP_LED_RGB_SHIELD		(1 << 0)
 #define DEVCAP_LED_6LED			(1 << 1)
 
-#define DEVCAPS_CLASS_NET		0x0700
-#define DEVCAP_NET_STREAMING		(1 << 0)
-#define DEVCAP_NET_MESSAGING		(1 << 1)
+#define DEVCAPS_CLASS_NET		0x05000000
 
-#define DEVCAPS_CLASS_DOMOTICS		0x0800
+#define DEVCAPS_CLASS_DOMOTICS		0x06000000
 #define DEVCAP_BLIND_MOTOR		(1 << 0)
 #define DEVCAP_WEATHER_DATA		(1 << 1)
 
 /*
  * This devcap class is intended to be replaced by a generic framebuffer devcap in a near future.
  */
-#define DEVCAPS_CLASS_APP		0x0900
+#define DEVCAPS_CLASS_APP		0x07000000
 #define DEVCAP_APP_BLIND		(1 << 0)
 #define DEVCAP_APP_OUTDOOR		(1 << 1)
 
@@ -247,6 +217,7 @@ typedef struct agency_tx_args {
 typedef struct {
 	unsigned int	domID;
 	dc_event_t	dc_event;
+	int state;
 } soo_hyp_dc_event_t;
 
 
@@ -324,10 +295,10 @@ typedef struct {
 #define COOPERATE_TARGET	0x2
 
 typedef struct {
-	unsigned int	slotID;
-	unsigned char	spid[SPID_SIZE];
-	spad_t		spad;
-	unsigned int 	pfn;
+	uint32_t slotID;
+	uint64_t spid;
+	spad_t spad;
+	addr_t pfn;
 } coop_t;
 
 typedef struct {
@@ -362,9 +333,8 @@ typedef struct {
 
 #define AG_AGENCY_UPGRADE	0x10
 #define AG_INJECT_ME		0x11
-#define AG_FORCE_TERMINATE	0x12
-#define AG_KILL_ME		0x13
-#define AG_COOPERATE		0x14
+#define AG_KILL_ME		0x12
+#define AG_COOPERATE		0x13
 
 #define AG_AGENCY_UID		0x20
 #define AG_SOO_NAME		0x21
@@ -402,7 +372,7 @@ typedef struct {
 
 	union {
 		coop_t cooperate_args;
-		agencyUID_t agencyUID;
+		uint64_t agencyUID;
 		devcaps_args_t devcaps_args;
 		soo_name_args_t soo_name_args;
 		agency_upgrade_args_t agency_upgrade_args;
@@ -410,7 +380,7 @@ typedef struct {
 
 } agency_ctl_args_t;
 
-int agency_ctl(agency_ctl_args_t *agency_ctl_args);
+void agency_ctl(agency_ctl_args_t *agency_ctl_args);
 
 /*
  * SOO callback functions.
@@ -456,7 +426,7 @@ typedef struct soo_domcall_arg {
 	 * Used for some function calls initiated by the ME. In this context,
 	 * this function can be considered as a short-path-hypercall.
 	 */
-	int (*__agency_ctl)(agency_ctl_args_t *);
+	void (*__agency_ctl)(agency_ctl_args_t *);
 
 } soo_domcall_arg_t;
 
@@ -475,7 +445,7 @@ typedef struct {
 	unsigned int	slotID;
 } pending_uevent_request_t;
 
-int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2);
+void soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2);
 
 int cb_pre_propagate(soo_domcall_arg_t *args);
 
@@ -495,7 +465,7 @@ int cb_imec_setup_peer(void);
 
 void callbacks_init(void);
 
-int set_dc_event(unsigned domID, dc_event_t dc_event);
+void set_dc_event(unsigned domID, dc_event_t dc_event);
 
 int do_soo_activity(void *arg);
 
@@ -516,14 +486,7 @@ const char *get_me_shortdesc(void);
 const char *get_me_name(void);
 u64 get_spid(void);
 
-/* Helper functions to compare agencyUID */
+void vbstore_ME_ID_populate(void);
 
-static inline int cmpUID(agencyUID_t *u1, agencyUID_t *u2) {
-	return memcmp(u1, u2, SOO_AGENCY_UID_SIZE);
-}
-
-static inline void *memcpyUID(agencyUID_t *u1, agencyUID_t *u2) {
-	return memcpy(u1, u2, SOO_AGENCY_UID_SIZE);
-}
 
 #endif /* SOO_H */

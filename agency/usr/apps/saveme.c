@@ -32,9 +32,9 @@ int fd_core;
 
 int initialize_migration(unsigned int ME_slotID) {
 	int rc;
-	struct agency_tx_args args;
+	struct agency_ioctl_args args;
 
-	args.ME_slotID = ME_slotID;
+	args.slotID = ME_slotID;
 
 	rc = ioctl(fd_core, AGENCY_IOCTL_INIT_MIGRATION, &args);
 	assert(rc == 0);
@@ -43,10 +43,10 @@ int initialize_migration(unsigned int ME_slotID) {
 }
 
 void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size) {
-	struct agency_tx_args args;
+	struct agency_ioctl_args args;
 	int ret;
 
-	args.ME_slotID = slotID;
+	args.slotID = slotID;
 
 	ret = ioctl(fd_core, AGENCY_IOCTL_READ_SNAPSHOT, &args);
 	assert(ret == 0);
@@ -61,11 +61,11 @@ void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size) {
  */
 void *get_ME_snapshot_user(void *origin, size_t size) {
 
-	struct agency_tx_args args;
+	struct agency_ioctl_args args;
 	int ret;
 
 	args.buffer = origin;
-	args.ME_slotID = size;
+	args.slotID = size;
 
 	args.value = (int) malloc(size);
 	assert(args.value != 0);
@@ -79,9 +79,9 @@ void *get_ME_snapshot_user(void *origin, size_t size) {
 
 void finalize_migration(unsigned int slotID) {
 	int rc;
-	struct agency_tx_args args;
+	struct agency_ioctl_args args;
 
-	args.ME_slotID = slotID;
+	args.slotID = slotID;
 
 	rc = ioctl(fd_core, AGENCY_IOCTL_FINAL_MIGRATION, &args);
 	assert(rc == 0);
