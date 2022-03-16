@@ -70,7 +70,12 @@ config VSENSEJ_BACKEND
 	default n
 	help
 	  The vsensej driver captures joystick movements.
-	  
+
+config VWAGOLED_BACKEND
+	bool "vwagoled wago led controller backend"
+	default n
+	help
+	  The vwagoled driver allows to changes the status of the wago leds 
 	  
 source "soo/drivers/vnetback/Kconfig"
 
