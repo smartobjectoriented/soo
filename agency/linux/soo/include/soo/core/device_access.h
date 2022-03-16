@@ -36,7 +36,7 @@ static inline void soo_log_printUID(uint64_t uid) {
 		soo_log("n/a");
 	else
 		for (i = 0; i < 8; i++ ) {
-			soo_log("%02x ", *c++); /* Display byte per byte */
+			soo_log("%02x ", *(c+7-i)); /* Display byte per byte arranged from little-endian  */
 		}
 }
 

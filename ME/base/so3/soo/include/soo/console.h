@@ -50,7 +50,7 @@ static inline void lprintk_printUID(uint64_t uid) {
 		lprintk("n/a");
 	else
 		for (i = 0; i < 8; i++ ) {
-			lprintk("%02x ", *c++); /* Display byte per byte */
+			lprintk("%02x ", *(c+7-i)); /* Display byte per byte */
 		}
 }
 

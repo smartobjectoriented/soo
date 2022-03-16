@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2020-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -281,11 +281,11 @@ static int soo_task_tx_fn(void *args) {
 			/* Encode the SOO number */
 			current_soo_simul->buffer[0] = current_soo->id;
 
-			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, 0, 10);
 
 			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
 
-			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			sl_send(current_soo_simul->sl_desc, NULL, 0, 0, 10);
 			lprintk("*** (%s) End. ***\n", current_soo->name);
 
 			//msleep(1000);
@@ -318,11 +318,11 @@ static int soo3_task_tx_fn(void *args) {
 			/* Encode the SOO number */
 			current_soo_simul->buffer[0] = current_soo->id;
 
-			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, 0, 10);
 
 			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
 
-			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			sl_send(current_soo_simul->sl_desc, NULL, 0, 0, 10);
 			lprintk("*** (%s) End. ***\n", current_soo->name);
 
 #if 0
@@ -350,7 +350,6 @@ int soo_env_fn(void *args) {
 	static int count = 0;
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
-	int i;
 	struct task_struct *__ts;
 #endif
 
