@@ -10,6 +10,17 @@
 #define POST_LED_ON         "dali/led/on"
 #define POST_LED_OFF        "dali/led/off"
 
+#define DATA_OBJ            "Data"
+#define DEVICE_ARR          "devices"
+#define DEVICE_TYPE         "type"
+#define DEVICE_LED          "Led"
+#define LED_ID              "id"
+#define LED_STATUS          "status"
+#define LED_ON              "on"
+
+#define ARGS                "?id="
+#define LED_ALL             "all"
+
 namespace LED
 {
 
@@ -25,12 +36,17 @@ namespace LED
     private:
         std::vector<led_t*> leds;
         HTTP::Request client;
+        void build_args_str(std::string& args, std::vector<int> ids);
 
     public:
         Ledctrl();
-        int init();
-        int turn_on(int *ids);
-        int turn_off(int *ids);
+        ~Ledctrl();
+        void init();
+        void update_status();
+        int turn_on(std::vector<int> ids);
+        int turn_off(std::vector<int> ids);
+        int turn_all_on();
+        int turn_all_off();
     };
 
 } // end LED
