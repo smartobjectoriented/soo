@@ -44,7 +44,7 @@
 
 typedef struct {
 	uint8_t		type;
-	uint8_t		spid[SPID_SIZE];
+	uint64_t	spid;
 	uint8_t		payload[0];
 } vuihandler_pkt_t;
 
@@ -91,7 +91,7 @@ typedef struct {
 DEFINE_RING_TYPES(vuihandler_rx, vuihandler_rx_request_t, vuihandler_rx_response_t);
 
 typedef struct {
-	uint8_t			spid[SPID_SIZE];
+	uint64_t		spid;
 	struct list_head	list;
 } vuihandler_connected_app_t;
 
@@ -133,6 +133,6 @@ void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_interrupt_
 
 void vuihandler_send(void *data, size_t size);
 
-void vuihandler_get_app_spid(uint8_t spid[SPID_SIZE]);
+void vuihandler_get_app_spid(uint64_t spid);
 
 #endif /* VUIHANDLER_H */

@@ -21,7 +21,6 @@
 #define DEBUG
 #endif
 
-
 #include <mutex.h>
 #include <heap.h>
 #include <completion.h>
@@ -167,8 +166,6 @@ int vuihandler_send_fn(void *arg) {
 
 
 void vuihandler_probe(struct vbus_device *vdev) {
-
-	int res;
 	unsigned int rx_evtchn, tx_evtchn;
 	vuihandler_rx_sring_t *rx_sring;
 	vuihandler_tx_sring_t *tx_sring;
@@ -183,17 +180,10 @@ void vuihandler_probe(struct vbus_device *vdev) {
 	/* RX ring init */
 	vuihandler_priv->vuihandler.rx_ring_ref = GRANT_INVALID_REF;
 
-	res = vbus_alloc_evtchn(vdev, &rx_evtchn);
-	BUG_ON(res);
+	vbus_alloc_evtchn(vdev, &rx_evtchn);
 
-	res = bind_evtchn_to_irq_handler(rx_evtchn, vuihandler_rx_interrupt, NULL, vdev);
-	if (res <= 0) {
-		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
-		BUG();
-	}
-
+	vuihandler_priv->vuihandler.rx_irq = bind_evtchn_to_irq_handler(rx_evtchn, vuihandler_rx_interrupt, NULL, vdev);
 	vuihandler_priv->vuihandler.rx_evtchn = rx_evtchn;
-	vuihandler_priv->vuihandler.rx_irq = res;
 
 	rx_sring = (vuihandler_rx_sring_t *) get_free_vpage();
 
@@ -207,11 +197,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.rx_ring.sring)));
-	if (res < 0)
-		BUG();
-
-	vuihandler_priv->vuihandler.rx_ring_ref = res;
+	vuihandler_priv->vuihandler.rx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.rx_ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -223,17 +209,10 @@ void vuihandler_probe(struct vbus_device *vdev) {
 	/* TX ring init */
 	vuihandler_priv->vuihandler.tx_ring_ref = GRANT_INVALID_REF;
 
-	res = vbus_alloc_evtchn(vdev, &tx_evtchn);
-	BUG_ON(res);
+	vbus_alloc_evtchn(vdev, &tx_evtchn);
 
-	res = bind_evtchn_to_irq_handler(tx_evtchn, vuihandler_tx_interrupt, NULL, vdev);
-	if (res <= 0) {
-		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
-		BUG();
-	}
-
+	vuihandler_priv->vuihandler.tx_irq = bind_evtchn_to_irq_handler(tx_evtchn, vuihandler_tx_interrupt, NULL, vdev);
 	vuihandler_priv->vuihandler.tx_evtchn = tx_evtchn;
-	vuihandler_priv->vuihandler.tx_irq = res;
 
 	tx_sring = (vuihandler_tx_sring_t *) get_free_vpage();
 
@@ -247,11 +226,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.tx_ring.sring)));
-	if (res < 0)
-		BUG();
-
-	vuihandler_priv->vuihandler.tx_ring_ref = res;
+	vuihandler_priv->vuihandler.tx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.tx_ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -288,8 +263,6 @@ void vuihandler_connected(struct vbus_device *vdev) {
 }
 
 void vuihandler_reconfiguring(struct vbus_device *vdev) {
-
-	int res;
 	struct vbus_transaction vbt;
 	vuihandler_priv_t *vuihandler_priv;
 
@@ -306,11 +279,7 @@ void vuihandler_reconfiguring(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.rx_ring.sring)));
-	if (res < 0)
-		BUG();
-
-	vuihandler_priv->vuihandler.rx_ring_ref = res;
+	vuihandler_priv->vuihandler.rx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.rx_ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -318,8 +287,6 @@ void vuihandler_reconfiguring(struct vbus_device *vdev) {
 	vbus_printf(vbt, vdev->nodename, "rx_ring-evtchn", "%u", vuihandler_priv->vuihandler.rx_evtchn);
 
 	vbus_transaction_end(vbt);
-
-
 
 	/* TX ring init */
 	gnttab_end_foreign_access_ref(vuihandler_priv->vuihandler.tx_ring_ref);
@@ -330,11 +297,7 @@ void vuihandler_reconfiguring(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.tx_ring.sring)));
-	if (res < 0)
-		BUG();
-
-	vuihandler_priv->vuihandler.tx_ring_ref = res;
+	vuihandler_priv->vuihandler.tx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.tx_ring.sring)));
 
 	vbus_transaction_start(&vbt);
 

@@ -97,9 +97,6 @@ struct bus_type soo_subsys;
 
 static struct device soo_dev;
 
-
-/* Agency callback implementation */
-
 /*
  * Perform a force terminate of ME in <ME_slotID>
  *
@@ -108,25 +105,37 @@ static struct device soo_dev;
  *
  * Returns the state of the target ME.
  */
-ME_state_t force_terminate(unsigned int ME_slotID) {
-	int rc;
+static void force_terminate(unsigned int ME_slotID) {
 
 	if (get_ME_state(ME_slotID) == ME_state_living)
 		do_sync_dom(ME_slotID, DC_FORCE_TERMINATE);
 
-	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated)) {
+	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated))
+		soo_hypercall(AVZ_KILL_ME, NULL, NULL, &ME_slotID, NULL);
+}
 
-		rc = soo_hypercall(AVZ_KILL_ME, NULL, NULL, &ME_slotID, NULL);
-		if (rc != 0) {
-			printk("%s: failed to terminate the ME by the hypervisor (%d)\n", __func__, rc);
-			return rc;
+/**
+ * Walk through all MEs to see if some have to be terminated.
+ */
+void check_terminated_ME(void) {
+	int slotID;
+	ME_desc_t desc;
+
+	DBG("Checking if some MEs must be force_terminate'd...\n");
+
+	for (slotID = 2; slotID < MAX_DOMAINS; slotID++) {
+
+		/*
+		 * Check if the ME slot is used or not in order to not
+		   call force_terminate on an empty slot, which would cause an error.
+		 */
+		get_ME_desc(slotID, &desc);
+
+		if ((desc.size > 0) && (desc.state == ME_state_terminated))  {
+			DBG("Terminating ME %d...\n", slotID);
+			force_terminate(slotID);
 		}
-
-		/* That's the end ! */
-		return ME_state_dead;
 	}
-
-	return get_ME_state(ME_slotID);
 }
 
 #endif /* !CONFIG_X86 */
@@ -134,28 +143,6 @@ ME_state_t force_terminate(unsigned int ME_slotID) {
 /* Agency ctl domcalls operations */
 
 #ifndef CONFIG_X86
-
-/*
- * Force terminate the execution of a specific ME
- *
- * Return 0 in case of success, or 1 if the target ME cannot be terminated.
- */
-int soo_force_terminate(unsigned long arg) {
-	unsigned int ME_slotID;
-	int rc;
-
-	/* Get arguments from user space */
-	if (copy_from_user(&ME_slotID, (const void *) arg, sizeof(ME_slotID)) != 0) {
-		printk("Agency: %s:%d failed to retrieve args from userspace\n", __func__, __LINE__);
-		return -EFAULT;
-	}
-
-	rc = force_terminate(ME_slotID);
-
-	DBG0("Completed\n");
-
-	return rc;
-}
 
 int agency_open(struct inode *inode, struct file *file) {
 	return 0;
@@ -229,113 +216,87 @@ u32 virt_to_phys_pt(u32 vaddr) {
 #ifndef CONFIG_X86
 
 long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
-	int rc = 0;
-	unsigned int ME_slotID;
+
+	agency_ioctl_args_t args;
+
+	if ((copy_from_user(&args, (void *) arg, sizeof(agency_ioctl_args_t))) != 0) {
+		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
+		BUG();
+	}
 
 	switch (cmd) {
 
 	case AGENCY_IOCTL_INIT_MIGRATION:
-		if ((rc = ioctl_initialize_migration(arg)) < 0) {
-			printk("%s: INIT_MIGRATION error (%d)\n", __func__, rc);
-			BUG();
-		}
+		args.value = (initialize_migration(args.slotID) ? 0 : -1);
 		break;
 
 	case AGENCY_IOCTL_GET_ME_FREE_SLOT:
-		if ((rc = ioctl_get_ME_free_slot(arg)) < 0) {
-			lprintk("%s: GET_ME_FREE_SLOT error (%d)\n", __func__, rc);
-			BUG();
-		}
-
+		args.value = get_ME_free_slot(args.value);
 		break;
 
-	case AGENCY_IOCTL_GET_ME_DESC:
-		if ((rc = ioctl_get_ME_desc(arg)) < 0) {
-			lprintk("%s: GET_ME_DESC error (%d)\n", __func__, rc);
-			BUG();
-		}
-
+	case AGENCY_IOCTL_GET_ME_ID:
+		args.value = (get_ME_id(args.slotID, (ME_id_t *) args.buffer) ? 0 : -1);
 		break;
 
 	case AGENCY_IOCTL_READ_SNAPSHOT:
-		if ((rc = ioctl_read_snapshot(arg)) < 0) {
-			lprintk("%s: READ SNAPSHOT error (%d)\n", __func__, rc);
-			BUG();
-		}
-
+		args.value = read_snapshot(args.slotID, &args.buffer);
 		break;
 
 	case AGENCY_IOCTL_WRITE_SNAPSHOT:
-		if ((rc = ioctl_write_snapshot(arg)) < 0) {
-			lprintk("%s: WRITE SNAPSHOT error (%d)\n", __func__, rc);
-			BUG();
-		}
-
+		write_snapshot(args.slotID, args.buffer);
 		break;
 
 	case AGENCY_IOCTL_FINAL_MIGRATION:
-		if ((rc = ioctl_finalize_migration(arg)) < 0) {
-			printk("%s: FINAL_MIGRATION error (%d)\n", __func__, rc);
-			BUG();
-		}
-
+		finalize_migration(args.slotID);
 		break;
 
 	case AGENCY_IOCTL_INJECT_ME:
-		if ((rc = ioctl_inject_ME(arg)) < 0) {
-			lprintk("%s: INJECT_ME error (%d)\n", __func__, rc);
-			BUG();
-		}
-
+		args.slotID = inject_ME(args.buffer);
 		break;
-
-		/* Post-migration activities */
 
 	case AGENCY_IOCTL_FORCE_TERMINATE:
-		rc = soo_force_terminate(arg);
-		if (rc < 0) {
-			printk("%s: FORCE TERMINATE ME failed (%d)\n", __FUNCTION__, rc);
-			BUG();
-		}
-
-		break;
-
-	case AGENCY_IOCTL_PICK_NEXT_UEVENT:
-		/* Suspend this thread until a SOO event (via uevent) is fired */
-		rc = pick_next_uevent();
+		force_terminate(args.slotID);
 		break;
 
 	case AGENCY_IOCTL_GET_UPGRADE_IMG:
-		rc = ioctl_get_upgrade_image(arg);
+		get_upgrade_image((uint32_t *) &args.value, &args.slotID);
 		break;
 
 	case AGENCY_IOCTL_STORE_VERSIONS:
-		rc = ioctl_store_versions(arg);
+		store_versions((upgrade_versions_args_t *) args.buffer);
 		break;
 	
 	case AGENCY_IOCTL_GET_ME_SNAPSHOT:
-		ioctl_get_ME_snapshot(arg);
+		/* - args.value contains the (kernel) address of the ME
+		 * - args.buffer contains the ME buffer itself
+		 * - args.slotID contains the size of this buffer
+		 */
+		copy_ME_snapshot_to_user((void *) args.value, args.buffer, args.slotID);
 		break;
 	
 	case AGENCY_IOCTL_GET_ME_ID_ARRAY:
-		get_ME_id_array((ME_id_t *) arg);
+		get_ME_id_array((ME_id_t *) args.buffer);
 		break;
 
-	case INJECTOR_IOCTL_CLEAN_ME:
+	case AGENCY_IOCTL_INJECTOR_CLEAN_ME:
 		injector_clean_ME();
 		break;
 
-	case INJECTOR_IOCTL_RETRIEVE_ME:
-		injector_retrieve_ME(arg);
+	case AGENCY_IOCTL_INJECTOR_RETRIEVE_ME:
+		args.value = injector_retrieve_ME();
 		break;
 	
 	default:
 		lprintk("%s: Unrecognized IOCTL: 0x%x\n", __func__, cmd);
 		BUG();
-		break;
 	}
 
-	return rc;
+	if ((copy_to_user((void *) arg, &args, sizeof(agency_ioctl_args_t))) != 0) {
+		lprintk("Agency: %s:%d Failed to send back args to userspace\n", __func__, __LINE__);
+		BUG();
+	}
+
+	return 0;
 }
 
 struct file_operations agency_fops = {
@@ -390,7 +351,6 @@ static int soo_match(struct device *dev, struct device_driver *drv) {
 struct bus_type soo_subsys = {
     .name = "soo",
     .dev_name = "soo",
-    .uevent = soo_uevent,
     .match = soo_match,
 };
 
@@ -473,8 +433,10 @@ static int agency_reboot_notify(struct notifier_block *nb, unsigned long code, v
 
 	for (slotID = 2; slotID < MAX_DOMAINS; slotID++) {
 
-		/* Check if the ME slot is use dor not in order to not
-		   call force_terminate on an empty slot, which would cause an error. */
+		/*
+		 * Check if the ME slot is used or not in order to not
+		   call force_terminate on an empty slot, which would cause an error.
+		 */
 
 		get_ME_desc(slotID, &desc);
 

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2018-2019 Baptiste Delporte <bonel@bonel.net>
  * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
- * Copyright (C) 2020 David Truan <david.truan@heig-vd.ch>
+ * Copyright (C) 2020-2022 David Truan <david.truan@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -56,6 +56,8 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
 #include <soo/guest_api.h>
+#include <soo/evtchn.h>
+
 #include <soo/uapi/debug.h>
 #include <soo/uapi/injector.h>
 
@@ -119,7 +121,6 @@ typedef struct {
 	int rfcomm_tty_pid;
 	struct mutex rfcomm_lock;
 
-	uint8_t vuihandler_null_spid[SPID_SIZE];
 } vuihandler_drv_priv_t;
 
 
@@ -135,34 +136,21 @@ vdrvback_t vuihandlerdrv = {
 	.suspend = vuihandler_suspend
 };
 
-static void print_spid(uint8_t *spid) {
-	int i;
-
-	for (i = 0; i < SPID_SIZE; ++i) {
-
-		printk("%02x", spid[i]);
-	}
-}
-
 
 /**
  * Return the SPID of the ME whose "otherend ID" is given as parameter.
  * Return the pointer to the SPID on success.
  * If there is no such ME in this slot, return NULL.
  */
-static uint8_t *get_spid_from_otherend_id(int otherend_id) {
+static uint64_t get_spid_from_otherend_id(int otherend_id) {
 	vuihandler_t *vuihandler;
 	vuihandler_priv_t *vuihandler_priv;
 	struct vbus_device *vdev = vdevback_get_entry(otherend_id, vdev_list);
-	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_vdevpriv(vdev);
 
 	vuihandler_priv = dev_get_drvdata(&vdev->dev);
 	vuihandler = &vuihandler_priv->vuihandler;
 
-	if (memcmp(vuihandler->spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE) != 0)
-		return vuihandler->spid;
-	else
-		return NULL;
+	return vuihandler->spid;
 }
 
 /**
@@ -170,25 +158,28 @@ static uint8_t *get_spid_from_otherend_id(int otherend_id) {
  * Return the ID on success.
  * If there is no such ME, return -ENOENT.
  */
-static int get_otherend_id_from_spid(uint8_t *spid) {
+static int get_otherend_id_from_spid(uint64_t spid) {
 	uint32_t i;
 	vuihandler_t *vuihandler;
 	vuihandler_priv_t *vuihandler_priv;
 	struct vbus_device *vdev;
-	printk("Searching for ");
-	print_spid(spid);
 	
+	soo_log("[soo:backend:vuihandler] Searching for ");
+	soo_log_printlnUID(spid);
+
 
 	for (i = 1; i < MAX_DOMAINS; i++) {
 		vdev = vdevback_get_entry(i, vdev_list);
 		if (vdev != NULL) {
-			printk("Slot %d is not empty!\n", i);
+			soo_log("[soo:backend:vuihandler] Slot %d is not empty!\n", i);
+
 			vuihandler_priv = dev_get_drvdata(&vdev->dev);
 			vuihandler = &vuihandler_priv->vuihandler;
-			printk("Getting ");
 
-			print_spid(vuihandler->spid);
-			if (!memcmp(spid, vuihandler->spid, SPID_SIZE))
+			soo_log("[soo:backend:vuihandler] Getting ");
+			soo_log_printlnUID(vuihandler->spid);
+
+			if (spid ==  vuihandler->spid)
 				return i;
 		}
 	}
@@ -208,11 +199,11 @@ static int get_otherend_id_from_spid(uint8_t *spid) {
  * 
  * @return 0 on success, -1 on error
  */ 
-int tx_buffer_put(uint8_t *data, uint32_t size, uint8_t *spid, uint8_t type) {
+int tx_buffer_put(uint8_t *data, uint32_t size, uint64_t spid, uint8_t type) {
 	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
 	vuihandler_pkt_t *cur_elem = vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.put_index].pkt;
 
-	printk("Putting %dB of type %d in the TX buffer\n", size, type);
+	soo_log("[soo:backend:vuihandler] Putting %dB of type %d in the TX buffer\n", size, type);
 
 	/* abort if there are no place left on the circular buffer */
 	if (vdrv_priv->tx_buf.cur_size == VUIHANDLER_TX_BUF_SIZE) 
@@ -222,11 +213,10 @@ int tx_buffer_put(uint8_t *data, uint32_t size, uint8_t *spid, uint8_t type) {
 
 	/* Copy the data into the circular buffer */
 	vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.put_index].size = VUIHANDLER_BT_PKT_HEADER_SIZE + size;
-	/* In the case the packet is comming from the agency, there is no SPID */
-	if (spid != NULL)
-		memcpy(cur_elem->spid, spid, SPID_SIZE);
-	else
-		memset(cur_elem->spid, 0, SPID_SIZE);	
+
+	/* In the case the packet is coming from the agency, there is no SPID */
+	cur_elem->spid = spid;
+
 	memcpy(cur_elem->payload, data, size);
 	cur_elem->type = type;
 
@@ -251,7 +241,8 @@ tx_pkt_t *tx_buffer_get(void) {
 	tx_pkt_t *tx_pkt;
 	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
 
-	if (vdrv_priv->tx_buf.cur_size == 0) return NULL;
+	if (vdrv_priv->tx_buf.cur_size == 0)
+		return NULL;
 
 	spin_lock(&vdrv_priv->tx_lock);
 	tx_pkt = &vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.get_index];
@@ -274,22 +265,23 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	vuihandler_t *vuihandler = dev_get_drvdata(&vdev->dev);
 	vuihandler_tx_request_t *ring_req;
 	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_vdevpriv(vdev);
-	uint8_t *spid;
+	uint64_t spid;
 
 	while ((ring_req = vuihandler_tx_get_ring_request(&vuihandler->tx_rings.ring)) != NULL) {
 
 		DBG(VUIHANDLER_PREFIX "%d, %d\n", ring_req->id, ring_req->size);
 
 		/* The slot ID is equal to the otherend ID */
-		if ((spid = get_spid_from_otherend_id(vdev->otherend_id)) == NULL)
+		if ((spid = get_spid_from_otherend_id(vdev->otherend_id)) == 0)
 			continue;
 
 		/* Only send packets that are adapted to the tablet application */
-		if (memcmp(vdrv_priv->connected_app.spid, spid, SPID_SIZE) != 0)
+		if (vdrv_priv->connected_app.spid != spid)
 			continue;
 
 		/* Let the circular buffer add the packet to itself */
 		if (tx_buffer_put(ring_req->buf, ring_req->size, spid, VUIHANDLER_DATA) == -1) {
+#warning Is it an error (BUG)  or acceptable condition?...
 			printk("Error: could not put the TX packet in the circular buffer!\n");
 			continue;
 		}
@@ -300,9 +292,10 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 
 int vuihandler_send_from_agency(uint8_t *data, uint32_t size, uint8_t type) {
 
-	if (tx_buffer_put(data, size, NULL, type) == -1) {
-		return -1;
+	if (tx_buffer_put(data, size, 0, type) == -1) {
+#warning Is it an error (BUG) or acceptable condition?...
 		printk("Error: could not put the TX packet in the circular buffer!\n");
+		return -1;
 	}
 	return 0;
 }
@@ -381,14 +374,17 @@ void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pk
 		
 		/* Forward the size to the injector so it knows the ME size. */
 		injector_prepare(ME_size);
+
 		vfree(vuihandler_pkt);
 		break;
 
 	/* This is the ME data which needs to be forwarded to the Injector */
 	case VUIHANDLER_ME_INJECT:
+
 		/* As we bypass the full vuiHandler protocol, we first use a uint8_t array to
 		easily access the data instead of the vuihandler_pkt */
 		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
+
 		/* The packet is freed in the injector agency_read callback */
 		injector_receive_ME((void *)(ME_pkt_payload+1), vuihandler_pkt_size-1);
 		break;
@@ -413,7 +409,7 @@ int send_ME_list_xml(void) {
 		return -1;
 	}
 
-	tx_buffer_put(ME_buf_xml, strlen(ME_buf_xml)+1, NULL, 0);
+	tx_buffer_put(ME_buf_xml, strlen(ME_buf_xml)+1, 0, 0);
 
 	kfree(ME_buf_raw);
 	return 0;
@@ -495,7 +491,8 @@ static int tx_task_fn(void *arg) {
 		tx_pkt = tx_buffer_get();
 
 		if (tx_pkt == NULL) {
-			printk("An error occured while getting the next TX packet!\n");
+#warning Is it an error (BUG)  or acceptable condition?...
+			lprintk("An error occured while getting the next TX packet!\n");
 			continue;
 		}
 
@@ -512,7 +509,7 @@ static int tx_task_fn(void *arg) {
 
 		if (rfcomm_pid) {
 			lprintk("(B>%d)", pkt_size);
-			sl_send(vdrv_priv->vuihandler_bt_sl_desc, vuihandler_pkt, pkt_size, get_null_agencyUID(), 0);
+			sl_send(vdrv_priv->vuihandler_bt_sl_desc, vuihandler_pkt, pkt_size, 0, 0);
 		}
 	}
 
@@ -601,8 +598,6 @@ void vuihandler_remove(struct vbus_device *vdev) {
 void vuihandler_close(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&vdev->dev);
 	vuihandler_t *vuihandler = &vuihandler_priv->vuihandler;
-	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_vdevpriv(vdev);
-
 	vuihandler_tx_ring_t *tx_ring = &vuihandler->tx_rings;
 	vuihandler_rx_ring_t *rx_ring = &vuihandler->rx_rings;
 
@@ -623,7 +618,7 @@ void vuihandler_close(struct vbus_device *vdev) {
 	rx_ring->ring.sring = NULL;
 
 	/* Update the SPID in the SPID table */
-	memcpy(vuihandler->spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE);
+	vuihandler->spid = 0;
 
 	DBG(VUIHANDLER_PREFIX "Backend closed: %d\n", vdev->otherend_id);
 
@@ -634,17 +629,17 @@ void vuihandler_suspend(struct vbus_device *vdev) {
 
 }
 
+ME_id_t me_id; /* Here because the short desc is a 1024-char buffer and exceeds the frame size */
 
 void vuihandler_resume(struct vbus_device *vdev) {
-	uint8_t spid[SPID_SIZE];
 	vuihandler_priv_t *vuihandler_priv;
 
 
-	get_ME_spid(vdev->otherend_id, &spid[0]);
+	get_ME_id(vdev->otherend_id, &me_id);
 
 	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(&vdev->dev);
 
-	memcpy(vuihandler_priv->vuihandler.spid, spid, SPID_SIZE);
+	vuihandler_priv->vuihandler.spid = me_id.spid;
 
 	DBG(VUIHANDLER_PREFIX "Backend resume: %d\n", vdev->otherend_id);
 }
@@ -659,7 +654,6 @@ void vuihandler_connected(struct vbus_device *vdev) {
 void vuihandler_reconfigured(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(&vdev->dev);
 	vuihandler_t *vuihandler = &vuihandler_priv->vuihandler;
-	int res;
 	unsigned long tx_ring_ref, rx_ring_ref;
 	unsigned int tx_evtchn, rx_evtchn;
 	vuihandler_tx_sring_t *tx_sring;
@@ -670,30 +664,23 @@ void vuihandler_reconfigured(struct vbus_device *vdev) {
 	/* tx_ring */
 	vbus_gather(VBT_NIL, vdev->otherend, "tx_ring-ref", "%lu", &tx_ring_ref, "tx_ring-evtchn", "%u", &tx_evtchn, NULL);
 
-	res = vbus_map_ring_valloc(vdev, tx_ring_ref, (void **) &tx_sring);
-	BUG_ON(res < 0);
+	vbus_map_ring_valloc(vdev, tx_ring_ref, (void **) &tx_sring);
 
 	SHARED_RING_INIT(tx_sring);
 	BACK_RING_INIT(&tx_ring->ring, tx_sring, PAGE_SIZE);
 
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, tx_evtchn, vuihandler_tx_interrupt, NULL, 0, VUIHANDLER_NAME "-tx", vdev);
-	BUG_ON(res < 0);
-
-	tx_ring->irq = res;
+	tx_ring->irq = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, tx_evtchn, vuihandler_tx_interrupt, NULL, 0, VUIHANDLER_NAME "-tx", vdev);
 
 	/* rx_ring */
 	vbus_gather(VBT_NIL, vdev->otherend, "rx_ring-ref", "%lu", &rx_ring_ref, "rx_ring-evtchn", "%u", &rx_evtchn, NULL);
 
-	res = vbus_map_ring_valloc(vdev, rx_ring_ref, (void **) &rx_sring);
-	BUG_ON(res < 0);
+	vbus_map_ring_valloc(vdev, rx_ring_ref, (void **) &rx_sring);
 
 	SHARED_RING_INIT(rx_sring);
 	BACK_RING_INIT(&rx_ring->ring, rx_sring, PAGE_SIZE);
 
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, rx_evtchn, vuihandler_rx_interrupt, NULL, 0, VUIHANDLER_NAME "-rx", vdev);
-	BUG_ON(res < 0);
+	rx_ring->irq = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, rx_evtchn, vuihandler_rx_interrupt, NULL, 0, VUIHANDLER_NAME "-rx", vdev);
 
-	rx_ring->irq = res;
 	DBG(VUIHANDLER_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
 }
 
@@ -749,10 +736,6 @@ void vuihandler_start_deferred(soo_env_t * sooenv, void *args) {
 	vuihandler_start_threads(args);
 }
 
-
-
-
-
 int vuihandler_init(void) {
 	struct device_node *np;
 	int i;
@@ -769,15 +752,15 @@ int vuihandler_init(void) {
 	vdev_list = (struct list_head *) kzalloc(sizeof(struct list_head), GFP_ATOMIC);
 	INIT_LIST_HEAD(vdev_list);
 
-	memset(vdrv_priv->vuihandler_null_spid, 0, SPID_SIZE);
+	vdrv_priv->connected_app.spid = 0;
 
-	memcpy(vdrv_priv->connected_app.spid, vdrv_priv->vuihandler_null_spid, SPID_SIZE);
 	spin_lock_init(&vdrv_priv->connected_app_lock);
 
 	/* Allocate the circular TX buffer containers */
 	for (i = 0; i < VUIHANDLER_TX_BUF_SIZE; ++i) {
 		vdrv_priv->tx_buf.ring[i].pkt = (vuihandler_pkt_t *) kzalloc(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE, GFP_KERNEL);
 	}
+
 	spin_lock_init(&vdrv_priv->tx_lock);
 	init_completion(&vdrv_priv->tx_completion);
 

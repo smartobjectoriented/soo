@@ -217,7 +217,7 @@ static void gnttab_register_peer(struct vbus_watch *watch)
 	gnttab_update_peer(domID);
 }
 
-int gnttab_map(struct gnttab_map_grant_ref *op) {
+void gnttab_map(struct gnttab_map_grant_ref *op) {
 	unsigned long addr;
 	bool gnttab_ME_ok;
 	struct handle_grant *handle;
@@ -255,11 +255,9 @@ int gnttab_map(struct gnttab_map_grant_ref *op) {
 
 	handle = new_handle(op->dom, op->ref, op->host_addr, op->offset, op->size);
 	op->handle = handle->handle;
-
-	return 0;
 }
 
-int gnttab_unmap(struct gnttab_unmap_grant_ref *op) {
+void gnttab_unmap(struct gnttab_unmap_grant_ref *op) {
 	struct handle_grant *handle;
 
 	handle = get_handle(op->handle);
@@ -275,11 +273,9 @@ int gnttab_unmap(struct gnttab_unmap_grant_ref *op) {
 	unmap_kernel_range(handle->host_addr, PAGE_SIZE);
 
 	op->dev_bus_addr = 0;
-
-	return 0;
 }
 
-int gnttab_copy(struct gnttab_copy *op) {
+void gnttab_copy(struct gnttab_copy *op) {
 
 	unsigned char *vaddr_foreign;
 	unsigned char *src, *dst;
@@ -316,11 +312,9 @@ int gnttab_copy(struct gnttab_copy *op) {
 	iounmap(vaddr_foreign);
 
 	op->status = 0;
-
-	return 0;
 }
 
-int gnttab_map_sync_copy(unsigned int h, unsigned int flags, unsigned int offset, unsigned size) {
+void gnttab_map_sync_copy(unsigned int h, unsigned int flags, unsigned int offset, unsigned size) {
 	struct gnttab_copy op_copy;
 	struct handle_grant *handle;
 
@@ -366,12 +360,10 @@ int gnttab_map_sync_copy(unsigned int h, unsigned int flags, unsigned int offset
 	}
 
 	gnttab_copy(&op_copy);
-
-	return 0;
 }
 
 
-int gnttab_map_with_copy(struct gnttab_map_grant_ref *op) {
+void gnttab_map_with_copy(struct gnttab_map_grant_ref *op) {
 
 	struct gnttab_copy op_copy;
 	struct handle_grant *handle;
@@ -400,11 +392,9 @@ int gnttab_map_with_copy(struct gnttab_map_grant_ref *op) {
 	gnttab_copy(&op_copy);
 
 	op->status = 0;
-
-	return 0;
 }
 
-int gnttab_unmap_with_copy(struct gnttab_unmap_grant_ref *op) {
+void gnttab_unmap_with_copy(struct gnttab_unmap_grant_ref *op) {
 
 	struct gnttab_copy op_copy;
 	struct handle_grant *handle;
@@ -434,8 +424,6 @@ int gnttab_unmap_with_copy(struct gnttab_unmap_grant_ref *op) {
 	op->handle = 0;
 
 	op->status = 0;
-
-	return 0;
 }
 
 
@@ -457,33 +445,28 @@ int gnttab_unmap_with_copy(struct gnttab_unmap_grant_ref *op) {
  * on a UNMAP operation :
  *   op->status = 0 on success
  */
-int grant_table_op(unsigned int cmd, void *uop, unsigned int count)
+void grant_table_op(unsigned int cmd, void *uop, unsigned int count)
 {
-	int i, ret;
+	int i;
 
 	switch (cmd)
 	{
 	case GNTTABOP_map_grant_ref:
 	{
-
 		struct gnttab_map_grant_ref *op = (struct gnttab_map_grant_ref *) uop;
 
 		for (i = 0; i < count; i++) {
 
 			if (op->flags & GNTMAP_with_copy)
-				ret = gnttab_map_with_copy(op);
+				gnttab_map_with_copy(op);
 			else
-				ret = gnttab_map(op);
+				gnttab_map(op);
 
 			op++;
-
-			if (ret)
-				printk("%s failed\n", __func__);
 		}
 
 		wmb();
-
-		return 0;
+		break;
 	}
 	case GNTTABOP_unmap_grant_ref:
 	{
@@ -494,56 +477,37 @@ int grant_table_op(unsigned int cmd, void *uop, unsigned int count)
 		for (i = 0; i < count; i++) {
 
 			if (op->flags & GNTMAP_with_copy)
-				ret = gnttab_unmap_with_copy(op);
+				gnttab_unmap_with_copy(op);
 			else
-				ret = gnttab_unmap(op);
+				gnttab_unmap(op);
 
 			op++;
-			if (ret)
-				printk("%s failed\n", __func__);
-
 		}
 
 		wmb();
-
-		return 0;
+		break;
 	}
 	case GNTTABOP_copy:
 	{
-
 		int i = 0;
 		struct gnttab_copy *op = (struct gnttab_copy *) uop;
-
-		int ret;
 
 		for (i = 0; i < count; i++) {
 
 			if ( ((op->source.offset + op->len) > PAGE_SIZE) || ((op->dest.offset + op->len) > PAGE_SIZE) )
 			{
 				printk("%s/%d GNTST_bad_copy_arg.\n", __FUNCTION__, __LINE__);
-				goto error_out;
+				BUG();
 			}
 
-			ret = gnttab_copy(op);
-
-			if (ret)
-				printk("%s failed.\n", __func__);
-
+			gnttab_copy(op);
 			op++;
 		}
 
 		wmb();
-
-		return 0;
-
+		break;
 	}
-	default:
-		return -1;
 	}
-
-error_out:
-	printk("%s/%d BUG !!!!\n", __FUNCTION__, __LINE__);
-	BUG();
 }
 
 /*
@@ -567,7 +531,6 @@ void register_watches(void) {
  */
 int gnttab_init(void)
 {
-
 	int i;
 
 	DBG("%s: setting up...\n", __func__);
@@ -580,6 +543,7 @@ int gnttab_init(void)
 	register_watches();
 
 	DBG0("End of gnttab_init. Well done!\n");
+
 	return 0;
 }
 

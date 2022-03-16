@@ -76,10 +76,10 @@ static void plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	proto = get_protocol_from_sl_req_type(sl_desc->req_type);
 
 	/* If no valid recipient agency UID is given, broadcast the packet */
-	if (!agencyUID_is_valid(&sl_desc->agencyUID_to))
+	if (!sl_desc->agencyUID_to)
 		dest = broadcast_addr;
 	else
-		dest = get_mac_addr(&sl_desc->agencyUID_to);
+		dest = get_mac_addr(sl_desc->agencyUID_to);
 
 	if (dest == NULL)
 		return ;

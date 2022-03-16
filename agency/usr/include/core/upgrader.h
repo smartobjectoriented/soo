@@ -44,13 +44,6 @@ typedef struct {
     	unsigned int ME_slotID;
 } upgrader_args_t;
 
-typedef struct {
-	void *upgrade_buffer;
-	size_t	size;
-    	unsigned int ME_slotID;
-} upgrader_ioctl_recv_args_t;
-
 void upgrader_init(void);
-
 
 #endif /* UPGRADER_H */

@@ -33,6 +33,7 @@
 int main(int argc, char *argv[]) {
 	int i, fd_core;
 	ME_id_t id_array[MAX_ME_DOMAINS];
+	agency_ioctl_args_t agency_ioctl_args;
 
 	printf("*** SOO - Mobile Entity ID Retrieval ***\n\n");
 
@@ -42,7 +43,8 @@ int main(int argc, char *argv[]) {
 	/* Prepare to terminate the running ME (dom #2) */
 	printf("*** List of residing Mobile Entities: \n");
 
-	ioctl(fd_core, AGENCY_IOCTL_GET_ME_ID_ARRAY, (unsigned int) id_array);
+	agency_ioctl_args.buffer = &id_array;
+	ioctl(fd_core, AGENCY_IOCTL_GET_ME_ID_ARRAY, (unsigned long) &agency_ioctl_args);
 
 	for (i = 0; i < MAX_ME_DOMAINS; i++) {
 		if (id_array[i].state == ME_state_dead)

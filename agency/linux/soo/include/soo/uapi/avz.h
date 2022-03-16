@@ -121,7 +121,7 @@ typedef struct shared_info shared_info_t;
 
 extern volatile shared_info_t *HYPERVISOR_shared_info;
 
-extern int hypercall_trampoline(int hcall, long a0, long a2, long a3, long a4);
+extern void hypercall_trampoline(int hcall, long a0, long a2, long a3, long a4);
 
 #define avz_shared_info ((smp_processor_id() == 1) ? (HYPERVISOR_shared_info)->subdomain_shared_info : HYPERVISOR_shared_info)
 
@@ -163,7 +163,7 @@ extern start_info_t *avz_start_info;
 /*
  * DOMCALLs
  */
-typedef int (*domcall_t)(int cmd, void *arg);
+typedef void (*domcall_t)(int cmd, void *arg);
 
 #define DOMCALL_sync_vbstore               	1
 #define DOMCALL_post_migration_sync_ctrl    	2

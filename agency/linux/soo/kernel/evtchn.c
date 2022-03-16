@@ -230,46 +230,41 @@ static int bind_evtchn_to_virq(unsigned int evtchn)
 	return virq;
 }
 
-int unbind_domain_evtchn(unsigned int domID, unsigned int evtchn)
+void unbind_domain_evtchn(unsigned int domID, unsigned int evtchn)
 {
 	struct evtchn_bind_interdomain bind_interdomain;
-	int err;
 
 	bind_interdomain.remote_dom = domID;
 	bind_interdomain.local_evtchn = evtchn;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_unbind_domain, (long) &bind_interdomain, 0, 0);
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_unbind_domain, (long) &bind_interdomain, 0, 0);
 
 	evtchn_info.valid[evtchn] = false;
-
-	return err;
 }
 
 static int bind_interdomain_evtchn_to_virq(unsigned int remote_domain, unsigned int remote_evtchn)
 {
 	struct evtchn_bind_interdomain bind_interdomain;
-	int err;
 
 	bind_interdomain.remote_dom  = remote_domain;
 	bind_interdomain.remote_evtchn = remote_evtchn;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
 
-	return err ? : bind_evtchn_to_virq(bind_interdomain.local_evtchn);
+	return bind_evtchn_to_virq(bind_interdomain.local_evtchn);
 }
 
 int bind_existing_interdomain_evtchn(unsigned local_evtchn, unsigned int remote_domain, unsigned int remote_evtchn)
 {
 	struct evtchn_bind_interdomain bind_interdomain;
-	int err;
 
 	bind_interdomain.local_evtchn = local_evtchn;
 	bind_interdomain.remote_dom  = remote_domain;
 	bind_interdomain.remote_evtchn = remote_evtchn;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_existing_interdomain, (long) &bind_interdomain, 0, 0);
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_existing_interdomain, (long) &bind_interdomain, 0, 0);
 
-	return err ? : bind_evtchn_to_virq(bind_interdomain.local_evtchn);
+	return bind_evtchn_to_virq(bind_interdomain.local_evtchn);
 }
 
 static void unbind_from_virq(unsigned int virq)
@@ -277,14 +272,13 @@ static void unbind_from_virq(unsigned int virq)
 	evtchn_close_t op;
 	int evtchn = evtchn_from_virq(virq);
 	int cpu = smp_processor_id();
-	int ret;
 
 	spin_lock(&virq_mapping_update_lock);
 
 	if (--per_cpu(evtchn_info, cpu).virq_bindcount[virq] == 0) {
 		op.evtchn = evtchn;
-		ret = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &op, 0, 0);
-		BUG_ON(ret < 0);
+
+		hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &op, 0, 0);
 
 		per_cpu(evtchn_info, cpu).evtchn_to_virq[evtchn] = -1;
 		per_cpu(evtchn_info, cpu).valid[evtchn] = false;
@@ -315,8 +309,7 @@ int bind_interdomain_evtchn_to_virqhandler(unsigned int remote_domain, unsigned 
 
 	DBG("%s: devname = %s / remote evtchn: %d remote domain: %d\n", __func__, devname, remote_evtchn, remote_domain);
 	virq = bind_interdomain_evtchn_to_virq(remote_domain, remote_evtchn);
-	if (virq < 0)
-		return virq;
+	BUG_ON(virq < 0);
 
 	if (handler != NULL) {
 		retval = request_threaded_irq(VIRQ_BASE + virq, handler, thread_fn, irqflags, devname, dev_id);
@@ -373,8 +366,16 @@ void rtdm_unbind_from_virqhandler(rtdm_irq_t *irq_handle)
 
 void unbind_from_virqhandler(unsigned int virq, void *dev_id)
 {
-	free_irq(VIRQ_BASE + virq, dev_id);
+	struct irq_desc *desc = irq_to_desc(VIRQ_BASE + virq);
+
+	/* If we have a virq only to manage notification (without handler),
+	 * we should not free an "already-free" irq in Linux.
+	 */
+	if (desc->action)
+		free_irq(VIRQ_BASE + virq, dev_id);
+
 	unbind_from_virq(virq);
+
 }
 
 /*

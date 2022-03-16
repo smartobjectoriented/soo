@@ -63,29 +63,18 @@ DECLARE_COMPLETION(me_ready_compl);
 
 /**
  * Initiate the injection of a ME.
+ *
+ * @param buffer
+ * @return slotID or -1 if no slotID available.
  */
-int ioctl_inject_ME(unsigned long arg) {
-	agency_tx_args_t args;
+int inject_ME(void *buffer) {
+	int slotID;
 
-	if (copy_from_user(&args, (void *) arg, sizeof(agency_tx_args_t))) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
+	DBG("Original contents at address: 0x%08x\n", (unsigned int) buffer);
 
-	DBG("Original contents at address: 0x%08x\n", (unsigned int) args.buffer);
+	soo_hypercall(AVZ_INJECT_ME, buffer, NULL, &slotID, NULL);
 
-	/* We use paddr1 to pass virtual address of the crc32 */
-	if (soo_hypercall(AVZ_INJECT_ME, args.buffer, NULL, &args.ME_slotID, NULL) < 0) {
-		lprintk("Agency: %s:%d Failed to finalize migration.\n", __func__, __LINE__);
-		BUG();
-	}
-
-	if ((copy_to_user((void *) arg, &args, sizeof(agency_tx_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
-		BUG();
-	}
-
-	return 0;
+	return slotID;
 }
 
 
@@ -94,25 +83,22 @@ int ioctl_inject_ME(unsigned long arg) {
  *
  * @ME: pointer to the ME chunk received from the vUIHandler 
  * @size: Size of the ME chunk
- * @return 0 
  */
-int injector_receive_ME(void *ME, size_t size) {
+void injector_receive_ME(void *ME, size_t size) {
 
-
+#if 0
+	printk("%d\n", size);
+#endif	
 	wait_event_interruptible(wq_prod, !full);
 
 	current_size += size;
-#if 0
-	printk("cur_size %d\n", current_size);
-#endif	
+
 	tmp_buf = ME;
 	tmp_size = size;
 
 	full = true;
 
 	wake_up_interruptible(&wq_cons);
-
-	return 0;
 }
 
 void *injector_get_tmp_buf(void) {
@@ -147,28 +133,31 @@ void injector_prepare(uint32_t size) {
 
 void injector_clean_ME(void) {
 	vfree((void *)ME_buffer);
+
 	ME_size = 0;
 	current_size = 0;
 }
 
 
-void injector_retrieve_ME(unsigned long arg) {
-	injector_ioctl_recv_args_t args;
-
+uint32_t injector_retrieve_ME(void) {
 
 	/* Wait until a ME has started to be received. Will be woke up by 
 	   a call to injector_prepare from the vuihandler */
 	wait_for_completion(&me_ready_compl);
 
-	args.ME_data = ME_buffer;
-	args.size = ME_size;
-
-	if ((copy_to_user((void *) arg, &args, sizeof(injector_ioctl_recv_args_t))) != 0) {
-		lprintk("Agency: %s:%d Failed to copy args to userspace\n", __func__, __LINE__);
-		BUG();
-	}
+	return ME_size;
 }
 
+/**
+ * Read callback function to interact with the user space.
+ * The user space reads chunks of ME.
+ *
+ * @param fp
+ * @param buff
+ * @param length
+ * @param ppos
+ * @return
+ */
 ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
 	int maxbytes;
 	int bytes_to_read;
@@ -182,9 +171,9 @@ ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
 	maxbytes = injector_get_tmp_size();
 
 	if (maxbytes > length)
-			bytes_to_read = length;
+		bytes_to_read = length;
 	else
-			bytes_to_read = maxbytes;	
+		bytes_to_read = maxbytes;
 
 	bytes_read = copy_to_user(buff, ME, bytes_to_read);
 
@@ -192,6 +181,7 @@ ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
 	injector_set_full(false);
 	wake_up_interruptible(&wq_prod);
 
+#warning temp trick...
 	vfree(ME-1);
 
     	return bytes_to_read;

@@ -26,25 +26,17 @@
 
 #ifndef __AVZ__
 #include <linux/types.h>
+
+typedef uint64_t addr_t;
+
 #endif
 
 /*
  * Capabilities for the Species Aptitude Descriptor (SPAD) structure
- * The SPAD contains a table of 16 chars called "capabilities".
- * A capability refers to a functionality.
- * - The numbers correspond to the index of the char dedicated to a particular
- *   SPAD capability class in the SPAD capability table.
- * - The bit shiftings designate a particular SPAD capability.
  *
  */
 
-#define SPAD_CAP_HEATING_CONTROL		(1 << 0)
-#define SPAD_CAP_SOUND_PRESENCE_DETECTION	(1 << 1)
-
-#define SPAD_CAP_SOUND_MIX			(1 << 2)
-#define SPAD_CAP_SOUND_STREAM			(1 << 3)
-
-#define SPAD_CAPS_SIZE				16
+#define SPADCAP_HEATING_CONTROL		(1 << 0)
 
 /*
  * Species Aptitude Descriptor (SPAD)
@@ -52,12 +44,12 @@
 typedef struct {
 
 	/* Indicate if the ME accepts to collaborate with other ME */
-	bool		valid;
+	bool valid;
 
-	unsigned char	caps[SPAD_CAPS_SIZE];
+	/* SPAD capabilities */
+	uint64_t spadcaps;
+
 } spad_t;
-
-#define SPID_SIZE	16
 
 /* This structure is used as the first field of the ME buffer frame header */
 typedef struct {
@@ -107,13 +99,14 @@ typedef enum {
  * the same structure used in the ME.
  */
 typedef struct {
+	unsigned int	slotID;
+
 	ME_state_t	state;
 
-	unsigned int	slotID;
 	unsigned int	size; /* Size of the ME */
 	unsigned int	pfn;
 
-	unsigned char	spid[SPID_SIZE]; /* Species ID */
+	uint64_t	spid; /* Species ID */
 	spad_t		spad; /* ME Species Aptitude Descriptor */
 } ME_desc_t;
 
@@ -130,6 +123,8 @@ typedef struct {
 	ME_state_t state;
 
 	uint64_t spid;
+	uint64_t spadcaps;
+
 	char name[ME_NAME_SIZE];
 	char shortdesc[ME_SHORTDESC_SIZE];
 } ME_id_t;
@@ -141,17 +136,16 @@ typedef struct {
 #ifndef __AVZ__
 
 int get_ME_state(unsigned int ME_slotID);
-int set_ME_state(unsigned int ME_slotID, ME_state_t state);
+void set_ME_state(unsigned int ME_slotID, ME_state_t state);
 
-int ioctl_get_ME_free_slot(unsigned long arg);
-int ioctl_get_ME_desc(unsigned long arg);
+int32_t get_ME_free_slot(uint32_t size);
+
+bool get_ME_id(uint32_t slotID, ME_id_t *ME_id);
 
 void get_ME_id_array(ME_id_t *ME_id_array);
 char *xml_prepare_id_array(ME_id_t *ME_id_array);
 
 void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc);
-
-void get_ME_spid(unsigned int slotID, unsigned char *spid);
 
 #endif /* !__AVZ__ */
 #endif /* __KERNEL__ */

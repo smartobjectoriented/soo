@@ -121,7 +121,7 @@ typedef struct shared_info shared_info_t;
 
 extern volatile shared_info_t *HYPERVISOR_shared_info;
 
-extern int hypercall_trampoline(int hcall, long a0, long a2, long a3, long a4);
+extern void hypercall_trampoline(int hcall, long a0, long a2, long a3, long a4);
 
 #define avz_shared_info ((shared_info_t *) HYPERVISOR_shared_info)
 

@@ -40,15 +40,18 @@
 
 typedef struct {
 	uint8_t		type;
-	uint8_t		spid[SPID_SIZE];
+	uint64_t	spid;
 	uint8_t		payload[0]; // TODO describe this payload better!
 } vuihandler_pkt_t;
 
 #define VUIHANDLER_MAX_PACKETS		8
+
 /* Maximal size of a BT packet payload */
 #define VUIHANDLER_MAX_PAYLOAD_SIZE	1024
+
 /* Maximal size of a BT packet's data (the header is included) */
 #define VUIHANDLER_MAX_PKT_SIZE		(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PAYLOAD_SIZE)
+
 /* Shared buffer size */
 #define VUIHANDLER_BUFFER_SIZE		(VUIHANDLER_MAX_PACKETS * VUIHANDLER_MAX_PKT_SIZE)
 
@@ -63,7 +66,6 @@ typedef struct {
 
 /* Number of TX packets which can be queued in the TX buffer */
 #define VUIHANDLER_TX_BUF_SIZE 	8
-
 
 typedef struct {
 	vuihandler_pkt_t *pkt;
@@ -107,7 +109,7 @@ typedef struct {
 DEFINE_RING_TYPES(vuihandler_rx, vuihandler_rx_request_t, vuihandler_rx_response_t);
 
 typedef struct {
-	uint8_t			spid[SPID_SIZE];
+	uint64_t		spid;
 	struct list_head	list;
 } vuihandler_connected_app_t;
 
@@ -117,7 +119,7 @@ void vuihandler_open_rfcomm(pid_t pid);
 
 void vuihandler_sl_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size);
 void vuihandler_send(void *data, size_t size);
-void vuihandler_get_app_spid(uint8_t spid[SPID_SIZE]);
+void vuihandler_get_app_spid(uint64_t spid);
 
 #if defined(CONFIG_BT_RFCOMM)
 
@@ -155,7 +157,7 @@ typedef struct {
 	vuihandler_shared_buffer_t	rx_buffers;
 
 	/* Holds the SPID of the ME who is connected */
-	uint8_t spid[SPID_SIZE];
+	uint64_t spid;
 
 } vuihandler_t;
 
@@ -163,7 +165,7 @@ typedef struct {
 irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id);
 irqreturn_t vuihandler_rx_interrupt(int irq, void *dev_id);
 
-void vuihandler_update_spid_vbstore(uint8_t spid[SPID_SIZE]);
+void vuihandler_update_spid_vbstore(uint64_t spid);
 
 int vuihandler_send_from_agency(uint8_t *data, uint32_t size, uint8_t type);
 

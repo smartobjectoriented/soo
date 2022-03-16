@@ -21,15 +21,9 @@
 
 #include <linux/fs.h>
 
-typedef struct {
-	void *upgrade_buffer;
-	size_t	size;
-	unsigned int ME_slotID;
-} upgrader_ioctl_recv_args_t;
+void get_upgrade_image(uint32_t *size, uint32_t *slotID);
 
-int ioctl_get_upgrade_image(unsigned long arg);
-
-int ioctl_store_versions(unsigned long arg);
+void store_versions(upgrade_versions_args_t *versions);
 
 int agency_upgrade_mmap(struct file *filp, struct vm_area_struct *vma);
 

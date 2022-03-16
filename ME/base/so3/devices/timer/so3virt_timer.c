@@ -85,13 +85,6 @@ void periodic_timer_start(void) {
 	bind_virq_to_irqhandler(VIRQ_TIMER, timer_isr, NULL, NULL);
 }
 
-/*
- * Program the oneshot timer with a deadline expressed in ns.
- */
-void oneshot_timer_set_delay(uint64_t delay_ns) {
-	avz_sched_deadline(delay_ns);
-}
-
 
 /*
  * Initialize the periodic timer used by the kernel.

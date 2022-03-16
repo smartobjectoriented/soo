@@ -45,7 +45,7 @@ typedef struct {
         bool ready;
 
         /* agencyUID of this Smart Object */
-        agencyUID_t agencyUID;
+        uint64_t agencyUID;
 
         struct soo_simul_env *soo_simul;
 
