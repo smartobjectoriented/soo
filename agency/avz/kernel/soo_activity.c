@@ -213,7 +213,9 @@ static void soo_pre_propagate(unsigned int slotID, int *propagate_status) {
 	domcall_args.cmd = CB_PRE_PROPAGATE;
 	domcall_args.__agency_ctl = agency_ctl;
 
+#if 0
 	DBG("Pre-propagate callback being issued...\n");
+#endif
 
 	domcall_args.slotID = slotID;
 
