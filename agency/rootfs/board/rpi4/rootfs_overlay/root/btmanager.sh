@@ -4,10 +4,11 @@ BT_TTY="/dev/ttyAMA0"
 
 
 # The MAC address is generated using some agency UID bytes
-AGENCYUID_FILE="/sys/devices/system/soo/soo0/agencyUID"
-BDADDR=`cat ${AGENCYUID_FILE} | cut -c1-17`
-
+AGENCYUID_FILE="/sys/soo/agencyUID"
+AGENCYUID=`cat ${AGENCYUID_FILE}`
+BDADDR=${AGENCYUID:0:2}:${AGENCYUID:2:2}:${AGENCYUID:4:2}:${AGENCYUID:6:2}:${AGENCYUID:8:2}:${AGENCYUID:10:2}
 echo "Bluetooth configuration..."
+echo "- with MAC:" ${AGENCYUID}
 
 # Configure the controller with an address and load its firmware
 hciattach ${BT_TTY} bcm43xx 460800 flow - ${BDADDR}

@@ -24,6 +24,8 @@
 
 typedef enum {
 	/* SOO */
+	agencyUID,
+	name,
 
 	/** SOOlink **/
 
