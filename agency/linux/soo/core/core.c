@@ -373,41 +373,8 @@ static struct soo_driver soo_core_driver = {
 	},
 };
 
-/*
- * Various sysfs attributes which may be used as debug helpers to retrieve values of
- * some debug variables
- */
-
-/* Debugvar debugging facility */
-extern ssize_t dbgvar_show(struct device *dev, struct device_attribute *attr, char *buf);
-extern ssize_t dbgvar_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size);
-DEVICE_ATTR_RW(dbgvar);
-
-/* Smart Object agencyUID management */
-DEVICE_ATTR_RW(agencyUID);
-
-/* Smart Object name management */
-DEVICE_ATTR_RW(soo_name);
-
-static struct attribute *soo_dev_attrs[] = {
-    &dev_attr_dbgvar.attr,
-    &dev_attr_agencyUID.attr,
-    &dev_attr_soo_name.attr,
-    NULL,
-};
-
-static struct attribute_group soo_dev_group = {
-    .attrs = soo_dev_attrs,
-};
-
-const struct attribute_group *soo_dev_groups[] = {
-    &soo_dev_group,
-    NULL,
-};
-
 static struct device soo_dev = {
     .bus = &soo_subsys,
-    .groups = soo_dev_groups
 };
 
 #endif /* !CONFIG_X86 */

@@ -28,6 +28,8 @@
 
 /* Required to have a real string for each attribute. */
 char *soo_sysfs_names[] = {
+	[agencyUID] = "agencyUID",
+	[name] = "name",
 	[buffer_count] = "buffer_count",
 	[neighbours] = "neighbours",
 	[vsensej_js]= "vsensej_js",
@@ -98,6 +100,8 @@ ssize_t	attr_store(struct kobject *kobj, struct kobj_attribute *attr, const char
 /***** Attributes declaration *****/
 
 /* SOO */
+static struct kobj_attribute agencyUID_attr = __ATTR(agencyUID, 0664, attr_show, attr_store);
+static struct kobj_attribute name_attr = __ATTR(name, 0664, attr_show, attr_store);
 
 /** SOOlink **/
 
@@ -111,6 +115,16 @@ static struct kobj_attribute neighbours_attr = __ATTR(neighbours, 0664, attr_sho
 /**** vsensej ****/
 static struct kobj_attribute vsensej_js_attr = __ATTR(vsensej_js, 0664, attr_show, attr_store);
 
+/* Groups of attributes for SOO (root) */
+static struct attribute *soo_attrs[] = {
+	&agencyUID_attr.attr,
+	&name_attr.attr,
+	NULL,	/* need to NULL terminate the list of attributes */
+};
+
+static struct attribute_group soo_group = {
+	.attrs = soo_attrs,
+};
 
 /* Group of attributes for SOOlink Discovery */
 static struct attribute *soolink_discovery_attrs[] = {
@@ -145,6 +159,9 @@ void soo_sysfs_init(void) {
 	/* SOO root */
         root_kobj = kobject_create_and_add("soo", NULL);
 	BUG_ON(!root_kobj);
+
+	ret = sysfs_create_group(root_kobj, &soo_group);
+	BUG_ON(ret);
 
 	/** SOOlink **/
 	soolink_kobj = kobject_create_and_add("soolink", root_kobj);

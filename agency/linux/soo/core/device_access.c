@@ -19,6 +19,7 @@
 #include <linux/random.h>
 
 #include <soo/core/device_access.h>
+#include <soo/core/sysfs.h>
 
 #include <soo/guest_api.h>
 
@@ -126,18 +127,8 @@ void devaccess_dump_soo_name(void) {
 	lprintk("SOO name: %s\n", current_soo->name);
 }
 
-ssize_t agencyUID_show(struct device *dev, struct device_attribute *attr, char *buf) {
-	char agencyUID_str[20];
-
-	sprintf(agencyUID_str, "0x%016llx", HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID);
-
-	return strlen(agencyUID_str) + 1;
-}
-
-ssize_t agencyUID_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size) {
-	/* Writing into the agency UID is not allowed */
-
-	return size;
+void agencyUID_read(char *str) {
+	sprintf(str, "%16llx", HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID);
 }
 
 /*
@@ -153,28 +144,26 @@ void set_agencyUID(uint64_t val) {
 	soo_log_printlnUID(current_soo->agencyUID);
 }
 
-ssize_t soo_name_show(struct device *dev, struct device_attribute *attr, char *buf) {
-	devaccess_get_soo_name(buf);
-
-	return strlen(buf);
+void name_read(char *str) {
+	devaccess_get_soo_name(str);
 }
 
-ssize_t soo_name_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size) {
+void name_write(char *str) {
 	char tmp_buf[SOO_NAME_SIZE + 1];
 
 	/* Is the name too long? */
-	if (strlen(buf) >= SOO_NAME_SIZE)
-		return size;
+	if (strlen(str) >= SOO_NAME_SIZE) {
+		strcpy(str, "(soo_name too long)");
+		return ;
+	}
 
-	strcpy(tmp_buf, buf);
+	strcpy(tmp_buf, str);
 
 	/* If the last character is a '\n', delete it */
 	if (tmp_buf[strlen(tmp_buf) - 1] == '\n')
 		tmp_buf[strlen(tmp_buf) - 1] = '\0';
 
 	devaccess_set_soo_name((char *) tmp_buf);
-
-	return size;
 }
 
 void devaccess_init(void) {
@@ -183,4 +172,7 @@ void devaccess_init(void) {
 	/* Initialize the device capabilities bitmap */
 	for (i = 0; i < DEVCAPS_CLASS_NR; i++)
 		__devcaps[i] = 0;
+
+	soo_sysfs_register(agencyUID, agencyUID_read, NULL);
+	soo_sysfs_register(name, name_read, name_write);
 }
