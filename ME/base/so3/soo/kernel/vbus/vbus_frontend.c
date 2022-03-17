@@ -204,6 +204,9 @@ static int remove_dev_watches(struct vbus_device *vdev, void *data)
 	return 0;
 }
 
+/**
+ * Called after migration during the resume process.
+ */
 void postmig_setup(void) {
 	/*
 	 * First, we need to take care about local watches on vbstore entries to be ready
@@ -229,6 +232,10 @@ void postmig_setup(void) {
 	 * During the creation of vbstore entries on the agency side - and after migration - only the existing entries will be updated
 	 * Otherwise, the frontend will staid suspended.
 	 */
+
+	/* Write the entries related to the ME ID in vbstore */
+	vbstore_ME_ID_populate();
+
 	DBG0("Re-creating all vbstore entries & watches for all required (frontend) devices...\n");
 	vbstore_devices_populate();
 

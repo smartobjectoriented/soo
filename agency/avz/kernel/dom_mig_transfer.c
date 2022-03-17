@@ -45,7 +45,7 @@
 
 #include <soo_migration.h>
 /*
- * Structures to store domain nfos. Must be here and not locally in function,
+ * Structures to store domain infos. Must be here and not locally in function,
  * since the maximum stack size is 8 KB
  */
 static struct domain_migration_info dom_info = {0};
@@ -67,7 +67,7 @@ void migration_init(soo_hyp_t *op) {
 	unsigned int slotID = *((unsigned int *) op->p_val1);
 	struct domain *domME = domains[slotID];
 
-	DBG("Initializing migration of ME slotID=%d, pers=%d\n", slotID, pers);
+	DBG("Initializing migration of ME slotID=%d\n", slotID);
 
 	switch (get_ME_state(slotID)) {
 
