@@ -31,6 +31,12 @@ char *soo_sysfs_names[] = {
 	[buffer_count] = "buffer_count",
 	[neighbours] = "neighbours",
 	[vsensej_js]= "vsensej_js",
+	[vwagoled_notify] = "vwagoled_notify",
+	[vwagoled_debug] = "vwagoled_debug",
+	[vwagoled_led_on] = "vwagoled_led_on",
+	[vwagoled_led_off] = "vwagoled_led_off",
+	[vwagoled_get_topology] = "vwagoled_get_topology",
+	[vwagoled_get_status] = "vwagoled_get_status"
 };
 
 static struct kobject *root_kobj;
@@ -39,6 +45,7 @@ static struct kobject *soolink_discovery_kobj;
 
 static struct kobject *backend_kobj;
 static struct kobject *backend_vsensej_kobj;
+static struct kobject *backend_vwagoled_kobj;
 
 
 /* Internal list structure to manage the diversity of callback functions related to attributes */
@@ -111,7 +118,13 @@ static struct kobj_attribute neighbours_attr = __ATTR(neighbours, 0664, attr_sho
 /**** vsensej ****/
 static struct kobj_attribute vsensej_js_attr = __ATTR(vsensej_js, 0664, attr_show, attr_store);
 
-
+/**** vwagoled ****/
+static struct kobj_attribute vwagoled_notify_attr = __ATTR(vwagoled_notify, 0664, attr_show, attr_store);
+static struct kobj_attribute vwagoled_debug_attr = __ATTR(vwagoled_debug, 0664, attr_show, attr_store);
+static struct kobj_attribute vwagoled_led_on_attr = __ATTR(vwagoled_led_on, 0664, attr_show, attr_store);
+static struct kobj_attribute vwagoled_led_off_attr = __ATTR(vwagoled_led_off, 0664, attr_show, attr_store);
+static struct kobj_attribute vwagoled_get_topology_attr = __ATTR(vwagoled_get_topology, 0664, attr_show, attr_store);
+static struct kobj_attribute vwagoled_get_status_attr = __ATTR(vwagoled_get_status, 0664, attr_show, attr_store);
 /* Group of attributes for SOOlink Discovery */
 static struct attribute *soolink_discovery_attrs[] = {
 	&buffer_count_attr.attr,
@@ -124,6 +137,7 @@ static struct attribute_group soolink_discovery_group = {
 };
 
 /* Group of attributes for Backends */
+/**** vsensej ****/
 static struct attribute *backend_vsensej_attrs[] = {
 	&vsensej_js_attr.attr,
 	NULL,	/* need to NULL terminate the list of attributes */
@@ -131,6 +145,21 @@ static struct attribute *backend_vsensej_attrs[] = {
 
 static struct attribute_group backend_vsensej_group = {
 	.attrs = backend_vsensej_attrs,
+};
+
+/**** vwagoled ****/
+static struct attribute *backend_vwagoled_attrs[] = {
+	&vwagoled_notify_attr.attr,
+	&vwagoled_debug_attr.attr,
+	&vwagoled_led_on_attr.attr,
+	&vwagoled_led_off_attr.attr,
+	&vwagoled_get_status_attr.attr,
+	&vwagoled_get_topology_attr.attr,
+	NULL,
+};
+
+static struct attribute_group backend_vwagoled_group = {
+	.attrs = backend_vwagoled_attrs,
 };
 
 void soo_sysfs_init(void) {
@@ -168,6 +197,12 @@ void soo_sysfs_init(void) {
 	ret = sysfs_create_group(backend_vsensej_kobj, &backend_vsensej_group);
 	BUG_ON(ret);
 
+	/**** vwagoled ****/
+	backend_vwagoled_kobj = kobject_create_and_add("vwagoled", backend_kobj);
+	BUG_ON(!backend_vsensej_kobj);
+
+	ret = sysfs_create_group(backend_vwagoled_kobj, &backend_vwagoled_group);
+	BUG_ON(ret);
 }
 
 
