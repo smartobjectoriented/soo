@@ -1,8 +1,21 @@
 #include <rapidjson/document.h>
 #include <iostream>
 #include <stdexcept>
-#include <algorithm>  
+#include <algorithm> 
+#include <unistd.h>
+#include <fcntl.h>
+#include <csignal>
+#include <cerrno>
+#include <string>
+#include <cstring>
+#include <cstdio>
+#include <sstream>
+
 #include "ledcontrol.h"
+
+#if 1
+#define DEBUG
+#endif
 
 namespace LED
 {
@@ -18,6 +31,7 @@ namespace LED
 
     void Ledctrl::init()
     {
+#ifndef DEBUG
         std::string topology;
         rapidjson::Document doc;
 
@@ -53,10 +67,212 @@ namespace LED
                 leds.push_back(l);
             }
         }
+#endif
+    }
 
-        // for (auto& elem : leds)
-        // {
-        //     std::cout << "Led [" << elem->id << "] value : " << elem->status << std::endl;
+    void Ledctrl::start_debug()
+    {
+        int debug_fd;
+        char buf[BUFFER_SIZE] = {0};
+
+        if ((debug_fd = open(SYSFS_DEBUG, O_RDWR)) < 0)
+        {
+            throw std::runtime_error("Failed to open " SYSFS_DEBUG " : " + 
+                                        std::string(strerror(errno)));
+        }
+
+        //Activate debug thread func
+        std::cout << "Activating debug mode" << std::endl;
+        int dbg;
+
+        if (read(debug_fd, &buf, 1) < 0)
+        {
+            throw std::runtime_error("Failed to read to " SYSFS_DEBUG " : " + 
+                                        std::string(strerror(errno)));
+        }
+
+        std::cout << "Debug mode: " << std::stoi(buf) << std::endl;
+
+        if (!std::stoi(buf))
+        {
+            std::cout << "Debug mode not active. Start activation" << std::endl;
+            dbg = 1;
+
+            if (write(debug_fd, &dbg, sizeof(int)) < 0)
+            {
+                throw std::runtime_error("Failed to write to " SYSFS_DEBUG " : " + 
+                                            std::string(strerror(errno)));
+            }
+        }
+
+        if (close(debug_fd) < 0)
+        {
+            throw std::runtime_error("Failed to close " SYSFS_DEBUG " : " + 
+                                        std::string(strerror(errno)));
+        }
+    }
+
+    void Ledctrl::stop_debug()
+    {
+        int debug_fd;
+        char buf[BUFFER_SIZE] = {0};
+
+        if ((debug_fd = open(SYSFS_DEBUG, O_RDWR)) < 0)
+        {
+            throw std::runtime_error("Failed to open " SYSFS_DEBUG " : " + 
+                                        std::string(strerror(errno)));
+        }
+
+        //Activate debug thread func
+        std::cout << "Deactivating debug mode" << std::endl;
+        int dbg;
+
+        if (read(debug_fd, &buf, 1) < 0)
+        {
+            throw std::runtime_error("Failed to read to " SYSFS_DEBUG " : " + 
+                                        std::string(strerror(errno)));
+        }
+
+        std::cout << "Debug mode: " << std::stoi(buf) << std::endl;
+
+        if (std::stoi(buf))
+        {
+            std::cout << "Debug mode is active.Deactivating" << std::endl;
+            dbg = 0;
+
+            if (write(debug_fd, &dbg, sizeof(int)) < 0)
+            {
+                throw std::runtime_error("Failed to write to " SYSFS_DEBUG " : " + 
+                                            std::string(strerror(errno)));
+            }
+        }
+
+        if (close(debug_fd) < 0)
+        {
+            throw std::runtime_error("Failed to close " SYSFS_DEBUG " : " + 
+                                        std::string(strerror(errno)));
+        }
+    }
+
+    void Ledctrl::extract_ids(char *ids, std::vector<int>& vect_ids)
+    {
+        std::stringstream ss(ids);
+
+        while(ss.good())
+        {
+            std::string sub;
+            getline(ss, sub, IDS_DELIM);
+            vect_ids.push_back(std::stoi(sub));
+        }
+
+    }
+
+    int Ledctrl::process_notify(char *cmd, char* ids)
+    {
+        wagoled_cmd_t _cmd;
+        std::vector<int> _ids;
+
+        for (int i = 0; i < CMD_NUM; i++)
+        {
+            if (strcmp(notify_str[i], cmd) == 0)
+            {
+                _cmd = (wagoled_cmd_t)i;
+                break;
+            }
+        }
+
+        extract_ids(ids, _ids);
+
+#ifdef DEBUG
+        std::cout << "selected cmd: " << notify_str[_cmd] << ", ids: " <<std::endl;
+        for (auto &elem : _ids)
+        {
+            std::cout << elem;
+        }
+        std::cout << std::endl;
+#endif
+
+        switch (_cmd)
+        {
+        case CMD_LED_ON:
+            /* code */
+            //call turn_on
+            break;
+        
+        case CMD_LED_OFF:
+            //call turn_off
+            break;
+
+        case CMD_GET_STATUS:
+            //call get_status
+            break;
+
+        case CMD_GET_TOPOLOGY:
+            //call get_topology
+            break;
+        
+        default:
+            break;
+        }
+
+        return 0;
+    }
+
+    int Ledctrl::main_loop()
+    {
+        int notify_fd, attr_fd;
+        int rd;
+        char cmd[CMD_SIZE] = {0}, attr_path[BUFFER_SIZE] = {0}, ids[BUFFER_SIZE] = {0};
+
+#ifdef DEBUG
+        start_debug();
+#endif
+        while(1)
+        {
+            memset(cmd, 0, CMD_SIZE);
+            memset(ids, 0, BUFFER_SIZE);
+            memset(attr_path, 0, BUFFER_SIZE);
+
+            if ((notify_fd = open(SYSFS_NOTIFY, O_RDONLY))  < 0)
+            {
+                throw std::runtime_error("Failed to open " SYSFS_NOTIFY " : " + 
+                                            std::string(strerror(errno)));
+            }
+            
+            if ((rd = read(notify_fd, &cmd, CMD_SIZE)) < 0)
+            {
+                perror("read()");
+                break;
+            }
+
+            close(notify_fd);
+
+            sprintf(attr_path, "%s%s", SYSFS_BASE, cmd);
+
+            if ((attr_fd = open(attr_path, O_RDONLY)) < 0)
+            {
+                throw std::runtime_error("Failed to open " + std::string(attr_path) + " : " + 
+                                            std::string(strerror(errno)));
+            }
+
+            if ((rd = read(attr_fd, &ids, BUFFER_SIZE)) < 0)
+            {
+                perror("read()");
+                break;
+            }
+            close(attr_fd);
+
+#ifdef DEBUG
+            std::cout << "CMD: "<< cmd << ", ids: " << ids << std::endl;
+#endif
+            process_notify(cmd, ids);
+        }
+
+#ifdef DEBUG
+        stop_debug();
+#endif
+
+        return 0;
     }
 
     void Ledctrl::build_args_str(std::string& args, std::vector<int> ids)
