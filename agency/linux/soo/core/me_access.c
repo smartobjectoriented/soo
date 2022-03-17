@@ -31,7 +31,6 @@
 #include <soo/uapi/debug.h>
 #include <soo/uapi/me_access.h>
 
-
 int get_ME_state(unsigned int ME_slotID)
 {
 	int val;
@@ -104,13 +103,19 @@ bool get_ME_id(uint32_t slotID, ME_id_t *ME_id) {
 	char rootname[VBS_KEY_LENGTH];
 	unsigned int len;
 
+	/* The ME can be dormant but without any accessible ID information */
+	ME_id->state = get_ME_state(slotID);
+
+	if (ME_id->state == ME_state_dead)
+		return false;
+
 	sprintf(rootname, "soo/me/%d", slotID);
 
 	/* Check if there is a ME? */
 	prop = vbus_read(VBT_NIL, rootname, "spid", &len);
 
 	if (len == 1)  { /* If no entry in vbstore, it returns 1 (byte \0) */
-		return false;
+		return true;
 	} else {
 		sscanf(prop, "%llx", &ME_id->spid);
 		kfree(prop);
@@ -121,7 +126,6 @@ bool get_ME_id(uint32_t slotID, ME_id_t *ME_id) {
 		sscanf(prop, "%llx", &ME_id->spadcaps);
 		kfree(prop);
 
-		ME_id->state = get_ME_state(slotID);
 		prop = vbus_read(VBT_NIL, rootname, "name", &len);
 
 		strcpy(ME_id->name, prop);
@@ -148,8 +152,7 @@ void get_ME_id_array(ME_id_t *ME_id_array) {
 	/* Walk through all entries in vbstore regarding MEs */
 
 	for (slotID = 2; slotID < MAX_DOMAINS; slotID++)
-		if (!get_ME_id(slotID, &ME_id_array[slotID-2]))
-			ME_id_array[slotID-2].state = ME_state_dead;
+		get_ME_id(slotID, &ME_id_array[slotID-2]);
 
 }
 EXPORT_SYMBOL(get_ME_id_array);
