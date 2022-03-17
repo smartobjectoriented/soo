@@ -33,7 +33,11 @@ typedef enum {
 	/** Backend **/
 
 	/**** vsensej ****/
-	vsensej_js
+	vsensej_js,
+
+	/**** vwagoled ****/
+	vwagoled_notify, vwagoled_debug, vwagoled_led_on, vwagoled_led_off, vwagoled_get_topology,
+	vwagoled_get_status
 
 } soo_sysfs_attr_t;
 
