@@ -42,6 +42,8 @@
 
 #include <soo/dev/vwagoled.h>
 
+#include "ledctrl.h"
+
 
 typedef struct {
 
@@ -193,7 +195,7 @@ vdrvback_t vwagoleddrv = {
 int vwagoled_init(void) {
 	struct device_node *np;
 
-     DBG(VWAGOLED_PREFIX "Backend starting\n");
+    DBG(VWAGOLED_PREFIX "Backend starting\n");
 
 	np = of_find_compatible_node(NULL, NULL, "vwagoled,backend");
 
@@ -202,6 +204,10 @@ int vwagoled_init(void) {
 		return 0;
 
 	vdevback_init(VWAGOLED_NAME, &vwagoleddrv);
+
+	if (ledctrl_init() < 0) {
+		BUG();
+	}
 
     DBG(VWAGOLED_PREFIX "Backend initialized\n");
 	

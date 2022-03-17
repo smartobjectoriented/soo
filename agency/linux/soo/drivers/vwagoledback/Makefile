@@ -1,2 +1,2 @@
-obj-y := vwagoled.o
+obj-y := vwagoled.o ledctrl.o
 
