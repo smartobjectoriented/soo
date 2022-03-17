@@ -55,6 +55,13 @@ int fd_core;
  * Initiate the migration process of a ME.
  * In any case, the function can't fail. As a principle, any error leads to BUG().
  */
+/**
+ * Initiate the migration process of a ME.
+ * In any case, the function can't fail. As a principle, any error leads to BUG().
+ *
+ * @param slotID
+ * @return false in case the ME is dead during the pre_propagate callback
+ */
 int initialize_migration(unsigned int slotID) {
 	int rc;
 	struct agency_ioctl_args args;
@@ -130,12 +137,11 @@ void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size) {
 /**
  * Restore the snapshot of a ME.
  */
-void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer, size_t buffer_size) {
+void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer) {
 	agency_ioctl_args_t args;
 
 	args.slotID = slotID;
 	args.buffer = ME_buffer;
-	args.value = buffer_size;
 
 	if (ioctl(fd_core, AGENCY_IOCTL_WRITE_SNAPSHOT, &args) < 0) {
 		printf("%s: (ioctl) failed to write snapshot.\n", __func__);

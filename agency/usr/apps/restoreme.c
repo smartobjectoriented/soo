@@ -46,12 +46,11 @@ int initialize_migration(unsigned int slotID) {
 /**
  * Restore the snapshot of a ME.
  */
-void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer, size_t buffer_size) {
+void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer) {
 	agency_ioctl_args_t args;
 
 	args.slotID = slotID;
 	args.buffer = ME_buffer;
-	args.value = buffer_size;
 
 	ioctl(fd_core, AGENCY_IOCTL_WRITE_SNAPSHOT, &args);
 }
@@ -96,7 +95,7 @@ int main(int argc, char *argv[]) {
 
 	initialize_migration(2);
 
-	write_ME_snapshot(2, buffer, buffer_size);
+	write_ME_snapshot(2, buffer);
 
 	args.slotID = 2;
 

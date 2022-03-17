@@ -43,7 +43,7 @@
  * Used to store ioctl args/buffers
  * Cannot be stored on the local stack since it is to big.
  */
-static uint8_t buffer[32 * 1024]; /* 32 Ko */
+static uint8_t __buffer[32 * 1024]; /* 32 Ko */
 
 /**
  * Initialize the migration process of a ME.
@@ -119,9 +119,9 @@ void write_snapshot(uint32_t slotID, void *buffer) {
 	ME_info_transfer = (ME_info_transfer_t *) buffer;
 
 	/* Retrieve the info related to the migration structure */
-	memcpy(buffer, buffer + sizeof(ME_info_transfer_t), ME_info_transfer->size_mig_structure);
+	memcpy(__buffer, buffer + sizeof(ME_info_transfer_t), ME_info_transfer->size_mig_structure);
 
-	soo_hypercall(AVZ_MIG_WRITE_MIGRATION_STRUCT, buffer, NULL, NULL, NULL);
+	soo_hypercall(AVZ_MIG_WRITE_MIGRATION_STRUCT, __buffer, NULL, NULL, NULL);
 
 	/* We got the pfn of the local destination for this ME, therefore... */
 
@@ -165,10 +165,10 @@ void copy_ME_snapshot_to_user(void *ME_snapshot, void *user_addr, uint32_t size)
  * The ME is read and stored in a vmalloc'd memory area.
  *
  * @param slotID
- * @param ME_buffer pointer to the ME buffer. The address is returned by vmalloc().
- * @return size of the ME buffer
+ * @param buffer pointer to the ME buffer. The address is returned by vmalloc().
+ * @return size of the buffer
  */
-int read_snapshot(uint32_t slotID, void **ME_buffer) {
+int read_snapshot(uint32_t slotID, void **buffer) {
 	ME_desc_t ME_desc;
 	ME_info_transfer_t *ME_info_transfer;
 	void *source;
@@ -182,17 +182,17 @@ int read_snapshot(uint32_t slotID, void **ME_buffer) {
 	 * The buffer must be free'd once it has been sent out (by the DCM).
 	 */
 
-	*ME_buffer = __vmalloc(ME_desc.size + ME_EXTRA_BUFFER_SIZE, GFP_HIGHUSER | __GFP_ZERO);
-	BUG_ON(*ME_buffer == NULL);
+	*buffer = __vmalloc(ME_desc.size + ME_EXTRA_BUFFER_SIZE, GFP_HIGHUSER | __GFP_ZERO);
+	BUG_ON(*buffer == NULL);
 
 	/* Beginning of the ME buffer to transmit - We start with the information transfer. */
-	ME_info_transfer = (ME_info_transfer_t *) *ME_buffer;
+	ME_info_transfer = (ME_info_transfer_t *) *buffer;
 	ME_info_transfer->ME_size = ME_desc.size;
 
-	soo_hypercall(AVZ_MIG_READ_MIGRATION_STRUCT, buffer, NULL, &slotID, &size);
+	soo_hypercall(AVZ_MIG_READ_MIGRATION_STRUCT, __buffer, NULL, &slotID, &size);
 
 	/* Store the migration structure within the ME buffer */
-	memcpy(*ME_buffer + sizeof(ME_info_transfer_t), buffer, size);
+	memcpy(*buffer + sizeof(ME_info_transfer_t), __buffer, size);
 
 	/* Keep the size of migration structure */
 	ME_info_transfer->size_mig_structure = size;
@@ -201,7 +201,7 @@ int read_snapshot(uint32_t slotID, void **ME_buffer) {
 	source = ioremap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
 	BUG_ON(source == NULL);
 
-	memcpy(*ME_buffer + sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure, source, ME_desc.size);
+	memcpy(*buffer + sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure, source, ME_desc.size);
 
 	iounmap(source);
 

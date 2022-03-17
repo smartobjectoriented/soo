@@ -231,7 +231,7 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		break;
 
 	case AGENCY_IOCTL_GET_ME_FREE_SLOT:
-		args.value = get_ME_free_slot(args.value);
+		args.slotID = get_ME_free_slot(args.value);
 		break;
 
 	case AGENCY_IOCTL_GET_ME_ID:
