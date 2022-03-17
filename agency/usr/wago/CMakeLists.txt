@@ -1,6 +1,5 @@
 project(wago LANGUAGES C CXX)
 
-
 file(GLOB SRC *.cpp)
 
 add_executable(${PROJECT_NAME} ${SRC})
