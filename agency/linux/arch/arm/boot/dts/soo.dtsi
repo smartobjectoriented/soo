@@ -49,6 +49,14 @@
 				status = "ok";
 			};
 
+			venocean {
+				compatible = "venocean,backend";
+				status = "ok";
+
+				// SW2-gpios = <&gpio 0 GPIO_ACTIVE_HIGH>;
+				// SW1-gpios = <&gpio 1 GPIO_ACTIVE_HIGH>;
+			};
+
 		};
 	};
 	
