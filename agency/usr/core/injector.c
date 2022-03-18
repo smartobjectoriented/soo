@@ -248,5 +248,5 @@ void injector_init(void) {
 
 	injector_dev_init();
 
-	pthread_create(&injection_thread, NULL, ME_retrieve_fn, NULL);
+	// pthread_create(&injection_thread, NULL, ME_retrieve_fn, NULL);
 }

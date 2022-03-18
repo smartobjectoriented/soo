@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -32,9 +32,8 @@
 #include <linux/mutex.h>
 #include <linux/wait.h>
 
-#include <soo/uapi/injector.h>
-
 #include <soo/core/device_access.h>
+#include <soo/core/migmgr.h>
 
 #include <soo/soolink/datalink.h>
 #include <soo/soolink/discovery.h>
@@ -48,7 +47,7 @@
 
 size_t ME_size;
 
-void *ME_buffer;
+uint8_t *ME_buffer;
 
 size_t current_size = 0;
 
@@ -87,18 +86,32 @@ int inject_ME(void *buffer) {
 void injector_receive_ME(void *ME, size_t size) {
 
 #if 0
-	printk("%d\n", size);
-#endif	
 	wait_event_interruptible(wq_prod, !full);
+#endif
+	memcpy(ME_buffer+current_size, ME, size);
 
 	current_size += size;
 
+	/* We received the full ME */ 
+	if (current_size == ME_size) {
+		int slotID = -1;
+
+		slotID = inject_ME(ME_buffer+0xC00000);
+		if (slotID != -1) {
+			soo_log("[soo:injector] Finalizing migration in slot %d\n", slotID);
+			finalize_migration(slotID);
+		}
+
+		injector_clean_ME();
+	}
+#if 0
 	tmp_buf = ME;
 	tmp_size = size;
 
 	full = true;
 
 	wake_up_interruptible(&wq_cons);
+#endif	
 }
 
 void *injector_get_tmp_buf(void) {
@@ -126,14 +139,17 @@ size_t injector_get_ME_size(void) {
 }
 
 void injector_prepare(uint32_t size) {
+	current_size = 0;
 	ME_size = size;
+#if 0	
 	complete(&me_ready_compl);
+#endif	
+	ME_buffer = vzalloc(size);
 }
 
 
 void injector_clean_ME(void) {
 	vfree((void *)ME_buffer);
-
 	ME_size = 0;
 	current_size = 0;
 }

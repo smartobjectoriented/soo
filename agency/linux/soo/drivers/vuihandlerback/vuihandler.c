@@ -375,7 +375,7 @@ void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pk
 		/* Forward the size to the injector so it knows the ME size. */
 		injector_prepare(ME_size);
 
-		vfree(vuihandler_pkt);
+		// vfree(vuihandler_pkt);
 		break;
 
 	/* This is the ME data which needs to be forwarded to the Injector */
@@ -443,7 +443,7 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 	}
 
 	/* We expect the BT packet to be a vUIHandler data packet or an event packet */
-	if (!(vuihandler_pkt->type == VUIHANDLER_DATA || vuihandler_pkt->type == VUIHANDLER_EVENT))
+	if (!(vuihandler_pkt->type == VUIHANDLER_DATA || vuihandler_pkt->type == VUIHANDLER_SEND))
 		return ;
 
 	/* From there, the packet is forwarded to the corresponding ME */
@@ -463,12 +463,12 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 	if (me_id < 0) 
 		return;
 #endif /* TEST_RX */	
-	
+
 	DBG(VUIHANDLER_PREFIX "ME ID: %d\n", me_id);
 
 	rx_push_response(me_id, vuihandler_pkt, vuihandler_pkt_size);
 
-	vfree(vuihandler_pkt);
+	// vfree(vuihandler_pkt);
 }
 
 
@@ -535,6 +535,7 @@ static int rx_bt_task_fn(void *arg) {
 		be read from the userspace correctly). It implies that it is the handler 
 		which MUST vfree the packet after using it */ 
 		vuihandler_recv(priv_buffer, size);
+		vfree(priv_buffer);
 	}
 	return 0;
 }
