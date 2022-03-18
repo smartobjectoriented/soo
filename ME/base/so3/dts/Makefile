@@ -15,5 +15,6 @@ dtb-$(CONFIG_SOO_BLIND) += blind.dtb
 dtb-$(CONFIG_SOO_AGENCY) += agency.dtb
 dtb-$(CONFIG_SOO_NET) += net.dtb
 dtb-$(CONFIG_SOO_LEDCTRL) += ledctrl.dtb
+dtb-$(CONFIG_SOO_WAGOLED) += wagoled.dtb
 
 
