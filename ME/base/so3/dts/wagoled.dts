@@ -46,6 +46,14 @@ on DALI bus";
 		vuihandler {
 			status = "ok";
 		};
+
+		venocean {
+			status = "ok";
+		};
+
+		vwagoled {
+			status = "ok";
+		};
 	};
 	
 };
