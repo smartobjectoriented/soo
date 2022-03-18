@@ -76,6 +76,13 @@ config VWAGOLED_BACKEND
 	default n
 	help
 	  The vwagoled driver allows to changes the status of the wago leds 
+
+config VENOCEAN_BACKEND
+	bool "enOcean backend driver"
+	depends on TTY
+	default n
+	help
+	  This driver enabled to deal with a virtualized interface for the enOcean actuator.
 	  
 source "soo/drivers/vnetback/Kconfig"
 
