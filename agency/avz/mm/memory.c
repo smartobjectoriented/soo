@@ -391,7 +391,7 @@ int get_ME_free_slot(unsigned int size, ME_state_t ME_state) {
 /*
  * Release a slot
  */
-int put_ME_slot(unsigned int slotID) {
+void put_ME_slot(unsigned int slotID) {
 
 	/* Release the allocated memchunks */
 	release_memslot(memslot[slotID].base_paddr, get_power_from_size(DIV_ROUND_UP(memslot[slotID].size, ME_MEMCHUNK_SIZE)));
@@ -401,8 +401,6 @@ int put_ME_slot(unsigned int slotID) {
 #ifdef DEBUG
   printk("put_ME_slot param %d\n", slotID);
 #endif
-
-	return 0;
 }
 
 

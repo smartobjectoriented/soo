@@ -37,18 +37,16 @@
 		do {                                                            \
 			printk("EVTCHNOP failure: error %d\n",                     \
 					(_errno));                                          \
-					rc = (_errno);                                              \
 					BUG();                                                   \
 		} while ( 0 )
 #define ERROR_EXIT_DOM(_errno, _dom)                                \
 		do {                                                            \
 			printk("EVTCHNOP failure: domain %d, error %d\n",          \
 					(_dom)->domain_id, (_errno));                       \
-					rc = (_errno);                                              \
 					BUG();                                                   \
 		} while ( 0 )
 
-static int evtchn_set_pending(struct domain *d, int evtchn);
+static void evtchn_set_pending(struct domain *d, int evtchn);
 
 int get_free_evtchn(struct domain *d) {
 	int i = 0;
@@ -63,10 +61,9 @@ int get_free_evtchn(struct domain *d) {
 	return -ENOSPC;
 }
 
-static long evtchn_alloc_unbound(evtchn_alloc_unbound_t *alloc) {
+static void evtchn_alloc_unbound(evtchn_alloc_unbound_t *alloc) {
 	struct evtchn *chn;
 	int evtchn;
-	long rc = 0;
 	struct domain *d;
 
 	d = ((alloc->dom == DOMID_SELF) ? current : domains[alloc->dom]);
@@ -84,17 +81,14 @@ static long evtchn_alloc_unbound(evtchn_alloc_unbound_t *alloc) {
 
 	alloc->evtchn = evtchn;
 
-	spin_unlock(&d->event_lock);
-
-	return rc;
+	spin_unlock(&d->event_lock);;
 }
 
-static long evtchn_bind_interdomain(evtchn_bind_interdomain_t *bind) {
+static void evtchn_bind_interdomain(evtchn_bind_interdomain_t *bind) {
 	struct evtchn *lchn, *rchn;
 	struct domain *ld, *rd;
 	int levtchn, revtchn;
 	domid_t rdom;
-	long rc = 0;
 	int valid = 0;
 
 	ld = current;
@@ -142,8 +136,6 @@ static long evtchn_bind_interdomain(evtchn_bind_interdomain_t *bind) {
 
 	if (ld != rd)
 		spin_unlock(&rd->event_lock);
-
-	return rc;
 }
 
 /*
@@ -151,10 +143,9 @@ static long evtchn_bind_interdomain(evtchn_bind_interdomain_t *bind) {
  * as well as from guest kernel in case of ME IMEC setup. In this latter case, event channels have been previously allocated with a remote_domid equal to local_domid.
  *
  */
-long evtchn_bind_existing_interdomain(struct domain *ld, struct domain *remote, int levtchn, int revtchn) {
+void evtchn_bind_existing_interdomain(struct domain *ld, struct domain *remote, int levtchn, int revtchn) {
 	struct evtchn *lchn, *rchn;
 	struct domain *rd;
-	long rc = 0;
 
 	DBG("%s\n", __FUNCTION__);
 
@@ -192,15 +183,12 @@ long evtchn_bind_existing_interdomain(struct domain *ld, struct domain *remote, 
 	spin_unlock(&ld->event_lock);
 	if (ld != rd)
 		spin_unlock(&rd->event_lock);
-
-	return rc;
 }
 
-static long evtchn_bind_virq(evtchn_bind_virq_t *bind) {
+static void evtchn_bind_virq(evtchn_bind_virq_t *bind) {
 	struct evtchn *chn;
 	struct domain *d = current;
 	int evtchn, virq = bind->virq;
-	long rc = 0;
 
 	if ((virq < 0) || (virq >= ARRAY_SIZE(d->virq_to_evtchn)))
 		BUG();
@@ -220,27 +208,25 @@ static long evtchn_bind_virq(evtchn_bind_virq_t *bind) {
 	d->virq_to_evtchn[virq] = bind->evtchn = evtchn;
 
 	spin_unlock(&d->event_lock);
-
-	return rc;
 }
 
-long __evtchn_close(struct domain *d1, int chn) {
+void __evtchn_close(struct domain *d1, int chn) {
 	struct domain *d2 = NULL;
 	struct evtchn *chn1, *chn2;
 	int evtchn2;
-	long rc = 0;
 
-	again:
+again:
 	spin_lock(&d1->event_lock);
 
 	chn1 = &d1->evtchn[chn];
 
 	switch (chn1->state) {
+
+	/* Can be already freed (destroying a domain will go through all channels
+	 * associated to the domain and will be released).
+	 */
 	case ECS_FREE:
 	case ECS_RESERVED:
-		rc = -EINVAL;
-		goto out;
-
 	case ECS_UNBOUND:
 		break;
 
@@ -273,8 +259,7 @@ long __evtchn_close(struct domain *d1, int chn) {
 			 * evtchn in ECS_CLOSED. It must have passed through that state for
 			 * us to end up here, so it's a valid error to return.
 			 */
-			rc = -EINVAL;
-			goto out;
+			BUG();
 		}
 
 		if (d2 != NULL) {
@@ -300,26 +285,22 @@ long __evtchn_close(struct domain *d1, int chn) {
 	/* Reset binding when the channel is freed. */
 	chn1->state = ECS_FREE;
 
-	out:
-
 	if (d2 != NULL) {
 		if (d1 != d2)
 			spin_unlock(&d2->event_lock);
 	}
 
 	spin_unlock(&d1->event_lock);
-
-	return rc;
 }
 
-static long evtchn_close(evtchn_close_t *close) {
-	return __evtchn_close(current, close->evtchn);
+static void evtchn_close(evtchn_close_t *close) {
+	__evtchn_close(current, close->evtchn);
 }
 
-int evtchn_send(struct domain *d, unsigned int levtchn) {
+void evtchn_send(struct domain *d, unsigned int levtchn) {
 	struct evtchn *lchn;
 	struct domain *ld = d, *rd;
-	int revtchn = 0, ret = 0;
+	int revtchn = 0;
 
 	lchn = &ld->evtchn[levtchn];
 
@@ -350,11 +331,9 @@ int evtchn_send(struct domain *d, unsigned int levtchn) {
 	
 	if (ld != rd)
 		spin_unlock(&rd->event_lock);
-
-	return ret;
 }
 
-static int evtchn_set_pending(struct domain *d, int evtchn) {
+static void evtchn_set_pending(struct domain *d, int evtchn) {
 	/*
 	 * The following bit operations must happen in strict order.
 	 */
@@ -367,8 +346,6 @@ static int evtchn_set_pending(struct domain *d, int evtchn) {
 
 	if (smp_processor_id() != d->processor)
 		smp_trigger_event(d->processor);
-
-	return 0;
 }
 
 void send_guest_virq(struct domain *d, int virq) {
@@ -400,11 +377,10 @@ out:
 	spin_unlock_irqrestore(&d->virq_lock, flags);
 }
 
-static long evtchn_status(evtchn_status_t *status) {
+static void evtchn_status(evtchn_status_t *status) {
 	struct domain *d = domains[status->dom];
 	int evtchn = status->evtchn;
 	struct evtchn *chn;
-	long rc = 0;
 
 	spin_lock(&d->event_lock);
 
@@ -437,12 +413,9 @@ static long evtchn_status(evtchn_status_t *status) {
 	}
 
 	spin_unlock(&d->event_lock);
-
-	return rc;
 }
 
-long do_event_channel_op(int cmd, void *args) {
-	long rc;
+void do_event_channel_op(int cmd, void *args) {
 	struct evtchn_alloc_unbound alloc_unbound;
 
 	switch (cmd) {
@@ -450,7 +423,7 @@ long do_event_channel_op(int cmd, void *args) {
 
 		memcpy(&alloc_unbound, args, sizeof(struct evtchn_alloc_unbound));
 
-		rc = evtchn_alloc_unbound(&alloc_unbound);
+		evtchn_alloc_unbound(&alloc_unbound);
 		memcpy(args, &alloc_unbound, sizeof(struct evtchn_alloc_unbound));
 		break;
 	}
@@ -461,7 +434,7 @@ long do_event_channel_op(int cmd, void *args) {
 
 		memcpy(&bind_interdomain, args, sizeof(struct evtchn_bind_interdomain));
 
-		rc = evtchn_bind_interdomain(&bind_interdomain);
+		 evtchn_bind_interdomain(&bind_interdomain);
 		memcpy(args, &bind_interdomain, sizeof(struct evtchn_bind_interdomain));
 		break;
 	}
@@ -472,7 +445,7 @@ long do_event_channel_op(int cmd, void *args) {
 
 		memcpy(&bind_interdomain, args, sizeof(struct evtchn_bind_interdomain));
 
-		rc = evtchn_bind_existing_interdomain(current,
+		evtchn_bind_existing_interdomain(current,
 				domains[bind_interdomain.remote_dom],
 				bind_interdomain.local_evtchn,
 				bind_interdomain.remote_evtchn);
@@ -487,7 +460,7 @@ long do_event_channel_op(int cmd, void *args) {
 
 		memcpy(&bind_virq, args, sizeof(struct evtchn_bind_virq));
 
-		rc = evtchn_bind_virq(&bind_virq);
+		evtchn_bind_virq(&bind_virq);
 		memcpy(args, &bind_virq, sizeof(struct evtchn_bind_virq));
 		break;
 	}
@@ -498,7 +471,7 @@ long do_event_channel_op(int cmd, void *args) {
 
 		memcpy(&close, args, sizeof(struct evtchn_close));
 
-		rc = evtchn_close(&close);
+		evtchn_close(&close);
 		break;
 	}
 
@@ -508,7 +481,7 @@ long do_event_channel_op(int cmd, void *args) {
 
 		memcpy(&send, args, sizeof(struct evtchn_send));
 
-		rc = evtchn_send(current, send.evtchn);
+		evtchn_send(current, send.evtchn);
 		break;
 	}
 
@@ -518,7 +491,7 @@ long do_event_channel_op(int cmd, void *args) {
 
 		memcpy(&status, args, sizeof(struct evtchn_status));
 
-		rc = evtchn_status(&status);
+		evtchn_status(&status);
 		memcpy(args, &status, sizeof(struct evtchn_status));
 		break;
 	}
@@ -527,11 +500,9 @@ long do_event_channel_op(int cmd, void *args) {
 		BUG();
 		break;
 	}
-
-	return rc;
 }
 
-int evtchn_init(struct domain *d) {
+void evtchn_init(struct domain *d) {
 	int i;
 
 	spin_lock_init(&d->event_lock);
@@ -543,8 +514,6 @@ int evtchn_init(struct domain *d) {
 		d->evtchn[i].state = ECS_FREE;
 		d->evtchn[i].can_notify = true;
 	}
-
-	return 0;
 }
 
 void evtchn_destroy(struct domain *d) {
@@ -556,7 +525,7 @@ void evtchn_destroy(struct domain *d) {
 
 	/* Close all existing event channels. */
 	for (i = 0; i < NR_EVTCHN; i++)
-		(void) __evtchn_close(d, i);
+		__evtchn_close(d, i);
 }
 
 static void domain_dump_evtchn_info(struct domain *d) {

@@ -21,13 +21,13 @@
 void mig_restore_domain_migration_info(unsigned int ME_slotID, struct domain *me);
 void after_migrate_to_user(void);
 
-int migration_init(soo_hyp_t *op);
-int migration_final(soo_hyp_t *op);
+void migration_init(soo_hyp_t *op);
+void migration_final(soo_hyp_t *op);
 
-int read_migration_structures(soo_hyp_t *op);
-int write_migration_structures(soo_hyp_t *op);
+void read_migration_structures(soo_hyp_t *op);
+void write_migration_structures(soo_hyp_t *op);
 
-int restore_migrated_domain(unsigned int ME_slotID);
-int restore_injected_domain(unsigned int ME_slotID);
+void restore_migrated_domain(unsigned int ME_slotID);
+void restore_injected_domain(unsigned int ME_slotID);
 
-int inject_me(soo_hyp_t *op);
+void inject_me(soo_hyp_t *op);

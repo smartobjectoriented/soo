@@ -72,11 +72,9 @@ void process_char(char ch) {
 	handle_keypress(ch);
 }
 
-long do_console_io(int cmd, int count, char *buffer)
+void do_console_io(int cmd, int count, char *buffer)
 {
 	char kbuf;
-	char __buffer[CONSOLEIO_BUFFER_SIZE];
-	int ret = 0;
 
 	switch (cmd) {
 
@@ -84,24 +82,16 @@ long do_console_io(int cmd, int count, char *buffer)
 		memcpy(&kbuf, buffer, sizeof(char));
 
 		process_char(kbuf);
-		ret = 1;
 		break;
 
 	case CONSOLEIO_write_string:
-
-		ret = strlen(buffer);
-
-		memcpy(__buffer, buffer, ret);
 
 		printk("%s", buffer);
 		break;
 
 	default:
 		BUG();
-		break;
 	}
-
-	return ret;
 }
 
 

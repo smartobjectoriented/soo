@@ -124,23 +124,21 @@ void tell_dc_stable(int dc_event)  {
  * Prepare a remote ME to react to a ping event.
  * @domID: the target ME
  */
-int set_dc_event(unsigned int domID, dc_event_t dc_event)
+void set_dc_event(unsigned int domID, dc_event_t dc_event)
 {
 	soo_hyp_dc_event_t dc_event_args;
-	int rc;
 
 	DBG("%s(%d, %d)\n", __func__, domID, dc_event);
 
 	dc_event_args.domID = domID;
 	dc_event_args.dc_event = dc_event;
 
-	rc = soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
-	while (rc == -EBUSY) {
+	soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
+	while (dc_event_args.state == -EBUSY) {
 		schedule();
-		rc = soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
-	}
 
-	return 0;
+		soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
+	}
 }
 
 /*
@@ -154,10 +152,9 @@ int set_dc_event(unsigned int domID, dc_event_t dc_event)
  * - p_val2: a (virtual) address to a second value
  */
 
-int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
+void soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
 {
 	soo_hyp_t soo_hyp;
-	int ret;
 
 	soo_hyp.cmd = cmd;
 	soo_hyp.vaddr = (unsigned long) vaddr;
@@ -165,14 +162,7 @@ int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
 	soo_hyp.p_val1 = p_val1;
 	soo_hyp.p_val2 = p_val2;
 
-	ret = hypercall_trampoline(__HYPERVISOR_soo_hypercall, (long) &soo_hyp, 0, 0, 0);
-
-	if (ret < 0)
-		goto out;
-
-out:
-	return ret;
-
+	hypercall_trampoline(__HYPERVISOR_soo_hypercall, (long) &soo_hyp, 0, 0, 0);
 }
 
 /*
@@ -363,19 +353,11 @@ int do_soo_activity(void *arg)
  * Agency ctl operations
  */
 
-int agency_ctl(agency_ctl_args_t *agency_ctl_args)
+void agency_ctl(agency_ctl_args_t *agency_ctl_args)
 {
-	int rc;
-
 	agency_ctl_args->slotID = ME_domID();
 
-	rc = soo_hypercall(AVZ_AGENCY_CTL, NULL, NULL, agency_ctl_args, NULL);
-	if (rc != 0) {
-		printk("Failed to set directcomm event from hypervisor (%d)\n", rc);
-		return rc;
-	}
-
-	return 0;
+	soo_hypercall(AVZ_AGENCY_CTL, NULL, NULL, agency_ctl_args, NULL);
 }
 
 ME_desc_t *get_ME_desc(void)

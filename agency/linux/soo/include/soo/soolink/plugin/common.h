@@ -29,7 +29,7 @@
 #define NET_DEV_DETECT_DELAY	(3 * 1000)
 
 typedef struct {
-	agencyUID_t agencyUID;
+	uint64_t agencyUID;
 	uint8_t mac[ETH_ALEN];
 	struct list_head list;   /* Take part of the list of neighbours */
 } plugin_remote_soo_desc_t;

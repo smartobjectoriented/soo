@@ -47,35 +47,32 @@
 int fd_migration;
 
 /**
- * Retrieve the ME descriptor including the SPID, the state and the SPAD.
- * If no ME is present in the specified slot, the size of the ME descriptor is set to 0.
+ * Retrieve the ME identity including the SPID, the state and the SPAD.
+ * If no ME is present in the specified slot, the size of the ME id structure is set to 0.
  * If the commands succeeds, it returns 0, otherwise the error code.
  */
-int get_ME_desc(unsigned int ME_slotID, ME_desc_t *ME_desc) {
+bool get_ME_id(uint32_t slotID, ME_id_t *me_id) {
 	int rc;
-	struct agency_tx_args args;
+	struct agency_ioctl_args args;
 
-	args.ME_slotID = ME_slotID;
-	args.buffer = (unsigned char *) ME_desc;
+	args.slotID = slotID;
+	args.buffer = me_id;
 
-	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_GET_ME_DESC, &args)) < 0) {
-		printf("Failed to get ME desc (%d)\n", rc);
+	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_GET_ME_ID, &args)) < 0) {
+		printf("Failed to get ME ID (%d)\n", rc);
 		BUG();
 	}
 
-	if (ME_desc->size != 0)
-		DBG("ME %d (size %d) has the state %d\n", ME_slotID, ME_desc->size, ME_desc->state);
-
-	return 0;
+	return ((args.value == 0) ? true : false);
 }
 
 /**
  * Make a snapshot of the ME.
  */
 void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size) {
-	struct agency_tx_args args;
+	struct agency_ioctl_args args;
 
-	args.ME_slotID = slotID;
+	args.slotID = slotID;
 
 	if ((ioctl(fd_migration, AGENCY_IOCTL_READ_SNAPSHOT, &args)) < 0) {
 		printf("%s: (ioctl) Failed to read the ME snapshot.\n", __func__);
@@ -93,12 +90,11 @@ void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size) {
 /**
  * Restore the snapshot of a ME.
  */
-void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer, size_t size) {
-	agency_tx_args_t args;
+void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer) {
+	agency_ioctl_args_t args;
 
-	args.ME_slotID = slotID;
+	args.slotID = slotID;
 	args.buffer = ME_buffer;
-	args.value = size;
 
 	if (ioctl(fd_migration, AGENCY_IOCTL_WRITE_SNAPSHOT, &args) < 0) {
 		printf("%s: (ioctl) failed to write snapshot.\n", __func__);
@@ -114,9 +110,9 @@ void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer, size_t siz
  */
 int finalize_migration(unsigned int slotID) {
 	int rc;
-	struct agency_tx_args args;
+	struct agency_ioctl_args args;
 
-	args.ME_slotID = slotID;
+	args.slotID = slotID;
 
 	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_FINAL_MIGRATION, &args)) < 0) {
 		printf("Failed to initialize migration (%d)\n", rc);
@@ -132,7 +128,7 @@ int finalize_migration(unsigned int slotID) {
  */
 int inject_ME(void *ME_buffer) {
 	int rc;
-	struct agency_tx_args args;
+	struct agency_ioctl_args args;
 
 	args.buffer = ME_buffer;
 
@@ -141,7 +137,7 @@ int inject_ME(void *ME_buffer) {
 		BUG();
 	}
 
-	return args.ME_slotID;
+	return args.slotID;
 }
 
 /**

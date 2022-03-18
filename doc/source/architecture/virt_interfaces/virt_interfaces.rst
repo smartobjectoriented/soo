@@ -50,7 +50,6 @@ Finally, a helper to get the private structure attached to *vbus_driver* from a 
    
 Defining a private structure attached to a *vbus_driver* can be done in the *init* function of the driver.
 
-
 VBstore and storage of properties
 ---------------------------------
 

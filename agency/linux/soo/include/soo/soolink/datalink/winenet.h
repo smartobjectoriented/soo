@@ -154,7 +154,7 @@ typedef struct {
 	struct list_head list;
 
 	/* Source */
-	agencyUID_t agencyUID_from;
+	uint64_t agencyUID_from;
 
 	wnet_beacon_t *this;
 
@@ -188,7 +188,7 @@ typedef struct {
 	 * Paired speaker is used to bind a listener to a speaker during transmission
 	 * from ack'd broadcast untill the last frame reception.
 	 */
-	uint8_t paired_speaker[SOO_AGENCY_UID_SIZE];
+	uint64_t paired_speaker;
 
 	/*
 	 * Keep track of the ongoing frame processing (used with PKT_DATA)
@@ -216,7 +216,7 @@ typedef struct {
 	neighbour_desc_t *neighbour;
 	uint32_t last_transID;
 
-	void *paired_speaker;
+	uint64_t paired_speaker;
 
 	uint32_t randnr;
 

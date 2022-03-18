@@ -5,10 +5,8 @@
 
 obj-y 	+= setup.o
 obj-y	+= domcall.o
-obj-y	+= hypervisor.o
 obj-y	+= evtchn.o
 obj-y	+= gnttab.o
-obj-y   += imec.o
 obj-y   += soo_guest_activity.o
 obj-y   += soo_id.o
 obj-y	+= vbus/ vbstore/ console/ debug/ 

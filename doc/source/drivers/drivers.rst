@@ -10,7 +10,8 @@ Frontend & backend drivers
    :maxdepth: 5
    :hidden:
    
-   vdummy   
+   vdummy  
+   vuihandler 
    
 
 

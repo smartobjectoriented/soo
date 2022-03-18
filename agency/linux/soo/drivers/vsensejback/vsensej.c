@@ -126,6 +126,8 @@ void vsensej_remove(struct vbus_device *vdev) {
 
 	DBG("%s: freeing the vsensej structure for %s\n", __func__,vdev->nodename);
 	kfree(vsensej_priv);
+
+	rpisense_joystick_handler_unregister(vdev);
 }
 
 void vsensej_close(struct vbus_device *vdev) {
@@ -157,7 +159,6 @@ void vsensej_resume(struct vbus_device *vdev) {
 }
 
 void vsensej_reconfigured(struct vbus_device *vdev) {
-	int res;
 	unsigned long ring_ref;
 	unsigned int evtchn;
 	vsensej_sring_t *sring;
@@ -173,16 +174,13 @@ void vsensej_reconfigured(struct vbus_device *vdev) {
 
 	DBG("BE: ring-ref=%ld, event-channel=%d\n", ring_ref, evtchn);
 
-	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
-	BUG_ON(res < 0);
+	vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 
 	BACK_RING_INIT(&vsensej_priv->vsensej.ring, sring, PAGE_SIZE);
 
 	/* No handler required, however used to notify the remote domain */
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, NULL, NULL, 0, VSENSEJ_NAME "-backend", vdev);
-	BUG_ON(res < 0);
 
-	vsensej_priv->vsensej.irq = res;
+	vsensej_priv->vsensej.irq = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, NULL, NULL, 0, VSENSEJ_NAME "-backend", vdev);
 }
 
 void vsensej_connected(struct vbus_device *vdev) {

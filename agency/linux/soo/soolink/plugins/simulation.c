@@ -208,13 +208,13 @@ void plugin_simulation_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	soo_plugin_sim_t *soo_plugin_sim;
 
 	soo_log("[soo:soolink:plugin:tx] transmitting to ");
-	soo_log_printlnUID(&sl_desc->agencyUID_to);
+	soo_log_printlnUID(sl_desc->agencyUID_to);
 
 	/* If no valid recipient agency UID is given, broadcast the packet */
-	if (!agencyUID_is_valid(&sl_desc->agencyUID_to))
+	if (!sl_desc->agencyUID_to)
 		medium_rx.mac_dst = broadcast_addr;
 	else
-		medium_rx.mac_dst = get_mac_addr(&sl_desc->agencyUID_to);
+		medium_rx.mac_dst = get_mac_addr(sl_desc->agencyUID_to);
 
 	/* Maybe not yet known as a neighbour, while the other peer knows us. */
 	if (medium_rx.mac_dst == NULL)
@@ -271,11 +271,12 @@ void plugin_simulation_init(void) {
 	soo_plugin_sim->mac[4] = 0x12;
 	soo_plugin_sim->mac[5] = current_soo->id;
 
-	lprintk("--> On SOO %s, UID: ", current_soo->name);
-	lprintk_buffer(&current_soo->agencyUID, 5);
-	lprintk(" / assigning MAC address :");
-	lprintk_buffer(soo_plugin_sim->mac, ETH_ALEN);
-	lprintk("\n");
+	soo_log("[soo:soolink:plugin] On SOO %s, UID: ", current_soo->name);
+	soo_log_printUID(current_soo->agencyUID);
+
+	soo_log(" / assigning MAC address :");
+	soo_log_buffer(soo_plugin_sim->mac, ETH_ALEN);
+	soo_log("\n");
 }
 
 

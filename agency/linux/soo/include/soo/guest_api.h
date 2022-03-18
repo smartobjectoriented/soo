@@ -23,8 +23,6 @@
 #include <linux/kobject.h>
 #include <linux/device.h>
 
-#include <soo/imec.h>
-
 #ifdef DEBUG
 
 #include <soo/uapi/avz.h>
@@ -54,14 +52,7 @@ typedef struct {
 } soo_uevent_t;
 
 int soo_uevent(struct device *dev, struct kobj_uevent_env *env);
-int agency_ctl(agency_ctl_args_t *agency_ctl_args);
-
-int get_ME_state(unsigned int ME_slotID);
-int set_ME_state(unsigned int ME_slotID, ME_state_t state);
-
-int get_agency_desc(agency_desc_t *SOO_desc);
-void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc);
-void get_ME_spid(unsigned int slotID, unsigned char *spid);
+void agency_ctl(agency_ctl_args_t *agency_ctl_args);
 
 void vunmap_page_range(unsigned long addr, unsigned long end);
 

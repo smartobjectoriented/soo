@@ -39,15 +39,14 @@
 
 #include <soo_migration.h>
 
-long evtchn_bind_existing_interdomain(struct domain *ld, struct domain *remote, int lport, int rport);
+void evtchn_bind_existing_interdomain(struct domain *ld, struct domain *remote, int lport, int rport);
 
 extern long pfn_offset;
 
 /**
  * Initiate the last stage of the migration process of a ME, so called "migration finalization".
  */
-int migration_final(soo_hyp_t *op) {
-	int rc;
+void migration_final(soo_hyp_t *op) {
 	unsigned int slotID = *((unsigned int *) op->p_val1);
 	struct domain *domME = domains[slotID];
 
@@ -65,10 +64,7 @@ int migration_final(soo_hyp_t *op) {
 
 		flush_dcache_all();
 
-		if ((rc = restore_migrated_domain(slotID)) < 0) {
-			printk("Agency: %s:%d Failed to restore migrated domain (%d)\n", __func__, __LINE__, rc);
-			BUG();
-		}
+		restore_migrated_domain(slotID);
 		break;
 
 	case ME_state_preparing:
@@ -78,11 +74,7 @@ int migration_final(soo_hyp_t *op) {
 
 		DBG0("ME paused OK\n");
 
-		if ((rc = restore_injected_domain(slotID)) < 0) {
-			printk("Agency: %s:%d Failed to restore injected domain (%d)\n", __func__, __LINE__, rc);
-			BUG();
-			return rc;
-		}
+		restore_injected_domain(slotID);
 		break;
 
 	default:
@@ -91,8 +83,6 @@ int migration_final(soo_hyp_t *op) {
 
 		break;
 	}
-
-	return 0;
 }
 
 /* Avoid to allocate PAGE_SIZE bytes on the stack. */
@@ -248,9 +238,8 @@ static void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
  Fix all page tables in ME (swapper_pg_dir + all processes)
  We pass the current domain as argument as we need it to make the DOMCALLs.
  ------------------------------------------------------------------------------*/
-static int fix_other_page_tables_ME(unsigned int ME_slotID)
+static void fix_other_page_tables_ME(unsigned int ME_slotID)
 {
-	int rc = 0;
 	struct domain *me = domains[ME_slotID];
 	struct DOMCALL_fix_page_tables_args fix_pt_args;
 
@@ -261,26 +250,18 @@ static int fix_other_page_tables_ME(unsigned int ME_slotID)
 
 	DBG("DOMCALL_fix_other_page_tables called in ME with pfn_offset=%ld (%lx)\n", fix_pt_args.pfn_offset, fix_pt_args.pfn_offset);
 
-	rc = domain_call(me, DOMCALL_fix_other_page_tables, &fix_pt_args);
-	if (rc != 0) {
-		printk("DOMCALL_fix_page_tables FAILED!\n");
-		goto out;
-	}
+	domain_call(me, DOMCALL_fix_other_page_tables, &fix_pt_args);
 
 	/* Flush all cache */
 	flush_dcache_all();
-
-out:
-	return rc;
 }
 
 /*------------------------------------------------------------------------------
  sync_directcomm
  This function updates the directcomm event channel in both domains
  ------------------------------------------------------------------------------*/
-static int rebind_directcomm(unsigned int ME_slotID)
+static void rebind_directcomm(unsigned int ME_slotID)
 {
-	int rc;
 	struct domain *me = domains[ME_slotID];
 	struct DOMCALL_directcomm_args agency_directcomm_args, ME_directcomm_args;
 
@@ -293,36 +274,19 @@ static int rebind_directcomm(unsigned int ME_slotID)
 	/* Pass the (remote) domID in directcomm_evtchn */
 	agency_directcomm_args.directcomm_evtchn = ME_slotID;
 
-	rc = domain_call(agency, DOMCALL_sync_directcomm, &agency_directcomm_args);
-	if (rc != 0) {
-		printk("DOMCALL_get_directcomm_info to agency FAILED!\n");
-		goto out;
-	}
+	domain_call(agency, DOMCALL_sync_directcomm, &agency_directcomm_args);
 
 	memset(&ME_directcomm_args, 0, sizeof(struct DOMCALL_directcomm_args));
 
 	/* Pass the domID in directcomm_evtchn */
 	ME_directcomm_args.directcomm_evtchn = 0;
 
-	rc = domain_call(me, DOMCALL_sync_directcomm, &ME_directcomm_args);
-	if (rc != 0) {
-		printk("DOMCALL_get_directcomm_info to ME FAILED!\n");
-		goto out;
-	}
+	domain_call(me, DOMCALL_sync_directcomm, &ME_directcomm_args);
 
 	DBG("[soo:avz] %s: Rebinding directcomm event channels: %d (agency) <-> %d (ME)\n", __func__, agency_directcomm_args.directcomm_evtchn, ME_directcomm_args.directcomm_evtchn);
 
-	rc = evtchn_bind_existing_interdomain(me, agency, ME_directcomm_args.directcomm_evtchn, agency_directcomm_args.directcomm_evtchn);
+	evtchn_bind_existing_interdomain(me, agency, ME_directcomm_args.directcomm_evtchn, agency_directcomm_args.directcomm_evtchn);
 
-	if (rc != 0) {
-		printk("evtchn_bind_existing_interdomain(ME, %d -> %d) FAILED!\n", ME_directcomm_args.directcomm_evtchn, agency_directcomm_args.directcomm_evtchn);
-		goto out;
-	}
-
-	/* Success */
-	rc = 0;
-
-	out: return rc;
 }
 
 /*------------------------------------------------------------------------------
@@ -333,9 +297,8 @@ static int rebind_directcomm(unsigned int ME_slotID)
    We pass the current domain as argument as we need it to make the DOMCALLs.
  - Performs the rebinding of vbstore event channel
  ------------------------------------------------------------------------------*/
-static int sync_domain_interactions(unsigned int ME_slotID)
+static void sync_domain_interactions(unsigned int ME_slotID)
 {
-	int rc;
 	struct domain *me = domains[ME_slotID];
 	struct DOMCALL_sync_vbstore_args xs_args;
 	struct DOMCALL_sync_domain_interactions_args sync_args;
@@ -347,90 +310,55 @@ static int sync_domain_interactions(unsigned int ME_slotID)
 	/* Pass the ME_domID in vbstore_remote_ME_evtchn field */
 	xs_args.vbstore_revtchn = me->domain_id;
 
-	rc = domain_call(agency, DOMCALL_sync_vbstore, &xs_args);
-	if (rc != 0) {
-		printk("DOMCALL_get_vbstore_info FAILED!\n");
-		goto out;
-	}
+	domain_call(agency, DOMCALL_sync_vbstore, &xs_args);
 
 	/* Create the mappings in ME */
 	sync_args.vbstore_pfn = xs_args.vbstore_pfn;
 
 	sync_args.shared_info_page = me->shared_info;
 
-	rc = domain_call(me, DOMCALL_sync_domain_interactions, &sync_args);
-	if (rc != 0) {
-		printk("DOMCALL_create_mem_mappings FAILED!\n");
-		goto out;
-	}
+	domain_call(me, DOMCALL_sync_domain_interactions, &sync_args);
 
 	/*
 	 * Rebinding the event channel used to access vbstore in agency
 	 */
 	DBG("%s: Rebinding vbstore event channels: %d (agency) <-> %d (ME)\n", __func__, xs_args.vbstore_revtchn, sync_args.vbstore_levtchn);
 
-	rc = evtchn_bind_existing_interdomain(me, agency, sync_args.vbstore_levtchn, xs_args.vbstore_revtchn);
-
-	if (rc != 0) {
-		printk("%s: rebinding vbstore event channel %d (agency) <-> %d (ME) FAILED!\n", __func__, xs_args.vbstore_revtchn, sync_args.vbstore_levtchn);
-		goto out;
-	}
+	evtchn_bind_existing_interdomain(me, agency, sync_args.vbstore_levtchn, xs_args.vbstore_revtchn);
 
 	rebind_directcomm(ME_slotID);
-
-	out:
-	return rc;
 }
 
 /*------------------------------------------------------------------------------
  adjust_variables_in_ME
  Adjust variables such as start_info in ME
  ------------------------------------------------------------------------------*/
-static int presetup_adjust_variables_in_ME(unsigned int ME_slotID, start_info_t *start_info_virt)
+static void presetup_adjust_variables_in_ME(unsigned int ME_slotID, start_info_t *start_info_virt)
 {
-	int rc;
 	struct domain *me = domains[ME_slotID];
 	struct DOMCALL_presetup_adjust_variables_args adjust_variables;
 
 	adjust_variables.start_info_virt = start_info_virt;
 	adjust_variables.clocksource_vaddr = (unsigned int) system_timer_clocksource->vaddr;
 
-	rc = domain_call(me, DOMCALL_presetup_adjust_variables, &adjust_variables);
-	if (rc != 0)
-		goto out;
-
-	/* Success */
-	rc = 0;
-
-out:
-	return rc;
+	domain_call(me, DOMCALL_presetup_adjust_variables, &adjust_variables);
 }
 
 /*------------------------------------------------------------------------------
  adjust_variables_in_ME
  Adjust variables such as start_info in ME
  ------------------------------------------------------------------------------*/
-static int postsetup_adjust_variables_in_ME(unsigned int ME_slotID)
+static void postsetup_adjust_variables_in_ME(unsigned int ME_slotID)
 {
-	int rc;
 	struct domain *me = domains[ME_slotID];
 	struct DOMCALL_postsetup_adjust_variables_args adjust_variables;
 
 	adjust_variables.pfn_offset = pfn_offset;
 
-	rc = domain_call(me, DOMCALL_postsetup_adjust_variables, &adjust_variables);
-	if (rc != 0)
-		goto out;
-
-	/* Success */
-	rc = 0;
-
-out:
-	return rc;
+	domain_call(me, DOMCALL_postsetup_adjust_variables, &adjust_variables);
 }
 
-int restore_migrated_domain(unsigned int ME_slotID) {
-	int rc;
+void restore_migrated_domain(unsigned int ME_slotID) {
 	struct domain *me = NULL;
 	addrspace_t prev_addrspace;
 
@@ -463,22 +391,16 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 	DBG0("DOMCALL_presetup_adjust_variables_in_ME\n");
 
 	/* Adjust variables in ME such as start_info */
-	rc = presetup_adjust_variables_in_ME(ME_slotID, (struct start_info *) me->vstartinfo_start);
-	if (rc != 0)
-		goto out_error;
+	presetup_adjust_variables_in_ME(ME_slotID, (struct start_info *) me->vstartinfo_start);
 
 	/* Fix all page tables in the ME (all processes) via a domcall */
 	DBG("%s: fix other page tables in the ME...\n", __func__);
-	rc = fix_other_page_tables_ME(ME_slotID);
-	if (rc != 0)
-		goto out_error;
+	fix_other_page_tables_ME(ME_slotID);
 
 	DBG0("DOMCALL_postsetup_adjust_variables_in_ME\n");
 
 	/* Adjust variables in the ME such as re-adjusting pfns */
-	rc = postsetup_adjust_variables_in_ME(ME_slotID);
-	if (rc != 0)
-		goto out_error;
+	postsetup_adjust_variables_in_ME(ME_slotID);
 
 	/*
 	 * Perform synchronization work like memory mappings & vbstore event channel restoration.
@@ -489,9 +411,7 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 
 
 	DBG("%s: syncing domain interactions in agency...\n", __func__);
-	rc = sync_domain_interactions(ME_slotID);
-	if (rc != 0)
-		goto out_error;
+	sync_domain_interactions(ME_slotID);
 
 	/* We've done as much initialisation as we could here. */
 
@@ -500,9 +420,8 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 	/* Proceed with the SOO post-migration callbacks according to patent */
 
 	/* Pre-activate */
-	rc = soo_pre_activate(ME_slotID);
-	if (rc != 0)
-		goto out_error;
+	soo_pre_activate(ME_slotID);
+
 
 	/*
 	 * We check if the ME has been killed during the pre_activate callback.
@@ -511,7 +430,7 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 	if (get_ME_state(ME_slotID) == ME_state_dead) {
 		switch_mm(agency, &prev_addrspace);
 
-		return 0;
+		return ;
 	}
 
 	ASSERT(smp_processor_id() == 0);
@@ -521,9 +440,7 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 	 * We look for residing MEs which are ready to collaborate.
 	 */
 
-	rc = soo_cooperate(ME_slotID);
-	if (rc != 0)
-		BUG();
+	soo_cooperate(ME_slotID);
 
 	/*
 	 * We check if the ME has been killed or set to the dormant state during the cooperate
@@ -532,7 +449,7 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 	if ((domains[ME_slotID] == NULL) || (get_ME_state(ME_slotID) == ME_state_dead) || (get_ME_state(ME_slotID) == ME_state_dormant)) {
 		switch_mm(agency, &prev_addrspace);
 
-		return 0;
+		return ;
 	}
 
 	/* Resume ... */
@@ -549,37 +466,14 @@ int restore_migrated_domain(unsigned int ME_slotID) {
 	domain_unpause_by_systemcontroller(me);
 
 	switch_mm(agency, &prev_addrspace);
-
-	/* Success */
-	return 0;
-
-out_error:
-
-	/* Cleanup */
-	if (me != NULL)
-		free(me);
-
-	DBG("%s failed!\n", __FUNCTION__);
-	return -1;
 }
 
-int restore_injected_domain(unsigned int ME_slotID) {
-	int rc;
+void restore_injected_domain(unsigned int ME_slotID) {
 	struct domain *me = domains[ME_slotID];
 
 	DBG("Calling cooperate()...\n");
 
-	if ((rc = soo_cooperate(me->domain_id)) < 0) {
-		printk("Agency: %s:%d Failed to run cooperate (%d)\n", __func__, __LINE__, rc);
-		BUG();
-	}
+	soo_cooperate(me->domain_id);
 
-	DBG("Right after cooperate()...\n");
-
-	/* Are the ME still alive ? */
-	if (domains[ME_slotID] == NULL)
-		return 0;
-
-	return 0;
 }
 

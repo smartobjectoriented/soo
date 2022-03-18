@@ -45,7 +45,7 @@ extern void startup_cpu_idle_loop(void);
 
 struct domain *idle_domain[NR_CPUS];
 
-long do_set_callbacks(unsigned long event, unsigned long domcall)
+void do_set_callbacks(unsigned long event, unsigned long domcall)
 {
 	struct domain *d = current;
 
@@ -59,8 +59,6 @@ long do_set_callbacks(unsigned long event, unsigned long domcall)
 		domains[DOMID_AGENCY_RT]->event_callback = d->event_callback;
 		domains[DOMID_AGENCY_RT]->domcall = d->domcall;
 	}
-
-	return 0;
 }
 
 void dump_backtrace_entry(unsigned long where, unsigned long from)

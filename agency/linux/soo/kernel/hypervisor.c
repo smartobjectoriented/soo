@@ -33,7 +33,6 @@
 void avz_ME_unpause(domid_t domain_id, uint32_t store_mfn)
 {
 	struct domctl op;
-	int ret;
 
 	lprintk("Trying to unpause ME domain %d...", domain_id);
 
@@ -43,93 +42,37 @@ void avz_ME_unpause(domid_t domain_id, uint32_t store_mfn)
 
 	op.u.unpause_ME.store_mfn = store_mfn;
 
-	ret = hypercall_trampoline(__HYPERVISOR_domctl, (long) &op, 0 ,0 ,0);
-
-	if (ret == -ESRCH) {
-		lprintk("no further ME !\n");
-		return ;
-	}
-	else
-		lprintk("done.\n");
-
-	BUG_ON(ret< 0);
+	hypercall_trampoline(__HYPERVISOR_domctl, (long) &op, 0 ,0 ,0);
 }
 
 void avz_ME_pause(domid_t domain_id)
 {
 	struct domctl op;
-	int ret;
 
 	printk("Trying to pause domain %d...", domain_id);
 
 	op.cmd = DOMCTL_pauseME;
 	op.domain = domain_id;
 
-	ret = hypercall_trampoline(__HYPERVISOR_domctl, (long) &op, 0, 0, 0);
-
-	if (ret == -ESRCH) {
-		printk("no further ME !\n");
-		return ;
-	} else
-		printk("done.\n");
-
-	BUG_ON(ret< 0);
+	hypercall_trampoline(__HYPERVISOR_domctl, (long) &op, 0, 0, 0);
 }
 
-int avz_dump_page(unsigned int pfn)
+void avz_dump_page(unsigned int pfn)
 {
-	int ret;
-
-	ret = hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_dump_page, (long) &pfn, 0, 0);
-	BUG_ON(ret < 0);
-
-	return 0;
+	hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_dump_page, (long) &pfn, 0, 0);
 }
 
-int avz_dump_logbool(void)
+void avz_dump_logbool(void)
 {
-	int ret;
-
-	ret = hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_dump_logbool, 0 ,0, 0);
-	BUG_ON(ret < 0);
-
-	return 0;
+	hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_dump_logbool, 0 ,0, 0);
 }
 
-int avz_sched_yield(void)
-{
-	int ret;
-
-	ret = hypercall_trampoline(__HYPERVISOR_sched_op, SCHEDOP_yield, 0, 0, 0);
-	BUG_ON(ret < 0);
-
-	return ret;
-}
-
-
-int avz_printk(char *buffer)
-{
-	int len;
-
-	len = hypercall_trampoline(__HYPERVISOR_console_io, CONSOLEIO_write_string, 1, (long) buffer, 0);
-	if (len < 0)
-		BUG();
-
-	return len;
-}
-
-int avz_send_IPI(int ipinr, long cpu_mask) {
-	int len;
-
+void avz_send_IPI(int ipinr, long cpu_mask) {
 	send_ipi_args_t send_ipi_args;
 
 	send_ipi_args.ipinr = ipinr;
 	send_ipi_args.cpu_mask = cpu_mask;
 
-	len = hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_send_ipi, (long) &send_ipi_args, 0, 0);
-	if (len < 0)
-		BUG();
-
-	return len;
+	hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_send_ipi, (long) &send_ipi_args, 0, 0);
 }
 

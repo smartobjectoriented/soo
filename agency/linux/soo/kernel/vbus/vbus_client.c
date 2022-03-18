@@ -118,23 +118,16 @@ void vbus_watch_pathfmt(struct vbus_device *dev, struct vbus_watch *watch, void 
  * error, the device will switch to VbusStateClosing, and the error will be
  * saved in the store.
  */
-int vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
+void vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
 {
 	struct evtchn_alloc_unbound alloc_unbound;
-	int err;
 
 	alloc_unbound.dom = DOMID_SELF;
 
 	alloc_unbound.remote_dom = dev->otherend_id;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
-	if (err) {
-	  	lprintk("%s - line %d: allocating event channel failed / dev name: %s evtchn: %d\n", __func__, __LINE__, dev->nodename, evtchn);
-		BUG();
-	} else
-		*evtchn = alloc_unbound.evtchn;
-
-	return err;
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
+	*evtchn = alloc_unbound.evtchn;
 }
 
 
@@ -143,43 +136,29 @@ int vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
  * on success and stores the local evtchn in *evtchn. On error, returns -errno,
  * switches the device to VbusStateClosing, and saves the error in VBstore.
  */
-int vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_evtchn, uint32_t *evtchn)
+void vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_evtchn, uint32_t *evtchn)
 {
 	struct evtchn_bind_interdomain bind_interdomain;
-	int err;
 
 	bind_interdomain.remote_dom = dev->otherend_id;
 	bind_interdomain.remote_evtchn = remote_evtchn;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
-	if (err) {
-		lprintk("%s - line %d: Binding to event channel %d from domain %d failed for device %s\n", __func__, __LINE__, remote_evtchn, dev->otherend_id, dev->nodename);
-		BUG();
-	} else {
-		*evtchn = bind_interdomain.local_evtchn;
-		DBG("%s: got local evtchn: %d for remote evtchn: %d\n", __func__, *evtchn, remote_evtchn);
-	}
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
 
-	return err;
+	*evtchn = bind_interdomain.local_evtchn;
+	DBG("%s: got local evtchn: %d for remote evtchn: %d\n", __func__, *evtchn, remote_evtchn);
 }
 
 /**
  * Free an existing event channel. Returns 0 on success or -errno on error.
  */
-int vbus_free_evtchn(struct vbus_device *dev, uint32_t evtchn)
+void vbus_free_evtchn(struct vbus_device *dev, uint32_t evtchn)
 {
 	struct evtchn_close close;
-	int err;
 
 	close.evtchn = evtchn;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &close, 0, 0);
-	if (err) {
-		lprintk("%s - line %d: Freeing event channel %d failed for device %s\n", __func__, __LINE__, evtchn, dev->otherend_id, dev->nodename);
-		BUG();
-	}
-
-	return err;
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &close, 0, 0);
 }
 
 /**
@@ -196,7 +175,7 @@ int vbus_free_evtchn(struct vbus_device *dev, uint32_t evtchn)
  * or -ENOMEM on error. If an error is returned, device will switch to
  * VbusStateClosing and the error message will be saved in VBstore.
  */
-int vbus_map_ring_valloc(struct vbus_device *dev, int gnt_ref, void **vaddr)
+void vbus_map_ring_valloc(struct vbus_device *dev, int gnt_ref, void **vaddr)
 {
 	struct gnttab_map_grant_ref op = {
 		.flags = GNTMAP_host_map,
@@ -215,8 +194,7 @@ int vbus_map_ring_valloc(struct vbus_device *dev, int gnt_ref, void **vaddr)
 
 	op.host_addr = (unsigned long) area->addr;
 
-	if (grant_table_op(GNTTABOP_map_grant_ref, &op, 1))
-		BUG();
+	grant_table_op(GNTTABOP_map_grant_ref, &op, 1);
 
 #ifdef DEBUG
 	lprintk("op: ");
@@ -233,11 +211,7 @@ int vbus_map_ring_valloc(struct vbus_device *dev, int gnt_ref, void **vaddr)
 	area->phys_addr = (unsigned long) op.handle;
 
 	*vaddr = area->addr;
-
-	return 0;
 }
-EXPORT_SYMBOL_GPL(vbus_map_ring_valloc);
-
 
 /**
  * vbus_map_ring
@@ -253,7 +227,7 @@ EXPORT_SYMBOL_GPL(vbus_map_ring_valloc);
  * or -ENOMEM on error. If an error is returned, device will switch to
  * VbusStateClosing and the error message will be saved in VBStore.
  */
-int vbus_map_ring(struct vbus_device *dev, int gnt_ref, grant_handle_t *handle, void *vaddr)
+void vbus_map_ring(struct vbus_device *dev, int gnt_ref, grant_handle_t *handle, void *vaddr)
 {
 	struct gnttab_map_grant_ref op = {
 		.host_addr = (unsigned long)vaddr,
@@ -262,19 +236,14 @@ int vbus_map_ring(struct vbus_device *dev, int gnt_ref, grant_handle_t *handle, 
 		.dom       = dev->otherend_id,
 	};
 
-	if (grant_table_op(GNTTABOP_map_grant_ref, &op, 1))
-		BUG();
+	grant_table_op(GNTTABOP_map_grant_ref, &op, 1);
 
 	if (op.status != GNTST_okay) {
 		lprintk("%s - line %d: Mapping in shared page %d from domain %d failed for device %s\n", __func__, __LINE__, gnt_ref, dev->otherend_id, dev->nodename);
 		BUG();
 	} else
 		*handle = op.handle;
-
-	return op.status;
 }
-EXPORT_SYMBOL_GPL(vbus_map_ring);
-
 
 /**
  * vbus_unmap_ring_vfree
@@ -288,7 +257,7 @@ EXPORT_SYMBOL_GPL(vbus_map_ring);
  * Returns 0 on success and returns GNTST_* on error
  * (see include/interface/grant_table.h).
  */
-int vbus_unmap_ring_vfree(struct vbus_device *dev, void *vaddr)
+void vbus_unmap_ring_vfree(struct vbus_device *dev, void *vaddr)
 {
 	struct vm_struct *area;
 	struct gnttab_unmap_grant_ref op = {
@@ -304,8 +273,7 @@ int vbus_unmap_ring_vfree(struct vbus_device *dev, void *vaddr)
 
 	op.handle = (grant_handle_t)area->phys_addr;
 
-	if (grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1))
-		BUG();
+	grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1);
 
 	if (op.status == GNTST_okay)
 		free_vm_area(area);
@@ -313,11 +281,7 @@ int vbus_unmap_ring_vfree(struct vbus_device *dev, void *vaddr)
 		lprintk("%s - line %d: Unmapping page at handle %d error %d for device %s\n", __func__, __LINE__,  (int16_t) area->phys_addr, op.status, dev->nodename);
 		BUG();
 	}
-
-	return op.status;
 }
-EXPORT_SYMBOL_GPL(vbus_unmap_ring_vfree);
-
 
 /**
  * vbus_unmap_ring
@@ -329,24 +293,21 @@ EXPORT_SYMBOL_GPL(vbus_unmap_ring_vfree);
  * Returns 0 on success and returns GNTST_* on error
  * (see include/interface/grant_table.h).
  */
-int vbus_unmap_ring(struct vbus_device *dev, grant_handle_t handle, void *vaddr)
+void vbus_unmap_ring(struct vbus_device *dev, grant_handle_t handle, void *vaddr)
 {
 	struct gnttab_unmap_grant_ref op = {
 		.host_addr = (unsigned long)vaddr,
 		.handle    = handle,
 	};
 
-	if (grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1))
-		BUG();
+	grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1);
 
 	if (op.status != GNTST_okay) {
 		lprintk("%s - line %d: Unmapping page at handle %d error %d for device %s\n", __func__, __LINE__,  handle, op.status, dev->nodename);
 		BUG();
 	}
-
-	return op.status;
 }
-EXPORT_SYMBOL_GPL(vbus_unmap_ring);
+
 /**
  * vbus_read_driver_state
  * @path: path for driver
