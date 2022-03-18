@@ -36,5 +36,11 @@ config VSENSELED_FRONTEND
 config VSENSEJ_FRONTEND
     bool "vsensej joystick Sense HAT frontend"
 
+config VENOCEAN_FRONTEND
+    bool "En0cean frontend"
+
+config VWAGOLED_FRONTEND
+    bool "Wagoled frontend"
+
 endmenu
 
