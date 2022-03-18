@@ -124,9 +124,8 @@ void check_killed_ME(void) {
  * Request a specific action to the agency (issued from a ME for example)
  *
  */
-int agency_ctl(agency_ctl_args_t *args)
+void agency_ctl(agency_ctl_args_t *args)
 {
-	int rc = 0;
 	struct domain *target_dom;
 	soo_domcall_arg_t domcall_args;
 	int cpu;
@@ -155,9 +154,8 @@ int agency_ctl(agency_ctl_args_t *args)
 		break;
 
 	case AG_AGENCY_UID:
-		memcpy(args->u.agencyUID.id, domains[0]->shared_info->dom_desc.u.agency.agencyUID.id, SOO_AGENCY_UID_SIZE);
-
-		return rc;
+		args->u.agencyUID = domains[0]->shared_info->dom_desc.u.agency.agencyUID;
+		return ;
 
 	case AG_COOPERATE:
 
@@ -173,8 +171,7 @@ int agency_ctl(agency_ctl_args_t *args)
 		memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.spad, &domains[args->slotID]->shared_info->dom_desc.u.ME.spad, sizeof(spad_t));
 
 		/* Transfer the SPID of the target ME */
-		memcpy(domcall_args.u.cooperate_args.u.initiator_coop.spid, domains[args->slotID]->shared_info->dom_desc.u.ME.spid, SPID_SIZE);
-
+		domcall_args.u.cooperate_args.u.initiator_coop.spid = domains[args->slotID]->shared_info->dom_desc.u.ME.spid;
 
 		domcall_args.u.cooperate_args.role = COOPERATE_TARGET;
 		target_dom = domains[args->slotID];
@@ -197,53 +194,42 @@ int agency_ctl(agency_ctl_args_t *args)
 	/* Originating ME */
 	domcall_args.slotID = current->domain_id;
 
-	rc = domain_call(target_dom, DOMCALL_soo, &domcall_args);
-	if (rc != 0) {
-		printk("%s: DOMCALL_soo failed with rc = %d\n", __func__, rc);
-		return rc;
-	}
+	domain_call(target_dom, DOMCALL_soo, &domcall_args);
 
 	DBG("Ending forward callback now, back to the originater...\n");
 
 	/* Copy the agency ctl args back */
 	memcpy(args, &domcall_args.u.agency_ctl_args, sizeof(agency_ctl_args_t));
-
-	return rc;
 }
 
 /**
  * Initiate the pre-propagate callback on a ME.
  */
-static int soo_pre_propagate(unsigned int slotID, int *propagate_status) {
+static void soo_pre_propagate(unsigned int slotID, int *propagate_status) {
 	soo_domcall_arg_t domcall_args;
-	int rc;
 
 	memset(&domcall_args, 0, sizeof(domcall_args));
 
 	domcall_args.cmd = CB_PRE_PROPAGATE;
 	domcall_args.__agency_ctl = agency_ctl;
 
+#if 0
 	DBG("Pre-propagate callback being issued...\n");
+#endif
 
 	domcall_args.slotID = slotID;
 
-	if ((rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args)) != 0) {
-		printk("%s: DOMCALL failed (%d)\n", __func__, rc);
-		BUG();
-	}
+	domain_call(domains[slotID], DOMCALL_soo, &domcall_args);
 
 	*propagate_status = domcall_args.u.pre_propagate_args.propagate_status;
 
 	/* If the ME decides itself to be removed */
 	check_killed_ME();
-
-	return 0;
 }
 
-int soo_pre_activate(unsigned int slotID)
+void soo_pre_activate(unsigned int slotID)
 {
 	soo_domcall_arg_t domcall_args;
-	int rc;
 
 	memset(&domcall_args, 0, sizeof(domcall_args));
 
@@ -255,15 +241,9 @@ int soo_pre_activate(unsigned int slotID)
 	/* Perform a domcall on the specific ME */
 	DBG("Pre-activate callback being issued...\n");
 
-	rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args);
-	if (rc != 0) {
-		printk("%s: DOMCALL_soo failed with rc = %d\n", __func__, rc);
-		return rc;
-	}
+	domain_call(domains[slotID], DOMCALL_soo, &domcall_args);
 
 	check_killed_ME();
-
-	return 0;
 }
 
 /*
@@ -272,16 +252,15 @@ int soo_pre_activate(unsigned int slotID)
  * Perform a cooperate callback in the target (incoming) ME with a set of target ready-to-cooperate MEs.
  *
  */
-
-int soo_cooperate(unsigned int slotID)
+void soo_cooperate(unsigned int slotID)
 {
 	soo_domcall_arg_t domcall_args;
-	int i, rc, avail_ME;
+	int i, avail_ME;
 	bool itself;   /* Used to detect a ME of a same SPID */
 
 	/* Are we OK to collaborate ? */
 	if (!domains[slotID]->shared_info->dom_desc.u.ME.spad.valid)
-		return false;
+		return;
 
 	/* Reset anything in the cooperate_args */
 	memset(&domcall_args, 0, sizeof(domcall_args));
@@ -309,7 +288,7 @@ int soo_cooperate(unsigned int slotID)
 			 * to cooperate, the spid is passed as argument anyway so that the arrived ME can be aware of its presence and decide
 			 * to do something accordingly.
 			 */
-			itself = !memcmp(domains[i]->shared_info->dom_desc.u.ME.spid, domains[slotID]->shared_info->dom_desc.u.ME.spid, SPID_SIZE);
+			itself = ((domains[i]->shared_info->dom_desc.u.ME.spid == domains[slotID]->shared_info->dom_desc.u.ME.spid) ? true : false);
 
 			/* If the ME authorizes us to enter into a cooperation process... */
 			if (domains[i]->shared_info->dom_desc.u.ME.spad.valid || itself) {
@@ -320,10 +299,10 @@ int soo_cooperate(unsigned int slotID)
 				domcall_args.u.cooperate_args.u.target_coop[avail_ME].spad.valid = domains[i]->shared_info->dom_desc.u.ME.spad.valid;
 
 				/* Transfer the capabilities of the target ME */
-				memcpy(domcall_args.u.cooperate_args.u.target_coop[avail_ME].spad.caps, domains[i]->shared_info->dom_desc.u.ME.spad.caps, SPAD_CAPS_SIZE);
+				domcall_args.u.cooperate_args.u.target_coop[avail_ME].spad.spadcaps = domains[i]->shared_info->dom_desc.u.ME.spad.spadcaps;
 
 				/* Transfer the SPID of the target ME */
-				memcpy(domcall_args.u.cooperate_args.u.target_coop[avail_ME].spid, domains[i]->shared_info->dom_desc.u.ME.spid, SPID_SIZE);
+				domcall_args.u.cooperate_args.u.target_coop[avail_ME].spid = domains[i]->shared_info->dom_desc.u.ME.spid;
 
 				avail_ME++;
 			}
@@ -342,15 +321,9 @@ int soo_cooperate(unsigned int slotID)
 
 	domcall_args.slotID = slotID;
 
-	rc = domain_call(domains[slotID], DOMCALL_soo, &domcall_args);
-	if (rc != 0) {
-		printk("%s: DOMCALL_soo failed with rc = %d\n", __func__, rc);
-		return rc;
-	}
+	domain_call(domains[slotID], DOMCALL_soo, &domcall_args);
 
 	check_killed_ME();
-
-	return 0;
 }
 
 static void dump_backtrace(unsigned char key)
@@ -429,8 +402,7 @@ void get_dom_desc(unsigned int slotID, dom_desc_t *dom_desc) {
 /**
  * SOO hypercall processing.
  */
-int do_soo_hypercall(soo_hyp_t *args) {
-	int rc = 0;
+void do_soo_hypercall(soo_hyp_t *args) {
 	soo_hyp_t op;
 	struct domain *dom;
 	soo_hyp_dc_event_t *dc_event_args;
@@ -450,20 +422,20 @@ int do_soo_hypercall(soo_hyp_t *args) {
 
 	switch (op.cmd) {
 	case AVZ_MIG_PRE_PROPAGATE:
-		rc = soo_pre_propagate(*((unsigned int *) op.p_val1), op.p_val2);
+		soo_pre_propagate(*((unsigned int *) op.p_val1), op.p_val2);
 		break;
 
 	case AVZ_MIG_PRE_ACTIVATE:
-		rc = soo_pre_activate(*((unsigned int *) op.p_val1));
+		soo_pre_activate(*((unsigned int *) op.p_val1));
 		break;
 
 #ifdef CONFIG_ARCH_ARM32
 	case AVZ_MIG_INIT:
-		rc = migration_init(&op);
+		migration_init(&op);
 		break;
 
 	case AVZ_MIG_FINAL:
-		rc = migration_final(&op);
+		migration_final(&op);
 		break;
 
 	/* The following hypercall is used during receive operation */
@@ -488,15 +460,15 @@ int do_soo_hypercall(soo_hyp_t *args) {
 		break;
 
 	case AVZ_MIG_READ_MIGRATION_STRUCT:
-		rc = read_migration_structures(&op);
+		read_migration_structures(&op);
 		break;
 
 	case AVZ_MIG_WRITE_MIGRATION_STRUCT:
-		rc = write_migration_structures(&op);
+		write_migration_structures(&op);
 		break;
 
 	case AVZ_INJECT_ME:
-		rc = inject_me(&op);
+		inject_me(&op);
 		break;
 
 #endif /* CONFIG_ARCH_ARM32 */
@@ -515,7 +487,9 @@ int do_soo_hypercall(soo_hyp_t *args) {
 
 		/* The shared info page is set as non cacheable, i.e. if a CPU tries to update it, it becomes visible to other CPUs */
 		if (atomic_cmpxchg(&dom->shared_info->dc_event, DC_NO_EVENT, dc_event_args->dc_event) != DC_NO_EVENT)
-			rc = -EBUSY;
+			dc_event_args->state = -EBUSY;
+		else
+			dc_event_args->state = ESUCCESS;
 
 		break;
 
@@ -560,17 +534,13 @@ int do_soo_hypercall(soo_hyp_t *args) {
 	memcpy(args, &op, sizeof(soo_hyp_t));
 
 	flush_dcache_all();
-
-	return rc;
 }
 
-int soo_activity_init(void) {
+void soo_activity_init(void) {
 
 	DBG("Setting SOO avz up ...\n");
 
 	register_keyhandler('b', &dump_backtrace_keyhandler);
 	register_keyhandler('v', &dump_vbstore_keyhandler);
-
-	return 0;
 }
 

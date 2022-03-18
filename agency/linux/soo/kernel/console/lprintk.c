@@ -52,6 +52,7 @@ static bool log_soo_soolink_plugin = false;
 
 /* Backends */
 static bool log_soo_backend_vsenseled = true;
+static bool log_soo_backend_vuihandler = true;
 
 struct mutex soo_log_lock;
 
@@ -158,7 +159,9 @@ void __soo_log(char *info, char *buf) {
 		outlog = true;
 
 	/* Backends */
-	if ((log_soo_backend_vsenseled && (strstr(__internal_buf, "[soo:backend:vsenseled"))))
+	if ((log_soo_backend_vsenseled && (strstr(__internal_buf, "[soo:backend:vsenseled"))) ||
+	    (log_soo_backend_vuihandler && (strstr(__internal_buf, "[soo:backend:vuihandler")))
+	    )
 		outlog = true;
 
 	/* Print out to the console */

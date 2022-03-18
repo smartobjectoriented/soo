@@ -26,8 +26,9 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <unistd.h>
-
 #include <signal.h>
+#include <frozen.h>
+#include <lz4.h>
 
 #include <core/core.h>
 #include <core/debug.h>
@@ -35,10 +36,7 @@
 #include <core/receive.h>
 #include <core/send.h>
 #include <core/types.h>
-#include <core/uevent.h>
 #include <core/upgrader.h>
-#include <frozen.h>
-#include <lz4.h>
 
 #include <soo/uapi/soo.h>
 
@@ -136,21 +134,21 @@ static void upgrade_components(upgrader_args_t *args) {
  * Return: true if the upgarde is present, false otherwise.
  */
 static bool is_upgrade_present(upgrader_args_t *args) {
-	upgrader_ioctl_recv_args_t ioctl_args;
+	agency_ioctl_args_t agency_ioctl_args;
+
 	args->compressed_size = 0;
 
 	/* Try to retrieve the upgrade image address and size */
-	if ((ioctl(fd_core, AGENCY_IOCTL_GET_UPGRADE_IMG, &ioctl_args)) < 0) {
+	if ((ioctl(fd_core, AGENCY_IOCTL_GET_UPGRADE_IMG, &agency_ioctl_args)) < 0) {
 		DBG0("ioctl UPGRADER_IOCTL_IMG failed.\n");
 		BUG();
 	}
-	/* If the size is 0, it means that no upgrade is available */
-	if (ioctl_args.size == 0) {
+	/* If the size returned in value is 0, it means that no upgrade is available */
+	if (agency_ioctl_args.value == 0)
 		return false;
-	}
 
-	args->compressed_size = ioctl_args.size;
-	args->ME_slotID = ioctl_args.ME_slotID;
+	args->compressed_size = agency_ioctl_args.value;
+	args->ME_slotID = agency_ioctl_args.slotID;
 
 	return true;
  }
@@ -207,8 +205,8 @@ static void retrieve_image(upgrader_args_t *args) {
  */
 static void finish_upgrade(upgrader_args_t *args) {
 	upgrade_versions_args_t args_upgrade;
-	agency_tx_args_t arg;
-	ME_desc_t desc;
+	agency_ioctl_args_t agency_ioctl_args;
+	ME_id_t me_id;
 
 	free(args->decompressed_image);
 	munmap(args->header, args->compressed_size);
@@ -224,28 +222,18 @@ static void finish_upgrade(upgrader_args_t *args) {
 
 	/* notify ME that we finished the upgrade */
 	printf("Upgrader: Upgrade done.\n");
-	printf("Now sending the localinfo update to the SOO.agency ME in slot %d\n", args->ME_slotID);
-	
+
 	/* Wait for the ME to be in the living state, so we ensure that the localinfo
 	   callback is called in the ME. */
-	arg.ME_slotID = args->ME_slotID;
-	arg.buffer = &desc;
+	agency_ioctl_args.slotID = args->ME_slotID;
+	agency_ioctl_args.buffer = &me_id;
 	do {
-		if ((ioctl(fd_core, AGENCY_IOCTL_GET_ME_DESC, &arg)) < 0) {
-			DBG0("ioctl AGENCY_IOCTL_GET_ME_DESC failed.\n");
+		if ((ioctl(fd_core, AGENCY_IOCTL_GET_ME_ID, &agency_ioctl_args)) < 0) {
+			DBG0("ioctl AGENCY_IOCTL_GET_ME_ID failed.\n");
 			BUG();
 		}
-	} while (desc.state != ME_state_living);
+	} while (me_id.state != ME_state_living);
 	
-
-#warning Why a localinfo_update here ??
-#if 0
-	if ((ioctl(fd_core, AGENCY_IOCTL_LOCALINFO_UPDATE, &args->ME_slotID)) < 0) {
-		DBG0("ioctl AGENCY_IOCTL_LOCALINFO_UPDATE failed.\n");
-		BUG();
-	}
-#endif
-
 	upgrade_done = true;
 
 	/* We initiate a reboot of the system including shutdowning the user space properly. */
@@ -264,7 +252,7 @@ void *upgrade_poll_fct(void *param) {
 	/* We use these ioctl args to pass information between the different steps */
 	upgrader_args_t args;
 
-	memset(&args, 0, sizeof(upgrader_ioctl_recv_args_t));
+	memset(&args, 0, sizeof(upgrader_args_t));
 
 	while (!upgrade_done) {
 		usleep(UPGRADE_POLL_PERIOD_MS * 1000);
@@ -284,10 +272,14 @@ void *upgrade_poll_fct(void *param) {
  */
 void upgrader_init(void) {
 	upgrade_versions_args_t args;
+	agency_ioctl_args_t agency_ioctl_args;
 
 	/* Reads the agency version numbers from the JSON and store them in VBStore */
 	read_version_number_json(&args);
-	if ((ioctl(fd_core, AGENCY_IOCTL_STORE_VERSIONS, &args)) < 0) {
+
+	agency_ioctl_args.buffer = &args;
+
+	if ((ioctl(fd_core, AGENCY_IOCTL_STORE_VERSIONS, &agency_ioctl_args)) < 0) {
 		DBG0("ioctl AGENCY_IOCTL_STORE_VERSIONS failed.\n");
 		BUG();
 	}

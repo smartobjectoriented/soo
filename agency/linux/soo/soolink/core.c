@@ -77,8 +77,8 @@ sl_desc_t *sl_register(req_type_t req_type, if_type_t if_type, trans_mode_t tran
 	sl_desc->if_type = if_type;
 	sl_desc->trans_mode = trans_mode;
 
-	memcpy(&sl_desc->agencyUID_to, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
-	memcpy(&sl_desc->agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
+	sl_desc->agencyUID_to = 0;
+	sl_desc->agencyUID_from = 0;
 
 	init_completion(&sl_desc->recv_event);
 
@@ -118,7 +118,7 @@ uint32_t sl_neighbour_count(void) {
  * and prevent other smart objects belonging to the neighborhood to become a speaker.
  *
  */
-void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID, uint32_t prio) {
+void sl_send(sl_desc_t *sl_desc, void *data, size_t size, uint64_t agencyUID, uint32_t prio) {
 
 	soo_log("[soo:soolink] Now sending to the coder / size: %d\n", size);
 
@@ -126,7 +126,7 @@ void sl_send(sl_desc_t *sl_desc, void *data, size_t size, agencyUID_t *agencyUID
 
 	/* According to the transmission mode, we do not want to handle the destination */
 	if (sl_desc->trans_mode != SL_MODE_UNIBROAD)
-		memcpy(&sl_desc->agencyUID_to, agencyUID, SOO_AGENCY_UID_SIZE);
+		sl_desc->agencyUID_to = agencyUID;
 
 	sl_desc->prio = prio;
 

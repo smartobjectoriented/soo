@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2020-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -281,11 +281,11 @@ static int soo_task_tx_fn(void *args) {
 			/* Encode the SOO number */
 			current_soo_simul->buffer[0] = current_soo->id;
 
-			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, 0, 10);
 
 			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
 
-			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			sl_send(current_soo_simul->sl_desc, NULL, 0, 0, 10);
 			lprintk("*** (%s) End. ***\n", current_soo->name);
 
 			//msleep(1000);
@@ -318,11 +318,11 @@ static int soo3_task_tx_fn(void *args) {
 			/* Encode the SOO number */
 			current_soo_simul->buffer[0] = current_soo->id;
 
-			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, get_null_agencyUID(), 10);
+			sl_send(current_soo_simul->sl_desc, current_soo_simul->buffer, BUFFER_SIZE, 0, 10);
 
 			lprintk("*** (%s) sending COMPLETE ***\n", current_soo->name);
 
-			sl_send(current_soo_simul->sl_desc, NULL, 0, get_null_agencyUID(), 10);
+			sl_send(current_soo_simul->sl_desc, NULL, 0, 0, 10);
 			lprintk("*** (%s) End. ***\n", current_soo->name);
 
 #if 0
@@ -350,7 +350,6 @@ int soo_env_fn(void *args) {
 	static int count = 0;
 
 #ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
-	int i;
 	struct task_struct *__ts;
 #endif
 
@@ -380,21 +379,16 @@ int soo_env_fn(void *args) {
 	/* Generate a unique agencyUID. */
 #ifndef CONFIG_SOOLINK_PLUGIN_SIMULATION
 
-	get_random_bytes((void *) &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	soo_env->agencyUID = get_random_u64();
 
 #else
 
-	for (i = 0; i < SOO_AGENCY_UID_SIZE; i++)
-		soo_env->agencyUID.id[i] = 0x00;
-
-	soo_env->agencyUID.id[3] = 0x99;
-
-	soo_env->agencyUID.id[4] = count;
+	soo_env->agencyUID = (0x99 << 16) | count;
 
 #endif /* CONFIG_SOOLINK_PLUGIN_SIMULATION */
 
 	soo_log("[soo:core:device_access] On CPU %d, SOO %s has the Agency UID: ", smp_processor_id(), soo_env->name);
-	soo_log_printlnUID(&current_soo->agencyUID);
+	soo_log_printlnUID(soo_env->agencyUID);
 
 	/* Initializing SOOlink subsystem */
 	soolink_init();
@@ -406,17 +400,17 @@ int soo_env_fn(void *args) {
 #endif
 
 #ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
 	plugin_ethernet_init();
 #endif
 
 #ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
 	plugin_wlan_init();
 #endif
 
 #ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-	memcpy((void *) &HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID, &soo_env->agencyUID, SOO_AGENCY_UID_SIZE);
+	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
 	plugin_bt_init();
 #endif
 

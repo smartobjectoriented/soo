@@ -465,8 +465,7 @@ void vbstore_init(void) {
 		alloc_unbound.dom = DOMID_SELF;
 		alloc_unbound.remote_dom = i;
 
-		res = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
-		BUG_ON(res < 0);
+		hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
 
 		/* Store the allocated unbound evtchn.*/
 		DBG("%s: allocating unbound evtchn %d for vbstore shared page on domain: %d (intf = %p)...\n", __func__, alloc_unbound.evtchn, i, vbstore_intf[i]);
@@ -496,7 +495,6 @@ void vbstore_init(void) {
 		printk(KERN_WARNING "VBus: Error initializing vbstore comms: %i\n", res);
 		BUG();
 	}
-
 }
 
 

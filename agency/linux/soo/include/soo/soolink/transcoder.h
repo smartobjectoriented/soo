@@ -68,7 +68,7 @@ typedef struct {
 } transcoder_packet_t;
 
 /* Maximum number of available blocks for a given sl_desc */
-#define MAX_READY_BLOCK_COUNT		10
+#define MAX_READY_BLOCK_COUNT		128
 
 /* Timeout after which a block is deleted, in ms */
 #define SOOLINK_DECODE_BLOCK_TIMEOUT	4000

@@ -64,14 +64,14 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	agency_ctl_args.cmd = AG_AGENCY_UID;
 	args->__agency_ctl(&agency_ctl_args);
 
-	memcpyUID(&sh_ledctrl->me_common.here, &agency_ctl_args.u.agencyUID);
+	sh_ledctrl->me_common.here = agency_ctl_args.u.agencyUID;
 
-	host_entry = find_host(&visits, &sh_ledctrl->me_common.here);
+	host_entry = find_host(&visits, sh_ledctrl->me_common.here);
 	if (host_entry)
 		/* We already visited this place. */
 		set_ME_state(ME_state_killed); /* Will be removed by the agency */
 	else
-		new_host(&visits, &sh_ledctrl->me_common.here, NULL, 0);
+		new_host(&visits, sh_ledctrl->me_common.here, NULL, 0);
 
 	return 0;
 }
@@ -165,9 +165,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			 */
 			clear_hosts(&visits);
 
-			new_host(&visits, &sh_ledctrl->me_common.here, NULL, 0);
+			new_host(&visits, sh_ledctrl->me_common.here, NULL, 0);
 
-			memcpyUID(&sh_ledctrl->me_common.origin, &sh_ledctrl->me_common.here);
+			sh_ledctrl->me_common.origin = sh_ledctrl->me_common.here;
 
 			complete(&upd_lock);
 
@@ -200,7 +200,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		/*
 		 * If we reach the smart object initiator, we can disappear, otherwise we keep propagating once.
 		 */
-		if (!cmpUID(&sh_ledctrl->initiator, &sh_ledctrl->me_common.here))
+		if (sh_ledctrl->initiator == sh_ledctrl->me_common.here)
 
 			set_ME_state(ME_state_killed);
 
@@ -228,7 +228,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			 * the list of visited hosts and kill the other, no matter if we have more or less
 			 * visited hosts.
 			 */
-			if (!cmpUID(&sh_ledctrl->me_common.origin, &incoming_sh_ledctrl->me_common.origin)) {
+			if (sh_ledctrl->me_common.origin == incoming_sh_ledctrl->me_common.origin) {
 
 				/* Merge the visited hosts in our list and kill the other ME (initiator) */
 				expand_hosts(&incoming_hosts, incoming_sh_ledctrl->me_common.soohosts,
@@ -248,16 +248,16 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 			sh_ledctrl->incoming_nr = incoming_sh_ledctrl->local_nr;
 
-			memcpyUID(&sh_ledctrl->initiator, &incoming_sh_ledctrl->initiator);
+			sh_ledctrl->initiator = incoming_sh_ledctrl->initiator;
 
 			/* Look for all known SOOs updated */
 
-			if (!find_host(&known_soo_list, &incoming_sh_ledctrl->me_common.origin))
+			if (!find_host(&known_soo_list, incoming_sh_ledctrl->me_common.origin))
 
 				/* Insert this new SOO.ledctrl smart object */
-				new_host(&known_soo_list, &incoming_sh_ledctrl->me_common.origin, NULL, 0);
+				new_host(&known_soo_list, incoming_sh_ledctrl->me_common.origin, NULL, 0);
 
-			if (!cmpUID(&sh_ledctrl->initiator, &sh_ledctrl->me_common.here)) {
+			if (sh_ledctrl->initiator == sh_ledctrl->me_common.here) {
 
 				/* We compare the list of visits of this incoming ME against
 				 * our list of known SOOs.
@@ -266,7 +266,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 						incoming_sh_ledctrl->me_common.soohost_nr);
 
 				/* Remove ourself, we are not in the known_soo_list */
-				del_host(&incoming_hosts, &sh_ledctrl->me_common.here);
+				del_host(&incoming_hosts, sh_ledctrl->me_common.here);
 
 				merge_hosts(&ack_hosts, &incoming_hosts);
 
@@ -369,7 +369,7 @@ void callbacks_init(void) {
 	sh_ledctrl->stamp = 0;
 
 	/* Set the SPAD capabilities (currently not used) */
-	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
+	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));
 
 	full_initd = true;
 }

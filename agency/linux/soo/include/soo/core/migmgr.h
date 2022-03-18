@@ -19,13 +19,15 @@
 #ifndef MIGMGR_H
 #define MIGMGR_H
 
-int ioctl_initialize_migration(unsigned long arg);
-int ioctl_finalize_migration(unsigned long arg);
+#include <linux/types.h>
 
-int ioctl_write_snapshot(unsigned long arg);
+bool initialize_migration(uint32_t slotID);
+void finalize_migration(uint32_t slotID);
 
-void ioctl_get_ME_snapshot(unsigned long arg);
-int ioctl_read_snapshot(unsigned long arg);
+void write_snapshot(uint32_t slotID, void *buffer);
+
+void copy_ME_snapshot_to_user(void *ME_snapshot, void *user_addr, uint32_t size);
+int read_snapshot(uint32_t slotID, void **ME_buffer);
 
 
 #endif /* MIGMGR_H */

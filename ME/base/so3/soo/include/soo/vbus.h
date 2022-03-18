@@ -212,12 +212,9 @@ int vbus_grant_ring(struct vbus_device *dev, unsigned long ring_mfn);
 int vbus_map_ring_valloc(struct vbus_device *dev, int gnt_ref, void **vaddr);
 int vbus_map_ring(struct vbus_device *dev, int gnt_ref, grant_handle_t *handle, void *vaddr);
 
-int vbus_unmap_ring_vfree(struct vbus_device *dev, void *vaddr);
-int vbus_unmap_ring(struct vbus_device *dev, grant_handle_t handle, void *vaddr);
-
-int vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *port);
-int vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_port, uint32_t *port);
-int vbus_free_evtchn(struct vbus_device *dev, uint32_t port);
+void vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *port);
+void vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_port, uint32_t *port);
+void vbus_free_evtchn(struct vbus_device *dev, uint32_t port);
 
 enum vbus_state vbus_read_driver_state(const char *path);
 bool vbus_read_driver_realtime(const char *path);

@@ -144,7 +144,7 @@ int gnttab_grant_foreign_access(domid_t domid, unsigned long frame, int readonly
 	int ref;
 
 	if (unlikely((ref = get_free_entry()) == -1))
-		return -ENOSPC;
+		BUG();
 
 	gnttab[ref].frame = frame;
 	gnttab[ref].domid = domid;

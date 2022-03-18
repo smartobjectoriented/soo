@@ -60,7 +60,7 @@ master_doc = 'index'
 # General information about the project.
 project = u'Smart Object Oriented'
 
-copyright = u'2021, HEIG-VD - REDS Institute'
+copyright = u'2022, HEIG-VD - REDS Institute'
 
 
 # The version info for the project you're documenting, acts as replacement for
