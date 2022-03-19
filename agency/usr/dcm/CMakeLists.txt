@@ -1,3 +1,3 @@
 
-add_library(dcm STATIC core.c)
+add_library(dcm STATIC dcm.c)
 

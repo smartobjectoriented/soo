@@ -251,7 +251,7 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		break;
 
 	case AGENCY_IOCTL_INJECT_ME:
-		args.slotID = inject_ME(args.buffer);
+		args.slotID = inject_ME(args.buffer, args.value);
 		break;
 
 	case AGENCY_IOCTL_FORCE_TERMINATE:
