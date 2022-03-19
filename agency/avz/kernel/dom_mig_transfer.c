@@ -400,6 +400,8 @@ out:
 	/* Prepare to return the slotID to the caller. */
 	*((unsigned int *) op->p_val1) = slotID;
 
+	free(itb_vaddr);
+
 	local_irq_restore(flags);
 }
 
