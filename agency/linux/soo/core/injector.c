@@ -66,12 +66,12 @@ DECLARE_COMPLETION(me_ready_compl);
  * @param buffer
  * @return slotID or -1 if no slotID available.
  */
-int inject_ME(void *buffer) {
+int inject_ME(void *buffer, size_t size) {
 	int slotID;
 
-	DBG("Original contents at address: 0x%08x\n", (unsigned int) buffer);
+	DBG("Original contents at address: 0x%08x\n with size %d bytes", (unsigned int) buffer, size);
 
-	soo_hypercall(AVZ_INJECT_ME, buffer, NULL, &slotID, NULL);
+	soo_hypercall(AVZ_INJECT_ME, buffer, NULL, &slotID, &size);
 
 	return slotID;
 }
@@ -96,7 +96,7 @@ void injector_receive_ME(void *ME, size_t size) {
 	if (current_size == ME_size) {
 		int slotID = -1;
 
-		slotID = inject_ME(ME_buffer+0xC00000);
+		slotID = inject_ME(ME_buffer, ME_size);
 		if (slotID != -1) {
 			soo_log("[soo:injector] Finalizing migration in slot %d\n", slotID);
 			finalize_migration(slotID);

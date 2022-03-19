@@ -96,50 +96,33 @@ void loadAgency(void)
 	fdt_setprop(fdt_vaddr, nodeoffset, "reg", tmp, len);
 }
 
-
-/*
- * The concatened image must be out of domains because of elf parser
+/**
+ * The ITB image will be parsed and the components placed in their target memory location.
  *
- * <img> represents the original binary image as injected in the user application
- * <target_dom> represents the target memory area
+ * @param slotID
+ * @param itb	ITB image
  */
-void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
+void loadME(unsigned int slotID, void *itb) {
 	void *ME_vaddr;
 	size_t size, fdt_size, initrd_size;
 	void *fdt_vaddr, *initrd_vaddr;
 	void *dest_ME_vaddr;
-
-#ifdef CONFIG_ARCH_ARM32
-	int section_nr;
-#endif
-
-	uint32_t *pgtable_from;
 	uint32_t initrd_start, initrd_end;
 	int nodeoffset, next_node, depth = 0;
 	int ret;
 	const char *propstring;
 
-	pgtable_from = (uint32_t *) __lva(current_addrspace->pgtable_paddr);
-
-#warning to be revisited...
-#ifdef CONFIG_ARCH_ARM32
-	/* Get the visibility on the domain image stored in the agency user space area */
-	for (section_nr = 0x0; section_nr < 0xc00; section_nr++)
-		__sys_l1pgtable[section_nr] = pgtable_from[section_nr];
-
-	flush_dcache_all();
-#endif
 	/* Look for a node of ME type in the fit image */
 	nodeoffset = 0;
 	depth = 0;
 	while (nodeoffset >= 0) {
-		next_node = fdt_next_node((void *) img, nodeoffset, &depth);
-		ret = fdt_property_read_string(img, nodeoffset, "type", &propstring);
+		next_node = fdt_next_node(itb, nodeoffset, &depth);
+		ret = fdt_property_read_string(itb, nodeoffset, "type", &propstring);
 
 		if ((ret != -1) && !strcmp(propstring, "ME")) {
 
 			/* Get the pointer to the OS binary image from the ITB we got from the user space. */
-			ret = fit_image_get_data_and_size(img, nodeoffset, (const void **) &ME_vaddr, &size);
+			ret = fit_image_get_data_and_size(itb, nodeoffset, (const void **) &ME_vaddr, &size);
 			if (ret) {
 				lprintk("!! The properties in the ME node does not look good !!\n");
 				BUG();
@@ -158,12 +141,12 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 	nodeoffset = 0;
 	depth = 0;
 	while (nodeoffset >= 0) {
-		next_node = fdt_next_node((void *) img, nodeoffset, &depth);
-		ret = fdt_property_read_string(img, nodeoffset, "type", &propstring);
+		next_node = fdt_next_node(itb, nodeoffset, &depth);
+		ret = fdt_property_read_string(itb, nodeoffset, "type", &propstring);
 		if ((ret != -1) && !strcmp(propstring, "flat_dt")) {
 
 			/* Get the associated device tree. */
-			ret = fit_image_get_data_and_size(img, nodeoffset, (const void **) &fdt_vaddr, &fdt_size);
+			ret = fit_image_get_data_and_size(itb, nodeoffset, (const void **) &fdt_vaddr, &fdt_size);
 			if (ret) {
 				lprintk("!! The properties in the device tree node does not look good !!\n");
 				BUG();
@@ -182,12 +165,12 @@ void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace) {
 	nodeoffset = 0;
 	depth = 0;
 	while (nodeoffset >= 0) {
-		next_node = fdt_next_node(img, nodeoffset, &depth);
-		ret = fdt_property_read_string(img, nodeoffset, "type", &propstring);
+		next_node = fdt_next_node(itb, nodeoffset, &depth);
+		ret = fdt_property_read_string(itb, nodeoffset, "type", &propstring);
 		if ((ret != -1) && !strcmp(propstring, "ramdisk")) {
 
 			/* Get the associated device tree. */
-			ret = fit_image_get_data_and_size(img, nodeoffset, (const void **) &initrd_vaddr, &initrd_size);
+			ret = fit_image_get_data_and_size(itb, nodeoffset, (const void **) &initrd_vaddr, &initrd_size);
 			if (ret) {
 				lprintk("!! The properties in the ramdisk node does not look good !!\n");
 				BUG();

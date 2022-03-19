@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2016-2019 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2016-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  * Copyright (C) January 2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2019-2022 David Truan <david.truan@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -36,20 +37,19 @@
 #include <sys/stat.h>
 
 #include <core/core.h>
-#include <core/inject.h>
+#include <core/injector.h>
 #include <core/debug.h>
 #include <core/types.h>
 #include <core/device_access.h>
 
 #include <soo/uapi/dcm.h>
 
-#include <injector/core.h>
 
 /**
  * Inject a ME.
  * @ME_buffer: the ITB file of the ME.
  */
-int inject_ME(void *ME_buffer) {
+int inject_ME(void *ME_buffer, size_t size) {
 	int rc;
 	agency_ioctl_args_t args;
 
@@ -66,10 +66,10 @@ int inject_ME(void *ME_buffer) {
 /**
  * Try to retrieve a ME from the DCM and deploy it.
  */
-void ME_inject(unsigned char *ME_buffer) {
+void ME_inject(unsigned char *ME_buffer, size_t size) {
 	int slotID;
 
-	slotID = inject_ME(ME_buffer);
+	slotID = inject_ME(ME_buffer, size);
 	if (slotID == -1) {
 		printf("No available ME slot further...\n");
 		return;
@@ -94,6 +94,8 @@ void sig_inject_ME_from_memory(int sig) {
  * Look for MEs in the SOO_ME_DIRECTORY directory and inject the MEs one by one.
  * The SOO_ME_DIRECTORY can be a mount point (mounted on a dedicated storage partition,
  * this is the default method) or a directory integrated into the agency's rootfs.
+ *
+ * At this level, the ME is contained in the ITB file which is referred as "ME" in the following code.
  */
 void inject_MEs_from_filesystem(void) {
 	DIR *directory;
@@ -157,7 +159,7 @@ void inject_MEs_from_filesystem(void) {
 		}
 
 		/* Inject the ME */
-		ME_inject(ME_buffer);
+		ME_inject(ME_buffer, ME_size);
 
 		close(fd);
 
@@ -217,7 +219,7 @@ void *ME_retrieve_fn(void *dummy) {
 
 			printf("Injector: ME fully received, now injecting it...\n");
 
-			ME_inject(ME);
+			ME_inject(ME, args.value);
 
 			printf("Injector: ME injected!\n");
 			if ((ioctl(fd_core, AGENCY_IOCTL_INJECTOR_CLEAN_ME, NULL)) < 0) {
