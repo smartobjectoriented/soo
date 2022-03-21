@@ -54,6 +54,7 @@ int inject_ME(void *ME_buffer, size_t size) {
 	agency_ioctl_args_t args;
 
 	args.buffer = ME_buffer;
+	args.value = size;
 
 	if ((rc = ioctl(fd_core, AGENCY_IOCTL_INJECT_ME, &args)) < 0) {
 		printf("Failed to inject ME (%d)\n", rc);
@@ -186,55 +187,6 @@ void save_itb(void *ME_buffer, size_t size) {
 }
 
 
-void *ME_retrieve_fn(void *dummy) {
-	agency_ioctl_args_t args;
-	void *ME;
-	int br = 0;
-	int current_size = 0;
-	int chunk = 2000;
-
-	memset(&args, 0, sizeof(agency_ioctl_args_t));
-
-	printf("Injector: ME retrieve thread started\n");
-	while(1) {
-		
-		if ((ioctl(fd_core, AGENCY_IOCTL_INJECTOR_RETRIEVE_ME, &args)) < 0) {
-			DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
-			BUG();
-		}
-		
-		if (args.value != 0) {
-
-			printf("Injector: An ME is ready to be retrieved (%ld B)\n", args.value);
-			ME = malloc(args.value);
-			if (!ME) {
-				printf("%s: failure during malloc...\n", __func__);
-				BUG();
-			}
-
-			while (current_size != args.value) {
-				br = read(fd_core, ME+current_size, chunk);
-				current_size += br;
- 			}
-
-			printf("Injector: ME fully received, now injecting it...\n");
-
-			ME_inject(ME, args.value);
-
-			printf("Injector: ME injected!\n");
-			if ((ioctl(fd_core, AGENCY_IOCTL_INJECTOR_CLEAN_ME, NULL)) < 0) {
-				DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
-				BUG();
-			}
-
-			current_size = 0;
-			free(ME);
-		}
-	}
-	
-	return NULL;
-}
-
 void injector_dev_init(void) {
 	if ((fd_core = open(SOO_CORE_DEVICE, O_RDWR)) < 0) {
 		printf("Failed to open device: " INJECTOR_DEV_NAME " (%d)\n", fd_core);
@@ -245,10 +197,5 @@ void injector_dev_init(void) {
 
 
 void injector_init(void) {
-
-	pthread_t injection_thread;
-
 	injector_dev_init();
-
-	// pthread_create(&injection_thread, NULL, ME_retrieve_fn, NULL);
 }
