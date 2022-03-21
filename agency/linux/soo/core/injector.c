@@ -85,65 +85,32 @@ int inject_ME(void *buffer, size_t size) {
  */
 void injector_receive_ME(void *ME, size_t size) {
 
-#if 0
-	wait_event_interruptible(wq_prod, !full);
-#endif
 	memcpy(ME_buffer+current_size, ME, size);
-
 	current_size += size;
 
 	/* We received the full ME */ 
 	if (current_size == ME_size) {
 		int slotID = -1;
 
+		/* Inject it, and if successful, finalize the migration */
 		slotID = inject_ME(ME_buffer, ME_size);
 		if (slotID != -1) {
 			soo_log("[soo:injector] Finalizing migration in slot %d\n", slotID);
 			finalize_migration(slotID);
 		}
-
+		/* Free the Injector internal buffer */
 		injector_clean_ME();
-	}
-#if 0
-	tmp_buf = ME;
-	tmp_size = size;
-
-	full = true;
-
-	wake_up_interruptible(&wq_cons);
-#endif	
+	}	
 }
 
-void *injector_get_tmp_buf(void) {
-	return tmp_buf;
-}
-
-size_t injector_get_tmp_size(void) {
-	return tmp_size;
-}
-
-bool injector_is_full(void) {
-	return full;
-}
-
-void injector_set_full(bool _full) {
-	full = _full;
-}
-
-void *injector_get_ME_buffer(void) {
-	return ME_buffer;
-}
-
-size_t injector_get_ME_size(void) {
-	return ME_size;
-}
-
+/**
+ * Allocate the ME and handle the sizes for the upcoming injection
+ * 
+ * @size: Size of the ITB which will be injected.
+ */
 void injector_prepare(uint32_t size) {
 	current_size = 0;
 	ME_size = size;
-#if 0	
-	complete(&me_ready_compl);
-#endif	
 	ME_buffer = vzalloc(size);
 }
 
@@ -153,53 +120,3 @@ void injector_clean_ME(void) {
 	ME_size = 0;
 	current_size = 0;
 }
-
-
-uint32_t injector_retrieve_ME(void) {
-
-	/* Wait until a ME has started to be received. Will be woke up by 
-	   a call to injector_prepare from the vuihandler */
-	wait_for_completion(&me_ready_compl);
-
-	return ME_size;
-}
-
-/**
- * Read callback function to interact with the user space.
- * The user space reads chunks of ME.
- *
- * @param fp
- * @param buff
- * @param length
- * @param ppos
- * @return
- */
-ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos) {
-	int maxbytes;
-	int bytes_to_read;
-	int bytes_read;
-	void *ME;
-
-	/* Wait for the Injector to produce data */
-	wait_event_interruptible(wq_cons, injector_is_full() == true);
-
-	ME = injector_get_tmp_buf();
-	maxbytes = injector_get_tmp_size();
-
-	if (maxbytes > length)
-		bytes_to_read = length;
-	else
-		bytes_to_read = maxbytes;
-
-	bytes_read = copy_to_user(buff, ME, bytes_to_read);
-
-	/* Notify the Injector we read the buffer */
-	injector_set_full(false);
-	wake_up_interruptible(&wq_prod);
-
-#warning temp trick...
-	vfree(ME-1);
-
-    	return bytes_to_read;
-}
-

@@ -115,9 +115,6 @@ int get_pfn_offset(void);
 #define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 10, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 11, agency_ioctl_args_t)
 
-#define AGENCY_IOCTL_INJECTOR_RETRIEVE_ME	_IOR('S', 12, agency_ioctl_args_t)
-#define AGENCY_IOCTL_INJECTOR_CLEAN_ME		_IOR('S', 13, agency_ioctl_args_t)
-
 #define SOO_NAME_SIZE				16
 
 #ifdef __KERNEL__
