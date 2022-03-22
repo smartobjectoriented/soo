@@ -39,33 +39,32 @@
 #include <soo/debug/logbool.h>
 #include <soo/evtchn.h>
 
+#include <soo/dev/vwagoled.h>
+
 #include <me/wagoled.h>
 
-/**
- * This ME does nothing particular. It is aimed at giving a template to develop
- * a new ME.
- *
- * Please, have a look at the SOO.ledctrl which is an example of ME intended to
- * pilot LEDs on the Sense HAT extension.
- *
- * Note that SOO.refso3 can be configured with a rootfs (ramfs) which contains
- * small applications like a shell and the LVGL demo application.
- *
- */
+
 int app_thread_main(void *args) {
+
+	int ids [] = {1, 2, 3, 4, 5, 6};
+	int size = 6;
+	wago_cmd_t status = LED_ON;
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
 
-	sh_wagoled->cur_letter = 'A';
+	printk("Welcome to WAGO led ME\n");
 
 	while (1) {
 
 		msleep(500);
 
-		lprintk("(%d)",  ME_domID());
-		printk("%c ", sh_wagoled->cur_letter);
+		if (vwagoled_set(ids, size, status) < 0) {
+			DBG("Error vwagoled set\n");
+			continue;
+		}
 
+		status = (status == LED_ON) ? LED_OFF :LED_ON;
 	}
 
 	return 0;
