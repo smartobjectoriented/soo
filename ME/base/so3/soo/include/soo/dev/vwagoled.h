@@ -23,23 +23,40 @@
 #include <soo/grant_table.h>
 #include <soo/vdevfront.h>
 
-#define WAGOLED_PACKET_SIZE	32
+#define DEFAULT_DIM_VALUE		0
 
-#define WAGOLED_NAME		"wagoled"
-#define WAGOLED_PREFIX		"[" WAGOLED_NAME "] "
+typedef enum {
+	LED_OFF = 0,
+	LED_ON,
+	GET_STATUS,
+	GET_TOPOLOGY,
+	NONE
+}wago_cmd_t;
+
+
+#define VWAGOLED_PACKET_SIZE	64
+
+#define VWAGOLED_NAME		"vwagoled"
+#define VWAGOLED_PREFIX		"[" VWAGOLED_NAME "] "
 
 typedef struct {
-	char buffer[WAGOLED_PACKET_SIZE];
-} wagoled_request_t;
+	uint8_t cmd;
+	uint8_t dim_value;
+	int ids[VWAGOLED_PACKET_SIZE];
+	uint8_t ids_count;
+} vwagoled_request_t;
 
 typedef struct  {
-	char buffer[WAGOLED_PACKET_SIZE];
-} wagoled_response_t;
+	uint8_t cmd;
+	uint8_t dim_value;
+	int ids[VWAGOLED_PACKET_SIZE];
+	uint8_t ids_count;
+} vwagoled_response_t;
 
 /*
  * Generate ring structures and types.
  */
-DEFINE_RING_TYPES(wagoled, wagoled_request_t, wagoled_response_t);
+DEFINE_RING_TYPES(vwagoled, vwagoled_request_t, vwagoled_response_t);
 
 /*
  * General structure for this virtual device (frontend side)
@@ -49,14 +66,15 @@ typedef struct {
 	/* Must be the first field */
 	vdevfront_t vdevfront;
 
-	wagoled_front_ring_t ring;
+	vwagoled_front_ring_t ring;
 	unsigned int irq;
 
 	grant_ref_t ring_ref;
 	grant_handle_t handle;
 	uint32_t evtchn;
 
-} wagoled_t;
+} vwagoled_t;
 
+int vwagoled_set(int *ids, int size, wago_cmd_t cmd);
 
 #endif /* WAGOLED_H */

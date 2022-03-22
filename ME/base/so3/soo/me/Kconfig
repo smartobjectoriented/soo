@@ -44,7 +44,7 @@ choice
 			for demonstration purposes.
 
 	config SOO_WAGOLED
-		bool "SOO.wagoled MObile Entity"
+		bool "SOO.wagoled Mobile Entity"
 		help
 			TODO		
 		

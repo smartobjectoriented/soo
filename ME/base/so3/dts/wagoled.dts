@@ -21,8 +21,8 @@
 #include "so3virt.dtsi"
 
 &ME {
-	/* 4 MB is enough */
-	domain-size = <0x400000>;
+	/* 16 MB is enough */
+	domain-size =  <0x1000000>;
 	
 	/* SPID on 128-bit encoding */
 	spid = /bits/ 64 <0x0020000000000003>;
@@ -42,13 +42,9 @@ on DALI bus";
 		vuart {
 			status = "ok";
 		};
-	  
-		vuihandler {
-			status = "ok";
-		};
 
 		venocean {
-			status = "ok";
+			status = "disabled";
 		};
 
 		vwagoled {
