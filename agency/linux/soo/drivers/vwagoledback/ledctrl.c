@@ -1,4 +1,12 @@
 
+#if 1
+#define DEBUG
+#endif
+
+#if 0
+#define DEBUG_MODE
+#endif
+
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <linux/completion.h>
@@ -7,40 +15,31 @@
 
 #include "ledctrl.h"
 
-#if 1
-#define DEBUG
-#endif
-
 struct completion notify;
 struct task_struct *thread;
-volatile wagoled_cmd_t current_cmd;
+volatile wago_cmd_t current_cmd;
+char *ids_str;
 
-#ifdef DEBUG
+#ifdef DEBUG_MODE
 
-#define DELAY_MS    200
-#define SLEEP_MS    10
+#define DELAY_MS    500
 int debug_active = 0;
 const char ids[] = "1,2,3,4,5,6";
 
 int debug_thread(void *data)
 {
-    uint32_t count_ms = 0;
     DBG(LEDCTRL_PREFIX "Starting debug thread\n");
 
     while (!kthread_should_stop()) {
 
-        if (count_ms >= DELAY_MS) {
-            DBG(LEDCTRL_PREFIX "Notify user app");
-            current_cmd = (current_cmd == LED_ON) ? LED_OFF : LED_ON;
-            count_ms = 0;
-            complete(&notify);
-        } 
-        
-        count_ms += SLEEP_MS;
-        msleep(SLEEP_MS);
+        DBG(LEDCTRL_PREFIX "Notify user app");
+        current_cmd = (current_cmd == LED_ON) ? LED_OFF : LED_ON;
+        complete(&notify);
+
+        msleep(DELAY_MS);
     }
 
-    DBG(LEDCTRL_PREFIX "exiting debug thread\n")
+    DBG(LEDCTRL_PREFIX "exiting debug thread\n");
 
     return 0;
 }
@@ -69,7 +68,28 @@ void sysfs_wagodebug_show(char *str)
     sprintf(str, "%d", debug_active);
 }
 
-#endif //DEBUG
+#endif //DEBUG_MODE
+
+void ledctrl_process_request(int cmd, int *ids, int ids_count)
+{
+    int i;
+    char id[16] = {0};
+
+    current_cmd = (wago_cmd_t)cmd;
+    memset(ids_str, 0, IDS_STR_MAX);
+
+    if (!ids)
+        return;
+
+    for (i = 0; i < ids_count; i++) {
+        sprintf(id, "%d,", ids[i]);
+        strcat(ids_str, id);
+    }
+
+    complete(&notify);
+}
+
+EXPORT_SYMBOL(ledctrl_process_request);
 
 void sysfs_wagonotify_show(char *str)
 {
@@ -79,22 +99,22 @@ void sysfs_wagonotify_show(char *str)
 
 void sysfs_wago_led_on_show(char *str)
 {
-    sprintf(str, "%s", ids);
+    sprintf(str, "%s", ids_str);
 }
 
 void sysfs_wago_led_off_show(char *str)
 {
-    sprintf(str, "%s", ids);
+    sprintf(str, "%s", ids_str);
 }
 
 void sysfs_wago_get_topology_store(char *str)
 {
-
+    printk("Not yet implemented\n");
 }
 
 void sysfs_wago_get_status_store(char *str)
 {
-
+    printk("Not yet implemented");
 }
 
 int ledctrl_init(void)
@@ -113,9 +133,18 @@ int ledctrl_init(void)
     
     init_completion(&notify);
 
-#ifdef DEBUG
+#ifdef DEBUG_MODE
     soo_sysfs_register(vwagoled_debug, sysfs_wagodebug_show, sysfs_wagodebug_store);
 #endif
+
+    ids_str = kzalloc(IDS_STR_MAX * sizeof(char), GFP_ATOMIC);
+
+    if (!ids_str) {
+        ret = -1;
+        DBG(LEDCTRL_PREFIX " failed to allocate memory\n");
+    }
+
+    memset(ids_str, 0, IDS_STR_MAX);
 
     DBG(LEDCTRL_PREFIX "Start successfull\n");
 
