@@ -13,12 +13,27 @@
 
 #include "ledcontrol.h"
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
+sig_atomic_t end_loop = 0;
+
 namespace LED
 {
+    void sig_handler(int signo)
+    {
+       switch(signo)
+       {
+            case SIGINT:
+                end_loop = 1;
+                break;
+            default:
+                std::cout << "signo: " << signo << " ignored" << std::endl;
+                break;
+       }
+    }
+
     Ledctrl::Ledctrl() : client(BASE_ADDR, PORT) {}
 
     Ledctrl::~Ledctrl()
@@ -31,9 +46,10 @@ namespace LED
 
     void Ledctrl::init()
     {
-#ifndef DEBUG
         std::string topology;
         rapidjson::Document doc;
+
+        std::signal(SIGINT, sig_handler);
 
         if (client.GET(GET_TOPOLOGY, topology) < 0) 
         {
@@ -67,7 +83,6 @@ namespace LED
                 leds.push_back(l);
             }
         }
-#endif
     }
 
     void Ledctrl::start_debug()
@@ -157,12 +172,32 @@ namespace LED
     void Ledctrl::extract_ids(char *ids, std::vector<int>& vect_ids)
     {
         std::stringstream ss(ids);
+        int id = 0;
 
         while(ss.good())
         {
             std::string sub;
             getline(ss, sub, IDS_DELIM);
-            vect_ids.push_back(std::stoi(sub));
+
+            if (sub.empty())
+                continue;
+
+            try 
+            {
+                id = std::stoi(sub);
+            }
+            catch(std::invalid_argument e)
+            {
+                std::cout << "Failed to convert string: " << std::endl;
+                for (int i = 0; i < sub.length(); i++)
+                {
+                    std::cout << std::hex << "[" << i << "]" << (int)sub[i] 
+                                << std::dec << std::endl;
+                }
+                continue;
+            }
+
+            vect_ids.push_back(id);
         }
 
     }
@@ -195,16 +230,18 @@ namespace LED
         switch (_cmd)
         {
         case CMD_LED_ON:
-            /* code */
             //call turn_on
+            turn_on(_ids);
             break;
         
         case CMD_LED_OFF:
             //call turn_off
+            turn_off(_ids);
             break;
 
         case CMD_GET_STATUS:
             //call get_status
+            update_status();
             break;
 
         case CMD_GET_TOPOLOGY:
@@ -227,7 +264,7 @@ namespace LED
 #ifdef DEBUG
         start_debug();
 #endif
-        while(1)
+        while(!end_loop)
         {
             memset(cmd, 0, CMD_SIZE);
             memset(ids, 0, BUFFER_SIZE);
@@ -267,6 +304,8 @@ namespace LED
 #endif
             process_notify(cmd, ids);
         }
+
+        turn_all_off();
 
 #ifdef DEBUG
         stop_debug();

@@ -23,26 +23,24 @@
 #include <soo/grant_table.h>
 #include <soo/vdevback.h>
 
-#define VWAGOLED_PACKET_SIZE	32
+#define VWAGOLED_PACKET_SIZE	64
 
 #define VWAGOLED_NAME		"vwagoled"
 #define VWAGOLED_PREFIX		"[" VWAGOLED_NAME "] "
 
+
 typedef struct {
-	/* nothing */
+	uint8_t cmd;
+	uint8_t dim_value;
+	int ids[VWAGOLED_PACKET_SIZE];
+	uint8_t ids_count;
 } vwagoled_request_t;
 
 typedef struct  {
-
-    // Max dali devices 64
-	uint8_t id;
-
-    // ON/OFF
-    uint8_t status;
-
-    // Dim value 0-255
-	uint8_t value;
-
+	uint8_t cmd;
+	uint8_t dim_value;
+	int ids[VWAGOLED_PACKET_SIZE];
+	uint8_t ids_count;
 } vwagoled_response_t;
 
 /*
