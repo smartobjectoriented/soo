@@ -54,50 +54,27 @@ typedef struct {
 
 static struct vbus_device *vwagoled_dev = NULL;
 
-/* void j_handler(struct vbus_device *vdev, int key) {
-	vsensej_priv_t *vsensej_priv = dev_get_drvdata(&vdev->dev);
-	vsensej_response_t *vsensej_response;
+irqreturn_t vwagoled_interrupt_bh(int irq, void *dev_id)
+{
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	vwagoled_priv_t *vwagoled_priv = dev_get_drvdata(&vdev->dev);
+	vwagoled_request_t *ring_req;
 
-	if (vdevfront_is_connected(vdev)) {
+	vdevback_processing_begin(vdev);
 
-		vdevback_processing_begin(vdev);
-
-		vsensej_response = vsensej_new_ring_response(&vsensej_priv->vsensej.ring);
-
-		vsensej_response->type = EV_KEY;
-
-		switch (key) {
-
-		case RPISENSE_JS_UP:
-			vsensej_response->code = KEY_UP;
-			break;
-
-		case RPISENSE_JS_DOWN:
-			vsensej_response->code = KEY_DOWN;
-			break;
-
-		case RPISENSE_JS_RIGHT:
-			vsensej_response->code = KEY_RIGHT;
-			break;
-
-		case RPISENSE_JS_LEFT:
-			vsensej_response->code = KEY_LEFT;
-			break;
-
-		case RPISENSE_JS_CENTER:
-			vsensej_response->code = KEY_ENTER;
-			break;
-		}
-
-		vsensej_response->value = ((key == 0) ? 0 : 1);
-
-		vsensej_ring_response_ready(&vsensej_priv->vsensej.ring);
-
-		notify_remote_via_virq(vsensej_priv->vsensej.irq);
-
-		vdevback_processing_end(vdev);
+	while ((ring_req = vwagoled_get_ring_request(&vwagoled_priv->vwagoled.ring)) != NULL) {
+		ledctrl_process_request(ring_req->cmd, ring_req->ids, ring_req->ids_count);
 	}
-} */
+		
+	vdevback_processing_end(vdev);
+
+	return IRQ_HANDLED;
+}
+
+irqreturn_t vwagoled_interrupt(int irq, void *dev_id)
+{
+	return IRQ_WAKE_THREAD;
+}
 
 void vwagoled_probe(struct vbus_device *vdev) {
 	vwagoled_priv_t *vwagoled_priv;
@@ -170,7 +147,8 @@ void vwagoled_reconfigured(struct vbus_device *vdev) {
 	BACK_RING_INIT(&vwagoled_priv->vwagoled.ring, sring, PAGE_SIZE);
 
 	/* No handler required, however used to notify the remote domain */
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, NULL, NULL, 0, VWAGOLED_NAME "-backend", vdev);
+	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vwagoled_interrupt, 
+													vwagoled_interrupt_bh, 0, VWAGOLED_NAME "-backend", vdev);
 	BUG_ON(res < 0);
 
 	vwagoled_priv->vwagoled.irq = res;
