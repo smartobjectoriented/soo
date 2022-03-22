@@ -102,8 +102,15 @@
             	status = "disabled";
         	};
         	
+			vwagoled {
+				compatible = "vwagoled,frontend";
+				status = "disabled";
+			};
 
-        	
+			venocean {
+				compatible = "venocean,frontend";
+				status = "disabled";
+			};
 		};
 	
 	};

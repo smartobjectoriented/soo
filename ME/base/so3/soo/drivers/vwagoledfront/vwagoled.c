@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -40,24 +40,67 @@
 typedef struct {
 
 	/* Must be the first field */
-	wagoled_t wagoled;
+	vwagoled_t vwagoled;
 
-} wagoled_priv_t;
+} vwagoled_priv_t;
 
-static struct vbus_device *wagoled_dev = NULL;
+static struct vbus_device *vwagoled_dev = NULL;
 
 static bool thread_created = false;
 
-irq_return_t wagoled_interrupt(int irq, void *dev_id) {
+void init_request(vwagoled_request_t *req) {
+	req->cmd = NONE;
+	req->dim_value = DEFAULT_DIM_VALUE;
+	memset(req->ids, -1, sizeof(int) * VWAGOLED_PACKET_SIZE);
+}
+
+int vwagoled_set(int *ids, int size, wago_cmd_t cmd) {
+	vwagoled_priv_t *vwagoled_priv;
+	vwagoled_request_t *ring_req;
+ 
+	if (!vwagoled_dev)
+		return -1;
+
+	if (size > VWAGOLED_PACKET_SIZE)
+		return -1;
+
+	vwagoled_priv = (vwagoled_priv_t *) dev_get_drvdata(vwagoled_dev->dev);
+
+	vdevfront_processing_begin(vwagoled_dev);
+
+	if (!RING_REQ_FULL(&vwagoled_priv->vwagoled.ring)) {
+		ring_req = vwagoled_new_ring_request(&vwagoled_priv->vwagoled.ring);
+
+		init_request(ring_req);
+
+		ring_req->cmd = (int)cmd;
+		ring_req->ids_count = size;
+		memcpy(ring_req->ids, ids, size * sizeof(int));
+
+		vwagoled_ring_request_ready(&vwagoled_priv->vwagoled.ring);
+
+		notify_remote_via_virq(vwagoled_priv->vwagoled.irq);
+
+	} else {
+		DBG("Ring full\n");
+		return -1;
+	}
+
+	vdevfront_processing_end(vwagoled_dev);
+
+	return 0;
+}
+
+irq_return_t vwagoled_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	wagoled_priv_t *wagoled_priv = dev_get_drvdata(vdev->dev);
-	wagoled_response_t *ring_rsp;
+	vwagoled_priv_t *vwagoled_priv = dev_get_drvdata(vdev->dev);
+	vwagoled_response_t *ring_rsp;
 
 	DBG("%s, %d\n", __func__, ME_domID());
 
-	while ((ring_rsp = wagoled_get_ring_response(&wagoled_priv->wagoled.ring)) != NULL) {
+	while ((ring_rsp = vwagoled_get_ring_response(&vwagoled_priv->vwagoled.ring)) != NULL) {
 
-		DBG("%s, cons=%d\n", __func__, i);
+		DBG("%s, cons=%d\n", __func__);
 
 		/* Do something with the response */
 
@@ -69,202 +112,151 @@ irq_return_t wagoled_interrupt(int irq, void *dev_id) {
 	return IRQ_COMPLETED;
 }
 
-#if 0
-static int i1 = 1, i2 = 2;
-/*
- * The following function is given as an example.
- *
- */
 
-void wagoled_generate_request(char *buffer) {
-	wagoled_request_t *ring_req;
-	wagoled_priv_t *wagoled_priv;
-
-	if (!wagoled_dev)
-		return ;
-
-	wagoled_priv = (wagoled_priv_t *) dev_get_drvdata(wagoled_dev->dev);
-
-	vdevfront_processing_begin(wagoled_dev);
-
-	/*
-	 * Try to generate a new request to the backend
-	 */
-	if (!RING_REQ_FULL(&wagoled_priv->wagoled.ring)) {
-		ring_req = wagoled_new_ring_request(&wagoled_priv->wagoled.ring);
-
-		memcpy(ring_req->buffer, buffer, wagoled_PACKET_SIZE);
-
-		wagoled_ring_request_ready(&wagoled_priv->wagoled.ring);
-
-		notify_remote_via_virq(wagoled_priv->wagoled.irq);
-	}
-
-	vdevfront_processing_end(wagoled_dev);
-}
-#endif
-
-static void wagoled_probe(struct vbus_device *vdev) {
+static void vwagoled_probe(struct vbus_device *vdev) {
 	int res;
 	unsigned int evtchn;
-	wagoled_sring_t *sring;
+	vwagoled_sring_t *sring;
 	struct vbus_transaction vbt;
-	wagoled_priv_t *wagoled_priv;
+	vwagoled_priv_t *vwagoled_priv;
 
-	DBG0("[" WAGOLED_NAME "] Frontend probe\n");
+	DBG0(VWAGOLED_PREFIX " Frontend probe\n");
 
 	if (vdev->state == VbusStateConnected)
 		return ;
 
-	wagoled_priv = dev_get_drvdata(vdev->dev);
+	vwagoled_priv = dev_get_drvdata(vdev->dev);
 
-	wagoled_dev = vdev;
+	vwagoled_dev = vdev;
 
 	DBG("Frontend: Setup ring\n");
 
 	/* Prepare to set up the ring. */
 
-	wagoled_priv->wagoled.ring_ref = GRANT_INVALID_REF;
+	vwagoled_priv->vwagoled.ring_ref = GRANT_INVALID_REF;
 
 	/* Allocate an event channel associated to the ring */
 	res = vbus_alloc_evtchn(vdev, &evtchn);
 	BUG_ON(res);
 
-	res = bind_evtchn_to_irq_handler(evtchn, wagoled_interrupt, NULL, vdev);
+	res = bind_evtchn_to_irq_handler(evtchn, vwagoled_interrupt, NULL, vdev);
 	if (res <= 0) {
 		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
 		BUG();
 	}
 
-	wagoled_priv->wagoled.evtchn = evtchn;
-	wagoled_priv->wagoled.irq = res;
+	vwagoled_priv->vwagoled.evtchn = evtchn;
+	vwagoled_priv->vwagoled.irq = res;
 
 	/* Allocate a shared page for the ring */
-	sring = (wagoled_sring_t *) get_free_vpage();
+	sring = (vwagoled_sring_t *) get_free_vpage();
 	if (!sring) {
 		lprintk("%s - line %d: Allocating shared ring failed for device %s\n", __func__, __LINE__, vdev->nodename);
 		BUG();
 	}
 
 	SHARED_RING_INIT(sring);
-	FRONT_RING_INIT(&wagoled_priv->wagoled.ring, sring, PAGE_SIZE);
+	FRONT_RING_INIT(&vwagoled_priv->vwagoled.ring, sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) wagoled_priv->wagoled.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vwagoled_priv->vwagoled.ring.sring)));
 	if (res < 0)
 		BUG();
 
-	wagoled_priv->wagoled.ring_ref = res;
+	vwagoled_priv->vwagoled.ring_ref = res;
 
 	vbus_transaction_start(&vbt);
 
-	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", wagoled_priv->wagoled.ring_ref);
-	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", wagoled_priv->wagoled.evtchn);
+	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vwagoled_priv->vwagoled.ring_ref);
+	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vwagoled_priv->vwagoled.evtchn);
 
 	vbus_transaction_end(vbt);
-
 }
 
 /* At this point, the FE is not connected. */
-static void wagoled_reconfiguring(struct vbus_device *vdev) {
+static void vwagoled_reconfiguring(struct vbus_device *vdev) {
 	int res;
 	struct vbus_transaction vbt;
-	wagoled_priv_t *wagoled_priv = dev_get_drvdata(vdev->dev);
+	vwagoled_priv_t *vwagoled_priv = dev_get_drvdata(vdev->dev);
 
-	DBG0("[" WAGOLED_NAME "] Frontend reconfiguring\n");
+	DBG0(VWAGOLED_PREFIX " Frontend reconfiguring\n");
 	/* The shared page already exists */
 	/* Re-init */
 
-	gnttab_end_foreign_access_ref(wagoled_priv->wagoled.ring_ref);
+	gnttab_end_foreign_access_ref(vwagoled_priv->vwagoled.ring_ref);
 
 	DBG("Frontend: Setup ring\n");
 
 	/* Prepare to set up the ring. */
 
-	wagoled_priv->wagoled.ring_ref = GRANT_INVALID_REF;
+	vwagoled_priv->vwagoled.ring_ref = GRANT_INVALID_REF;
 
-	SHARED_RING_INIT(wagoled_priv->wagoled.ring.sring);
-	FRONT_RING_INIT(&wagoled_priv->wagoled.ring, (&wagoled_priv->wagoled.ring)->sring, PAGE_SIZE);
+	SHARED_RING_INIT(vwagoled_priv->vwagoled.ring.sring);
+	FRONT_RING_INIT(&vwagoled_priv->vwagoled.ring, (&vwagoled_priv->vwagoled.ring)->sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) wagoled_priv->wagoled.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vwagoled_priv->vwagoled.ring.sring)));
 	if (res < 0)
 		BUG();
 
-	wagoled_priv->wagoled.ring_ref = res;
+	vwagoled_priv->vwagoled.ring_ref = res;
 
 	vbus_transaction_start(&vbt);
 
-	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", wagoled_priv->wagoled.ring_ref);
-	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", wagoled_priv->wagoled.evtchn);
+	vbus_printf(vbt, vdev->nodename, "ring-ref", "%u", vwagoled_priv->vwagoled.ring_ref);
+	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vwagoled_priv->vwagoled.evtchn);
 
 	vbus_transaction_end(vbt);
 }
 
-static void wagoled_shutdown(struct vbus_device *vdev) {
+static void vwagoled_shutdown(struct vbus_device *vdev) {
 
-	DBG0("[" WAGOLED_NAME "] Frontend shutdown\n");
+	DBG0(VWAGOLED_PREFIX " Frontend shutdown\n");
 }
 
-static void wagoled_closed(struct vbus_device *vdev) {
-	wagoled_priv_t *wagoled_priv = dev_get_drvdata(vdev->dev);
+static void vwagoled_closed(struct vbus_device *vdev) {
+	vwagoled_priv_t *vwagoled_priv = dev_get_drvdata(vdev->dev);
 
-	DBG0("[" WAGOLED_NAME "] Frontend close\n");
+	DBG0(VWAGOLED_PREFIX " Frontend close\n");
 
 	/**
 	 * Free the ring and deallocate the proper data.
 	 */
 
 	/* Free resources associated with old device channel. */
-	if (wagoled_priv->wagoled.ring_ref != GRANT_INVALID_REF) {
-		gnttab_end_foreign_access(wagoled_priv->wagoled.ring_ref);
-		free_vpage((uint32_t) wagoled_priv->wagoled.ring.sring);
+	if (vwagoled_priv->vwagoled.ring_ref != GRANT_INVALID_REF) {
+		gnttab_end_foreign_access(vwagoled_priv->vwagoled.ring_ref);
+		free_vpage((uint32_t) vwagoled_priv->vwagoled.ring.sring);
 
-		wagoled_priv->wagoled.ring_ref = GRANT_INVALID_REF;
-		wagoled_priv->wagoled.ring.sring = NULL;
+		vwagoled_priv->vwagoled.ring_ref = GRANT_INVALID_REF;
+		vwagoled_priv->vwagoled.ring.sring = NULL;
 	}
 
-	if (wagoled_priv->wagoled.irq)
-		unbind_from_irqhandler(wagoled_priv->wagoled.irq);
+	if (vwagoled_priv->vwagoled.irq)
+		unbind_from_irqhandler(vwagoled_priv->vwagoled.irq);
 
-	wagoled_priv->wagoled.irq = 0;
+	vwagoled_priv->vwagoled.irq = 0;
 }
 
-static void wagoled_suspend(struct vbus_device *vdev) {
+static void vwagoled_suspend(struct vbus_device *vdev) {
 
-	DBG0("[" WAGOLE_NAME "] Frontend suspend\n");
+	DBG0(VWAGOLED_PREFIX " Frontend suspend\n");
 }
 
-static void wagoled_resume(struct vbus_device *vdev) {
+static void vwagoled_resume(struct vbus_device *vdev) {
 
-	DBG0("[" WAGOLED_NAME "] Frontend resume\n");
+	DBG0(VWAGOLED_PREFIX " Frontend resume\n");
 }
 
-#if 0
-int notify_fn(void *arg) {
-	char buffer[wagoled_PACKET_SIZE];
+static void vwagoled_connected(struct vbus_device *vdev) {
+	vwagoled_priv_t *vwagoled_priv = dev_get_drvdata(vdev->dev);
 
-	while (1) {
-		msleep(50);
-
-		sprintf(buffer, "Hello %d\n", *((int *) arg));
-
-		wagoled_generate_request(buffer);
-	}
-
-	return 0;
-}
-#endif
-
-static void wagoled_connected(struct vbus_device *vdev) {
-	wagoled_priv_t *wagoled_priv = dev_get_drvdata(vdev->dev);
-
-	DBG0("[" WAGOLED_NAME "] Frontend connected\n");
+	DBG0(VWAGOLED_PREFIX " Frontend connected\n");
 
 	/* Force the processing of pending requests, if any */
-	notify_remote_via_virq(wagoled_priv->wagoled.irq);
+	notify_remote_via_virq(vwagoled_priv->vwagoled.irq);
 
 	if (!thread_created) {
 		thread_created = true;
@@ -275,29 +267,31 @@ static void wagoled_connected(struct vbus_device *vdev) {
 	}
 }
 
-vdrvfront_t wagoleddrv = {
-	.probe = wagoled_probe,
-	.reconfiguring = wagoled_reconfiguring,
-	.shutdown = wagoled_shutdown,
-	.closed = wagoled_closed,
-	.suspend = wagoled_suspend,
-	.resume = wagoled_resume,
-	.connected = wagoled_connected
+vdrvfront_t vwagoleddrv = {
+	.probe = vwagoled_probe,
+	.reconfiguring = vwagoled_reconfiguring,
+	.shutdown = vwagoled_shutdown,
+	.closed = vwagoled_closed,
+	.suspend = vwagoled_suspend,
+	.resume = vwagoled_resume,
+	.connected = vwagoled_connected
 };
 
-static int wagoled_init(dev_t *dev) {
-	wagoled_priv_t *wagoled_priv;
+static int vwagoled_init(dev_t *dev) {
+	vwagoled_priv_t *vwagoled_priv;
 
-	wagoled_priv = malloc(sizeof(wagoled_priv_t));
-	BUG_ON(!wagoled_priv);
+	vwagoled_priv = malloc(sizeof(vwagoled_priv_t));
+	BUG_ON(!vwagoled_priv);
 
-	memset(wagoled_priv, 0, sizeof(wagoled_priv_t));
+	memset(vwagoled_priv, 0, sizeof(vwagoled_priv_t));
 
-	dev_set_drvdata(dev, wagoled_priv);
+	dev_set_drvdata(dev, vwagoled_priv);
 
-	vdevfront_init(WAGOLED_NAME, &wagoleddrv);
+	vdevfront_init(VWAGOLED_NAME, &vwagoleddrv);
+
+	DBG(VWAGOLED_PREFIX " initialized successfully");
 
 	return 0;
 }
 
-REGISTER_DRIVER_POSTCORE("wagoled,frontend", wagoled_init);
+REGISTER_DRIVER_POSTCORE("vwagoled,frontend", vwagoled_init);
