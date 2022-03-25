@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 
 #include <linux/gpio/driver.h>
 #include <linux/gpio/consumer.h> 
@@ -52,7 +53,7 @@
 
 extern ssize_t tty_do_read(struct tty_struct *tty, unsigned char *buf, size_t nr);
 extern struct tty_struct *tty_kopen(dev_t device);
-extern void uart_do_open(struct tty_struct *tty);
+extern int uart_do_open(struct tty_struct *tty);
 extern void uart_do_close(struct tty_struct *tty);
 extern int tty_set_termios(struct tty_struct *tty, struct ktermios *new_termios);
 
@@ -66,38 +67,20 @@ static struct gpio_desc *SW2_gpio;
 
 int enOcean_mode = ENOCEAN_MODE_BLIND;
 
+struct tty_struct *tty_uart;
+
 static int click_monitor_fn(void *args) {
 	struct tty_struct *tty_uart;
 	int len, nbytes;
 	char buffer[VENOCEAN_FRAME_SIZE];
-	dev_t dev;
-	int baud = 57600; //default baudrate for the enocean module
-	int bits = 8;
-	int parity = 'n';
-	int flow = 'n';
 	int i = 0;
 	bool problem = false;
 
-	lprintk("%s: starting to acquire switch data from the enocean module.\n", __func__);
+	DBG(VENOCEAN_PREFIX "Starting to acquire switch data from the enocean module.\n");
 
-	/* Initiate the tty device dedicated to the enocean module. */
-	tty_dev_name_to_number(ENOCEAN_UART5_DEV, &dev);
-	tty_uart = tty_kopen(dev);
-
-	uart_do_open(tty_uart);
-
-	/* Set the termios parameters related to tty. */
-
-	tty_uart->termios.c_lflag = NOFLSH;
-	tty_set_termios(tty_uart, &tty_uart->termios);
-
-	/* Set UART configuration */
-	uart_set_options(((struct uart_state *) tty_uart->driver_data)->uart_port, NULL, baud, parity, bits, flow);
-
-
-
-	while (true) 
+	while (!kthread_should_stop()) 
 	{
+		msleep(10);
 		nbytes = 0; //reset the number of the actual byte to read
 
 		//if a problem was detected during the precedent iteration
@@ -253,7 +236,7 @@ static void setup_gpios(struct device *dev) {
 
 	//gpio used as input to get the value from SW2
 	SW2_gpio = gpiod_get(dev, "SW2", GPIOD_OUT_HIGH);
-	printk("SW2_gpio = 0x%08X\n", SW2_gpio);
+	// printk("SW2_gpio = 0x%016X\n", SW2_gpio);
 	if (IS_ERR(SW2_gpio)) {
 		ret = PTR_ERR(SW2_gpio);
 		dev_err(dev, "Failed to get SW2 GPIO: %d\n", ret);
@@ -263,7 +246,7 @@ static void setup_gpios(struct device *dev) {
 
 	//gpio used as input to get the value from SW1
 	SW1_gpio = gpiod_get(dev, "SW1", GPIOD_OUT_HIGH);
-	printk("SW1_gpio = 0x%08X\n", SW1_gpio);
+	// printk("SW1_gpio = 0x%08X\n", SW1_gpio);
 	if (IS_ERR(SW1_gpio)) {
 		ret = PTR_ERR(SW1_gpio);
 		dev_err(dev, "Failed to get SW1 GPIO: %d\n", ret);
@@ -287,9 +270,9 @@ void venocean_probe(struct vbus_device *vdev)
 
 	setup_gpios(&vdev->dev);
 
-	kthread_run(click_monitor_fn, NULL, "click_enocean_monitor");
+	// kthread_run(click_monitor_fn, NULL, "click_enocean_monitor");
 
-	kthread_run(switch_between_modes, NULL, "switch_between_mode");
+	// kthread_run(switch_between_modes, NULL, "switch_between_mode");
 
 	DBG(VENOCEAN_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
@@ -343,7 +326,7 @@ void venocean_reconfigured(struct vbus_device *vdev) {
 
 	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
-	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
+	DBG("BE: ring-ref=%lu, event-channel=%d\n", ring_ref, evtchn);
 
 	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 	BUG_ON(res < 0);
@@ -365,6 +348,85 @@ void venocean_connected(struct vbus_device *vdev) {
 	// process_response(vdev);
 }
 
+static int sleep_fn(void *args)
+{
+	
+
+int venocean_init_uart(void)
+{
+	int ret = 0;
+	int i = 0;
+	struct device *dev;
+	struct device_node *dev_node; 
+	char uart[] = "serial5";
+
+	/* Initiate the tty device dedicated to the enocean module. */
+	// if ((ret = tty_dev_name_to_number(ENOCEAN_UART_DEV, &dev)) < 0) {
+	// 	DBG(VENOCEAN_PREFIX " tty device: %s not found\n", ENOCEAN_UART_DEV);
+	// 	goto error_dev_name;
+	// }
+
+	if (!(dev_node = of_find_node_by_path(uart)))
+	{
+		DBG(VENOCEAN_PREFIX " device %s no found\n", uart);
+		goto error_dev_name;
+	}
+	DBG(VENOCEAN_PREFIX "device node name : %s\n", dev_node->full_name);
+		
+	dev = get_dev_from_fwnode(&dev_node->fwnode);
+	if (dev == NULL) {
+		DBG(VENOCEAN_PREFIX " failed to get device\n");
+		return -1;
+	}
+
+	// DBG(VENOCEAN_PREFIX " dev :%d\n", dev->offline);
+	DBG(VENOCEAN_PREFIX " dev :%d\n", dev->offline);
+
+	if (!(tty_uart = tty_kopen(dev->devt))) {
+		DBG(VENOCEAN_PREFIX " failed to open %s\n", ENOCEAN_UART_DEV);
+		ret = -1;
+		goto error_kopen;
+	}
+
+	DBG(VENOCEAN_PREFIX " tty_uart name: %s, index: %d\n", tty_uart->name, tty_uart->index);
+
+	return -1;
+	
+	if ((ret = uart_do_open(tty_uart)) < 0) {
+		DBG(VENOCEAN_PREFIX " failed to open uart\n");
+		goto error_uart_open;
+	}
+
+	/* Set the termios parameters related to tty. */
+	tty_uart->termios.c_lflag = NOFLSH;
+
+	if ((ret = tty_set_termios(tty_uart, &tty_uart->termios)) < 0) {
+		DBG(VENOCEAN_PREFIX " failed to set termios\n");
+		goto error_termios;
+	}
+
+	/* Set UART configuration */
+	if ((ret = uart_set_options(((struct uart_state *) tty_uart->driver_data)->uart_port, NULL,
+						ENOCEAN_UART_BAUD, ENOCEAN_UART_PARITY, ENOCEAN_UART_BITS, 
+						ENOCEAN_UART_FLOW)) < 0) {
+		DBG(VENOCEAN_PREFIX " failed to set uart options\n");
+		goto error_uart_options; 
+	}
+
+	DBG(VENOCEAN_PREFIX " uart initialized successfully\n");
+
+	return ret;
+
+	error_uart_options:
+	error_termios:
+	error_uart_open:
+		tty_kclose(tty_uart);
+	error_kopen:
+	error_dev_name:
+		return ret;
+	return -1;
+}
+
 
 vdrvback_t venoceandrv = {
 	.probe = venocean_probe,
@@ -379,19 +441,30 @@ vdrvback_t venoceandrv = {
 int venocean_init(void) {
 	struct device_node *np;
 
+	DBG(VENOCEAN_PREFIX " start initialization\n");
+
 	np = of_find_compatible_node(NULL, NULL, "venocean,backend");
 
 	/* Check if DTS has venocean enabled */
-	if (!of_device_is_available(np))
+	if (!of_device_is_available(np)) {
+		DBG(VENOCEAN_PREFIX " is disabled");
 		return 0;
+	}
 
 	// INIT_LIST_HEAD(&vdev_consoles);
 
 	vdevback_init(VENOCEAN_NAME, &venoceandrv);
 
-	printk("VENOCEAN INITILIZED\n");
+	if (venocean_init_uart() < 0)
+		return 0;
+
+	kthread_run(click_monitor_fn, NULL, "click_enocean_monitor");
+	kthread_run(switch_between_modes, NULL, "switch_between_mode");
+
+	DBG(VENOCEAN_PREFIX " Initialized successfully\n");
 
 	return 0;
 }
 
-device_initcall(venocean_init);
+late_initcall(venocean_init)
+// device_initcall(venocean_init);
