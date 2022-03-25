@@ -38,9 +38,14 @@
 #include <linux/vt_kern.h>
 
 #define VENOCEAN_NAME	"venocean"
-#define VENOCEAN_PREFIX	"================== [" VENOCEAN_NAME "] "
+#define VENOCEAN_PREFIX	" [" VENOCEAN_NAME "] "
 
-#define ENOCEAN_UART5_DEV "ttyAMA5"
+/*** UART ***/
+#define ENOCEAN_UART_DEV 		"ttyAMA1"
+#define ENOCEAN_UART_BAUD		57600
+#define ENOCEAN_UART_BITS		8
+#define ENOCEAN_UART_PARITY		'n'
+#define ENOCEAN_UART_FLOW		'n'
 
 #define VENOCEAN_FRAME_SIZE 20
 
