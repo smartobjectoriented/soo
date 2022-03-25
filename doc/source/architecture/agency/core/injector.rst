@@ -5,7 +5,7 @@ ME Injector
 -----------
 
 The **ME Injector** functionality allows a ME to be injected into a smart object. At the bootstrap of SOO, the Agency looks
-at a dedicated partition of the SD-CARD to retrieve some ME ITBs.
+at a dedicated partition of the SD-CARD to retrieve some ME ITBs. It can also inject ME using Bluetooth, via the :ref:`vuihandler <vuihandler>`.
 
 An ME is packed into a U-boot ITB file which is parsed by the AVZ hypervisor when loading into the RAM.
 
@@ -14,7 +14,7 @@ Deployment in dedicated storage partition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This is the standard method used in the Smart Objects. The entities (MEs) are stored in a dedicated
-partition (*/mnt/ME* mount point).
+partition (*/mnt/ME* mount point) as ITB. 
 
 The Agency core automatically injects all MEs that are in this partition by invoking ``ME_inject()`` which 
 query the hypervisor to parse the ITB buffer.
@@ -26,6 +26,16 @@ A user can upload a ME from a tablet (or smartphone). The ME ITB is stored in th
 via Bluetooth. The ``vuihandler`` backend is involved in the retrieval of the ITB buffer and invokes the injector
 to load the ME.
 
+.. figure:: /img/SOO_architecture_injector_ME_BT.png
+   :align: center
+
+The ME reception and injection via BT is described in the diagram above. The ``vuiHandler`` receives ME chunks asynchronously
+and forward them to the *Injector* if the packet is a `ME_SIZE` packet or a `ME_DATA` packet. The size is received only once at the
+beginning of the transfer. The ME data are received as chunks of 960B (vuihandler limitation).
+
+The injector allocates its buffer when it receives the size. It then appends the ME chunks as they are received.
+Once the ME is fully received, it calls AVZ to effectively inject the ME. Afterward, it cleans its internal data (ME_buffer, ME_size, ...).
+
 
 Memory management during the injection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -33,7 +43,7 @@ Memory management during the injection
 The injector is responsible to allocate the memory necessary to store the ITB buffer (image) which represents the ME itself.
 
 When the ME is stored in the local SD-card storage, the agency core application allocates a user space area.
-When the ME is retrieved from an external device using Bluetooth, the *vuihandler* backend performs an in-kernel memory
+When the ME is retrieved from an external device using Bluetooth, the *Injector* performs an in-kernel memory
 allocation in the *vmalloc'd* area of the Linux kernel.
 
 These kind of memory allocation results in spare allocation of pages and implies updates of the page tables within the LInux kernel.
