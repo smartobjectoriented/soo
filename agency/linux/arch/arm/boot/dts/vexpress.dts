@@ -47,6 +47,19 @@
 		i2c1 = &v2m_i2c_pcie;
 	};
 
+	v2m_serial1 {
+		compatible = "enocean,drv";
+		status = "okay";
+		
+		enocean-uart {
+			compatible = "enocean-uart";
+			current-speed = <57600>;
+			status = "okay";
+		};
+	};
+
+
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
