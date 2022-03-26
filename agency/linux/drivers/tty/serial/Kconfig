@@ -1583,6 +1583,12 @@ config SERIAL_MILBEAUT_USIO_CONSOLE
 	  receives all kernel messages and warnings and which allows logins in
 	  single user mode).
 
+config ENOCEAN_UART
+	bool "Support for uart communication with enocean module"
+	depends on SERIAL_DEV_BUS
+	help
+		TODO
+
 endmenu
 
 config SERIAL_MCTRL_GPIO

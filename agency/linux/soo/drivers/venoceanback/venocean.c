@@ -41,6 +41,7 @@
 
 #include <stdarg.h>
 #include <linux/kthread.h>
+#include <linux/serdev.h>
 
 #include <soo/vdevback.h>
 
@@ -68,6 +69,7 @@ static struct gpio_desc *SW2_gpio;
 int enOcean_mode = ENOCEAN_MODE_BLIND;
 
 struct tty_struct *tty_uart;
+struct serdev_device *serdev_uart;
 
 static int click_monitor_fn(void *args) {
 	struct tty_struct *tty_uart;
@@ -348,9 +350,6 @@ void venocean_connected(struct vbus_device *vdev) {
 	// process_response(vdev);
 }
 
-static int sleep_fn(void *args)
-{
-	
 
 int venocean_init_uart(void)
 {
@@ -358,7 +357,8 @@ int venocean_init_uart(void)
 	int i = 0;
 	struct device *dev;
 	struct device_node *dev_node; 
-	char uart[] = "serial5";
+	char uart[] = "serial1";
+	struct serdev_controller *ctrl;
 
 	/* Initiate the tty device dedicated to the enocean module. */
 	// if ((ret = tty_dev_name_to_number(ENOCEAN_UART_DEV, &dev)) < 0) {
@@ -366,18 +366,31 @@ int venocean_init_uart(void)
 	// 	goto error_dev_name;
 	// }
 
+	// serdev_device_alloc()
+
 	if (!(dev_node = of_find_node_by_path(uart)))
 	{
-		DBG(VENOCEAN_PREFIX " device %s no found\n", uart);
+		DBG(VENOCEAN_PREFIX " device %s not found\n", uart);
 		goto error_dev_name;
 	}
-	DBG(VENOCEAN_PREFIX "device node name : %s\n", dev_node->full_name);
-		
+	DBG(VENOCEAN_PREFIX "device node name : %s, dev type : %s\n", dev_node->full_name,
+		of_node_get_device_type(dev_node));
+
+	
+
 	dev = get_dev_from_fwnode(&dev_node->fwnode);
 	if (dev == NULL) {
 		DBG(VENOCEAN_PREFIX " failed to get device\n");
 		return -1;
 	}
+
+	ctrl = serdev_controller_alloc(dev_node->fwnode.dev, 0);
+
+	if (!ctrl) {
+		DBG(VENOCEAN_PREFIX " failed to get serdev %s\n", uart);
+	}
+
+	DBG(VENOCEAN_PREFIX " ctrl : %s", ctrl->dev.init_name);
 
 	// DBG(VENOCEAN_PREFIX " dev :%d\n", dev->offline);
 	DBG(VENOCEAN_PREFIX " dev :%d\n", dev->offline);
@@ -438,7 +451,60 @@ vdrvback_t venoceandrv = {
 	.suspend = venocean_suspend
 };
 
-int venocean_init(void) {
+static int uart_probe(struct platform_device *pdev)
+{
+	struct serdev_controller *ctrl;
+	struct serdev_device *serdev;
+	struct tty_port *port;
+	struct tty_driver *driver;
+
+	char buf [] = "Hello world";
+
+	pr_info(VENOCEAN_PREFIX " hello %s", pdev->name);
+
+	ctrl = serdev_controller_alloc(&pdev->dev, 0);
+
+	if (!ctrl) {
+		DBG(VENOCEAN_PREFIX " failed to alloc serdev controller\n");
+		return -1;
+	}
+
+	/* Probes enocean_uart */
+	if (serdev_controller_add(ctrl) < 0) {
+		DBG(VENOCEAN_PREFIX " failed to add serdev controller\n");
+		return -1;
+	}
+
+	// serdev = serdev_device_alloc(ctrl);
+
+	// if (!serdev) {
+	// 	DBG(VENOCEAN_PREFIX " failed to get serdev");
+	// 	return -1;
+	// }
+
+
+	// serdev->ops->write_wakeup(serdev);
+
+	// serdev_device_write_buf(serdev, buf, sizeof(buf));
+
+
+    return 0;
+}
+
+static const struct of_device_id uart_dt_ids[] = {
+    { .compatible = "enocean,drv" },
+    { /* sentinel */}
+};
+
+static struct platform_driver uart_driver = {
+    .probe = uart_probe,
+    .driver = {
+        .name = "uart_dirver",
+        .of_match_table = uart_dt_ids,
+    },
+};
+
+static int venocean_init(void) {
 	struct device_node *np;
 
 	DBG(VENOCEAN_PREFIX " start initialization\n");
@@ -448,18 +514,20 @@ int venocean_init(void) {
 	/* Check if DTS has venocean enabled */
 	if (!of_device_is_available(np)) {
 		DBG(VENOCEAN_PREFIX " is disabled");
-		return 0;
+		return -1;
 	}
 
 	// INIT_LIST_HEAD(&vdev_consoles);
 
 	vdevback_init(VENOCEAN_NAME, &venoceandrv);
 
-	if (venocean_init_uart() < 0)
-		return 0;
+	platform_driver_register(&uart_driver);
 
-	kthread_run(click_monitor_fn, NULL, "click_enocean_monitor");
-	kthread_run(switch_between_modes, NULL, "switch_between_mode");
+	// if (venocean_init_uart() < 0)
+	// 	return -1;
+
+	// kthread_run(click_monitor_fn, NULL, "click_enocean_monitor");
+	// kthread_run(switch_between_modes, NULL, "switch_between_mode");
 
 	DBG(VENOCEAN_PREFIX " Initialized successfully\n");
 
