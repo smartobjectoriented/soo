@@ -51,12 +51,12 @@
 
 			venocean {
 				compatible = "venocean,backend";
-				status = "disabled";
+				status = "ok";
 
-				/* TX5 pin 32*/
-				SW2-gpios = <&gpio 0 GPIO_ACTIVE_HIGH>;
-				/* RX5 pin 33*/
-				SW1-gpios = <&gpio 1 GPIO_ACTIVE_HIGH>;
+				// /* TX5 pin 32*/
+				// SW2-gpios = <&gpio 0 GPIO_ACTIVE_HIGH>;
+				// /* RX5 pin 33*/
+				// SW1-gpios = <&gpio 1 GPIO_ACTIVE_HIGH>;
 			};
 
 		};

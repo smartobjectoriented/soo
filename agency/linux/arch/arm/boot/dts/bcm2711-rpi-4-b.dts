@@ -396,6 +396,11 @@
 	pinctrl-0 = <&uart5_gpio12>;
 	status = "okay";
 
+	enocean-uart {
+		compatible = "enocean-uart";
+		current-speed = "9600";
+	};
+
 };	
 
 &spi1 {
