@@ -49,6 +49,8 @@
 #include <linux/serial_core.h>
 #include <soo/dev/venocean.h>
 
+#include <linux/enocean_uart.h>
+
 // #include <soo/dev/vdoga.h>
 // #include <soo/dev/vanalog.h>
 
@@ -451,10 +453,13 @@ vdrvback_t venoceandrv = {
 	.suspend = venocean_suspend
 };
 
+
+
 static int uart_probe(struct platform_device *pdev)
 {
 	struct serdev_controller *ctrl;
 	struct serdev_device *serdev;
+	struct device *dev;
 	struct tty_port *port;
 	struct tty_driver *driver;
 
@@ -474,6 +479,14 @@ static int uart_probe(struct platform_device *pdev)
 		DBG(VENOCEAN_PREFIX " failed to add serdev controller\n");
 		return -1;
 	}
+
+	// if (device_match_name(dev, "amba") < 0)
+	// {
+	// 	DBG(VENOCEAN_PREFIX " failed to get amba device\n");
+	// 	return -1;
+	// }
+
+	// DBG(VENOCEAN_PREFIX " bus name: %s\n", dev->driver->name);
 
 	// serdev = serdev_device_alloc(ctrl);
 
@@ -499,7 +512,7 @@ static const struct of_device_id uart_dt_ids[] = {
 static struct platform_driver uart_driver = {
     .probe = uart_probe,
     .driver = {
-        .name = "uart_dirver",
+        .name = "uart_driver",
         .of_match_table = uart_dt_ids,
     },
 };

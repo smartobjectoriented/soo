@@ -37,7 +37,6 @@ static const struct serdev_device_ops enocean_uart_device_ops = {
 static const struct serdev_controller_ops controller_ops = {
     .set_baudrate = NULL,
 };
-
 static int enocean_uart_probe(struct serdev_device *serdev)
 {
     struct device *dev = &serdev->dev;
@@ -49,11 +48,14 @@ static int enocean_uart_probe(struct serdev_device *serdev)
 		return -EINVAL;
     }
 
-    uart = tty_kopen(dev->devt);
-    if (!uart) {
-        dev_err(dev, "failed to get tty_struct\n");
-        return -1;
-    }
+    pr_info(ENOCEAN_UART_PREFIX " node name: %s, driver name: %s", dev->of_node->parent->name, 
+                    dev->of_node->parent->parent->name);
+
+    // uart = tty_kopen(dev->devt);
+    // if (!uart) {
+    //     dev_err(dev, "failed to get tty_struct\n");
+    //     return -1;
+    // }
 
     pr_info(ENOCEAN_UART_PREFIX " drv name: %s", uart->name);
 
@@ -90,8 +92,9 @@ static struct serdev_device_driver enocean_uart_drv = {
         .of_match_table = of_match_ptr(enocean_uart_dt_ids),
     },
 };
+
 module_serdev_device_driver(enocean_uart_drv);
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Mattia Gallacchi <mattia.gallacchi@heig-vd.ch");
-MODULE_DESCRIPTION("En0cean uart driver");
+// MODULE_LICENSE("GPL");
+// MODULE_AUTHOR("Mattia Gallacchi <mattia.gallacchi@heig-vd.ch");
+// MODULE_DESCRIPTION("En0cean uart driver");
