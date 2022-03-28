@@ -45,20 +45,13 @@
 #include <soo/uapi/soo.h>
 #include <soo/uapi/injector.h>
 
-size_t ME_size;
-
+/* Buffer in which the ME will be received. It is dynamically allocated
+in injector_prepare */
 uint8_t *ME_buffer;
-
+/* full size of the me we are receiving */
+size_t ME_size;
+/* Current size received */
 size_t current_size = 0;
-
-void *tmp_buf;
-size_t tmp_size;
-
-bool full = false;
-
-DECLARE_WAIT_QUEUE_HEAD(wq_prod);
-DECLARE_WAIT_QUEUE_HEAD(wq_cons);
-DECLARE_COMPLETION(me_ready_compl);
 
 /**
  * Initiate the injection of a ME.
