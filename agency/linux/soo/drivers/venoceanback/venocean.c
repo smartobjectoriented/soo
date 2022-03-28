@@ -513,7 +513,6 @@ static struct platform_driver uart_driver = {
     .probe = uart_probe,
     .driver = {
         .name = "uart_driver",
-        .of_match_table = uart_dt_ids,
     },
 };
 
@@ -534,7 +533,7 @@ static int venocean_init(void) {
 
 	vdevback_init(VENOCEAN_NAME, &venoceandrv);
 
-	platform_driver_register(&uart_driver);
+	// platform_driver_probe(&uart_driver, uart_probe);
 
 	// if (venocean_init_uart() < 0)
 	// 	return -1;
