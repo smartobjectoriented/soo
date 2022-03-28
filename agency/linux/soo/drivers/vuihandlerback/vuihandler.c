@@ -24,13 +24,19 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
 /* For debugging purposes: app presence simulator */
 #if 0
 #define APP_SIMULATOR
+#endif
+
+/* For testing purpose, if set to 1, launch a thread which continually sends
+ data to the first ME which vuihandler FE is reconfigured */
+#if 0
+#define TEST_RX 1
 #endif
 
 #include <stdarg.h>
@@ -78,9 +84,6 @@
  * connected to Internet.
  */
 
-#if 1
-#define TEST_RX 1
-#endif
 
 /* Max missed keepalive beacon count for disconnection */
 #define MAX_FAILED_PING_COUNT	3
@@ -279,9 +282,8 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 
 		/* Let the circular buffer add the packet to itself */
 		if (tx_buffer_put(ring_req->buf, ring_req->size, slotID, VUIHANDLER_DATA) == -1) {
-#warning Is it an error (BUG)  or acceptable condition?...
-			printk("Error: could not put the TX packet in the circular buffer!\n");
-			continue;
+			lprintk("Error: could not put the TX packet in the circular buffer!\n");
+			BUG();
 		}
 	}
 
@@ -291,9 +293,8 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 int vuihandler_send_from_agency(uint8_t *data, uint32_t size, uint8_t type) {
 
 	if (tx_buffer_put(data, size, 0, type) == -1) {
-#warning Is it an error (BUG) or acceptable condition?...
-		printk("Error: could not put the TX packet in the circular buffer!\n");
-		return -1;
+		lprintk("Error: could not put the TX packet in the circular buffer!\n");
+		BUG();
 	}
 	return 0;
 }
@@ -430,12 +431,14 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 		return ;
 	}
 	
+#if 0
 	if (vuihandler_pkt->type == VUIHANDLER_BEACON) {
 		/* This is a vUIHandler beacon */
-		// recv_beacon(vuihandler_pkt, vuihandler_pkt_size);
+		recv_beacon(vuihandler_pkt, vuihandler_pkt_size);
 
 		return ;
 	}
+#endif
 
 	/* We expect the BT packet to be a vUIHandler data packet or an event packet */
 	if (!(vuihandler_pkt->type == VUIHANDLER_DATA || vuihandler_pkt->type == VUIHANDLER_POST))
@@ -481,9 +484,8 @@ static int tx_task_fn(void *arg) {
 		tx_pkt = tx_buffer_get();
 
 		if (tx_pkt == NULL) {
-#warning Is it an error (BUG)  or acceptable condition?...
 			lprintk("An error occured while getting the next TX packet!\n");
-			continue;
+			BUG();
 		}
 
 		/* Retrieve parameters from TX ISR */
@@ -563,16 +565,14 @@ static int test_rx_fn(void *args) {
 	vuihandler_pkt_t *test_pkt;
 	vuihandler_t *vuihandler = (vuihandler_t *) args;
 	char *msg = "Hello from BE!";
-
-	// msleep(20000);
-
-	printk("NOW STARTING THE TEST THREAD\n");
 	
 	test_pkt = (vuihandler_pkt_t *) kzalloc(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE, GFP_KERNEL);
 	memset(test_pkt, 0, sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PKT_SIZE);
+
 	test_pkt->slotID = vuihandler->otherend_id;
 	test_pkt->type = VUIHANDLER_DATA;
 	memcpy(test_pkt->payload, msg, strlen(msg));
+
 	while(1) {
 		msleep(2000);
 		vuihandler_recv(test_pkt, sizeof(vuihandler_pkt_t) + strlen(msg));
@@ -633,7 +633,6 @@ void vuihandler_close(struct vbus_device *vdev) {
 	vuihandler->otherend_id = 0;
 
 	DBG(VUIHANDLER_PREFIX "Backend closed: %d\n", vdev->otherend_id);
-
 }
 
 void vuihandler_suspend(struct vbus_device *vdev) {
@@ -646,18 +645,11 @@ ME_id_t me_id; /* Here because the short desc is a 1024-char buffer and exceeds 
 bool test_thread_launched = false;
 
 void vuihandler_resume(struct vbus_device *vdev) {
-
-	get_ME_id(vdev->otherend_id, &me_id);
-
-
-	
-
 	DBG(VUIHANDLER_PREFIX "Backend resume: %d\n", vdev->otherend_id);
 }
 
 
 void vuihandler_connected(struct vbus_device *vdev) {
-
 	vuihandler_priv_t *vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(&vdev->dev);
 	
 	vuihandler_priv->vuihandler.otherend_id = vdev->otherend_id;
