@@ -40,8 +40,8 @@
 
 typedef struct {
 	uint8_t		type;
-	uint64_t	spid;
-	uint8_t		payload[0]; // TODO describe this payload better!
+	uint64_t	slotID;
+	uint8_t		payload[0];
 } vuihandler_pkt_t;
 
 #define VUIHANDLER_MAX_PACKETS		8
@@ -60,7 +60,8 @@ typedef struct {
 #define VUIHANDLER_ME_INJECT	2 /* Specify the packet contains a chunk of the ME to be injected  */
 #define VUIHANDLER_ME_SIZE	3 /* Specify that a ME injection is to be initiated. The packet contains the ME size */
 #define VUIHANDLER_ASK_LIST	4 /* Ask for the XML ME list */
-#define VUIHANDLER_EVENT	5 /* Specify that the packet contains an event data to be forwarded to the ME */
+#define VUIHANDLER_SELECT	5 /* Specify a ME to be selected by the tablet. The ME will then send its XML UI model. */
+#define VUIHANDLER_POST		6 /* Specify that the packet contains an event data to be forwarded to the ME.  */
 
 #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
 
@@ -75,7 +76,6 @@ typedef struct {
 /* Ring buffer used to queue the TX packets */
 typedef struct {
 	tx_pkt_t ring[VUIHANDLER_TX_BUF_SIZE];
-	// uint32_t data_sizes[VUIHANDLER_TX_BUF_SIZE];
 	uint32_t put_index;
 	uint32_t get_index;
 	uint32_t cur_size;
@@ -148,7 +148,7 @@ typedef struct {
 
 
 typedef struct {
-    vdevback_t vdevback;
+	vdevback_t vdevback;
 
 	vuihandler_tx_ring_t	tx_rings;
 	vuihandler_rx_ring_t	rx_rings;
@@ -156,8 +156,9 @@ typedef struct {
 	vuihandler_shared_buffer_t	tx_buffers;
 	vuihandler_shared_buffer_t	rx_buffers;
 
-	/* Holds the SPID of the ME who is connected */
-	uint64_t spid;
+	uint64_t otherend_id;
+
+	uint64_t spid; /* Kept here as in case we want to use it */
 
 } vuihandler_t;
 
