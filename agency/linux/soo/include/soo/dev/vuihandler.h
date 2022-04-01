@@ -156,7 +156,7 @@ typedef struct {
 	vuihandler_shared_buffer_t	tx_buffers;
 	vuihandler_shared_buffer_t	rx_buffers;
 
-	uint64_t otherend_id;
+	int32_t otherend_id;
 
 	uint64_t spid; /* Kept here as in case we want to use it */
 
