@@ -97,14 +97,21 @@ void injector_receive_ME(void *ME, size_t size) {
 }
 
 /**
- * Allocate the ME and handle the sizes for the upcoming injection
+ * Allocate the ME and handle the sizes for the upcoming injection.
+ * It is called once at the begining of the reception.
  * 
- * @size: Size of the ITB which will be injected.
+ * @size: Size of the ME ITB which will be injected.
  */
 void injector_prepare(uint32_t size) {
 	current_size = 0;
 	ME_size = size;
+	/* The buffer is allocated here and freed once the ME is completely received
+	and injected in the `injector_receive_ME` function */
 	ME_buffer = vzalloc(size);
+	if (ME_buffer == NULL) {
+		lprintk("[Injector][%s]: Cannot allocate the ME buffer!\n", __func__);
+		BUG();
+	}
 }
 
 
