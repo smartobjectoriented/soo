@@ -141,57 +141,6 @@ vdrvback_t vuihandlerdrv = {
 
 
 /**
- * Return the SPID of the ME whose "otherend ID" is given as parameter.
- * Return the pointer to the SPID on success.
- * If there is no such ME in this slot, return NULL.
- */
-static uint64_t get_spid_from_otherend_id(int otherend_id) {
-	vuihandler_t *vuihandler;
-	vuihandler_priv_t *vuihandler_priv;
-	struct vbus_device *vdev = vdevback_get_entry(otherend_id, vdev_list);
-
-	vuihandler_priv = dev_get_drvdata(&vdev->dev);
-	vuihandler = &vuihandler_priv->vuihandler;
-
-	return vuihandler->spid;
-}
-
-/**
- * Return the "otherend ID" of the ME whose SPID is given as parameter.
- * Return the ID on success.
- * If there is no such ME, return -ENOENT.
- */
-static int get_otherend_id_from_spid(uint64_t spid) {
-	uint32_t i;
-	vuihandler_t *vuihandler;
-	vuihandler_priv_t *vuihandler_priv;
-	struct vbus_device *vdev;
-	
-	soo_log("[soo:backend:vuihandler] Searching for ");
-	soo_log_printlnUID(spid);
-
-
-	for (i = 1; i < MAX_DOMAINS; i++) {
-		vdev = vdevback_get_entry(i, vdev_list);
-		if (vdev != NULL) {
-			soo_log("[soo:backend:vuihandler] Slot %d is not empty!\n", i);
-
-			vuihandler_priv = dev_get_drvdata(&vdev->dev);
-			vuihandler = &vuihandler_priv->vuihandler;
-
-			soo_log("[soo:backend:vuihandler] Getting ");
-			soo_log_printlnUID(vuihandler->spid);
-
-			if (spid ==  vuihandler->spid)
-				return i;
-		}
-	}
-
-	return -ENOENT;
-}
-
-
-/**
  * @brief Enqueue a packet to be sent in the internal circular buffer.
  * The fact we don't pass it a vuihandler_pkt_t is to avoid having to create one in the caller.
  * 
@@ -202,7 +151,7 @@ static int get_otherend_id_from_spid(uint64_t spid) {
  * 
  * @return 0 on success, -1 on error
  */ 
-int tx_buffer_put(uint8_t *data, uint32_t size, uint64_t slotID, uint8_t type) {
+int tx_buffer_put(uint8_t *data, uint32_t size, int32_t slotID, uint8_t type) {
 	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
 	vuihandler_pkt_t *cur_elem = vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.put_index].pkt;
 
@@ -266,18 +215,12 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vuihandler_t *vuihandler = dev_get_drvdata(&vdev->dev);
 	vuihandler_tx_request_t *ring_req;
-	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_vdevpriv(vdev);
-	uint64_t slotID = -1;
+	int32_t slotID = -1;
 
 	while ((ring_req = vuihandler_tx_get_ring_request(&vuihandler->tx_rings.ring)) != NULL) {
 
 		DBG(VUIHANDLER_PREFIX "%d, %d\n", ring_req->id, ring_req->size);
 
-#if 0
-		/* Only send packets that are adapted to the tablet application */
-		if (vdrv_priv->connected_app.spid != spid)
-			continue;
-#endif
 		slotID = vuihandler->otherend_id;			
 
 		/* Let the circular buffer add the packet to itself */
@@ -415,7 +358,7 @@ int send_ME_list_xml(void) {
 
 void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
 	size_t size;
-	int me_id;
+	int32_t me_id;
 
 	/* Check for packet destinated to to agency, mainly ME injection related */
 	if (vuihandler_pkt->type == VUIHANDLER_ME_SIZE || vuihandler_pkt->type == VUIHANDLER_ME_INJECT) {
@@ -430,15 +373,6 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 
 		return ;
 	}
-	
-#if 0
-	if (vuihandler_pkt->type == VUIHANDLER_BEACON) {
-		/* This is a vUIHandler beacon */
-		recv_beacon(vuihandler_pkt, vuihandler_pkt_size);
-
-		return ;
-	}
-#endif
 
 	/* We expect the BT packet to be a vUIHandler data packet or an event packet */
 	if (!(vuihandler_pkt->type == VUIHANDLER_DATA || vuihandler_pkt->type == VUIHANDLER_POST))
