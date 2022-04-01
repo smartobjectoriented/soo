@@ -374,13 +374,10 @@ void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pk
 		
 		/* Forward the size to the injector so it knows the ME size. */
 		injector_prepare(ME_size);
-
-		// vfree(vuihandler_pkt);
 		break;
 
 	/* This is the ME data which needs to be forwarded to the Injector */
 	case VUIHANDLER_ME_INJECT:
-
 		/* As we bypass the full vuiHandler protocol, we first use a uint8_t array to
 		easily access the data instead of the vuihandler_pkt */
 		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
@@ -467,8 +464,6 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 	DBG(VUIHANDLER_PREFIX "ME ID: %d\n", me_id);
 
 	rx_push_response(me_id, vuihandler_pkt, vuihandler_pkt_size);
-
-	// vfree(vuihandler_pkt);
 }
 
 

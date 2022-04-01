@@ -31,7 +31,7 @@ to load the ME.
 
 The ME reception and injection via BT is described in the diagram above. The ``vuiHandler`` receives ME chunks asynchronously
 and forward them to the *Injector* if the packet is a `ME_SIZE` packet or a `ME_DATA` packet. The size is received only once at the
-beginning of the transfer. The ME data are received as chunks of 960B (vuihandler limitation).
+beginning of the transfer. The ME data are received as chunks of max 960B (vuihandler limitation).
 
 The injector allocates its buffer when it receives the size. It then appends the ME chunks as they are received.
 Once the ME is fully received, it calls AVZ to effectively inject the ME. Afterward, it cleans its internal data (ME_buffer, ME_size, ...).
