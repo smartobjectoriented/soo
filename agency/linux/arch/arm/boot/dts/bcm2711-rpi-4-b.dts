@@ -392,15 +392,13 @@
 
 /* BCU SOO.tech: UART5 used for the enOcean control */
 &uart5 {
-	compatible = "enocean,drv";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart5_gpio12>;
 	status = "okay";
 
-	enocean {
-		compatible = "enocean-uart";
+	enocean-uart {
+		compatible = "enocean,tcm515";
 		current-speed = <57600>;
-		status = "okay";
 	};
 
 };	

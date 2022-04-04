@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2016-2018 Daniel Rossier <daniel.rossier@soo.tech>
  * Copyright (C) 2016 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2022 Mattia Gallacchi <mattia.gallacchi@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,7 +18,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -33,6 +34,8 @@
 #include <linux/gpio/driver.h>
 #include <linux/gpio/consumer.h> 
 
+#include <linux/completion.h>
+
 #include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
@@ -41,278 +44,205 @@
 
 #include <stdarg.h>
 #include <linux/kthread.h>
-#include <linux/serdev.h>
 
 #include <soo/vdevback.h>
-
-#include <asm/termios.h>
-#include <linux/serial_core.h>
 #include <soo/dev/venocean.h>
+#include <linux/tcm515_serdev.h>
 
-#include <linux/enocean_uart.h>
+/* Store last ESP3 packet received */
+esp3_packet_t *last_packet = NULL;
 
-// #include <soo/dev/vdoga.h>
-// #include <soo/dev/vanalog.h>
+/* Completions used for synchronization beetween callback and send thread */
+DECLARE_COMPLETION(send_data_completion);
+DECLARE_COMPLETION(data_sent_completion);
 
-extern ssize_t tty_do_read(struct tty_struct *tty, unsigned char *buf, size_t nr);
-extern struct tty_struct *tty_kopen(dev_t device);
-extern int uart_do_open(struct tty_struct *tty);
-extern void uart_do_close(struct tty_struct *tty);
-extern int tty_set_termios(struct tty_struct *tty, struct ktermios *new_termios);
+typedef struct {
+	venocean_t venocean;
+} venocean_priv_t;
 
-int32_t Switch_ID_Reconstitution(char ID[4]);
+/**
+ * @brief This function is used has a callback when a new ESP3 packet is received by tcm515-serdev.
+ * 
+ * @param packet New ESP3 packet. Will replace the values of last packet.
+ */
+void tcm515_callaback(esp3_packet_t *packet){
 
-/* ASCII data coming from the enocean module*/
-static venocean_ascii_data_t ascii_data;
+	DBG(VENOCEAN_PREFIX " New data form tcm515\n");
+	if (!packet)
+		return;
+	
+	/*** free memory if packet has not been sent ***/
+	if (last_packet) {
+		if (last_packet->data)
+			kfree(last_packet->data);
 
-static struct gpio_desc *SW1_gpio;
-static struct gpio_desc *SW2_gpio;
-
-int enOcean_mode = ENOCEAN_MODE_BLIND;
-
-struct tty_struct *tty_uart;
-struct serdev_device *serdev_uart;
-
-static int click_monitor_fn(void *args) {
-	struct tty_struct *tty_uart;
-	int len, nbytes;
-	char buffer[VENOCEAN_FRAME_SIZE];
-	int i = 0;
-	bool problem = false;
-
-	DBG(VENOCEAN_PREFIX "Starting to acquire switch data from the enocean module.\n");
-
-	while (!kthread_should_stop()) 
-	{
-		msleep(10);
-		nbytes = 0; //reset the number of the actual byte to read
-
-		//if a problem was detected during the precedent iteration
-		if(problem == true)
-		{
-			//read the number of byte corresponding to the enocean reset
-			while (nbytes < VENOCEAN_INIT_SIZE) 
-			{
-				len = tty_do_read(tty_uart, buffer + nbytes, VENOCEAN_INIT_SIZE);
-				nbytes += len;
-			}
-
-			problem = false; //reset the problem state
-		} 
-
-		nbytes = 0; //reset the number of the actual byte to read
-
-		//read the number of bytes corresponding to the size of the switch frame
-		while (nbytes < VENOCEAN_FRAME_SIZE) 
-		{
-			len = tty_do_read(tty_uart, buffer + nbytes, VENOCEAN_FRAME_SIZE);
-			nbytes += len;
-		}
-
-		/* Update the local asci data with the new received data. */
-		memcpy(&ascii_data, buffer, VENOCEAN_FRAME_SIZE);
-
-
-		//Test the differents possibilities of position
-		if (ascii_data.switch_data == SWITCH_IS_UP)
-		{
-			//print the informations about the switch state
-			printk("switch (ID: 0x%08X) is up", Switch_ID_Reconstitution(ascii_data.switch_ID));
-#if 0
-			//test the actual mode (blind or valve)
-			if(enOcean_mode == ENOCEAN_MODE_BLIND)
-			{
-				vdoga_blind_up();
-			}
-			else
-			{
-				vanalog_valve_open();
-			}
-#endif
-		}
-		else if(ascii_data.switch_data == SWITCH_IS_DOWN)
-		{
-			//print the informations about the switch state
-			printk("switch (ID: 0x%08X) is down", Switch_ID_Reconstitution(ascii_data.switch_ID));
-
-#if 0
-			//test the actual mode (blind or valve)
-			if(enOcean_mode == ENOCEAN_MODE_BLIND)
-			{
-				vdoga_blind_down();
-			}
-			else
-			{
-				vanalog_valve_close();
-			}
-#endif
-		}
-		else if(ascii_data.switch_data == SWITCH_IS_RELEASED)
-		{
-			//print the informations about the switch state
-			printk("switch (ID: 0x%08X) is released", Switch_ID_Reconstitution(ascii_data.switch_ID));
-
-#if 0			
-			//test the actual mode (blind or valve)
-			if(enOcean_mode == ENOCEAN_MODE_BLIND)
-			{
-				vdoga_blind_stop();
-			}
-#endif
-		} 
-
-		else
-		{
-			printk("invalid param");
-			problem = true;
-		} 
-		printk("\n");
-	}
-	return 0;
-}
-
-static int switch_between_modes(void *args) 
-{
-	int SW1_save[4] = {1, 1, 1, 1}; //array to save the 4 last values from SW1
-
-	while(1)
-	{
-		msleep(GPIO_POLL_PERIOD); 
-
-		//shift the values inside the array and get a new one
-		SW1_save[3] = SW1_save[2];	
-		SW1_save[2] = SW1_save[1];
-		SW1_save[1] = SW1_save[0];
-		SW1_save[0]	= gpiod_get_value(SW1_gpio);
-
-		//Test the 4 last values of SW1 to detect a failing edge
-		if((SW1_save[3] == 1) && (SW1_save[2] == 1) 
-			&& (SW1_save[1] == 0) && (SW1_save[0] == 0))
-		{
-			//test the actual state
-			if(enOcean_mode == ENOCEAN_MODE_BLIND)
-			{
-				enOcean_mode = ENOCEAN_MODE_VALVE;
-				printk("enOcean switch will now drive the valve");
-			}
-			else
-			{
-				enOcean_mode = ENOCEAN_MODE_BLIND;	
-				printk("enOcean switch will now drive the blind");
-			}
-			printk("\n");
-		}
+		if (last_packet->optional_data)
+			kfree(last_packet->optional_data);
 		
+		kfree(last_packet);
+		last_packet = NULL;
 	}
+
+	last_packet = kzalloc(sizeof(esp3_packet_t), GFP_KERNEL);
+	if (!last_packet) {
+		DBG(VENOCEAN_PREFIX " failed to allocate last packet\n");
+		goto packet_alloc_err;
+	}
+	memcpy(&last_packet->header, &packet->header, sizeof(esp3_header_t));
+
+	last_packet->data = kzalloc(last_packet->header.data_len * sizeof(byte), GFP_KERNEL);
+	if (!last_packet->data) {
+		DBG(VENOCEAN_PREFIX " failed to allocate last packet data\n");
+		goto data_alloc_err;
+	}
+	memcpy(last_packet->data, packet->data, last_packet->header.data_len * sizeof(byte));
+
+	last_packet->optional_data = kzalloc(last_packet->header.optional_len * sizeof(byte), GFP_KERNEL);
+	if (!last_packet->optional_data) {
+		DBG(VENOCEAN_PREFIX " failed to allocate last packet optional data\n");
+		goto optional_alloc_err;
+	}
+	memcpy(last_packet->optional_data, packet->optional_data, last_packet->header.optional_len * sizeof(byte));
+
+	DBG(VENOCEAN_PREFIX " new esp3 packet received");
+
+	DBG(VENOCEAN_PREFIX " sending data to frontend\n");
+	/*** trigger data send ***/
+	complete(&send_data_completion);
+
+	/*** wait for data to be sent ***/
+	wait_for_completion(&data_sent_completion);
+
+	DBG(VENOCEAN_PREFIX " ready for new data\n");
+
+	return;
+
+	optional_alloc_err:
+		kfree(last_packet->data);
+	data_alloc_err:
+		kfree(last_packet);
+	packet_alloc_err:
+		last_packet = NULL;
+		return;
+}
+
+/**
+ * @brief This thread function put last packet in the ring. If frontend is not connected packet is just dropped.
+ * 			Waits on completion sent by tmc515 callback.
+ * 
+ * @param data Vbus device
+ * @return int 0 for success
+ */
+static int venocean_send_data_fn(void *data){
+	struct vbus_device *vdev = (struct vbus_device*)data;
+	venocean_priv_t  *venocean_priv = dev_get_drvdata(&vdev->dev);
+	venocean_response_t *ring_resp;
+
+	while(!kthread_should_stop()) {
+		wait_for_completion(&send_data_completion);
+
+		if (vdev->state == VbusStateConnected){
+		
+			DBG(VENOCEAN_PREFIX " creating new ring response\n");
+			if (last_packet->header.data_len < BUFFER_SIZE - 1) {
+				vdevback_processing_begin(vdev);
+				
+				ring_resp = venocean_new_ring_response(&venocean_priv->venocean.ring);
+				memcpy(ring_resp->buffer, last_packet->data, last_packet->header.data_len);
+				ring_resp->len = last_packet->header.data_len;
+
+				DBG(VENOCEAN_PREFIX " data: %s, len: %d\n", last_packet->data, last_packet->header.data_len);
+				
+				venocean_ring_response_ready(&venocean_priv->venocean.ring);
+				notify_remote_via_virq(venocean_priv->venocean.irq);
+				
+				vdevback_processing_end(vdev);
+			} else {
+				DBG(VENOCEAN_PREFIX " last packet data is too big\n");
+			}
+		} else {
+			DBG(VENOCEAN_PREFIX "fronted not found. Nothing will be sent\n");
+		}
+
+		DBG(VENOCEAN_PREFIX " freeing last packet\n");
+		
+		kfree(last_packet->optional_data);
+		kfree(last_packet->data);
+		kfree(last_packet);
+		last_packet = NULL;
+
+		complete(&data_sent_completion);
+		DBG(VENOCEAN_PREFIX " ring response sent\n");
+	}
+
 	return 0;
 }
 
-//Used to regroup the 4 ID bytes into one 32bits 
-int32_t Switch_ID_Reconstitution(char ID[4])
-{
-	int32_t Full_ID = ((ID[0] << 24) | (ID[1] << 16) | (ID[2] << 8) | ID[3]);
-	return Full_ID;
-}
-
-static void process_response(struct vbus_device *vdev) {
-	venocean_t *venocean = to_venocean(vdev);
-	venocean_request_t *ring_req;
-	venocean_response_t *ring_rsp;
-	struct winsize wsz;
-
-	ring_rsp = venocean_new_ring_response(&venocean->ring);
-	venocean_ring_response_ready(&venocean->ring);
-
-	notify_remote_via_virq(venocean->irq);
-}
-
-irqreturn_t venocean_interrupt(int irq, void *dev_id)
-{
+irqreturn_t venocean_interrupt_bh(int irq, void *dev_id){
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
+	venocean_priv_t *venocean_priv = dev_get_drvdata(&vdev->dev);
+	venocean_request_t *ring_req;
+
+	vdevback_processing_begin(vdev);
+
+	/*** Do somenthing with the request ***/
+
+	vdevback_processing_end(vdev);
 
 	return IRQ_HANDLED;
 }
 
-
-//setup the gpios used in venocean backend
-static void setup_gpios(struct device *dev) {
-	int ret;
-
-	//gpio used as input to get the value from SW2
-	SW2_gpio = gpiod_get(dev, "SW2", GPIOD_OUT_HIGH);
-	// printk("SW2_gpio = 0x%016X\n", SW2_gpio);
-	if (IS_ERR(SW2_gpio)) {
-		ret = PTR_ERR(SW2_gpio);
-		dev_err(dev, "Failed to get SW2 GPIO: %d\n", ret);
-		return;
-	}
-	gpiod_direction_input(SW2_gpio); 
-
-	//gpio used as input to get the value from SW1
-	SW1_gpio = gpiod_get(dev, "SW1", GPIOD_OUT_HIGH);
-	// printk("SW1_gpio = 0x%08X\n", SW1_gpio);
-	if (IS_ERR(SW1_gpio)) {
-		ret = PTR_ERR(SW1_gpio);
-		dev_err(dev, "Failed to get SW1 GPIO: %d\n", ret);
-		return;
-	}
-	gpiod_direction_input(SW1_gpio); 
+irqreturn_t venocean_interrupt(int irq, void *dev_id){
+	return IRQ_WAKE_THREAD;
 }
 
-void venocean_probe(struct vbus_device *vdev) 
-{
-	venocean_t *venocean;
+void venocean_probe(struct vbus_device *vdev) {
+	venocean_priv_t *venocean_priv;
 
-	venocean = kzalloc(sizeof(venocean_t), GFP_ATOMIC);
-	BUG_ON(!venocean);
+	venocean_priv = kzalloc(sizeof(venocean_priv_t), GFP_ATOMIC);
+	BUG_ON(!venocean_priv);
 
-	spin_lock_init(&venocean->ring_lock);
+	dev_set_drvdata(&vdev->dev, venocean_priv);
 
-	vdev->dev.of_node = of_find_compatible_node(NULL, NULL, "venocean,backend");
-
-	dev_set_drvdata(&vdev->dev, &venocean->vdevback);
-
-	setup_gpios(&vdev->dev);
-
-	// kthread_run(click_monitor_fn, NULL, "click_enocean_monitor");
-
-	// kthread_run(switch_between_modes, NULL, "switch_between_mode");
-
+	/* Modify once we have multiple FE **/
+	kthread_run(venocean_send_data_fn, vdev, "send_data_fn");
+	
 	DBG(VENOCEAN_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
 
 void venocean_remove(struct vbus_device *vdev) {
-	venocean_t *venocean = to_venocean(vdev);
-
+	venocean_priv_t *venocean_priv = dev_get_drvdata(&vdev->dev);
 
 	DBG("%s: freeing the venocean structure for %s\n", __func__,vdev->nodename);
-	kfree(venocean);
+	kfree(venocean_priv);
 }
 
 void venocean_close(struct vbus_device *vdev) {
-	venocean_t *venocean = to_venocean(vdev);
+	venocean_priv_t *venocean_priv = dev_get_drvdata(&vdev->dev);
 
-	DBG("(venocean) Backend close: %d\n", vdev->otherend_id);
+	DBG(VENOCEAN_PREFIX " Backend close: %d\n", vdev->otherend_id);
 
 	/*
-	 * Free the ring and unbind evtchn.
+	 * Free the ring
 	 */
 
-	BACK_RING_INIT(&venocean->ring, (&venocean->ring)->sring, PAGE_SIZE);
-	unbind_from_virqhandler(venocean->irq, vdev);
+	BACK_RING_INIT(&venocean_priv->venocean.ring, (&venocean_priv->venocean.ring)->sring, PAGE_SIZE);
+	
+	/* Unbind the irq */
+	unbind_from_virqhandler(venocean_priv->venocean.irq, vdev);
 
-	vbus_unmap_ring_vfree(vdev, venocean->ring.sring);
-	venocean->ring.sring = NULL;
+	vbus_unmap_ring_vfree(vdev, venocean_priv->venocean.ring.sring);
+	venocean_priv->venocean.ring.sring = NULL;
 }
 
 void venocean_suspend(struct vbus_device *vdev) {
 
-	DBG("(venocean) Backend suspend: %d\n", vdev->otherend_id);
+	DBG(VENOCEAN_PREFIX " Backend suspend: %d\n", vdev->otherend_id);
 }
 
 void venocean_resume(struct vbus_device *vdev) {
 
-	DBG("(venocean) Backend resume: %d\n", vdev->otherend_id);
+	DBG(VENOCEAN_PREFIX " Backend resume: %d\n", vdev->otherend_id);
 }
 
 void venocean_reconfigured(struct vbus_device *vdev) {
@@ -320,7 +250,7 @@ void venocean_reconfigured(struct vbus_device *vdev) {
 	unsigned long ring_ref;
 	unsigned int evtchn;
 	venocean_sring_t *sring;
-	venocean_t *venocean = to_venocean(vdev);
+	venocean_priv_t *venocean_priv = dev_get_drvdata(&vdev->dev);
 
 	DBG(VENOCEAN_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
 
@@ -330,118 +260,27 @@ void venocean_reconfigured(struct vbus_device *vdev) {
 
 	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
-	DBG("BE: ring-ref=%lu, event-channel=%d\n", ring_ref, evtchn);
+	DBG(VENOCEAN_PREFIX "BE: ring-ref=%lu, event-channel=%d\n", ring_ref, evtchn);
 
 	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 	BUG_ON(res < 0);
 
-	SHARED_RING_INIT(sring);
-	BACK_RING_INIT(&venocean->ring, sring, PAGE_SIZE);
+	// SHARED_RING_INIT(sring);
+	BACK_RING_INIT(&venocean_priv->venocean.ring, sring, PAGE_SIZE);
 
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, venocean_interrupt, NULL, 0, VENOCEAN_NAME "-backend", vdev);
+	/* No handler required, however used to notify the remote domain */
+	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, venocean_interrupt,
+													venocean_interrupt_bh, 0, VENOCEAN_NAME "-backend", vdev);
 
 	BUG_ON(res < 0);
 
-	venocean->irq = res;
+	venocean_priv->venocean.irq = res;
 }
 
 void venocean_connected(struct vbus_device *vdev) {
 
 	DBG(VENOCEAN_PREFIX "Backend connected: %d\n",vdev->otherend_id);
-
-	// process_response(vdev);
 }
-
-
-int venocean_init_uart(void)
-{
-	int ret = 0;
-	int i = 0;
-	struct device *dev;
-	struct device_node *dev_node; 
-	char uart[] = "serial1";
-	struct serdev_controller *ctrl;
-
-	/* Initiate the tty device dedicated to the enocean module. */
-	// if ((ret = tty_dev_name_to_number(ENOCEAN_UART_DEV, &dev)) < 0) {
-	// 	DBG(VENOCEAN_PREFIX " tty device: %s not found\n", ENOCEAN_UART_DEV);
-	// 	goto error_dev_name;
-	// }
-
-	// serdev_device_alloc()
-
-	if (!(dev_node = of_find_node_by_path(uart)))
-	{
-		DBG(VENOCEAN_PREFIX " device %s not found\n", uart);
-		goto error_dev_name;
-	}
-	DBG(VENOCEAN_PREFIX "device node name : %s, dev type : %s\n", dev_node->full_name,
-		of_node_get_device_type(dev_node));
-
-	
-
-	dev = get_dev_from_fwnode(&dev_node->fwnode);
-	if (dev == NULL) {
-		DBG(VENOCEAN_PREFIX " failed to get device\n");
-		return -1;
-	}
-
-	ctrl = serdev_controller_alloc(dev_node->fwnode.dev, 0);
-
-	if (!ctrl) {
-		DBG(VENOCEAN_PREFIX " failed to get serdev %s\n", uart);
-	}
-
-	DBG(VENOCEAN_PREFIX " ctrl : %s", ctrl->dev.init_name);
-
-	// DBG(VENOCEAN_PREFIX " dev :%d\n", dev->offline);
-	DBG(VENOCEAN_PREFIX " dev :%d\n", dev->offline);
-
-	if (!(tty_uart = tty_kopen(dev->devt))) {
-		DBG(VENOCEAN_PREFIX " failed to open %s\n", ENOCEAN_UART_DEV);
-		ret = -1;
-		goto error_kopen;
-	}
-
-	DBG(VENOCEAN_PREFIX " tty_uart name: %s, index: %d\n", tty_uart->name, tty_uart->index);
-
-	return -1;
-	
-	if ((ret = uart_do_open(tty_uart)) < 0) {
-		DBG(VENOCEAN_PREFIX " failed to open uart\n");
-		goto error_uart_open;
-	}
-
-	/* Set the termios parameters related to tty. */
-	tty_uart->termios.c_lflag = NOFLSH;
-
-	if ((ret = tty_set_termios(tty_uart, &tty_uart->termios)) < 0) {
-		DBG(VENOCEAN_PREFIX " failed to set termios\n");
-		goto error_termios;
-	}
-
-	/* Set UART configuration */
-	if ((ret = uart_set_options(((struct uart_state *) tty_uart->driver_data)->uart_port, NULL,
-						ENOCEAN_UART_BAUD, ENOCEAN_UART_PARITY, ENOCEAN_UART_BITS, 
-						ENOCEAN_UART_FLOW)) < 0) {
-		DBG(VENOCEAN_PREFIX " failed to set uart options\n");
-		goto error_uart_options; 
-	}
-
-	DBG(VENOCEAN_PREFIX " uart initialized successfully\n");
-
-	return ret;
-
-	error_uart_options:
-	error_termios:
-	error_uart_open:
-		tty_kclose(tty_uart);
-	error_kopen:
-	error_dev_name:
-		return ret;
-	return -1;
-}
-
 
 vdrvback_t venoceandrv = {
 	.probe = venocean_probe,
@@ -451,69 +290,6 @@ vdrvback_t venoceandrv = {
 	.reconfigured = venocean_reconfigured,
 	.resume = venocean_resume,
 	.suspend = venocean_suspend
-};
-
-
-
-static int uart_probe(struct platform_device *pdev)
-{
-	struct serdev_controller *ctrl;
-	struct serdev_device *serdev;
-	struct device *dev;
-	struct tty_port *port;
-	struct tty_driver *driver;
-
-	char buf [] = "Hello world";
-
-	pr_info(VENOCEAN_PREFIX " hello %s", pdev->name);
-
-	ctrl = serdev_controller_alloc(&pdev->dev, 0);
-
-	if (!ctrl) {
-		DBG(VENOCEAN_PREFIX " failed to alloc serdev controller\n");
-		return -1;
-	}
-
-	/* Probes enocean_uart */
-	if (serdev_controller_add(ctrl) < 0) {
-		DBG(VENOCEAN_PREFIX " failed to add serdev controller\n");
-		return -1;
-	}
-
-	// if (device_match_name(dev, "amba") < 0)
-	// {
-	// 	DBG(VENOCEAN_PREFIX " failed to get amba device\n");
-	// 	return -1;
-	// }
-
-	// DBG(VENOCEAN_PREFIX " bus name: %s\n", dev->driver->name);
-
-	// serdev = serdev_device_alloc(ctrl);
-
-	// if (!serdev) {
-	// 	DBG(VENOCEAN_PREFIX " failed to get serdev");
-	// 	return -1;
-	// }
-
-
-	// serdev->ops->write_wakeup(serdev);
-
-	// serdev_device_write_buf(serdev, buf, sizeof(buf));
-
-
-    return 0;
-}
-
-static const struct of_device_id uart_dt_ids[] = {
-    { .compatible = "enocean,drv" },
-    { /* sentinel */}
-};
-
-static struct platform_driver uart_driver = {
-    .probe = uart_probe,
-    .driver = {
-        .name = "uart_driver",
-    },
 };
 
 static int venocean_init(void) {
@@ -529,22 +305,15 @@ static int venocean_init(void) {
 		return -1;
 	}
 
-	// INIT_LIST_HEAD(&vdev_consoles);
-
 	vdevback_init(VENOCEAN_NAME, &venoceandrv);
 
-	// platform_driver_probe(&uart_driver, uart_probe);
-
-	// if (venocean_init_uart() < 0)
-	// 	return -1;
-
-	// kthread_run(click_monitor_fn, NULL, "click_enocean_monitor");
-	// kthread_run(switch_between_modes, NULL, "switch_between_mode");
+	/* Add callback function to the list of callback of tcm515-serdev */
+	if (tcm515_subscribe(tcm515_callaback) < 0) {
+		DBG(VENOCEAN_PREFIX " failed to subscribe to tcm515");
+	}
 
 	DBG(VENOCEAN_PREFIX " Initialized successfully\n");
 
 	return 0;
 }
-
-late_initcall(venocean_init)
-// device_initcall(venocean_init);
+device_initcall(venocean_init);

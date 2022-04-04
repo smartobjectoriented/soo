@@ -55,6 +55,10 @@
 #define UART_DR_ERROR		(UART011_DR_OE|UART011_DR_BE|UART011_DR_PE|UART011_DR_FE)
 #define UART_DUMMY_DR_RX	(1 << 16)
 
+#if 0
+#define DEBUG_SERIAL
+#endif
+
 static u16 pl011_std_offsets[REG_ARRAY_SIZE] = {
 	[REG_DR] = UART01x_DR,
 	[REG_FR] = UART01x_FR,
@@ -295,6 +299,12 @@ static void pl011_write(unsigned int val, const struct uart_amba_port *uap,
 	unsigned int reg)
 {
 	void __iomem *addr = uap->port.membase + pl011_reg_to_offset(uap, reg);
+
+#if DEBUG_SERIAL
+	if (uap->port.mapbase == 0xfe201a00) {
+		printk("%s: [0x%X] = 0x%X", __func__, reg, val);
+	}
+#endif
 
 	if (uap->port.iotype == UPIO_MEM32)
 		writel_relaxed(val, addr);

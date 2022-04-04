@@ -1,5 +1,22 @@
+/*
+ * Copyright (C) 2022 Mattia Gallacchi <mattia.gallacchi@heig-vd.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -15,16 +32,22 @@
 
 #include "ledctrl.h"
 
-struct completion notify;
-struct task_struct *thread;
-volatile wago_cmd_t current_cmd;
-char *ids_str;
+/* Completion use to synchronize a new command */
+static struct completion notify;
 
+/* Current command. Set by ledctrl_process_request */
+static volatile wago_cmd_t current_cmd;
+
+/* String containing the string ids to apply the command to */
+static char *ids_str;
+
+/** This mode allow to simulate a received input **/
 #ifdef DEBUG_MODE
 
 #define DELAY_MS    500
 int debug_active = 0;
 const char ids[] = "1,2,3,4,5,6";
+struct task_struct *thread;
 
 int debug_thread(void *data)
 {
@@ -68,12 +91,12 @@ void sysfs_wagodebug_show(char *str)
     sprintf(str, "%d", debug_active);
 }
 
-#endif //DEBUG_MODE
+#endif // DEBUG_MODE
 
 void ledctrl_process_request(int cmd, int *ids, int ids_count)
 {
     int i;
-    char id[16] = {0};
+    char id[ID_STR_SIZE] = {0};
 
     current_cmd = (wago_cmd_t)cmd;
     memset(ids_str, 0, IDS_STR_MAX);
@@ -89,9 +112,7 @@ void ledctrl_process_request(int cmd, int *ids, int ids_count)
     complete(&notify);
 }
 
-EXPORT_SYMBOL(ledctrl_process_request);
-
-void sysfs_wagonotify_show(char *str)
+void sysfs_wago_notify_show(char *str)
 {
     wait_for_completion(&notify);
     sprintf(str, "%s", notify_str[current_cmd]);
@@ -109,12 +130,12 @@ void sysfs_wago_led_off_show(char *str)
 
 void sysfs_wago_get_topology_store(char *str)
 {
-    printk("Not yet implemented\n");
+    pr_warn(LEDCTRL_PREFIX "Not yet implemented\n");
 }
 
 void sysfs_wago_get_status_store(char *str)
 {
-    printk("Not yet implemented");
+    pr_warn(LEDCTRL_PREFIX "Not yet implemented");
 }
 
 int ledctrl_init(void)
@@ -123,7 +144,7 @@ int ledctrl_init(void)
 
     DBG(LEDCTRL_PREFIX "Starting\n");
 
-    soo_sysfs_register(vwagoled_notify, sysfs_wagonotify_show, NULL);
+    soo_sysfs_register(vwagoled_notify, sysfs_wago_notify_show, NULL);
     soo_sysfs_register(vwagoled_led_on, sysfs_wago_led_on_show, NULL);
     soo_sysfs_register(vwagoled_led_off, sysfs_wago_led_off_show, NULL);
     soo_sysfs_register(vwagoled_get_topology, NULL, sysfs_wago_get_topology_store);
@@ -150,5 +171,3 @@ int ledctrl_init(void)
 
     return ret;
 }
-
-EXPORT_SYMBOL(ledctrl_init);
