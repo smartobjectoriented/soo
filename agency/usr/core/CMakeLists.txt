@@ -1,9 +1,12 @@
 
-add_executable(agency core.c injector.c leds.c)
-
-add_subdirectory(migration)
-add_subdirectory(upgrader)
-add_subdirectory(asf)
-add_subdirectory(device_access)
+add_executable(agency 
+        core.c 
+        asf.c ta_installation.c
+        device_access.c 
+        injector.c 
+        leds.c 
+        migration.c send.c receive.c
+        upgrader.c
+)
 
 target_link_libraries(agency dcm frozen pthread z expat archive lz4)

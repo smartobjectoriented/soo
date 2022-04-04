@@ -41,9 +41,9 @@
 #include <core/receive.h>
 #include <core/debug.h>
 #include <core/types.h>
+#include <core/injector.h>
 
-#include <dcm/core.h>
-#include <injector/core.h>
+#include <dcm/dcm.h>
 
 #ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>

@@ -55,6 +55,10 @@ basically uses the led matrix and joystick.";
 			status = "ok";
 		};
 		
+		vuihandler {
+			status = "ok";
+		};
+		
 	};
 };
 			

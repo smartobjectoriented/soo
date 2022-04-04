@@ -100,7 +100,7 @@ As explained before, the vuihandler receive the data from SOOlink as a `vuihandl
 +==============+============+=======================================================================+
 | type         | uint8_t    | packet type (see below for values)                                    |
 +--------------+------------+-----------------------------------------------------------------------+
-| otherend_id  | uint64_t   | Corresponding FE ID, used to route the packets to the correct ME      |
+| otherend_id  | int32_t   | Corresponding FE ID, used to route the packets to the correct ME      |
 +--------------+------------+-----------------------------------------------------------------------+
 | payload      | uint8_t *  | Pointer to the packet effective data. The content depend of the type. |
 +--------------+------------+-----------------------------------------------------------------------+
@@ -108,7 +108,7 @@ As explained before, the vuihandler receive the data from SOOlink as a `vuihandl
 
 Packet types
 ^^^^^^^^^^^^
-The table bellow lists the different vuihandler packet types:
+The table below lists the different vuihandler packet types:
 
 
 +----------------------+------------------------------------------------------------------------------------+
@@ -289,7 +289,7 @@ Once the notification arrives in the BE, it can then retrieve the data from the 
    Sequence diagram showing the FE sending a TX packet to the tablet, through the BE
 
 
-The diagram above is a bit simplified as it doesn't fully show the layers between the FE and the BE. You can refer the the :ref:`Virtualized Interfaces <virt_interfaces>` document for more information about this layer.
+The diagram above is a bit simplified as it doesn't fully show the layers between the FE and the BE. You can refer the :ref:`Virtualized Interfaces <virt_interfaces>` document for more information about this layer.
 It still shows the basic concept to send a packet from the ME to the tablet. As every sending/receiving are asynchronous, the `vuihandler_send_fn` (FE) and the `tx_task_fn` (BE) are running as threads and are notified once the data are ready to be sent.
 
 
@@ -311,7 +311,7 @@ The data reception is a bit trickier, as we receive raw packets in the *vuihandl
 
 Future work/Improvements
 ************************
-Bellow is a listing of the upgrades/ideas to refine and improve the *vuihandler*:
+Below is a listing of the upgrades/ideas to refine and improve the *vuihandler*:
 
 * The vUIHandler must act as a subscription, to which diverse clients could connect. The clients have a unique id which is used to route the incoming data.
 * The only process done by the vUIHandler, other than routing, is the direct forwarding to the ME. A special module could also be in charge to dispatch data to the MEs, to offload even more the processing outside vUIHandler.
