@@ -225,6 +225,9 @@ esp3_packet_t* esp3_get_packet(void)
 
 void esp3_free_packet(esp3_packet_t *pck)
 {
+    if (!pck)
+        return;
+        
     if (pck->header.data_len > 0) {
         kfree(pck->data);
     }
