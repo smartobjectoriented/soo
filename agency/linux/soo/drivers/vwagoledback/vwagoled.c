@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2022 Mattia Gallacchi <mattia.gallacchi@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,46 +16,25 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
-#include <linux/types.h>
-#include <linux/init.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/slab.h>
-#include <linux/delay.h>
 #include <linux/of.h>
-#include <linux/input.h>
-#include <linux/kthread.h>
 
 #include <soo/evtchn.h>
-#include <soo/gnttab.h>
-#include <soo/hypervisor.h>
-#include <soo/vbus.h>
-#include <soo/uapi/console.h>
-
-#include <stdarg.h>
-
-#include <soo/vdevback.h>
-
 #include <soo/dev/vwagoled.h>
 
 #include "ledctrl.h"
 
 
 typedef struct {
-
 	/* Must be the first field */
 	vwagoled_t vwagoled;
 
 } vwagoled_priv_t;
 
-static struct vbus_device *vwagoled_dev = NULL;
-
-irqreturn_t vwagoled_interrupt_bh(int irq, void *dev_id)
-{
+irqreturn_t vwagoled_interrupt_bh(int irq, void *dev_id){
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vwagoled_priv_t *vwagoled_priv = dev_get_drvdata(&vdev->dev);
 	vwagoled_request_t *ring_req;
@@ -71,8 +50,7 @@ irqreturn_t vwagoled_interrupt_bh(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t vwagoled_interrupt(int irq, void *dev_id)
-{
+irqreturn_t vwagoled_interrupt(int irq, void *dev_id){
 	return IRQ_WAKE_THREAD;
 }
 
@@ -84,9 +62,7 @@ void vwagoled_probe(struct vbus_device *vdev) {
 
 	dev_set_drvdata(&vdev->dev, vwagoled_priv);
 
-	vwagoled_dev = vdev;
-
-	DBG(VWAGOLED_PREFIX "Backend probe: %d\n", vdev->otherend_id);
+	DBG(VWAGOLED_PREFIX "Probe: %d\n", vdev->otherend_id);
 }
 
 void vwagoled_remove(struct vbus_device *vdev) {
@@ -99,7 +75,7 @@ void vwagoled_remove(struct vbus_device *vdev) {
 void vwagoled_close(struct vbus_device *vdev) {
 	vwagoled_priv_t *vwagoled_priv = dev_get_drvdata(&vdev->dev);
 
-	DBG(VWAGOLED_PREFIX "Backend close: %d\n", vdev->otherend_id);
+	DBG(VWAGOLED_PREFIX "Close: %d\n", vdev->otherend_id);
 
 	/*
 	 * Free the ring.
@@ -116,12 +92,12 @@ void vwagoled_close(struct vbus_device *vdev) {
 
 void vwagoled_suspend(struct vbus_device *vdev) {
 
-	DBG(VWAGOLED_PREFIX "Backend suspend: %d\n", vdev->otherend_id);
+	DBG(VWAGOLED_PREFIX "Suspend: %d\n", vdev->otherend_id);
 }
 
 void vwagoled_resume(struct vbus_device *vdev) {
 
-	DBG(VWAGOLED_PREFIX "Backend resume: %d\n", vdev->otherend_id);
+	DBG(VWAGOLED_PREFIX "Resume: %d\n", vdev->otherend_id);
 }
 
 void vwagoled_reconfigured(struct vbus_device *vdev) {
@@ -131,7 +107,7 @@ void vwagoled_reconfigured(struct vbus_device *vdev) {
 	vwagoled_sring_t *sring;
 	vwagoled_priv_t *vwagoled_priv = dev_get_drvdata(&vdev->dev);
 
-	DBG(VWAGOLED_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
+	DBG(VWAGOLED_PREFIX "Reconfigured: %d\n", vdev->otherend_id);
 
 	/*
 	 * Set up a ring (shared page & event channel) between the agency and the ME.
@@ -139,7 +115,7 @@ void vwagoled_reconfigured(struct vbus_device *vdev) {
 
 	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
-	DBG("BE: ring-ref=%ld, event-channel=%d\n", ring_ref, evtchn);
+	DBG(VWAGOLED_PREFIX "BE: ring-ref=%ld, event-channel=%d\n", ring_ref, evtchn);
 
 	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 	BUG_ON(res < 0);
@@ -156,7 +132,7 @@ void vwagoled_reconfigured(struct vbus_device *vdev) {
 
 void vwagoled_connected(struct vbus_device *vdev) {
 
-	DBG(VWAGOLED_PREFIX "Backend connected: %d\n",vdev->otherend_id);
+	DBG(VWAGOLED_PREFIX "Connected: %d\n",vdev->otherend_id);
 }
 
 
@@ -173,11 +149,11 @@ vdrvback_t vwagoleddrv = {
 int vwagoled_init(void) {
 	struct device_node *np;
 
-    DBG(VWAGOLED_PREFIX "Backend starting\n");
+    DBG(VWAGOLED_PREFIX "Starting\n");
 
 	np = of_find_compatible_node(NULL, NULL, "vwagoled,backend");
 
-	/* Check if DTS has vuihandler enabled */
+	/* Check if DTS has vwagoled enabled */
 	if (!of_device_is_available(np))
 		return 0;
 
@@ -187,7 +163,7 @@ int vwagoled_init(void) {
 		BUG();
 	}
 
-    DBG(VWAGOLED_PREFIX "Backend initialized\n");
+    DBG(VWAGOLED_PREFIX "Initialized\n");
 	
     return 0;
 }

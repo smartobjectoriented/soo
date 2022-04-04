@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2022 Mattia Gallacchi <mattia.gallacchi@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,6 +16,31 @@
  *
  */
 
+/* ============================== DTS =================================== */
+/*
+soo.dtsi:
+
+	vwagoled {
+		compatible = "vwagoled,backend";
+		status = "disabled";
+	};
+
+To activate add to bcm2711-<platform>.dts:
+	
+	&agency {
+		backends {
+			...
+
+			vwagoled {
+				status = "ok";
+			};
+
+			...
+		};
+	};
+
+ */
+
 #ifndef VWAGOLED_H
 #define VWAGOLED_H
 
@@ -26,7 +51,7 @@
 #define VWAGOLED_PACKET_SIZE	64
 
 #define VWAGOLED_NAME		"vwagoled"
-#define VWAGOLED_PREFIX		"[" VWAGOLED_NAME "] "
+#define VWAGOLED_PREFIX		"[" VWAGOLED_NAME " backend] "
 
 
 typedef struct {
