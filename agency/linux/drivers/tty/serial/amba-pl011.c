@@ -300,7 +300,7 @@ static void pl011_write(unsigned int val, const struct uart_amba_port *uap,
 {
 	void __iomem *addr = uap->port.membase + pl011_reg_to_offset(uap, reg);
 
-#if DEBUG_SERIAL
+#ifdef DEBUG_SERIAL
 	if (uap->port.mapbase == 0xfe201a00) {
 		printk("%s: [0x%X] = 0x%X", __func__, reg, val);
 	}

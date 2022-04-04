@@ -209,6 +209,9 @@ int tcm515_subscribe(void (*callback)(esp3_packet_t *packet))
     if (subscribers_count >= MAX_SUBSCRIBERS)
         return -1;
 
+    /** We use printk cause this function can be called before probe */
+    printk(TCM515_SERDEV_PREFIX "New subscriber registered\n");
+
     subscribers[subscribers_count++] = callback;
     return 0;
 }
@@ -243,6 +246,8 @@ static int tcm515_serdev_receive_buf(struct serdev_device *serdev, const byte *b
                         if (subscribers[j])
                             (*subscribers[j])(packet);
                     }
+                } else {
+                    dev_err(tcm515->dev, "Failed to get ESP3 packet\n");
                 }
 #ifdef DEBUG
                 esp3_print_packet(packet);
@@ -274,7 +279,7 @@ static int tcm515_serdev_probe(struct serdev_device *serdev)
 {
     struct device *dev = &serdev->dev;
     byte *get_id_version;
-    int ret = 0;
+    int ret = -1;
     u32 baud;
 
     tcm515 = kzalloc(sizeof(struct tcm515_serdev), GFP_KERNEL);
@@ -300,10 +305,16 @@ static int tcm515_serdev_probe(struct serdev_device *serdev)
         goto tcm515_open_err;
 
     if ((ret = tcm515_set_baudrate(baud)) < 0)
-        goto tcm515_open_err;
+        goto tcm515_settings_err;
+
+    if ((ret = tcm515_set_parity(SERDEV_PARITY_NONE)) < 0)
+        goto tcm515_settings_err;
 
     if ((ret = tcm515_set_flow_control(TCM515_SERDEV_DEFAULT_FLOW_CTRL)) < 0)
-        goto tcm515_open_err;
+        goto tcm515_settings_err;
+
+    if ((ret = tcm515_set_rts(TCM515_SERDEV_DEFAULT_RTS)) < 0)
+        goto tcm515_settings_err;
 
     /** TODO: Find why this is not working. See amba-pl011 register write **/
     /* get_id_version = esp3_packet_to_byte_buffer(&co_rd_version_packet);
@@ -312,9 +323,12 @@ static int tcm515_serdev_probe(struct serdev_device *serdev)
     } */
     
     dev_info(dev,"Probed successfully\n");
+    ret = 0;
 
     return ret;
     
+    tcm515_settings_err:
+        tcm515_close();
     tcm515_open_err:
         kfree(tcm515);   
     alloc_tcm515_err:
