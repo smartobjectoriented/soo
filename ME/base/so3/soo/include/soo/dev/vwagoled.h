@@ -26,18 +26,24 @@
 #define DEFAULT_DIM_VALUE		0
 
 typedef enum {
+	/* Turn led off */
 	LED_OFF = 0,
+	/* Turn led on */
 	LED_ON,
+
+	/*** !!! Not yet implemented, ***/
+	/* Get current status */
 	GET_STATUS,
+	/* Get devices connected to the DALI bus */
 	GET_TOPOLOGY,
 	NONE
 }wago_cmd_t;
 
-
+/*** Normally DALI master can manage up to 64 devices ***/
 #define VWAGOLED_PACKET_SIZE	64
 
 #define VWAGOLED_NAME		"vwagoled"
-#define VWAGOLED_PREFIX		"[" VWAGOLED_NAME "] "
+#define VWAGOLED_PREFIX		"[" VWAGOLED_NAME " frontend] "
 
 typedef struct {
 	uint8_t cmd;
@@ -75,6 +81,15 @@ typedef struct {
 
 } vwagoled_t;
 
+
+/**
+ * @brief Send a command to vwagoled backend
+ * 
+ * @param ids Leds ids to apply the command to.
+ * @param size Number of ids in the ids array
+ * @param cmd Command to execute. See wago_cmd_t enum
+ * @return int 0 if success, -1 if error
+ */
 int vwagoled_set(int *ids, int size, wago_cmd_t cmd);
 
 #endif /* WAGOLED_H */
