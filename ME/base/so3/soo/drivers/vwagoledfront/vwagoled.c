@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -126,7 +126,6 @@ static void vwagoled_probe(struct vbus_device *vdev) {
 		return ;
 
 	vwagoled_priv = dev_get_drvdata(vdev->dev);
-
 	vwagoled_dev = vdev;
 
 	DBG("Frontend: Setup ring\n");
@@ -172,6 +171,8 @@ static void vwagoled_probe(struct vbus_device *vdev) {
 	vbus_printf(vbt, vdev->nodename, "ring-evtchn", "%u", vwagoled_priv->vwagoled.evtchn);
 
 	vbus_transaction_end(vbt);
+
+	DBG(VWAGOLED_PREFIX " Frontend probed successfully\n");
 }
 
 /* At this point, the FE is not connected. */
@@ -289,7 +290,7 @@ static int vwagoled_init(dev_t *dev) {
 
 	vdevfront_init(VWAGOLED_NAME, &vwagoleddrv);
 
-	DBG(VWAGOLED_PREFIX " initialized successfully");
+	DBG(VWAGOLED_PREFIX " initialized successfully\n");
 
 	return 0;
 }

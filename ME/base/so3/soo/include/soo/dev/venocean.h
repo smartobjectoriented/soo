@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2022 Mattia Gallacchi <mattia.gallaccchi@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -23,17 +24,23 @@
 #include <soo/grant_table.h>
 #include <soo/vdevfront.h>
 
-#define VENOCEAN_PACKET_SIZE	32
+/*** For the moment it should be enough ***/
+#define VENOCEAN_BUFFER_SIZE	256
 
-#define VENOCEAN_NAME		"venocean"
-#define VENOCEAN_PREFIX		"[" VENOCEAN_NAME "] "
+#define VENOCEAN_NAME			"venocean"
+#define VENOCEAN_PREFIX			"[" VENOCEAN_NAME " frontend ]"
+
+//different states for the switchs (single channel)
+//Interpreted from the frame during successive tests (could not find documentation about the data encription)
 
 typedef struct {
-	char buffer[VENOCEAN_PACKET_SIZE];
+	unsigned char buffer[VENOCEAN_BUFFER_SIZE];
+	int len;
 } venocean_request_t;
 
 typedef struct  {
-	char buffer[VENOCEAN_PACKET_SIZE];
+	unsigned char buffer[VENOCEAN_BUFFER_SIZE];
+	int len;
 } venocean_response_t;
 
 /*
@@ -44,7 +51,6 @@ DEFINE_RING_TYPES(venocean, venocean_request_t, venocean_response_t);
 /*
  * General structure for this virtual device (backend side)
  */
-
 typedef struct {
 	vdevfront_t vdevfront;
 
@@ -57,9 +63,12 @@ typedef struct {
 
 } venocean_t;
 
-static inline venocean_t *to_venocean(struct vbus_device *vdev) {
-	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
-	return container_of(vdevback, venocean_t, vdevfront);
-}
+/**
+ * @brief Get data from En0cean backend. Call is blocking until data is ready.
+ * 
+ * @param buf Buffer to store data to. Must preallocated with at least 256 bytes.
+ * @return int data length, -1 if error 
+ */
+int venocean_get_data(char *buf);
 
 #endif /* VENOCEAN_H */
