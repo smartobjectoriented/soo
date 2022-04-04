@@ -40,7 +40,7 @@
 
 typedef struct {
 	uint8_t		type;
-	uint64_t	slotID;
+	int32_t		slotID;
 	uint8_t		payload[0];
 } vuihandler_pkt_t;
 
@@ -52,6 +52,7 @@ typedef struct {
 /* Maximal size of a BT packet's data (the header is included) */
 #define VUIHANDLER_MAX_PKT_SIZE		(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PAYLOAD_SIZE)
 
+
 /* Shared buffer size */
 #define VUIHANDLER_BUFFER_SIZE		(VUIHANDLER_MAX_PACKETS * VUIHANDLER_MAX_PKT_SIZE)
 
@@ -60,10 +61,12 @@ typedef struct {
 #define VUIHANDLER_ME_INJECT	2 /* Specify the packet contains a chunk of the ME to be injected  */
 #define VUIHANDLER_ME_SIZE	3 /* Specify that a ME injection is to be initiated. The packet contains the ME size */
 #define VUIHANDLER_ASK_LIST	4 /* Ask for the XML ME list */
-#define VUIHANDLER_SELECT	5 /* Specify a ME to be selected by the tablet. The ME will then send its XML UI model. */
-#define VUIHANDLER_POST		6 /* Specify that the packet contains an event data to be forwarded to the ME.  */
+#define VUIHANDLER_SEND		5 /* Specify that the packet contains an event data to be forwarded to the ME */
+#define VUIHANDLER_SELECT	6
+#define VUIHANDLER_POST		7
 
-#define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
+// #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
+#define VUIHANDLER_BT_PKT_HEADER_SIZE	(sizeof(uint32_t) + sizeof(uint8_t))
 
 /* Number of TX packets which can be queued in the TX buffer */
 #define VUIHANDLER_TX_BUF_SIZE 	8

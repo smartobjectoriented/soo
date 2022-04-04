@@ -24,7 +24,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -90,6 +90,9 @@
 
 /* List of all vuihandler vbus_device managed by this BE */
 static struct list_head *vdev_list;
+
+ME_id_t me_id; /* Here because the short desc is a 1024-char buffer and exceeds the frame size */
+bool test_thread_launched = false;
 
 
 /* vbus_device private structure */
@@ -303,16 +306,17 @@ static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, si
  * destined to the agency core, such as injector packets or update packets 
 */
 void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
-	uint8_t *ME_pkt_payload;
-	size_t ME_size;
+	uint32_t ME_size;
+	int i;
+	
+	uint8_t *payload = (uint8_t *) (vuihandler_pkt);
+	payload += VUIHANDLER_BT_PKT_HEADER_SIZE;
 
+	
 	switch (vuihandler_pkt->type) {
-	/* This is the ME size (1B type + 4B size) */
 	case VUIHANDLER_ME_SIZE:
-		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
-
-		DBG("ME size: %u\n", *((uint32_t *)(ME_pkt_payload+1)));
-		ME_size = *((uint32_t *)(ME_pkt_payload+1));
+		ME_size = *((uint32_t *)(payload));
+		DBG("ME size: %u\n", ME_size);
 		
 		/* Forward the size to the injector so it knows the ME size. */
 		injector_prepare(ME_size);
@@ -320,12 +324,8 @@ void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pk
 
 	/* This is the ME data which needs to be forwarded to the Injector */
 	case VUIHANDLER_ME_INJECT:
-
-		/* As we bypass the full vuiHandler protocol, we first use a uint8_t array to
-		easily access the data instead of the vuihandler_pkt */
-		ME_pkt_payload = (uint8_t *)vuihandler_pkt;
-
-		injector_receive_ME((void *)(ME_pkt_payload+1), vuihandler_pkt_size-1);
+		DBG("Injecting a %u (%u) ME chunk\n", vuihandler_pkt_size, vuihandler_pkt_size-VUIHANDLER_BT_PKT_HEADER_SIZE);
+		injector_receive_ME((void *)(payload), vuihandler_pkt_size-VUIHANDLER_BT_PKT_HEADER_SIZE);
 		break;
 	}
 }
@@ -360,6 +360,8 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 	size_t size;
 	int32_t me_id;
 
+	DBG("Receieved a packet for slotID %d\n", vuihandler_pkt->slotID);
+
 	/* Check for packet destinated to to agency, mainly ME injection related */
 	if (vuihandler_pkt->type == VUIHANDLER_ME_SIZE || vuihandler_pkt->type == VUIHANDLER_ME_INJECT) {
 		handle_agency_packet(vuihandler_pkt, vuihandler_pkt_size);
@@ -386,8 +388,6 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 
 	DBG(VUIHANDLER_PREFIX "Size: %d\n", size);
 
-	// TODO: Change this in order to route the packet not using the SPID
-	/* Find the ME targeted by the packet using its SPID */
 	me_id = vuihandler_pkt->slotID;
 
 	if (me_id < 0) 
@@ -455,7 +455,7 @@ static int rx_bt_task_fn(void *arg) {
 		size = sl_recv(vdrv_priv->vuihandler_bt_sl_desc, &priv_buffer);
 
 		DBG("(B<%d)\n", size);
-		vuihandler_recv(priv_buffer, size);
+		vuihandler_recv((vuihandler_pkt_t *)priv_buffer, size);
 		vfree(priv_buffer);
 	}
 	return 0;
@@ -574,9 +574,6 @@ void vuihandler_suspend(struct vbus_device *vdev) {
 
 }
 
-ME_id_t me_id; /* Here because the short desc is a 1024-char buffer and exceeds the frame size */
-
-bool test_thread_launched = false;
 
 void vuihandler_resume(struct vbus_device *vdev) {
 	DBG(VUIHANDLER_PREFIX "Backend resume: %d\n", vdev->otherend_id);
