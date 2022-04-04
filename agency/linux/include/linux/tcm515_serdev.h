@@ -37,13 +37,13 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
 #include "esp3_protocol.h"
 
 #define TCM515_SERDEV_NAME                      "tcm515_serdev"
-#define TCM515_SERDEV_PREFIX                    "[" TCM515_SERDEV_NAME "]"
+#define TCM515_SERDEV_PREFIX                    "[" TCM515_SERDEV_NAME "] "
 
 /*** Serial port default config ***/
 #define TCM515_SERDEV_DEFAULT_BAUDRATE          57600
 #define TCM515_SERDEV_DEFAULT_PARITY            0   //parity none
 #define TCM515_SERDEV_DEFAULT_FLOW_CTRL         false
-#define TCM515_SERDEV_DEFAULT_CTS               false
+#define TCM515_SERDEV_DEFAULT_RTS               false
 
 
 #define TCM515_COMPATIBLE                       "enocean,tcm515"
