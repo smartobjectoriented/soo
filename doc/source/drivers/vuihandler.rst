@@ -95,16 +95,17 @@ vuiHandler packet
 As explained before, the vuihandler receive the data from SOOlink as a `vuihandler_pkt_t`. It is structured like this:
 
 
-+--------------+------------+-----------------------------------------------------------------------+
-| Member       | Type       | Description                                                           |
-+==============+============+=======================================================================+
-| type         | uint8_t    | packet type (see below for values)                                    |
-+--------------+------------+-----------------------------------------------------------------------+
-| otherend_id  | int32_t   | Corresponding FE ID, used to route the packets to the correct ME      |
-+--------------+------------+-----------------------------------------------------------------------+
-| payload      | uint8_t *  | Pointer to the packet effective data. The content depend of the type. |
-+--------------+------------+-----------------------------------------------------------------------+
++---------+-----------+-----------------------------------------------------------------------+
+| Member  | Type      | Description                                                           |
++=========+===========+=======================================================================+
+| slotID  | uint32_t  | Corresponding FE ID, used to route the packets to the correct ME      |
++---------+-----------+-----------------------------------------------------------------------+
+| type    | int8_t    | packet type (see below for values)                                    |
++---------+-----------+-----------------------------------------------------------------------+
+| payload | uint8_t * | Pointer to the packet effective data. The content depend of the type. |
++---------+-----------+-----------------------------------------------------------------------+
 
+In term of memory, the payload content is directly encoded after the type.
 
 Packet types
 ^^^^^^^^^^^^

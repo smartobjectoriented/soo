@@ -39,8 +39,8 @@
 #define VUIHANDLER_APP_VBSTORE_NODE	"connected-app-me-spid"
 
 typedef struct {
-	uint8_t		type;
 	int32_t		slotID;
+	uint8_t		type;
 	uint8_t		payload[0];
 } vuihandler_pkt_t;
 
@@ -65,7 +65,8 @@ typedef struct {
 #define VUIHANDLER_SELECT	6
 #define VUIHANDLER_POST		7
 
-// #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
+/* The header size is stripped from the payload address, as the payload
+directly follows the type in term of bytes in memory */
 #define VUIHANDLER_BT_PKT_HEADER_SIZE	(sizeof(uint32_t) + sizeof(uint8_t))
 
 /* Number of TX packets which can be queued in the TX buffer */
