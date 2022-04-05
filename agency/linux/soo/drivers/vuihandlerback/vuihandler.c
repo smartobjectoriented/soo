@@ -24,7 +24,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -92,8 +92,10 @@
 static struct list_head *vdev_list;
 
 ME_id_t me_id; /* Here because the short desc is a 1024-char buffer and exceeds the frame size */
-bool test_thread_launched = false;
 
+#ifdef TEST_RX
+bool test_thread_launched = false;
+#endif
 
 /* vbus_device private structure */
 typedef struct {
@@ -307,11 +309,7 @@ static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, si
 */
 void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size) {
 	uint32_t ME_size;
-	int i;
-	
-	uint8_t *payload = (uint8_t *) (vuihandler_pkt);
-	payload += VUIHANDLER_BT_PKT_HEADER_SIZE;
-
+	uint8_t *payload = (uint8_t *) &(vuihandler_pkt->payload);
 	
 	switch (vuihandler_pkt->type) {
 	case VUIHANDLER_ME_SIZE:
@@ -360,7 +358,7 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 	size_t size;
 	int32_t me_id;
 
-	DBG("Receieved a packet for slotID %d\n", vuihandler_pkt->slotID);
+	DBG("Receieved a packet of type %d for slotID %d\n", vuihandler_pkt->type, vuihandler_pkt->slotID);
 
 	/* Check for packet destinated to to agency, mainly ME injection related */
 	if (vuihandler_pkt->type == VUIHANDLER_ME_SIZE || vuihandler_pkt->type == VUIHANDLER_ME_INJECT) {
@@ -434,7 +432,7 @@ static int tx_task_fn(void *arg) {
 		mutex_unlock(&vdrv_priv->rfcomm_lock);
 
 		if (rfcomm_pid) {
-			lprintk("(B>%d)", pkt_size);
+			DBG("(B>%d)", pkt_size);
 			sl_send(vdrv_priv->vuihandler_bt_sl_desc, vuihandler_pkt, pkt_size, 0, 0);
 		}
 	}
@@ -453,8 +451,8 @@ static int rx_bt_task_fn(void *arg) {
 
 	while (1) {
 		size = sl_recv(vdrv_priv->vuihandler_bt_sl_desc, &priv_buffer);
-
 		DBG("(B<%d)\n", size);
+
 		vuihandler_recv((vuihandler_pkt_t *)priv_buffer, size);
 		vfree(priv_buffer);
 	}
