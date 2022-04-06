@@ -51,8 +51,6 @@
  */
 int process_led(void *args) {
 
-	char test_array[] = "henlo";
-
 	while (true) {
 
 		wait_for_completion(&upd_lock);
@@ -68,7 +66,6 @@ int process_led(void *args) {
 			vsenseled_set(sh_ledctrl->incoming_nr, 1);
 
 			sh_ledctrl->local_nr = sh_ledctrl->incoming_nr;
-			vuihandler_send(test_array, sizeof(test_array+1));
 		}
 	}
 
