@@ -19,8 +19,9 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/printk.h>
+#include <linux/kernel.h>
 
-#include <linux/esp3_protocol.h>
+#include <soo/esp3_protocol.h>
 
 #define proccrc8(u8CRC, u8Data) (u8CRC8Table[u8CRC ^ u8Data]);
 
@@ -59,14 +60,6 @@ byte u8CRC8Table[256] = {
     0xe6, 0xe1, 0xe8, 0xef, 0xfa, 0xfd, 0xf4, 0xf3
 };
 
-/* Data buffer to store current data byte in */
-static byte data_buffer[BUFFER_MAX_SIZE];
-
-/* Current data header */
-static byte header[ESP3_HEADER_SIZE];
-
-/* Various length of current data */
-static int data_len = 0, optional_len = 0, rx_counter = 0;;
 
 /**
  * @brief Check CRC8 
@@ -112,13 +105,23 @@ byte esp3_calc_crc8(const byte *buf, size_t len)
     return crc8_calc;
 }
 
-read_status esp3_read_byte(const byte buf)
+read_status esp3_read_byte(const byte buf, esp3_packet_t **packet)
 {
     static esp3_fsm state = GET_SYNC_BYTE;
+    static read_status ret = READ_PROGRESS;
+    static int data_len = 0, optional_len = 0;
+    
+    /* Data buffer to store current data byte in */
+    static byte data_buffer[BUFFER_MAX_SIZE];
+
+    /* Current data header */
+    static byte header[ESP3_HEADER_SIZE];
+
+    byte data_len_str[DATA_LEN_STR_SIZE] = {0};
+    byte opt_len_str[OPT_LEN_STR_SIZE] = {0};
+    
     static int i = 0;
     int crc8h, crc8d;
-    
-    static read_status ret = READ_PROGRESS;
 
     switch (state)
     {
@@ -130,7 +133,6 @@ read_status esp3_read_byte(const byte buf)
             memset(data_buffer, 0, BUFFER_MAX_SIZE);
             state = GET_HEADER;
             optional_len = 0;
-            rx_counter = 0;
             data_len = 0;
             i = 0;
         }
@@ -151,10 +153,16 @@ read_status esp3_read_byte(const byte buf)
             /*** error detected wait for next sync byte ***/
             state = GET_SYNC_BYTE;
             ret = READ_ERROR;
-
         } else {
-            data_len = (header[HEADER_DATA_LEN_OFFSET] << 1) | header[HEADER_DATA_LEN_OFFSET + 1];
-            optional_len = header[HEADER_OPT_LEN_OFFSET];
+            snprintf(data_len_str, DATA_LEN_STR_SIZE, "%02x%02x", 
+                    header[HEADER_DATA_LEN_OFFSET], header[HEADER_DATA_LEN_OFFSET + 1]);
+            if (kstrtoint(data_len_str, 16, &data_len) < 0)
+                BUG();
+
+            snprintf(opt_len_str, OPT_LEN_STR_SIZE, "%02x", header[HEADER_OPT_LEN_OFFSET]);
+            if (kstrtoint(opt_len_str, 16, &optional_len) < 0)
+                BUG();
+
             state = GET_DATA;
         }
         break;
@@ -163,7 +171,10 @@ read_status esp3_read_byte(const byte buf)
         data_buffer[i++] = buf;
         if (i == data_len) {
             /*** end of data ***/
-            state = GET_OPTIONAL;
+            if (optional_len > 0)
+                state = GET_OPTIONAL;
+            else    
+                state = GET_CRC8D;
         }
         break;
 
@@ -180,6 +191,26 @@ read_status esp3_read_byte(const byte buf)
         if (esp3_check_crc8(data_buffer, data_len + optional_len, crc8d) < 0) {
             ret = READ_ERROR;
         } else {
+            *packet = kzalloc(sizeof(esp3_packet_t), GFP_KERNEL);
+            BUG_ON(!*packet);
+
+            (*packet)->header.data_len = (u16)data_len;
+            (*packet)->header.optional_len = (byte)optional_len;
+            (*packet)->header.packet_type = header[HEADER_TYPE_OFFSET];
+
+            (*packet)->data = kzalloc(data_len * sizeof(byte), GFP_KERNEL);
+            BUG_ON(!(*packet)->data);
+
+            memcpy((*packet)->data, data_buffer, data_len);
+
+            if(optional_len) {
+                (*packet)->optional_data = kzalloc(optional_len * sizeof(byte), GFP_KERNEL);
+                BUG_ON(!(*packet)->optional_data);
+
+                memcpy((*packet)->optional_data, &data_buffer[data_len], optional_len);
+            } else 
+                (*packet)->optional_data = NULL;
+            
             /*** end of packet reached ***/
             ret = READ_END;
         }
@@ -190,37 +221,7 @@ read_status esp3_read_byte(const byte buf)
         break;
     }
 
-    rx_counter++;
-
     return ret;
-}
-
-esp3_packet_t* esp3_get_packet(void)
-{
-    esp3_packet_t *pck;
-
-    pck = kzalloc(sizeof(esp3_packet_t), GFP_KERNEL);
-    if (!pck) {
-        return NULL;
-    }
-
-    pck->header.data_len = (u16)data_len;
-    pck->header.optional_len = (byte)optional_len;
-    pck->header.packet_type = header[HEADER_TYPE_OFFSET];
-
-    pck->data = kzalloc(data_len * sizeof(byte), GFP_KERNEL);
-    if (!pck->data) {
-        return NULL;
-    }
-    memcpy(pck->data, data_buffer, data_len);
-
-    pck->optional_data = kzalloc(optional_len * sizeof(byte), GFP_KERNEL);
-    if (!pck->optional_data) {
-        return NULL;
-    }
-    memcpy(pck->optional_data, &data_buffer[data_len], optional_len);
-
-    return pck;
 }
 
 void esp3_free_packet(esp3_packet_t *pck)
@@ -240,7 +241,7 @@ void esp3_free_packet(esp3_packet_t *pck)
     pck = NULL;
 }
 
-byte* esp3_packet_to_byte_buffer(esp3_packet_t *packet)
+byte *esp3_packet_to_byte_buffer(esp3_packet_t *packet)
 {
     byte *buf;
     int i;
@@ -288,8 +289,8 @@ void esp3_print_packet(esp3_packet_t *pck)
     opt_data_len = pck->header.optional_len;
 
     pr_info("ESP3 packet content:\n");
-    pr_info("Data len: 0x%04X\n", pck->header.data_len);
-    pr_info("Optional len: 0x%02X\n", pck->header.optional_len);
+    pr_info("Data len: %d\n", pck->header.data_len);
+    pr_info("Optional len: %d\n", pck->header.optional_len);
     pr_info("Packet type: 0x%02X\n", pck->header.packet_type);
 
     pr_info("Data:\n");

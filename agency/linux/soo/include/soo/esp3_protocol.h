@@ -58,7 +58,13 @@
 #define CO_READ_VERSION_BUFFER_SIZE     0x08
 #define CO_READ_VERSION                 0x03
 
+#define ESP3_RET_OK                     0x00
+
 #define BUFFER_MAX_SIZE                 65535
+
+#define DATA_LEN_STR_SIZE               0x05 /* Values plus '\0' */
+#define OPT_LEN_STR_SIZE                0x03 /* Values plus '\0' */
+
 typedef unsigned char byte;
 
 /**
@@ -82,7 +88,7 @@ typedef enum esp3_fsm esp3_fsm;
 enum read_status {
     READ_ERROR,
     READ_END,
-    READ_PROGRESS
+    READ_PROGRESS,
 };
 typedef enum read_status read_status;
 
@@ -131,21 +137,13 @@ static esp3_packet_t co_rd_version_packet = {
 };
 
 /**
- * @brief Returns last decoded packet. To be call once read byte returns READ_END.
- *          Allocation is performed by this function. Use esp3_free_packet once the
- *          packet is not used anymore.
- * 
- * @return esp3_packet_t* packet on success, NULL on error
- */
-esp3_packet_t* esp3_get_packet(void);
-
-/**
  * @brief Read a received byte and moves through the FSM.
  * 
  * @param buf New data byte
+ * @param packet packet in which to store the received data. Is valid if read_status = READ_END
  * @return read_status 
  */
-read_status esp3_read_byte(const byte buf);
+read_status esp3_read_byte(const byte buf, esp3_packet_t **packet);
 
 /**
  * @brief Prints to stdout a packet

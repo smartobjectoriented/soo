@@ -53,7 +53,7 @@ soo.dtsi:
 #include <linux/vt_kern.h>
 
 #define VENOCEAN_NAME	"venocean"
-#define VENOCEAN_PREFIX	" [" VENOCEAN_NAME " backend ]"
+#define VENOCEAN_PREFIX	" [" VENOCEAN_NAME " backend] "
 
 /*** For now it should be enough ***/
 #define BUFFER_SIZE		256
