@@ -43,8 +43,8 @@
 #define VUIHANDLER_PERIOD	1000
 
 typedef struct {
+	int64_t		slotID;
 	uint8_t		type;
-	uint64_t	slotID;
 	uint8_t		payload[0];
 } vuihandler_pkt_t;
 
