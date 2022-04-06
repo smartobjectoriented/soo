@@ -38,12 +38,6 @@ Features and characteristics
 * vUIHandler can also be used without targeting any ME. As it is the main entry point for any Bluetooth transfer, it is also used to inject a ME using Bluetooth. In that case, the data are further retrieved by the Injector, or any Agency module needing BT access.
 
 
-TBD
-***
-* The vUIHandler must act as a subscription, to which diverse clients could connect. The clients have a unique id which is used to route the incoming data.
-* The only process done by the vUIHandler, other than routing, is the direct forwarding to the ME. A special module could also be in charge to dispatch data to the MEs, to offload even more the processing outside vUIHandler.
-
-
 Functional description
 ======================
 
@@ -56,6 +50,7 @@ General architecture
    
 
 The vuihandler interface is split in two parts:
+
 * A backend: used to access SOOlink and the RFCOMM driver. Resides in the agency.
 * A frontend: used to send/receive the ME application data to/from the backend.
 
@@ -81,7 +76,6 @@ SOOlink paths
    
    Diagram sequence of the RX path from the RFCOMM driver to the vuihandler 
 
-TODO: do the same for tx
 
 Userspace Bluetooth server
 **************************
@@ -95,6 +89,48 @@ In order to prepare the BT adapter, the `btmanager.sh` script does the configura
 * Configure the channel in Serial-Port mode so it uses the TTY interfac (`sdptool`)
 * Launch a RFCOMM server which opens a socket and listen to the incoming connections (`rfcomm`) 
 
+
+vuiHandler packet
+*****************
+As explained before, the vuihandler receive the data from SOOlink as a `vuihandler_pkt_t`. It is structured like this:
+
+
++---------+-----------+-----------------------------------------------------------------------+
+| Member  | Type      | Description                                                           |
++=========+===========+=======================================================================+
+| slotID  | uint32_t  | Corresponding FE ID, used to route the packets to the correct ME      |
++---------+-----------+-----------------------------------------------------------------------+
+| type    | int8_t    | packet type (see below for values)                                    |
++---------+-----------+-----------------------------------------------------------------------+
+| payload | uint8_t * | Pointer to the packet effective data. The content depend of the type. |
++---------+-----------+-----------------------------------------------------------------------+
+
+In term of memory, the payload content is directly encoded after the type.
+
+Packet types
+^^^^^^^^^^^^
+The table below lists the different vuihandler packet types:
+
+
++----------------------+------------------------------------------------------------------------------------+
+| Value                | Description                                                                        |
++======================+====================================================================================+
+| VUIHANDLER_BEACON    | Not used                                                                           |
++----------------------+------------------------------------------------------------------------------------+
+| VUIHANDLER_DATA      | Not used                                                                           |
++----------------------+------------------------------------------------------------------------------------+
+| VUIHANDLER_ME_INJECT*| The packet contains a chunk of the ME to be injected. Routed to the injector.      |
++----------------------+------------------------------------------------------------------------------------+
+| VUIHANDLER_ME_SIZE*  | The packet contains size of the ME to be injected. Routed to the injector          |
++----------------------+------------------------------------------------------------------------------------+
+| VUIHANDLER_ASK_LIST* | Ask the agency to send the XML ME list.                                            |
++----------------------+------------------------------------------------------------------------------------+
+| VUIHANDLER_POST      | Specify that the packet contains an event data to be forwarded to the ME.          |
++----------------------+------------------------------------------------------------------------------------+
+| VUIHANDLER_SELECT    | Specify a ME to be selected by the tablet. The ME will then send its XML UI model. |
++----------------------+------------------------------------------------------------------------------------+
+
+The type marked with a **\*** are destinated to the Agency. The other ones are destinated to a ME.
 
 
 Frontend
@@ -254,9 +290,17 @@ Once the notification arrives in the BE, it can then retrieve the data from the 
    Sequence diagram showing the FE sending a TX packet to the tablet, through the BE
 
 
-The diagram above is a bit simplified as it doesn't fully show the layers between the FE and the BE. You can refer the the TBD document for more information about this layer.
+The diagram above is a bit simplified as it doesn't fully show the layers between the FE and the BE. You can refer the :ref:`Virtualized Interfaces <virt_interfaces>` document for more information about this layer.
 It still shows the basic concept to send a packet from the ME to the tablet. As every sending/receiving are asynchronous, the `vuihandler_send_fn` (FE) and the `tx_task_fn` (BE) are running as threads and are notified once the data are ready to be sent.
 
+
+.. figure:: /img/SOO_drivers_vuihandler_FE_recv.png
+   :align: center
+   
+   Sequence diagram showing the BE forwarding a packet coming from the tablet to a ME.
+
+The diagram above is the RX path between the BE and FE. It follows the same idea as the TX path, using the ring to pass data between the BE and FE. 
+The ME routing is done using the their slotID, which is unique to each ME and is encoded in the `vuihandler_pkt_t` structure.   
 
 Interfacing with the agency modules
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -264,3 +308,12 @@ Another client from the *vuihandler* is the agency. It has multiple modules (inj
 The sending is done using the `vuihandler_send_from_agency` function, which will put the data in the circular TX buffer to be sent later on.
 
 The data reception is a bit trickier, as we receive raw packets in the *vuihandler*. The packets are decoded and routed to the corresponding agency modules if needed, stripped from the *vuihandler* header.
+
+
+Future work/Improvements
+************************
+Below is a listing of the upgrades/ideas to refine and improve the *vuihandler*:
+
+* The vUIHandler must act as a subscription, to which diverse clients could connect. The clients have a unique id which is used to route the incoming data.
+* The only process done by the vUIHandler, other than routing, is the direct forwarding to the ME. A special module could also be in charge to dispatch data to the MEs, to offload even more the processing outside vUIHandler.
+

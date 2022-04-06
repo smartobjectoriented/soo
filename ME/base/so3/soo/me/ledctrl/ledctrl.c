@@ -40,6 +40,7 @@
 
 #include <soo/dev/vsensej.h>
 #include <soo/dev/vsenseled.h>
+#include <soo/dev/vuihandler.h>
 
 #include <me/ledctrl.h>
 
