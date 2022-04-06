@@ -34,6 +34,7 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
 #ifndef _LINUX_TCM515_SERDEV_H
 #define _LINUX_TCM515_SERDEV_H
 
+#include <linux/serdev.h>
 #include "esp3_protocol.h"
 
 #define TCM515_SERDEV_NAME                      "tcm515_serdev"
@@ -44,20 +45,36 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
 #define TCM515_SERDEV_DEFAULT_PARITY            0   //parity none
 #define TCM515_SERDEV_DEFAULT_FLOW_CTRL         false
 #define TCM515_SERDEV_DEFAULT_RTS               false
+#define TCM515_SEND_TIMEOUT                     10 // in ms
 
 
 #define TCM515_COMPATIBLE                       "enocean,tcm515"
 
 #define MAX_SUBSCRIBERS                         10
 
-struct tcm515_serdev {
+#define APP_VERS_SIZE                           4
+#define API_VERS_SIZE                           4
+#define CHIP_ID_SIZE                            4
+#define CHIP_VERS_SIZE                          4
+#define APP_DESC_SIZE                           16
+
+enum read_id_fsm {
+    GET_APP_VERS,
+    GET_API_VERS,
+    GET_CHIP_ID,
+    GET_CHIP_VERS,
+    GET_APP_DESC
+};
+
+struct tcm515_uart {
     struct serdev_device *serdev;
     struct device *dev;
     unsigned int baud;
-    int ready;
     int is_open;
-};
 
+    int expect_response;
+    void (*response_fn)(esp3_packet_t *packet);
+};
 
 /**
  * @brief Subscribe to tcm515. Every time a new ESP3 packet is received it's sent to all
@@ -67,5 +84,14 @@ struct tcm515_serdev {
  * @return int 0 on success, -1 on error
  */
 int tcm515_subscribe(void (*callback)(esp3_packet_t *packet));
+
+/**
+ * @brief Write data to serial port
+ * 
+ * @param buffer data to write
+ * @param len length of data
+ * @return int byte written
+ */
+int tcm515_write_buf(const byte *buffer, size_t len);
 
 #endif
