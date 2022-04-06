@@ -39,9 +39,9 @@
 #define VUIHANDLER_APP_VBSTORE_NODE	"connected-app-me-spid"
 
 typedef struct {
+	int32_t		slotID;
 	uint8_t		type;
-	uint64_t	spid;
-	uint8_t		payload[0]; // TODO describe this payload better!
+	uint8_t		payload[0];
 } vuihandler_pkt_t;
 
 #define VUIHANDLER_MAX_PACKETS		8
@@ -51,6 +51,7 @@ typedef struct {
 
 /* Maximal size of a BT packet's data (the header is included) */
 #define VUIHANDLER_MAX_PKT_SIZE		(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PAYLOAD_SIZE)
+
 
 /* Shared buffer size */
 #define VUIHANDLER_BUFFER_SIZE		(VUIHANDLER_MAX_PACKETS * VUIHANDLER_MAX_PKT_SIZE)
@@ -64,7 +65,9 @@ typedef struct {
 #define VUIHANDLER_SELECT	6
 #define VUIHANDLER_POST		7
 
-#define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
+/* The header size is stripped from the payload address, as the payload
+directly follows the type in term of bytes in memory */
+#define VUIHANDLER_BT_PKT_HEADER_SIZE	(sizeof(uint32_t) + sizeof(uint8_t))
 
 /* Number of TX packets which can be queued in the TX buffer */
 #define VUIHANDLER_TX_BUF_SIZE 	8
@@ -77,7 +80,6 @@ typedef struct {
 /* Ring buffer used to queue the TX packets */
 typedef struct {
 	tx_pkt_t ring[VUIHANDLER_TX_BUF_SIZE];
-	// uint32_t data_sizes[VUIHANDLER_TX_BUF_SIZE];
 	uint32_t put_index;
 	uint32_t get_index;
 	uint32_t cur_size;
@@ -150,7 +152,7 @@ typedef struct {
 
 
 typedef struct {
-    vdevback_t vdevback;
+	vdevback_t vdevback;
 
 	vuihandler_tx_ring_t	tx_rings;
 	vuihandler_rx_ring_t	rx_rings;
@@ -158,8 +160,9 @@ typedef struct {
 	vuihandler_shared_buffer_t	tx_buffers;
 	vuihandler_shared_buffer_t	rx_buffers;
 
-	/* Holds the SPID of the ME who is connected */
-	uint64_t spid;
+	int32_t otherend_id;
+
+	uint64_t spid; /* Kept here as in case we want to use it */
 
 } vuihandler_t;
 
