@@ -49,7 +49,7 @@ the :ref:`vbstore database <virt_interfaces>`.
 
 The following picture shows how the agency and ME descriptors are managed in the framework.
 
-.. figure:: /img/20220316_4_SOO_architecture-AVZ_and_domains.png
+.. figure:: /img/20220316_4_SOO_architecture-AVZ_and_domains.drawio.png
    
    Agency descriptor, ME descriptor and ME ID information
    

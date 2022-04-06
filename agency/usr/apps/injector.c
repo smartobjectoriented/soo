@@ -40,9 +40,9 @@
 #include <soo/uapi/soo.h>
 
 #include <core/core.h>
-#include <core/inject.h>
 #include <core/debug.h>
 #include <core/types.h>
+#include <core/injector.h>
 
 int fd_migration;
 
@@ -126,11 +126,12 @@ int finalize_migration(unsigned int slotID) {
  * Inject a ME.
  * @ME_buffer: the ITB file of the ME.
  */
-int inject_ME(void *ME_buffer) {
+int inject_ME(void *ME_buffer, size_t size) {
 	int rc;
 	struct agency_ioctl_args args;
 
 	args.buffer = ME_buffer;
+	args.value = size;
 
 	if ((rc = ioctl(fd_migration, AGENCY_IOCTL_INJECT_ME, &args)) < 0) {
 		printf("Failed to inject ME (%d)\n", rc);
@@ -143,10 +144,10 @@ int inject_ME(void *ME_buffer) {
 /**
  * Try to retrieve a ME from the DCM and deploy it.
  */
-void ME_inject(unsigned char *ME_buffer) {
+void ME_inject(unsigned char *ME_buffer, size_t size) {
 	int slotID;
 
-	slotID = inject_ME(ME_buffer);
+	slotID = inject_ME(ME_buffer, size);
 	if (slotID == -1) {
 		printf("No available ME slot further...\n");
 		return;
@@ -198,7 +199,7 @@ void inject_MEs_from_filesystem(char *filename) {
 	}
 
 	/* Inject the ME */
-	ME_inject(ME_buffer);
+	ME_inject(ME_buffer, ME_size);
 
 close_free:
 	close(fd);
@@ -206,8 +207,6 @@ close_free:
 	free(ME_buffer);
 
 }
-
-#define AGENCY_CORE_VERSION "3.0"
 
 /**
  * Initialization of the Injector functional block of the Core subsystem.

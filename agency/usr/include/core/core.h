@@ -24,6 +24,8 @@
 
 #include <soo/uapi/soo.h>
 
+#define AGENCY_CORE_VERSION "2022.3"
+
 /* Cycle period express in ms */
 #define AG_CYCLE_PERIOD		100
 
@@ -49,7 +51,6 @@ void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size);
 void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer);
 
 void *prepare_ME_slot(unsigned int slotID);
-int inject_ME(void *buffer);
 int finalize_migration(unsigned int slotID);
 
 void main_loop(int cycle_period);

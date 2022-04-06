@@ -251,7 +251,7 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		break;
 
 	case AGENCY_IOCTL_INJECT_ME:
-		args.slotID = inject_ME(args.buffer);
+		args.slotID = inject_ME(args.buffer, args.value);
 		break;
 
 	case AGENCY_IOCTL_FORCE_TERMINATE:
@@ -278,14 +278,6 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		get_ME_id_array((ME_id_t *) args.buffer);
 		break;
 
-	case AGENCY_IOCTL_INJECTOR_CLEAN_ME:
-		injector_clean_ME();
-		break;
-
-	case AGENCY_IOCTL_INJECTOR_RETRIEVE_ME:
-		args.value = injector_retrieve_ME();
-		break;
-	
 	default:
 		lprintk("%s: Unrecognized IOCTL: 0x%x\n", __func__, cmd);
 		BUG();
@@ -302,7 +294,6 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 struct file_operations agency_fops = {
     .owner = THIS_MODULE,
     .open = agency_open,
-    .read = agency_read,
     .release = agency_release,
     .unlocked_ioctl = agency_ioctl,
     .mmap = agency_upgrade_mmap,

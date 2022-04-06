@@ -310,10 +310,20 @@ void write_migration_structures(soo_hyp_t *op) {
 	memcpy(&dom_info, (void *) op->vaddr, sizeof(dom_info));
 }
 
-/*
- * Inject a ME within a SOO device. This is the only possibility to load a ME within a Smart Object.
+/**
+ *  Inject a ME within a SOO device. This is the only possibility to load a ME within a Smart Object.
  *
- * Returns 0 in case of success, -1 otherwise.
+ *  At the entry of this function, the ME ITB could have been allocated in the user space (via the injector application)
+ *  or in the vmalloc'd area of the Linux kernel in case of a BT transfer from the tablet (using vuihandler).
+ *
+ *  To get rid of the way how the page tables are managed by Linux, we perform a copy of the ME ITB in the
+ *  AVZ heap, assuming that the 8-MB heap is sufficient to host the ITB ME (< 2 MB in most cases).
+ *
+ *  If the ITB should become larger, it is still possible to compress (and enhance AVZ with a uncompressor invoked
+ *  at loading time). Wouldn't be still not enough, a temporary fixmap mapping combined with get_free_pages should be envisaged
+ *  to have the ME ITB accessible from the AVZ user space area.
+ *
+ * @param op  (op->vaddr is the ITB buffer, op->p_val1 will contain the slodID in return (-1 if no space), op->p_val2 is the ITB buffer size_
  */
 void inject_me(soo_hyp_t *op)
 {
@@ -324,6 +334,8 @@ void inject_me(soo_hyp_t *op)
 	struct domain *domME, *__current;
 	addrspace_t prev_addrspace;
 	unsigned long flags;
+	void *itb_vaddr;
+	size_t itb_size;
 
 	DBG("%s: Preparing ME injection, source image = %lx\n", __func__, op->vaddr);
 
@@ -331,8 +343,18 @@ void inject_me(soo_hyp_t *op)
 
 	/* op->vaddr: vaddr of itb */
 
+	/* First, we do a copy of the ME ITB into the avz heap to get independent from Linux mapping (either
+	 * in the user space, or in the vmalloc'd area
+	 */
+	itb_size = *((size_t *) op->p_val2);
+
+	itb_vaddr = malloc(itb_size);
+	BUG_ON(!itb_vaddr);
+
+	memcpy(itb_vaddr, (void *) op->vaddr, itb_size);
+
 	/* Retrieve the domain size of this ME through its device tree. */
-	fit_image_get_data_and_size((void  *) op->vaddr, fit_image_get_node((void *) op->vaddr, "fdt"), (const void **) &fdt_vaddr, &fdt_size);
+	fit_image_get_data_and_size(itb_vaddr, fit_image_get_node(itb_vaddr, "fdt"), (const void **) &fdt_vaddr, &fdt_size);
 	if (!fdt_vaddr) {
 		printk("### %s: wrong device tree.\n", __func__);
 		BUG();
@@ -357,10 +379,8 @@ void inject_me(soo_hyp_t *op)
 	/* Now set the pfn base of this ME; this will be useful for the Agency Core subsystem */
 	domME->shared_info->dom_desc.u.ME.pfn = phys_to_pfn(memslot[slotID].base_paddr);
 
-	/* Warning ! At the beginning of loadME(), a memory context switch is performed to access the AVZ system page table. */
 	__current = current;
 
-	/* Pick the current pgtable from the agency and copy the PTEs corresponding to the user space region. */
 	get_current_addrspace(&prev_addrspace);
 
 	switch_mm(idle_domain[smp_processor_id()], &idle_domain[smp_processor_id()]->addrspace);
@@ -368,7 +388,7 @@ void inject_me(soo_hyp_t *op)
 	/* Clear the RAM allocated to this ME */
 	memset((void *) __lva(memslot[slotID].base_paddr), 0, memslot[slotID].size);
 
-	loadME(slotID, (unsigned char *) op->vaddr, &prev_addrspace);
+	loadME(slotID, itb_vaddr);
 
 	if (construct_ME(domains[slotID]) != 0)
 		panic("Could not set up ME guest OS\n");
@@ -379,6 +399,8 @@ void inject_me(soo_hyp_t *op)
 out:
 	/* Prepare to return the slotID to the caller. */
 	*((unsigned int *) op->p_val1) = slotID;
+
+	free(itb_vaddr);
 
 	local_irq_restore(flags);
 }

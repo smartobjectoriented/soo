@@ -36,16 +36,13 @@
 #include <core/debug.h>
 #include <core/types.h>
 #include <core/asf.h>
+#include <core/injector.h>
 
-#include <dcm/core.h>
-
-#include <injector/core.h>
+#include <dcm/dcm.h>
 
 #ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>
 #endif
-
-#define AGENCY_CORE_VERSION "2019.2"
 
 static volatile bool __started = false;
 /*

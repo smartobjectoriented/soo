@@ -54,6 +54,6 @@ extern memslot_entry_t memslot[];
  * that the domain_build will be able to elf-parse and load to their final destination.
  */
 void loadAgency(void);
-void loadME(unsigned int slotID, uint8_t *img, addrspace_t *current_addrspace);
+void loadME(unsigned int slotID, void *itb);
 
 #endif /* MEMSLOT_H */
