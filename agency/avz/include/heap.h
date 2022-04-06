@@ -22,15 +22,11 @@
 #include <types.h>
 #include <sizes.h>
 
-#if 0
-#define TRACKING
-#endif
-
 /*
  * The heap size is defined in the linker script (avz.lds)
  * The value must be strictly the same.
 */
-#define HEAP_SIZE 	(2 * SZ_1M)
+#define HEAP_SIZE 	(8 * SZ_1M)
 
 #define CHUNK_SIG	0xbeefdead
 

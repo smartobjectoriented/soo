@@ -38,11 +38,11 @@
 #include <core/core.h>
 #include <core/send.h>
 #include <core/receive.h>
-#include <core/inject.h>
+#include <core/injector.h>
 #include <core/debug.h>
 #include <core/types.h>
 
-#include <dcm/core.h>
+#include <dcm/dcm.h>
 #include <dcm/compressor.h>
 #include <dcm/datacomm.h>
 #include <dcm/security.h>

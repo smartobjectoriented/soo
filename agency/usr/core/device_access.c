@@ -36,7 +36,7 @@
 #include <core/core.h>
 #include <core/debug.h>
 #include <core/device_access.h>
-#include <core/inject.h>
+#include <core/injector.h>
 
 #include <archive.h>
 #include <archive_entry.h>

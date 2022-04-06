@@ -60,7 +60,9 @@ typedef struct {
 #define VUIHANDLER_ME_INJECT	2 /* Specify the packet contains a chunk of the ME to be injected  */
 #define VUIHANDLER_ME_SIZE	3 /* Specify that a ME injection is to be initiated. The packet contains the ME size */
 #define VUIHANDLER_ASK_LIST	4 /* Ask for the XML ME list */
-#define VUIHANDLER_EVENT	5 /* Specify that the packet contains an event data to be forwarded to the ME */
+#define VUIHANDLER_SEND		5 /* Specify that the packet contains an event data to be forwarded to the ME */
+#define VUIHANDLER_SELECT	6
+#define VUIHANDLER_POST		7
 
 #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
 
