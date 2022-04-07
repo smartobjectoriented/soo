@@ -77,17 +77,16 @@ config VWAGOLED_BACKEND
 	help
 	  The vwagoled driver allows to changes the status of the wago leds 
 
-config TCM515_SERDEV
-	bool "Support tmc515 module uart communication from kernel"
+config TCM515
+	bool "Support tmc515 uart communication from kernel"
 	depends on SERIAL_DEV_CTRL_TTYPORT=y
 	help
 		Create an uart device that uses the serdev framework and allows 
-		to communicate with a TCM515 en0cean module. !Only RX works at 
-		the moment
+		to communicate with a TCM515 en0cean module.
 
 config VENOCEAN_BACKEND
 	bool "enOcean backend driver"
-	depends on TTY
+	depends on TCM515=y
 	default n
 	help
 	  This driver enabled to deal with a virtualized interface for the enOcean actuator.

@@ -46,8 +46,6 @@ typedef struct {
 
 static struct vbus_device *vwagoled_dev = NULL;
 
-static bool thread_created = false;
-
 void init_request(vwagoled_request_t *req) {
 	req->cmd = NONE;
 	req->dim_value = DEFAULT_DIM_VALUE;
@@ -258,14 +256,6 @@ static void vwagoled_connected(struct vbus_device *vdev) {
 
 	/* Force the processing of pending requests, if any */
 	notify_remote_via_virq(vwagoled_priv->vwagoled.irq);
-
-	if (!thread_created) {
-		thread_created = true;
-#if 0
-		kernel_thread(notify_fn, "notify_th", &i1, 0);
-		//kernel_thread(notify_fn, "notify_th2", &i2, 0);
-#endif
-	}
 }
 
 vdrvfront_t vwagoleddrv = {

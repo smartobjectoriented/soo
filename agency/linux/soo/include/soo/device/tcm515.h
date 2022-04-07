@@ -35,7 +35,7 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
 #define _LINUX_TCM515_SERDEV_H
 
 #include <linux/serdev.h>
-#include "esp3_protocol.h"
+#include <soo/device/tmc515_esp3.h>
 
 #define TCM515_SERDEV_NAME                      "tcm515_serdev"
 #define TCM515_SERDEV_PREFIX                    "[" TCM515_SERDEV_NAME "] "
@@ -76,6 +76,13 @@ struct tcm515_uart {
     void (*response_fn)(esp3_packet_t *packet);
 };
 
+/*** Commands packets ***/
+static esp3_packet_t co_rd_version_packet = {
+    .header = {0x01, 0x00, COMMON_COMMAND},
+    .data = (byte[]){CO_RD_VERSION},
+    .optional_data = NULL,
+};
+
 /**
  * @brief Subscribe to tcm515. Every time a new ESP3 packet is received it's sent to all
  *          all subscribers
@@ -90,8 +97,10 @@ int tcm515_subscribe(void (*callback)(esp3_packet_t *packet));
  * 
  * @param buffer data to write
  * @param len length of data
+ * @param expect_resp true if data will trigger a response
+ * @param response_fn callback to treat the response
  * @return int byte written
  */
-int tcm515_write_buf(const byte *buffer, size_t len);
+int tcm515_write_buf(const byte *buffer, size_t len, bool expect_resp, void (*response_fn)(esp3_packet_t *packet));
 
 #endif

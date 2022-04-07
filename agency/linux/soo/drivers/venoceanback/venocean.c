@@ -47,7 +47,7 @@
 
 #include <soo/vdevback.h>
 #include <soo/dev/venocean.h>
-#include <linux/tcm515_serdev.h>
+#include <soo/device/tcm515.h>
 
 /* Store last ESP3 packet received */
 esp3_packet_t *last_packet = NULL;
@@ -65,7 +65,7 @@ typedef struct {
  * 
  * @param packet New ESP3 packet. Will replace the values of last packet.
  */
-void tcm515_callaback(esp3_packet_t *packet){
+void tcm515_callaback(esp3_packet_t *packet) {
 
 	DBG(VENOCEAN_PREFIX " New data form tcm515\n");
 	if (!packet)
@@ -133,7 +133,7 @@ void tcm515_callaback(esp3_packet_t *packet){
  * @param data Vbus device
  * @return int 0 for success
  */
-static int venocean_send_data_fn(void *data){
+static int venocean_send_data_fn(void *data) {
 	struct vbus_device *vdev = (struct vbus_device*)data;
 	venocean_priv_t  *venocean_priv = dev_get_drvdata(&vdev->dev);
 	venocean_response_t *ring_resp;
@@ -178,7 +178,7 @@ static int venocean_send_data_fn(void *data){
 	return 0;
 }
 
-irqreturn_t venocean_interrupt_bh(int irq, void *dev_id){
+irqreturn_t venocean_interrupt_bh(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	venocean_priv_t *venocean_priv = dev_get_drvdata(&vdev->dev);
 	venocean_request_t *ring_req;
@@ -192,7 +192,7 @@ irqreturn_t venocean_interrupt_bh(int irq, void *dev_id){
 	return IRQ_HANDLED;
 }
 
-irqreturn_t venocean_interrupt(int irq, void *dev_id){
+irqreturn_t venocean_interrupt(int irq, void *dev_id) {
 	return IRQ_WAKE_THREAD;
 }
 
@@ -312,7 +312,7 @@ static int venocean_init(void) {
 		DBG(VENOCEAN_PREFIX " failed to subscribe to tcm515");
 	}
 
-	DBG(VENOCEAN_PREFIX " Initialized successfully\n");
+	pr_info(VENOCEAN_PREFIX " Initialized successfully\n");
 
 	return 0;
 }

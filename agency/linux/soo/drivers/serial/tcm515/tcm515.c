@@ -27,7 +27,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <soo/tcm515_serdev.h>
+#include <soo/device/tcm515.h>
 #include <linux/serdev.h>
 #include <linux/jiffies.h>
 #include <soo/uapi/console.h>
@@ -50,9 +50,6 @@ void tcm515_read_id(esp3_packet_t *packet) {
     byte app_desc[APP_DESC_SIZE];
     byte data;
     size_t i, j = 0, byte_read = 0;
-    
-    if (packet->header.packet_type != RESPONSE)
-        BUG();
     
     if (packet->data[0] != ESP3_RET_OK)
         BUG();
@@ -130,10 +127,18 @@ void tcm515_read_id(esp3_packet_t *packet) {
  * @param len data size in bytes
  * @return int 0 on success, -1 on error
  */
-int tcm515_write_buf(const unsigned char* buf, size_t len) {
+int tcm515_write_buf(const byte *buffer, size_t len, bool expect_resp, 
+                        void (*response_fn)(esp3_packet_t *packet)) {
     int tx_bytes = 0;
 
     BUG_ON(!tcm515->is_open);
+
+    if (expect_resp) {
+        BUG_ON(!response_fn);
+
+        tcm515->expect_response = 1;
+        tcm515->response_fn = response_fn;
+    }
 
     if (serdev_device_write_room(tcm515->serdev) < len) {
         dev_err(tcm515->dev, "Not enough room\n");
@@ -141,10 +146,9 @@ int tcm515_write_buf(const unsigned char* buf, size_t len) {
     }
 
     while(tx_bytes < len) {
-        tx_bytes += serdev_device_write_buf(tcm515->serdev, buf, len);
+        tx_bytes += serdev_device_write_buf(tcm515->serdev, buffer, len);
         BUG_ON(tx_bytes < 1);
     }
-    // serdev_device_wait_until_sent(tcm515->serdev, 0);
     serdev_device_write_flush(tcm515->serdev);
 
 #ifdef DEBUG
@@ -195,20 +199,33 @@ static int tcm515_serdev_receive_buf(struct serdev_device *serdev, const byte *b
                 esp3_print_packet(packet);
 #endif
                 BUG_ON(!packet);
-            
-                if (tcm515->expect_response) {
-                    tcm515->expect_response = 0;
 
-                    BUG_ON(!tcm515->response_fn);
+                switch(packet->header.packet_type) {
+                    case RADIO_ERP1:
+                        /* Broadcast to all subscribers */
+                        for (j = 0; j < subscribers_count; j++) {
+                            if (subscribers[j])
+                                (*subscribers[j])(packet);
+                        }
+                        break;
+                    
+                    case RESPONSE:
+                        if (tcm515->expect_response) {
+                            BUG_ON(!tcm515->response_fn);
 
-                    tcm515->response_fn(packet);
-                    tcm515->response_fn = NULL;
-                } else {
-                    for (j = 0; j < subscribers_count; j++) {
-                        if (subscribers[j])
-                            (*subscribers[j])(packet);
-                    }
+                            tcm515->response_fn(packet);
+                            /* Reset for next time */
+                            tcm515->response_fn = NULL;
+                            tcm515->expect_response = 0;
+                        } else {
+                            dev_info(tcm515->dev, "No response function was set.\n");
+                        }
+                        break;
+                    default:
+                        dev_info(tcm515->dev, "Packet type %d not yet implemented\n", packet->header.packet_type);
+                        break;
                 }
+
                 esp3_free_packet(packet);
                 break;
 
@@ -268,9 +285,7 @@ static int tcm515_serdev_probe(struct serdev_device *serdev) {
 
     get_id_version = esp3_packet_to_byte_buffer(&co_rd_version_packet);
     if (get_id_version) {
-        tcm515->expect_response = 1;
-        tcm515->response_fn = tcm515_read_id;
-        tcm515_write_buf(get_id_version, CO_READ_VERSION_BUFFER_SIZE);
+        tcm515_write_buf(get_id_version, CO_READ_VERSION_BUFFER_SIZE, true, tcm515_read_id);
     }
     
     dev_info(dev,"Probed successfully\n");

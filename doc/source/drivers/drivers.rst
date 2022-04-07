@@ -10,8 +10,9 @@ Frontend & backend drivers
    :maxdepth: 5
    :hidden:
    
-   vdummy   
-   
+   vdummy  
+   vwagoled 
+   venocean
 
 
 The following drivers are available:
@@ -19,4 +20,6 @@ The following drivers are available:
 - vdummy
 - vuart
 - vuihandler
+- vwagoled
+- venocean
 

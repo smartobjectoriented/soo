@@ -34,7 +34,7 @@ typedef struct {
 
 } vwagoled_priv_t;
 
-irqreturn_t vwagoled_interrupt_bh(int irq, void *dev_id){
+irqreturn_t vwagoled_interrupt_bh(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vwagoled_priv_t *vwagoled_priv = dev_get_drvdata(&vdev->dev);
 	vwagoled_request_t *ring_req;
@@ -50,7 +50,7 @@ irqreturn_t vwagoled_interrupt_bh(int irq, void *dev_id){
 	return IRQ_HANDLED;
 }
 
-irqreturn_t vwagoled_interrupt(int irq, void *dev_id){
+irqreturn_t vwagoled_interrupt(int irq, void *dev_id) {
 	return IRQ_WAKE_THREAD;
 }
 
