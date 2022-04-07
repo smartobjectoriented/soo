@@ -141,11 +141,9 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
 	agency_ctl_args_t agency_ctl_args;
-	unsigned int i;
-	LIST_HEAD(incoming_hosts);
 	sh_ledctrl_t *incoming_sh_ledctrl;
-
 	uint32_t pfn;
+	LIST_HEAD(incoming_hosts);
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
@@ -174,26 +172,21 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			return 0;
 		}
 
-		for (i = 0; i < MAX_ME_DOMAINS; i++) {
-			if (cooperate_args->u.target_coop[i].spad.valid) {
+		/* Collaboration with the target ME */
 
-				/* Collaboration ... */
+		/* Update the list of hosts */
+		sh_ledctrl->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_ledctrl->me_common.soohosts);
 
-				/* Update the list of hosts */
-				sh_ledctrl->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_ledctrl->me_common.soohosts);
+		agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_ledctrl));
+		agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
-				agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_ledctrl));
-				agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
+		/* This pattern enables the cooperation with the target ME */
 
-				/* This pattern enables the cooperation with the target ME */
+		agency_ctl_args.cmd = AG_COOPERATE;
+		agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
 
-				agency_ctl_args.cmd = AG_COOPERATE;
-				agency_ctl_args.slotID = cooperate_args->u.target_coop[i].slotID;
-
-				/* Perform the cooperate in the target ME */
-				args->__agency_ctl(&agency_ctl_args);
-			}
-		}
+		/* Perform the cooperate in the target ME */
+		args->__agency_ctl(&agency_ctl_args);
 
 		/* Can be dormant or be killed...*/
 

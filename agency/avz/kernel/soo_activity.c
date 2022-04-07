@@ -276,12 +276,11 @@ void soo_cooperate(unsigned int slotID)
 
 	for (i = MEMSLOT_BASE; i < MEMSLOT_NR; i++) {
 
+		/* Look for resident ME */
 		if ((i != slotID) && memslot[i].busy) {
-			domcall_args.u.cooperate_args.alone = false;
 
-			/*
-			 * The cooperation
-			 */
+			/* We are not alone in this smart object */
+			domcall_args.u.cooperate_args.alone = false;
 
 			/*
 			 * Check if this residing ME has the same SPID than the initiator ME (arrived ME). If the residing ME is not ready
@@ -294,20 +293,13 @@ void soo_cooperate(unsigned int slotID)
 			if (domains[i]->shared_info->dom_desc.u.ME.spad.valid || itself) {
 
 				/* target_coop.slotID contains the slotID of the ME initiator in the cooperation process. */
-				domcall_args.u.cooperate_args.u.target_coop[avail_ME].slotID = i;
+				domcall_args.u.cooperate_args.u.target_coop.slotID = i;
 
-				domcall_args.u.cooperate_args.u.target_coop[avail_ME].spad.valid = domains[i]->shared_info->dom_desc.u.ME.spad.valid;
-
-				/* Transfer the capabilities of the target ME */
-				domcall_args.u.cooperate_args.u.target_coop[avail_ME].spad.spadcaps = domains[i]->shared_info->dom_desc.u.ME.spad.spadcaps;
+				domcall_args.u.cooperate_args.u.target_coop.spad = domains[i]->shared_info->dom_desc.u.ME.spad;
 
 				/* Transfer the SPID of the target ME */
-				domcall_args.u.cooperate_args.u.target_coop[avail_ME].spid = domains[i]->shared_info->dom_desc.u.ME.spid;
-
-				avail_ME++;
+				domcall_args.u.cooperate_args.u.target_coop.spid = domains[i]->shared_info->dom_desc.u.ME.spid;
 			}
-
-
 		}
 	}
 

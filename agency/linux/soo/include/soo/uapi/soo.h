@@ -380,7 +380,7 @@ typedef struct {
 	bool alone; /* true if there is no ME in this SOO */
 
 	union {
-		coop_t target_coop[MAX_ME_DOMAINS]; /* In terms of ME domains */
+		coop_t target_coop;
 		coop_t initiator_coop;
 	} u;
 
