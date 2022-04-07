@@ -129,13 +129,6 @@ struct esp3_packet {
 };
 typedef struct esp3_packet esp3_packet_t;
 
-/*** Commands packets ***/
-static esp3_packet_t co_rd_version_packet = {
-    .header = {0x01, 0x00, COMMON_COMMAND},
-    .data = (byte[]){CO_RD_VERSION},
-    .optional_data = NULL,
-};
-
 /**
  * @brief Read a received byte and moves through the FSM.
  * 
@@ -166,6 +159,6 @@ void esp3_free_packet(esp3_packet_t *pck);
  * @param packet Packet to get the byte buffer of
  * @return byte* buffer on success, NULL on error.
  */
-byte* esp3_packet_to_byte_buffer(esp3_packet_t *packet);
+byte *esp3_packet_to_byte_buffer(esp3_packet_t *packet);
 
 #endif //_ESP3_PROTOCOL_H
