@@ -117,8 +117,7 @@ void vwagoled_reconfigured(struct vbus_device *vdev) {
 
 	DBG(VWAGOLED_PREFIX "BE: ring-ref=%ld, event-channel=%d\n", ring_ref, evtchn);
 
-	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
-	BUG_ON(res < 0);
+	vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 
 	BACK_RING_INIT(&vwagoled_priv->vwagoled.ring, sring, PAGE_SIZE);
 

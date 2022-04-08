@@ -262,8 +262,7 @@ void venocean_reconfigured(struct vbus_device *vdev) {
 
 	DBG(VENOCEAN_PREFIX "BE: ring-ref=%lu, event-channel=%d\n", ring_ref, evtchn);
 
-	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
-	BUG_ON(res < 0);
+	vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 
 	// SHARED_RING_INIT(sring);
 	BACK_RING_INIT(&venocean_priv->venocean.ring, sring, PAGE_SIZE);
