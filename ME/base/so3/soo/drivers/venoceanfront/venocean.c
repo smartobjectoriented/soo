@@ -49,7 +49,7 @@ typedef struct {
 
 static struct vbus_device *venocean_dev = NULL;
 
-int venocean_get_data(char *buf){
+int venocean_get_data(char *buf) {
 	venocean_priv_t *venocean_priv;
 	venocean_response_t *ring_rsp;
 	int len = 0;

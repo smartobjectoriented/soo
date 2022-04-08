@@ -1,1 +1,1 @@
-obj-y += tcm515_serdev.o esp3_protocol.o
+obj-y += tcm515.o tcm515_esp3.o

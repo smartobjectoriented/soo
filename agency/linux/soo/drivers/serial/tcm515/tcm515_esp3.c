@@ -21,7 +21,7 @@
 #include <linux/printk.h>
 #include <linux/kernel.h>
 
-#include <soo/esp3_protocol.h>
+#include <soo/device/tmc515_esp3.h>
 
 #define proccrc8(u8CRC, u8Data) (u8CRC8Table[u8CRC ^ u8Data]);
 
@@ -69,8 +69,7 @@ byte u8CRC8Table[256] = {
  * @param crc8 CRC8 value to compare the result with
  * @return int 0 on success, -1 on error
  */
-int esp3_check_crc8(const byte *buf, size_t len, byte crc8)
-{
+int esp3_check_crc8(const byte *buf, size_t len, byte crc8) {
     int i;
     byte crc8_calc;
 
@@ -93,8 +92,7 @@ int esp3_check_crc8(const byte *buf, size_t len, byte crc8)
  * @param len bytes array length
  * @return byte CRC8 value
  */
-byte esp3_calc_crc8(const byte *buf, size_t len)
-{
+byte esp3_calc_crc8(const byte *buf, size_t len) {
     int i;
     byte crc8_calc;
 
@@ -105,8 +103,7 @@ byte esp3_calc_crc8(const byte *buf, size_t len)
     return crc8_calc;
 }
 
-read_status esp3_read_byte(const byte buf, esp3_packet_t **packet)
-{
+read_status esp3_read_byte(const byte buf, esp3_packet_t **packet) {
     static esp3_fsm state = GET_SYNC_BYTE;
     static read_status ret = READ_PROGRESS;
     static int data_len = 0, optional_len = 0;
@@ -116,9 +113,6 @@ read_status esp3_read_byte(const byte buf, esp3_packet_t **packet)
 
     /* Current data header */
     static byte header[ESP3_HEADER_SIZE];
-
-    byte data_len_str[DATA_LEN_STR_SIZE] = {0};
-    byte opt_len_str[OPT_LEN_STR_SIZE] = {0};
     
     static int i = 0;
     int crc8h, crc8d;
@@ -154,14 +148,8 @@ read_status esp3_read_byte(const byte buf, esp3_packet_t **packet)
             state = GET_SYNC_BYTE;
             ret = READ_ERROR;
         } else {
-            snprintf(data_len_str, DATA_LEN_STR_SIZE, "%02x%02x", 
-                    header[HEADER_DATA_LEN_OFFSET], header[HEADER_DATA_LEN_OFFSET + 1]);
-            if (kstrtoint(data_len_str, 16, &data_len) < 0)
-                BUG();
-
-            snprintf(opt_len_str, OPT_LEN_STR_SIZE, "%02x", header[HEADER_OPT_LEN_OFFSET]);
-            if (kstrtoint(opt_len_str, 16, &optional_len) < 0)
-                BUG();
+            data_len |= (header[HEADER_DATA_LEN_OFFSET] << 8) + header[HEADER_DATA_LEN_OFFSET + 1];
+            optional_len = header[HEADER_OPT_LEN_OFFSET];
 
             state = GET_DATA;
         }
@@ -224,8 +212,7 @@ read_status esp3_read_byte(const byte buf, esp3_packet_t **packet)
     return ret;
 }
 
-void esp3_free_packet(esp3_packet_t *pck)
-{
+void esp3_free_packet(esp3_packet_t *pck) {
     if (!pck)
         return;
         
@@ -241,8 +228,7 @@ void esp3_free_packet(esp3_packet_t *pck)
     pck = NULL;
 }
 
-byte *esp3_packet_to_byte_buffer(esp3_packet_t *packet)
-{
+byte *esp3_packet_to_byte_buffer(esp3_packet_t *packet) {
     byte *buf;
     int i;
     int buffer_size;
@@ -277,8 +263,7 @@ byte *esp3_packet_to_byte_buffer(esp3_packet_t *packet)
     return buf;
 }
 
-void esp3_print_packet(esp3_packet_t *pck)
-{
+void esp3_print_packet(esp3_packet_t *pck) {
     int i;
     int data_len, opt_data_len;
 

@@ -82,6 +82,9 @@ Mobile entities devoted to SOO.domotics family
 | *0x0020000000000002* | SOO.outdoor is able to collect data from any weather station. This ME      |
 |                      | can be used in conjunction with other MEs which can use this kind of data. |
 +----------------------+----------------------------------------------------------------------------+
+| *0x0020000000000003* | SOO.wagoled                                                                |
+|                      |                                                                            |
++----------------------+----------------------------------------------------------------------------+
 
 System and housekeeping mobile entities
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
