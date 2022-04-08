@@ -122,7 +122,6 @@ static struct kobj_attribute neighbours_attr = __ATTR(neighbours, 0664, attr_sho
 /**** vsensej ****/
 static struct kobj_attribute vsensej_js_attr = __ATTR(vsensej_js, 0664, attr_show, attr_store);
 
-<<<<<<< HEAD
 /* Groups of attributes for SOO (root) */
 static struct attribute *soo_attrs[] = {
 	&agencyUID_attr.attr,
@@ -134,7 +133,6 @@ static struct attribute_group soo_group = {
 	.attrs = soo_attrs,
 };
 
-=======
 /**** vwagoled ****/
 static struct kobj_attribute vwagoled_notify_attr = __ATTR(vwagoled_notify, 0664, attr_show, attr_store);
 static struct kobj_attribute vwagoled_debug_attr = __ATTR(vwagoled_debug, 0664, attr_show, attr_store);
@@ -142,7 +140,6 @@ static struct kobj_attribute vwagoled_led_on_attr = __ATTR(vwagoled_led_on, 0664
 static struct kobj_attribute vwagoled_led_off_attr = __ATTR(vwagoled_led_off, 0664, attr_show, attr_store);
 static struct kobj_attribute vwagoled_get_topology_attr = __ATTR(vwagoled_get_topology, 0664, attr_show, attr_store);
 static struct kobj_attribute vwagoled_get_status_attr = __ATTR(vwagoled_get_status, 0664, attr_show, attr_store);
->>>>>>> ccd829418e... [WAGO] Modify to add entries for vwagoled
 /* Group of attributes for SOOlink Discovery */
 static struct attribute *soolink_discovery_attrs[] = {
 	&buffer_count_attr.attr,

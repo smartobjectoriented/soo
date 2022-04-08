@@ -133,8 +133,7 @@ static void vwagoled_probe(struct vbus_device *vdev) {
 	vwagoled_priv->vwagoled.ring_ref = GRANT_INVALID_REF;
 
 	/* Allocate an event channel associated to the ring */
-	res = vbus_alloc_evtchn(vdev, &evtchn);
-	BUG_ON(res);
+	vbus_alloc_evtchn(vdev, &evtchn);
 
 	res = bind_evtchn_to_irq_handler(evtchn, vwagoled_interrupt, NULL, vdev);
 	if (res <= 0) {
