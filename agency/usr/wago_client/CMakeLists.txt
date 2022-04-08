@@ -1,4 +1,4 @@
-project(wago LANGUAGES C CXX)
+project(wago-client LANGUAGES C CXX)
 
 file(GLOB SRC *.cpp)
 
