@@ -27,5 +27,5 @@ add_subdirectory(frozen)
 add_subdirectory(apps)
 add_subdirectory(lib)
 
-add_subdirectory(wago)
+add_subdirectory(wago_client)
 

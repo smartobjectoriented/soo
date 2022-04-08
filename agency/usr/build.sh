@@ -91,7 +91,7 @@ install_file_root build/apps/shutdownme
 install_file_root build/apps/melist
 
 # Wago app
-install_file_root build/wago/wago
+install_file_root build/wago_client/wago-client
 
 # And modules if any
 cp module/*.ko build/deploy 2>/dev/null
