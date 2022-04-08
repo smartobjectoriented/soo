@@ -68,20 +68,20 @@ Basic mobile entities
 Mobile entities devoted to SOO.domotics family
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-+----------------------+----------------------------------------------------------------------------+
-| SPID                 | ME Description                                                             |
-+======================+============================================================================+
-| *0x0020000000000001* | SOO.blind is devoted to the handling of a "standard" blind which provides  |
-|                      | the user with features such as putting the blinds up or down, but the ME   |
-|                      | can also perform synergies with SOO.outdoor for example to decide how      |
-|                      | to manipulate the blinds, according to the weather condition               |
-+----------------------+----------------------------------------------------------------------------+
-| *0x0020000000000002* | SOO.outdoor is able to collect data from any weather station. This ME      |
-|                      | can be used in conjunction with other MEs which can use this kind of data. |
-+----------------------+----------------------------------------------------------------------------+
-| *0x0020000000000003* | SOO.wagoled                                                                |
-|                      |                                                                            |
-+----------------------+----------------------------------------------------------------------------+
++-----------------------+-----------------------------------------------------------------------------+
+| SPID                  | ME Description                                                              |
++=======================+=============================================================================+
+|| *0x0020000000000001* || SOO.blind is devoted to the handling of a "standard" blind which provides  |
+||                      || the user with features such as putting the blinds up or down, but the ME   |
+||                      || can also perform synergies with SOO.outdoor for example to decide how      |
+||                      || to manipulate the blinds, according to the weather condition               |
++-----------------------+-----------------------------------------------------------------------------+
+|| *0x0020000000000002* || SOO.outdoor is able to collect data from any weather station. This ME      |
+||                      || can be used in conjunction with other MEs which can use this kind of data. |
++-----------------------+-----------------------------------------------------------------------------+
+|| *0x0020000000000003* || SOO.wagoled is able to received event from an EnOcean switch and redirect  |
+||                      || the received commnand to the Wago ecosystem.                               |
++-----------------------+-----------------------------------------------------------------------------+
 
 System and housekeeping mobile entities
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

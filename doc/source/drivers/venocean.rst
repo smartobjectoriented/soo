@@ -69,17 +69,17 @@ Data structure:
 | 0x06 + x + y | None   | CRC8 data       | 0xnn      |                                                  |
 +--------------+--------+-----------------+-----------+--------------------------------------------------+
 
-The EnOcean data is contained in the data field and it's the only part of the ESP3 packet that the *venocean* backend sends to the *venocean* frontend. The rest of the data is 
+The EnOcean data is contained in the data field and it's the only part of the ESP3 packet that the *venocean* backend sends to the *venocean* front end. The rest of the data is 
 used by the TCM515 driver.
 
 *venocean* backend
 ==================
 The backend subscribes to `TCM515 driver`_ to receive EnOcean telegrams. When new data is received the backend extract the data part of the `ESP3 packet`_ and forward it to 
-the venocean frontend through the shared ring.
+the venocean front end through the shared ring.
 
-*venocean* frontend
-===================
-The frontend received the EnOcean telegram through the shared ring. An ME can get the EnOcean data by calling the *venocean_get_data()* function. This function is blocking and will
+*venocean* front end
+====================
+The front end received the EnOcean telegram through the shared ring. An ME can get the EnOcean data by calling the *venocean_get_data()* function. This function is blocking and will
 return only when new data is received.
 
 Supported EnOcean devices
@@ -96,10 +96,9 @@ Switches
 +=============+===========+============+===========================+
 | 0x00        | RORG      | 0x76       | Radio telegram type RPS   |
 +-------------+-----------+------------+---------------------------+
-|| 0x01       || Data     || 0xnn      || Switch values            |
-||            ||          ||           || - 0x00 switch released   |
-||            ||          ||           || - 0x70 switch press up   |
-||            ||          ||           || - 0x50 switch press down |
+| 0x01        | Data      | 0xnn       | - 0x00 switch released    |
+|             |           |            | - 0x70 switch press up    |
+|             |           |            | - 0x50 switch press down  |
 +-------------+-----------+------------+---------------------------+
 | 0x02 - 0x05 | Sender ID | 0xnnnnnnnn | EnOcean Unique ID         |
 +-------------+-----------+------------+---------------------------+
@@ -111,9 +110,10 @@ More to come ...
 Future developments
 ===================
 
-- BE/FE add possibility to send EnOcean telegrams from the frontend.
+- BE/FE add possibility to send EnOcean telegrams from the front end.
 - Implement more TCM515 commands as needed and provide an interface (sysfs ?) to interact with the TCM515.
-
+- BE supports for multiple FEs
+  
 .. _TCM515: https://www.enocean.com/wp-content/uploads/downloads-produkte/en/products/enocean_modules/tcm-515/user-manual-pdf/TCM-515-User-Manual-21.pdf
 .. _ESP3: https://usermanual.wiki/m/a0b4d9036aad0f4f220621c1d89bad843cbb72e96b17194c9248bb519fc3b2bc.pdf
 .. _Packet type: https://usermanual.wiki/m/a0b4d9036aad0f4f220621c1d89bad843cbb72e96b17194c9248bb519fc3b2bc.pdf#%5B%7B%22num%22%3A41%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C65%2C697%2C0%5D
