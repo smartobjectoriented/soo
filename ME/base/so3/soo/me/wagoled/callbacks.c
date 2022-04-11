@@ -198,11 +198,7 @@ void callbacks_init(void) {
 	memset(sh_wagoled, 0, PAGE_SIZE);
 
 	/* Set the SPAD capabilities */
-<<<<<<< HEAD
-	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
-=======
 	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));
->>>>>>> 46b227dfe66684415ef64371ad058d6b88639648
 }
 
 
