@@ -37,6 +37,7 @@
 
 #include <soo/core/device_access.h>
 
+#include <soo/evtchn.h>
 #include <soo/gnttab.h>
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
@@ -50,9 +51,7 @@
 
 #include <soo/vdevback.h>
 
-
 #include <soo/dev/vweather.h>
-
 
 struct list_head *vdev_list;
 
@@ -545,7 +544,6 @@ int vweather_init(void) {
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np))
 		return 0;
-
 
 	devaccess_set_devcaps(DEVCAPS_CLASS_DOMOTICS, DEVCAP_WEATHER_DATA, true);
 	

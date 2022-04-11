@@ -44,7 +44,7 @@ typedef struct {
 	 */
 	bool need_propagate;
 
-	agencyUID_t initiator;
+	uint64_t initiator;
 
 	/*
 	 * MUST BE the last field, since it contains a field at the end which is used

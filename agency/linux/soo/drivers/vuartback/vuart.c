@@ -229,7 +229,6 @@ void vuart_resume(struct vbus_device *vdev) {
 }
 
 void vuart_reconfigured(struct vbus_device *vdev) {
-	int res;
 	unsigned long ring_ref;
 	unsigned int evtchn;
 	vuart_sring_t *sring;
@@ -245,16 +244,11 @@ void vuart_reconfigured(struct vbus_device *vdev) {
 
 	DBG("BE: ring-ref=%lu, event-channel=%u\n", ring_ref, evtchn);
 
-	res = vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
-	BUG_ON(res < 0);
+	vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 
 	BACK_RING_INIT(&vuart_priv->vuart.ring, sring, PAGE_SIZE);
 
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vuart_interrupt, NULL, 0, VUART_NAME "-backend", vdev);
-
-	BUG_ON(res < 0);
-
-	vuart_priv->vuart.irq = res;
+	vuart_priv->vuart.irq = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vuart_interrupt, NULL, 0, VUART_NAME "-backend", vdev);
 }
 
 void vuart_connected(struct vbus_device *vdev) {

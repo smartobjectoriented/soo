@@ -26,12 +26,12 @@
 #include <core/debug.h>
 #include <core/types.h>
 
-#include <dcm/core.h>
+#include <dcm/dcm.h>
 
 #include <soo/uapi/debug.h>
 
 #ifdef WITH_LED_ACTIVITIES
-#include <leds/leds.h>
+#include <core/leds.h>
 #endif
 
 /**
@@ -81,25 +81,19 @@ bool ME_processing_receive(void) {
 	slotID = get_ME_free_slot(ME_size);
 	if (slotID > 0) {
 
-		printf("** Receiving a ME -> now in slot %d\n", slotID);
+		printf("Agency/usr/core/migration/receive.c: ** Receiving a ME -> now in slot %d\n", slotID);
 
 		/* Tell AVZ to create a new domain context including the ME descriptor,
 		 * and to prepare the ME to be implemented.
 		 */
-		if ((initialize_migration(slotID))) {
-			force_print("%s: initialize_migration failed.\n", __func__);
-			BUG();
-		}
+		initialize_migration(slotID);
 
 		DBG("Write snapshot located @ 0x%08x\n", (unsigned int) (ME_buffer));
-		write_ME_snapshot(slotID, ME_buffer, buffer_size);
+		write_ME_snapshot(slotID, ME_buffer);
 
 		DBG0("End write snapshot.\n");
 
-		if ((finalize_migration(slotID))) {
-			force_print("%s: finalize_migration failed.\n", __func__);
-			BUG();
-		}
+		finalize_migration(slotID);
 	}
 
 	dcm_release_ME(ME_buffer);

@@ -370,7 +370,7 @@ issued from the SO3 gitlab repository).
 .. code:: bash
 
    cd ME/base/usr
-   make
+   ./build.sh
 
 ME Filesystem Generation and Deployment
 ---------------------------------------

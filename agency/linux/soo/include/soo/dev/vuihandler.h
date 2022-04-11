@@ -39,29 +39,57 @@
 #define VUIHANDLER_APP_VBSTORE_NODE	"connected-app-me-spid"
 
 typedef struct {
+	int32_t		slotID;
 	uint8_t		type;
-	uint8_t		spid[SPID_SIZE];
 	uint8_t		payload[0];
 } vuihandler_pkt_t;
 
 #define VUIHANDLER_MAX_PACKETS		8
+
 /* Maximal size of a BT packet payload */
 #define VUIHANDLER_MAX_PAYLOAD_SIZE	1024
+
 /* Maximal size of a BT packet's data (the header is included) */
 #define VUIHANDLER_MAX_PKT_SIZE		(sizeof(vuihandler_pkt_t) + VUIHANDLER_MAX_PAYLOAD_SIZE)
+
+
 /* Shared buffer size */
 #define VUIHANDLER_BUFFER_SIZE		(VUIHANDLER_MAX_PACKETS * VUIHANDLER_MAX_PKT_SIZE)
 
 #define VUIHANDLER_BEACON	0
-#define VUIHANDLER_DATA		1
-#define VUIHANDLER_ME_INJECT	2
-#define VUIHANDLER_ME_SIZE	3
+#define VUIHANDLER_DATA		1 /* Simple ME state data, could be anything to update the ME state */
+#define VUIHANDLER_ME_INJECT	2 /* Specify the packet contains a chunk of the ME to be injected  */
+#define VUIHANDLER_ME_SIZE	3 /* Specify that a ME injection is to be initiated. The packet contains the ME size */
+#define VUIHANDLER_ASK_LIST	4 /* Ask for the XML ME list */
+#define VUIHANDLER_SEND		5 /* Specify that the packet contains an event data to be forwarded to the ME */
+#define VUIHANDLER_SELECT	6
+#define VUIHANDLER_POST		7
 
-#define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
+/* The header size is stripped from the payload address, as the payload
+directly follows the type in term of bytes in memory */
+#define VUIHANDLER_BT_PKT_HEADER_SIZE	(sizeof(uint32_t) + sizeof(uint8_t))
+
+/* Number of TX packets which can be queued in the TX buffer */
+#define VUIHANDLER_TX_BUF_SIZE 	8
+
+typedef struct {
+	vuihandler_pkt_t *pkt;
+	uint32_t size;
+} tx_pkt_t;
+
+/* Ring buffer used to queue the TX packets */
+typedef struct {
+	tx_pkt_t ring[VUIHANDLER_TX_BUF_SIZE];
+	uint32_t put_index;
+	uint32_t get_index;
+	uint32_t cur_size;
+} vuihandler_tx_buf_t;
+
 
 typedef struct {
 	uint32_t		id;
 	size_t			size;
+	uint8_t 		buf[2048];
 } vuihandler_tx_request_t;
 
 /* Not used */
@@ -79,12 +107,13 @@ typedef struct {
 typedef struct {
 	uint32_t		id;
 	size_t			size;
+	uint8_t 		buf[2048];
 } vuihandler_rx_response_t;
 
 DEFINE_RING_TYPES(vuihandler_rx, vuihandler_rx_request_t, vuihandler_rx_response_t);
 
 typedef struct {
-	uint8_t			spid[SPID_SIZE];
+	uint64_t		spid;
 	struct list_head	list;
 } vuihandler_connected_app_t;
 
@@ -94,7 +123,7 @@ void vuihandler_open_rfcomm(pid_t pid);
 
 void vuihandler_sl_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_size);
 void vuihandler_send(void *data, size_t size);
-void vuihandler_get_app_spid(uint8_t spid[SPID_SIZE]);
+void vuihandler_get_app_spid(uint64_t spid);
 
 #if defined(CONFIG_BT_RFCOMM)
 
@@ -123,7 +152,7 @@ typedef struct {
 
 
 typedef struct {
-    vdevback_t vdevback;
+	vdevback_t vdevback;
 
 	vuihandler_tx_ring_t	tx_rings;
 	vuihandler_rx_ring_t	rx_rings;
@@ -131,8 +160,9 @@ typedef struct {
 	vuihandler_shared_buffer_t	tx_buffers;
 	vuihandler_shared_buffer_t	rx_buffers;
 
-	/* Holds the SPID of the ME who is connected */
-	uint8_t spid[SPID_SIZE];
+	int32_t otherend_id;
+
+	uint64_t spid; /* Kept here as in case we want to use it */
 
 } vuihandler_t;
 
@@ -140,7 +170,9 @@ typedef struct {
 irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id);
 irqreturn_t vuihandler_rx_interrupt(int irq, void *dev_id);
 
-void vuihandler_update_spid_vbstore(uint8_t spid[SPID_SIZE]);
+void vuihandler_update_spid_vbstore(uint64_t spid);
+
+int vuihandler_send_from_agency(uint8_t *data, uint32_t size, uint8_t type);
 
 /* State management */
 void vuihandler_probe(struct vbus_device *dev);

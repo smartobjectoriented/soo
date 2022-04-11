@@ -27,8 +27,8 @@
 #include <soo/uapi/soo.h>
 
 int main(int argc, char *argv[]) {
-	int slotID;
 	int fd_core;
+	agency_ioctl_args_t agency_ioctl_args;
 
 	printf("*** SOO - Mobile Entity shutdown ***\n");
 
@@ -45,9 +45,9 @@ int main(int argc, char *argv[]) {
 
 	/* Prepare to terminate the running ME (dom #2) */
 
-	slotID = atoi(argv[1]) + 1;
+	agency_ioctl_args.slotID = atoi(argv[1]) + 1;
 
-	ioctl(fd_core, AGENCY_IOCTL_FORCE_TERMINATE, &slotID);
+	ioctl(fd_core, AGENCY_IOCTL_FORCE_TERMINATE, &agency_ioctl_args);
 
 	printf("done.\n");
 

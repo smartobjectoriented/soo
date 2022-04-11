@@ -42,17 +42,20 @@ void lprintk_int64_post(s64 number, char *post);
 void lprintk_int64(s64 number);
 
 /* Helper function to display agencyUID */
-static inline void lprintk_printUID(agencyUID_t *uid) {
+static inline void lprintk_printUID(uint64_t uid) {
+	int i;
+	uint8_t *c = (uint8_t *) &uid;
 
-	/* Normally, the length of agencyUID is SOO_AGENCY_UID_SIZE bytes, but we display less. */
 	if (!uid)
-		lprintk("(null)");
+		lprintk("n/a");
 	else
-		lprintk_buffer(uid, 5);
+		for (i = 0; i < 8; i++ ) {
+			lprintk("%02x ", *(c+7-i)); /* Display byte per byte */
+		}
 }
 
 /* Helper function to display agencyUID */
-static inline void lprintk_printlnUID(agencyUID_t *uid) {
+static inline void lprintk_printlnUID(uint64_t uid) {
 	lprintk_printUID(uid);
 	lprintk("\n");
 }

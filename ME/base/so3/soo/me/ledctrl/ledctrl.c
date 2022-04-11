@@ -40,6 +40,7 @@
 
 #include <soo/dev/vsensej.h>
 #include <soo/dev/vsenseled.h>
+#include <soo/dev/vuihandler.h>
 
 #include <me/ledctrl.h>
 
@@ -118,7 +119,7 @@ int app_thread_main(void *args) {
 
 		/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
 
-		memcpyUID(&sh_ledctrl->initiator, &sh_ledctrl->me_common.here);
+		sh_ledctrl->initiator = sh_ledctrl->me_common.here;
 
 		sh_ledctrl->stamp++;
 

@@ -54,7 +54,7 @@ extern struct domain *domains[];
 
 DECLARE_PER_CPU(struct domain *, current_domain);
 
-int  evtchn_init(struct domain *d); /* from domain_create */
+void  evtchn_init(struct domain *d); /* from domain_create */
 void evtchn_destroy(struct domain *d); /* from domain_kill */
 void evtchn_destroy_final(struct domain *d); /* from complete_domain_destroy */
 

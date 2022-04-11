@@ -16,53 +16,15 @@
  *
  */
 
-#ifndef __ASM_GNTTAB_H__
-#define __ASM_GNTTAB_H__
-
+#ifndef GNTTAB_H
+#define GNTTAB_H
 
 #include <soo/grant_table.h>
-
 
 #include <linux/version.h>
 
 #define NR_GRANT_FRAMES 4
 #define NR_GRANT_ENTRIES (NR_GRANT_FRAMES * PAGE_SIZE / sizeof(grant_entry_t))
-
-int gnttab_suspend(void);
-int gnttab_resume(void);
-
-int gnttab_grant_foreign_access(domid_t domid, unsigned long frame, int readonly);
-
-/*
- * End access through the given grant reference, iff the grant entry is no
- * longer in use.  Return 1 if the grant entry was freed, 0 if it is still in
- * use.
- */
-void gnttab_me_end_foreign_access_ref(grant_ref_t ref);
-
-/*
- * Eventually end access through the given grant reference, and once that
- * access has been ended, free the given page too.  Access will be ended
- * immediately if the grant entry is not in use, otherwise it will happen
- * some time later.
- */
-void gnttab_me_end_foreign_access(grant_ref_t ref);
-
-int gnttab_grant_foreign_transfer(domid_t domid, unsigned long pfn);
-
-unsigned long gnttab_me_end_foreign_transfer_ref(grant_ref_t ref);
-unsigned long gnttab_me_end_foreign_transfer(grant_ref_t ref);
-
-int gnttab_query_foreign_access(grant_ref_t ref);
-
-/*
- * operations on reserved batches of grant references
- */
-
-void gnttab_free_grant_reference(grant_ref_t ref);
-void gnttab_free_grant_references(grant_ref_t head);
-
-int gnttab_me_grant_foreign_access(domid_t domid, unsigned long frame, int readonly);
 
 static inline void gnttab_set_map_op(struct gnttab_map_grant_ref *map, phys_addr_t addr, uint32_t flags, grant_ref_t ref, domid_t domid, unsigned int offset, unsigned int size)
 {
@@ -98,22 +60,15 @@ static inline void gnttab_set_unmap_op(struct gnttab_unmap_grant_ref *unmap, phy
 
 }
 
+void grant_table_op(unsigned int cmd, void *uop, unsigned int count);
 
-int grant_table_op(unsigned int cmd, void *uop, unsigned int count);
-
-extern int gnttab_map(struct gnttab_map_grant_ref *op);
-extern int gnttab_unmap(struct gnttab_unmap_grant_ref *op);
-extern int gnttab_copy(struct gnttab_copy *op);
-extern int gnttab_map_with_copy(struct gnttab_map_grant_ref *op);
-extern int gnttab_unmap_with_copy(struct gnttab_unmap_grant_ref *op);
-extern int gnttab_map_sync_copy(unsigned int handle, unsigned int flags, unsigned int offset, unsigned int size);
-
-int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops, struct gnttab_map_grant_ref *kmap_ops, struct page **pages, unsigned int count);
-int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops, struct gnttab_map_grant_ref *kmap_ops, struct page **pages, unsigned int count);
-
-#define gnttab_map_vaddr(map) ((void *)(map.host_virt_addr))
+extern void gnttab_map(struct gnttab_map_grant_ref *op);
+extern void gnttab_unmap(struct gnttab_unmap_grant_ref *op);
+extern void gnttab_copy(struct gnttab_copy *op);
+extern void gnttab_map_with_copy(struct gnttab_map_grant_ref *op);
+extern void gnttab_unmap_with_copy(struct gnttab_unmap_grant_ref *op);
 
 void postmig_gnttab_update(void);
 
 
-#endif /* __ASM_GNTTAB_H__ */
+#endif /* GNTTAB_H */

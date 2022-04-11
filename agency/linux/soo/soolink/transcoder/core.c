@@ -116,11 +116,11 @@ static decoder_block_t *get_block_by_sl_desc(sl_desc_t *sl_desc) {
 	decoder_block_t *block;
 
 	soo_log("[soo:soolink:transcoder:block] Agency UID: ");
-	soo_log_printUID(&sl_desc->agencyUID_from);
+	soo_log_printUID(sl_desc->agencyUID_from);
 
 	list_for_each_entry(block, &current_soo_transcoder->block_list, list) {
 		if ((sl_desc == block->sl_desc) &&
-		    !memcmp(&block->sl_desc->agencyUID_from, &sl_desc->agencyUID_from, SOO_AGENCY_UID_SIZE) &&
+		    (block->sl_desc->agencyUID_from == sl_desc->agencyUID_from) &&
 		    !block->ready) {
 			soo_log(" Block found\n");
 			return block;

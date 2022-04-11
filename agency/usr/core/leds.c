@@ -36,8 +36,7 @@
 
 #include <core/debug.h>
 #include <core/types.h>
-
-#include <leds/leds.h>
+#include <core/leds.h>
 
 static FILE *f_led[SOO_N_LEDS];
 

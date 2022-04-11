@@ -199,60 +199,53 @@ static int bind_evtchn_to_virq(unsigned int evtchn)
 	return irq;
 }
 
-int unbind_domain_evtchn(unsigned int domID, unsigned int evtchn)
+void unbind_domain_evtchn(unsigned int domID, unsigned int evtchn)
 {
 	struct evtchn_bind_interdomain bind_interdomain;
-	int err;
 
 	bind_interdomain.remote_dom = domID;
 	bind_interdomain.local_evtchn = evtchn;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_unbind_domain, (long) &bind_interdomain, 0, 0);
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_unbind_domain, (long) &bind_interdomain, 0, 0);
 
 	evtchn_info.valid[evtchn] = false;
-
-	return err;
 }
 
 static int bind_interdomain_evtchn_to_irq(unsigned int remote_domain, unsigned int remote_evtchn)
 {
 	struct evtchn_bind_interdomain bind_interdomain;
-	int err;
 
 	bind_interdomain.remote_dom  = remote_domain;
 	bind_interdomain.remote_evtchn = remote_evtchn;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
 
-	return err ? : bind_evtchn_to_virq(bind_interdomain.local_evtchn);
+	return bind_evtchn_to_virq(bind_interdomain.local_evtchn);
 }
 
 int bind_existing_interdomain_evtchn(unsigned local_evtchn, unsigned int remote_domain, unsigned int remote_evtchn)
 {
 	struct evtchn_bind_interdomain bind_interdomain;
-	int err;
 
 	bind_interdomain.local_evtchn = local_evtchn;
 	bind_interdomain.remote_dom  = remote_domain;
 	bind_interdomain.remote_evtchn = remote_evtchn;
 
-	err = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_existing_interdomain, (long) &bind_interdomain, 0, 0);
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_existing_interdomain, (long) &bind_interdomain, 0, 0);
 
-	return err ? : bind_evtchn_to_virq(bind_interdomain.local_evtchn);
+	return bind_evtchn_to_virq(bind_interdomain.local_evtchn);
 }
 
 void bind_virq(unsigned int virq)
 {
 	evtchn_bind_virq_t bind_virq;
 	int evtchn;
-	int ret;
 	unsigned long flags;
 
 	spin_lock_irqsave(&irq_mapping_update_lock, flags);
 
 	bind_virq.virq = virq;
-	ret = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_virq, (long) &bind_virq, 0, 0);
-	BUG_ON(ret != 0);
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_virq, (long) &bind_virq, 0, 0);
 
 	evtchn = bind_virq.evtchn;
 
@@ -265,21 +258,18 @@ void bind_virq(unsigned int virq)
 	virq_bindcount[virq]++;
 
 	spin_unlock_irqrestore(&irq_mapping_update_lock, flags);
-
 }
 
 static void unbind_from_irq(unsigned int irq)
 {
 	evtchn_close_t op;
 	int evtchn = evtchn_from_irq(irq);
-	int ret;
 
 	spin_lock(&irq_mapping_update_lock);
 
 	if (--virq_bindcount[irq] == 0) {
 		op.evtchn = evtchn;
-		ret = hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &op, 0, 0);
-		BUG_ON(ret != 0);
+		hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &op, 0, 0);
 
 		evtchn_info.evtchn_to_irq[evtchn] = -1;
 		evtchn_info.valid[evtchn] = false;

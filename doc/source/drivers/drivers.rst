@@ -11,9 +11,9 @@ Frontend & backend drivers
    :hidden:
    
    vdummy  
+   vuihandler 
    vwagoled
    venocean
-
 
 The following drivers are available:
 

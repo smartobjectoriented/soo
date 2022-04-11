@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2016-2019 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2016-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  * Copyright (C) January 2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2019-2022 David Truan <david.truan@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -36,40 +37,40 @@
 #include <sys/stat.h>
 
 #include <core/core.h>
-#include <core/inject.h>
+#include <core/injector.h>
 #include <core/debug.h>
 #include <core/types.h>
 #include <core/device_access.h>
 
 #include <soo/uapi/dcm.h>
 
-#include <injector/core.h>
 
 /**
  * Inject a ME.
  * @ME_buffer: the ITB file of the ME.
  */
-int inject_ME(void *ME_buffer) {
+int inject_ME(void *ME_buffer, size_t size) {
 	int rc;
-	struct agency_tx_args args;
+	agency_ioctl_args_t args;
 
 	args.buffer = ME_buffer;
+	args.value = size;
 
 	if ((rc = ioctl(fd_core, AGENCY_IOCTL_INJECT_ME, &args)) < 0) {
 		printf("Failed to inject ME (%d)\n", rc);
 		BUG();
 	}
 
-	return args.ME_slotID;
+	return args.slotID;
 }
 
 /**
  * Try to retrieve a ME from the DCM and deploy it.
  */
-void ME_inject(unsigned char *ME_buffer) {
+void ME_inject(unsigned char *ME_buffer, size_t size) {
 	int slotID;
 
-	slotID = inject_ME(ME_buffer);
+	slotID = inject_ME(ME_buffer, size);
 	if (slotID == -1) {
 		printf("No available ME slot further...\n");
 		return;
@@ -94,6 +95,8 @@ void sig_inject_ME_from_memory(int sig) {
  * Look for MEs in the SOO_ME_DIRECTORY directory and inject the MEs one by one.
  * The SOO_ME_DIRECTORY can be a mount point (mounted on a dedicated storage partition,
  * this is the default method) or a directory integrated into the agency's rootfs.
+ *
+ * At this level, the ME is contained in the ITB file which is referred as "ME" in the following code.
  */
 void inject_MEs_from_filesystem(void) {
 	DIR *directory;
@@ -157,7 +160,7 @@ void inject_MEs_from_filesystem(void) {
 		}
 
 		/* Inject the ME */
-		ME_inject(ME_buffer);
+		ME_inject(ME_buffer, ME_size);
 
 		close(fd);
 
@@ -184,57 +187,6 @@ void save_itb(void *ME_buffer, size_t size) {
 }
 
 
-void *ME_retrieve_fn(void *dummy) {
-
-	injector_ioctl_recv_args_t args;
-
-	void *ME;
-	int br = 0;
-	int current_size = 0;
-	int chunk = 2000;
-
-	memset(&args, 0, sizeof(injector_ioctl_recv_args_t));
-
-	printf("Injector: ME retrieve thread started\n");
-	while(1) {
-		
-		if ((ioctl(fd_core, INJECTOR_IOCTL_RETRIEVE_ME, &args)) < 0) {
-			DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
-			BUG();
-		}
-		
-		if (args.size != 0) {
-
-			printf("Injector: An ME is ready to be retrieved (%d B)\n", args.size);
-			ME = malloc(args.size);
-			if (!ME) {
-				printf("%s: failure during malloc...\n", __func__);
-				BUG();
-			}
-
-			while (current_size != args.size) {
-				br = read(fd_core, ME+current_size, chunk);
-				current_size += br;
-			}
-
-			printf("Injector: ME fully received, now injecting it...\n");
-
-			ME_inject(ME);
-
-			printf("Injector: ME injected!\n");
-			if ((ioctl(fd_core, INJECTOR_IOCTL_CLEAN_ME, NULL)) < 0) {
-				DBG("ioctl INJECTOR_IOCTL_RETRIEVE_ME failed.\n");
-				BUG();
-			}
-
-			current_size = 0;
-			free(ME);
-		}
-	}
-	
-	return NULL;
-}
-
 void injector_dev_init(void) {
 	if ((fd_core = open(SOO_CORE_DEVICE, O_RDWR)) < 0) {
 		printf("Failed to open device: " INJECTOR_DEV_NAME " (%d)\n", fd_core);
@@ -245,10 +197,5 @@ void injector_dev_init(void) {
 
 
 void injector_init(void) {
-
-	pthread_t injection_thread;
-
 	injector_dev_init();
-
-	pthread_create(&injection_thread, NULL, ME_retrieve_fn, NULL);
 }

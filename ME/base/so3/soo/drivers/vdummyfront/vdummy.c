@@ -106,7 +106,6 @@ void vdummy_generate_request(char *buffer) {
 #endif
 
 static void vdummy_probe(struct vbus_device *vdev) {
-	int res;
 	unsigned int evtchn;
 	vdummy_sring_t *sring;
 	struct vbus_transaction vbt;
@@ -128,17 +127,10 @@ static void vdummy_probe(struct vbus_device *vdev) {
 	vdummy_priv->vdummy.ring_ref = GRANT_INVALID_REF;
 
 	/* Allocate an event channel associated to the ring */
-	res = vbus_alloc_evtchn(vdev, &evtchn);
-	BUG_ON(res);
+	vbus_alloc_evtchn(vdev, &evtchn);
 
-	res = bind_evtchn_to_irq_handler(evtchn, vdummy_interrupt, NULL, vdev);
-	if (res <= 0) {
-		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
-		BUG();
-	}
-
+	vdummy_priv->vdummy.irq = bind_evtchn_to_irq_handler(evtchn, vdummy_interrupt, NULL, vdev);
 	vdummy_priv->vdummy.evtchn = evtchn;
-	vdummy_priv->vdummy.irq = res;
 
 	/* Allocate a shared page for the ring */
 	sring = (vdummy_sring_t *) get_free_vpage();
@@ -152,11 +144,7 @@ static void vdummy_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vdummy_priv->vdummy.ring.sring)));
-	if (res < 0)
-		BUG();
-
-	vdummy_priv->vdummy.ring_ref = res;
+	vdummy_priv->vdummy.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vdummy_priv->vdummy.ring.sring)));
 
 	vbus_transaction_start(&vbt);
 

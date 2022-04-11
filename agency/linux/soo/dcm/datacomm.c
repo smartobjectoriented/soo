@@ -57,7 +57,7 @@ void datacomm_send(void *ME_buffer, size_t size, uint32_t prio) {
 	if (unlikely(!datacomm_initialized))
 		BUG();
 
-	sl_send(datacomm_sl_desc, ME_buffer, size, get_null_agencyUID(), prio);
+	sl_send(datacomm_sl_desc, ME_buffer, size, 0, prio);
 }
 
 /**
@@ -156,8 +156,8 @@ void datacomm_init(void) {
 
 	DBG("Registering the DCM with Soolink\n");
 
-	printk("[soo:dcm:datacomm] %s: my agency UID is: ", __func__);
-	printk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
+	soo_log("[soo:dcm:datacomm] %s: my agency UID is: ", __func__);
+	soo_log_printlnUID(current_soo->agencyUID);
 
 	/*
 	 * By default, we are using the WLAN plugin on the MERIDA board, or the

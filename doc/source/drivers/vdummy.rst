@@ -4,11 +4,6 @@
 *vdummy* driver
 ***************
 
-
-*******************
-*vuihandler* driver
-*******************
-
 Introduction
 ============
 

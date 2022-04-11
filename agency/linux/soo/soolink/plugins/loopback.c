@@ -97,7 +97,7 @@ void propagate_plugin_loopback_send(void) {
 
 	proto = get_protocol_from_sl_req_type(__plugin_send_args.sl_desc->req_type);
 
-	if (!agencyUID_is_valid(&__plugin_send_args.sl_desc->agencyUID_to))
+	if (!__plugin_send_args.sl_desc->agencyUID_to)
 		dest = broadcast_addr;
 
 	__data = skb_put(skb, __plugin_send_args.size);

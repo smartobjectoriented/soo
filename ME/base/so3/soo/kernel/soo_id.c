@@ -26,6 +26,7 @@
 #include <soo/soo.h>
 #include <soo/console.h>
 #include <soo/debug.h>
+#include <soo/vbus.h>
 
 /* ME ID related information management */
 
@@ -71,9 +72,10 @@ const char *get_me_name(void) {
  * Get the SPID related to this ME.
  * (mandatory)
  *
+ * @param what  Either "spid" or "spad"
  * @return SPID on 128-bit encoding
  */
-u64 get_spid(void) {
+u64 get_spid_spad(char *what) {
 	u64 val;
 	int node;
 
@@ -81,8 +83,51 @@ u64 get_spid(void) {
 	node = fdt_find_node_by_name(__fdt_addr, 0, "ME");
 	ASSERT(node >= 0);
 
-	node = fdt_property_read_u64(__fdt_addr, node, "spid", &val);
+	node = fdt_property_read_u64(__fdt_addr, node, what, &val);
 	ASSERT(node >= 0);
 
 	return val;
 }
+
+/**
+ * Write the entries related to the ME ID in vbstore
+ */
+void vbstore_ME_ID_populate(void) {
+	const char *name, *shortdesc;
+	u64 spid, spadcaps;
+	char rootname[VBS_KEY_LENGTH], entry[VBS_KEY_LENGTH];
+
+	/* Set all ME ID related information */
+
+	/* Set the SPID of this ME */
+	spid = get_spid_spad("spid");
+	spadcaps = get_spid_spad("spadcaps");
+
+	avz_shared_info->dom_desc.u.ME.spid = spid;
+	avz_shared_info->dom_desc.u.ME.spad.spadcaps = spadcaps;
+
+	/* Set the name */
+	name = get_me_name();
+
+	/* And set a short description which can be used on the user GUI */
+	shortdesc = get_me_shortdesc();
+
+	strcpy(rootname, "soo/me");
+
+	sprintf(entry, "%d", ME_domID());
+	vbus_mkdir(VBT_NIL, rootname, entry);
+
+	sprintf(rootname, "soo/me/%d", ME_domID());
+	sprintf(entry, "%llx", spid);
+
+	vbus_write(VBT_NIL, rootname, "spid", entry);
+
+	sprintf(entry, "%llx", spadcaps);
+
+	vbus_write(VBT_NIL, rootname, "spadcaps", entry);
+
+	vbus_write(VBT_NIL, rootname, "name", name);
+	vbus_write(VBT_NIL, rootname, "shortdesc", shortdesc);
+
+}
+

@@ -79,8 +79,7 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 		d->is_paused_by_controller = 1;
 		atomic_inc(&d->pause_count);
 
-		if (evtchn_init(d) != 0)
-			BUG();
+		evtchn_init(d);
 	}
 
 	d->shared_info = memalign(PAGE_SIZE, PAGE_SIZE);
@@ -344,9 +343,8 @@ void machine_restart(unsigned int delay_millisecs)
  *    @current_mapped is the domain which page table is currently loaded.
  *    @current_mapped_mode indicates if we consider the swapper pgdir or the normal page table (see switch_mm() for complete description)
  */
-int domain_call(struct domain *target_dom, int cmd, void *arg)
+void domain_call(struct domain *target_dom, int cmd, void *arg)
 {
-	int rc;
 	struct domain *__current;
 	addrspace_t prev_addrspace;
 
@@ -363,12 +361,10 @@ int domain_call(struct domain *target_dom, int cmd, void *arg)
 
 	/* Make the call with IRQs disabled */
 
-	rc = ((domcall_t) target_dom->domcall)(cmd, arg);
+	((domcall_t) target_dom->domcall)(cmd, arg);
 
 	/* Switch back to our domain address space. */
 	switch_mm(__current, &prev_addrspace);
-
-	return rc;
 }
 
 

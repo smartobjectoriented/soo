@@ -352,38 +352,6 @@ void vbstore_trigger_dev_probe(void) {
 	do_sync_dom(DOMID_AGENCY, DC_TRIGGER_DEV_PROBE);
 }
 
-/* Write the entries related to the ME ID in vbstore */
-void vbstore_ME_ID_populate(void) {
-	const char *name, *shortdesc;
-	u64 spid;
-	char rootname[VBS_KEY_LENGTH], entry[VBS_KEY_LENGTH];
-
-	/* Set all ME ID related information */
-
-	/* Set the SPID of this ME */
-	spid = get_spid();
-
-	/* Set the name */
-	name = get_me_name();
-
-	/* And set a short description which can be used on the user GUI */
-	shortdesc = get_me_shortdesc();
-
-	strcpy(rootname, "soo/me");
-
-	sprintf(entry, "%d", ME_domID());
-	vbus_mkdir(VBT_NIL, rootname, entry);
-
-	sprintf(rootname, "soo/me/%d", ME_domID());
-	sprintf(entry, "%llx", spid);
-
-	vbus_write(VBT_NIL, rootname, "spid", entry);
-	vbus_write(VBT_NIL, rootname, "name", name);
-	vbus_write(VBT_NIL, rootname, "shortdesc", shortdesc);
-
-}
-
-
 /*
  * Prepare the vbstore entries used by this ME.
  */
@@ -403,35 +371,8 @@ void vbstore_me_init(void) {
 }
 
 void vbstore_init_dev_populate(void) {
-	DBG0("Starting vbstore populating...\n");
-
-	/*
-	 * Now, the ME requests to be paused by setting its state to ME_state_preparing. As a consequence,
-	 * the agency will pause it.
-	 */
-	set_ME_state(ME_state_preparing);
-
-	/*
-	 * There are two scenarios.
-	 * 1. Classical injection scheme: Wait for the agency to perform the pause+unpause. It should set the ME
-	 *    state to ME_state_booting to allow the ME to continue.
-	 * 2. ME that has migrated on a Smart Object: The ME state is ME_state_migrating, so it is different from
-	 *    ME_state_preparing.
-	 */
-
-	while (1) {
-		schedule();
-
-		if (get_ME_state() != ME_state_preparing) {
-			DBG("ME state changed: %d, continuing...\n", get_ME_state());
-			break;
-		}
-	}
 
 	DBG0("Now ready to register vbstore entries\n");
-
-	/* Write the entries related to the ME ID in vbstore */
-	vbstore_ME_ID_populate();
 
 	/* Now, we are ready to register vbstore entries */
 	vbstore_devices_populate();

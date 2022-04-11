@@ -19,6 +19,7 @@
 #include <linux/random.h>
 
 #include <soo/core/device_access.h>
+#include <soo/core/sysfs.h>
 
 #include <soo/guest_api.h>
 
@@ -34,103 +35,70 @@
 #include <asm/io.h>
 
 /* Device capabilities bitmap */
-uint8_t devcaps_class[DEVCAPS_CLASS_NR];
-
-/* Null agency UID */
-static agencyUID_t null_agencyUID = {
-	.id = { 0 }
-};
-
-/* SPID of the SOO.blind ME */
-uint8_t SOO_blind_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0b, 0x11, 0x8d };
-
-/* SPID of the SOO.outdoor ME */
-uint8_t SOO_outdoor_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x61, 0xd0, 0x08 };
-
-/**
- * Return a NULL agency UID.
- */
-agencyUID_t *get_null_agencyUID(void) {
-	return &null_agencyUID;
-}
-
-/**
- * Return the agency UID of this Smart Object.
- */
-agencyUID_t *get_my_agencyUID(void) {
-	return &current_soo->agencyUID;
-}
-
-void devaccess_dump_agencyUID(void) {
-	soo_log("[soo:core:device_access] Agency UID: ");
-	soo_log_printlnUID(&current_soo->agencyUID);
-}
-
-/*
- * Retrieve the agency descriptor.
- */
-int get_agency_desc(agency_desc_t *agency_desc)
-{
-	int rc;
-	dom_desc_t dom_desc;
-	unsigned int slotID;
-
-	slotID = 1;  /* Agency slot */
-
-	rc = soo_hypercall(AVZ_GET_DOM_DESC, NULL, NULL, &slotID, &dom_desc);
-	if (rc != 0) {
-		printk("%s: failed to retrieve the SOO descriptor for slot ID %d.\n", __func__, rc);
-		return rc;
-	}
-
-	memcpy(agency_desc, &dom_desc.u.agency, sizeof(agency_desc_t));
-
-	return 0;
-}
+uint32_t __devcaps[DEVCAPS_CLASS_NR];
 
 /**
  * Check if a devcaps class is supported or not.
  * The class is considered as "supported" if there is at least one active attribute belonging to the class.
- * This function accepts a bit map as argument to validate several devcaps classes at once (all classes must be supported).
- * Return true if the requested devcaps is supported, false otherwise.
  */
-bool devaccess_is_devcaps_class_supported(uint32_t class) {
+
+/**
+ * Check if a class is present in the devcaps table.
+ *
+ * @param class
+ * @return true if the class is present
+ */
+bool devaccess_devcaps_class_supported(uint32_t class) {
 	int i;
 
-	/* If at least one class is not present as requested, it returns false */
+	/* It returns true when the class is present in the table of devcaps */
 	for (i = 0; i < DEVCAPS_CLASS_NR; i++)
-		if (((i << 8) & class) && (devcaps_class[i] == 0))
-			return false;
+		if ((__devcaps[i] >> 24) == class)
+			return true;
 
-	return true;
+	return false;
 }
-/**
- * Parse the device capabilities bitmap and find out if the requested device capability is supported.
- * Return true if the requested dev cap is supported, false otherwise.
- */
-bool devaccess_is_devcaps_supported(uint32_t class, uint8_t devcaps) {
-	if (unlikely(((class >> 8) > DEVCAPS_CLASS_NR) || (devcaps > 0xff)))
-		return false;
 
-	return (devcaps_class[class >> 8] & devcaps);
+/**
+ * Look at the devcaps table and check if the devcaps attribute are supported or not.
+ */
+bool devaccess_devcaps_supported(uint32_t class, uint8_t devcaps) {
+	int i;
+
+	for (i = 0; i < DEVCAPS_CLASS_NR; i++)
+		if ((__devcaps[i] >> 24) == class) {
+			if ((__devcaps[i] & 0xffffff) & devcaps)
+				return true;
+			else
+				return false;
+		}
+
+	return false;
 }
 
 /**
  * Set or clear the flag associated to a device capability.
  */
 void devaccess_set_devcaps(uint32_t class, uint8_t devcaps, bool available) {
-	if (unlikely(((class >> 8) > DEVCAPS_CLASS_NR) || (devcaps > 0xff)))
-		return;
+	int i;
 
-	if (available)
-		devcaps_class[class >> 8] |= devcaps;
-	else
-		devcaps_class[class >> 8] &= ~devcaps;
+	for (i = 0; i < DEVCAPS_CLASS_NR; i++)
+		if ((__devcaps[i] >> 24) == class) {
+			if (available)
+				__devcaps[i] |= devcaps;
+			else
+				__devcaps[i] &= ~devcaps;
+		}
 }
 
 void devaccess_dump_devcaps(void) {
+	int i;
+
 	pr_cont("[soo:core:device_access] devcaps: ");
-	printk_buffer(devcaps_class, DEVCAPS_CLASS_NR);
+	for (i = 0; i < DEVCAPS_CLASS_NR; i++)
+		lprintk(" 0x08x ", __devcaps[i]);
+
+	lprintk("\n");
 }
 
 /**
@@ -159,75 +127,52 @@ void devaccess_dump_soo_name(void) {
 	lprintk("SOO name: %s\n", current_soo->name);
 }
 
-ssize_t agencyUID_show(struct device *dev, struct device_attribute *attr, char *buf) {
-	char agencyUID_str[SOO_AGENCY_UID_SIZE * 3];
-	char agencyUID_digit[3];
-	uint32_t i;
-
-	agencyUID_digit[2] = '\0';
-
-	for (i = 0; i < SOO_AGENCY_UID_SIZE; i++) {
-		sprintf(agencyUID_digit, "%02x", HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID.id[i]);
-
-		memcpy(&agencyUID_str[3 * i], agencyUID_digit, 2);
-		agencyUID_str[3 * i + 2] = ':';
-	}
-	agencyUID_str[SOO_AGENCY_UID_SIZE * 3 - 1] = '\0';
-
-	memcpy(buf, agencyUID_str, 3 * SOO_AGENCY_UID_SIZE);
-
-	return 3 * SOO_AGENCY_UID_SIZE;
-}
-
-ssize_t agencyUID_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size) {
-	/* Writing into the agency UID is not allowed */
-
-	return size;
+void agencyUID_read(char *str) {
+	sprintf(str, "%16llx", HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID);
 }
 
 /*
  * Used for debugging purposes. We assign a specific agency UID / the last byte is significant, the others are set to 0.
  */
-void set_agencyUID(uint8_t val) {
-	int i;
+void set_agencyUID(uint64_t val) {
 
-	for (i = 0; i < 15; i++)
-		current_soo->agencyUID.id[i] = 0;
+	current_soo->agencyUID = val;
 
-	current_soo->agencyUID.id[15] = val;
-
-	discovery_update_ourself(&current_soo->agencyUID);
+	discovery_update_ourself(current_soo->agencyUID);
 
 	soo_log("[soo:core:device_access] New SOO Agency UID: ");
-	soo_log_printlnUID(&current_soo->agencyUID);
+	soo_log_printlnUID(current_soo->agencyUID);
 }
 
-ssize_t soo_name_show(struct device *dev, struct device_attribute *attr, char *buf) {
-	devaccess_get_soo_name(buf);
-
-	return strlen(buf);
+void name_read(char *str) {
+	devaccess_get_soo_name(str);
 }
 
-ssize_t soo_name_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size) {
+void name_write(char *str) {
 	char tmp_buf[SOO_NAME_SIZE + 1];
 
 	/* Is the name too long? */
-	if (strlen(buf) >= SOO_NAME_SIZE)
-		return size;
+	if (strlen(str) >= SOO_NAME_SIZE) {
+		strcpy(str, "(soo_name too long)");
+		return ;
+	}
 
-	strcpy(tmp_buf, buf);
+	strcpy(tmp_buf, str);
 
 	/* If the last character is a '\n', delete it */
 	if (tmp_buf[strlen(tmp_buf) - 1] == '\n')
 		tmp_buf[strlen(tmp_buf) - 1] = '\0';
 
 	devaccess_set_soo_name((char *) tmp_buf);
-
-	return size;
 }
 
 void devaccess_init(void) {
+	int i;
 
 	/* Initialize the device capabilities bitmap */
-	memset(devcaps_class, 0, DEVCAPS_CLASS_NR);
+	for (i = 0; i < DEVCAPS_CLASS_NR; i++)
+		__devcaps[i] = 0;
+
+	soo_sysfs_register(agencyUID, agencyUID_read, NULL);
+	soo_sysfs_register(name, name_read, name_write);
 }

@@ -112,7 +112,7 @@ extern int construct_ME(struct domain *d);
 extern void new_thread(struct domain *d, unsigned long start_pc, unsigned long r2_arg, unsigned long start_stack, unsigned long start_info);
 void *setup_dom_stack(struct domain *d);
 
-extern int domain_call(struct domain *target_dom, int cmd, void *arg);
+extern void domain_call(struct domain *target_dom, int cmd, void *arg);
 
 void machine_halt(void);
 

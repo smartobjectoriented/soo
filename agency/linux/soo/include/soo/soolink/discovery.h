@@ -34,7 +34,7 @@
 
 typedef struct {
 
-	agencyUID_t agencyUID;
+	uint64_t agencyUID;
 	uint8_t name[SOO_NAME_SIZE];
 
 	/* "plugin" is the interface by which the iamasoo beacon has been received
@@ -56,7 +56,7 @@ typedef struct {
  * Some datalink protocol related fields are also defined.
  */
 typedef struct {
-	uint8_t	agencyUID[SOO_AGENCY_UID_SIZE];
+	uint64_t agencyUID;
 	uint8_t name[SOO_NAME_SIZE];
 } iamasoo_pkt_t;
 
@@ -84,7 +84,7 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 
 void discovery_listener_register(discovery_listener_t *listener);
 
-void discovery_update_ourself(agencyUID_t *agencyUID);
+void discovery_update_ourself(uint64_t agencyUID);
 
 bool neighbour_list_protection(bool protect);
 

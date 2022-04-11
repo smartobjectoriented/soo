@@ -118,9 +118,6 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
  */
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
-	agency_ctl_args_t agency_ctl_args;
-
-	unsigned int i;
 
 	lprintk("[soo:me:SOO.wagoled] ME %d: cb_cooperate...\n", ME_domID());
 
@@ -129,28 +126,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 		if (cooperate_args->alone)
 			return 0;
-
-		for (i = 0; i < MAX_ME_DOMAINS; i++) {
-			if (cooperate_args->u.target_coop[i].spad.valid) {
-
-				/* Collaboration ... */
-
-				/* Update the list of hosts */
-				sh_wagoled->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_wagoled->me_common.soohosts);
-
-				agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_wagoled));
-				agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
-
-				/* This pattern enables the cooperation with the target ME */
-
-				agency_ctl_args.cmd = AG_COOPERATE;
-				agency_ctl_args.slotID = cooperate_args->u.target_coop[i].slotID;
-
-				/* Perform the cooperate in the target ME */
-				args->__agency_ctl(&agency_ctl_args);
-
-			}
-		}
 
 		break;
 
@@ -223,7 +198,11 @@ void callbacks_init(void) {
 	memset(sh_wagoled, 0, PAGE_SIZE);
 
 	/* Set the SPAD capabilities */
+<<<<<<< HEAD
 	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
+=======
+	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));
+>>>>>>> 46b227dfe66684415ef64371ad058d6b88639648
 }
 
 

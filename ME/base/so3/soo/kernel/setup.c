@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -149,7 +149,6 @@ int do_sync_domain_interactions(void *arg)
 }
 
 void avz_setup(void) {
-	int ret;
 
 	mem_info.phys_base = avz_dom_phys_offset;
 	mem_info.size = avz_start_info->nr_pages << PAGE_SHIFT;
@@ -178,8 +177,7 @@ void avz_setup(void) {
 
 	DBG("Set HYPERVISOR_set_callbacks at %lx\n", (unsigned long) linux0_hypervisor_callback);
 
-	ret = hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_vector_callback, (unsigned long) domcall, 0, 0);
-	BUG_ON(ret < 0);
+	hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_vector_callback, (unsigned long) domcall, 0, 0);
 
 	virq_init();
 }
@@ -195,7 +193,6 @@ void pre_irq_init_setup(void) {
 
 void post_init_setup(void) {
 
-
 	printk("VBstore shared page with agency at pfn 0x%x\n", avz_start_info->store_mfn);
 	map_vbstore_page(avz_start_info->store_mfn, false);
 
@@ -210,9 +207,36 @@ void post_init_setup(void) {
 
 	gnttab_init();
 
+	/*
+	 * Now, the ME requests to be paused by setting its state to ME_state_preparing. As a consequence,
+	 * the agency will pause it.
+	 */
+	set_ME_state(ME_state_preparing);
+
+	/*
+	 * There are two scenarios.
+	 * 1. Classical injection scheme: Wait for the agency to perform the pause+unpause. It should set the ME
+	 *    state to ME_state_booting to allow the ME to continue.
+	 * 2. ME that has migrated on a Smart Object: The ME state is ME_state_migrating, so it is different from
+	 *    ME_state_preparing.
+	 */
+
+	while (1) {
+		schedule();
+
+		if (get_ME_state() != ME_state_preparing) {
+			DBG("ME state changed: %d, continuing...\n", get_ME_state());
+			break;
+		}
+	}
+
+	/* Write the entries related to the ME ID in vbstore */
+	vbstore_ME_ID_populate();
+
+	/* How create all vbstore entries required by the frontend drivers */
 	vbstore_init_dev_populate();
 
-	printk("SO3  Operating System -- Copyright (c) 2016-2020 REDS Institute (HEIG-VD)\n\n");
+	printk("SO3  Operating System -- Copyright (c) 2016-2022 REDS Institute (HEIG-VD)\n\n");
 
 	DBG("ME running as domain %d\n", ME_domID());
 }

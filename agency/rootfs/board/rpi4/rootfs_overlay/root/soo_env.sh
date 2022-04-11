@@ -7,6 +7,6 @@ export WIFI_BANDWIDTH=""
 export SOO_NAME="SOO-rpi4"
 export BT_NAME="SOO-rpi4-BT"
 
-echo ${SOO_NAME} > /sys/devices/system/soo/soo0/soo_name
+echo ${SOO_NAME} > /sys/soo/name
 echo ${BT_NAME} > /etc/hostname
 

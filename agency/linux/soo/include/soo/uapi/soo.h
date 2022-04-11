@@ -23,14 +23,14 @@
 #ifndef __ASSEMBLY__
 #include <soo/uapi/me_access.h>
 
-#define MAX_ME_DOMAINS		5
+#define MAX_ME_DOMAINS	5
 
 /* We include the (non-RT & RT) agency domain */
 #define MAX_DOMAINS	    (2 + MAX_ME_DOMAINS)
 #endif /* __ASSEMBLY__ */
 
-#define AGENCY_CPU	        	0
-#define AGENCY_RT_CPU	 		1
+#define AGENCY_CPU	 0
+#define AGENCY_RT_CPU	 1
 
 #ifndef __ASSEMBLY__
 #ifdef __KERNEL__
@@ -102,105 +102,81 @@ int get_pfn_offset(void);
 /*
  * IOCTL codes
  */
-#define AGENCY_IOCTL_INIT_MIGRATION		_IOWR('S', 0, agency_tx_args_t)
-#define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR('S', 1, agency_tx_args_t)
-#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 2, agency_tx_args_t)
-#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 3, agency_tx_args_t)
-#define AGENCY_IOCTL_FINAL_MIGRATION    	_IOW('S', 4, agency_tx_args_t)
-#define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 5, unsigned int)
-#define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 6, agency_tx_args_t)
-#define AGENCY_IOCTL_PICK_NEXT_UEVENT		_IO('S', 7)
-#define AGENCY_IOCTL_GET_ME_DESC		_IOWR('S', 8, agency_tx_args_t)
-#define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOR('S', 9, upgrader_ioctl_recv_args_t)
-#define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW('S', 10, upgrade_versions_args_t)
-#define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 11, agency_tx_args_t)
-#define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 12, agency_tx_args_t)
-
-#define ME_IOCTL_FORCE_TERMINATE		100
-#define ME_IOCTL_PICK_NEXT_UEVENT		101
-#define ME_IOCTL_DUMP				102
-
-#define SOO_AGENCY_UID_SIZE			16
+#define AGENCY_IOCTL_INIT_MIGRATION		_IOWR('S', 0, agency_ioctl_args_t)
+#define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR('S', 1, agency_ioctl_args_t)
+#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 2, agency_ioctl_args_t)
+#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 3, agency_ioctl_args_t)
+#define AGENCY_IOCTL_FINAL_MIGRATION    	_IOW('S', 4, agency_ioctl_args_t)
+#define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 5, agency_ioctl_args_t)
+#define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 6, agency_ioctl_args_t)
+#define AGENCY_IOCTL_GET_ME_ID			_IOWR('S', 7, agency_ioctl_args_t)
+#define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOR('S', 8, agency_ioctl_args_t)
+#define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW('S', 9, agency_ioctl_args_t)
+#define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 10, agency_ioctl_args_t)
+#define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 11, agency_ioctl_args_t)
 
 #define SOO_NAME_SIZE				16
 
 #ifdef __KERNEL__
 
 /*
- * SOO agencyUID unique ID - Allowing to identify a SOO device.
- * agencyUID 0 is NOT valid.
+ * Agency descriptor
  */
 typedef struct {
 
 	/*
-	 * As id is the first attribute, it can be accessed directly by using
-	 * a pointer to the agencyUID_t.
+	 * SOO agencyUID unique 64-bit ID - Allowing to identify a SOO device.
+	 * agencyUID 0 is NOT valid.
 	 */
-	unsigned char id[SOO_AGENCY_UID_SIZE];
 
-} agencyUID_t;
+	uint64_t agencyUID; /* Agency UID */
 
-/*
- * Agency descriptor
- */
-typedef struct {
-	agencyUID_t agencyUID; /* Agency UID */
 } agency_desc_t;
-
 
 #endif /* __KERNEL__ */
 
 /* This part is shared between the kernel and user spaces */
 
-
-
 #ifdef __KERNEL__
 
 /*
  * Device Capabilities (Devcaps)
+ *
  * The agency holds a table of devcaps (device capabilities).
- * A device capability refers to a peripheral.
- * DEVCAPS are organized in classes and attributes.
+
+ * A device capability is a 32-bit number.
+ *
+ * DEVCAPS are organized in classes and attributes. For each devcaps, the 8 first higher bits are the
+ * class number while attributes are encoded in the 24 lower bits.
+ *
  * A devcap class represents a global functionality while devcap attributes are the *real* devcaps belongig to a specific class.
  *
- * - The bit shiftings designate a particular device capability.
- *
  */
-#define DEVCAPS_CLASS_AUDIO		0x0100
-#define DEVCAP_AUDIO_CAPTURE		(1 << 0)
-#define DEVCAP_AUDIO_PLAYBACK		(1 << 1)
-#define DEVCAP_AUDIO_RECORDING		(1 << 2)
-#define DEVCAP_AUDIO_RT_STREAM		(1 << 3)
 
-#define DEVCAPS_CLASS_LOCALINFO		0x0200
-#define DEVCAP_LOCALINFO_BUFFER		(1 << 0)
-
-#define DEVCAPS_CLASS_FRAMEBUFFER	0x0300
+#define DEVCAPS_CLASS_FRAMEBUFFER	0x01000000
 #define DEVCAP_FRAMEBUFFER_FB0		(1 << 0)
 
-#define DEVCAPS_CLASS_INPUT		0x0400
+#define DEVCAPS_CLASS_INPUT		0x02000000
 #define DEVCAP_INPUT_EVENT		(1 << 0)
 #define DEVCAP_REMOTE_TABLET		(1 << 1)
 
-#define DEVCAPS_CLASS_COMM		0x0500
+#define DEVCAPS_CLASS_COMM		0x03000000
 #define DEVCAP_COMM_UIHANDLER		(1 << 0)
 
-#define DEVCAPS_CLASS_LED		0x0600
+#define DEVCAPS_CLASS_LED		0x04000000
 #define DEVCAP_LED_RGB_SHIELD		(1 << 0)
 #define DEVCAP_LED_6LED			(1 << 1)
 
-#define DEVCAPS_CLASS_NET		0x0700
-#define DEVCAP_NET_STREAMING		(1 << 0)
-#define DEVCAP_NET_MESSAGING		(1 << 1)
+#define DEVCAPS_CLASS_NET		0x05000000
 
-#define DEVCAPS_CLASS_DOMOTICS		0x0800
+#define DEVCAPS_CLASS_DOMOTICS		0x06000000
 #define DEVCAP_BLIND_MOTOR		(1 << 0)
 #define DEVCAP_WEATHER_DATA		(1 << 1)
 
 /*
  * This devcap class is intended to be replaced by a generic framebuffer devcap in a near future.
  */
-#define DEVCAPS_CLASS_APP		0x0900
+#define DEVCAPS_CLASS_APP		0x07000000
 #define DEVCAP_APP_BLIND		(1 << 0)
 #define DEVCAP_APP_OUTDOOR		(1 << 1)
 
@@ -219,13 +195,12 @@ typedef struct {
 
 #endif /* __KERNEL__ */
 
-/* struct agency_tx_args used in IOCTLs */
-typedef struct agency_tx_args {
+/* struct agency_ioctl_args used in IOCTLs */
+typedef struct agency_ioctl_args {
 	void	*buffer; /* IN/OUT */
-	int	ME_slotID;
+	int	slotID;
 	long	value;   /* IN/OUT */
-} agency_tx_args_t;
-
+} agency_ioctl_args_t;
 
 typedef struct {
     unsigned int itb;
@@ -240,8 +215,9 @@ typedef struct {
  */
 
 typedef struct {
-	unsigned int	domID;
-	dc_event_t	dc_event;
+	unsigned int domID;
+	dc_event_t dc_event;
+	int state;
 } soo_hyp_dc_event_t;
 
 
@@ -391,10 +367,10 @@ typedef struct {
 #define COOPERATE_TARGET	0x2
 
 typedef struct {
-	unsigned int	slotID;
-	unsigned char	spid[SPID_SIZE];
-	spad_t		spad;
-	unsigned int 	pfn;
+	uint32_t slotID;
+	uint64_t spid;
+	spad_t spad;
+	addr_t pfn;
 } coop_t;
 
 typedef struct {
@@ -404,7 +380,7 @@ typedef struct {
 	bool alone; /* true if there is no ME in this SOO */
 
 	union {
-		coop_t target_coop[MAX_ME_DOMAINS]; /* In terms of ME domains */
+		coop_t target_coop;
 		coop_t initiator_coop;
 	} u;
 
@@ -426,11 +402,11 @@ typedef struct {
  * Further agency ctl commands that may be used by MEs.
  * !! WARNING !! The ME must implement the same definitions.
  */
+
 #define AG_AGENCY_UPGRADE	0x10
 #define AG_INJECT_ME		0x11
-#define AG_FORCE_TERMINATE	0x12
-#define AG_KILL_ME		0x13
-#define AG_COOPERATE		0x14
+#define AG_KILL_ME		0x12
+#define AG_COOPERATE		0x13
 
 #define AG_AGENCY_UID		0x20
 #define AG_SOO_NAME		0x21
@@ -456,8 +432,8 @@ typedef struct {
 } soo_name_args_t;
 
 typedef struct {
-    uint32_t buffer_pfn;
-    unsigned long buffer_len;
+    addr_t buffer_pfn;
+    uint32_t buffer_len;
 } agency_upgrade_args_t;
 
 /* agency_ctl args */
@@ -468,7 +444,7 @@ typedef struct {
 
 	union {
 		coop_t cooperate_args;
-		agencyUID_t agencyUID;
+		uint64_t agencyUID;
 		devcaps_args_t devcaps_args;
 		soo_name_args_t soo_name_args;
 		agency_upgrade_args_t agency_upgrade_args;
@@ -520,53 +496,40 @@ typedef struct soo_domcall_arg {
 	 * Used for some function calls initiated by the ME. In this context,
 	 * this function can be considered as a short-path-hypercall.
 	 */
-	int (*__agency_ctl)(agency_ctl_args_t *);
+	void (*__agency_ctl)(agency_ctl_args_t *);
 
 } soo_domcall_arg_t;
 
 extern struct semaphore usr_feedback;
 extern struct semaphore injection_sem;
 
-typedef struct {
-	bool		pending;
-	unsigned int	uevent_type;
-	unsigned int	slotID;
-} pending_uevent_request_t;
+void soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2);
 
-int soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2);
-
-int cb_pre_propagate(soo_domcall_arg_t *args);
+void cb_pre_propagate(soo_domcall_arg_t *args);
 
 /* Specific ME callbacks issued from the Agency */
-int cb_pre_activate(soo_domcall_arg_t *args);
+void cb_pre_activate(soo_domcall_arg_t *args);
 
 /* Callbacks initiated by agency ping */
-int cb_pre_resume(soo_domcall_arg_t *args);
-int cb_pre_suspend(soo_domcall_arg_t *args);
+void cb_pre_resume(soo_domcall_arg_t *args);
+void cb_pre_suspend(soo_domcall_arg_t *args);
 
-int cb_cooperate(soo_domcall_arg_t *args);
-int cb_post_activate(soo_domcall_arg_t *args);
-int cb_kill_me(soo_domcall_arg_t *args);
+void cb_cooperate(soo_domcall_arg_t *args);
+void cb_post_activate(soo_domcall_arg_t *args);
+void cb_kill_me(soo_domcall_arg_t *args);
 
-int cb_force_terminate(void);
-int cb_localinfo_update(void);
-int cb_imec_setup_peer(void);
+void cb_force_terminate(void);
 
 void callbacks_init(void);
 
 void set_dc_event(domid_t domid, dc_event_t dc_event);
 
-int do_soo_activity(void *arg);
+void do_soo_activity(void *arg);
 
 void soo_guest_activity_init(void);
 
 void dc_stable(int dc_event);
 void tell_dc_stable(int dc_event);
-
-int sooeventd_resume(void);
-int sooeventd_suspend(void);
-
-void set_uevent(unsigned int uevent_type, unsigned int ME_slotID);
 
 void do_sync_dom(int slotID, dc_event_t);
 void do_async_dom(int slotID, dc_event_t);
@@ -578,6 +541,8 @@ int pick_next_uevent(void);
 void shutdown_ME(unsigned int ME_slotID);
 
 void cache_flush_all(void);
+
+void check_terminated_ME(void);
 
 #endif /* __KERNEL__ */
 #endif /* __ASSEMBLY__ */

@@ -40,100 +40,36 @@ static DEFINE_SPINLOCK(domctl_lock);
 
 extern long arch_do_domctl(struct domctl *op, domctl_t *args);
 
-bool_t domctl_lock_acquire(void)
+void do_domctl(domctl_t *args)
 {
+	struct start_info *si;
+	struct domain *d;
 
-	/*
-	 * Trylock here is paranoia if we have multiple privileged domains. Then
-	 * we could have one domain trying to pause another which is spinning
-	 * on domctl_lock -- results in deadlock.
-	 */
-	if (spin_trylock(&domctl_lock))
-		return 1;
+	spin_lock(&domctl_lock);
 
-	return 0;
-}
+	d = domains[args->domain];
 
-void domctl_lock_release(void)
-{
-	spin_unlock(&domctl_lock);
-}
-
-long do_domctl(domctl_t *args)
-{
-	long ret = 0;
-	struct domctl curop, *op = &curop;
-
-	memcpy(op, args, sizeof(domctl_t));
-
-	if (!domctl_lock_acquire())
-		return 0;
-
-	switch ( op->cmd )
+	switch (args->cmd)
 	{
 
 	case DOMCTL_pauseME:
-	{
-		struct domain *d = domains[op->domain];
 
-		ret = -ESRCH;
-		if (d != NULL)
-		{
-			ret = -EINVAL;
-			if (d != current)
-			{
-				domain_pause_by_systemcontroller(d);
-				ret = 0;
-			}
-		}
-	}
-	break;
+		domain_pause_by_systemcontroller(d);
+		break;
 
+	case DOMCTL_unpauseME:
 
-	default:
-		ret = arch_do_domctl(op, args);
+		si = (struct start_info *) d->vstartinfo_start;
+
+		/* Retrieve info from hypercall parameter structure */
+		si->store_mfn = args->u.unpause_ME.store_mfn;
+
+		DBG("%s: unpausing ME\n", __func__);
+
+		domain_unpause_by_systemcontroller(d);
 		break;
 	}
 
-	domctl_lock_release();
-
-	return ret;
-}
-
-long arch_do_domctl(struct domctl *op,  domctl_t *args)
-{
-    long ret = 0;
-    struct start_info *si;
-
-    switch (op->cmd)
-    {
-   
-      case DOMCTL_unpauseME:
-      {
-        struct domain *d = domains[op->domain];
-        ret = -ESRCH;
-
-        if (d == NULL)
-        	break;
-
-        si = (struct start_info *) d->vstartinfo_start;
-
-        /* Retrieve info from hypercall parameter structure */
-        si->store_mfn = op->u.unpause_ME.store_mfn;
-
-        DBG("%s: unpausing ME\n", __func__);
-
-        domain_unpause_by_systemcontroller(d);
-
-        ret = 0;
-      }
-      break;
-
-    default:
-        ret = -ENOSYS;
-        break;
-    }
-
-    return ret;
+	spin_unlock(&domctl_lock);
 }
 
