@@ -18,6 +18,7 @@
 #define DATA_OBJ            "Data"
 #define DEVICE_ARR          "devices"
 #define DEVICE_TYPE         "type"
+#define LEDS_ARRAY          "leds"
 #define DEVICE_LED          "Led"
 #define LED_ID              "id"
 #define LED_STATUS          "status"
@@ -58,30 +59,112 @@ namespace LED
     {
         int id;
         int status;
+        /* Not used yet */
         int value;
     };
 
     class Ledctrl
     {
     private:
+        /* List of LEDs */
         std::vector<led_t*> leds;
+
+        /* Http client class used to send HTTP reqeusts */
         HTTP::Request client;
+
+        /**
+         * @brief Converts a vectors of ids to a comma separated string of ids
+         * 
+         * @param args String for http request
+         * @param ids ids to convert to string
+         */
         void build_args_str(std::string& args, std::vector<int> ids);
+
+        /**
+         * @brief Activate debug mode
+         * 
+         */
         void start_debug();
+
+        /**
+         * @brief Stop debug mode
+         * 
+         */
         void stop_debug();
+
+        /**
+         * @brief Converts a string of ids to a vector of ids
+         * 
+         * @param ids String of ids
+         * @param vect_ids Vector of ids
+         */
         void extract_ids(char *ids, std::vector<int>& vect_ids);
-        int process_notify(char *cmd, char* ids);
+
+        /**
+         * @brief Process a command sent by vwagoled backend driver.
+         * 
+         * @param cmd command (ex. led_on, led_off, etc...)
+         * @param ids string containing the concerned LEDs
+         */
+        void process_notify(char *cmd, char* ids);
 
     public:
+        
+        /**
+         * @brief Construct a new Ledctrl object
+         * 
+         */
         Ledctrl();
-        ~Ledctrl();
-        void init();
-        void update_status();
-        int turn_on(std::vector<int> ids);
-        int turn_off(std::vector<int> ids);
-        int turn_all_on();
-        int turn_all_off();
 
+        /**
+         * @brief Destroy the Ledctrl object
+         * 
+         */
+        ~Ledctrl();
+
+        /**
+         * @brief Initialize Ledctrl object. Reads the DALI topology
+         * 
+         */
+        void init();
+
+        /**
+         * @brief Update the status of led_t in the LEDs vector
+         * 
+         */
+        void update_status();
+
+        /**
+         * @brief Turn on LEDs
+         * 
+         * @param ids IDs of the LEDs to turn on
+         */
+        void turn_on(std::vector<int> ids);
+
+        /**
+         * @brief Turn off LEDs
+         * 
+         * @param ids IDs of the LEDs to turn off
+         */
+        void turn_off(std::vector<int> ids);
+
+        /**
+         * @brief Turn all LEDs on
+         * 
+         */
+        void turn_all_on();
+
+        /**
+         * @brief Turn all LEDs off
+         * 
+         */
+        void turn_all_off();
+
+        /**
+         * @brief Infinite processing loop
+         * 
+         * @return int 0 when stopped by SIGINT
+         */
         int main_loop();
     };
 
