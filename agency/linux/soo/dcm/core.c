@@ -263,8 +263,7 @@ static int soolink_dump_neighbourhood(unsigned long arg) {
 	/* If prio is to -1, we simply dump the list of neighbours */
 	if (neigh_bitmap == -1) {
 		soo_log("[soo:dcm] Agency UID: ");
-		printk_buffer(get_my_agencyUID(), SOO_AGENCY_UID_SIZE);
-		soo_log("\n");
+		soo_log_printlnUID(current_soo->agencyUID);
 
 		discovery_dump_neighbours();
 	}
@@ -293,7 +292,7 @@ static long dcm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		return soolink_dump_neighbourhood(arg);
 
 	case DCM_IOCTL_SET_AGENCY_UID:
-		set_agencyUID((uint8_t) arg);
+		set_agencyUID((uint64_t) arg);
 		return 0;
 
 	default:

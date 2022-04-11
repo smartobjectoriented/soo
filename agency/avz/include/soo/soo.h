@@ -25,16 +25,12 @@
 /* Device tree features */
 #define ME_FEAT_ROOT		"/me_features"
 
-
-int soo_activity_init(void);
-int soo_pre_activate(unsigned int slotID);
-int soo_cooperate(unsigned int slotID);
+void soo_activity_init(void);
+void soo_pre_activate(unsigned int slotID);
+void soo_cooperate(unsigned int slotID);
 void shutdown_ME(unsigned int ME_slotID);
 
 ME_state_t get_ME_state(unsigned int ME_slotID);
 void set_ME_state(unsigned int ME_slotID, ME_state_t state);
-
-void set_dom_realtime(struct domain *d, bool realtime);
-bool is_dom_realtime(struct domain *d);
 
 #endif /* SOO_H */

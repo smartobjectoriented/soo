@@ -55,7 +55,7 @@ struct mutex rx_lock;
  * Get the MAC address from an agencyUID.
  * The remote SOO must have been discovered. Returns NULL if no mapping exists.
  */
-uint8_t *get_mac_addr(agencyUID_t *agencyUID) {
+uint8_t *get_mac_addr(uint64_t agencyUID) {
 	struct list_head *cur;
 	plugin_remote_soo_desc_t *plugin_remote_soo_desc;
 	unsigned long flags;
@@ -64,7 +64,7 @@ uint8_t *get_mac_addr(agencyUID_t *agencyUID) {
 
 	list_for_each(cur, &current_soo_plugin->remote_soo_list) {
 		plugin_remote_soo_desc = list_entry(cur, plugin_remote_soo_desc_t, list);
-		if (!memcmp(&plugin_remote_soo_desc->agencyUID, agencyUID, SOO_AGENCY_UID_SIZE)) {
+		if (plugin_remote_soo_desc->agencyUID == agencyUID) {
 
 			spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 			return plugin_remote_soo_desc->mac;
@@ -81,7 +81,7 @@ uint8_t *get_mac_addr(agencyUID_t *agencyUID) {
  * to-agency UID conversion.
  * This function returns true if the remote SOO has been found in the list, false otherwise.
  */
-static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packet, uint8_t *mac_src, agencyUID_t *agencyUID_from) {
+static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packet, uint8_t *mac_src, uint64_t *agencyUID_from) {
 	struct list_head *cur;
 	plugin_remote_soo_desc_t *remote_soo_desc_cur;
 	unsigned long flags;
@@ -97,9 +97,9 @@ static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packe
 		if (!memcmp(remote_soo_desc_cur->mac, mac_src, ETH_ALEN)) {
 
 			soo_log("[soo:soolink:plugin] Found agency UID: ");
-			soo_log_printlnUID(&remote_soo_desc_cur->agencyUID);
+			soo_log_printlnUID(remote_soo_desc_cur->agencyUID);
 
-			memcpy(agencyUID_from, &remote_soo_desc_cur->agencyUID, SOO_AGENCY_UID_SIZE);
+			*agencyUID_from = remote_soo_desc_cur->agencyUID;
 
 			spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 
@@ -122,14 +122,14 @@ static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packe
 /*
  * Check if the remote SOO is known by our internal list for MAC address mapping.
  */
-void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src) {
+void attach_agencyUID(uint64_t agencyUID, uint8_t *mac_src) {
 	plugin_remote_soo_desc_t *remote_soo_desc;
 	unsigned long flags;
 
 	spin_lock_irqsave(&current_soo_plugin->list_lock, flags);
 
 	/* Sanity check */
-	if (!memcmp(agencyUID, &current_soo->agencyUID, SOO_AGENCY_UID_SIZE)) {
+	if (agencyUID == current_soo->agencyUID) {
 		lprintk("!! Hacker bip! We are trying to attach a remote SOO with the same agency UID as us !!\n");
 		BUG();
 	}
@@ -140,7 +140,7 @@ void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src) {
 		if (!memcmp(remote_soo_desc->mac, mac_src, ETH_ALEN)) {
 
 			soo_log("[soo:soolink:plugin] agency UID found: ");
-			soo_log_printlnUID(&remote_soo_desc->agencyUID);
+			soo_log_printlnUID(remote_soo_desc->agencyUID);
 
 			spin_unlock_irqrestore(&current_soo_plugin->list_lock, flags);
 			return ;
@@ -155,12 +155,12 @@ void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src) {
 
 	memcpy(remote_soo_desc->mac, mac_src, ETH_ALEN);
 
-	memcpy(&remote_soo_desc->agencyUID, agencyUID, SOO_AGENCY_UID_SIZE);
+	remote_soo_desc->agencyUID = agencyUID;
 
 	list_add_tail(&remote_soo_desc->list, &current_soo_plugin->remote_soo_list);
 
 	soo_log("[soo:soolink:plugin] added agency UID: ");
-	soo_log_printUID(&remote_soo_desc->agencyUID);
+	soo_log_printUID(remote_soo_desc->agencyUID);
 	soo_log(" with MAC address: ");
 	soo_log_buffer(mac_src, ETH_ALEN);
 
@@ -170,17 +170,17 @@ void attach_agencyUID(agencyUID_t *agencyUID, uint8_t *mac_src) {
 /**
  * Detach the agency UID from the remote SOO list.
  */
-void detach_agencyUID(agencyUID_t *agencyUID) {
+void detach_agencyUID(uint64_t agencyUID) {
 	plugin_remote_soo_desc_t *remote_soo_desc, *tmp;
 	unsigned long flags;
 
 	spin_lock_irqsave(&current_soo_plugin->list_lock, flags);
 
 	list_for_each_entry_safe(remote_soo_desc, tmp, &current_soo_plugin->remote_soo_list, list) {
-		if (!memcmp(agencyUID, &remote_soo_desc->agencyUID, SOO_AGENCY_UID_SIZE)) {
+		if (agencyUID == remote_soo_desc->agencyUID) {
 
 			soo_log("[soo:soolink:plugin] delete the agency UID: ");
-			soo_log_printlnUID(&remote_soo_desc->agencyUID);
+			soo_log_printlnUID(remote_soo_desc->agencyUID);
 
 			list_del(&remote_soo_desc->list);
 			kfree(remote_soo_desc);
@@ -252,7 +252,7 @@ static int plugin_rx_fn(void *args) {
 	sl_desc_t *sl_desc;
 	bool found;
 	transceiver_packet_t *transceiver_packet;
-	agencyUID_t agencyUID_from;
+	uint64_t agencyUID_from;
 	ssize_t payload_size;
 	medium_rx_t *rsp;
 
@@ -285,7 +285,7 @@ static int plugin_rx_fn(void *args) {
 			if (!found)
 				continue;
 		} else
-			memcpy(&agencyUID_from, get_null_agencyUID(), SOO_AGENCY_UID_SIZE);
+			agencyUID_from = 0;
 
 		/* Find out a corresponding sl_desc descriptor for this type of requester */
 		sl_desc = find_sl_desc_by_req_type(rsp->req_type);
@@ -293,7 +293,7 @@ static int plugin_rx_fn(void *args) {
 			/* We did not find any available descriptor able to process this data. Simply ignore it... */
 			continue;
 
-		memcpy(&sl_desc->agencyUID_from, &agencyUID_from, SOO_AGENCY_UID_SIZE);
+		sl_desc->agencyUID_from = agencyUID_from;
 
 		__receiver_rx(sl_desc, rsp->data, rsp->size);
 

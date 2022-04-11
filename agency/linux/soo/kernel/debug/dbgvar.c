@@ -180,21 +180,13 @@ void delete_dbglist(void) {
 	kfree(dbglist_print);
 }
 
-#if defined(CONFIG_SUNXI_THS)
-/* Temperature */
-extern void sunxi_ths_show_temperature(void);
-#endif /* CONFIG_SUNXI_THS */
-
 /* Callback hash map */
 static dbgvar_fct_t *fct_array;
 
 ssize_t dbgvar_show(struct device *dev, struct device_attribute *attr, char *buf) {
-	devaccess_dump_agencyUID();
-	devaccess_dump_soo_name();
+	lprintk("0x%016llx\n", current_soo->agencyUID);
 
-#if defined(CONFIG_SUNXI_THS)
-	sunxi_ths_show_temperature();
-#endif /* CONFIG_SUNXI_THS */
+	devaccess_dump_soo_name();
 
 	devaccess_dump_devcaps();
 

@@ -22,7 +22,9 @@ The following properties are used in a ME dts.
 +------------------+-------------------------------------------------------------+
 | Property         | Description                                                 |
 +==================+=============================================================+
-| *<spid>*         | Species ID in a 128-bit value encoding                      |
+| *<spid>*         | Species ID in a 64-bit value encoding                       |
++------------------+-------------------------------------------------------------+
+| *<spadcaps>*     | Species Aptitude Capabilities in a 64-bit value encoding    |
 +------------------+-------------------------------------------------------------+
 | *<me_name>*      | Name of this ME (for example SOO.outdoor)                   |
 +------------------+-------------------------------------------------------------+
@@ -32,6 +34,7 @@ The following properties are used in a ME dts.
 The following entries are dedicated to the ME ID information.
 
 * /soo/me/<domID>/spid
+* /soo/me/<domID>/spadcaps
 * /soo/me/<domID>/name
 * /soo/me/<domID>/shortdesc
 
@@ -42,7 +45,7 @@ via an ioctl.
 Species Identifier (SPID)
 -------------------------
 
-A Mobile Entity is identified by its SPID, a unique 128-bit identifier corresponding to its species
+A Mobile Entity is identified by its SPID, a unique 64-bit identifier corresponding to its species
 (for example, "SOO.blind" has a unique SPID that is associated).
 Several ME of the same SPIDs are de facto in various smart objects, possibly in the same smart object
 until one instance decide to kill the other one(s).

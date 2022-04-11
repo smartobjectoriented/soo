@@ -300,16 +300,16 @@ void vbus_watch_path(char *path, struct vbus_watch *watch, void (*callback)(stru
 void vbus_watch_pathfmt(struct vbus_device *dev, struct vbus_watch *watch, void (*callback)(struct vbus_watch *), const char *pathfmt, ...)
 	__attribute__ ((format (printf, 4, 5)));
 
-int vbus_grant_ring(struct vbus_device *dev, unsigned long ring_mfn);
-int vbus_map_ring_valloc(struct vbus_device *dev, int gnt_ref, void **vaddr);
-int vbus_map_ring(struct vbus_device *dev, int gnt_ref, grant_handle_t *handle, void *vaddr);
+void vbus_grant_ring(struct vbus_device *dev, unsigned long ring_mfn);
+void vbus_map_ring_valloc(struct vbus_device *dev, int gnt_ref, void **vaddr);
+void vbus_map_ring(struct vbus_device *dev, int gnt_ref, grant_handle_t *handle, void *vaddr);
 
-int vbus_unmap_ring_vfree(struct vbus_device *dev, void *vaddr);
-int vbus_unmap_ring(struct vbus_device *dev, grant_handle_t handle, void *vaddr);
+void vbus_unmap_ring_vfree(struct vbus_device *dev, void *vaddr);
+void vbus_unmap_ring(struct vbus_device *dev, grant_handle_t handle, void *vaddr);
 
-int vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *port);
-int vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_port, uint32_t *port);
-int vbus_free_evtchn(struct vbus_device *dev, uint32_t port);
+void vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *port);
+void vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_port, uint32_t *port);
+void vbus_free_evtchn(struct vbus_device *dev, uint32_t port);
 
 enum vbus_state vbus_read_driver_state(const char *path);
 

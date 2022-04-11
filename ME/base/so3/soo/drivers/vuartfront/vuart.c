@@ -128,7 +128,6 @@ char vuart_read_char(void) {
 }
 
 void vuart_probe(struct vbus_device *vdev) {
-	int res;
 	unsigned int evtchn;
 	vuart_sring_t *sring;
 	struct vbus_transaction vbt;
@@ -153,17 +152,10 @@ void vuart_probe(struct vbus_device *vdev) {
 	vuart_priv->vuart.ring_ref = GRANT_INVALID_REF;
 
 	/* Allocate an event channel associated to the ring */
-	res = vbus_alloc_evtchn(vdev, &evtchn);
-	BUG_ON(res);
+	vbus_alloc_evtchn(vdev, &evtchn);
 
-	res = bind_evtchn_to_irq_handler(evtchn, vuart_interrupt, NULL, vdev);
-	if (res <= 0) {
-		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
-		BUG();
-	}
-
+	vuart_priv->vuart.irq = bind_evtchn_to_irq_handler(evtchn, vuart_interrupt, NULL, vdev);
 	vuart_priv->vuart.evtchn = evtchn;
-	vuart_priv->vuart.irq = res;
 
 	/* Allocate a shared page for the ring */
 	sring = (vuart_sring_t *) get_free_vpage();
@@ -177,11 +169,7 @@ void vuart_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuart_priv->vuart.ring.sring)));
-	if (res < 0)
-		BUG();
-
-	vuart_priv->vuart.ring_ref = res;
+	vuart_priv->vuart.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuart_priv->vuart.ring.sring)));
 
 	vbus_transaction_start(&vbt);
 

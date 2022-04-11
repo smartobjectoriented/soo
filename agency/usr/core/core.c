@@ -36,16 +36,13 @@
 #include <core/debug.h>
 #include <core/types.h>
 #include <core/asf.h>
+#include <core/injector.h>
 
-#include <dcm/core.h>
-
-#include <injector/core.h>
+#include <dcm/dcm.h>
 
 #ifdef WITH_LED_ACTIVITIES
 #include <leds/leds.h>
 #endif
-
-#define AGENCY_CORE_VERSION "2019.2"
 
 static volatile bool __started = false;
 /*
@@ -150,9 +147,10 @@ int main(int argc, char *argv[]) {
 #endif
 
 	migration_init();
-
+	/* TODO: Fix upgrader init, it is deactivated because of a bug */
+#if 0
 	upgrader_init();
-
+#endif
 	injector_init();
 
 #ifdef WITH_LED_ACTIVITIES

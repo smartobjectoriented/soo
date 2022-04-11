@@ -79,7 +79,6 @@ void vsenseled_set(int lednr, bool ledstate) {
 }
 
 static void vsenseled_probe(struct vbus_device *vdev) {
-	int res;
 	unsigned int evtchn;
 	vsenseled_sring_t *sring;
 	struct vbus_transaction vbt;
@@ -101,17 +100,10 @@ static void vsenseled_probe(struct vbus_device *vdev) {
 	vsenseled_priv->vsenseled.ring_ref = GRANT_INVALID_REF;
 
 	/* Allocate an event channel associated to the ring */
-	res = vbus_alloc_evtchn(vdev, &evtchn);
-	BUG_ON(res);
+	vbus_alloc_evtchn(vdev, &evtchn);
 
-	res = bind_evtchn_to_irq_handler(evtchn, NULL, NULL, vdev);
-	if (res <= 0) {
-		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
-		BUG();
-	}
-
+	vsenseled_priv->vsenseled.irq = bind_evtchn_to_irq_handler(evtchn, NULL, NULL, vdev);
 	vsenseled_priv->vsenseled.evtchn = evtchn;
-	vsenseled_priv->vsenseled.irq = res;
 
 	/* Allocate a shared page for the ring */
 	sring = (vsenseled_sring_t *) get_free_vpage();
@@ -125,11 +117,7 @@ static void vsenseled_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vsenseled_priv->vsenseled.ring.sring)));
-	if (res < 0)
-		BUG();
-
-	vsenseled_priv->vsenseled.ring_ref = res;
+	vsenseled_priv->vsenseled.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vsenseled_priv->vsenseled.ring.sring)));
 
 	vbus_transaction_start(&vbt);
 

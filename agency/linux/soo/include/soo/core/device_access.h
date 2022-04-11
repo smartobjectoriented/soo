@@ -25,27 +25,31 @@
 #include <soo/uapi/soo.h>
 #include <soo/uapi/console.h>
 
-extern uint8_t devcaps_class[DEVCAPS_CLASS_NR];
+extern uint32_t devcaps[DEVCAPS_CLASS_NR];
 
-/* ME SPIDs */
-extern uint8_t SOO_heat_spid[SPID_SIZE];
-extern uint8_t SOO_ambient_spid[SPID_SIZE];
-extern uint8_t SOO_blind_spid[SPID_SIZE];
-extern uint8_t SOO_outdoor_spid[SPID_SIZE];
+/* Helper function to display agencyUID or any 64-bit identifier */
+static inline void soo_log_printUID(uint64_t uid) {
+	int i;
+	uint8_t *c = (uint8_t *) &uid;
 
-agencyUID_t *get_null_agencyUID(void);
-agencyUID_t *get_my_agencyUID(void);
-
-void set_agencyUID(uint8_t val);
-
-static inline bool agencyUID_is_valid(agencyUID_t *agencyUID) {
-	return (memcmp(agencyUID, get_null_agencyUID(), SOO_AGENCY_UID_SIZE) != 0);
+	if (!uid)
+		soo_log("n/a");
+	else
+		for (i = 0; i < 8; i++ ) {
+			soo_log("%02x ", *(c+7-i)); /* Display byte per byte arranged from little-endian  */
+		}
 }
 
-void devaccess_dump_agencyUID(void);
+/* Helper function to display agencyUID or any 64-bit identifier */
+static inline void soo_log_printlnUID(uint64_t uid) {
+	soo_log_printUID(uid);
+	soo_log("\n");
+}
 
-bool devaccess_is_devcaps_class_supported(uint32_t class);
-bool devaccess_is_devcaps_supported(uint32_t class, uint8_t devcaps);
+void set_agencyUID(uint64_t val);
+
+bool devaccess_devcaps_class_supported(uint32_t class);
+bool devaccess_devcaps_supported(uint32_t class, uint8_t devcaps);
 
 void devaccess_set_devcaps(uint32_t class, uint8_t devcaps, bool available);
 void devaccess_dump_devcaps(void);
@@ -58,10 +62,10 @@ void devaccess_store_upgrade_addr(uint32_t update_buffer_pfn, uint32_t buffer_si
 uint32_t devaccess_get_upgrade_img(void **upgrade_img);
 
 uint32_t devaccess_get_upgrade_size(void);
-uint32_t devaccess_get_upgrade_pfn(void);
+addr_t devaccess_get_upgrade_pfn(void);
 unsigned int devaccess_get_upgrade_ME_slotID(void);
 
-void devaccess_store_upgrade(uint32_t update_buffer_pfn, uint32_t buffer_size, unsigned int ME_slotID);
+void devaccess_store_upgrade(addr_t update_buffer_pfn, uint32_t buffer_size, unsigned int ME_slotID);
 
 void devaccess_init(void);
 
@@ -71,25 +75,5 @@ ssize_t agencyUID_store(struct device *dev, struct device_attribute *attr, const
 ssize_t soo_name_show(struct device *dev, struct device_attribute *attr, char *buf);
 ssize_t soo_name_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size);
 
-/* Helper function to compare agencyUID */
-static inline int cmpUID(agencyUID_t *u1, agencyUID_t *u2) {
-	return memcmp(u1, u2, SOO_AGENCY_UID_SIZE);
-}
-
-/* Helper function to display agencyUID */
-static inline void soo_log_printUID(agencyUID_t *uid) {
-
-	/* Normally, the length of agencyUID is SOO_AGENCY_UID_SIZE bytes, but we display less. */
-	if (!uid)
-		soo_log("(null)");
-	else
-		soo_log_buffer(uid, 5);
-}
-
-/* Helper function to display agencyUID */
-static inline void soo_log_printlnUID(agencyUID_t *uid) {
-	soo_log_printUID(uid);
-	soo_log("\n");
-}
 
 #endif /* DEVICE_ACCESS_H */

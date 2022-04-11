@@ -26,26 +26,6 @@ extern start_info_t *avz_start_info;
 
 shared_info_t *avz_map_shared_info(unsigned long pa);
 
-/* Atomically write a string to the UART console */
-int avz_printk(char *buffer);
-
-/* Yield to another realtime ME */
-int avz_sched_yield(void);
-
-/* Ask avz to program a new deadline based on a delta expressed in ns (from now). */
-int avz_sched_deadline(u64 delta_ns);
-
-/* Sleep the RT-ME for <delta_ns> ns */
-int avz_sched_sleep_ns(u64 delta_ns);
-int avz_sched_sleep_us(u64 delta_us);
-int avz_sched_sleep_ms(u64 delta_ms);
-
-int avz_dump_page(unsigned int pfn);
-int avz_dump_logbool(void);
-
-void avz_ME_unpause(domid_t domain_id, uint32_t store_mfn);
-void avz_ME_pause(domid_t domain_id);
-
 int domcall(int cmd, void *arg);
 
 void spad_enable_cooperate(void);

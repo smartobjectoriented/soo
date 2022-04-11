@@ -34,20 +34,8 @@
 
 #include <asm/ipipe_hwirq.h>
 
-
 extern unsigned int evtchn_from_virq(int virq);
 extern unsigned int evtchn_from_irq_data(struct irq_data *irq_data);
-
-/*
- * Bind a fresh evtchn to remote <@remote_domain, @remote_evtchn>.
- * Return allocated evtchn.
- */
-#define IOCTL_EVTCHN_BIND_INTERDOMAIN			\
-	_IOC(_IOC_NONE, 'E', 1, sizeof(struct ioctl_evtchn_bind_interdomain))
-struct ioctl_evtchn_bind_interdomain {
-	unsigned int remote_domain, remote_evtchn;
-	unsigned int use;
-};
 
 /* Binding types. */
 enum {
@@ -60,12 +48,12 @@ static inline void clear_evtchn(u32 evtchn) {
 	s->evtchn_pending[evtchn] = false;
 }
 
-static inline int notify_remote_via_evtchn(uint32_t evtchn)
+static inline void notify_remote_via_evtchn(uint32_t evtchn)
 {
 	evtchn_send_t op;
 	op.evtchn = evtchn;
 
-	return hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_send, (long) &op, 0, 0);
+	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_send, (long) &op, 0, 0);
 }
 
 /* Entry point for notifications into Linux subsystems. */
@@ -106,7 +94,7 @@ void __ack_irq(unsigned int virq, struct irq_desc *desc);
  * made with bind_evtchn_to_irqhandler()).
  */
 extern void unbind_from_virqhandler(unsigned int virq, void *dev_id);
-extern int unbind_domain_evtchn(unsigned int domID, unsigned int evtchn);
+extern void unbind_domain_evtchn(unsigned int domID, unsigned int evtchn);
 
 extern void mask_evtchn(int );
 extern void unmask_evtchn(int );

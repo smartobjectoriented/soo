@@ -32,10 +32,10 @@
 #include <core/debug.h>
 #include <core/types.h>
 
-#include <dcm/core.h>
+#include <dcm/dcm.h>
 
 #ifdef WITH_LED_ACTIVITIES
-#include <leds/leds.h>
+#include <core/leds.h>
 #endif
 
 /**
@@ -47,7 +47,7 @@
  * The function returns true if the ME corresponding to slotID has been sent.
  */
 bool ME_processing_send(unsigned int ME_slotID) {
-	ME_desc_t ME_desc;
+	ME_id_t me_id;
 	void *buffer;
 	size_t buffer_size;
 
@@ -56,18 +56,13 @@ bool ME_processing_send(unsigned int ME_slotID) {
 		BUG();
 	}
 
-	if (get_ME_desc(ME_slotID, &ME_desc)) {
-		printf("%s: get_ME_desc failed.\n", __func__);
-		BUG();
-	}
-
-	if (!ME_desc.size) {
+	if (!get_ME_id(ME_slotID, &me_id)) {
 		DBG0("ME size: 0. return.\n");
 		return false;
 	}
 
 	/* Only a ME which is in the state living or dormant can be subject to be migrated. */
-	if ((ME_desc.state != ME_state_living) && (ME_desc.state != ME_state_dormant)) {
+	if ((me_id.state != ME_state_living) && (me_id.state != ME_state_dormant)) {
 		DBG0("Slot state: not living nor dormant. Return.\n");
 		return false;
 	}

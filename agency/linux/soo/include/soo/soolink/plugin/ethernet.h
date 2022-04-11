@@ -29,6 +29,6 @@
 void plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
 void plugin_tcp_rx(void *data, size_t size);
 
-void plugin_ethernet_delete_remote(agencyUID_t *agencyUID);
+void plugin_ethernet_delete_remote(uint64_t agencyUID);
 
 #endif /* PLUGIN_ETHERNET_H */

@@ -8,6 +8,7 @@ Core subsystem
    migration_manager
    device_access
    me_access
+   injector
    
 The general architecture of the agency core subsystem is depicted on the figure below.
 It shows the various functional blocks of this subsystem.
@@ -22,7 +23,7 @@ All mobile entities (MEs) are queried through specific callbacks and if they are
 the Migration Manager is starting the callback sequence.
 
 Additionally, the Migration Manager provides an API to retrieve information about present MEs such as
-their ``SPID`` (Specy ID), name and short description.
+their ``SPID`` (64-bit Specy ID), name and short description.
 
 The **Device Access** functional block is decomposed in several functions like ``Storage`` which deals 
 with the access to the local storage, an internal eMMC flash like the one present in smart object. 

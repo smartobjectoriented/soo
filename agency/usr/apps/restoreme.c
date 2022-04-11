@@ -31,11 +31,11 @@
 
 int fd_core;
 
-int initialize_migration(unsigned int ME_slotID) {
+int initialize_migration(unsigned int slotID) {
 	int rc;
-	struct agency_tx_args args;
+	struct agency_ioctl_args args;
 
-	args.ME_slotID = ME_slotID;
+	args.slotID = slotID;
 
 	rc = ioctl(fd_core, AGENCY_IOCTL_INIT_MIGRATION, &args);
 	assert(rc == 0);
@@ -46,18 +46,17 @@ int initialize_migration(unsigned int ME_slotID) {
 /**
  * Restore the snapshot of a ME.
  */
-void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer, size_t buffer_size) {
-	agency_tx_args_t args;
+void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer) {
+	agency_ioctl_args_t args;
 
-	args.ME_slotID = slotID;
+	args.slotID = slotID;
 	args.buffer = ME_buffer;
-	args.value = buffer_size;
 
 	ioctl(fd_core, AGENCY_IOCTL_WRITE_SNAPSHOT, &args);
 }
 
 int main(int argc, char *argv[]) {
-	struct agency_tx_args args;
+	struct agency_ioctl_args args;
 	void *buffer = NULL;
 	unsigned int buffer_size;
 	struct zip_t *zip;
@@ -92,13 +91,13 @@ int main(int argc, char *argv[]) {
 	args.value = buffer_size;
 
 	ioctl(fd_core, AGENCY_IOCTL_GET_ME_FREE_SLOT, &args);
-	assert(args.ME_slotID == 2);
+	assert(args.slotID == 2);
 
 	initialize_migration(2);
 
-	write_ME_snapshot(2, buffer, buffer_size);
+	write_ME_snapshot(2, buffer);
 
-	args.ME_slotID = 2;
+	args.slotID = 2;
 
 	ioctl(fd_core, AGENCY_IOCTL_FINAL_MIGRATION, &args);
 
