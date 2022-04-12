@@ -46,6 +46,11 @@ typedef struct {
 
 static struct vbus_device *vwagoled_dev = NULL;
 
+/**
+ * @brief Set default values for a request struct
+ * 
+ * @param req request to initialize
+ */
 void init_request(vwagoled_request_t *req) {
 	req->cmd = NONE;
 	req->dim_value = DEFAULT_DIM_VALUE;
@@ -55,12 +60,10 @@ void init_request(vwagoled_request_t *req) {
 int vwagoled_set(int *ids, int size, wago_cmd_t cmd) {
 	vwagoled_priv_t *vwagoled_priv;
 	vwagoled_request_t *ring_req;
- 
-	if (!vwagoled_dev)
-		return -1;
+	
+	BUG_ON(!vwagoled_dev);
 
-	if (size > VWAGOLED_PACKET_SIZE)
-		return -1;
+	BUG_ON(size > VWAGOLED_PACKET_SIZE);
 
 	vwagoled_priv = (vwagoled_priv_t *) dev_get_drvdata(vwagoled_dev->dev);
 
@@ -81,7 +84,7 @@ int vwagoled_set(int *ids, int size, wago_cmd_t cmd) {
 
 	} else {
 		DBG("Ring full\n");
-		return -1;
+		BUG();
 	}
 
 	vdevfront_processing_end(vwagoled_dev);

@@ -61,11 +61,11 @@ typedef struct {
 } venocean_priv_t;
 
 /**
- * @brief This function is used has a callback when a new ESP3 packet is received by tcm515-serdev.
+ * @brief This function is used as a callback when a new ESP3 packet is received by tcm515.
  * 
  * @param packet New ESP3 packet. Will replace the values of last packet.
  */
-void tcm515_callaback(esp3_packet_t *packet) {
+void new_data_callaback(esp3_packet_t *packet) {
 
 	DBG(VENOCEAN_PREFIX " New data form tcm515\n");
 	if (!packet)
@@ -264,7 +264,6 @@ void venocean_reconfigured(struct vbus_device *vdev) {
 
 	vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 
-	// SHARED_RING_INIT(sring);
 	BACK_RING_INIT(&venocean_priv->venocean.ring, sring, PAGE_SIZE);
 
 	/* No handler required, however used to notify the remote domain */
@@ -307,8 +306,9 @@ static int venocean_init(void) {
 	vdevback_init(VENOCEAN_NAME, &venoceandrv);
 
 	/* Add callback function to the list of callback of tcm515-serdev */
-	if (tcm515_subscribe(tcm515_callaback) < 0) {
+	if (tcm515_subscribe(new_data_callaback) < 0) {
 		DBG(VENOCEAN_PREFIX " failed to subscribe to tcm515");
+		BUG();
 	}
 
 	pr_info(VENOCEAN_PREFIX " Initialized successfully\n");

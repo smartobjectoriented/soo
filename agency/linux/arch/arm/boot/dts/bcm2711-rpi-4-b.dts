@@ -390,7 +390,7 @@
 	status = "okay";
 };
 
-/* BCU SOO.tech: UART5 used for the enOcean control */
+/* UART5 used for enOcean communication on soo.mp V1 */
 &uart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart5_gpio12>;
