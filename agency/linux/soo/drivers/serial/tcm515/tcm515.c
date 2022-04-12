@@ -38,9 +38,15 @@ static struct tcm515_uart *tcm515;
 /* Number of subscriber to tcm515 */
 static int subscribers_count = 0;
 
-/* Array of subscribers callback funtions */
+/* Array callback funtions provided by the subscribers */
 static void (*subscribers[MAX_SUBSCRIBERS])(esp3_packet_t *packet);
 
+/**
+ * @brief Process the response obtained by sending the command CO_RD_VERSION
+ *        which return basic informations of the TCM515 device
+ * 
+ * @param packet packet received
+ */
 void tcm515_read_id(esp3_packet_t *packet) {
     enum read_id_fsm state = GET_APP_VERS;
     byte app_vers[APP_VERS_SIZE];
@@ -125,11 +131,12 @@ void tcm515_read_id(esp3_packet_t *packet) {
  * 
  * @param buf data to write
  * @param len data size in bytes
- * @return int 0 on success, -1 on error
+ * @return int byte written
  */
 int tcm515_write_buf(const byte *buffer, size_t len, bool expect_resp, 
                         void (*response_fn)(esp3_packet_t *packet)) {
     int tx_bytes = 0;
+    int byte_written = 0;
 
     BUG_ON(!tcm515->is_open);
 
@@ -145,9 +152,14 @@ int tcm515_write_buf(const byte *buffer, size_t len, bool expect_resp,
         BUG();
     }
 
+    /** Write the entire buffer. If the operation can't be done in 
+     *  all at once, repeat the write operation until all bytes have
+     *  been written.
+     */
     while(tx_bytes < len) {
-        tx_bytes += serdev_device_write_buf(tcm515->serdev, buffer, len);
+        tx_bytes = serdev_device_write_buf(tcm515->serdev, &buffer[byte_written], len - byte_written);
         BUG_ON(tx_bytes < 1);
+        byte_written += tx_bytes;
     }
     serdev_device_write_flush(tcm515->serdev);
 
@@ -155,7 +167,7 @@ int tcm515_write_buf(const byte *buffer, size_t len, bool expect_resp,
     dev_info(tcm515->dev, "byte written: %d\n", tx_bytes);
 #endif
 
-    return tx_bytes;
+    return byte_written;
 }
 
 int tcm515_subscribe(void (*callback)(esp3_packet_t *packet)) {

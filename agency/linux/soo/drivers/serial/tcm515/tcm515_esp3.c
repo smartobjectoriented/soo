@@ -60,6 +60,23 @@ byte u8CRC8Table[256] = {
     0xe6, 0xe1, 0xe8, 0xef, 0xfa, 0xfd, 0xf4, 0xf3
 };
 
+/**
+ * @brief Calculate CRC8 for a sequence of bytes
+ * 
+ * @param buf bytes to calculate the CRC8 of
+ * @param len bytes array length
+ * @return byte CRC8 value
+ */
+byte esp3_calc_crc8(const byte *buf, size_t len) {
+    int i;
+    byte crc8_calc = 0;
+
+    for (i = 0; i < len; i++) {
+        crc8_calc = proccrc8(crc8_calc, buf[i]);
+    }
+
+    return crc8_calc;
+}
 
 /**
  * @brief Check CRC8 
@@ -73,9 +90,7 @@ int esp3_check_crc8(const byte *buf, size_t len, byte crc8) {
     int i;
     byte crc8_calc;
 
-    for (i = 0; i < len; i++) {
-        crc8_calc = proccrc8(crc8_calc, buf[i]);
-    }
+    crc8_calc = esp3_calc_crc8(buf, len);
 
     if (crc8_calc == crc8) {
         return 0;
@@ -83,24 +98,6 @@ int esp3_check_crc8(const byte *buf, size_t len, byte crc8) {
         pr_info("Calculated CRC8: 0x%02X, Received CRC8: 0x%02X\n", crc8_calc, crc8);
         return -1;
     }
-}
-
-/**
- * @brief Calculate CRC8 
- * 
- * @param buf bytes to calculate the CRC8 of
- * @param len bytes array length
- * @return byte CRC8 value
- */
-byte esp3_calc_crc8(const byte *buf, size_t len) {
-    int i;
-    byte crc8_calc;
-
-    for (i = 0; i < len; i++) {
-        crc8_calc = proccrc8(crc8_calc, buf[i]);
-    }
-
-    return crc8_calc;
 }
 
 read_status esp3_read_byte(const byte buf, esp3_packet_t **packet) {
@@ -120,6 +117,7 @@ read_status esp3_read_byte(const byte buf, esp3_packet_t **packet) {
     switch (state)
     {
     case GET_SYNC_BYTE:
+        /* Wait for the sync byte byte (0x55) to start processing the data */ 
         ret = READ_PROGRESS;
         if (buf == ESP3_SYNC_BYTE) {
             /*** reset all values for the new packet ***/
@@ -133,6 +131,7 @@ read_status esp3_read_byte(const byte buf, esp3_packet_t **packet) {
         break;
 
     case GET_HEADER:
+        /* First 4 bytes of data are the header */
         header[i++] = buf;
         if (i == ESP3_HEADER_SIZE) {
             state = GET_CRC8H;
@@ -141,10 +140,11 @@ read_status esp3_read_byte(const byte buf, esp3_packet_t **packet) {
         break;
 
     case GET_CRC8H:
+        /* 5th byte is the CRC8 calculated using the 4 bytes of the header */
         crc8h = buf;
-        /*** Header contains errors ***/
+        /* Check if header is correct */
         if (esp3_check_crc8(header, ESP3_HEADER_SIZE, crc8h) < 0) {
-            /*** error detected wait for next sync byte ***/
+            /* error detected wait for next sync byte */
             state = GET_SYNC_BYTE;
             ret = READ_ERROR;
         } else {
@@ -156,9 +156,10 @@ read_status esp3_read_byte(const byte buf, esp3_packet_t **packet) {
         break;
 
     case GET_DATA:
+        /* Read data bytes until data length is reached */
         data_buffer[i++] = buf;
         if (i == data_len) {
-            /*** end of data ***/
+            /* end of data */
             if (optional_len > 0)
                 state = GET_OPTIONAL;
             else    
@@ -167,18 +168,22 @@ read_status esp3_read_byte(const byte buf, esp3_packet_t **packet) {
         break;
 
     case GET_OPTIONAL:
+        /* Read optional data until optional data length is reached */
         data_buffer[i++] = buf;
         if (i == data_len + optional_len) {
-            /*** end of optional ***/
+            /* end of optional data */
             state = GET_CRC8D;
         }
         break;
 
     case GET_CRC8D:
+        /* Last byte is the CRC8 calculated using the data and optional data */
         crc8d = buf;
+        /* Check if data is correct */
         if (esp3_check_crc8(data_buffer, data_len + optional_len, crc8d) < 0) {
             ret = READ_ERROR;
         } else {
+            /* Build a new ESP3 packet with the received data */
             *packet = kzalloc(sizeof(esp3_packet_t), GFP_KERNEL);
             BUG_ON(!*packet);
 
@@ -199,7 +204,7 @@ read_status esp3_read_byte(const byte buf, esp3_packet_t **packet) {
             } else 
                 (*packet)->optional_data = NULL;
             
-            /*** end of packet reached ***/
+            /* end of packet reached */
             ret = READ_END;
         }
         state = GET_SYNC_BYTE;

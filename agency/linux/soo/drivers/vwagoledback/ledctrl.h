@@ -26,10 +26,15 @@
 #define ID_STR_SIZE         16
 #define NOTIFY_STR_SIZE     20
 
+/* Wago commands */
 typedef enum {
+    /* Turn on the LEDs */
     LED_ON,
+    /* Turn off the LEDs */
     LED_OFF,
+    /* Get the current of the LEDs, on/off and later dim value */
     GET_STATUS,
+    /* Get a list of the devices connected to the DALI bus */
     GET_TOPOLOGY,
     NONE
 } wago_cmd_t;

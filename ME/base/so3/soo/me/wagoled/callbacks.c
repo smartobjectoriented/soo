@@ -69,17 +69,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-
-
 	pre_propagate_args->propagate_status = 0;
-#if 0
-	/* Enable migration - here, we migrate 3 times before being killed. */
-	if ((get_ME_state() != ME_state_dormant) || (migration_count != 3)) {
-		pre_propagate_args->propagate_status = 1;
-		migration_count++;
-	} else
-		set_ME_state(ME_state_killed);
-#endif
 
 	return 0;
 }

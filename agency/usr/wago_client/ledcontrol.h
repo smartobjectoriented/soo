@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2022 Mattia Gallacchi <mattia.gallacchi@heig-vd.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
+
 #pragma once
 
 #include <vector>
@@ -7,10 +25,14 @@
 /**** REST SERVER DATA ****/
 #define BASE_ADDR           "192.168.1.10"
 #define PORT                "8080"
+
+/**** REST API ROUTES ****/
 #define GET_TOPOLOGY        "dali/topology"
 #define GET_STATUS          "dali/led"
 #define POST_LED_ON         "dali/led/on"
 #define POST_LED_OFF        "dali/led/off"
+
+/**** REST API arguments ****/
 #define ARGS                "?id="
 #define LED_ALL             "all"
 
@@ -24,7 +46,7 @@
 #define LED_STATUS          "status"
 #define LED_ON              "on"
 
-/**** DRIVER SYSFS ACCESS ****/
+/**** VWAGOLED DRIVER SYSFS ACCESS ****/
 #define SYSFS_BASE          "/sys/soo/backend/vwagoled/vwagoled_"
 #define SYSFS_NOTIFY        SYSFS_BASE "notify"
 #define SYSFS_DEBUG         SYSFS_BASE "debug"
@@ -38,11 +60,16 @@
 
 namespace LED
 {
+    /* Wago commands */
     typedef enum 
     {
+        /* Turn on the LEDs */
         CMD_LED_ON = 0,
+        /* Turn off the LEDs */
         CMD_LED_OFF,
+        /* Get the current of the LEDs, on/off and later dim value */
         CMD_GET_STATUS,
+        /* Get a list of the devices connected to the DALI bus */
         CMD_GET_TOPOLOGY,
         NONE
     } wagoled_cmd_t;
@@ -59,17 +86,22 @@ namespace LED
     {
         int id;
         int status;
-        /* Not used yet */
+        /* Not used yet, reserved for dim value */
         int value;
     };
 
+    /**
+     * @brief Class Ledctrl is used to interact with vwagoled backend driver and
+     *        send the corresponding requests to the REST server.
+     * 
+     */
     class Ledctrl
     {
     private:
         /* List of LEDs */
         std::vector<led_t*> leds;
 
-        /* Http client class used to send HTTP reqeusts */
+        /* Http client class used to send HTTP requests */
         HTTP::Request client;
 
         /**
@@ -161,7 +193,7 @@ namespace LED
         void turn_all_off();
 
         /**
-         * @brief Infinite processing loop
+         * @brief Infinite processing loop.
          * 
          * @return int 0 when stopped by SIGINT
          */

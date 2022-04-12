@@ -1,5 +1,9 @@
 #!/usr/bin/bash
 
+# This script is used to configure, build and genenrate the SOO.wagoled ME. 
+# To configure the ME use "-t" option, to compile it use the "-b" option and 
+# finally to generate the itb use the "-d" option
+
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 BASE_PATH=$SCRIPTPATH/../base
 SO3_PATH=$BASE_PATH/so3

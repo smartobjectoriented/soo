@@ -54,27 +54,19 @@ int venocean_get_data(char *buf) {
 	venocean_response_t *ring_rsp;
 	int len = 0;
 
-	if (!venocean_dev) {
-		return -1;
-	}
+	BUG_ON(!venocean_dev);
 
 	venocean_priv = (venocean_priv_t *) dev_get_drvdata(venocean_dev->dev);
 
 	wait_for_completion(&venocean_priv->waitlock);
 
 	ring_rsp = venocean_get_ring_response(&venocean_priv->venocean.ring);
-
-	if(!ring_rsp)
-		return -1;
+	BUG_ON(!ring_rsp);
 
 	len = ring_rsp->len;
-	if (len < 1) {
-		DBG(VENOCEAN_PREFIX " buffer not containing data\n");
-		return -1;
-	}
+	BUG_ON(len < 1);
 
-	if (!buf)
-		return -1;
+	BUG_ON(!buf);
 
 	memcpy(buf, ring_rsp->buffer, len);
 
@@ -176,8 +168,7 @@ void venocean_reconfiguring(struct vbus_device *vdev) {
 	/* Prepare the shared to page to be visible on the other end */
 
 	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) venocean_priv->venocean.ring.sring)));
-	if (res < 0)
-		BUG();
+	BUG_ON(res < 0);
 
 	venocean_priv->venocean.ring_ref = res;
 

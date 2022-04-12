@@ -56,10 +56,6 @@
  * the use of ldrex/strex instructions will fail with cache disabled.
  */
 typedef struct {
-
-	/* Current letter */
-	char cur_letter;
-
 	/*
 	 * MUST BE the last field, since it contains a field at the end which is used
 	 * as "payload" for a concatened list of hosts.
