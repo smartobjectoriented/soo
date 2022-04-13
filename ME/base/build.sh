@@ -5,7 +5,7 @@
 # finally to generate the itb use the "-d" option
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-BASE_PATH=$SCRIPTPATH/../base
+BASE_PATH=$SCRIPTPATH
 SO3_PATH=$BASE_PATH/so3
 
 help()
@@ -21,10 +21,27 @@ help()
     echo "t     configure"
 }
 
+while read var; do
+if [ "$var" != "" ]; then
+  export $(echo $var | sed -e 's/ //g' -e /^$/d -e 's/://g' -e /^#/d)
+fi
+done < build.conf
+
+ME_NAME=${ME}
+ME_DEFCONFIG="$ME_NAME"_defconfig
+ME_FOLDER=SOO.$ME_NAME
+
+# Create folder for ME if it doesn't already exist
+cd $BASE_PATH/../
+mkdir -p $ME_FOLDER && cd $ME_FOLDER
+mkdir -p target && cd target
+touch README
+
 configure()
 {
+    echo "=== Configuring build for SOO.$ME_NAME ==="
     cd $SO3_PATH
-    make wagoled_defconfig
+    make $ME_DEFCONFIG
     cd $SCRIPTPATH
 }
 
@@ -45,7 +62,7 @@ clean()
 generate_itb()
 {
     cd $BASE_PATH
-    ./deploy.sh -m SOO.wagoled wagoled
+    ./deploy.sh -m $ME_FOLDER $ME_NAME
     cd $SCRIPTPATH
 
 }
@@ -72,7 +89,7 @@ while getopts ":bcdht" option; do
             help
             exit;;
         t)
-            configure
+            configure 
             exit;;
         \?)
             echo "Error: invalid option"
