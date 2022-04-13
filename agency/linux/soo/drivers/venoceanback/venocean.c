@@ -65,7 +65,7 @@ typedef struct {
  * 
  * @param packet New ESP3 packet. Will replace the values of last packet.
  */
-void new_data_callaback(esp3_packet_t *packet) {
+void tcm515_callback(esp3_packet_t *packet) {
 
 	DBG(VENOCEAN_PREFIX " New data form tcm515\n");
 	if (!packet)
@@ -306,7 +306,7 @@ static int venocean_init(void) {
 	vdevback_init(VENOCEAN_NAME, &venoceandrv);
 
 	/* Add callback function to the list of callback of tcm515-serdev */
-	if (tcm515_subscribe(new_data_callaback) < 0) {
+	if (tcm515_subscribe(tcm515_callback) < 0) {
 		DBG(VENOCEAN_PREFIX " failed to subscribe to tcm515");
 		BUG();
 	}
