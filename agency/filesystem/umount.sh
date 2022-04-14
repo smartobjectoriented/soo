@@ -10,12 +10,12 @@ if [ "$PLATFORM" == "" ]; then
     PLATFORM=$1
 fi
 
-sleep 1
+sleep 2
 
 sudo umount fs
 
 # Let the filesystem be synchronized
-sleep 1
+sleep 2
 
 if [ "$PLATFORM" == "vexpress" -o "$PLATFORM" == "virt64" ]; then
     sudo losetup -D
