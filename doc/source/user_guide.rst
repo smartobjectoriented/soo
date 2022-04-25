@@ -345,77 +345,58 @@ Basically, a ME is constituted of its kernel (based on SO3 Operating
 System), a device tree and eventually a rootfs used as **ramfs** (the
 rootfs is embedded in the ME image itself, hence the ITB file).
 
-ME Kernel Build
+ME build script
 ---------------
 
-The SO3 kernel of the SOO.refso3 ME is built with the following
-commands:
+The ME can be build using the build.sh script found in ``ME/base`` directory.
+This script takes 3 arguments 2 of which a mandatory and an optional one.
 
 .. code:: bash
-
-   cd ME/base/so3
-   make refso3_ramfs_defconfig
-   make
-
-As you can see, the build system is still based on Linux KBuild.
-
-ME User Space Build
--------------------
-
-In this case, the ``refso3_ramfs_defconfig`` configuration means we have
-a rootfs with the ME. Therefore, we can compile the ``usr/`` component
-which contains basic applications (note that most applications are
-issued from the SO3 gitlab repository).
-
-.. code:: bash
-
-   cd ME/base/usr
+   
    ./build.sh
 
-ME Filesystem Generation and Deployment
----------------------------------------
+   Build ME
+   Usage: ./build.sh -OPTIONS <ME_NAME> [OPTIONAL_CONFIG]
+   OPTIONS:
+   -k    build kernel only
+   -u    build user apps only
+   -ku   build kernel and apps
 
-As for the Agency, the ME needs a virtual storage based on FAT-32 to
-store the rootfs components. Note that ``so3virt`` below refers to the
-type of (target) platform of the SO3 environment (which in our case is a
-generic virtual platform).
+   Clean ME
+   Usage: ./build.sh -c <ME_NAME> <OTPIONAL_CONFIG>
 
-This is done as such:
+   ME_NAME can be one of the following:
+   - SOO.agency
+   - SOO.blind
+   - SOO.ledctrl
+   - SOO.net
+   - SOO.outdoor
+   - SOO.refso3
+   - SOO.wagoled
 
-.. code:: bash
+   OPTIONAL_CONFIG can be one of the following:
+   - refso3_ramfs
 
-   cd ME/base/rootfs
-   ./create_ramfs so3virt
+   Examples:
+   ./build.sh -k SOO.refso3
+   ./build.sh -ku SOO.refso3 refso3_ramfs
 
-And of course, the deployment of *usr* contents into this storage device
-(only one partition). Again, ``so3virt`` refers to the platform type
-used in SO3 in this context.
+- The OPTIONS argument allow you to build just the kernel ``-k``, just the user space ``-u`` or both ``-ku``. The ``-c`` option clean up the build. 
+- The ME_NAME argument allow you to select which ME you want too build. You must use the SOO.<ME_NAME> syntax.
+- The OPTIONAL_CONFIG allow you to select a specific config for an ME if more than one exist. See `Examples` above.
 
-.. code:: bash
-
-   cd ME/base/usr
-   ./deploy.sh so3virt
-
+The build output `<ME_NAME>.itb` will be put inside the ``ME/SOO.<ME_NAME>`` folder which will be created if it doesn't already exists.
+   
 Final Deployment
 ----------------
 
-The ME ITB is produced with the following deployment script:
+To deploy the newly built ME in the third partition of (virtual) SD-card use the deploy.sh script found in the``agency/`` folder.
 
 .. code:: bash
-
-   cd ME/base
-   ./deploy.sh SOO.refso3 refso3_ramfs
-
-The script indicates that the resulting ``itb`` file is copied in
-``SOO.refso3`` (in ``ME/``) directory.
-
-Now, the related ``itb`` file has to be deployed in the third partition
-of the (virtual) SD-card found in the Agency.
-
-.. code:: bash
-
+   
    cd agency
-   ./deploy.sh -m SOO.refso3
+   ./deploy.sh -m SOO.<ME_NAME>
+
 
 ME Injection from the Agency
 ----------------------------
