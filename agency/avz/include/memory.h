@@ -21,11 +21,30 @@
 
 #include <types.h>
 #include <list.h>
+#include <bitops.h>
 
 #include <asm/mmu.h>
-#include <asm/bitops.h>
 
 #include <soo/uapi/me_access.h>
+
+/*
+ * We add two functions for retrieving virt and phys address relative to
+ * Linux offset according to the memory map (used to access guest mem)
+ */
+#define __lpa(vaddr) ((vaddr) - L_PAGE_OFFSET + CONFIG_RAM_BASE)
+#define __lva(paddr) ((paddr) - CONFIG_RAM_BASE + L_PAGE_OFFSET)
+
+#define __pa(vaddr)             (((addr_t) vaddr) - CONFIG_HYPERVISOR_VIRT_ADDR + ((addr_t) CONFIG_RAM_BASE))
+#define __va(paddr)             (((addr_t) paddr) - ((addr_t) CONFIG_RAM_BASE) + CONFIG_HYPERVISOR_VIRT_ADDR)
+
+#define virt_to_phys(x)     (__pa(x))
+#define phys_to_virt(x)     (__va(x))
+
+#define pfn_to_phys(pfn) ((pfn) << PAGE_SHIFT)
+#define phys_to_pfn(phys) (((addr_t) phys) >> PAGE_SHIFT)
+#define virt_to_pfn(virt) (phys_to_pfn(__va((addr_t) virt)))
+#define pfn_to_virt(pfn) (phys_to_virt(pfn_to_phys(pfn)))
+
 
 struct domain;
 struct page_info;

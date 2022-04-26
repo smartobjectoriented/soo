@@ -21,8 +21,204 @@
 
 #include <asm/processor.h>
 
+.global __vectors
+
 .globl  pseudo_usr_mode
 .globl	hypervisor_stack
+
+/*
+ * Four types of exceptions:
+ * - synchronous: aborts from MMU, SP/CP alignment checking, unallocated
+ *   instructions, SVCs/SMCs/HVCs, ...)
+ * - IRQ: group 1 (normal) interrupts
+ * - FIQ: group 0 or secure interrupts
+ * - SError: fatal system errors
+ *
+ * Four different contexts:
+ * - from same exception level, when using the SP_EL0 stack pointer
+ * - from same exception level, when using the SP_ELx stack pointer
+ * - from lower exception level, when this is AArch64
+ * - from lower exception level, when this is AArch32
+ *
+ * +------------------+------------------+-------------------------+
+ * |     Address      |  Exception type  |       Description       |
+ * +------------------+------------------+-------------------------+
+ * | VBAR_ELn + 0x000 | Synchronous      | Current EL with SP0     |
+ * |          + 0x080 | IRQ / vIRQ       |                         |
+ * |          + 0x100 | FIQ / vFIQ       |                         |
+ * |          + 0x180 | SError / vSError |                         |
+ * +------------------+------------------+-------------------------+
+ * |          + 0x200 | Synchronous      | Current EL with SPx     |
+ * |          + 0x280 | IRQ / vIRQ       |                         |
+ * |          + 0x300 | FIQ / vFIQ       |                         |
+ * |          + 0x380 | SError / vSError |                         |
+ * +------------------+------------------+-------------------------+
+ * |          + 0x400 | Synchronous      | Lower EL using AArch64  |
+ * |          + 0x480 | IRQ / vIRQ       |                         |
+ * |          + 0x500 | FIQ / vFIQ       |                         |
+ * |          + 0x580 | SError / vSError |                         |
+ * +------------------+------------------+-------------------------+
+ * |          + 0x600 | Synchronous      | Lower EL using AArch32  |
+ * |          + 0x680 | IRQ / vIRQ       |                         |
+ * |          + 0x700 | FIQ / vFIQ       |                         |
+ * |          + 0x780 | SError / vSError |                         |
+ * +------------------+------------------+-------------------------+
+ */
+
+/* use the special section (.vectors.text), to enable fine-tuning
+ * of the placement of this section inside the linker script
+ */
+.section ".vectors.text", "ax"
+
+	b __start  // To be compliant with reset vector (unavailable in aarch64)
+
+.align 11
+ENTRY(__vectors)
+
+	// Current EL with SP0 / Synchronous
+	.align 7
+	b	not_used
+
+	// Current EL with SP0 / IRQ
+	.align 7
+	b 	not_used
+
+	// Current EL with SP0 / FIQ
+	.align 7
+	b 	not_used
+
+	// Current EL with SP0 / SError
+	.align 7
+	b	not_used
+
+	// Current EL with SPx / Synchronous
+	.align 7
+
+	mrs	x0, esr_el1
+
+	b	not_used
+
+	// Current EL with SPx / IRQ
+	.align 7
+
+	b 	el1_irq_handler
+
+	// Current EL with SPx / FIQ
+	.align 7
+	b	not_used
+
+	// Current EL with SPx / SError
+	.align 7
+
+	mov	x0, lr
+	mrs	x1, esr_el1
+
+	b	__sync_serror
+
+	// Lower EL using AArch64 / Synchronous
+	.align 7
+
+	// Not used at the hypervisor level
+	b	not_used
+
+	// Lower EL using AArch64 / IRQ
+	.align 7
+
+	// Not used at the hypervisor level
+	b	not_used
+
+	// Lower EL using AArch64 / FIQ
+	.align 7
+	b	not_used
+
+	// Lower EL using AArch64 / SError
+	.align 7
+	b	not_used
+
+	// Lower EL using AArch32 / Synchronous
+	.align 7
+	b	not_used
+
+	// Lower EL using AArch32 / IRQ
+	.align 7
+	b	not_used
+
+	// Lower EL using AArch32 / FIQ
+	.align 7
+	b	not_used
+
+	// Lower EL using AArch32 / SError
+	.align 7
+	b	not_used
+
+
+
+.align  5
+not_used:
+    b not_used
+
+.macro kernel_entry
+	sub		sp, sp, #S_FRAME_SIZE
+
+	stp		x0, x1, [sp, #OFFSET_X0]
+	stp		x2, x3, [sp, #OFFSET_X2]
+	stp		x4, x5, [sp, #OFFSET_X4]
+	stp		x6, x7, [sp, #OFFSET_X6]
+	stp		x8, x9, [sp, #OFFSET_X8]
+	stp		x10, x11, [sp, #OFFSET_X10]
+	stp		x12, x13, [sp, #OFFSET_X12]
+	stp		x14, x15, [sp, #OFFSET_X14]
+	stp		x16, x17, [sp, #OFFSET_X16]
+	stp		x18, x19, [sp, #OFFSET_X18]
+	stp		x20, x21, [sp, #OFFSET_X20]
+	stp		x22, x23, [sp, #OFFSET_X22]
+	stp		x24, x25, [sp, #OFFSET_X24]
+	stp		x26, x27, [sp, #OFFSET_X26]
+	stp		x28, x29, [sp, #OFFSET_X28]
+.endm
+
+.macro kernel_exit
+
+	ldp		x0, x1, [sp, #OFFSET_X0]
+	ldp		x2, x3, [sp, #OFFSET_X2]
+	ldp		x4, x5, [sp, #OFFSET_X4]
+	ldp		x6, x7, [sp, #OFFSET_X6]
+	ldp		x8, x9, [sp, #OFFSET_X8]
+	ldp		x10, x11, [sp, #OFFSET_X10]
+	ldp		x12, x13, [sp, #OFFSET_X12]
+	ldp		x14, x15, [sp, #OFFSET_X14]
+	ldp		x16, x17, [sp, #OFFSET_X16]
+	ldp		x18, x19, [sp, #OFFSET_X18]
+	ldp		x20, x21, [sp, #OFFSET_X20]
+	ldp		x22, x23, [sp, #OFFSET_X22]
+	ldp		x24, x25, [sp, #OFFSET_X24]
+	ldp		x26, x27, [sp, #OFFSET_X26]
+	ldp		x28, x29, [sp, #OFFSET_X28]
+
+	add		sp, sp, #S_FRAME_SIZE
+.endm
+
+.align  5
+el1_irq_handler:
+
+	kernel_entry
+
+	mrs		x0, spsr_el1
+	str		x0, [sp, #OFFSET_PSTATE]
+
+	// Make sure r0 refers to the base of the stack frame
+	mov		x0, sp
+
+	str		lr, [sp, #-8]!
+    bl 		irq_handle
+	ldr		lr, [sp], #8
+
+	ldr		x0, [sp, #OFFSET_PSTATE]
+	msr		spsr_el1, x0
+
+  	kernel_exit
+
+	eret
 
 /*
  * This function is called at bootstrap and

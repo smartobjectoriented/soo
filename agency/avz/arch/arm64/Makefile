@@ -1,7 +1,5 @@
 
-obj-y += boot/
-
-obj-y += spinlock.o
+obj-y += head.o hyp-stub.o
 
 obj-y += fault.o backtrace.o
 obj-y += backtrace.o backtrace_asm.o

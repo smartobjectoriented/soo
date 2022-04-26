@@ -28,7 +28,7 @@
             data = /incbin/("../avz/avz.bin");
 			type = "kernel";
             os = "linux";
-			arch = "arm";
+			arch = "arm64";
 			compression = "none";
 			load = <0x40080000>;
 			entry = <0x40080000>;
@@ -39,41 +39,41 @@
 			description = "Linux kernel";
 			data = /incbin/("../linux/arch/arm64/boot/Image");
 			type = "agency";
-			arch = "arm";
+			arch = "arm64";
 			os = "linux";
 			compression = "none";
 			load = <0x41080000>;
 			entry = <0x41080000>;
 		};
 
-        fdt_tz {
+        fdt {
 			description = "Linux device tree blob";
 			data = /incbin/("../linux/arch/arm64/boot/dts/arm/virt64.dtb");
 			type = "flat_dt";
-			arch = "arm";
+			arch = "arm64";
 			compression = "none";
-			load = <0x48000000>;
+			load = <0x50a00000>;
 		};
 
 		initrd {
 			description = "Initial rootfs (initrd)";
 			data = /incbin/("../rootfs/board/virt64/initrd.cpio");
 			type = "ramdisk";
-			arch = "arm";
+			arch = "arm64";
 			os = "linux";			
 			compression = "none";
-			load = <0x4a000000>;
+			load = <0x50c00000>;
 		};
 	};
 
 	configurations {
-		default = "agency_tz";
+		default = "agency";
 		
-		agency_tz {
+		agency {
 			description = "SOO Agency on virt64";
 		    kernel = "avz";
             loadables = "linux"; 
-             fdt = "fdt_tz"; 
+             fdt = "fdt"; 
              ramdisk = "initrd"; 
 		};
 		
