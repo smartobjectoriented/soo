@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -96,12 +96,13 @@ static void process_pending_rx_rsp(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(vdev->dev);
 	vuihandler_t *vuihandler = &vuihandler_priv->vuihandler;
 
+	DBG("PENDING RX RSP\n");
 
 	while ((ring_rsp = vuihandler_rx_get_ring_response(&vuihandler->rx_ring)) != NULL) {
 		DBG("rsp->id = %d, rsp->size = %d\n", ring_rsp->id, ring_rsp->size);
 		DBG("Packet as string is: %s\n", ring_rsp->buf);
 		if (__ui_interrupt)
-			(*__ui_interrupt)(vuihandler->rx_data + (ring_rsp->id % VUIHANDLER_MAX_PACKETS) * VUIHANDLER_MAX_PKT_SIZE, ring_rsp->size);
+			(*__ui_interrupt)(ring_rsp->buf, ring_rsp->size);
 	
 	}
 }
