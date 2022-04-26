@@ -7,6 +7,7 @@ if [ $# -ne 1 ]; then
 fi
 
 echo "Here: board is $1"
+echo "-------------------umount ramfs ---------------"
 
 sudo umount fs
 sudo losetup -D

@@ -15,3 +15,6 @@ obj-$(CONFIG_VFB_BACKEND)  += vfbback/
 obj-$(CONFIG_VNET_BACKEND)  += vnetback/
 obj-$(CONFIG_VSENSELED_BACKEND) += vsenseledback/
 obj-$(CONFIG_VSENSEJ_BACKEND) += vsensejback/
+obj-$(CONFIG_VWAGOLED_BACKEND) += vwagoledback/
+obj-$(CONFIG_VENOCEAN_BACKEND) += venoceanback/
+obj-$(CONFIG_TCM515) += serial/tcm515/

@@ -34,6 +34,7 @@
 	aliases {
 		serial0 = &uart1;
 		serial1 = &uart0;
+		serial5 = &uart5;
 		mmc0 = &emmc2;
 		mmc2 = &sdhost;
 		i2c3 = &i2c3;
@@ -83,7 +84,7 @@
 	backends {
 		
 		vuart {
-		status = "ok";
+			status = "ok";
 		};
 			
 		vuihandler {
@@ -98,7 +99,7 @@
 			status = "ok";
 		};
 
-                vdoga {
+        vdoga {
 			status = "ok";
 
 			up_end-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
@@ -107,6 +108,14 @@
 			sleep-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
 			mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
 			in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
+		};
+
+		vwagoled {
+			status = "ok";
+		};
+
+		venocean {
+			status = "ok";
 		};
 
 	};
@@ -381,6 +390,18 @@
 	status = "okay";
 };
 
+/* UART5 used for enOcean communication on soo.mp V1 */
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart5_gpio12>;
+	status = "okay";
+
+	enocean-uart {
+		compatible = "enocean,tcm515";
+		current-speed = <57600>;
+	};
+
+};	
 
 &spi1 {
 	status = "okay";

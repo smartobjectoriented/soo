@@ -392,5 +392,22 @@
 		vsensej {
 			status = "ok";
 		};
+
+		vwagoled {
+			status = "ok";
+		};
+
+		venocean {
+			status = "ok";
+		};
+	};
+};
+
+&v2m_serial1 {
+	status = "okay";
+		
+	enocean {
+		compatible = "enocean,tcm515";
+		current-speed = <57600>;
 	};
 };

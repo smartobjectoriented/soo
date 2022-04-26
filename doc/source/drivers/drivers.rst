@@ -12,12 +12,14 @@ Frontend & backend drivers
    
    vdummy  
    vuihandler 
-   
-
+   vwagoled
+   venocean
 
 The following drivers are available:
 
 - vdummy
 - vuart
 - vuihandler
+- vwagoled
+- venocean
 

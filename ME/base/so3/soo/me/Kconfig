@@ -42,7 +42,11 @@ choice
 			a Raspberry Pi 4 enhanced with the Sense HAT extension. This ME
 			basically uses the led matric and joystick. It is mainly used
 			for demonstration purposes.
-			
+
+	config SOO_WAGOLED
+		bool "SOO.wagoled Mobile Entity"
+		help
+			TODO		
 		
 endchoice
 

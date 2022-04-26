@@ -1782,8 +1782,8 @@ static int uart_open(struct tty_struct *tty, struct file *filp)
 }
 
 /* SOO.tech */
-void uart_do_open(struct tty_struct *tty) {
-	uart_open(tty, NULL);
+int uart_do_open(struct tty_struct *tty) {
+	return uart_open(tty, NULL);
 }
 
 
