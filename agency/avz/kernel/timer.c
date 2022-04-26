@@ -40,7 +40,7 @@ u64 edf_current = STIME_MAX;
 struct timers {
 
 	spinlock_t lock;
-	bool_t overflow;
+	bool overflow;
 	struct timer **heap;
 	struct timer *list;
 	struct timer *running;

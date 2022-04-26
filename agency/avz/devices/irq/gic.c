@@ -444,7 +444,7 @@ void smp_cross_call(long cpu_mask, unsigned int irq)
 	unsigned long flags;
 	int cpu = smp_processor_id();
 
-	spin_lock_irqsave(&per_cpu(intc_lock, cpu), flags);
+	flags = spin_lock_irqsave(&per_cpu(intc_lock, cpu));
 
 	/*
 	 * Ensure that stores to Normal memory are visible to the

@@ -183,7 +183,7 @@ void console_init(void)
 
 	printk(" SOO Agency Virtualizer -- %s\n", AVZ_KERNEL_VERSION);
 
-	printk(" Copyright (c) 2014-2020 HEIG-VD - REDS Institute, Switzerland / Smart Object Oriented technology\n");
+	printk(" Copyright (c) 2014-2022 HEIG-VD - REDS Institute, Switzerland / Smart Object Oriented technology\n");
 	printk("\n\n\n");
 
 
