@@ -7,7 +7,4 @@ obj-$(CONFIG_SOO_BLIND) += blind/
 obj-$(CONFIG_SOO_AGENCY) += agency/
 obj-$(CONFIG_SOO_NET) += net/
 obj-$(CONFIG_SOO_LEDCTRL) += ledctrl/
-
-
-
-
+obj-$(CONFIG_SOO_CHAT) += chat/

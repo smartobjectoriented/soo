@@ -43,6 +43,11 @@ choice
 			basically uses the led matric and joystick. It is mainly used
 			for demonstration purposes.
 			
+	config SOO_CHAT
+		bool "SOO.chat Mobile Entity"
+		help
+			Test text
+			
 		
 endchoice
 

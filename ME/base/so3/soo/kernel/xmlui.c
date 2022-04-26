@@ -16,7 +16,9 @@
  *
  */
 
-#include <xmlui.h>
+#include <soo/xmlui.h>
+#include <roxml.h>
+#include <string.h>
 
 /**
  * Prepare a XML message for sending to the UI app
@@ -69,8 +71,8 @@ void xml_parse_event(char *buffer, char *id, char *action) {
 	root = roxml_load_buf(buffer);
 	xml =  roxml_get_chld(root, NULL,  0);
 
-	events = roxml_get_chld(xml, NULL, 0);
-	event = roxml_get_chld(events, NULL, 0);
+	events = roxml_get_chld(root, "events", 0);
+	event = roxml_get_chld(events, "event", 0);
 	__from = roxml_get_attr(event, "from", 0);
 	__action = roxml_get_attr(event, "action", 0);
 
@@ -81,4 +83,20 @@ void xml_parse_event(char *buffer, char *id, char *action) {
 	roxml_release(RELEASE_LAST);
 	roxml_close(root);
 
+}
+
+void xml_get_event_content(char *buffer, char *content) {
+
+	node_t *root;
+	node_t *events, *event;
+
+	root = roxml_load_buf(buffer);
+
+	events = roxml_get_chld(root, "events", 0);
+	event = roxml_get_chld(events, "event", 0);
+
+	strcpy(content, roxml_get_content(event, NULL, 0, NULL));
+
+	roxml_release(RELEASE_LAST);
+	roxml_close(root);
 }
