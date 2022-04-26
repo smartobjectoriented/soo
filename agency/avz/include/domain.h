@@ -74,7 +74,7 @@ struct domain
 	enum { DOMDYING_alive, DOMDYING_dying, DOMDYING_dead } is_dying;
 
 	/* Domain is paused by controller software? */
-	bool_t is_paused_by_controller;
+	bool is_paused_by_controller;
 
 	int processor;
 
@@ -86,7 +86,7 @@ struct domain
 	int runstate;
 
 	/* Currently running on a CPU? */
-	bool_t is_running;
+	bool is_running;
 
 	unsigned long pause_flags;
 	atomic_t pause_count;

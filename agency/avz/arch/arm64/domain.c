@@ -53,7 +53,7 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 	printk("   phys address     : 0x%lx\n", p_start);
 
 	/* Initial L0 page table for the domain */
-	new_pt = new_sys_pgtable();
+	new_pt = new_root_pgtable();
 
 	d->addrspace.pgtable_vaddr = (addr_t) new_pt;
 	d->addrspace.pgtable_paddr = __pa(new_pt);
@@ -61,9 +61,9 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 
 	/* Copy the hypervisor area */
 #ifdef CONFIG_VA_BITS_48
-	*l0pte_offset(new_pt, CONFIG_HYPERVISOR_VIRT_ADDR) = *l0pte_offset(__sys_l0pgtable, CONFIG_HYPERVISOR_VIRT_ADDR);
+	*l0pte_offset(new_pt, CONFIG_HYPERVISOR_VIRT_ADDR) = *l0pte_offset(__sys_root_pgtable, CONFIG_HYPERVISOR_VIRT_ADDR);
 #elif CONFIG_VA_BITS_39
-	*(new_pt + l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)) = *(__sys_l0pgtable + l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR));
+	*(new_pt + l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)) = *(__sys_root_pgtable + l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR));
 #else
 #error "Wrong VA_BITS configuration."
 #endif
@@ -75,10 +75,10 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 void arch_domain_create(struct domain *d, int cpu_id) {
 
 	if (is_idle_domain(d)) {
-		d->addrspace.pgtable_paddr = __pa(__sys_l0pgtable);
-		d->addrspace.pgtable_vaddr = (addr_t) __sys_l0pgtable;
+		d->addrspace.pgtable_paddr = __pa(__sys_root_pgtable);
+		d->addrspace.pgtable_vaddr = (addr_t) __sys_root_pgtable;
 
-		d->addrspace.ttbr1[cpu_id] = __pa(__sys_l0pgtable);
+		d->addrspace.ttbr1[cpu_id] = __pa(__sys_root_pgtable);
 	}
 }
 

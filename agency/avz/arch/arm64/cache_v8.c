@@ -32,15 +32,19 @@
  *    off:          FFF
  */
 
-/* to activate the MMU we need to set up virtual memory */
-void mmu_setup(u64 *pgtable)
+/**
+ * Activate the MMU and setup the CPU with the right attributes.
+ *
+ * @param pgtable	Physical address of the main L0 page table
+ */
+void mmu_setup(void *pgtable)
 {
 	u64 attr, tcr;
 
-	tcr = TCR_CACHE_FLAGS | TCR_SMP_FLAGS | TCR_TG_FLAGS | TCR_ASID16 | TCR_TBI0 | TCR_A1;
+	tcr = TCR_CACHE_FLAGS | TCR_SMP_FLAGS | TCR_TG_FLAGS | TCR_ASID16 | TCR_A1;
 
 #ifdef CONFIG_VA_BITS_48
-	 tcr |= TCR_EL1_RSVD | TCR_TxSZ(48) | (TCR_PS_BITS_256TB << TCR_IPS_SHIFT);
+	 tcr |= TCR_TxSZ(48) | (TCR_PS_BITS_256TB << TCR_IPS_SHIFT);
 #elif CONFIG_VA_BITS_39
 	 tcr |= TCR_TxSZ(39) | (TCR_PS_BITS_1TB << TCR_IPS_SHIFT);
 #else
@@ -51,7 +55,12 @@ void mmu_setup(u64 *pgtable)
 
 	asm volatile("dsb sy");
 
+	/* We need ttbr0 for mapping the devices which physical addresses
+	 * are in the user space range.
+	 */
 	asm volatile("msr ttbr0_el1, %0" : : "r" (pgtable) : "memory");
+
+	/* For kernel mapping */
 	asm volatile("msr ttbr1_el1, %0" : : "r" (pgtable) : "memory");
 
 	asm volatile("msr tcr_el1, %0" : : "r" (tcr) : "memory");
@@ -60,8 +69,9 @@ void mmu_setup(u64 *pgtable)
 
 	asm volatile("isb");
 
-	/* enable the mmu */
-	set_sctlr(get_sctlr() | CR_M);
+	/* Enable the mmu and set the sctlr register correctly. */
+
+	set_sctlr(SCTLR_EL1_SET);
 
 	asm volatile("isb");
 

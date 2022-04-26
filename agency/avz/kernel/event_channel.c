@@ -353,7 +353,7 @@ void send_guest_virq(struct domain *d, int virq) {
 	int evtchn;
 	bool __already_locked = false;
 
-	spin_lock_irqsave(&d->virq_lock, flags);
+	flags = spin_lock_irqsave(&d->virq_lock);
 	evtchn = d->virq_to_evtchn[virq];
 
 	if (unlikely(evtchn == 0))

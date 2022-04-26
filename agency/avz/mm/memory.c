@@ -93,7 +93,7 @@ uint32_t get_kernel_size(void) {
  */
 
 void memory_init(void) {
-	void *__new_sys_pgtable;
+	void *__new_root_pgtable;
 
 #ifdef CONFIG_ARCH_ARM32
 	addr_t vectors_vaddr;
@@ -108,19 +108,19 @@ void memory_init(void) {
 	init_io_mapping();
 
 	/* Re-setup a system page table with a better granularity */
-	__new_sys_pgtable = (void *) new_sys_pgtable();
+	__new_root_pgtable = new_root_pgtable();
 
-	create_mapping(__new_sys_pgtable, CONFIG_HYPERVISOR_VIRT_ADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
+	create_mapping(__new_root_pgtable, CONFIG_HYPERVISOR_VIRT_ADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
 
 	/* Mapping uart I/O for debugging purposes */
-	create_mapping(__new_sys_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true);
+	create_mapping(__new_root_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true);
 
 	/* Finally, create the Linux kernel area to be ready for the Agency domain, and for being able
 	 * to read the device tree.
 	 */
-	create_mapping(__new_sys_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false);
+	create_mapping(__new_root_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false);
 
-	replace_current_pgtable_with(__new_sys_pgtable);
+	replace_current_pgtable_with(__new_root_pgtable);
 
 #ifdef CONFIG_ARCH_ARM32
 

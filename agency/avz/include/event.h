@@ -13,7 +13,6 @@
 #include <sched.h>
 #include <smp.h>
 #include <softirq.h>
-#include <asm/bitops.h>
 
 /*
  * send_guest_vcpu_virq: Notify guest via a per-VCPU VIRQ.

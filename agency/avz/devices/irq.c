@@ -135,7 +135,7 @@ int set_irq_chip_data(unsigned int irq, void *data)
 	}
 
 	desc = irq_desc + irq;
-	spin_lock_irqsave(&desc->lock, flags);
+	flags = spin_lock_irqsave(&desc->lock);
 	desc->data = data;
 	spin_unlock_irqrestore(&desc->lock, flags);
 	return 0;
@@ -155,7 +155,7 @@ void set_irq_base(unsigned int irq, unsigned int irq_base) {
 		printk("Trying to set up chip data with no associated chip yet for IRQ: %d\n", irq);
 	}
 
-	spin_lock_irqsave(&desc->lock, flags);
+	flags = spin_lock_irqsave(&desc->lock);
 	desc->irq_base = irq_base;
 	spin_unlock_irqrestore(&desc->lock, flags);
 }
@@ -174,7 +174,7 @@ void set_irq_reg_base(unsigned int irq, void *reg_base) {
 		printk("Trying to set up chip data with no associated chip yet for IRQ: %d\n", irq);
 	}
 
-	spin_lock_irqsave(&desc->lock, flags);
+	flags = spin_lock_irqsave(&desc->lock);
 	desc->reg_base = reg_base;
 	spin_unlock_irqrestore(&desc->lock, flags);
 }
@@ -192,7 +192,7 @@ int setup_irq(unsigned int irq, struct irqaction *new)
 	/*
 	 * The following block of code has to be executed atomically
 	 */
-	spin_lock_irqsave(&desc->lock, flags);
+	flags = spin_lock_irqsave(&desc->lock);
 
 	/* There might be already an association with an action (like CP15 timer used by all CPUs for example).
 	 * In this case, it is overriden with the new call.
@@ -240,7 +240,7 @@ void set_irq_chip(unsigned int irq, struct irqchip *chip)
 
 	desc = get_irq_descriptor(irq);
 
-	spin_lock_irqsave(&desc->lock, flags);
+	flags = spin_lock_irqsave(&desc->lock);
 
 	desc->chip = chip;
 
@@ -264,7 +264,7 @@ void set_irq_handler(unsigned int irq, irq_handler_t handler)
 
 	desc = get_irq_descriptor(irq);
 
-	spin_lock_irqsave(&desc->lock, flags);
+	flags = spin_lock_irqsave(&desc->lock);
 
 	desc->handler = handler;
 
@@ -283,7 +283,7 @@ void set_irq_flags(unsigned int irq, unsigned int iflags)
 
 	desc = get_irq_descriptor(irq);
 
-	spin_lock_irqsave(&desc->lock, flags);
+	flags = spin_lock_irqsave(&desc->lock);
 
 	desc->flags = iflags;
 
