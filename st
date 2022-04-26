@@ -4,7 +4,7 @@ QEMU_AUDIO_DRV="none"
 GDB_PORT_BASE=1234
 USR_OPTION=$1
 
-N_QEMU_INSTANCES=`ps -A | grep qemu-system-arm | wc -l`
+N_QEMU_INSTANCES=`ps -A | grep qemu-system | wc -l`
 
 launch_qemu() {
     QEMU_MAC_ADDR="$(printf 'DE:AD:BE:EF:%02X:%02X\n' $((N_QEMU_INSTANCES)) $((N_QEMU_INSTANCES)))"
@@ -13,6 +13,28 @@ launch_qemu() {
 
     echo -e "\033[01;36mMAC addr: " ${QEMU_MAC_ADDR} "\033[0;37m"
     echo -e "\033[01;36mGDB port: " ${GDB_PORT} "\033[0;37m"
+
+    while read var; do
+        if [ "$var" != "" ]; then
+                export $(echo $var | sed -e 's/ //g' -e /^$/d -e 's/://g' -e /^#/d)
+        fi      
+    done < agency/build.conf
+
+    if [ "$PLATFORM" == "virt64" ]; then
+
+    sudo qemu/build/qemu-system-aarch64 $@ \
+  	-smp 4 -s \
+	-serial mon:stdio  \
+	-M virt,gic-version=2 -cpu cortex-a72  \
+	-device virtio-blk-device,drive=hd0 \
+	-drive if=none,file=agency/filesystem/sdcard.img.virt64,id=hd0 \
+	-m 1024 \
+	-kernel u-boot/u-boot \
+	-nographic \
+	-netdev tap,id=n1,script=scripts/qemu-ifup.sh,downscript=scripts/qemu-ifdown.sh \
+	-device virtio-net-device,netdev=n1,mac=${QEMU_MAC_ADDR}
+
+    else    
 
     sudo qemu/build/arm-softmmu/qemu-system-arm $@ ${USR_OPTION} \
   	-smp 4 \
@@ -26,6 +48,8 @@ launch_qemu() {
 	-nographic \
 	-gdb tcp::${GDB_PORT}
         
+    fi
+    
     QEMU_RESULT=$?
     
 #    if [[ ${QEMU_RESULT} -ne 0 ]]

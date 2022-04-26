@@ -329,7 +329,7 @@ static void dump_backtrace(unsigned char key)
 
 	domcall_args.cmd = CB_DUMP_BACKTRACE;
 
-	local_irq_save(flags);
+	flags = local_irq_save();
 
 	printk("Agency:\n\n");
 
@@ -353,7 +353,7 @@ static void dump_vbstore(unsigned char key)
 
 	domcall_args.cmd = CB_DUMP_VBSTORE;
 
-	local_irq_save(flags);
+	flags = local_irq_save();
 
 	domain_call(domains[0], DOMCALL_soo, &domcall_args);
 
