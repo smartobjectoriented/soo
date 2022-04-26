@@ -29,82 +29,89 @@
 		compatible = "arm,cortex-a15";
 		reg = <0 0>;
 	};
-	
+
 	so3virt-serial {
 		compatible = "serial,so3virt";
 		status = "ok";
 	};
-		
+
 	/* SO3 virtual timer managed by AVZ */
- 
+
 	so3virt-timer {
 		compatible = "so3virt-timer,periodic-timer";
 		status = "ok";
 	};
- 
+
 	/* Free-running clocksource */
 	clocksource-timer {
 		compatible = "so3virt-timer,clocksource-timer";
 		status = "ok";
 	};
-		
+
 	oneshot-timer {
 		compatible ="so3virt-timer,oneshot-timer";
 		status = "ok";
 	};
-	
+
 	so3virt-irq {
 		compatible = "so3virt-irq";
 		status = "ok";
 	};
-	
-	
+
+
 	ME: ME {
 #if 0 /* If used without ramfs */
 		domain-size = <0x400000>; /* 4 MB */
-#endif			
+#endif
 		domain-size = <0x1000000>; /* 16 MB */
-		
+
 		frontends {
-		
+
 			vdummy {
 				compatible = "vdummy,frontend";
 				status = "disabled";
 			};
-	
+
 			vuihandler {
 				compatible = "vuihandler,frontend";
 				status = "disabled";
 			};
-    
+
 			vuart {
 				compatible = "vuart,frontend";
 				status = "disabled";
 			};
-			
-			vsenseled {
-            	compatible = "vsenseled,frontend";
-            	status = "disabled";
-        	};
-			
-        	vsensej {
-            	compatible = "vsensej,frontend";
-            	status = "disabled";
-        	};
-			
-			vdoga12v6nm {
-            	compatible = "vdoga12v6nm,frontend";
-            	status = "disabled";
-            };
-            
-            vweather {
-            	compatible = "vweather,frontend";
-            	status = "disabled";
-        	};
-        	
 
-        	
+			vsenseled {
+				compatible = "vsenseled,frontend";
+				status = "disabled";
+			};
+
+			vsensej {
+				compatible = "vsensej,frontend";
+				status = "disabled";
+			};
+
+			vdoga12v6nm {
+				compatible = "vdoga12v6nm,frontend";
+				status = "disabled";
+			};
+
+			vweather {
+				compatible = "vweather,frontend";
+				status = "disabled";
+			};
+
+			vwagoled {
+				compatible = "vwagoled,frontend";
+				status = "disabled";
+			};
+
+			venocean {
+				compatible = "venocean,frontend";
+				status = "disabled";
+			};
 		};
-	
+
 	};
 };

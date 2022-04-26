@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Buildroot 2020.02-rc3-g26270d1829-dirty Configuration
+# Buildroot 2020.02-rc3-g246799515f-dirty Configuration
 #
 BR2_HAVE_DOT_CONFIG=y
 BR2_HOST_GCC_AT_LEAST_4_9=y
@@ -2042,7 +2042,7 @@ BR2_PACKAGE_LIBXSLT=y
 # BR2_PACKAGE_LIBYAML is not set
 # BR2_PACKAGE_MXML is not set
 # BR2_PACKAGE_PUGIXML is not set
-# BR2_PACKAGE_RAPIDJSON is not set
+BR2_PACKAGE_RAPIDJSON=y
 # BR2_PACKAGE_RAPIDXML is not set
 # BR2_PACKAGE_RAPTOR is not set
 # BR2_PACKAGE_TINYXML is not set
