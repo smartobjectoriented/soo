@@ -23,6 +23,12 @@
 #include <linux/jiffies.h>
 #include <soo/uapi/console.h>
 #include <soo/device/rn2483.h>
+#include <linux/string.h>
+#include <linux/kthread.h>
+
+#if 0
+#define DEBUG
+#endif
 
 
 /* Access to serdev */
@@ -81,6 +87,73 @@ static int rn2483_process_cmd_response(byte *data)
     return 0;
 }
 
+static void rn2483_process_listen(byte *data, int *timeout) {
+    byte *msg;
+    char *token;
+    char num[3] = {0};
+    char delim = DELIM_CHAR;
+    int msg_len, valid_msg = 0, i, error = 0;
+    long tmp_val;
+    
+    dev_info(rn2483->dev, "New radio data received: %s", data);
+
+    *timeout = 0;
+    /** Check if timeout is expired **/
+    if (strcmp(data, RN2483_RADIO_ERR) == 0) {
+        *timeout = 1;
+    }
+
+    /** Separate radio_rx from data **/
+    do {
+        token = strsep((char**)&data, &delim);
+
+        if(strcmp(token, RN2483_RADIO_RX) == 0) {
+            valid_msg = 1;
+            continue;
+        }
+
+        if (valid_msg && (strlen(token) > 0)) {
+            msg_len = strlen(token) / 2;
+            msg = kzalloc(msg_len, GFP_KERNEL);
+            
+            for (i = 0; i < msg_len; i++) {
+                memcpy(num, &token[2 * i], 2);
+
+                /** Error in data **/
+                if (kstrtol(num, 16, &tmp_val) < 0) {
+                    error = 1;
+                    break;
+                }
+
+                if (tmp_val < 0xFF)
+                    msg[i] = (byte)tmp_val;
+                else
+                    msg[i] = 0;
+
+            }
+            break;
+        }
+    } while(token != NULL);
+
+    if (!valid_msg) {
+        dev_err(rn2483->dev, "Received data is not a radio_rx: %s", data);
+        BUG();
+    }
+
+    if (error) {
+        dev_err(rn2483->dev, "Error found in data received. Dropping it");
+        kfree(msg);
+    }
+
+    msg_len = strlen(msg);
+    dev_info(rn2483->dev, "Data received: %s", msg);
+
+    /** send data to subscribers **/
+
+    kfree(msg);
+    rn2483->status = IDLE;
+}
+
 /**
  * @brief Write synchronously to serial port.
  * 
@@ -116,24 +189,49 @@ int rn2483_write_buf(const byte *buffer, size_t len) {
 
     serdev_device_write_flush(rn2483->serdev);
 
-#ifdef DEBUG
-    dev_info(tcm515->dev, "byte written: %d\n", tx_bytes);
-#endif
-
     return byte_written;
 }
 
 void rn2483_send_cmd(rn2483_cmd_t cmd, char *args) {
+    byte *cmd_str;
     rn2483->status = SEND_CMD;
     rn2483->current_cmd = cmd;
 
-    rn2483_write_buf(cmd_list[cmd], strlen(cmd_list[cmd]));
+    if (args) {
+        cmd_str = kzalloc((strlen(cmd_list[cmd]) + strlen(args)) * sizeof(byte), GFP_KERNEL);
+        BUG_ON(!cmd_str);
 
-    dev_info(rn2483->dev, "Successfully sent command: %s", cmd_list[cmd]);
+        sprintf(cmd_str, "%s %s", cmd_list[cmd], args);
+        rn2483_write_buf(cmd_str, strlen(cmd_str));
+#ifdef DEBUG
+        dev_info(rn2483->dev, "Successfully sent command: %s", cmd_str);
+#endif
+    } else {
+        rn2483_write_buf(cmd_list[cmd], strlen(cmd_list[cmd]));
+#ifdef DEBUG
+        dev_info(rn2483->dev, "Successfully sent command: %s", cmd_list[cmd]);
+#endif
+    }
+
+    wait_for_completion_timeout(&rn2483->wait_rsp, msecs_to_jiffies(1000));
 }
 
-static byte *process_data(byte *buf, size_t len, byte *prev_data, int *data_len, int *data_end) {
-    static int _data_len;
+static int rn2483_start_listening(void *args) {
+    int timeout;
+    if (args) {
+        timeout = *(int*)(args);
+    }
+
+    if (timeout)
+        rn2483_send_cmd(mac_pause, NULL);
+
+    rn2483_send_cmd(radio_rx, "0");
+
+    return 0;
+}
+
+static byte *process_received_buffer(const byte *buf, size_t len, byte *prev_data, int *data_len, int *data_end) {
+    static int prev_data_len;
     byte *data;
     int i;
 
@@ -141,39 +239,42 @@ static byte *process_data(byte *buf, size_t len, byte *prev_data, int *data_len,
 
     /** Reset **/
     if (!prev_data)
-        _data_len = 0;
+        prev_data_len = 0;
 
     /** Store current received data length **/
-    if (_data_len)
-        *data_len = _data_len;
+    if (prev_data_len)
+        *data_len = prev_data_len;
 
     /** Search end of message \r\n **/
     for (i = 0; i < len; i++) {
         if (buf[i] == '\n') {
             *data_end = 1;
-            _data_len += i;
+            prev_data_len += i;
             break;
         }
     }
 
     /** Needs to get more data **/
     if (!(*data_end)) {
-        _data_len += len;
+        prev_data_len += len;
     }
 
-    data = kzalloc((_data_len) * sizeof(byte), GFP_KERNEL);
+    data = kzalloc((prev_data_len) * sizeof(byte), GFP_KERNEL);
+    BUG_ON(!data);
     
-    /** If data was already received copy old data **/
+    /** If data was already received copy old data on to expanded array**/
     if (prev_data) {
-        memcpy(data, prev_data, _data_len);
-        memcpy(&data[*data_len], buf, _data_len - *data_len);
+        memcpy(data, prev_data, prev_data_len);
+        memcpy(&data[*data_len], buf, prev_data_len - *data_len);
+        kfree(prev_data);
     } else {
-        memcpy(&data, buf, _data_len);
+        memcpy(data, buf, prev_data_len);
     }
 
-    kfree(prev_data);
+    if (*data_end)
+        data[prev_data_len - 1] = '\0';
 
-    *data_len = _data_len;
+    *data_len = prev_data_len;
 
     return data;
 }
@@ -187,25 +288,31 @@ static byte *process_data(byte *buf, size_t len, byte *prev_data, int *data_len,
  * @return int data received size
  */
 static int rn2483_serdev_receive_buf(struct serdev_device *serdev, const byte *buf, size_t len) {
-    int msg_len, msg_end;
+    int msg_len, msg_end, timeout = 0;
     static byte *msg = NULL;
 
-    dev_info(rn2483->dev, "New data received: %s\n", buf);
-
-    msg = process_data(buf, len, msg, &msg_len, &msg_end);
+#ifdef DEBUG
+    dev_info(rn2483->dev, "New data received: %s", buf);
+#endif
+    msg = process_received_buffer(buf, len, msg, &msg_len, &msg_end);
 
     if (msg_end) {
-        /** Do somenthing with the msg **/
+#ifdef DEBUG
+        dev_info(rn2483->dev, "New msg received: %s", msg);
+#endif
         switch (rn2483->status) {
             case SEND_CMD:
                 /** call process cmd response **/
                 rn2483_process_cmd_response(msg);
+                complete(&rn2483->wait_rsp);
                 break;
             case SEND_MSG:
                 /** call process send msg response **/
                 break;
             case LISTEN:
                 /** process listen **/
+                rn2483_process_listen(msg, &timeout);
+                kthread_run(rn2483_start_listening, (void*)(&timeout), "start_listen_th");
                 break;
             case IDLE:
                 /** Dropping data **/
@@ -248,6 +355,7 @@ static int rn2483_serdev_probe(struct serdev_device *serdev) {
     rn2483->serdev = serdev;
     rn2483->dev = dev;
     rn2483->baud = baud;
+    init_completion(&rn2483->wait_rsp);
 
     ret = serdev_device_open(serdev);
     if (ret < 0) {
@@ -263,10 +371,10 @@ static int rn2483_serdev_probe(struct serdev_device *serdev) {
     }
 
     rn2483_send_cmd(reset, NULL);
-    rn2483_send_cmd(mac_pause, NULL);
-
+    /** Disable watchdog **/
+    rn2483_send_cmd(set_wdt, "0");
     /** Listen for data **/
-    rn2483_send_cmd(radio_rx, "0");
+    rn2483_start_listening(NULL);
 
     dev_info(dev,"Probed successfully\n");
 
