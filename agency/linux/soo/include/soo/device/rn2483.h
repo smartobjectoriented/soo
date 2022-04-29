@@ -35,6 +35,7 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
 #define _LINUX_RN2483_SERDEV_H
 
 #include <linux/serdev.h>
+#include <linux/completion.h>
 
 #define RN2483_SERDEV_NAME                      "rn2483_serdev"
 #define RN2483_SERDEV_PREFIX                    "[" RN2483_SERDEV_NAME "] "
@@ -51,11 +52,14 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
 
 #define MAX_SUBSCRIBERS                         10
 
-/** RN2483 Commands strings **/
+/** RN2483 Commands response strings **/
 #define RN2483_OK                               "ok"
 #define RN2483_INVALID_PARAM                    "invalid_param"
 #define RN2483_RADIO_ERR                        "radio_err"
+#define RN2483_RADIO_RX                         "radio_rx"
  
+#define RESPONSE_TIMEOUT                        1000
+#define DELIM_CHAR                              0x20
 
 typedef unsigned char byte;
 
@@ -74,7 +78,8 @@ enum rn2483_cmd {
     mac_pause,
     radio_tx,
     radio_rx,
-    stop_rx
+    stop_rx,
+    set_wdt
 };
 typedef enum rn2483_cmd rn2483_cmd_t;
 
@@ -84,7 +89,8 @@ static const char cmd_list [][20] = {
     [mac_pause] = "mac pause",
     [radio_tx] = "radio tx",
     [radio_rx] = "radio rx",
-    [stop_rx] = "rxstop"
+    [stop_rx] = "rxstop",
+    [set_wdt] = "radio set wdt"
 };
 
 struct rn2483_uart {
@@ -96,10 +102,12 @@ struct rn2483_uart {
     /** Current mode of the device **/
     rn2483_status_t status;
     rn2483_cmd_t current_cmd;
+
+    struct completion wait_rsp;
 };
 
 /**
- * @brief Subscribe to tcm515. Every time a new ESP3 packet is received it's sent to all
+ * @brief Subscribe to rn2483. Every time new LoRa data is received it's sent to all
  *          all subscribers
  * 
  * @param callback Function to be called. Defined by the subscriber

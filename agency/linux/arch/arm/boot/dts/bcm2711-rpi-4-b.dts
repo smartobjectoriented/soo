@@ -34,7 +34,6 @@
 	aliases {
 		serial0 = &uart1;
 		serial1 = &uart0;
-		serial5 = &uart5;
 		mmc0 = &emmc2;
 		mmc2 = &sdhost;
 		i2c3 = &i2c3;
@@ -390,13 +389,25 @@
 	status = "okay";
 };
 
+/* UART5 used for LoRa communication on soo.mp V1 */
+&uart3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_gpio4>;
+	status = "okay";
+
+	lora {
+		compatible = "lora,rn2483";
+		current-speed = <57600>;
+	};
+};
+
 /* UART5 used for enOcean communication on soo.mp V1 */
 &uart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart5_gpio12>;
 	status = "okay";
 
-	enocean-uart {
+	enocean {
 		compatible = "enocean,tcm515";
 		current-speed = <57600>;
 	};
