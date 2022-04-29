@@ -1,3 +1,11 @@
 
-source "devices/serial/Kconfig"
+menu "Drivers"
 
+config UART
+	bool "Driver UART"
+    
+
+source "devices/serial/Kconfig"
+source "devices/irq/Kconfig"
+
+endmenu

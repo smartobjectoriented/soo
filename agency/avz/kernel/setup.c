@@ -130,13 +130,10 @@ void kernel_start(void)
 
 	event_channel_init();
 
-#ifdef CONFIG_ARCH_ARM32
 	soo_activity_init();
-#endif
 
 	/* Deal with secondary processors.  */
 	printk("spinning up at most %d total processors ...\n", NR_CPUS);
-
 
 	/* Create initial domain 0. */
 	domains[DOMID_AGENCY] = domain_create(DOMID_AGENCY, AGENCY_CPU);
@@ -173,7 +170,7 @@ void kernel_start(void)
 	/* Enabling VFP module on this CPU */
 	vfp_enable();
 #endif
-
+ //while(1);
 	domain_unpause_by_systemcontroller(agency);
 
 	set_current(idle_domain[smp_processor_id()]);

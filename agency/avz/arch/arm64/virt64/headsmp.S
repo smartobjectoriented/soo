@@ -10,13 +10,14 @@
  */
 #include <linkage.h>
 
+#if 0
 /*
  * Realview/Versatile Express specific entry point for secondary CPUs.
  * This provides a "holding pen" into which all secondary cores are held
  * until we're ready for them to initialise.
  */
-ENTRY(vexpress_secondary_startup)
-
+ENTRY(virt64_secondary_startup)
+#if 0
 	mrc	p15, 0, r0, c0, c0, 5
 	bic	r0, #0xff000000
 	adr	r4, 1f
@@ -29,6 +30,7 @@ pen:
 	ldr	r7, [r6]
 	cmp	r7, r0
 	bne	pen
+#endif
 
 	/*
 	 * we've been released from the holding pen: secondary_stack
@@ -40,3 +42,4 @@ pen:
 1:	.long	.
 	.long	pen_release
 
+#endif

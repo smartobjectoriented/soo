@@ -59,266 +59,302 @@
 main:
 .LFB81:
 	.file 1 "arch/arm64/asm-offsets.c"
-	.loc 1 29 1
-// arch/arm64/asm-offsets.c:31: 	DEFINE(OFFSET_SHARED_INFO, offsetof(struct domain, shared_info));
-	.loc 1 31 2
+	.loc 1 31 1
+// arch/arm64/asm-offsets.c:33: 	DEFINE(OFFSET_SHARED_INFO, offsetof(struct domain, shared_info));
+	.loc 1 33 2
 #APP
-// 31 "arch/arm64/asm-offsets.c" 1
+// 33 "arch/arm64/asm-offsets.c" 1
 	
 ->OFFSET_SHARED_INFO 624 offsetof(struct domain, shared_info)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:32: 	DEFINE(OFFSET_DOMAIN_ID, offsetof(struct domain, domain_id));
-	.loc 1 32 2
-// 32 "arch/arm64/asm-offsets.c" 1
-	
-->OFFSET_DOMAIN_ID 0 offsetof(struct domain, domain_id)	//
-// 0 "" 2
-// arch/arm64/asm-offsets.c:34: 	DEFINE(OFFSET_EVTCHN_UPCALL_PENDING, offsetof(struct shared_info, evtchn_upcall_pending));
+// arch/arm64/asm-offsets.c:34: 	DEFINE(OFFSET_DOMAIN_ID, offsetof(struct domain, domain_id));
 	.loc 1 34 2
 // 34 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_EVTCHN_UPCALL_PENDING 0 offsetof(struct shared_info, evtchn_upcall_pending)	//
+->OFFSET_DOMAIN_ID 0 offsetof(struct domain, domain_id)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:36: 	DEFINE(OFFSET_HYPERVISOR_CALLBACK,  offsetof(struct domain, event_callback));
+// arch/arm64/asm-offsets.c:36: 	DEFINE(OFFSET_EVTCHN_UPCALL_PENDING, offsetof(struct shared_info, evtchn_upcall_pending));
 	.loc 1 36 2
 // 36 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_HYPERVISOR_CALLBACK 288 offsetof(struct domain, event_callback)	//
+->OFFSET_EVTCHN_UPCALL_PENDING 0 offsetof(struct shared_info, evtchn_upcall_pending)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:37: 	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct domain, domcall));
-	.loc 1 37 2
-// 37 "arch/arm64/asm-offsets.c" 1
-	
-->OFFSET_DOMCALL_CALLBACK 296 offsetof(struct domain, domcall)	//
-// 0 "" 2
-// arch/arm64/asm-offsets.c:38: 	DEFINE(OFFSET_G_SP,		 offsetof(struct domain, g_sp));
+// arch/arm64/asm-offsets.c:38: 	DEFINE(OFFSET_HYPERVISOR_CALLBACK,  offsetof(struct domain, event_callback));
 	.loc 1 38 2
 // 38 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_G_SP 280 offsetof(struct domain, g_sp)	//
+->OFFSET_HYPERVISOR_CALLBACK 288 offsetof(struct domain, event_callback)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:40: 	DEFINE(OFFSET_CPU_REGS,		offsetof(struct domain, cpu_regs));
+// arch/arm64/asm-offsets.c:39: 	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct domain, domcall));
+	.loc 1 39 2
+// 39 "arch/arm64/asm-offsets.c" 1
+	
+->OFFSET_DOMCALL_CALLBACK 296 offsetof(struct domain, domcall)	//
+// 0 "" 2
+// arch/arm64/asm-offsets.c:40: 	DEFINE(OFFSET_G_SP,		 offsetof(struct domain, g_sp));
 	.loc 1 40 2
 // 40 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_CPU_REGS 8 offsetof(struct domain, cpu_regs)	//
+->OFFSET_G_SP 280 offsetof(struct domain, g_sp)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:42: 	BLANK();
+// arch/arm64/asm-offsets.c:42: 	DEFINE(OFFSET_CPU_REGS,		offsetof(struct domain, cpu_regs));
 	.loc 1 42 2
 // 42 "arch/arm64/asm-offsets.c" 1
 	
-->	
+->OFFSET_CPU_REGS 8 offsetof(struct domain, cpu_regs)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:44: 	DEFINE(OFFSET_X0,		offsetof(struct cpu_regs, x0));
+// arch/arm64/asm-offsets.c:44: 	BLANK();
 	.loc 1 44 2
 // 44 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X0 0 offsetof(struct cpu_regs, x0)	//
+->	
 // 0 "" 2
-// arch/arm64/asm-offsets.c:45: 	DEFINE(OFFSET_X1,		offsetof(struct cpu_regs, x1));
-	.loc 1 45 2
-// 45 "arch/arm64/asm-offsets.c" 1
-	
-->OFFSET_X1 8 offsetof(struct cpu_regs, x1)	//
-// 0 "" 2
-// arch/arm64/asm-offsets.c:46: 	DEFINE(OFFSET_X2,		offsetof(struct cpu_regs, x2));
+// arch/arm64/asm-offsets.c:46: 	DEFINE(OFFSET_X0,		offsetof(struct cpu_regs, x0));
 	.loc 1 46 2
 // 46 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X2 16 offsetof(struct cpu_regs, x2)	//
+->OFFSET_X0 0 offsetof(struct cpu_regs, x0)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:47: 	DEFINE(OFFSET_X3,		offsetof(struct cpu_regs, x3));
+// arch/arm64/asm-offsets.c:47: 	DEFINE(OFFSET_X1,		offsetof(struct cpu_regs, x1));
 	.loc 1 47 2
 // 47 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X3 24 offsetof(struct cpu_regs, x3)	//
+->OFFSET_X1 8 offsetof(struct cpu_regs, x1)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:48: 	DEFINE(OFFSET_X4,		offsetof(struct cpu_regs, x4));
+// arch/arm64/asm-offsets.c:48: 	DEFINE(OFFSET_X2,		offsetof(struct cpu_regs, x2));
 	.loc 1 48 2
 // 48 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X4 32 offsetof(struct cpu_regs, x4)	//
+->OFFSET_X2 16 offsetof(struct cpu_regs, x2)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:49: 	DEFINE(OFFSET_X5,		offsetof(struct cpu_regs, x5));
+// arch/arm64/asm-offsets.c:49: 	DEFINE(OFFSET_X3,		offsetof(struct cpu_regs, x3));
 	.loc 1 49 2
 // 49 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X5 40 offsetof(struct cpu_regs, x5)	//
+->OFFSET_X3 24 offsetof(struct cpu_regs, x3)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:50: 	DEFINE(OFFSET_X6,		offsetof(struct cpu_regs, x6));
+// arch/arm64/asm-offsets.c:50: 	DEFINE(OFFSET_X4,		offsetof(struct cpu_regs, x4));
 	.loc 1 50 2
 // 50 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X6 48 offsetof(struct cpu_regs, x6)	//
+->OFFSET_X4 32 offsetof(struct cpu_regs, x4)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:51: 	DEFINE(OFFSET_X7,		offsetof(struct cpu_regs, x7));
+// arch/arm64/asm-offsets.c:51: 	DEFINE(OFFSET_X5,		offsetof(struct cpu_regs, x5));
 	.loc 1 51 2
 // 51 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X7 56 offsetof(struct cpu_regs, x7)	//
+->OFFSET_X5 40 offsetof(struct cpu_regs, x5)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:52: 	DEFINE(OFFSET_X8,		offsetof(struct cpu_regs, x8));
+// arch/arm64/asm-offsets.c:52: 	DEFINE(OFFSET_X6,		offsetof(struct cpu_regs, x6));
 	.loc 1 52 2
 // 52 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X8 64 offsetof(struct cpu_regs, x8)	//
+->OFFSET_X6 48 offsetof(struct cpu_regs, x6)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:53: 	DEFINE(OFFSET_X9,		offsetof(struct cpu_regs, x9));
+// arch/arm64/asm-offsets.c:53: 	DEFINE(OFFSET_X7,		offsetof(struct cpu_regs, x7));
 	.loc 1 53 2
 // 53 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X9 72 offsetof(struct cpu_regs, x9)	//
+->OFFSET_X7 56 offsetof(struct cpu_regs, x7)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:54: 	DEFINE(OFFSET_X10,		offsetof(struct cpu_regs, x10));
+// arch/arm64/asm-offsets.c:54: 	DEFINE(OFFSET_X8,		offsetof(struct cpu_regs, x8));
 	.loc 1 54 2
 // 54 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X10 80 offsetof(struct cpu_regs, x10)	//
+->OFFSET_X8 64 offsetof(struct cpu_regs, x8)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:55: 	DEFINE(OFFSET_X11,		offsetof(struct cpu_regs, x11));
+// arch/arm64/asm-offsets.c:55: 	DEFINE(OFFSET_X9,		offsetof(struct cpu_regs, x9));
 	.loc 1 55 2
 // 55 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X11 88 offsetof(struct cpu_regs, x11)	//
+->OFFSET_X9 72 offsetof(struct cpu_regs, x9)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:56: 	DEFINE(OFFSET_X12,		offsetof(struct cpu_regs, x12));
+// arch/arm64/asm-offsets.c:56: 	DEFINE(OFFSET_X10,		offsetof(struct cpu_regs, x10));
 	.loc 1 56 2
 // 56 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X12 96 offsetof(struct cpu_regs, x12)	//
+->OFFSET_X10 80 offsetof(struct cpu_regs, x10)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:57: 	DEFINE(OFFSET_X13,		offsetof(struct cpu_regs, x13));
+// arch/arm64/asm-offsets.c:57: 	DEFINE(OFFSET_X11,		offsetof(struct cpu_regs, x11));
 	.loc 1 57 2
 // 57 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X13 104 offsetof(struct cpu_regs, x13)	//
+->OFFSET_X11 88 offsetof(struct cpu_regs, x11)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:58: 	DEFINE(OFFSET_X14,		offsetof(struct cpu_regs, x14));
+// arch/arm64/asm-offsets.c:58: 	DEFINE(OFFSET_X12,		offsetof(struct cpu_regs, x12));
 	.loc 1 58 2
 // 58 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X14 112 offsetof(struct cpu_regs, x14)	//
+->OFFSET_X12 96 offsetof(struct cpu_regs, x12)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:59: 	DEFINE(OFFSET_X15,		offsetof(struct cpu_regs, x15));
+// arch/arm64/asm-offsets.c:59: 	DEFINE(OFFSET_X13,		offsetof(struct cpu_regs, x13));
 	.loc 1 59 2
 // 59 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X15 120 offsetof(struct cpu_regs, x15)	//
+->OFFSET_X13 104 offsetof(struct cpu_regs, x13)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:60: 	DEFINE(OFFSET_X16,		offsetof(struct cpu_regs, x16));
+// arch/arm64/asm-offsets.c:60: 	DEFINE(OFFSET_X14,		offsetof(struct cpu_regs, x14));
 	.loc 1 60 2
 // 60 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X16 128 offsetof(struct cpu_regs, x16)	//
+->OFFSET_X14 112 offsetof(struct cpu_regs, x14)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:61: 	DEFINE(OFFSET_X17,		offsetof(struct cpu_regs, x17));
+// arch/arm64/asm-offsets.c:61: 	DEFINE(OFFSET_X15,		offsetof(struct cpu_regs, x15));
 	.loc 1 61 2
 // 61 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X17 136 offsetof(struct cpu_regs, x17)	//
+->OFFSET_X15 120 offsetof(struct cpu_regs, x15)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:62: 	DEFINE(OFFSET_X18,		offsetof(struct cpu_regs, x18));
+// arch/arm64/asm-offsets.c:62: 	DEFINE(OFFSET_X16,		offsetof(struct cpu_regs, x16));
 	.loc 1 62 2
 // 62 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X18 144 offsetof(struct cpu_regs, x18)	//
+->OFFSET_X16 128 offsetof(struct cpu_regs, x16)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:63: 	DEFINE(OFFSET_X19,		offsetof(struct cpu_regs, x19));
+// arch/arm64/asm-offsets.c:63: 	DEFINE(OFFSET_X17,		offsetof(struct cpu_regs, x17));
 	.loc 1 63 2
 // 63 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X19 152 offsetof(struct cpu_regs, x19)	//
+->OFFSET_X17 136 offsetof(struct cpu_regs, x17)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:64: 	DEFINE(OFFSET_X20,		offsetof(struct cpu_regs, x20));
+// arch/arm64/asm-offsets.c:64: 	DEFINE(OFFSET_X18,		offsetof(struct cpu_regs, x18));
 	.loc 1 64 2
 // 64 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X20 160 offsetof(struct cpu_regs, x20)	//
+->OFFSET_X18 144 offsetof(struct cpu_regs, x18)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:65: 	DEFINE(OFFSET_X21,		offsetof(struct cpu_regs, x21));
+// arch/arm64/asm-offsets.c:65: 	DEFINE(OFFSET_X19,		offsetof(struct cpu_regs, x19));
 	.loc 1 65 2
 // 65 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X21 168 offsetof(struct cpu_regs, x21)	//
+->OFFSET_X19 152 offsetof(struct cpu_regs, x19)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:66: 	DEFINE(OFFSET_X22,		offsetof(struct cpu_regs, x22));
+// arch/arm64/asm-offsets.c:66: 	DEFINE(OFFSET_X20,		offsetof(struct cpu_regs, x20));
 	.loc 1 66 2
 // 66 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X22 176 offsetof(struct cpu_regs, x22)	//
+->OFFSET_X20 160 offsetof(struct cpu_regs, x20)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:67: 	DEFINE(OFFSET_X23,		offsetof(struct cpu_regs, x23));
+// arch/arm64/asm-offsets.c:67: 	DEFINE(OFFSET_X21,		offsetof(struct cpu_regs, x21));
 	.loc 1 67 2
 // 67 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X23 184 offsetof(struct cpu_regs, x23)	//
+->OFFSET_X21 168 offsetof(struct cpu_regs, x21)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:68: 	DEFINE(OFFSET_X24,		offsetof(struct cpu_regs, x24));
+// arch/arm64/asm-offsets.c:68: 	DEFINE(OFFSET_X22,		offsetof(struct cpu_regs, x22));
 	.loc 1 68 2
 // 68 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X24 192 offsetof(struct cpu_regs, x24)	//
+->OFFSET_X22 176 offsetof(struct cpu_regs, x22)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:69: 	DEFINE(OFFSET_X25,		offsetof(struct cpu_regs, x25));
+// arch/arm64/asm-offsets.c:69: 	DEFINE(OFFSET_X23,		offsetof(struct cpu_regs, x23));
 	.loc 1 69 2
 // 69 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X25 200 offsetof(struct cpu_regs, x25)	//
+->OFFSET_X23 184 offsetof(struct cpu_regs, x23)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:70: 	DEFINE(OFFSET_X26,		offsetof(struct cpu_regs, x26));
+// arch/arm64/asm-offsets.c:70: 	DEFINE(OFFSET_X24,		offsetof(struct cpu_regs, x24));
 	.loc 1 70 2
 // 70 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X26 208 offsetof(struct cpu_regs, x26)	//
+->OFFSET_X24 192 offsetof(struct cpu_regs, x24)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:71: 	DEFINE(OFFSET_X27,		offsetof(struct cpu_regs, x27));
+// arch/arm64/asm-offsets.c:71: 	DEFINE(OFFSET_X25,		offsetof(struct cpu_regs, x25));
 	.loc 1 71 2
 // 71 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X27 216 offsetof(struct cpu_regs, x27)	//
+->OFFSET_X25 200 offsetof(struct cpu_regs, x25)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:72: 	DEFINE(OFFSET_X28,		offsetof(struct cpu_regs, x28));
+// arch/arm64/asm-offsets.c:72: 	DEFINE(OFFSET_X26,		offsetof(struct cpu_regs, x26));
 	.loc 1 72 2
 // 72 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_X28 224 offsetof(struct cpu_regs, x28)	//
+->OFFSET_X26 208 offsetof(struct cpu_regs, x26)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:73: 	DEFINE(OFFSET_FP,		offsetof(struct cpu_regs, fp));
+// arch/arm64/asm-offsets.c:73: 	DEFINE(OFFSET_X27,		offsetof(struct cpu_regs, x27));
 	.loc 1 73 2
 // 73 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_FP 232 offsetof(struct cpu_regs, fp)	//
+->OFFSET_X27 216 offsetof(struct cpu_regs, x27)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:74: 	DEFINE(OFFSET_LR,		offsetof(struct cpu_regs, lr));
+// arch/arm64/asm-offsets.c:74: 	DEFINE(OFFSET_X28,		offsetof(struct cpu_regs, x28));
 	.loc 1 74 2
 // 74 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_LR 240 offsetof(struct cpu_regs, lr)	//
+->OFFSET_X28 224 offsetof(struct cpu_regs, x28)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:75: 	DEFINE(OFFSET_SP,		offsetof(struct cpu_regs, sp));
+// arch/arm64/asm-offsets.c:75: 	DEFINE(OFFSET_FP,		offsetof(struct cpu_regs, fp));
 	.loc 1 75 2
 // 75 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_SP 248 offsetof(struct cpu_regs, sp)	//
+->OFFSET_FP 232 offsetof(struct cpu_regs, fp)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:76: 	DEFINE(OFFSET_PC,		offsetof(struct cpu_regs, pc));
+// arch/arm64/asm-offsets.c:76: 	DEFINE(OFFSET_LR,		offsetof(struct cpu_regs, lr));
 	.loc 1 76 2
 // 76 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_PC 256 offsetof(struct cpu_regs, pc)	//
+->OFFSET_LR 240 offsetof(struct cpu_regs, lr)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:77: 	DEFINE(OFFSET_PSTATE,		offsetof(struct cpu_regs, pstate));
+// arch/arm64/asm-offsets.c:77: 	DEFINE(OFFSET_SP,		offsetof(struct cpu_regs, sp));
 	.loc 1 77 2
 // 77 "arch/arm64/asm-offsets.c" 1
 	
+->OFFSET_SP 248 offsetof(struct cpu_regs, sp)	//
+// 0 "" 2
+// arch/arm64/asm-offsets.c:78: 	DEFINE(OFFSET_PC,		offsetof(struct cpu_regs, pc));
+	.loc 1 78 2
+// 78 "arch/arm64/asm-offsets.c" 1
+	
+->OFFSET_PC 256 offsetof(struct cpu_regs, pc)	//
+// 0 "" 2
+// arch/arm64/asm-offsets.c:79: 	DEFINE(OFFSET_PSTATE,		offsetof(struct cpu_regs, pstate));
+	.loc 1 79 2
+// 79 "arch/arm64/asm-offsets.c" 1
+	
 ->OFFSET_PSTATE 264 offsetof(struct cpu_regs, pstate)	//
 // 0 "" 2
-// arch/arm64/asm-offsets.c:79: 	return 0;
-	.loc 1 79 9
+// arch/arm64/asm-offsets.c:81: 	BLANK();
+	.loc 1 81 2
+// 81 "arch/arm64/asm-offsets.c" 1
+	
+->	
+// 0 "" 2
+// arch/arm64/asm-offsets.c:83: 	DEFINE(ARM_SMCCC_RES_X0_OFFS,		offsetof(struct arm_smccc_res, a0));
+	.loc 1 83 2
+// 83 "arch/arm64/asm-offsets.c" 1
+	
+->ARM_SMCCC_RES_X0_OFFS 0 offsetof(struct arm_smccc_res, a0)	//
+// 0 "" 2
+// arch/arm64/asm-offsets.c:84: 	DEFINE(ARM_SMCCC_RES_X2_OFFS,		offsetof(struct arm_smccc_res, a2));
+	.loc 1 84 2
+// 84 "arch/arm64/asm-offsets.c" 1
+	
+->ARM_SMCCC_RES_X2_OFFS 16 offsetof(struct arm_smccc_res, a2)	//
+// 0 "" 2
+// arch/arm64/asm-offsets.c:85: 	DEFINE(ARM_SMCCC_QUIRK_ID_OFFS,	offsetof(struct arm_smccc_quirk, id));
+	.loc 1 85 2
+// 85 "arch/arm64/asm-offsets.c" 1
+	
+->ARM_SMCCC_QUIRK_ID_OFFS 0 offsetof(struct arm_smccc_quirk, id)	//
+// 0 "" 2
+// arch/arm64/asm-offsets.c:86: 	DEFINE(ARM_SMCCC_QUIRK_STATE_OFFS,	offsetof(struct arm_smccc_quirk, state));
+	.loc 1 86 2
+// 86 "arch/arm64/asm-offsets.c" 1
+	
+->ARM_SMCCC_QUIRK_STATE_OFFS 8 offsetof(struct arm_smccc_quirk, state)	//
+// 0 "" 2
+// arch/arm64/asm-offsets.c:88: 	BLANK();
+	.loc 1 88 2
+// 88 "arch/arm64/asm-offsets.c" 1
+	
+->	
+// 0 "" 2
+// arch/arm64/asm-offsets.c:90: 	return 0;
+	.loc 1 90 9
 #NO_APP
 	mov	w0, 0	// _1,
-// arch/arm64/asm-offsets.c:80: }
-	.loc 1 80 1
+// arch/arm64/asm-offsets.c:91: }
+	.loc 1 91 1
 	ret	
 .LFE81:
 	.size	main, .-main
@@ -426,7 +462,7 @@ main:
 	.uleb128 0x4
 	.4byte	.LASF11
 	.byte	0x1
-	.byte	0x1c
+	.byte	0x1e
 	.byte	0x5
 	.4byte	0x50
 	.8byte	.LFB81
