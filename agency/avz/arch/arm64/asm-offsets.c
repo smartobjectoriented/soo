@@ -18,6 +18,8 @@
 
 #include <sched.h>
 
+#include <asm/smccc.h>
+
 /* Use marker if you need to separate the values later */
 
 #define DEFINE(sym, val) \
@@ -75,6 +77,15 @@ int main(void)
 	DEFINE(OFFSET_SP,		offsetof(struct cpu_regs, sp));
 	DEFINE(OFFSET_PC,		offsetof(struct cpu_regs, pc));
 	DEFINE(OFFSET_PSTATE,		offsetof(struct cpu_regs, pstate));
+
+	BLANK();
+
+	DEFINE(ARM_SMCCC_RES_X0_OFFS,		offsetof(struct arm_smccc_res, a0));
+	DEFINE(ARM_SMCCC_RES_X2_OFFS,		offsetof(struct arm_smccc_res, a2));
+	DEFINE(ARM_SMCCC_QUIRK_ID_OFFS,	offsetof(struct arm_smccc_quirk, id));
+	DEFINE(ARM_SMCCC_QUIRK_STATE_OFFS,	offsetof(struct arm_smccc_quirk, state));
+
+	BLANK();
 
 	return 0;
 }

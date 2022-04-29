@@ -1,5 +1,6 @@
+
 /*
- * Copyright (C) 2014-2017 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,9 +20,10 @@
 #ifndef ARM_TIMER_H
 #define ARM_TIMER_H
 
-#include <types.h>
-
-#include <asm/processor.h>
+#define ARCH_TIMER_PHYS_ACCESS		0
+#define ARCH_TIMER_VIRT_ACCESS		1
+#define ARCH_TIMER_MEM_PHYS_ACCESS	2
+#define ARCH_TIMER_MEM_VIRT_ACCESS	3
 
 #define ARCH_TIMER_CTRL_ENABLE		(1 << 0)
 #define ARCH_TIMER_CTRL_IT_MASK		(1 << 1)
@@ -31,6 +33,8 @@ enum arch_timer_reg {
 	ARCH_TIMER_REG_CTRL,
 	ARCH_TIMER_REG_TVAL,
 };
+
+#include <asm/arm_timer.h>
 
 #endif /* ARM_TIMER_H */
 

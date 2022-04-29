@@ -441,7 +441,7 @@ void replace_current_pgtable_with(void *pgtable) {
 /*
  * Initial configuration of system page table
  */
-void mmu_configure(addr_t l0pgtable, addr_t fdt_addr) {
+void mmu_configure(addr_t fdt_addr) {
 
 	icache_disable();
 	dcache_disable();
