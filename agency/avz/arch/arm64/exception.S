@@ -21,6 +21,8 @@
 
 #include <asm/processor.h>
 
+.extern do_upcall
+
 .global __vectors
 
 .globl  pseudo_usr_mode
@@ -287,32 +289,33 @@ ENTRY(after_migrate_to_user)
 #endif
 
 ENTRY(ret_to_user)
-#if 0
-	disable_irq 					@ ensure IRQs are disabled
+
+	// Ensure IRQs are disabled
+	disable_irq
 
 	bl	do_softirq
 
-	vcpu	r10
-	ldr		r11, [r10, #OFFSET_SHARED_INFO]
+	curdom  x10, x11
+	ldr		x11, [x10, #OFFSET_SHARED_INFO]
 
-	@ If the softirq handling leads to trigger an interrupt in the guest,
-	@ it will be processed by do_evtchn_do_upcall. The way how to
-	@ process an interrupt with potentially IRQs off is under the
-	@ responsibility of the guest
+	// If the softirq handling leads to trigger an interrupt in the guest,
+	// it will be processed by do_evtchn_do_upcall. The way how to
+	// process an interrupt with potentially IRQs off is under the
+	// responsibility of the guest
 
-	@ are some IRQs pending?
-	ldrb	r12, [r11, #OFFSET_EVTCHN_UPCALL_PENDING]
-	tst		r12, #0xff
+	// Are some IRQs pending?
+	ldrb	w12, [x11, #OFFSET_EVTCHN_UPCALL_PENDING]
+	tst		w12, #0xff
 
-	beq	restore
+	b.eq	restore
 
 	b	do_upcall
-#endif
+
 
 /*
  * Send event to guest domain
  */
-ENTRY(do_upcall)
+
 #if 0
 	disable_irq
 
@@ -343,7 +346,7 @@ ENTRY(do_upcall)
 	mov		pc, lr
 #endif
 
-ENTRY(restore)
+
 #if 0
 	current_cpu r11
 

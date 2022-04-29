@@ -25,6 +25,9 @@
 
 .extern hypervisor_stack
 
+.global restore
+.global do_upcall
+
 .align  5
 ENTRY(ret_from_hypercall)
 
@@ -78,6 +81,8 @@ do_upcall:
 
 	// r0 contains a reference to the stack pointer
 	mov		x0, sp
+
+	msr		elr_el1, lr
 
 	ret
 
