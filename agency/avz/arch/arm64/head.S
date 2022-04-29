@@ -31,6 +31,7 @@
 
 .extern clear_bss
 .extern mmu_configure
+.extern __vectors
 
 .extern __cpu0_stack
 
@@ -71,8 +72,13 @@ __start:
 	cmp		x0, x1
 	b.cc	1b
 
+	// Initialize the vector table
+	ldr	x0, =__vectors
+	msr vbar_el1, x0
+
+	// Enable FP/ASIMD
 	mov	x0, #3 << 20
-	msr	cpacr_el1, x0			// Enable FP/ASIMD
+	msr	cpacr_el1, x0
 
     // Up to here, a stack should be initialized
 
@@ -276,7 +282,59 @@ install_el2_stub:
 	eret
 
 
-    .align
+ENTRY(secondary_startup)
+	/*
+     * Common entry point for secondary CPUs.
+     *
+     * Ensure that we're in SVC mode, and IRQs are disabled.  Lookup
+     * the processor type - there is no need to check the machine type
+     * as it has already been validated by the primary processor.
+     */
+
+	// Mostly for future usage...
+	bl		el2_setup			// Drop to EL1, w0=cpu_boot_mode
+
+	// Initialize the vector table
+	ldr	x0, =__vectors
+	msr vbar_el1, x0
+
+	// Enable FP/ASIMD
+	mov	x0, #3 << 20
+	msr	cpacr_el1, x0
+
+    adr 	x4, __secondary_data
+
+	ldr		x5, [x4]
+	ldr		x19, [x4, #8]
+
+	// Nice trick to retrieve secondary_data field values (pgdir, stack)
+	// x5 is a virtual addresses at same location than x4 containing the physical location.
+	// So x10 will contain the offset
+	sub		x10, x4, x5
+
+	// Get secondary_data.pgdir (x19 is virtual, x0 is physical)
+	ldr		x0, [x10, x19]
+
+	// Get the stack pointer (virt. address)
+	add		x19, x19, #8
+	ldr		x8, [x10, x19]
+	mov		sp, x8
+
+	// Convert to physical address
+	add		sp, sp, x10
+
+	bl		mmu_configure
+
+	ldr		x8, [x19]
+	mov		sp, x8
+
+  	// Keep executing in the kernel space
+
+  	// Store the virtual address which will be used to continue
+    // execution after the MMU enabled.
+  	ldr		x19, .LC_virt_secondary_entry
+
+  	blr		x19
 
     .type   __secondary_data, %object
 __secondary_data:
@@ -297,7 +355,7 @@ __fdt_addr:
 
 .align 13
 
-// Before MMU is enabled, we cannot refer to the normal stack as declared in the linker script
+	// Before MMU is enabled, we cannot refer to the normal stack as declared in the linker script
 
 	.space 4096
 temp_stack:

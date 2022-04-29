@@ -368,7 +368,8 @@
 			compatible = "arm,cortex-a72";
 			device_type = "cpu";
 		};
-
+		
+#if 0 /* SOO.tech */
 		cpu@2 {
 			reg = <0x02>;
 			enable-method = "psci";
@@ -382,6 +383,8 @@
 			compatible = "arm,cortex-a72";
 			device_type = "cpu";
 		};
+#endif /* 0 */ 
+		
 	};
 
 	timer {

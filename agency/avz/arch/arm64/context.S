@@ -34,7 +34,7 @@ ENTRY(__mmu_switch)
     isb                          /* Ensure synchronization with previous changes to text */
 
     // At the hypervisor level, we take care about TTBR1 page table only.
-    msr    TTBR1_EL1, x0
+    msr    ttbr1_el1, x0
 
     isb
 

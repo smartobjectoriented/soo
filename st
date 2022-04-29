@@ -22,7 +22,7 @@ launch_qemu() {
 
     if [ "$PLATFORM" == "virt64" ]; then
 
-    sudo qemu/build/qemu-system-aarch64 $@ \
+    sudo qemu/build/qemu-system-aarch64 $@ ${USR_OPTION} \
   	-smp 4 -s \
 	-serial mon:stdio  \
 	-M virt,gic-version=2 -cpu cortex-a72  \
