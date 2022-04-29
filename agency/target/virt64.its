@@ -42,8 +42,8 @@
 			arch = "arm64";
 			os = "linux";
 			compression = "none";
-			load = <0x41080000>;
-			entry = <0x41080000>;
+			load = <0x41000000>;
+			entry = <0x41000000>;
 		};
 
         fdt {
@@ -52,7 +52,7 @@
 			type = "flat_dt";
 			arch = "arm64";
 			compression = "none";
-			load = <0x50a00000>;
+			load = <0x50000000>;
 		};
 
 		initrd {
