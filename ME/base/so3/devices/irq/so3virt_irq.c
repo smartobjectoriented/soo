@@ -60,19 +60,19 @@ static void disable_dynirq(unsigned int irq) {
 	mask_dynirq(irq);
 }
 
-static int so3virt_irq_init(dev_t *dev) {
+static int so3virt_irq_init(dev_t *dev, int fdt_offset) {
 
 	DBG("%s\n", __FUNCTION__);
 
 	DBG("%s 0x%08x bit %d\n", __func__, (unsigned int) &regs->gicd_spendsgirn[54/32], 54 % 32);
 
-	irq_ops.irq_mask = mask_dynirq;
-	irq_ops.irq_unmask = unmask_dynirq;
+	irq_ops.mask = mask_dynirq;
+	irq_ops.unmask = unmask_dynirq;
 
-	irq_ops.irq_enable = enable_dynirq;
-	irq_ops.irq_disable = disable_dynirq;
+	irq_ops.enable = enable_dynirq;
+	irq_ops.disable = disable_dynirq;
 
-	irq_ops.irq_handle = dynirq_handle;
+	irq_ops.handle = dynirq_handle;
 
 	return 0;
 }

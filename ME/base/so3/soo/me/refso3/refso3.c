@@ -53,7 +53,7 @@
  * small applications like a shell and the LVGL demo application.
  *
  */
-int app_thread_main(void *args) {
+void *app_thread_main(void *args) {
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
@@ -69,5 +69,5 @@ int app_thread_main(void *args) {
 
 	}
 
-	return 0;
+	return NULL;
 }

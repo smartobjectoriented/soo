@@ -21,6 +21,8 @@
 #define DEBUG
 #endif
 
+#include <memory.h>
+
 #include <soo/avz.h>
 #include <soo/soo.h>
 #include <soo/hypervisor.h>

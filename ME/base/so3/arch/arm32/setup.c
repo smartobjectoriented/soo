@@ -140,11 +140,6 @@ void setup_arch(void) {
 	setup_exception_stacks();
 #endif /* !CONFIG_SO3VIRT */
 
-	/* Keep a reference to the 1st-level system page table */
-#ifdef CONFIG_MMU
-	__sys_l1pgtable = (unsigned int *) (CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET);
-#endif
-
 #if 0 /* At the moment, we do not handle security in user space */
 	/* Change the domain access controller to enable kernel protection against user access */
 	set_domain(0xfffffffd);
