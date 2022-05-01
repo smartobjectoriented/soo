@@ -231,7 +231,7 @@ static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
 
 		for (vaddr = CONFIG_KERNEL_VIRT_ADDR; ((vaddr != 0) && (vaddr < 0xffffffff)); vaddr += TTB_SECT_SIZE) {
 			l1pte = l1pte_offset(pcb->pgtable, vaddr);
-			l1pte_current = l1pte_offset(__sys_l1pgtable, vaddr);
+			l1pte_current = l1pte_offset(__sys_root_pgtable, vaddr);
 
 			*l1pte = *l1pte_current;
 

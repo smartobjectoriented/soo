@@ -111,7 +111,7 @@ void evtchn_do_upcall(cpu_regs_t *regs)
 	 * of the IRQ line).
 	 */
 
-	if (irqs_disabled_flags(regs->psr))
+	if (irqs_disabled_flags(regs))
 		return ;
 
 	in_upcall_progress = true;
@@ -242,7 +242,7 @@ void bind_virq(unsigned int virq)
 	int evtchn;
 	unsigned long flags;
 
-	spin_lock_irqsave(&irq_mapping_update_lock, flags);
+	flags = spin_lock_irqsave(&irq_mapping_update_lock);
 
 	bind_virq.virq = virq;
 	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_virq, (long) &bind_virq, 0, 0);

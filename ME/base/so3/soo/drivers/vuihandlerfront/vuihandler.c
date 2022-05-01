@@ -464,7 +464,7 @@ vdrvfront_t vuihandlerdrv = {
 	.connected = vuihandler_connected
 };
 
-static int vuihandler_init(dev_t *dev) {
+static int vuihandler_init(dev_t *dev, int fdt_offset) {
 
 	vuihandler_priv_t *vuihandler_priv;
 

@@ -130,7 +130,7 @@ int do_sync_domain_interactions(void *arg)
 
 	map_vbstore_page(args->vbstore_pfn, false);
 
-	l1pte_current = l1pte_offset(__sys_l1pgtable, HYPERVISOR_VBSTORE_VADDR);
+	l1pte_current = l1pte_offset(__sys_root_pgtable, HYPERVISOR_VBSTORE_VADDR);
 
 	list_for_each_entry(pcb, &proc_list, list)
 	{

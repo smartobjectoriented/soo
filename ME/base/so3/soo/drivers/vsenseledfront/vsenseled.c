@@ -220,7 +220,7 @@ vdrvfront_t vsenseleddrv = {
 	.connected = vsenseled_connected
 };
 
-static int vsenseled_init(dev_t *dev) {
+static int vsenseled_init(dev_t *dev, int fdt_offset) {
 	vsenseled_priv_t *vsenseled_priv;
 
 	vsenseled_priv = malloc(sizeof(vsenseled_priv_t));
