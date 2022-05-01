@@ -61,17 +61,7 @@ if [ "$var" != "" ]; then
 fi
 done < build.conf
 
-if [ "$TYPE" != "" ]; then
-  PLATFORM_TYPE=${PLATFORM}_${TYPE}
-else
-  PLATFORM_TYPE=${PLATFORM}
-fi
-
-export PLATFORM_TYPE
-
-# We now have ${PLATFORM} which names the platform base
-# and ${PLATFORM_TYPE} to be used when the type is required.
-# Note that ${PLATFORM_TYPE} can be equal to ${PLATFORM} if no type is specified.
+# We now have ${PLATFORM} which names the platform base.
 
 if [ "$PLATFORM" != "vexpress" -a "$PLATFORM" != "virt64" ]; then
     echo "Specify the device name of MMC (ex: sdb or mmcblk0 or other...)"
