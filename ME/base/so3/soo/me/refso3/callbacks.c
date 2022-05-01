@@ -119,9 +119,7 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
 	agency_ctl_args_t agency_ctl_args;
-
-	unsigned int i;
-
+        
 	lprintk("[soo:me:SOO.refSO3] ME %d: cb_cooperate...\n", ME_domID());
 
 	switch (cooperate_args->role) {
@@ -151,6 +149,11 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
+
+		/* In the SOO.refso3 ME, we simply destroy the initiator */
+		agency_ctl_args.cmd = AG_KILL_ME;
+		agency_ctl_args.slotID = cooperate_args->u.initiator_coop.slotID;
+		args->__agency_ctl(&agency_ctl_args);
 
 		break;
 
@@ -216,6 +219,9 @@ void callbacks_init(void) {
 
 	/* Initialize the shared content page used to exchange information between other MEs */
 	memset(sh_refso3, 0, PAGE_SIZE);
+
+	/* Set the SPAD capabilities (currently not used) */
+	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));
 
 }
 
