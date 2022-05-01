@@ -16,7 +16,6 @@
  *
  */
 
-#include <config.h>
 #include <linkage.h>
 
 #include <device/arch/gic.h>
@@ -29,17 +28,12 @@
 .global __start
 .global __fdt_addr
 
-.global cpu1_stack
-.global cpu2_stack
-.global cpu3_stack
-
 .extern clear_bss
 .extern mmu_configure
-
 .extern __stack_top
+.extern __vectors
 
 .section ".head.text","ax"
-
 
 __pre_head:
 	b	__start					// branch to the main entry point
@@ -59,11 +53,15 @@ __start:
 	// Preserve the fdt addr (device tree) which is stored in x0 by U-boot
 	mov		x9, x0
 
+	//Store the DT addr in a safe place which can be accessed on a relocatable address
+	adr     x8, .LCfdt_addr_temp
+	str 	x9, [x8]
+
 	// Mostly for future usage...
 	bl		el2_setup			// Drop to EL1, w0=cpu_boot_mode
 
-    // Initialize stack pointers for current mode (normal case if no MMU is used)
-    adrp	x0, cpu0_stack
+    // Use a temporary stack
+    adrp	x0, temp_stack
     mov		sp, x0
 
 	/* Clear the BSS */
@@ -76,34 +74,53 @@ __start:
 	cmp		x0, x1
 	b.cc	1b
 
+	// Initialize the vector table
+	ldr	x0, =__vectors
+	msr vbar_el1, x0
+
+	// Enable FP/ASIMD
 	mov	x0, #3 << 20
-	msr	cpacr_el1, x0			// Enable FP/ASIMD
+	msr	cpacr_el1, x0
 
     // Up to here, a stack should be initialized
+
+	// Some CPU setup
+	msr pmuserenr_el0, xzr
 
 	// Set up the MMU
     b		mmu_setup
 
 __kernel_main:
 
+	// Store the device tree paddr
+	adr     x8, .LCfdt_addr_temp
+	ldr 	x9, [x8]
+
+	ldr	x0, =__fdt_addr
+	str	x9, [x0]
+
 	// C main entry point
 	b 	kernel_start
 
 	// never returns...
+
+.LCfdt_addr_temp:
+	.quad 0
 
 .align 2
 
 mmu_setup:
 
   // Use a temporary stack
-  adrp	x0, cpu0_stack
+  adrp	x0, temp_stack
   mov	sp, x0
 
   mov	x0, x9 // fdt addr
+
   bl 	mmu_configure
 
   // Readjust the stack
-  ldr	x0, =cpu0_stack
+  ldr	x0, =.LCstack_top
   mov	sp, x0
 
   // Keep executing in the kernel space
@@ -111,6 +128,7 @@ mmu_setup:
   // Store the virtual address which will be used to continue
   // the execution after the MMU enabled.
   ldr	x0, .LCvirt_entry
+
   blr	x0
 
 /*
@@ -273,152 +291,26 @@ install_el2_stub:
 	msr	spsr_el2, x0
 	msr	elr_el2, lr
 	mov	w0, #BOOT_CPU_MODE_EL2		// This CPU booted in EL2
+
 	eret
-
-
-#if 0
-
-_start:
-
-
-  @ r1 = machine id
-  @ r2 = dtb address
-
-  bl 	__hyp_stub_install
-
-  @ Make sure we start in SVC mode
-
-  safe_svcmode_maskall r9
-
-  msr  	cpsr_c, #PSR_F_BIT | PSR_I_BIT | PSR_MODE_SVC @ ensure svc mode and irqs disabled
-
-  @ Preserve the (physical address of) device tree base in r9
-  mov 	r9, r2
-
-  @ Initialize stack pointers for current mode (normal case if no MMU is used)
-  ldr  	sp, =cpu0_stack
-
-  @ Up to here, a stack should be initialized
-
-  @ Set up the MMU
-  b		mmu_setup
-
-__kernel_main:
-
-  ldr	r0, =__fdt_addr
-  str	r9, [r0]
-
-  @ C main entry point
-  b 	kernel_start
-
-  @ never returns...
-
-  .align 2
-
-mmu_setup:
-
-  @ Use a temporary stack
-  adrl	sp, cpu0_stack
-
-  @ Refer to the 1st-level page table
-  ldr	r0, =CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET
-
-  mov	r1, r9 @ fdt addr
-  
-  bl 	mmu_configure
-  
-  @ Readjust the stack
-  ldr	sp, =cpu0_stack
-
-  @ Keep executing in the kernel space
-
-  @ Store the virtual address which will be used to continue
-  @ the execution after the MMU enabled.
-  ldr	pc, .LCvirt_entry
-
-
-ENTRY(secondary_startup)
-	/*
-     * Common entry point for secondary CPUs.
-     *
-     * Ensure that we're in SVC mode, and IRQs are disabled.  Lookup
-     * the processor type - there is no need to check the machine type
-     * as it has already been validated by the primary processor.
-     */
-
-    safe_svcmode_maskall r9
-
-  	/*
-     * Use the page tables supplied from  __cpu_up.
-     */
-    adr 	r4, __secondary_data
-    ldmia   r4, {r5, r7}       @ retrieve secondary_data field values (pgdir, stack) / r5 & r7 are virtual addresses.
-    sub 	lr, r4, r5         @ r4 is a physical address since the adr pseudo is based on relative pc (mmu is off at this point).
-
-    ldr 	r0, [lr, r7]       @ get secondary_data.pgdir (r7 is virtual, r0 is phys).
-    add		r7, r7, #4
-    ldr		sp, [lr, r7]	   @ get the stack pointer (virt. address)
-	add		sp, sp, lr		   @ convert to phys address.
-
-  	@ Up to here, a stack should be initialized
-
-  	@ Set up the MMU - The second argument (fdt addr) is not used in this context.
-  	bl 	mmu_configure
-
- 	 @ Readjust the stack (r7 has still the virt. address of the stack)
-  	ldr	sp, [r7]
-
-  	@ Keep executing in the kernel space
-
-  	@ Store the virtual address which will be used to continue
- 	@ the execution after the MMU enabled.
-  	ldr	pc, .LC_virt_secondary_entry
-
-
-#endif /* 0 */
-
-
-    .align
-
-    .type   __secondary_data, %object
-__secondary_data:
-    .quad   .
-    .quad   secondary_data
-
 
 .ltorg
 
 __fdt_addr:
   .quad 	0
 
+.align 13
+
+// Before MMU is enabled, we cannot refer to the normal stack as declared in the linker script
+temp_stack_bottom:
+	.space 4096
+temp_stack:
+
 .LCvirt_entry:
   .quad __kernel_main
 
-.LC_virt_secondary_entry:
-  .quad secondary_start_kernel
+.LCstack_top:
+  .quad __stack_top
 
-.align 8
-
-// Before MMU is enabled, we cannot refer to the normal stack as declared in the linker script
-cpu0_stack_bottom:
-    .fill STACK_SIZE, 1, 0
-cpu0_stack:
-
-.skip 8
-.align 13
-cpu1_stack_bottom:
-    .fill STACK_SIZE, 1, 0
-cpu1_stack:
-
-.skip 8
-.align 13
-cpu2_stack_bottom:
-    .fill STACK_SIZE, 1, 0
-cpu2_stack:
-
-.skip 8
-.align 13
-cpu3_stack_bottom:
-    .fill STACK_SIZE, 1, 0
-cpu3_stack:
-
+.LCvectors:
+  .quad __vectors_start

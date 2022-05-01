@@ -230,7 +230,7 @@ static void *vbs_talkv(struct vbus_transaction t, vbus_msg_type_t type, const ms
 	free(payload);
 
 	/* Store the current vbus_msg into the standby list for waiting the reply from vbstore. */
-	spin_lock_irqsave(&vbs_state.msg_list_lock, flags);
+	flags = spin_lock_irqsave(&vbs_state.msg_list_lock);
 
 	list_add_tail(&msg.list, &vbus_msg_standby_list);
 
@@ -736,7 +736,7 @@ void unregister_vbus_watch_without_vbus(struct vbus_watch *watch) {
  * Secondly, a callback operation might decide to unregister some watches. The watch list has to remain consistent as well.
  *
  */
-static int vbus_watch_thread(void *unused)
+static void *vbus_watch_thread(void *unused)
 {
 	struct vbus_watch *__w;
 	bool found;
@@ -771,7 +771,7 @@ static int vbus_watch_thread(void *unused)
 		mutex_unlock(&vbs_state.watch_mutex);
 	}
 
-	return 0;
+	return NULL;
 }
 
 irq_return_t vbus_vbstore_isr(int irq, void *data)

@@ -272,7 +272,7 @@ vdrvfront_t vuartdrv = {
 	.connected = vuart_connected
 };
 
-static int vuart_init(dev_t *dev) {
+static int vuart_init(dev_t *dev, int fdt_offset) {
 	vuart_priv_t *vuart_priv;
 
 	vuart_priv = malloc(sizeof(vuart_priv_t));

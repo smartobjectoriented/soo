@@ -130,27 +130,22 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		if (cooperate_args->alone)
 			return 0;
 
-		for (i = 0; i < MAX_ME_DOMAINS; i++) {
-			if (cooperate_args->u.target_coop[i].spad.valid) {
+		/* Collaboration ... */
 
-				/* Collaboration ... */
+		/* Update the list of hosts */
+		sh_refso3->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_refso3->me_common.soohosts);
 
-				/* Update the list of hosts */
-				sh_refso3->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_refso3->me_common.soohosts);
+		agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_refso3));
+		agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
-				agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_refso3));
-				agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
+		/* This pattern enables the cooperation with the target ME */
 
-				/* This pattern enables the cooperation with the target ME */
+		agency_ctl_args.cmd = AG_COOPERATE;
+		agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
 
-				agency_ctl_args.cmd = AG_COOPERATE;
-				agency_ctl_args.slotID = cooperate_args->u.target_coop[i].slotID;
+		/* Perform the cooperate in the target ME */
+		args->__agency_ctl(&agency_ctl_args);
 
-				/* Perform the cooperate in the target ME */
-				args->__agency_ctl(&agency_ctl_args);
-
-			}
-		}
 
 		break;
 
@@ -222,8 +217,6 @@ void callbacks_init(void) {
 	/* Initialize the shared content page used to exchange information between other MEs */
 	memset(sh_refso3, 0, PAGE_SIZE);
 
-	/* Set the SPAD capabilities */
-	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
 }
 
 

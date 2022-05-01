@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
- *
+ * Copyright (C) 2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -16,20 +16,27 @@
  *
  */
 
-#ifndef bananapi_TIMER_H
-#define bananapi_TIMER_H
+#include <thread.h>
+#include <memory.h>
 
-#include <types.h>
+/**
+ * Set the CPU registers with thread related information
+ *
+ * @param tcb
+ */
+void arch_prepare_cpu_regs(tcb_t *tcb) {
 
-#define TMR_IRQ_EN_REG		0x0
-#define TMR_STATUS_REG		0x4
-#define TMR_CTRL_REG 		0x10
-#define TMR_INT_VALUE_REG	0X14
-#define TMR_VALUE_REG 		0x18
-#define TIMER_CTRL_IE 		0x1
-#define TIMER_INTCLR		0x1
-#define CONTINUOUS_MODE 	(0x1 << 6)
-#define TIMER_CTRL_DIV16 	(0b100 << 5)
-#define TIMER_CTRL_ENABLE 	0x1
+	tcb->cpu_regs.r4 = (unsigned long) tcb->th_fn;
+	tcb->cpu_regs.r5 = (unsigned long) tcb->th_arg; /* First argument */
 
-#endif
+	if (tcb->pcb)
+		tcb->cpu_regs.r6 = get_user_stack_top(tcb->pcb, tcb->pcb_stack_slotID);
+}
+
+/**
+ * The page of arguments related to a process is located on top of the stack.
+ * @return	Base address of arguments
+ */
+addr_t arch_get_args_base(void) {
+	return (CONFIG_KERNEL_VIRT_ADDR - PAGE_SIZE);
+}

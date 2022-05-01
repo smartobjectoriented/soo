@@ -28,7 +28,7 @@
 #include <device/driver.h>
 #include <device/irq.h>
 
-#include <device/arch/arm_timer.h>
+#include <asm/arm_timer.h>
 
 #include <soo/evtchn.h>
 
@@ -64,9 +64,8 @@ void postmig_adjust_timer(void) {
 /*
  * Initialize the clocksource timer for free-running timer (used for system time)
  */
-static int clocksource_timer_init(dev_t *dev) {
+static int clocksource_timer_init(dev_t *dev, int fdt_offset) {
 
-	clocksource_timer.dev = dev;
 	clocksource_timer.cycle_last = 0;
 
 	clocksource_timer.read = clocksource_read;
@@ -89,9 +88,7 @@ void periodic_timer_start(void) {
 /*
  * Initialize the periodic timer used by the kernel.
  */
-static int periodic_timer_init(dev_t *dev) {
-
-	periodic_timer.dev = dev;
+static int periodic_timer_init(dev_t *dev, int fdt_offset) {
 
 	/* Initialize Timer */
 
