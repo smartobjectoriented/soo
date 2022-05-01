@@ -28,8 +28,7 @@
 #include <signal.h>
 #include <timer.h>
 #include <net.h>
-
-#include <asm/syscall.h>
+#include <syscall.h>
 
 static uint32_t *errno_addr = NULL;
 
@@ -63,9 +62,9 @@ void set_errno(uint32_t val) {
  * and then on the (user) stack.
  */
 
-int syscall_handle(uint32_t r0, uint32_t r1, uint32_t r2, uint32_t r3)
+long syscall_handle(unsigned long r0, unsigned long r1, unsigned long r2, unsigned long r3)
 {
-	int result = -1;
+	long result = -1;
 	uint32_t syscall_no, *__errno_addr;
 
 	/* Get addtional args of the syscall according to the ARM & SO3 ABI */
@@ -187,7 +186,7 @@ int syscall_handle(uint32_t r0, uint32_t r1, uint32_t r2, uint32_t r3)
 			break;
 
 		case SYSCALL_MMAP:
-			result = (int) do_mmap((uint32_t) r0, (size_t) r1, (int) r2, (int) r3, (off_t) __get_syscall_stack_arg(0));
+			result = (long) do_mmap((addr_t) r0, (size_t) r1, (int) r2, (int) r3, (off_t) __get_syscall_stack_arg(0));
 			break;
 
 		case SYSCALL_NANOSLEEP:
@@ -239,7 +238,7 @@ int syscall_handle(uint32_t r0, uint32_t r1, uint32_t r2, uint32_t r3)
 			break;
 
 		case SYSCALL_BIND:
-			result = do_bind((int) r0, (const struct sockaddr *) r1, (socklen_t) r2);
+			result = do_bind((int)r0, (const struct sockaddr*)r1, (socklen_t) r2);
 			break;
 
 		case SYSCALL_LISTEN:
@@ -247,19 +246,19 @@ int syscall_handle(uint32_t r0, uint32_t r1, uint32_t r2, uint32_t r3)
 			break;
 
 		case SYSCALL_ACCEPT:
-			result = do_accept((int) r0, (struct sockaddr *) r1, (socklen_t *) r2);
+			result = do_accept((int)r0, (struct sockaddr*)r1, (socklen_t*) r2);
 			break;
 
 		case SYSCALL_CONNECT:
-			result = do_connect((int)r0, (const struct sockaddr *) r1, (socklen_t) r2);
+			result = do_connect((int)r0, (const struct sockaddr *)r1, (socklen_t) r2);
 			break;
 
 		case SYSCALL_RECV:
-			result = do_recv((int)r0, (void*) r1, (size_t) r2, (int) r3);
+			result = do_recv((int)r0, (void*)r1, (size_t)r2, (int)r3);
 			break;
 
 		case SYSCALL_SEND:
-			result = do_send((int)r0, (const void *) r1, (size_t) r2, (int) r3);
+			result = do_send((int)r0, (const void *)r1, (size_t)r2, (int)r3);
 			break;
 
 		case SYSCALL_SENDTO:
@@ -269,11 +268,11 @@ int syscall_handle(uint32_t r0, uint32_t r1, uint32_t r2, uint32_t r3)
 			break;
 
 		case SYSCALL_SETSOCKOPT:
-			result = do_setsockopt((int) r0, (int) r1, (int) r2, (const void *) r3, (socklen_t) __get_syscall_stack_arg(0));
+			result = do_setsockopt((int)r0, (int)r1, (int)r2, (const void *)r3, (socklen_t)__get_syscall_stack_arg(0));
 			break;
 
 		case SYSCALL_RECVFROM:
-			result = do_recvfrom((int) r0, (void *) r1, (size_t) r2, (int) r3, (struct sockaddr *) __get_syscall_stack_arg(0),
+			result = do_recvfrom((int)r0, (void *)r1, (size_t)r2, (int)r3, (struct sockaddr *)__get_syscall_stack_arg(0),
 					(socklen_t *)__get_syscall_stack_arg(1));
 			break;
 

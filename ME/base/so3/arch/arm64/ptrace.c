@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,20 +16,18 @@
  *
  */
 
-#ifndef BACKTRACE_H
-#define BACKTRACE_H
+#include <ptrace.h>
+#include <user.h>
+#include <process.h>
 
-void dump_stack(void);
+/**
+ * Update the CPU registers of the TCB belonging
+ * to the current thread.
+ */
+void update_cpu_regs(void) {
 
-void show_registers(struct cpu_regs *regs);
-
-void dump_execution_state(void);
-void dump_all_execution_state(void);
-
-static inline void show_execution_state(struct cpu_regs *regs)
-{
-    show_registers(regs);
 }
 
-#endif /* BACKTRACE_H */
+void retrieve_cpu_regs(struct user *uregs, pcb_t *pcb) {
 
+}

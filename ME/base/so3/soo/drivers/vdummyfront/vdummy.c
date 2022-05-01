@@ -274,7 +274,7 @@ vdrvfront_t vdummydrv = {
 	.connected = vdummy_connected
 };
 
-static int vdummy_init(dev_t *dev) {
+static int vdummy_init(dev_t *dev, int fdt_offset) {
 	vdummy_priv_t *vdummy_priv;
 
 	vdummy_priv = malloc(sizeof(vdummy_priv_t));

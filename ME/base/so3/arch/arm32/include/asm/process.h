@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2022 Daniel Rossier <daniel.rossier//heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,13 +16,12 @@
  *
  */
 
-#include <linkage.h>
+#ifndef ASM_PROCESS_H
+#define ASM_PROCESS_H
 
-#include <asm/processor.h>
+extern int *__root_proc(void *);
 
+extern addr_t __root_proc_start[], __root_proc_end[];
 
-ENTRY(__backtrace)
-
-
-// To be completed
+#endif /* ASM_PROCESS_H */
 

@@ -100,7 +100,7 @@ static int get_free_entries(int count)
 	int ref;
 	grant_ref_t head;
 
-	spin_lock_irqsave(&gnttab_list_lock, flags);
+	flags = spin_lock_irqsave(&gnttab_list_lock);
 
 	if (gnttab_free_count < count) {
 		spin_unlock_irqrestore(&gnttab_list_lock, flags);
@@ -126,7 +126,7 @@ static void put_free_entry(grant_ref_t ref)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&gnttab_list_lock, flags);
+	flags = spin_lock_irqsave(&gnttab_list_lock);
 
 	gnttab_list[ref] = gnttab_free_head;
 	gnttab_free_head = ref;
@@ -207,7 +207,7 @@ void gnttab_free_grant_references(grant_ref_t head)
 	int count = 1;
 	if (head == GNTTAB_LIST_END)
 		return;
-	spin_lock_irqsave(&gnttab_list_lock, flags);
+	flags = spin_lock_irqsave(&gnttab_list_lock);
 	ref = head;
 	while (gnttab_list[ref] != GNTTAB_LIST_END) {
 		ref = gnttab_list[ref];
