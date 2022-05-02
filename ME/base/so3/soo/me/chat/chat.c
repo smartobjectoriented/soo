@@ -45,10 +45,15 @@
 #include <soo/xmlui.h>
 
 
-#define MAX_MSG_LENGTH 200 
+#define MAX_MSG_LENGTH 		200 
+#define ID_MAX_LENGTH		20
+#define ACTION_MAX_LENGTH	20
 
 /* Contains the current chat message. */
 char cur_text[MAX_MSG_LENGTH];
+
+
+
 
 /**
  *
@@ -58,23 +63,37 @@ char cur_text[MAX_MSG_LENGTH];
 void process_events(char * data, size_t size) {
 
 	// printk("GOT AN EVENT TO PARSE\n");
-	char id[50];
-	char value[50];
+	char id[ID_MAX_LENGTH];
+	char action[ACTION_MAX_LENGTH];
 	char content[MAX_MSG_LENGTH];
+	char msg[MAX_MSG_LENGTH];
 
-	memset(id, 0, 50);
-	memset(value, 0, 50);
+	memset(id, 0, ID_MAX_LENGTH);
+	memset(action, 0, ACTION_MAX_LENGTH);
+	memset(msg, 0, MAX_MSG_LENGTH);
+	memset(content, 0, MAX_MSG_LENGTH);
 
-	xml_parse_event(data, id, value);
+	xml_parse_event(data, id, action);
 
-	printk("Event: ID: %s, Value: %s\n", id, value);
+	/* If it is a tex-edit event, it means the user typed something
+	so we save it in the temporary buffer */
+	if (!strcmp(id, TEXTEDIT_ID)) {
 
-
-	if (!strcmp(id, "text-edit")) {
 		xml_get_event_content(data, content);
-		strncpy(cur_text, value, strlen(value)+1);
-	} else if (!strcmp(id, "button-send")) {
-		printk("WE ARE SENDING THE MSG: %s\n", cur_text);
+		strncpy(cur_text, content, strlen(content)+1);
+	} else if (!strcmp(id, BTN_SEND_ID) && !strcmp(action, "clickDown")) {
+			
+		/* We don't send empty text */	
+		if (!strcmp(cur_text, "")) return;
+		// TODO replace 0 by slotID 
+		/* Pepare an send the chat message */
+		xml_prepare_chat(msg, 0, cur_text);
+		vuihandler_send(msg, strlen(msg)+1);
+		
+		/* Notify the text-edit widget that it must clear its text */
+		memset(msg, 0, MAX_MSG_LENGTH);	
+		xml_prepare_message(msg, TEXTEDIT_ID, "");
+		vuihandler_send(msg, strlen(msg)+1);
 	}
 
 }
@@ -90,6 +109,7 @@ int app_thread_main(void *args) {
 
 	printk("Enjoy the SOO.chat ME !\n");
 
+	/* register our process_event callback to the vuihandler */ 
 	vuihandler_register_callback(NULL, process_events);
 
 	while(1);

@@ -19,6 +19,14 @@
 #ifndef XMLUI_H
 #define XMLUI_H
 
+
+/* SOO.chat widgets id */
+/* ID for the different models */
+#define TEXTEDIT_ID		"text-edit"
+#define SCROLL_ID		"msg-history"
+#define BTN_SEND_ID		"button-send"
+
+
 /*
  * Prepare a XML message.
  * Allocation of the message has to be done by the caller
@@ -38,5 +46,7 @@ void xml_parse_event(char *buffer, char *id, char *action);
  * Allocation of the content buffer has to be done by the caller
  */
 void xml_get_event_content(char *buffer, char *content);
+
+void xml_prepare_chat(char *buffer, int sender, char *text);
 
 #endif /* XMLUI_H */

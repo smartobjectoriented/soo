@@ -53,7 +53,10 @@ typedef struct {
 
 	uint32_t send_count;
 	completion_t *send_compl;
+	completion_t *send_done_compl;
 	send_param_t sp;
+	mutex_t send_mutex;
+	tx_circ_buf_t *tx_circ_buf;
 } vuihandler_priv_t;
 
 static struct vbus_device *vuihandler_dev = NULL;
@@ -62,6 +65,70 @@ static struct vbus_device *vuihandler_dev = NULL;
 /* In lib/vsprintf.c */
 unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
 
+
+/**
+ * @brief Enqueue a packet to be sent in the internal circular buffer to be sent to the BE.
+ * 
+ * @param data payload
+ * @param size Payload size
+ * 
+ * @return 0 on success, -1 on error
+ */ 
+static int tx_buffer_put(uint8_t *data, uint32_t size) {
+	vuihandler_priv_t *vuihandler_priv;
+	tx_circ_buf_t *tx_circ_buf;
+
+	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
+	tx_circ_buf = vuihandler_priv->tx_circ_buf;
+
+	/* abort if there are no place left on the circular buffer */
+	if (tx_circ_buf->cur_size == VUIHANDLER_MAX_TX_BUF_ENTRIES) 
+		return -1;
+
+	mutex_lock(&tx_circ_buf->tx_circ_buf_mutex);
+
+	/* Copy the data into the circular buffer */
+	tx_circ_buf->circ_buf[tx_circ_buf->cur_prod_idx].size = size;
+
+	memcpy(tx_circ_buf->circ_buf[tx_circ_buf->cur_prod_idx].data, data, size);
+
+	/* Update the circular buffer info */
+	tx_circ_buf->cur_prod_idx = (tx_circ_buf->cur_prod_idx + 1) % VUIHANDLER_MAX_TX_BUF_ENTRIES;
+	tx_circ_buf->cur_size++;
+
+	mutex_unlock(&tx_circ_buf->tx_circ_buf_mutex);
+
+	return 0;
+}
+
+/**
+ * @brief Get the latest data ready to be sent to the BE
+ * 
+ * @return The tx_buf_entry_t pointer containing the next packet to be sent. NULL if no packet is ready.
+ */
+static tx_buf_entry_t *tx_buffer_get(void) {
+	vuihandler_priv_t *vuihandler_priv;
+	tx_circ_buf_t *tx_circ_buf;
+	tx_buf_entry_t *entry;
+
+	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
+
+	tx_circ_buf = vuihandler_priv->tx_circ_buf;
+
+	mutex_lock(&tx_circ_buf->tx_circ_buf_mutex);
+
+	if (tx_circ_buf->cur_size == 0)
+		return NULL;
+
+	entry = &tx_circ_buf->circ_buf[tx_circ_buf->cur_cons_idx];
+
+	tx_circ_buf->cur_cons_idx = (tx_circ_buf->cur_cons_idx + 1) % VUIHANDLER_MAX_TX_BUF_ENTRIES;
+	tx_circ_buf->cur_size--;
+
+	mutex_unlock(&tx_circ_buf->tx_circ_buf_mutex);
+
+	return entry;
+}
 
 /**
  * Process pending responses in the tx_ It should not be used in this direction.
@@ -96,8 +163,6 @@ static void process_pending_rx_rsp(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(vdev->dev);
 	vuihandler_t *vuihandler = &vuihandler_priv->vuihandler;
 
-	DBG("PENDING RX RSP\n");
-
 	while ((ring_rsp = vuihandler_rx_get_ring_response(&vuihandler->rx_ring)) != NULL) {
 		DBG("rsp->id = %d, rsp->size = %d\n", ring_rsp->id, ring_rsp->size);
 		DBG("Packet as string is: %s\n", ring_rsp->buf);
@@ -123,10 +188,9 @@ irq_return_t vuihandler_rx_interrupt(int irq, void *dev_id) {
  */
 void vuihandler_send(void *data, size_t size) {
 	vuihandler_priv_t *vuihandler_priv;
-
 	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
-	vuihandler_priv->sp.data = data;
-	vuihandler_priv->sp.size = size;
+
+	tx_buffer_put(data, size);
 	complete(vuihandler_priv->send_compl);
 }
 
@@ -134,23 +198,26 @@ int vuihandler_send_fn(void *arg) {
 	struct vbus_device *vdev = (struct vbus_device *) arg;
 	vuihandler_tx_request_t *ring_req;
 	vuihandler_priv_t *vuihandler_priv;
+	tx_buf_entry_t *tx_entry;
 
 	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vdev->dev);
 
 	while(1) {
 		wait_for_completion(vuihandler_priv->send_compl);
+		tx_entry = tx_buffer_get();
 
 		vdevfront_processing_begin(vdev);
 		/*
 		* Try to generate a new request to the backend
 		*/
 		if (!RING_REQ_FULL(&vuihandler_priv->vuihandler.tx_ring)) {
+
 			ring_req = vuihandler_tx_new_ring_request(&vuihandler_priv->vuihandler.tx_ring);
 
 			ring_req->id = vuihandler_priv->send_count;
-			ring_req->size = vuihandler_priv->sp.size;
+			ring_req->size = tx_entry->size;
 
-			memcpy(ring_req->buf, vuihandler_priv->sp.data, vuihandler_priv->sp.size);
+			memcpy(ring_req->buf, tx_entry->data, tx_entry->size);
 
 			vuihandler_priv->send_count++;
 
@@ -160,10 +227,26 @@ int vuihandler_send_fn(void *arg) {
 		}
 
 		vdevfront_processing_end(vdev);
-
 	}
 
 	return 0;
+}
+
+void vuihandler_init_tx_circ_buf(struct vbus_device *vdev) {
+	vuihandler_priv_t *vuihandler_priv;
+	vuihandler_priv = dev_get_drvdata(vdev->dev);
+
+	vuihandler_priv->tx_circ_buf = malloc(sizeof(tx_circ_buf_t));
+
+	if (!vuihandler_priv->tx_circ_buf) {
+		lprintk("[vuihandler][FE]: Could not allocate TX circular buffer.\n");
+		BUG();
+	}
+
+	mutex_init(&vuihandler_priv->tx_circ_buf->tx_circ_buf_mutex);
+	vuihandler_priv->tx_circ_buf->cur_prod_idx = 0;
+	vuihandler_priv->tx_circ_buf->cur_cons_idx = 0;
+	vuihandler_priv->tx_circ_buf->cur_size = 0;
 }
 
 
@@ -236,6 +319,8 @@ void vuihandler_probe(struct vbus_device *vdev) {
 	vbus_printf(vbt, vdev->nodename, "tx_ring-evtchn", "%u", vuihandler_priv->vuihandler.tx_evtchn);
 
 	vbus_transaction_end(vbt);
+
+	vuihandler_init_tx_circ_buf(vdev);
 }
 
 void vuihandler_suspend(struct vbus_device *vdev) {
@@ -252,6 +337,7 @@ void vuihandler_connected(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(vdev->dev);
 	
 	vuihandler_priv->send_compl = malloc(sizeof(completion_t));
+	vuihandler_priv->send_done_compl = malloc(sizeof(completion_t));
 
 	DBG0(VUIHANDLER_PREFIX "Frontend connected\n");
 
@@ -260,6 +346,7 @@ void vuihandler_connected(struct vbus_device *vdev) {
 	notify_remote_via_virq(vuihandler_priv->vuihandler.rx_irq);
 
 	init_completion(vuihandler_priv->send_compl);
+	init_completion(vuihandler_priv->send_done_compl);
 
 	kernel_thread(vuihandler_send_fn, "vuihandler_send_fn", (void *) vdev, 0);
 }
@@ -372,6 +459,8 @@ static int vuihandler_init(dev_t *dev) {
 	vuihandler_priv = malloc(sizeof(vuihandler_priv_t));
 	BUG_ON(!vuihandler_priv);
 	memset(vuihandler_priv, 0, sizeof(vuihandler_priv_t));
+
+	mutex_init(&vuihandler_priv->send_mutex);
 
 	dev_set_drvdata(dev, vuihandler_priv);
 

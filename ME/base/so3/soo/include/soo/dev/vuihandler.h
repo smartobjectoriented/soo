@@ -64,10 +64,12 @@ typedef struct {
 
 #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
 
+#define VUIHANDLER_MAX_TX_BUF_ENTRIES	6
+
 typedef struct {
 	uint32_t		id;
 	size_t			size;
-	uint8_t 		buf[2048];
+	uint8_t 		buf[VUIHANDLER_MAX_PAYLOAD_SIZE];
 } vuihandler_tx_request_t;
 
 /* Not used */
@@ -85,7 +87,7 @@ typedef struct {
 typedef struct {
 	uint32_t		id;
 	size_t			size;
-	uint8_t 		buf[2048];
+	uint8_t 		buf[VUIHANDLER_MAX_PAYLOAD_SIZE];
 } vuihandler_rx_response_t;
 
 DEFINE_RING_TYPES(vuihandler_rx, vuihandler_rx_request_t, vuihandler_rx_response_t);
@@ -117,6 +119,21 @@ typedef struct {
 	unsigned int	rx_pfn;
     
 } vuihandler_t;
+
+
+typedef struct {
+	char 		data[2048];
+	size_t 		size;
+} tx_buf_entry_t;
+
+typedef struct {
+	size_t cur_prod_idx;
+	size_t cur_cons_idx;
+	size_t cur_size;
+	mutex_t tx_circ_buf_mutex;
+	tx_buf_entry_t circ_buf[VUIHANDLER_MAX_TX_BUF_ENTRIES];
+
+} tx_circ_buf_t;
 
 static inline vuihandler_t *to_vuihandler(struct vbus_device *vdev) {
 	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
