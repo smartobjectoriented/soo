@@ -30,6 +30,9 @@
 #define DEBUG
 #endif
 
+#if 1
+#define DEBUG_THREAD
+#endif
 
 /* Access to serdev */
 static struct rn2483_uart *rn2483;
@@ -38,33 +41,40 @@ static struct rn2483_uart *rn2483;
 static int subscribers_count = 0;
 
 /* Array callback funtions provided by the subscribers */
-static void (*subscribers[MAX_SUBSCRIBERS])(void *data);
+static void (*subscribers[MAX_SUBSCRIBERS])(byte *data);
 
 /** Response functions **/
-static int rn2483_process_cmd_response(byte *data)
+
+/**
+ * @brief Process RN2483 response to commands
+ * 
+ * @param rsp Response received from the RN2483
+ */
+static void rn2483_process_cmd_response(byte *rsp)
 {
     switch (rn2483->current_cmd)
     {
     case reset:
-        if (strcmp(data, RN2483_INVALID_PARAM) == 0) {
-            dev_err(rn2483->dev, "Failed to reset device: %s", data);
+        if (strcmp(rsp, RN2483_INVALID_PARAM) == 0) {
+            dev_err(rn2483->dev, "Failed to reset device: %s", rsp);
             BUG();
         }
-        dev_info(rn2483->dev, "Reset successful: %s", data);
+        dev_info(rn2483->dev, "Reset successful: %s", rsp);
         rn2483->status = IDLE;
         break;
 
     case radio_rx:
-        if (strcmp(data, RN2483_OK) != 0) {
-            dev_err(rn2483->dev, "Failed to set listening mode: %s", data);
+        if (strcmp(rsp, RN2483_OK) != 0) {
+            dev_err(rn2483->dev, "Failed to set listening mode: %s", rsp);
             BUG();
         }
+        dev_info(rn2483->dev, "Start listening for radio messages");
         rn2483->status = LISTEN;
         break;
 
     case stop_rx:
-        if (strcmp(data, RN2483_OK) != 0) {
-            dev_err(rn2483->dev, "Failed to stop listening: %s", data);
+        if (strcmp(rsp, RN2483_OK) != 0) {
+            dev_err(rn2483->dev, "Failed to stop listening: %s", rsp);
             BUG();
         }
         dev_info(rn2483->dev, "Stopped listening for radio messages");
@@ -72,21 +82,60 @@ static int rn2483_process_cmd_response(byte *data)
         break;
 
     case mac_pause:
-        if (strcmp(data, "0") == 0) {
+        if (strcmp(rsp, "0") == 0) {
             dev_err(rn2483->dev, "Failed to pause lora mac");
             BUG();
         }
-        dev_info(rn2483->dev, "Lora mac paused for %s ms", data);
+        dev_info(rn2483->dev, "Lora mac paused for %s ms", rsp);
+        rn2483->status = IDLE;
+        break;
+
+    case set_wdt:
+        if (strcmp(rsp, RN2483_OK) != 0) {
+            dev_err(rn2483->dev, "Failed to set watchdog: %s", rsp);
+            BUG();
+        }
+        dev_info(rn2483->dev, "Watchdog setted successfully");
         rn2483->status = IDLE;
         break;
 
     default:
         break;
     }
-
-    return 0;
 }
 
+/**
+ * @brief Process send message RN2483 response
+ * 
+ * @param rsp Response received from RN2483
+ */
+static void process_send_msg_response(byte *rsp) {
+    static int cmd_success = 0;
+
+    if (cmd_success) {
+        if (strcmp(rsp, RN2483_RADIO_TX_OK) != 0) {
+            dev_err(rn2483->dev, "Failed to send message: %s", rsp);
+            BUG();
+        }
+        complete(&rn2483->wait_rsp);
+        cmd_success = 0;
+        return;
+    }
+
+    if (strcmp(rsp, RN2483_OK) != 0) {
+        dev_err(rn2483->dev, "Failed to send message: %s", rsp);
+        BUG();
+    } else {
+        cmd_success = 1;
+    }
+}
+
+/**
+ * @brief Process received LoRa data and forward it to all subscribers
+ * 
+ * @param data 
+ * @param timeout 
+ */
 static void rn2483_process_listen(byte *data, int *timeout) {
     byte *msg;
     char *token;
@@ -94,13 +143,16 @@ static void rn2483_process_listen(byte *data, int *timeout) {
     char delim = DELIM_CHAR;
     int msg_len, valid_msg = 0, i, error = 0;
     long tmp_val;
-    
+
+#ifdef DEBUG
     dev_info(rn2483->dev, "New radio data received: %s", data);
+#endif
 
     *timeout = 0;
     /** Check if timeout is expired **/
     if (strcmp(data, RN2483_RADIO_ERR) == 0) {
         *timeout = 1;
+        dev_info(rn2483->dev, "Radio rx timeout reached");
     }
 
     /** Separate radio_rx from data **/
@@ -112,6 +164,7 @@ static void rn2483_process_listen(byte *data, int *timeout) {
             continue;
         }
 
+        /** Parse data string 2 by 2**/
         if (valid_msg && (strlen(token) > 0)) {
             msg_len = strlen(token) / 2;
             msg = kzalloc(msg_len, GFP_KERNEL);
@@ -149,6 +202,8 @@ static void rn2483_process_listen(byte *data, int *timeout) {
     dev_info(rn2483->dev, "Data received: %s", msg);
 
     /** send data to subscribers **/
+    for (i = 0; i < subscribers_count; i++)
+        subscribers[i](msg);
 
     kfree(msg);
     rn2483->status = IDLE;
@@ -217,7 +272,8 @@ void rn2483_send_cmd(rn2483_cmd_t cmd, char *args) {
 }
 
 static int rn2483_start_listening(void *args) {
-    int timeout;
+    int timeout = 0;
+
     if (args) {
         timeout = *(int*)(args);
     }
@@ -228,6 +284,39 @@ static int rn2483_start_listening(void *args) {
     rn2483_send_cmd(radio_rx, "0");
 
     return 0;
+}
+
+void rn2483_send_data(char *data, int len) {
+    byte *msg; 
+    char raw_bytes[3];
+    int msg_len, i;
+    rn2483_send_cmd(stop_rx, NULL);
+
+    rn2483->status = SEND_MSG;
+    rn2483->current_cmd = radio_tx;
+
+    if (!data)
+        BUG();
+
+    msg_len = strlen(cmd_list[radio_tx]) + len * 2 + 2;
+    msg = kzalloc(msg_len * sizeof(byte), GFP_KERNEL);
+    BUG_ON(!msg);
+
+    sprintf(msg, "%s ", cmd_list[radio_tx]);
+
+    for (i = 0; i < len; i++) {
+        snprintf(raw_bytes, 3, "%02X", data[i]);
+        strcat(msg, raw_bytes);
+    }
+
+#ifdef DEBUG
+    dev_info(rn2483->dev, "Sending msg [%d]: %s", msg_len, msg);
+#endif
+
+    rn2483_write_buf(msg, msg_len);
+    wait_for_completion(&rn2483->wait_rsp);
+
+    rn2483_start_listening(NULL);
 }
 
 static byte *process_received_buffer(const byte *buf, size_t len, byte *prev_data, int *data_len, int *data_end) {
@@ -308,6 +397,7 @@ static int rn2483_serdev_receive_buf(struct serdev_device *serdev, const byte *b
                 break;
             case SEND_MSG:
                 /** call process send msg response **/
+                process_send_msg_response(msg);
                 break;
             case LISTEN:
                 /** process listen **/
@@ -332,10 +422,40 @@ static const struct serdev_device_ops uart_serdev_device_ops = {
     .write_wakeup = serdev_device_write_wakeup,
 };
 
+int rn2483_subscribe(void (*callback)(byte *data)) {
+    if (!callback)
+        return -1;
+
+    if (subscribers_count >= MAX_SUBSCRIBERS) {
+        dev_err(rn2483->dev, "Subsciber limit reached");
+        return -1;
+    }
+
+    dev_info(rn2483->dev, "New subscriber registered");
+
+    subscribers[subscribers_count++] = callback;
+
+    return 0;
+}
+
+static int rn2483_send_data_test(void *args) {
+    int counter = 0;
+    byte data [20];
+
+    while(!kthread_should_stop()) {
+        msleep(5000);
+        sprintf(data, "Hello %d", counter++);
+        rn2483_send_data(data, strlen(data));
+    }
+
+    return 0;
+}
+
 static int rn2483_serdev_probe(struct serdev_device *serdev) {
     struct device *dev;
     int ret = 0;
     u32 baud;
+    int timeout = 1;
 
     dev = &serdev->dev;
     BUG_ON(!dev);
@@ -374,7 +494,11 @@ static int rn2483_serdev_probe(struct serdev_device *serdev) {
     /** Disable watchdog **/
     rn2483_send_cmd(set_wdt, "0");
     /** Listen for data **/
-    rn2483_start_listening(NULL);
+    rn2483_start_listening(&timeout);
+
+#ifdef DEBUG_THREAD
+    kthread_run(rn2483_send_data_test, NULL, "send-data-test");
+#endif
 
     dev_info(dev,"Probed successfully\n");
 
