@@ -52,12 +52,8 @@ typedef struct {
 	 */
 	me_common_t me_common;
 
-} sh_ledctrl_t;
+} sh_chat_t;
 
-/* Export the reference to the shared content structure */
-extern sh_ledctrl_t *sh_ledctrl;
-
-extern struct completion upd_lock;
 
 /* Protecting variables between domcalls and the active context */
 extern spinlock_t propagate_lock;
