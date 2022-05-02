@@ -72,7 +72,7 @@ directly follows the type in term of bytes in memory */
 /* Number of TX packets which can be queued in the TX buffer */
 #define VUIHANDLER_TX_BUF_SIZE 	8
 
-#define RING_BUF_SIZE		2048
+#define RING_BUF_SIZE		1024
 
 typedef struct {
 	vuihandler_pkt_t *pkt;

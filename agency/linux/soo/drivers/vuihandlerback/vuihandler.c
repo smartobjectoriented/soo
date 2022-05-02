@@ -24,7 +24,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -181,9 +181,9 @@ int tx_buffer_put(uint8_t *data, uint32_t size, int32_t slotID, uint8_t type) {
 	vdrv_priv->tx_buf.put_index = (vdrv_priv->tx_buf.put_index + 1) % VUIHANDLER_TX_BUF_SIZE;
 	vdrv_priv->tx_buf.cur_size++;
 
-	complete(&vdrv_priv->tx_completion);
 
 	spin_unlock(&vdrv_priv->tx_lock);
+	complete(&vdrv_priv->tx_completion);
 
 	return 0;
 }
@@ -223,10 +223,9 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	int32_t slotID = -1;
 
 	while ((ring_req = vuihandler_tx_get_ring_request(&vuihandler->tx_rings.ring)) != NULL) {
-
 		DBG(VUIHANDLER_PREFIX "%d, %d\n", ring_req->id, ring_req->size);
-
-		slotID = vuihandler->otherend_id;			
+	
+		slotID = vuihandler->otherend_id;		
 
 		/* Let the circular buffer add the packet to itself */
 		if (tx_buffer_put(ring_req->buf, ring_req->size, slotID, VUIHANDLER_DATA) == -1) {
@@ -234,6 +233,7 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 			BUG();
 		}
 	}
+	
 
 	return IRQ_HANDLED;
 }
@@ -350,7 +350,7 @@ char *test_chat_model = "<model spid=\"00000200000000000000000000000004\">\
                 </col>\
             </row>\
             <row>\
-                <col span=\"4\">\
+                <col span=\"8\">\
                     <scroll id=\"msg-history\"></scroll>\
                 </col>\
             </row>\
@@ -358,7 +358,7 @@ char *test_chat_model = "<model spid=\"00000200000000000000000000000004\">\
                 <col span=\"3\">\
                     <input id=\"text-edit\" >your new msg here</input>\
                 </col>\
-                <col span=\"1\">\
+                <col span=\"2\">\
                     <button id=\"button-send\" lockable=\"false\">\"Send\"</button>\
                 </col>\
             </row>\
@@ -372,9 +372,6 @@ char *test_chat_model = "<model spid=\"00000200000000000000000000000004\">\
  * @return 0 on success, -1 on error
 */
 int send_ME_model_xml(int slotID) {
-	printk("SENDING ME_LIST\n");
-
-
 #if 0
 	tx_buffer_put(ME_buf_xml, strlen(ME_buf_xml)+1, 0, VUIHANDLER_ASK_LIST);
 #else
@@ -392,7 +389,6 @@ int send_ME_model_xml(int slotID) {
  * @return 0 on success, -1 on error
 */
 int send_ME_list_xml(void) {
-	printk("SENDING ME MODEL\n");
 	ME_id_t *ME_buf_raw = kzalloc(MAX_ME_DOMAINS * sizeof(ME_id_t), GFP_ATOMIC);
 	uint8_t *ME_buf_xml = NULL;
 
@@ -402,11 +398,6 @@ int send_ME_list_xml(void) {
 	if (ME_buf_xml == NULL) {
 		return -1;
 	}
-
-	printk("%s\n\n\n", ME_buf_xml);
-
-
-
 #if 0
 	tx_buffer_put(ME_buf_xml, strlen(ME_buf_xml)+1, 0, VUIHANDLER_ASK_LIST);
 #else
@@ -439,7 +430,7 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 		return ;
 	}
 	if (vuihandler_pkt->type == VUIHANDLER_SELECT) {
-		/* This is a vUIHandler beacon */
+		/* This is a vUIHandler select ME  */
 		send_ME_model_xml(0);
 		return ;
 	}
