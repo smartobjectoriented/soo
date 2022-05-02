@@ -57,6 +57,7 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
 #define RN2483_INVALID_PARAM                    "invalid_param"
 #define RN2483_RADIO_ERR                        "radio_err"
 #define RN2483_RADIO_RX                         "radio_rx"
+#define RN2483_RADIO_TX_OK                      "radio_tx_ok"
  
 #define RESPONSE_TIMEOUT                        1000
 #define DELIM_CHAR                              0x20
@@ -89,7 +90,7 @@ static const char cmd_list [][20] = {
     [mac_pause] = "mac pause",
     [radio_tx] = "radio tx",
     [radio_rx] = "radio rx",
-    [stop_rx] = "rxstop",
+    [stop_rx] = "radio rxstop",
     [set_wdt] = "radio set wdt"
 };
 
@@ -113,6 +114,14 @@ struct rn2483_uart {
  * @param callback Function to be called. Defined by the subscriber
  * @return int 0 on success, -1 on error
  */
-int rn2483_subscribe(void *data);
+int rn2483_subscribe(void (*callback)(byte *data));
+
+/**
+ * @brief 
+ * 
+ * @param data 
+ * @param len 
+ */
+void rn2483_send_data(char *data, int len);
 
 #endif
