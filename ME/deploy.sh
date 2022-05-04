@@ -11,7 +11,7 @@ if [ "$1" != "clean" ]; then
     if [ "$1" != "" ]; then
 
         echo Deploying all MEs into the third partition...
-        ME_to_deploy="../../ME/$1/target/*.itb"
+        ME_to_deploy="../../ME/$1/*.itb"
         sudo cp -rf $ME_to_deploy fs/
         echo "$1 deployed"
     else
