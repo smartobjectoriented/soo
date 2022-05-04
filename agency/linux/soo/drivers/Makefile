@@ -19,5 +19,3 @@ obj-$(CONFIG_VWAGOLED_BACKEND) += vwagoledback/
 obj-$(CONFIG_VENOCEAN_BACKEND) += venoceanback/
 obj-$(CONFIG_TCM515) += serial/tcm515/
 obj-$(CONFIG_RN2483) += serial/rn2483/
-
-
