@@ -30,7 +30,7 @@
 #define DEBUG
 #endif
 
-#if 1
+#if 0
 #define DEBUG_THREAD
 #endif
 
@@ -50,8 +50,7 @@ static void (*subscribers[MAX_SUBSCRIBERS])(byte *data);
  * 
  * @param rsp Response received from the RN2483
  */
-static void rn2483_process_cmd_response(byte *rsp)
-{
+static void rn2483_process_cmd_response(byte *rsp) {
     switch (rn2483->current_cmd)
     {
     case reset:
@@ -100,6 +99,8 @@ static void rn2483_process_cmd_response(byte *rsp)
         break;
 
     default:
+        dev_err(rn2483->dev, "Not supported command: %s --> %s", cmd_list[rn2483->current_cmd], rsp);
+        BUG();
         break;
     }
 }
@@ -133,8 +134,8 @@ static void process_send_msg_response(byte *rsp) {
 /**
  * @brief Process received LoRa data and forward it to all subscribers
  * 
- * @param data 
- * @param timeout 
+ * @param data Received data
+ * @param timeout if mac pause ends timeout is set to 1 else is 0
  */
 static void rn2483_process_listen(byte *data, int *timeout) {
     byte *msg;
@@ -247,6 +248,12 @@ int rn2483_write_buf(const byte *buffer, size_t len) {
     return byte_written;
 }
 
+/**
+ * @brief Send a command from cmd_list to the RN2483 device
+ * 
+ * @param cmd command to send
+ * @param args command arguments if any, else NULL
+ */
 void rn2483_send_cmd(rn2483_cmd_t cmd, char *args) {
     byte *cmd_str;
     rn2483->status = SEND_CMD;
@@ -271,6 +278,13 @@ void rn2483_send_cmd(rn2483_cmd_t cmd, char *args) {
     wait_for_completion_timeout(&rn2483->wait_rsp, msecs_to_jiffies(1000));
 }
 
+/**
+ * @brief Set the RN2483 into continuos listening mode. To exit continuos listening mode
+ *  send "rxstop" command.
+ * 
+ * @param args Timeout value
+ * @return int 0
+ */
 static int rn2483_start_listening(void *args) {
     int timeout = 0;
 
@@ -319,6 +333,16 @@ void rn2483_send_data(char *data, int len) {
     rn2483_start_listening(NULL);
 }
 
+/**
+ * @brief Process received data from serial. 
+ * 
+ * @param buf received buffer
+ * @param len buffer length
+ * @param prev_data if the previous call did not signaled data_end == 1 put the previous data else NULL
+ * @param data_len total length of the data. It makes sense only when data_end == 1
+ * @param data_end signals that all the data has been received data_end == 1 else data_end == 0
+ * @return byte* data received
+ */
 static byte *process_received_buffer(const byte *buf, size_t len, byte *prev_data, int *data_len, int *data_end) {
     static int prev_data_len;
     byte *data;
@@ -438,6 +462,13 @@ int rn2483_subscribe(void (*callback)(byte *data)) {
     return 0;
 }
 
+/**
+ * @brief This functions is used for developpement. Activate DEBUG_THREAD to use it. 
+ * It sends a message every 5 seconds
+ * 
+ * @param args NULL
+ * @return int 0
+ */
 static int rn2483_send_data_test(void *args) {
     int counter = 0;
     byte data [20];

@@ -14,6 +14,7 @@ Frontend & backend drivers
    vuihandler 
    vwagoled
    venocean
+   vlora
 
 The following drivers are available:
 
@@ -22,4 +23,4 @@ The following drivers are available:
 - vuihandler
 - vwagoled
 - venocean
-
+- vlora

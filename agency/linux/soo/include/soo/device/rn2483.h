@@ -23,7 +23,7 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
 	&uart<nr> {
 		...
 
-        lora-uart {
+        lora {
             compatible = "lora,rn2483";
             current-speed = <57600>
         };
@@ -61,6 +61,7 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
  
 #define RESPONSE_TIMEOUT                        1000
 #define DELIM_CHAR                              0x20
+#define MAX_CMD_SIZE                            20
 
 typedef unsigned char byte;
 
@@ -72,6 +73,7 @@ enum rn2483_status {
 };
 typedef enum rn2483_status rn2483_status_t;
 
+/** Supported commands **/
 enum rn2483_cmd {
     none = 0,
     reset,
@@ -84,7 +86,8 @@ enum rn2483_cmd {
 };
 typedef enum rn2483_cmd rn2483_cmd_t;
 
-static const char cmd_list [][20] = {
+/** Commands string **/
+static const char cmd_list [][MAX_CMD_SIZE] = {
     [reset] = "sys reset",
     [get_version] = "sys get ver",
     [mac_pause] = "mac pause",
@@ -94,16 +97,30 @@ static const char cmd_list [][20] = {
     [set_wdt] = "radio set wdt"
 };
 
+/**
+ * @brief RN2483 struct
+ * 
+ */
 struct rn2483_uart {
+    /** Access to serial port **/
     struct serdev_device *serdev;
+
+    /** Device **/
     struct device *dev;
+
+    /** Serial port baudrate **/
     unsigned int baud;
+
+    /** Serial port open status **/
     int is_open;
 
     /** Current mode of the device **/
     rn2483_status_t status;
+
+    /** Current command to be executed **/
     rn2483_cmd_t current_cmd;
 
+    /** Completion used to wait for responses **/
     struct completion wait_rsp;
 };
 
@@ -117,10 +134,10 @@ struct rn2483_uart {
 int rn2483_subscribe(void (*callback)(byte *data));
 
 /**
- * @brief 
+ * @brief Send data to be sent using LoRa protocol.
  * 
- * @param data 
- * @param len 
+ * @param data String of data to send 
+ * @param len Length of the string
  */
 void rn2483_send_data(char *data, int len);
 
