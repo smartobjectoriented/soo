@@ -111,24 +111,27 @@ static void rn2483_process_cmd_response(byte *rsp) {
  * @param rsp Response received from RN2483
  */
 static void process_send_msg_response(byte *rsp) {
-    static int cmd_success = 0;
+    static bool transmit_pending = false;
 
-    if (cmd_success) {
+    /** 
+     * The rn2483 sends a RN2483_OK when it has received the serial data and 
+     * a RN2483_RADIO_TX_OK when data has been effectively sent through LoRa.
+     * The send_data function needs 2 response to be considered has completed.
+     */ 
+    if (transmit_pending) {
         if (strcmp(rsp, RN2483_RADIO_TX_OK) != 0) {
             dev_err(rn2483->dev, "Failed to send message: %s", rsp);
             BUG();
         }
         complete(&rn2483->wait_rsp);
-        cmd_success = 0;
-        return;
-    }
-
-    if (strcmp(rsp, RN2483_OK) != 0) {
-        dev_err(rn2483->dev, "Failed to send message: %s", rsp);
-        BUG();
+        transmit_pending = false;
     } else {
-        cmd_success = 1;
-    }
+        if (strcmp(rsp, RN2483_OK) != 0) {
+            dev_err(rn2483->dev, "Failed to send message: %s", rsp);
+            BUG();
+        }
+        transmit_pending = true;
+    }    
 }
 
 /**
