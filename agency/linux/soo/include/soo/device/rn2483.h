@@ -42,10 +42,10 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
 
 /*** Serial port default config ***/
 #define RN2483_SERDEV_DEFAULT_BAUDRATE          57600
-#define RN2483_SERDEV_DEFAULT_PARITY            0   //parity none
+#define RN2483_SERDEV_DEFAULT_PARITY            0   /* parity none */
 #define RN2483_SERDEV_DEFAULT_FLOW_CTRL         false
 #define RN2483_SERDEV_DEFAULT_RTS               false
-#define RN2483_SEND_TIMEOUT                     10 // in ms
+#define RN2483_SEND_TIMEOUT                     10 /* in ms */
 
 
 #define RN2483_COMPATIBLE                       "lora,rn2483"
@@ -75,31 +75,32 @@ typedef enum rn2483_status rn2483_status_t;
 
 /** Supported commands **/
 enum rn2483_cmd {
-    none = 0,
-    reset,
-    get_version,
-    mac_pause,
-    radio_tx,
-    radio_rx,
-    stop_rx,
-    set_wdt
+    NONE = 0,
+    RESET,
+    GET_VERSION,
+    MAC_PAUSE,
+    RADIO_TX,
+    RADIO_RX,
+    STOP_RX,
+    SET_WDT
 };
 typedef enum rn2483_cmd rn2483_cmd_t;
 
 /** Commands string **/
 static const char cmd_list [][MAX_CMD_SIZE] = {
-    [reset] = "sys reset",
-    [get_version] = "sys get ver",
-    [mac_pause] = "mac pause",
-    [radio_tx] = "radio tx",
-    [radio_rx] = "radio rx",
-    [stop_rx] = "radio rxstop",
-    [set_wdt] = "radio set wdt"
+    [RESET] = "sys reset",
+    [GET_VERSION] = "sys get ver",
+    [MAC_PAUSE] = "mac pause",
+    [RADIO_TX] = "radio tx",
+    [RADIO_RX] = "radio rx",
+    [STOP_RX] = "radio rxstop",
+    [SET_WDT] = "radio set wdt"
 };
 
 /**
- * @brief RN2483 struct
- * 
+ * @brief RN2483 struct. Contains all the necessary attributes 
+ *          to access a rn2483 device and keep track of the current 
+ *          state of the device throught the different processes.
  */
 struct rn2483_uart {
     /** Access to serial port **/

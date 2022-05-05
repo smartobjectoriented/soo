@@ -53,7 +53,7 @@ static void (*subscribers[MAX_SUBSCRIBERS])(byte *data);
 static void rn2483_process_cmd_response(byte *rsp) {
     switch (rn2483->current_cmd)
     {
-    case reset:
+    case RESET:
         if (strcmp(rsp, RN2483_INVALID_PARAM) == 0) {
             dev_err(rn2483->dev, "Failed to reset device: %s", rsp);
             BUG();
@@ -62,7 +62,7 @@ static void rn2483_process_cmd_response(byte *rsp) {
         rn2483->status = IDLE;
         break;
 
-    case radio_rx:
+    case RADIO_RX:
         if (strcmp(rsp, RN2483_OK) != 0) {
             dev_err(rn2483->dev, "Failed to set listening mode: %s", rsp);
             BUG();
@@ -71,7 +71,7 @@ static void rn2483_process_cmd_response(byte *rsp) {
         rn2483->status = LISTEN;
         break;
 
-    case stop_rx:
+    case STOP_RX:
         if (strcmp(rsp, RN2483_OK) != 0) {
             dev_err(rn2483->dev, "Failed to stop listening: %s", rsp);
             BUG();
@@ -80,7 +80,7 @@ static void rn2483_process_cmd_response(byte *rsp) {
         rn2483->status = IDLE;
         break;
 
-    case mac_pause:
+    case MAC_PAUSE:
         if (strcmp(rsp, "0") == 0) {
             dev_err(rn2483->dev, "Failed to pause lora mac");
             BUG();
@@ -89,7 +89,7 @@ static void rn2483_process_cmd_response(byte *rsp) {
         rn2483->status = IDLE;
         break;
 
-    case set_wdt:
+    case SET_WDT:
         if (strcmp(rsp, RN2483_OK) != 0) {
             dev_err(rn2483->dev, "Failed to set watchdog: %s", rsp);
             BUG();
@@ -137,7 +137,7 @@ static void process_send_msg_response(byte *rsp) {
  * @param data Received data
  * @param timeout if mac pause ends timeout is set to 1 else is 0
  */
-static void rn2483_process_listen(byte *data, int *timeout) {
+static void rn2483_process_listen(byte *data, bool *timeout) {
     byte *msg;
     char *token;
     char num[3] = {0};
@@ -286,16 +286,16 @@ void rn2483_send_cmd(rn2483_cmd_t cmd, char *args) {
  * @return int 0
  */
 static int rn2483_start_listening(void *args) {
-    int timeout = 0;
+    bool timeout = false;
 
     if (args) {
-        timeout = *(int*)(args);
+        timeout = *(bool*)(args);
     }
 
     if (timeout)
-        rn2483_send_cmd(mac_pause, NULL);
+        rn2483_send_cmd(MAC_PAUSE, NULL);
 
-    rn2483_send_cmd(radio_rx, "0");
+    rn2483_send_cmd(RADIO_RX, "0");
 
     return 0;
 }
@@ -304,19 +304,19 @@ void rn2483_send_data(char *data, int len) {
     byte *msg; 
     char raw_bytes[3];
     int msg_len, i;
-    rn2483_send_cmd(stop_rx, NULL);
+    rn2483_send_cmd(STOP_RX, NULL);
 
     rn2483->status = SEND_MSG;
-    rn2483->current_cmd = radio_tx;
+    rn2483->current_cmd = RADIO_TX;
 
     if (!data)
         BUG();
 
-    msg_len = strlen(cmd_list[radio_tx]) + len * 2 + 2;
+    msg_len = strlen(cmd_list[RADIO_TX]) + len * 2 + 2;
     msg = kzalloc(msg_len * sizeof(byte), GFP_KERNEL);
     BUG_ON(!msg);
 
-    sprintf(msg, "%s ", cmd_list[radio_tx]);
+    sprintf(msg, "%s ", cmd_list[RADIO_TX]);
 
     for (i = 0; i < len; i++) {
         snprintf(raw_bytes, 3, "%02X", data[i]);
@@ -338,12 +338,12 @@ void rn2483_send_data(char *data, int len) {
  * 
  * @param buf received buffer
  * @param len buffer length
- * @param prev_data if the previous call did not signaled data_end == 1 put the previous data else NULL
+ * @param prev_data if the previous call did not signal data_end == 1 put the previous data else NULL
  * @param data_len total length of the data. It makes sense only when data_end == 1
  * @param data_end signals that all the data has been received data_end == 1 else data_end == 0
  * @return byte* data received
  */
-static byte *process_received_buffer(const byte *buf, size_t len, byte *prev_data, int *data_len, int *data_end) {
+static byte *process_received_buffer(const byte *buf, size_t len, byte *prev_data, int *data_len, bool *data_end) {
     static int prev_data_len;
     byte *data;
     int i;
@@ -401,7 +401,8 @@ static byte *process_received_buffer(const byte *buf, size_t len, byte *prev_dat
  * @return int data received size
  */
 static int rn2483_serdev_receive_buf(struct serdev_device *serdev, const byte *buf, size_t len) {
-    int msg_len, msg_end, timeout = 0;
+    int msg_len;
+    bool timeout = 0, msg_end;
     static byte *msg = NULL;
 
 #ifdef DEBUG
@@ -521,9 +522,9 @@ static int rn2483_serdev_probe(struct serdev_device *serdev) {
         BUG();
     }
 
-    rn2483_send_cmd(reset, NULL);
+    rn2483_send_cmd(RESET, NULL);
     /** Disable watchdog **/
-    rn2483_send_cmd(set_wdt, "0");
+    rn2483_send_cmd(SET_WDT, "0");
     /** Listen for data **/
     rn2483_start_listening(&timeout);
 
