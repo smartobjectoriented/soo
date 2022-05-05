@@ -149,10 +149,10 @@ static void rn2483_process_listen(byte *data, bool *timeout) {
     dev_info(rn2483->dev, "New radio data received: %s", data);
 #endif
 
-    *timeout = 0;
+    *timeout = false;
     /** Check if timeout is expired **/
     if (strcmp(data, RN2483_RADIO_ERR) == 0) {
-        *timeout = 1;
+        *timeout = true;
         dev_info(rn2483->dev, "Radio rx timeout reached");
     }
 
@@ -402,7 +402,7 @@ static byte *process_received_buffer(const byte *buf, size_t len, byte *prev_dat
  */
 static int rn2483_serdev_receive_buf(struct serdev_device *serdev, const byte *buf, size_t len) {
     int msg_len;
-    bool timeout = 0, msg_end;
+    bool timeout = false, msg_end;
     static byte *msg = NULL;
 
 #ifdef DEBUG
@@ -487,7 +487,7 @@ static int rn2483_serdev_probe(struct serdev_device *serdev) {
     struct device *dev;
     int ret = 0;
     u32 baud;
-    int timeout = 1;
+    int timeout = true;
 
     dev = &serdev->dev;
     BUG_ON(!dev);
