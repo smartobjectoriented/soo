@@ -138,7 +138,7 @@ static void process_send_msg_response(byte *rsp) {
  * @brief Process received LoRa data and forward it to all subscribers
  * 
  * @param data Received data
- * @param timeout if mac pause ends timeout is set to 1 else is 0
+ * @param timeout if mac pause ends timeout is set to true else is false
  */
 static void rn2483_process_listen(byte *data, bool *timeout) {
     byte *msg;
