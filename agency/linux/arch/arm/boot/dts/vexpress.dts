@@ -411,3 +411,12 @@
 		current-speed = <57600>;
 	};
 };
+
+&v2m_serial2 {
+	status = "okay";
+		
+	lora {
+		compatible = "lora,rn2483";
+		current-speed = <57600>;
+	};
+};
