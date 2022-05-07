@@ -23,8 +23,6 @@
 #include <asm/cacheflush.h>
 #include <asm/processor.h>
 
-#include <mach/uart.h>
-
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
 #include <soo/console.h>
@@ -49,9 +47,10 @@
  */
 #define BASEADDR_BITMAP_BYTES 	256
 
-extern uint32_t __heap_base_addr;
-static uint32_t heap_base_vaddr = (uint32_t ) &__heap_base_addr;
+extern addr_t __heap_base_addr;
+static addr_t heap_base_vaddr = (addr_t ) &__heap_base_addr;
 
+#if 0
 static unsigned char baseaddr_2nd_bitmap[BASEADDR_BITMAP_BYTES];
 
 /* Init the bitmap */
@@ -68,7 +67,7 @@ static void init_baseaddr_2nd_bitmap(void) {
 static void set_baseaddr_2nd_bitmap(unsigned int baseaddr) {
 	unsigned int pos, mod;
 
-	baseaddr = (baseaddr - (CONFIG_RAM_BASE + (heap_base_vaddr - CONFIG_KERNEL_VIRT_ADDR))) >> 10;
+	baseaddr = (baseaddr - (CONFIG_RAM_BASE + (heap_base_vaddr - CONFIG_KERNEL_VADDR))) >> 10;
 
 	pos = baseaddr >> 3;
 	mod = baseaddr % 8;
@@ -82,7 +81,7 @@ static void set_baseaddr_2nd_bitmap(unsigned int baseaddr) {
 static unsigned int is_set_baseaddr_2nd_bitmap(unsigned int baseaddr) {
 	unsigned int pos, mod;
 
-	baseaddr = (baseaddr - (CONFIG_RAM_BASE + (heap_base_vaddr - CONFIG_KERNEL_VIRT_ADDR))) >> 10;
+	baseaddr = (baseaddr - (CONFIG_RAM_BASE + (heap_base_vaddr - CONFIG_KERNEL_VADDR))) >> 10;
 
 	pos = baseaddr >> 3;
 	mod = baseaddr % 8;
@@ -229,7 +228,7 @@ static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
 	list_for_each_entry(pcb, &proc_list, list)
 	{
 
-		for (vaddr = CONFIG_KERNEL_VIRT_ADDR; ((vaddr != 0) && (vaddr < 0xffffffff)); vaddr += TTB_SECT_SIZE) {
+		for (vaddr = CONFIG_KERNEL_VADDR; ((vaddr != 0) && (vaddr < 0xffffffff)); vaddr += TTB_SECT_SIZE) {
 			l1pte = l1pte_offset(pcb->pgtable, vaddr);
 			l1pte_current = l1pte_offset(__sys_root_pgtable, vaddr);
 
@@ -240,8 +239,8 @@ static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
 
 		/* Finally, remap the whole user space */
 
-		adjust_l1_page_tables(0, CONFIG_KERNEL_VIRT_ADDR, pcb->pgtable, args);
-		adjust_l2_page_tables(0, CONFIG_KERNEL_VIRT_ADDR, pcb->pgtable, args);
+		adjust_l1_page_tables(0, CONFIG_KERNEL_VADDR, pcb->pgtable, args);
+		adjust_l2_page_tables(0, CONFIG_KERNEL_VADDR, pcb->pgtable, args);
 
 		mmu_page_table_flush((uint32_t) pcb->pgtable, (uint32_t) (pcb->pgtable + TTB_L1_ENTRIES));
 	}
@@ -249,9 +248,12 @@ static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
 	return 0;
 }
 
+#endif
+
 /* Main callback function used by AVZ */
 int domcall(int cmd, void *arg)
 {
+#if 0
 	int rc = 0;
 
 	switch (cmd) {
@@ -287,7 +289,10 @@ int domcall(int cmd, void *arg)
 	}
 
 	return rc;
+#endif
+	return 0;
 }
+
 
 /**
  * Enable the cooperation between this ME and the other.

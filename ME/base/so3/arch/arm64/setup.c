@@ -114,3 +114,9 @@ void setup_arch(void) {
 
 	/* A low-level UART should be initialized here so that subsystems initialization (like MMC) can already print out logs ... */
 }
+
+void vectors_setup(void) {
+
+	/* To be defined.... */
+}
+

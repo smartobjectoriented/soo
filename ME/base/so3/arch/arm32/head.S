@@ -153,7 +153,7 @@ mmu_setup:
 
   @ Refer to the 1st-level page table
 #ifdef CONFIG_SO3VIRT
-  ldr 	r4, =CONFIG_KERNEL_VIRT_ADDR + TTB_L1_SYS_OFFSET
+  ldr 	r4, =CONFIG_KERNEL_VADDR + TTB_L1_SYS_OFFSET
 #else
   ldr	r4, =CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET
 #endif

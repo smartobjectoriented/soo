@@ -9,6 +9,8 @@ choice
 		
 endchoice
 
+config SO3VIRT
+	bool "SOO ME Environment"
 
 config ARCH
 	string

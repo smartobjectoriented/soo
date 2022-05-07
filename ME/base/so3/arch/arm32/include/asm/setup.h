@@ -37,5 +37,6 @@ struct meminfo {
 extern struct meminfo meminfo;
 
 void setup_arch(void);
+void vectors_setup(void);
 
 #endif /* ASM_SETUP_H */

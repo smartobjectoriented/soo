@@ -59,6 +59,12 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 	d->addrspace.pgtable_paddr = __pa(new_pt);
 	d->addrspace.ttbr1[d->processor] = __pa(new_pt);
 
+	/* Keep a reference to the page table on Agency CPU for MEs
+	 * because we will switch to it after the setup of page tables.
+	 */
+	if (d->processor != AGENCY_CPU)
+		d->addrspace.ttbr1[AGENCY_CPU] = __pa(new_pt);
+
 	/* Copy the hypervisor area */
 #ifdef CONFIG_VA_BITS_48
 	*l0pte_offset(new_pt, CONFIG_HYPERVISOR_VIRT_ADDR) = *l0pte_offset(__sys_root_pgtable, CONFIG_HYPERVISOR_VIRT_ADDR);

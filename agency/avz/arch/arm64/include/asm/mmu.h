@@ -35,8 +35,10 @@
 
 #ifdef CONFIG_VA_BITS_48
 #define L_PAGE_OFFSET	UL(0xffff800010000000)
+#define ME_PAGE_OFFSET	UL(0xffff800000000000)
 #elif CONFIG_VA_BITS_39
 #define L_PAGE_OFFSET	UL(0xffffffc010000000)
+#define ME_PAGE_OFFSET  UL(0xffffffc000000000)
 #else
 #error "Wrong VA_BITS configuration."
 #endif
@@ -407,14 +409,6 @@ typedef struct {
 	unsigned long ttbr;			\
 	__asm__("mrs	%0, ttbr1_el1"	\
 		 : "=r" (ttbr) : : "cc");	\
-	ttbr &= TTBR0_BASE_ADDR_MASK;		\
-})
-
-#define cpu_get_ttbr0() \
-({						\
-	unsigned long ttbr;			\
-	__asm__("mrs	%0, ttbr1_el1"	\
-		 : "=r" (ttbr) : : "cc");		\
 	ttbr;					\
 })
 
