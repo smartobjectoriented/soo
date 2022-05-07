@@ -339,7 +339,7 @@ void inject_me(soo_hyp_t *op)
 
 	DBG("%s: Preparing ME injection, source image = %lx\n", __func__, op->vaddr);
 
-	local_irq_save(flags);
+	flags = local_irq_save();
 
 	/* op->vaddr: vaddr of itb */
 

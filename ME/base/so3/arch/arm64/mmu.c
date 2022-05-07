@@ -27,8 +27,6 @@
 
 #include <device/ramdev.h>
 
-#include <mach/uart.h>
-
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
 
@@ -79,7 +77,7 @@ static void alloc_init_l3(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
 		set_pte_page(l3pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
 		/* Set AP[1] bit 6 to 1 to make R/W/Executable the pages in user space */
-		if (addr < CONFIG_KERNEL_VIRT_ADDR)
+		if (addr < CONFIG_KERNEL_VADDR)
 			*l3pte |= PTE_BLOCK_AP1;
 
 		DBG("Allocating a 4 KB page at l2pte: %p content: %lx\n", l3pte, *l3pte);
@@ -138,7 +136,7 @@ static void alloc_init_l2(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
 			set_pte_block(l2pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
 			/* Set AP[1] bit 6 to 1 to make R/W/Executable the pages in user space */
-			if (addr < CONFIG_KERNEL_VIRT_ADDR)
+			if (addr < CONFIG_KERNEL_VADDR)
 				*l2pte |= PTE_BLOCK_AP1;
 
 			DBG("Allocating a 2 MB block at l2pte: %p content: %lx\n", l2pte, *l2pte);
@@ -198,7 +196,7 @@ static void alloc_init_l1(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
 			set_pte_block(l1pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
 			/* Set AP[1] bit 6 to 1 to make R/W/Executable the pages in user space */
-			if (addr < CONFIG_KERNEL_VIRT_ADDR)
+			if (addr < CONFIG_KERNEL_VADDR)
 				*l1pte |= PTE_BLOCK_AP1;
 
 			DBG("Allocating a 1 GB block at l1pte: %p content: %lx\n", l1pte, *l1pte);
@@ -323,7 +321,7 @@ void reset_root_pgtable(void *pgtable, bool remove) {
 	int i;
 	uint32_t *l1pte, *l2pte;
 
-	for (i = 0; i < l1pte_index(CONFIG_KERNEL_VIRT_ADDR); i++) {
+	for (i = 0; i < l1pte_index(CONFIG_KERNEL_VADDR); i++) {
 
 		l1pte = (uint32_t *) l1pgtable + i;
 
@@ -411,6 +409,7 @@ void dump_pgtable(void *l0pgtable) {
 
 void mmu_configure(addr_t fdt_addr) {
 
+#ifndef CONFIG_SO3VIRT
 	icache_disable();
 	dcache_disable();
 
@@ -429,21 +428,22 @@ void mmu_configure(addr_t fdt_addr) {
 
 	/* Create the initial 1 GB linear mapping of the kernel in its target virtual address space */
 
-	__sys_root_pgtable[l0pte_index(CONFIG_KERNEL_VIRT_ADDR)] = (u64) __sys_linearmap_l1pgtable & TTB_L0_TABLE_ADDR_MASK;
-	set_pte_table(&__sys_root_pgtable[l0pte_index(CONFIG_KERNEL_VIRT_ADDR)], DCACHE_WRITEALLOC);
+	__sys_root_pgtable[l0pte_index(CONFIG_KERNEL_VADDR)] = (u64) __sys_linearmap_l1pgtable & TTB_L0_TABLE_ADDR_MASK;
+	set_pte_table(&__sys_root_pgtable[l0pte_index(CONFIG_KERNEL_VADDR)], DCACHE_WRITEALLOC);
 
-	__sys_linearmap_l1pgtable[l1pte_index(CONFIG_KERNEL_VIRT_ADDR)] = CONFIG_RAM_BASE & TTB_L1_BLOCK_ADDR_MASK;
-	set_pte_block(&__sys_linearmap_l1pgtable[l1pte_index(CONFIG_KERNEL_VIRT_ADDR)], DCACHE_WRITEALLOC);
+	__sys_linearmap_l1pgtable[l1pte_index(CONFIG_KERNEL_VADDR)] = CONFIG_RAM_BASE & TTB_L1_BLOCK_ADDR_MASK;
+	set_pte_block(&__sys_linearmap_l1pgtable[l1pte_index(CONFIG_KERNEL_VADDR)], DCACHE_WRITEALLOC);
 
 	/* Early mapping I/O for UART. Here, the UART is supposed to be in a different L1 entry than the RAM. */
 
-	__sys_idmap_l1pgtable[l1pte_index(UART_BASE)] = UART_BASE & TTB_L1_BLOCK_ADDR_MASK;
-	set_pte_block(&__sys_idmap_l1pgtable[l1pte_index(UART_BASE)], DCACHE_OFF);
+	__sys_idmap_l1pgtable[l1pte_index(CONFIG_UART_LL_PADDR)] = CONFIG_UART_LL_PADDR & TTB_L1_BLOCK_ADDR_MASK;
+	set_pte_block(&__sys_idmap_l1pgtable[l1pte_index(CONFIG_UART_LL_PADDR)], DCACHE_OFF);
 
 	mmu_setup(__sys_root_pgtable);
 
 	icache_enable();
 	dcache_enable();
+#endif /* !CONFIG_SO3VIRT */
 
 }
 
@@ -491,7 +491,7 @@ void duplicate_user_space(struct pcb *from, struct pcb *to) {
 	u64 *pte_origin;
 	u64 *l1pgtable_origin, *l1pgtable;
 
-	for (i = l0pte_index(CONFIG_KERNEL_VIRT_ADDR); i < TTB_L0_ENTRIES; i++) {
+	for (i = l0pte_index(CONFIG_KERNEL_VADDR); i < TTB_L0_ENTRIES; i++) {
 		pte_origin = __sys_root_pgtable + i;
 
 		if (*pte_origin) {

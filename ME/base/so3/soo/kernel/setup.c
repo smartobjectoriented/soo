@@ -23,6 +23,7 @@
 
 #include <asm/cacheflush.h>
 #include <asm/mmu.h>
+#include <asm/setup.h>
 
 #include <soo/hypervisor.h>
 #include <soo/avz.h>
@@ -71,29 +72,6 @@ int do_presetup_adjust_variables(void *arg)
 	return 0;
 }
 
-void vectors_setup(void) {
-
- 	/* Make a copy of the existing vectors. The L2 pagetable was allocated by AVZ and cannot be used as such by the guest.
- 	 * Therefore, we will make our own mapping in the guest for this vector page.
- 	 */
- 	memcpy(vectors_tmp, (void *) VECTOR_VADDR, PAGE_SIZE);
-
- 	/* Reset the L1 PTE used for the vector page. */
- 	clear_l1pte(NULL, VECTOR_VADDR);
-
- 	create_mapping(NULL, VECTOR_VADDR, __pa((uint32_t) __guestvectors), PAGE_SIZE, true);
-
- 	memcpy((void *) VECTOR_VADDR, vectors_tmp, PAGE_SIZE);
-
-	/* We need to add handling of swi/svc software interrupt instruction for syscall processing.
-	 * Such an exception is fully processed by the SO3 domain.
-	 */
-	inject_syscall_vector();
-
-	flush_dcache_range(VECTOR_VADDR, VECTOR_VADDR + PAGE_SIZE);
-	invalidate_icache_all();
-}
-
 int do_postsetup_adjust_variables(void *arg)
 {
 	struct DOMCALL_postsetup_adjust_variables_args *args = arg;
@@ -113,15 +91,16 @@ static void map_vbstore_page(unsigned long vbstore_pfn, bool clear)
 {
 
 	/* Reset the L1 PTE so that we are ready to allocate a page for vbstore. */
-	clear_l1pte(NULL, HYPERVISOR_VBSTORE_VADDR);
+	//clear_l1pte(NULL, CONFIG_VBSTORE_VADDR);
 
 	/* Re-map the new vbstore page */
-	create_mapping(NULL, HYPERVISOR_VBSTORE_VADDR, pfn_to_phys(vbstore_pfn), PAGE_SIZE, true);
+	create_mapping(NULL, CONFIG_VBSTORE_VADDR, pfn_to_phys(vbstore_pfn), PAGE_SIZE, true);
 
 }
 
 int do_sync_domain_interactions(void *arg)
 {
+#if 0
 	struct DOMCALL_sync_domain_interactions_args *args = arg;
 	pcb_t *pcb;
 	uint32_t *l1pte, *l1pte_current;
@@ -130,12 +109,12 @@ int do_sync_domain_interactions(void *arg)
 
 	map_vbstore_page(args->vbstore_pfn, false);
 
-	l1pte_current = l1pte_offset(__sys_root_pgtable, HYPERVISOR_VBSTORE_VADDR);
+	l1pte_current = l1pte_offset(__sys_root_pgtable, CONFIG_VBSTORE_VADDR);
 
 	list_for_each_entry(pcb, &proc_list, list)
 	{
-		clear_l1pte(pcb->pgtable, HYPERVISOR_VBSTORE_VADDR);
-		l1pte = l1pte_offset(pcb->pgtable, HYPERVISOR_VBSTORE_VADDR);
+		clear_l1pte(pcb->pgtable, CONFIG_VBSTORE_VADDR);
+		l1pte = l1pte_offset(pcb->pgtable, CONFIG_VBSTORE_VADDR);
 
 		*l1pte = *l1pte_current;
 
@@ -144,7 +123,7 @@ int do_sync_domain_interactions(void *arg)
 
 
 	postmig_vbstore_setup(args);
-
+#endif
 	return 0;
 }
 
@@ -160,9 +139,9 @@ void avz_setup(void) {
 	HYPERVISOR_hypercall_addr = (uint32_t *) avz_start_info->hypercall_addr;
 
 	lprintk("SOO Agency Virtualizer (avz) Start info :\n\n");
-	lprintk("- Hypercall addr: %x\n", (uint32_t) HYPERVISOR_hypercall_addr);
-	lprintk("- Shared info page addr: %x\n", (uint32_t) avz_start_info->shared_info);
-	lprintk("- Dom phys offset: %x\n\n", (uint32_t) avz_dom_phys_offset);
+	lprintk("- Hypercall addr: %x\n", (addr_t) HYPERVISOR_hypercall_addr);
+	lprintk("- Shared info page addr: %x\n", (addr_t) avz_start_info->shared_info);
+	lprintk("- Dom phys offset: %x\n\n", (addr_t) avz_dom_phys_offset);
 
 	mem_info.size = avz_start_info->nr_pages * PAGE_SIZE;
 	mem_info.phys_base = avz_dom_phys_offset;

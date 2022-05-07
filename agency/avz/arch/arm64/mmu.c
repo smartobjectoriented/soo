@@ -39,11 +39,9 @@ void get_current_addrspace(addrspace_t *addrspace) {
 	int cpu;
 
 	cpu = smp_processor_id();
-#if 0
-	/* Get the current state of MMU */
-	addrspace->ttbr0[cpu] = READ_CP32(TTBR0_32);
-	addrspace->pgtable_paddr = addrspace->ttbr0[cpu] & TTBR0_BASE_ADDR_MASK;
-#endif
+
+	addrspace->ttbr1[cpu] = cpu_get_l0pgtable();
+	addrspace->pgtable_paddr = addrspace->ttbr1[cpu];
 }
 
 /*

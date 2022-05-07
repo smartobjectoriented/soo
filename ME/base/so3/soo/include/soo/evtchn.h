@@ -51,7 +51,7 @@ static inline void clear_evtchn(u32 evtchn) {
 
 	s->evtchn_pending[evtchn] = false;
 
-	dmb();
+	smp_mb();
 
 }
 static inline void notify_remote_via_evtchn(uint32_t evtchn) {

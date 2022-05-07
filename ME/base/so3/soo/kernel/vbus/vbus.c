@@ -93,7 +93,7 @@ static int __vbus_switch_state(struct vbus_device *vdev, enum vbus_state state, 
 
 	vdev->state = state;
 
-	dmb();
+	smp_mb();
 
 	vbus_transaction_start(&vbt);
 	vbus_printf(vbt, vdev->nodename, "state", "%d", state);
