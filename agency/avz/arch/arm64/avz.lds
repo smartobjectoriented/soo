@@ -7,7 +7,7 @@ ENTRY(__start)
 
 /* The sizes of the stacks used by the application. */
  
-HEAP_SIZE = 2 * 1024 * 1024;    /* 2 MB dedicated to kernel heap */
+HEAP_SIZE = 8 * 1024 * 1024;    /* 8 MB dedicated to kernel heap */
 STACK_SIZE = 8 * 1024;
 
 SECTIONS

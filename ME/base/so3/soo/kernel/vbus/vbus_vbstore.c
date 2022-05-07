@@ -137,14 +137,14 @@ static void vbs_write(const void *data, unsigned len)
 	dst = &__intf->req[prod];
 
 	/* Must write data /after/ reading the producer index. */
-	dmb();
+	smp_mb();
 
 	memcpy((void *) dst, data, len);
 
 	__intf->req_pvt += len;
 
 	/* Other side must not see new producer until data is there. */
-	dmb();
+	smp_mb();
 }
 
 static void vbs_read(void *data, unsigned len)
@@ -163,14 +163,14 @@ static void vbs_read(void *data, unsigned len)
 	src = &__intf->rsp[cons];
 
 	/* Must read data /after/ reading the producer index. */
-	dmb();
+	smp_mb();
 
 	memcpy(data, (void *) src, len);
 
 	__intf->rsp_cons += len;
 
 	/* Other side must not see free space until we've copied out */
-	dmb();
+	smp_mb();
 
 }
 
@@ -238,7 +238,7 @@ static void *vbs_talkv(struct vbus_transaction t, vbus_msg_type_t type, const ms
 
 	__intf->req_prod = __intf->req_pvt;
 
-	dmb();
+	smp_mb();
 
 	notify_remote_via_evtchn(__intf->levtchn);
 

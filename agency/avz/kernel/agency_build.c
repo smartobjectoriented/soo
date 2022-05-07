@@ -119,7 +119,6 @@ int construct_agency(struct domain *d) {
 
 	d->vstartinfo_start = vstartinfo_start;
 
-
 	/* Set up a new domain stack for the RT domain */
 	domain_stack = (unsigned long) setup_dom_stack(domains[DOMID_AGENCY_RT]);
 

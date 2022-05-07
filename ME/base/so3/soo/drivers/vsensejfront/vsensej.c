@@ -225,7 +225,7 @@ vdrvfront_t vsensejdrv = {
 	.connected = vsensej_connected
 };
 
-static int vsensej_init(dev_t *dev) {
+static int vsensej_init(dev_t *dev, int fdt_offset) {
 	vsensej_priv_t *vsensej_priv;
 
 	vsensej_priv = malloc(sizeof(vsensej_priv_t));

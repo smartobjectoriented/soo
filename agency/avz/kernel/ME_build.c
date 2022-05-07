@@ -45,7 +45,6 @@ int construct_ME(struct domain *d) {
 	unsigned long vstartinfo_start;
 	unsigned long v_start;
 	unsigned long alloc_spfn;
-	unsigned long vpt_start;
 	struct start_info *si = NULL;
 	unsigned long nr_pages;
 	addrspace_t prev_addrspace;
@@ -78,17 +77,12 @@ int construct_ME(struct domain *d) {
 
 	clear_bit(_VPF_down, &d->pause_flags);
 
-	v_start = L_PAGE_OFFSET;
-
-	vpt_start = v_start + TTB_L1_SYS_OFFSET; /* Location of the system page table (see head.S). */
+	v_start = ME_PAGE_OFFSET;
 
 	__setup_dom_pgtable(d, v_start, memslot[slotID].size, (alloc_spfn << PAGE_SHIFT));
 
 	/* Lets switch to the page table of our new domain - required for sharing page info */
 	get_current_addrspace(&prev_addrspace);
-
-	/* We do this trick to access the right address space linked to the current CPU. */
-	d->addrspace.ttbr0[smp_processor_id()] = d->addrspace.ttbr0[ME_CPU];
 
 	mmu_switch(&d->addrspace);
 
@@ -119,7 +113,11 @@ int construct_ME(struct domain *d) {
 	d->vstartinfo_start = vstartinfo_start;
 
 	/* Create the first thread associated to this domain. */
-	new_thread(d, L_PAGE_OFFSET + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
+#ifdef CONFIG_ARCH_ARM32
+	new_thread(d, v_start + 0x8000, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
+#else
+	new_thread(d, v_start + 0x80000, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
+#endif
 
 	return 0;
 }

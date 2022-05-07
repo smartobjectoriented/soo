@@ -64,6 +64,12 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 	d->addrspace.ttbr0[d->processor] = cpu_get_ttbr0() & ~TTBR0_BASE_ADDR_MASK;
 	d->addrspace.ttbr0[d->processor] |= d->addrspace.pgtable_paddr;
 
+	/* Keep a reference to the page table on Agency CPU for MEs
+	 * because we will switch to it after the setup of page tables.
+	 */
+	if (d->processor != AGENCY_CPU)
+		d->addrspace.ttbr0[AGENCY_CPU] = __pa(new_pt);
+
 	/* Manage the new system page table dedicated to the domain. */
 	new_pt = (uint32_t *) __lva(vpt_start - v_start + p_start);
 

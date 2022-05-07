@@ -154,3 +154,28 @@ void setup_arch(void) {
 	/* A low-level UART should be initialized here so that subsystems initialization (like MMC) can already print out logs ... */
 
 }
+
+void vectors_setup(void) {
+
+ 	/* Make a copy of the existing vectors. The L2 pagetable was allocated by AVZ and cannot be used as such by the guest.
+ 	 * Therefore, we will make our own mapping in the guest for this vector page.
+ 	 */
+ 	memcpy(vectors_tmp, (void *) VECTOR_VADDR, PAGE_SIZE);
+
+ 	/* Reset the L1 PTE used for the vector page. */
+ 	clear_l1pte(NULL, VECTOR_VADDR);
+
+ 	create_mapping(NULL, VECTOR_VADDR, __pa((uint32_t) __guestvectors), PAGE_SIZE, true);
+
+ 	memcpy((void *) VECTOR_VADDR, vectors_tmp, PAGE_SIZE);
+
+	/* We need to add handling of swi/svc software interrupt instruction for syscall processing.
+	 * Such an exception is fully processed by the SO3 domain.
+	 */
+	inject_syscall_vector();
+
+	flush_dcache_range(VECTOR_VADDR, VECTOR_VADDR + PAGE_SIZE);
+	invalidate_icache_all();
+}
+
+

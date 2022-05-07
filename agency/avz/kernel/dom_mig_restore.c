@@ -109,6 +109,7 @@ static void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 	uint32_t *l1pte, *l2pte, *l1pte_current;
 	int i, j;
 
+#if 0
 	/* The page table is found at domain_start + 0x4000 */
 	pgtable_ME = (uint32_t *) (vaddr_start_ME + 0x4000);
 
@@ -230,6 +231,7 @@ static void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 	dmb();
 
 	switch_mm(idle_domain[smp_processor_id()], &idle_domain[smp_processor_id()]->addrspace);
+#endif
 
 }
 
