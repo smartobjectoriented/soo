@@ -37,18 +37,15 @@ void lprintk(char *format, ...) {
 	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
 	va_end(va);
 
-	if (cpu_mode() == PSR_USR_MODE)
-		__write(STDOUT, buf, strlen(buf));
-	else {
-		flags = local_irq_save();
+	flags = local_irq_save();
 
-		BUG_ON(strlen(buf) > CONSOLEIO_BUFFER_SIZE);
+	BUG_ON(strlen(buf) > CONSOLEIO_BUFFER_SIZE);
 
-		for (i = 0; i < strlen(buf); i++)
-			__printch(buf[i]);
+	for (i = 0; i < strlen(buf); i++)
+		__printch(buf[i]);
 
-		local_irq_restore(flags);
-	}
+	local_irq_restore(flags);
+
 }
 
 /**

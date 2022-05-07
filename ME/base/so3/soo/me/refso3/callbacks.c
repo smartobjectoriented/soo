@@ -133,7 +133,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		/* Update the list of hosts */
 		sh_refso3->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_refso3->me_common.soohosts);
 
-		agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_refso3));
+		agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_refso3));
 		agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
 		/* This pattern enables the cooperation with the target ME */

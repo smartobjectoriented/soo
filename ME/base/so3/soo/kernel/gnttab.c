@@ -241,7 +241,7 @@ int gnttab_remove(bool with_vbus) {
 	DBG("Removing grant table ...\n");
 
 	/* Free previous entries */
-	free_contig_vpages((uint32_t) gnttab, NR_GRANT_FRAMES);
+	free_contig_vpages((addr_t) gnttab, NR_GRANT_FRAMES);
 
 	if (with_vbus) {
 		sprintf(path, "domain/gnttab/%i", ME_domID());
@@ -284,7 +284,7 @@ void gnttab_init(void)
 
 	vbus_transaction_start(&vbt);
 
-	sprintf(buf, "%lX", phys_to_pfn(virt_to_phys_pt((unsigned int) gnttab)));
+	sprintf(buf, "%lX", phys_to_pfn(virt_to_phys_pt((addr_t) gnttab)));
 	sprintf(path, "domain/gnttab/%i", ME_domID());
 
 	vbus_write(vbt, path, "pfn", buf);

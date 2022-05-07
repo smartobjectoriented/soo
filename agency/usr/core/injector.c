@@ -125,6 +125,10 @@ void inject_MEs_from_filesystem(void) {
 		if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || !strcmp(ent->d_name, "lost+found"))
 			continue;
 
+		/* Only .itb extensions are recognized */
+		if (!strstr(ent->d_name, ".itb"))
+			continue;
+
 		printf("Found new ME to inject : %s\n", ent->d_name);
 
 		strcpy(filename, SOO_ME_DIRECTORY);

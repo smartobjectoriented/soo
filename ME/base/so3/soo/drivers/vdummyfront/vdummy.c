@@ -144,7 +144,7 @@ static void vdummy_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	vdummy_priv->vdummy.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vdummy_priv->vdummy.ring.sring)));
+	vdummy_priv->vdummy.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vdummy_priv->vdummy.ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -178,7 +178,7 @@ static void vdummy_reconfiguring(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vdummy_priv->vdummy.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vdummy_priv->vdummy.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -209,7 +209,7 @@ static void vdummy_closed(struct vbus_device *vdev) {
 	/* Free resources associated with old device channel. */
 	if (vdummy_priv->vdummy.ring_ref != GRANT_INVALID_REF) {
 		gnttab_end_foreign_access(vdummy_priv->vdummy.ring_ref);
-		free_vpage((uint32_t) vdummy_priv->vdummy.ring.sring);
+		free_vpage((addr_t) vdummy_priv->vdummy.ring.sring);
 
 		vdummy_priv->vdummy.ring_ref = GRANT_INVALID_REF;
 		vdummy_priv->vdummy.ring.sring = NULL;

@@ -35,16 +35,6 @@
 
 #ifdef CONFIG_SO3VIRT
 
-/*
- * Normally, VMALLOC_END (Linux) finishes at 0xf8000000, and some I/O like UARTs might be mapped.
- * So we preserve re-adjusting pfns in these regions (below the hypervisor).
- */
-#define	HYPERVISOR_VIRT_ADDR		0xff000000
-#define HYPERVISOR_VIRT_ADDR_DBG	0xf8000000
-#define HYPERVISOR_VIRT_SIZE		0x00c00000
-
-#define HYPERVISOR_VBSTORE_VADDR	0xffe01000
-
 #ifdef __ASSEMBLY__
 .extern avz_dom_phys_offset
 #else
@@ -106,8 +96,8 @@ extern addr_t pfn_start;
 #define phys_to_pfn(phys) (((addr_t) phys) >> PAGE_SHIFT)
 #define virt_to_pfn(virt) (phys_to_pfn(__va((addr_t) virt)))
 
-#define __pa(vaddr) (((addr_t) vaddr) - CONFIG_KERNEL_VIRT_ADDR + ((addr_t) CONFIG_RAM_BASE))
-#define __va(paddr) (((addr_t) paddr) - ((addr_t) CONFIG_RAM_BASE) + CONFIG_KERNEL_VIRT_ADDR)
+#define __pa(vaddr) (((addr_t) vaddr) - CONFIG_KERNEL_VADDR + ((addr_t) CONFIG_RAM_BASE))
+#define __va(paddr) (((addr_t) paddr) - ((addr_t) CONFIG_RAM_BASE) + CONFIG_KERNEL_VADDR)
 
 #define page_to_pfn(page) ((addr_t) ((addr_t) (page-frame_table) + pfn_start))
 #define pfn_to_page(pfn) (&frame_table[pfn - pfn_start])

@@ -28,8 +28,6 @@
 #include <device/ramdev.h>
 #include <device/fdt.h>
 
-#include <mach/uart.h>
-
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
 
@@ -456,11 +454,11 @@ void memory_init(void) {
 	/* Re-setup a system page table with a better granularity */
 	new_sys_root_pgtable = new_root_pgtable();
 
-	create_mapping(new_sys_root_pgtable, CONFIG_KERNEL_VIRT_ADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
+	create_mapping(new_sys_root_pgtable, CONFIG_KERNEL_VADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
 
 #ifndef CONFIG_SO3VIRT
 	/* Mapping uart I/O for debugging purposes */
-	create_mapping(new_sys_root_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true);
+	create_mapping(new_sys_root_pgtable, CONFIG_UART_LL_PADDR, CONFIG_UART_LL_PADDR, PAGE_SIZE, true);
 #endif
 
 	/*

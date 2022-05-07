@@ -421,7 +421,6 @@ void do_soo_hypercall(soo_hyp_t *args) {
 		soo_pre_activate(*((unsigned int *) op.p_val1));
 		break;
 
-#ifdef CONFIG_ARCH_ARM32
 	case AVZ_MIG_INIT:
 		migration_init(&op);
 		break;
@@ -462,8 +461,6 @@ void do_soo_hypercall(soo_hyp_t *args) {
 	case AVZ_INJECT_ME:
 		inject_me(&op);
 		break;
-
-#endif /* CONFIG_ARCH_ARM32 */
 
 	case AVZ_DC_SET:
 		/*
