@@ -92,7 +92,7 @@ __start:
 
   mcr 	p15, 0, r1, c12, c0, 0		@ vector table
 
-#endif
+#endif /* !CONFIG_SO3VIRT */
 
   @ prepare to clear bss and zero fp
   ldr	r6, =__bss_start

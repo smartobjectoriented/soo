@@ -275,7 +275,7 @@ void create_mapping(void *pgtable, addr_t virt_base, addr_t phys_base, size_t si
 
 	} while (addr != end);
 
-	mmu_page_table_flush((addr_t) pgtable, (addr_t) (pgtable + TTB_L0_ENTRIES));
+	mmu_page_table_flush((addr_t) pgtable, (addr_t) (pgtable + TTB_L0_SIZE));
 }
 
 #elif CONFIG_VA_BITS_39
@@ -471,14 +471,14 @@ void mmu_configure(addr_t fdt_addr) {
 
 		/* Create the mapping of the hypervisor code area. */
 #ifdef CONFIG_VA_BITS_48
-		__sys_root_pgtable[l0pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)] = (u64) __sys_linearmap_l1pgtable & TTB_L0_TABLE_ADDR_MASK;
-		set_pte_table(&__sys_root_pgtable[l0pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)], DCACHE_WRITEALLOC);
+		__sys_root_pgtable[l0pte_index(CONFIG_HYPERVISOR_VADDR)] = (u64) __sys_linearmap_l1pgtable & TTB_L0_TABLE_ADDR_MASK;
+		set_pte_table(&__sys_root_pgtable[l0pte_index(CONFIG_HYPERVISOR_VADDR)], DCACHE_WRITEALLOC);
 
-		__sys_linearmap_l1pgtable[l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)] = CONFIG_RAM_BASE & TTB_L1_BLOCK_ADDR_MASK;
-		set_pte_block(&__sys_linearmap_l1pgtable[l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)], DCACHE_WRITEALLOC);
+		__sys_linearmap_l1pgtable[l1pte_index(CONFIG_HYPERVISOR_VADDR)] = CONFIG_RAM_BASE & TTB_L1_BLOCK_ADDR_MASK;
+		set_pte_block(&__sys_linearmap_l1pgtable[l1pte_index(CONFIG_HYPERVISOR_VADDR)], DCACHE_WRITEALLOC);
 #elif CONFIG_VA_BITS_39
-		__sys_root_pgtable[l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)] = CONFIG_RAM_BASE & TTB_L1_BLOCK_ADDR_MASK;
-		set_pte_block(&__sys_root_pgtable[l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)], DCACHE_WRITEALLOC);
+		__sys_root_pgtable[l1pte_index(CONFIG_HYPERVISOR_VADDR)] = CONFIG_RAM_BASE & TTB_L1_BLOCK_ADDR_MASK;
+		set_pte_block(&__sys_root_pgtable[l1pte_index(CONFIG_HYPERVISOR_VADDR)], DCACHE_WRITEALLOC);
 #else
 #error "Wrong VA_BITS configuration."
 #endif

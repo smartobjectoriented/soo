@@ -29,6 +29,9 @@
 
 #define IO_MAPPING_BASE			UL(0xffff900000000000)
 
+#define RAMDEV_VADDR			UL(0xffffa00000000000)
+
+
 /* The user space can be up to bits [47:0] and uses ttbr0_el1
  * as main L0 page table.
  */
@@ -303,7 +306,7 @@
 
 #define pte_index_to_vaddr(i0, i1, i2, i3) ((i0 << TTB_I0_SHIFT) | i1 << TTB_I1_SHIFT) | (i2 << TTB_I2_SHIFT) | (i3 << TTB_I3_SHIFT))
 
-#define l0pte_offset(pgtable, addr)     ((u64 *) (pgtable + l0pte_index(addr)))
+#define l0pte_offset(pgtable, addr)     ((u64 *) ((u64 *) pgtable + l0pte_index(addr)))
 #define l1pte_offset(l0pte, addr)	((u64 *) (__va(*l0pte & TTB_L0_TABLE_ADDR_MASK)) + l1pte_index(addr))
 #define l2pte_offset(l1pte, addr)	((u64 *) (__va(*l1pte & TTB_L1_TABLE_ADDR_MASK)) + l2pte_index(addr))
 #define l3pte_offset(l2pte, addr)	((u64 *) (__va(*l2pte & TTB_L2_TABLE_ADDR_MASK)) + l3pte_index(addr))
@@ -400,6 +403,19 @@ static inline int pte_type(u64 *pte)
 	ttbr;					\
 })
 
+/**
+ * Check if a virtual address is within the user space range.
+ *
+ * @param addr	Virtual address to be checked
+ * @return	true if the 16 MSB is to 0xffff, false otherwise
+ */
+static inline bool user_space_vaddr(addr_t addr) {
+	if ((addr > 12) & 0xffff)
+		return false;
+	else
+		return true;
+}
+
 static inline unsigned int get_sctlr(void)
 {
 	unsigned int val;
@@ -428,6 +444,7 @@ static inline void set_pgtable(void *pgtable) {
 void set_pte(addr_t *pte, enum dcache_option option);
 
 extern void __mmu_switch(void *root_pgtable_phys);
+extern void __mmu_switch_sys(void *root_pgtable_phys);
 
 void *current_pgtable(void);
 void *new_root_pgtable(void);
@@ -446,6 +463,8 @@ void reset_l1pgtable(void *l1pgtable, bool remove);
 void clear_l1pte(void *l1pgtable, addr_t vaddr);
 
 void mmu_switch(void *l0pgtable);
+void mmu_switch_sys(void *l0pgtable);
+
 void dump_pgtable(void *l0pgtable);
 
 void dump_current_pgtable(void);

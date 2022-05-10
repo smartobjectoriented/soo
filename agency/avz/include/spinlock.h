@@ -28,7 +28,6 @@ typedef struct {
 	__attribute__ ((aligned (8))) volatile uint32_t lock;
 } spinlock_t;
 
-
 #include <asm/spinlock.h>
 
 #define DEFINE_SPINLOCK(l) spinlock_t l = { 0 };

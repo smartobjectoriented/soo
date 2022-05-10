@@ -152,6 +152,11 @@ struct start_info {
 
     unsigned long logbool_ht_set_addr;  /* Address of the logbool ht_set function which can be used in the domain. */
 
+    /* We inform the domain about the hypervisor memory region so that the
+     * domain can re-map correctly.
+     */
+    addr_t hypervisor_vaddr;
+
 };
 typedef struct start_info start_info_t;
 
