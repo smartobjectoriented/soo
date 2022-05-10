@@ -65,13 +65,13 @@ main:
 #APP
 // 33 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_SHARED_INFO 624 offsetof(struct domain, shared_info)	//
+->OFFSET_SHARED_INFO 648 offsetof(struct domain, shared_info)	//
 // 0 "" 2
 // arch/arm64/asm-offsets.c:34: 	DEFINE(OFFSET_DOMAIN_ID, offsetof(struct domain, domain_id));
 	.loc 1 34 2
 // 34 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_DOMAIN_ID 0 offsetof(struct domain, domain_id)	//
+->OFFSET_DOMAIN_ID 24 offsetof(struct domain, domain_id)	//
 // 0 "" 2
 // arch/arm64/asm-offsets.c:36: 	DEFINE(OFFSET_EVTCHN_UPCALL_PENDING, offsetof(struct shared_info, evtchn_upcall_pending));
 	.loc 1 36 2
@@ -83,25 +83,25 @@ main:
 	.loc 1 38 2
 // 38 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_HYPERVISOR_CALLBACK 288 offsetof(struct domain, event_callback)	//
+->OFFSET_HYPERVISOR_CALLBACK 312 offsetof(struct domain, event_callback)	//
 // 0 "" 2
 // arch/arm64/asm-offsets.c:39: 	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct domain, domcall));
 	.loc 1 39 2
 // 39 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_DOMCALL_CALLBACK 296 offsetof(struct domain, domcall)	//
+->OFFSET_DOMCALL_CALLBACK 320 offsetof(struct domain, domcall)	//
 // 0 "" 2
 // arch/arm64/asm-offsets.c:40: 	DEFINE(OFFSET_G_SP,		 offsetof(struct domain, g_sp));
 	.loc 1 40 2
 // 40 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_G_SP 280 offsetof(struct domain, g_sp)	//
+->OFFSET_G_SP 304 offsetof(struct domain, g_sp)	//
 // 0 "" 2
 // arch/arm64/asm-offsets.c:42: 	DEFINE(OFFSET_CPU_REGS,		offsetof(struct domain, cpu_regs));
 	.loc 1 42 2
 // 42 "arch/arm64/asm-offsets.c" 1
 	
-->OFFSET_CPU_REGS 8 offsetof(struct domain, cpu_regs)	//
+->OFFSET_CPU_REGS 32 offsetof(struct domain, cpu_regs)	//
 // 0 "" 2
 // arch/arm64/asm-offsets.c:44: 	BLANK();
 	.loc 1 44 2

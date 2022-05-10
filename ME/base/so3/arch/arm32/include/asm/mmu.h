@@ -30,6 +30,9 @@
 /* Memory space all I/O mapped registers and additional mappings */
 #define IO_MAPPING_BASE		0xe0000000
 
+/* Ramdev rootfs if any at this location */
+#define RAMDEV_VADDR		0xd0000000
+
 #define TTB_L1_SYS_OFFSET	0x4000
 
 /* Define the number of entries in each page table */
@@ -203,7 +206,7 @@ void reset_root_pgtable(void *pgtable, bool remove);
 void clear_l1pte(void *l1pgtable, addr_t vaddr);
 
 void mmu_switch(void *l1pgtable);
-void dump_pgtable(void *l1pgtable);
+void mmu_switch_sys(void *l1pgtable););
 
 void flush_tlb_all(void);
 

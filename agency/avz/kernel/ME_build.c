@@ -28,12 +28,10 @@
 #include <heap.h>
 
 #include <asm/processor.h>
-
-#include <soo/uapi/logbool.h>
-
+#include <asm/setup.h>
 #include <asm/cacheflush.h>
 
-#define L_TEXT_OFFSET	0x8000
+#include <soo/uapi/logbool.h>
 
 extern char hypercall_start[];
 
@@ -86,7 +84,7 @@ int construct_ME(struct domain *d) {
 
 	mmu_switch(&d->addrspace);
 
-	si = (start_info_t*) vstartinfo_start;
+	si = (start_info_t *) vstartinfo_start;
 
 	memset(si, 0, PAGE_SIZE);
 
@@ -102,6 +100,8 @@ int construct_ME(struct domain *d) {
 
 	si->fdt_paddr = memslot[slotID].fdt_paddr;
 
+	si->hypervisor_vaddr = CONFIG_HYPERVISOR_VADDR;
+
 	printk("ME FDT device tree: 0x%lx (phys)\n", si->fdt_paddr);
 
 	si->printch = printch;
@@ -113,11 +113,8 @@ int construct_ME(struct domain *d) {
 	d->vstartinfo_start = vstartinfo_start;
 
 	/* Create the first thread associated to this domain. */
-#ifdef CONFIG_ARCH_ARM32
-	new_thread(d, v_start + 0x8000, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
-#else
-	new_thread(d, v_start + 0x80000, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
-#endif
+
+	new_thread(d, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
 
 	return 0;
 }

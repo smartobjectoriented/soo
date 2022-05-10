@@ -248,14 +248,25 @@ load_ctx:
 	ret
 
 // Switch the MMU to a L0 page table
-// x0 contains the TTBR related to this CPU for the L0 page table
-
+// x0 contains the TTBR0 related to this CPU for the L0 page table
 ENTRY(__mmu_switch)
 
 	dsb   sy                     /* Ensure the flushes happen before continuing */
     isb                          /* Ensure synchronization with previous changes to text */
 
-	// Only the user space range is concerned with a MMU context switch
+	msr    ttbr0_el1, x0
+
+    isb
+
+	ret
+
+// Switch the MMU to a L0 page table
+// x0 contains the TTBR1 related to this CPU for the L0 page table
+ENTRY(__mmu_switch_sys)
+
+	dsb   sy                     /* Ensure the flushes happen before continuing */
+    isb                          /* Ensure synchronization with previous changes to text */
+
 	msr    ttbr1_el1, x0
 
     isb

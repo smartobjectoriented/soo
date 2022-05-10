@@ -34,8 +34,8 @@
 #define __lpa(vaddr) ((vaddr) - L_PAGE_OFFSET + CONFIG_RAM_BASE)
 #define __lva(paddr) ((paddr) - CONFIG_RAM_BASE + L_PAGE_OFFSET)
 
-#define __pa(vaddr)             (((addr_t) vaddr) - CONFIG_HYPERVISOR_VIRT_ADDR + ((addr_t) CONFIG_RAM_BASE))
-#define __va(paddr)             (((addr_t) paddr) - ((addr_t) CONFIG_RAM_BASE) + CONFIG_HYPERVISOR_VIRT_ADDR)
+#define __pa(vaddr)             (((addr_t) vaddr) - CONFIG_HYPERVISOR_VADDR + ((addr_t) CONFIG_RAM_BASE))
+#define __va(paddr)             (((addr_t) paddr) - ((addr_t) CONFIG_RAM_BASE) + CONFIG_HYPERVISOR_VADDR)
 
 #define virt_to_phys(x)     (__pa(x))
 #define phys_to_virt(x)     (__va(x))

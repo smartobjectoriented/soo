@@ -61,8 +61,8 @@
 #define MAX_SUBNODE		4
 
 /* Reference to the current device tree */
-extern addr_t *__fdt_addr;
-extern addr_t *fdt_vaddr;
+extern void *__fdt_addr;
+extern void *fdt_vaddr;
 
 int fdt_find_compatible_node(void *fdt_addr, char *compat);
 const struct fdt_property *fdt_find_property(void *fdt_addr, int offset, const char *propname);

@@ -466,13 +466,13 @@ void memory_init(void) {
 	 * Warning !! After the switch, we do not have any mapped I/O until the driver core gets initialized.
 	 */
 
-	mmu_switch(new_sys_root_pgtable);
+	mmu_switch_sys(new_sys_root_pgtable);
 
 	/* Re-configuring the original system page table */
 	copy_root_pgtable(__sys_root_pgtable, new_sys_root_pgtable);
 
 	/* Finally, switch back to the original location of the system page table */
-	mmu_switch(__sys_root_pgtable);
+	mmu_switch_sys(__sys_root_pgtable);
 
 #ifndef CONFIG_SO3VIRT
 #ifdef CONFIG_ARCH_ARM32

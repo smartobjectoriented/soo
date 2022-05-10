@@ -127,21 +127,27 @@ int do_sync_domain_interactions(void *arg)
 	return 0;
 }
 
+/**
+ * This function is called at early bootstrap stage along head.S.
+ */
 void avz_setup(void) {
 
 	mem_info.phys_base = avz_dom_phys_offset;
 	mem_info.size = avz_start_info->nr_pages << PAGE_SHIFT;
 
 	__printch = avz_start_info->printch;
+
 	avz_dom_phys_offset = avz_start_info->dom_phys_offset;
 
 	/* Immediately prepare for hypercall processing */
 	HYPERVISOR_hypercall_addr = (uint32_t *) avz_start_info->hypercall_addr;
 
 	lprintk("SOO Agency Virtualizer (avz) Start info :\n\n");
-	lprintk("- Hypercall addr: %x\n", (addr_t) HYPERVISOR_hypercall_addr);
-	lprintk("- Shared info page addr: %x\n", (addr_t) avz_start_info->shared_info);
-	lprintk("- Dom phys offset: %x\n\n", (addr_t) avz_dom_phys_offset);
+
+	lprintk("- Virtual address of printch() function: %lx\n", __printch);
+	lprintk("- Hypercall addr: %lx\n", (addr_t) HYPERVISOR_hypercall_addr);
+	lprintk("- Shared info page addr: %lx\n", (addr_t) avz_start_info->shared_info);
+	lprintk("- Dom phys offset: %lx\n\n", (addr_t) avz_dom_phys_offset);
 
 	mem_info.size = avz_start_info->nr_pages * PAGE_SIZE;
 	mem_info.phys_base = avz_dom_phys_offset;
