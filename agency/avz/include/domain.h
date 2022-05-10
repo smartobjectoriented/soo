@@ -45,6 +45,11 @@ struct evtchn
 
 struct domain
 {
+
+	spinlock_t virq_lock;
+	spinlock_t domain_lock;
+	spinlock_t event_lock;
+
 	domid_t domain_id;
 
 	/* Fields related to the underlying CPU */
@@ -61,14 +66,11 @@ struct domain
 
 	shared_info_t *shared_info;     /* shared data area */
 
-	spinlock_t domain_lock;
-
 	unsigned int tot_pages;       /* number of pages currently possesed */
 	unsigned int max_pages;       /* maximum value for tot_pages        */
 
 	/* Event channel information. */
 	struct evtchn evtchn[NR_EVTCHN];
-	spinlock_t event_lock;
 
 	/* Is this guest dying (i.e., a zombie)? */
 	enum { DOMDYING_alive, DOMDYING_dying, DOMDYING_dead } is_dying;
@@ -93,7 +95,6 @@ struct domain
 
 	/* IRQ-safe virq_lock protects against delivering VIRQ to stale evtchn. */
 	u16 virq_to_evtchn[NR_VIRQS];
-	spinlock_t virq_lock;
 
 	unsigned long vstartinfo_start;
 	unsigned long domain_stack;

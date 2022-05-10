@@ -70,7 +70,7 @@ void early_memory_init(void) {
 
 	/* Hypervisor */
 	memslot[0].base_paddr = CONFIG_RAM_BASE;
-	memslot[0].size = HYPERVISOR_SIZE;
+	memslot[0].size = CONFIG_HYPERVISOR_SIZE;
 	memslot[0].busy = true;
 
 	/* The memslot[1] is reserved for the agency (two domains although one binary image only.
@@ -110,7 +110,7 @@ void memory_init(void) {
 	/* Re-setup a system page table with a better granularity */
 	__new_root_pgtable = new_root_pgtable();
 
-	create_mapping(__new_root_pgtable, CONFIG_HYPERVISOR_VIRT_ADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
+	create_mapping(__new_root_pgtable, CONFIG_HYPERVISOR_VADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
 
 	/* Mapping uart I/O for debugging purposes */
 	create_mapping(__new_root_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true);

@@ -107,6 +107,10 @@ void cpu_init(void) {
 void setup_arch(void) {
 	int offset;
 
+#ifdef CONFIG_SO3VIRT
+	__fdt_addr = (void *) __va(__fdt_addr);
+#endif
+
 	/* Access to device tree */
 	offset = get_mem_info((void *) __fdt_addr, &mem_info);
 	if (offset >= 0)

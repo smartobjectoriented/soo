@@ -24,6 +24,8 @@
 #include <asm/mmu.h>
 #include <asm/processor.h>
 
+#include <mach/uart.h>
+
 void arch_setup_domain_frame(struct domain *d, struct cpu_regs *domain_frame, addr_t fdt_addr, addr_t start_info, addr_t start_stack, addr_t start_pc) {
 
 	domain_frame->x21 = fdt_addr;
@@ -67,12 +69,14 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 
 	/* Copy the hypervisor area */
 #ifdef CONFIG_VA_BITS_48
-	*l0pte_offset(new_pt, CONFIG_HYPERVISOR_VIRT_ADDR) = *l0pte_offset(__sys_root_pgtable, CONFIG_HYPERVISOR_VIRT_ADDR);
+	*l0pte_offset(new_pt, CONFIG_HYPERVISOR_VADDR) = *l0pte_offset(__sys_root_pgtable, CONFIG_HYPERVISOR_VADDR);
 #elif CONFIG_VA_BITS_39
-	*(new_pt + l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR)) = *(__sys_root_pgtable + l1pte_index(CONFIG_HYPERVISOR_VIRT_ADDR));
+	*(new_pt + l1pte_index(CONFIG_HYPERVISOR_VADDR)) = *(__sys_root_pgtable + l1pte_index(CONFIG_HYPERVISOR_VADDR));
 #else
 #error "Wrong VA_BITS configuration."
 #endif
+lprintk("########   new_pt = %lx      value: %lx addr: %lx\n", new_pt, *l0pte_offset(new_pt, CONFIG_HYPERVISOR_VADDR),
+	l0pte_offset(new_pt, CONFIG_HYPERVISOR_VADDR));
 
 	/* Do the mapping of new domain at its virtual address location */
 	create_mapping(new_pt, v_start, p_start, map_size, false);
