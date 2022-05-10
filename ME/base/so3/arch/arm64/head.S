@@ -50,19 +50,23 @@ __pre_head:
 
 __start:
 
+#ifndef CONFIG_SO3VIRT
 	// Preserve the fdt addr (device tree) which is stored in x0 by U-boot
 	mov		x9, x0
+#else
+	mov		x9, x21
+#endif
 
 	//Store the DT addr in a safe place which can be accessed on a relocatable address
 	adr     x8, .LCfdt_addr_temp
 	str 	x9, [x8]
 
+#ifndef CONFIG_SO3VIRT
+
 	// Mostly for future usage...
 	bl		el2_setup			// Drop to EL1, w0=cpu_boot_mode
 
-    // Use a temporary stack
-    adrp	x0, temp_stack
-    mov		sp, x0
+#endif /* !CONFIG_SO3VIRT */
 
 	/* Clear the BSS */
 
@@ -73,6 +77,8 @@ __start:
 
 	cmp		x0, x1
 	b.cc	1b
+
+#ifndef CONFIG_SO3VIRT
 
 	// Initialize the vector table
 	ldr	x0, =__vectors
@@ -87,6 +93,15 @@ __start:
 	// Some CPU setup
 	msr pmuserenr_el0, xzr
 
+#endif /* !CONFIG_SO3VIRT */
+
+#ifdef CONFIG_SO3VIRT
+
+  ldr	x10, =avz_start_info
+  str 	x22, [x10]
+
+#endif /* CONFIG_SO3VIRT */
+
 	// Set up the MMU
     b		mmu_setup
 
@@ -96,11 +111,15 @@ __kernel_main:
 	adr     x8, .LCfdt_addr_temp
 	ldr 	x9, [x8]
 
-	ldr	x0, =__fdt_addr
-	str	x9, [x0]
+	ldr		x0, =__fdt_addr
+	str		x9, [x0]
+
+#ifdef CONFIG_SO3VIRT
+	bl	avz_setup
+#endif /* CONFIG_SO3VIRT */
 
 	// C main entry point
-	b 	kernel_start
+	b 		kernel_start
 
 	// never returns...
 
@@ -114,8 +133,6 @@ mmu_setup:
   // Use a temporary stack
   adrp	x0, temp_stack
   mov	sp, x0
-
-  mov	x0, x9 // fdt addr
 
   bl 	mmu_configure
 

@@ -68,7 +68,7 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 {
 	struct domain *d;
 
-	d = malloc(sizeof(struct domain));
+	d = memalign(sizeof(struct domain), 8);
 	BUG_ON(!d);
 
 	memset(d, 0, sizeof(struct domain));

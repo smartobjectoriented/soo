@@ -26,11 +26,16 @@
 #include <string.h>
 
 #include <device/ramdev.h>
+#include <device/fdt.h>
 
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
 
 #include <generated/autoconf.h>
+
+#ifdef CONFIG_SO3VIRT
+#include <soo/avz.h>
+#endif
 
 void *__current_pgtable = NULL;
 
@@ -77,7 +82,7 @@ static void alloc_init_l3(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
 		set_pte_page(l3pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
 		/* Set AP[1] bit 6 to 1 to make R/W/Executable the pages in user space */
-		if (addr < CONFIG_KERNEL_VADDR)
+		if (user_space_vaddr(addr))
 			*l3pte |= PTE_BLOCK_AP1;
 
 		DBG("Allocating a 4 KB page at l2pte: %p content: %lx\n", l3pte, *l3pte);
@@ -136,7 +141,7 @@ static void alloc_init_l2(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
 			set_pte_block(l2pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
 			/* Set AP[1] bit 6 to 1 to make R/W/Executable the pages in user space */
-			if (addr < CONFIG_KERNEL_VADDR)
+			if (user_space_vaddr(addr))
 				*l2pte |= PTE_BLOCK_AP1;
 
 			DBG("Allocating a 2 MB block at l2pte: %p content: %lx\n", l2pte, *l2pte);
@@ -196,7 +201,7 @@ static void alloc_init_l1(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
 			set_pte_block(l1pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
 			/* Set AP[1] bit 6 to 1 to make R/W/Executable the pages in user space */
-			if (addr < CONFIG_KERNEL_VADDR)
+			if (user_space_vaddr(addr))
 				*l1pte |= PTE_BLOCK_AP1;
 
 			DBG("Allocating a 1 GB block at l1pte: %p content: %lx\n", l1pte, *l1pte);
@@ -254,7 +259,7 @@ void create_mapping(void *l0pgtable, addr_t virt_base, addr_t phys_base, size_t 
 
 	} while (addr != end);
 
-	mmu_page_table_flush((addr_t) l0pgtable, (addr_t) (l0pgtable + TTB_L0_ENTRIES));
+	mmu_page_table_flush((addr_t) l0pgtable, (addr_t) (l0pgtable + TTB_L0_SIZE));
 }
 
 void release_mapping(void *pgtable, addr_t virt_base, addr_t size) {
@@ -300,6 +305,15 @@ void *new_root_pgtable(void) {
 
 	/* Empty the page table */
 	memset(pgtable, 0, TTB_L0_SIZE);
+
+#ifdef CONFIG_SO3VIRT
+
+	/* Preserve the AVZ hypervisor */
+
+	*l0pte_offset(pgtable, avz_start_info->hypervisor_vaddr) = *l0pte_offset(__sys_root_pgtable, avz_start_info->hypervisor_vaddr);
+
+#endif /* CONFIG_SO3VIRT */
+
 
 	return pgtable;
 }
@@ -407,9 +421,17 @@ void dump_pgtable(void *l0pgtable) {
 	}
 }
 
-void mmu_configure(addr_t fdt_addr) {
+void mmu_configure(void) {
 
-#ifndef CONFIG_SO3VIRT
+#ifdef CONFIG_SO3VIRT
+
+	/* Copy the level 0 PTE to get full access to the hypervisor */
+
+	*l0pte_offset(__sys_root_pgtable, avz_start_info->hypervisor_vaddr) =
+		*l0pte_offset(avz_start_info->pt_vaddr, avz_start_info->hypervisor_vaddr);
+
+#else /* !CONFIG_SO3VIRT */
+
 	icache_disable();
 	dcache_disable();
 
@@ -467,17 +489,34 @@ void clear_l1pte(uint32_t *l1pgtable, uint32_t vaddr) {
 
 #endif
 
-/*
- * Switch the MMU to a L0 page table.
- * We *only* use ttbr1 when dealing with our hypervisor which is located in a kernel space area,
- * i.e. starting with 0xffff.... So ttbr0 is not used as soon as the id mapping in the RAM
- * is not necessary anymore.
+/**
+ * Switch the MMU to a L0 page table specific to a process.
+ * Typically used to change the user space mapping.
+ *
+ * @param l0pgtable 	Level 0 page table
  */
 void mmu_switch(void *l0pgtable) {
 
 	flush_dcache_all();
 
 	__mmu_switch((void *) __pa((addr_t) l0pgtable));
+
+	invalidate_icache_all();
+	__asm_invalidate_tlb_all();
+
+}
+
+/**
+ * Switch the MMU to a system L0 page table.
+ * Only the kernel space should be concerned with the mapping.
+ *
+ * @param l0pgtable
+ */
+void mmu_switch_sys(void *l0pgtable) {
+
+	flush_dcache_all();
+
+	__mmu_switch_sys((void *) __pa((addr_t) l0pgtable));
 
 	invalidate_icache_all();
 	__asm_invalidate_tlb_all();

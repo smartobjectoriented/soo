@@ -109,6 +109,8 @@ int construct_agency(struct domain *d) {
 
 	si->fdt_paddr = memslot[MEMSLOT_AGENCY].fdt_paddr;
 
+	si->hypervisor_vaddr = CONFIG_HYPERVISOR_VADDR;
+
 	printk("Agency FDT device tree: 0x%lx (phys)\n", si->fdt_paddr);
 
 	/* HW details on the CPU: processor ID, cache ID and ARM architecture version */
@@ -140,7 +142,7 @@ int construct_agency(struct domain *d) {
 	 */
 #ifdef CONFIG_ARCH_ARM32
 	/* We start at 0x8000 since ARM-32 Linux is configured as such with the 1st level page table placed at 0x4000 */
-	new_thread(d, v_start + 0x8000, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
+	new_thread(d, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
 #else
 	new_thread(d, v_start, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
 #endif
