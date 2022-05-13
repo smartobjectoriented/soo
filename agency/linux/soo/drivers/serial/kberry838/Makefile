@@ -1,0 +1,1 @@
+obj-y += kberry838.o baos_client.o

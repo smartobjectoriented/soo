@@ -395,9 +395,14 @@
 	pinctrl-0 = <&uart3_gpio4>;
 	status = "okay";
 
-	lora {
-		compatible = "lora,rn2483";
-		current-speed = <57600>;
+	// lora {
+	// 	compatible = "lora,rn2483";
+	// 	current-speed = <57600>;
+	// };
+	
+	knx {
+		compatible = "knx,kberry838";
+		current-speed = <19200>;
 	};
 };
 
