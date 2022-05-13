@@ -64,11 +64,9 @@ void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	if (unlikely(!soo_plugin_wlan->plugin_ready))
 		return;
 
-	DBG("Requester type: %d\n", __plugin_send_args.sl_desc->req_type);
-
 	/* Abort if the net device is not ready */
 	if (unlikely(!soo_plugin_wlan->net_dev))
-		return ;
+		return ;	
 
 	skb = alloc_skb(ETH_HLEN + size + LL_RESERVED_SPACE(soo_plugin_wlan->net_dev), GFP_KERNEL);
 	BUG_ON(skb == NULL);
@@ -87,7 +85,7 @@ void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 		return ;
 
 	memcpy(skb->data, data, size);
-
+	
 	skb_put(skb, size);
 
 	dev_hard_header(skb, soo_plugin_wlan->net_dev, proto, dest, soo_plugin_wlan->net_dev->dev_addr, skb->len);
@@ -116,12 +114,10 @@ void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 		local_bh_disable();
 		HARD_TX_LOCK(soo_plugin_wlan->net_dev, txq, cpu);
 	}
-
 	netdev_start_xmit(skb, soo_plugin_wlan->net_dev, txq, 0);
 
 	HARD_TX_UNLOCK(soo_plugin_wlan->net_dev, txq);
 	local_bh_enable();
-
 }
 
 /*
@@ -247,9 +243,16 @@ static int net_dev_detect(void *args) {
 	soo_plugin_wlan = container_of(current_soo_plugin->__intf[SL_IF_WLAN], soo_plugin_wlan_t, plugin_wlan_desc);
 
 	while (!soo_plugin_wlan->net_dev) {
-		msleep(NET_DEV_DETECT_DELAY);
 		soo_plugin_wlan->net_dev = dev_get_by_name(&init_net, WLAN_NET_DEV_NAME);
+		msleep(NET_DEV_DETECT_DELAY);
 	}
+	DBG("NET_DEV addr: 0x%X\n", soo_plugin_wlan->net_dev);
+
+	/* Wait for the net_device to be running AND operational */
+	while (!(netif_running(soo_plugin_wlan->net_dev) && netif_oper_up(soo_plugin_wlan->net_dev))) {
+		msleep(NET_DEV_DETECT_DELAY);
+	}
+	DBG("NET_DEV now operational and running!\n");
 
 	soo_plugin_wlan->plugin_ready = true;
 
