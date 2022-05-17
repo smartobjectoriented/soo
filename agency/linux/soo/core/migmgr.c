@@ -63,7 +63,7 @@ bool initialize_migration(uint32_t slotID) {
 
 	BUG_ON(!((ME_state == ME_state_living) || (ME_state == ME_state_dormant) || (ME_state == ME_state_migrating)));
 
-	if (!((ME_state == ME_state_booting) || (ME_state == ME_state_migrating))) {
+	if (!(ME_state == ME_state_migrating)) {
 
 		soo_hypercall(AVZ_MIG_PRE_PROPAGATE, NULL, NULL, &slotID, &propagate);
 

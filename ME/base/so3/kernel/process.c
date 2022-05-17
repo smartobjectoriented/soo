@@ -321,7 +321,7 @@ void create_root_process(void)
 	 * the initial code can run normally in user mode.
 	 */
 
-	create_mapping(pcb->pgtable, USER_SPACE_VADDR, __pa(__root_proc_start), __root_proc_end - __root_proc_start, false);
+	create_mapping(pcb->pgtable, USER_SPACE_VADDR, __pa(__root_proc_start), (void *) __root_proc_end - (void *) __root_proc_start, false);
 
 	/* Start main thread <args> of the thread is not used in this context. */
 	pcb->main_thread = user_thread((th_fn_t) USER_SPACE_VADDR, "root_proc", NULL, pcb);

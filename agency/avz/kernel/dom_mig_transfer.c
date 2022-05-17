@@ -78,7 +78,7 @@ void migration_init(soo_hyp_t *op) {
 		domain_pause_by_systemcontroller(domME);
 
 		DBG0("ME paused OK\n");
-		DBG("Being migrated: preparing to copy in ME_slotID %d: ME @ paddr 0x%08x (mapped @ vaddr 0x%08x in hypervisor)\n",
+		DBG("Being migrated: preparing to copy in ME_slotID %d: ME @ paddr 0x%08x (mapped @ vaddr 0x%08x in eventhypervisor)\n",
 			slotID, (unsigned int) memslot[slotID].base_paddr, (unsigned int) vaddr_start_ME);
 
 		break;
@@ -140,7 +140,7 @@ static void build_domain_migration_info(unsigned int ME_slotID, struct domain *m
 	mig_info->clocksource_ref = me->shared_info->clocksource_ref;
 
 	/* Get the start_info structure */
-	memcpy(mig_info->start_info_page, (void *) me->vstartinfo_start, PAGE_SIZE);
+	memcpy(mig_info->start_info_page, (void *) me->si, PAGE_SIZE);
 
 	/* ME_desc */
 	memcpy(&mig_info->dom_desc, &me->shared_info->dom_desc, sizeof(dom_desc_t));
@@ -170,9 +170,6 @@ static void build_domain_migration_info(unsigned int ME_slotID, struct domain *m
 	mig_info->cpu_regs = me->cpu_regs;
 	mig_info->g_sp = me->g_sp;
 	mig_info->vfp = me->vfp;
-
-	mig_info->domcall = me->domcall;
-	mig_info->event_callback = me->event_callback;
 
 	mig_info->addrspace = me->addrspace;
 
@@ -208,12 +205,9 @@ restore_vcpu_migration_info
     They were kept in this file because they are the symmetric functions of
     build_domain_migration_info() and build_vcpu_migration_info()
 ------------------------------------------------------------------------------*/
-extern char hypercall_start[];
 
 static void restore_domain_migration_info(unsigned int ME_slotID, struct domain *me, struct domain_migration_info *mig_info)
 {
-	unsigned long vstartinfo_start;
-	struct start_info *si;
 	int i;
 
 	DBG("%s\n", __func__);
@@ -242,10 +236,9 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 	me->tot_pages = memslot[ME_slotID].size >> PAGE_SHIFT;
 
 	/* Restore start_info structure (allocated in the heap of hypervisor) */
-	vstartinfo_start = (unsigned long) memalign(PAGE_SIZE, PAGE_SIZE);
+	me->si = (struct start_info *) memalign(PAGE_SIZE, PAGE_SIZE);
 
-	memcpy((struct start_info *) vstartinfo_start, mig_info->start_info_page, PAGE_SIZE);
-	si = (start_info_t *) vstartinfo_start;
+	memcpy(me->si, mig_info->start_info_page, PAGE_SIZE);
 
 	/* Restoring ME descriptor */
 	memcpy(&me->shared_info->dom_desc, &mig_info->dom_desc, sizeof(dom_desc_t));
@@ -254,19 +247,16 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 	me->shared_info->dom_desc.u.ME.pfn = phys_to_pfn(memslot[ME_slotID].base_paddr);
 
 	/* start pfn can differ from the initiator according to the physical memory layout */
-	si->dom_phys_offset = memslot[ME_slotID].base_paddr;
-	si->nr_pages = me->tot_pages;
+	me->si->dom_phys_offset = memslot[ME_slotID].base_paddr;
+	me->si->nr_pages = me->tot_pages;
 
-	pfn_offset = (si->dom_phys_offset >> PAGE_SHIFT) - mig_info->start_pfn;
+	pfn_offset = (me->si->dom_phys_offset >> PAGE_SHIFT) - mig_info->start_pfn;
 
-	si->hypercall_addr = (unsigned long) hypercall_start;
+	me->si->hypercall_vaddr = (unsigned long) hypercall_entry;
 
-	si->domID = me->domain_id;
+	me->si->domID = me->domain_id;
 
-	si->printch = printch;
-
-	/* Re-init the startinfo_start address */
-	me->vstartinfo_start = vstartinfo_start;
+	me->si->printch = printch;
 
 	me->pause_count = mig_info->pause_count;
 
@@ -286,8 +276,6 @@ static void restore_domain_migration_info(unsigned int ME_slotID, struct domain 
 	me->cpu_regs = mig_info->cpu_regs;
 	me->g_sp = mig_info->g_sp;
 	me->vfp = mig_info->vfp;
-	me->domcall = mig_info->domcall;
-	me->event_callback = mig_info->event_callback;
 
 	me->addrspace = mig_info->addrspace;
 

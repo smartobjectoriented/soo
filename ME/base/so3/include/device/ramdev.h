@@ -26,6 +26,5 @@ bool valid_ramdev(void);
 uint32_t get_ramdev_size(void);
 addr_t get_ramdev_start(void);
 
-void ramdev_create_mapping(void *root_pgtable);
 
 #endif /* RAMDEV_H */

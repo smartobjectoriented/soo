@@ -247,8 +247,8 @@ static void fix_other_page_tables_ME(unsigned int ME_slotID)
 
 	fix_pt_args.pfn_offset = pfn_offset;
 
-	fix_pt_args.min_pfn =  ((start_info_t *) me->vstartinfo_start)->dom_phys_offset >> PAGE_SHIFT;
-	fix_pt_args.nr_pages = ((start_info_t *) me->vstartinfo_start)->nr_pages;
+	fix_pt_args.min_pfn =  me->si->dom_phys_offset >> PAGE_SHIFT;
+	fix_pt_args.nr_pages = me->si->nr_pages;
 
 	DBG("DOMCALL_fix_other_page_tables called in ME with pfn_offset=%ld (%lx)\n", fix_pt_args.pfn_offset, fix_pt_args.pfn_offset);
 
@@ -341,7 +341,7 @@ static void presetup_adjust_variables_in_ME(unsigned int ME_slotID, start_info_t
 	struct DOMCALL_presetup_adjust_variables_args adjust_variables;
 
 	adjust_variables.start_info_virt = start_info_virt;
-	adjust_variables.clocksource_vaddr = (unsigned int) system_timer_clocksource->vaddr;
+	adjust_variables.clocksource_vaddr = (addr_t) system_timer_clocksource->vaddr;
 
 	domain_call(me, DOMCALL_presetup_adjust_variables, &adjust_variables);
 }
@@ -377,7 +377,7 @@ void restore_migrated_domain(unsigned int ME_slotID) {
 	me->cpu_regs.sp = (unsigned long) setup_dom_stack(me);
 
 	/* Setting the (future) value of PC in r14 (LR). See code switch_to in entry-armv.S */
-	me->cpu_regs.lr = (unsigned int) (void *) after_migrate_to_user;
+	me->cpu_regs.lr = (unsigned long) (void *) after_migrate_to_user;
 
 	/* Issue a timer interrupt (first timer IRQ) avoiding some problems during the forced upcall in after_migrate_to_user */
 	send_timer_event(me);
@@ -393,7 +393,7 @@ void restore_migrated_domain(unsigned int ME_slotID) {
 	DBG0("DOMCALL_presetup_adjust_variables_in_ME\n");
 
 	/* Adjust variables in ME such as start_info */
-	presetup_adjust_variables_in_ME(ME_slotID, (struct start_info *) me->vstartinfo_start);
+	presetup_adjust_variables_in_ME(ME_slotID, me->si);
 
 	/* Fix all page tables in the ME (all processes) via a domcall */
 	DBG("%s: fix other page tables in the ME...\n", __func__);

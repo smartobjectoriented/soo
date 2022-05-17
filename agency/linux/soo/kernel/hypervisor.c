@@ -49,7 +49,7 @@ void avz_ME_pause(domid_t domain_id)
 {
 	struct domctl op;
 
-	printk("Trying to pause domain %d...", domain_id);
+	lprintk("Trying to pause domain %d...", domain_id);
 
 	op.cmd = DOMCTL_pauseME;
 	op.domain = domain_id;

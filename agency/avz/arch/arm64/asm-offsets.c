@@ -18,6 +18,8 @@
 
 #include <sched.h>
 
+#include <soo/uapi/avz.h>
+
 #include <asm/smccc.h>
 
 /* Use marker if you need to separate the values later */
@@ -31,12 +33,16 @@ int main(void)
 {
 
 	DEFINE(OFFSET_SHARED_INFO, offsetof(struct domain, shared_info));
+	DEFINE(OFFSET_START_INFO, offsetof(struct domain, si));
+
 	DEFINE(OFFSET_DOMAIN_ID, offsetof(struct domain, domain_id));
 
 	DEFINE(OFFSET_EVTCHN_UPCALL_PENDING, offsetof(struct shared_info, evtchn_upcall_pending));
 
-	DEFINE(OFFSET_HYPERVISOR_CALLBACK,  offsetof(struct domain, event_callback));
-	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct domain, domcall));
+	DEFINE(OFFSET_HYPERVISOR_CALLBACK,  offsetof(struct start_info, vectors_vaddr));
+	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct start_info, domcall_vaddr));
+	DEFINE(OFFSET_TRAPS_CALLBACK, offsetof(struct start_info, traps_vaddr));
+
 	DEFINE(OFFSET_G_SP,		 offsetof(struct domain, g_sp));
 
 	DEFINE(OFFSET_CPU_REGS,		offsetof(struct domain, cpu_regs));
