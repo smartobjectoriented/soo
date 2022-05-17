@@ -37,13 +37,9 @@
 
 start_info_t *agency_start_info;
 
-extern char hypercall_start[];
-
 int construct_agency(struct domain *d) {
-	unsigned long vstartinfo_start;
 	unsigned long v_start;
 	unsigned long alloc_spfn;
-	struct start_info *si = NULL;
 	unsigned long nr_pages;
 
 	unsigned long domain_stack;
@@ -62,8 +58,11 @@ int construct_agency(struct domain *d) {
 		panic("No agency image supplied\n");
 
 	/* The following page will contain start_info information */
-	vstartinfo_start = (unsigned long) memalign(PAGE_SIZE, PAGE_SIZE);
-	BUG_ON(!vstartinfo_start);
+	d->si = (struct start_info *) memalign(PAGE_SIZE, PAGE_SIZE);
+	BUG_ON(!d->si);
+
+	/* The RT Agency domain running on CPU #1 is sharing the start_info page of the (normal) Agency domain */
+	domains[DOMID_AGENCY_RT]->si = d->si;
 
 	d->max_pages = ~0U;
 	d->tot_pages = 0;
@@ -90,36 +89,32 @@ int construct_agency(struct domain *d) {
 
 	mmu_switch(&d->addrspace);
 
-	si = (start_info_t *) vstartinfo_start;
+	agency_start_info = d->si;
+	memset(d->si, 0, PAGE_SIZE);
 
-	agency_start_info = si;
-	memset(si, 0, PAGE_SIZE);
+	d->si->domID = d->domain_id;
+	d->si->nr_pages = d->tot_pages;
+	d->si->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
 
-	si->domID = d->domain_id;
-	si->nr_pages = d->tot_pages;
-	si->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
-
-	si->pt_vaddr = d->addrspace.pgtable_vaddr;
+	d->si->pt_vaddr = d->addrspace.pgtable_vaddr;
 
 	/* Propagate the virtual address of the shared info page for this domain */
-	si->shared_info = d->shared_info;
+	d->si->shared_info = d->shared_info;
 
-	si->hypercall_addr = (unsigned long) hypercall_start;
-	si->logbool_ht_set_addr = (unsigned long) ht_set;
+	d->si->hypercall_vaddr = (unsigned long) hypercall_entry;
+	d->si->logbool_ht_set_addr = (unsigned long) ht_set;
 
-	si->fdt_paddr = memslot[MEMSLOT_AGENCY].fdt_paddr;
+	d->si->fdt_paddr = memslot[MEMSLOT_AGENCY].fdt_paddr;
 
-	si->hypervisor_vaddr = CONFIG_HYPERVISOR_VADDR;
+	d->si->hypervisor_vaddr = CONFIG_HYPERVISOR_VADDR;
 
-	printk("Agency FDT device tree: 0x%lx (phys)\n", si->fdt_paddr);
+	printk("Agency FDT device tree: 0x%lx (phys)\n", d->si->fdt_paddr);
 
 	/* HW details on the CPU: processor ID, cache ID and ARM architecture version */
 
-	si->printch = printch;
+	d->si->printch = printch;
 
 	mmu_switch(&current->addrspace);
-
-	d->vstartinfo_start = vstartinfo_start;
 
 	/* Set up a new domain stack for the RT domain */
 	domain_stack = (unsigned long) setup_dom_stack(domains[DOMID_AGENCY_RT]);
@@ -142,9 +137,9 @@ int construct_agency(struct domain *d) {
 	 */
 #ifdef CONFIG_ARCH_ARM32
 	/* We start at 0x8000 since ARM-32 Linux is configured as such with the 1st level page table placed at 0x4000 */
-	new_thread(d, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
+	new_thread(d, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, (addr_t) si);
 #else
-	new_thread(d, v_start, si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, vstartinfo_start);
+	new_thread(d, v_start, d->si->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size, (addr_t) d->si);
 #endif
 
 	return 0;

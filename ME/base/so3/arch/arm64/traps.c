@@ -33,7 +33,9 @@ void trap_handle(cpu_regs_t *regs) {
 
 	/* SVC used for syscalls */
 	case ESR_ELx_EC_SVC64:
-		syscall_handle(regs->x0, regs->x1, regs->x2, regs->x3);
+		local_irq_enable();
+		regs->x0 = syscall_handle(regs->x0, regs->x1, regs->x2, regs->x3);
+		local_irq_disable();
 		break;
 
 #if 0

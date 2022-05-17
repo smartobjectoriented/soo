@@ -108,12 +108,6 @@ block_dev_desc_t *ramdev_get_dev(int dev)
 	return &ramdev_block_dev;
 }
 
-void ramdev_create_mapping(void *root_pgtable) {
-
-	if (valid_ramdev())
-		create_mapping(root_pgtable, RAMDEV_VADDR, ramdev_start, ramdev_end-ramdev_start, false);
-}
-
 /*
  * Get the ramdev if any.
  * Returns the size of the ramdev if found.
@@ -154,7 +148,7 @@ static void get_ramdev(const void *fdt) {
 	ramdev_size = ramdev_end - ramdev_start;
 
 	/* Do the virtual mapping */
-	ramdev_create_mapping(NULL);
+	ramdev_create_mapping(NULL, ramdev_start, ramdev_end);
 }
 
 

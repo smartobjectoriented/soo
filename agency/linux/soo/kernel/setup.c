@@ -46,7 +46,7 @@ void __init avz_setup(void)
 	__printch = avz_start_info->printch;
 
 	/* Immediately prepare for hypercall processing */
-	HYPERVISOR_hypercall_addr = (unsigned long *) avz_start_info->hypercall_addr;
+	HYPERVISOR_hypercall_addr = (unsigned long *) avz_start_info->hypercall_vaddr;
 
 	lprintk("SOO Agency Virtualizer (avz) Start info :\n");
 	lprintk("Hypercall addr: %lx\n", (unsigned long) HYPERVISOR_hypercall_addr);
@@ -70,11 +70,7 @@ void __init avz_setup(void)
 	/* Get the shared info page, and keep it as a separate reference */
 	HYPERVISOR_shared_info = avz_start_info->shared_info;
 
- 	lprintk("done.\n");
-
- 	lprintk("Set HYPERVISOR_set_callbacks at %lx\n", (unsigned long) avz_linux_callback);
-
-	hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_linux_callback, (unsigned long) domcall, 0, 0);
+	avz_start_info->domcall_vaddr = (unsigned long) domcall;
 
 	lprintk("No problem\n");
 }

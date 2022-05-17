@@ -56,9 +56,6 @@ struct domain
 	cpu_regs_t cpu_regs;
 	addr_t   g_sp; 	/* G-stack */
 
-	addr_t	event_callback;
-	addr_t	domcall;
-
 	struct vfp_state vfp;
 
 	/* Information to the related address space for this domain. */
@@ -96,7 +93,8 @@ struct domain
 	/* IRQ-safe virq_lock protects against delivering VIRQ to stale evtchn. */
 	u16 virq_to_evtchn[NR_VIRQS];
 
-	unsigned long vstartinfo_start;
+	struct start_info *si;
+
 	unsigned long domain_stack;
 };
 
