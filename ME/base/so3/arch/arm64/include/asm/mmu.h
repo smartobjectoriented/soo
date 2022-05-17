@@ -410,7 +410,7 @@ static inline int pte_type(u64 *pte)
  * @return	true if the 16 MSB is to 0xffff, false otherwise
  */
 static inline bool user_space_vaddr(addr_t addr) {
-	if ((addr > 12) & 0xffff)
+	if ((addr >> 48) & 0xffff)
 		return false;
 	else
 		return true;
@@ -450,6 +450,8 @@ void *current_pgtable(void);
 void *new_root_pgtable(void);
 void copy_root_pgtable(void *dst, void *src);
 void reset_root_pgtable(void *pgtable, bool remove);
+
+void ramdev_create_mapping(void *root_pgtable, addr_t ramdev_start, addr_t ramdev_end);
 
 addr_t virt_to_phys_pt(addr_t vaddr);
 

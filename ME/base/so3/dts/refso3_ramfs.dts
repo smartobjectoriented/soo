@@ -42,11 +42,6 @@ applications.";
 
 	frontends {
 		
-		/* Enabling vdummy for testing purposes */
-		vdummy {
-			status = "ok";
-		};
-
 		/* Enabling the console */
 		vuart {
 			status = "ok";

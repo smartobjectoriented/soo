@@ -1,0 +1,10 @@
+
+
+# May 2022
+
+- Added support for 64-bit in avz, linux and SO3 Mobile Entity
+
+- (avz) Moved HYPERVISOR_VIRT_ADDR (renamed to HYPERVISOR_VADDR) and HYPERVISOR_SIZE in Kconfig
+- (avz) Added hypervisor_vaddr in start_info for mapping in SO3 domain.
+
+- (so3) 

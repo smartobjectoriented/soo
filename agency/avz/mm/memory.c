@@ -60,8 +60,6 @@ static uint32_t kernel_size;
 addr_t io_mapping_base;
 struct list_head io_maplist;
 
-extern unsigned long __vectors_start, __vectors_end;
-
 /*
  * Perform basic memory initialization, i.e. the existing memory slot.
  */

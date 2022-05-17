@@ -833,44 +833,7 @@
 /* Safe value for MPIDR_EL1: Bit31:RES1, Bit30:U:0, Bit24:MT:0 */
 #define SYS_MPIDR_SAFE_VAL	(BIT(31))
 
-#define S_FRAME_SIZE	0x110
 
-/* 34 registers */
-
-#define S_PSTATE	0x108
-#define S_PC    	0x100
-#define S_SP		0xf8
-#define S_LR		0xf0
-#define S_X29		0xe8
-#define S_X28		0xe0
-#define S_X27		0xd8
-#define S_X26		0xd0
-#define S_X25		0xc8
-#define S_X24		0xc0
-#define S_X23		0xb8
-#define S_X22		0xb0
-#define S_X21		0xa8
-#define S_X20		0xa0
-#define S_X19   	0x98
-#define S_X18   	0x90
-#define S_X17   	0x88
-#define S_X16   	0x80
-#define S_X15   	0x78
-#define S_X14   	0x70
-#define S_X13   	0x68
-#define S_X12   	0x60
-#define S_X11   	0x58
-#define S_X10   	0x50
-#define S_X9    	0x48
-#define S_X8    	0x40
-#define S_X7    	0x38
-#define S_X6    	0x30
-#define S_X5   		0x28
-#define S_X4    	0x20
-#define S_X3    	0x18
-#define S_X2    	0x10
-#define S_X1    	0x8
-#define S_X0    	0x0
 
 #ifdef __ASSEMBLY__
 
@@ -914,7 +877,12 @@
 	__emit_inst(0xd5000000|(\sreg)|(.L__reg_num_\rt))
 	.endm
 
+#define S_FRAME_SIZE	(8 * 34)
+
 #else
+
+extern unsigned long __vectors_start, __vectors_end;
+extern char hypercall_entry[];
 
 static inline int cpu_mode(void)
 {
@@ -1025,7 +993,6 @@ static inline int cpu_mode(void)
 #define GIC_PRIO_IRQON			0xe0
 #define GIC_PRIO_IRQOFF			(GIC_PRIO_IRQON & ~0x80)
 #define GIC_PRIO_PSR_I_SET		(1 << 4)
-
 
 typedef struct cpu_regs {
 	u64 x0;

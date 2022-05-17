@@ -94,9 +94,6 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 
 	arch_domain_create(d, cpu_id);
 
-	d->event_callback = 0;
-	d->domcall = 0;
-
 	d->processor = cpu_id;
 
 	spin_lock_init(&d->virq_lock);
@@ -150,7 +147,7 @@ static void complete_domain_destroy(struct domain *d)
 
 	/* Free start_info structure */
 
-	free((void *) d->vstartinfo_start);
+	free(d->si);
 	free((void *) d->shared_info);
 	free((void *) d->domain_stack);
 
@@ -360,8 +357,7 @@ void domain_call(struct domain *target_dom, int cmd, void *arg)
 	switch_mm(target_dom, &target_dom->addrspace);
 
 	/* Make the call with IRQs disabled */
-
-	((domcall_t) target_dom->domcall)(cmd, arg);
+	((domcall_t) target_dom->si->domcall_vaddr)(cmd, arg);
 
 	/* Switch back to our domain address space. */
 	switch_mm(__current, &prev_addrspace);

@@ -27,6 +27,7 @@
 
 .globl  pseudo_usr_mode
 .globl	hypervisor_stack
+.global upcall_path
 
 /*
  * Four types of exceptions:
@@ -79,40 +80,47 @@ ENTRY(__vectors)
 
 	// Current EL with SP0 / Synchronous
 	.align 7
-	b	not_used
+1:
+    b 1b
 
 	// Current EL with SP0 / IRQ
 	.align 7
-	b 	not_used
+1:
+    b 1b
 
 	// Current EL with SP0 / FIQ
 	.align 7
-	b 	not_used
+1:
+    b 1b
 
 	// Current EL with SP0 / SError
 	.align 7
-	b	not_used
+1:
+    b 1b
 
 	// Current EL with SPx / Synchronous
 	.align 7
 
-	mrs	x0, esr_el1
+	mrs	x0, elr_el1
+	mrs	x1, esr_el1
 
-	b	not_used
+1:
+    b 1b
 
 	// Current EL with SPx / IRQ
 	.align 7
 
-	b 	el1_irq_handler
+	b 	el01_irq_handler
 
 	// Current EL with SPx / FIQ
 	.align 7
-	b	not_used
+1:
+    b 1b
 
 	// Current EL with SPx / SError
 	.align 7
 
-	mov	x0, lr
+	mrs	x0, elr_el1
 	mrs	x1, esr_el1
 
 	b	__sync_serror
@@ -120,44 +128,43 @@ ENTRY(__vectors)
 	// Lower EL using AArch64 / Synchronous
 	.align 7
 
-	// Not used at the hypervisor level
-	b	not_used
+	b	el0_sync_handler
 
 	// Lower EL using AArch64 / IRQ
 	.align 7
 
-	// Not used at the hypervisor level
-	b	not_used
+	b 	el01_irq_handler
 
 	// Lower EL using AArch64 / FIQ
 	.align 7
-	b	not_used
+1:
+    b 1b
 
 	// Lower EL using AArch64 / SError
 	.align 7
-	b	not_used
+1:
+    b 1b
 
 	// Lower EL using AArch32 / Synchronous
 	.align 7
-	b	not_used
+1:
+    b 1b
 
 	// Lower EL using AArch32 / IRQ
 	.align 7
-	b	not_used
+1:
+    b 1b
 
 	// Lower EL using AArch32 / FIQ
 	.align 7
-	b	not_used
+1:
+    b 1b
 
 	// Lower EL using AArch32 / SError
 	.align 7
-	b	not_used
+1:
+    b 1b
 
-
-
-.align  5
-not_used:
-    b not_used
 
 .macro kernel_entry
 	sub		sp, sp, #S_FRAME_SIZE
@@ -177,10 +184,10 @@ not_used:
 	stp		x24, x25, [sp, #OFFSET_X24]
 	stp		x26, x27, [sp, #OFFSET_X26]
 	stp		x28, x29, [sp, #OFFSET_X28]
+	str		lr, [sp, #OFFSET_LR]
 .endm
 
 .macro kernel_exit
-
 	ldp		x0, x1, [sp, #OFFSET_X0]
 	ldp		x2, x3, [sp, #OFFSET_X2]
 	ldp		x4, x5, [sp, #OFFSET_X4]
@@ -196,17 +203,97 @@ not_used:
 	ldp		x24, x25, [sp, #OFFSET_X24]
 	ldp		x26, x27, [sp, #OFFSET_X26]
 	ldp		x28, x29, [sp, #OFFSET_X28]
+	ldr		lr, [sp, #OFFSET_LR]
 
 	add		sp, sp, #S_FRAME_SIZE
 .endm
 
+el0_sync_handler:
+
+	kernel_entry
+
+	mrs		x0, elr_el1
+	str		x0, [sp, #OFFSET_PC]
+
+	mrs		x0, sp_el0
+	str		x0, [sp, #OFFSET_SP]
+
+	mrs		x0, spsr_el1
+	str		x0, [sp, #OFFSET_PSTATE]
+
+	current_cpu	x10
+
+	mov		x1, sp
+	ldr 	x0, .LChypervisor_stack // Get the running hypervisor SVC stack
+	ldr		x0, [x0, x10, lsl #3]
+
+	mov		sp, x0
+	curdom  x10, x12
+	ldr		x12, [x10, #OFFSET_START_INFO]
+	ldr		x10, [x12, #OFFSET_TRAPS_CALLBACK]
+
+	// Come back on the domain stack
+	mov		sp, x1
+
+	cmp		x10, #0
+	b.eq	out_sync
+
+	// Make sure r0 refers to the base of the stack frame
+	mov		x0, sp
+
+    blr		x10
+
+out_sync:
+
+	ldr		x0, [sp, #OFFSET_PC]
+	msr		elr_el1, x0
+
+	ldr 	x0, [sp, #OFFSET_SP]
+	msr		sp_el0, x0
+
+	ldr		x0, [sp, #OFFSET_PSTATE]
+	msr		spsr_el1, x0
+
+	kernel_exit
+
+	eret
+
 .align  5
-el1_irq_handler:
+el01_irq_handler:
 
 	kernel_entry
 
 	mrs		x0, spsr_el1
 	str		x0, [sp, #OFFSET_PSTATE]
+
+	mrs		x0, sp_el0
+	str		x0, [sp, #OFFSET_SP]
+
+	mrs		x0, elr_el1
+	str		x0, [sp, #OFFSET_PC]
+
+	// Now process the IRQ differentiating execution according to the source (dom/hyp)
+	// for managing the stack correctly
+
+	current_cpu	x10
+
+	ldr		x0, .LCpseudo_usr_mode
+	ldr		x1, [x0, x10, lsl #3]
+	cmp		x1, #0  				// svc ?
+
+	b.eq	svc_path
+
+	mov		x1, #0 					// setting svc
+	str		x1, [x0, x10, lsl #3]
+
+	mov		x1, sp
+	ldr 	x0, .LChypervisor_stack // Get the running hypervisor SVC stack
+	ldr		x0, [x0, x10, lsl #3]
+
+	mov		sp, x0
+
+	curdom	x0, x2
+	str		x1, [x0, #OFFSET_G_SP]
 
 	// Make sure r0 refers to the base of the stack frame
 	mov		x0, sp
@@ -215,8 +302,83 @@ el1_irq_handler:
     bl 		irq_handle
 	ldr		lr, [sp], #8
 
+	curdom	x10, x11
+	ldr		x11, [x10, #OFFSET_SHARED_INFO]
+
+	// If the softirq handling leads to trigger an interrupt in the guest,
+	// it will be processed by do_evtchn_do_upcall. The way how to
+	// process an interrupt with potentially IRQs off is under the
+	// responsibility of the guest
+
+	// are some IRQs pending?
+	ldrb	w12, [x11, #OFFSET_EVTCHN_UPCALL_PENDING]
+	tst		w12, #0xff
+
+	b.eq	restore
+
+	b		upcall_path
+
+upcall_path:
+
+	current_cpu x11
+
+	curdom  x10, x12
+	ldr		x12, [x10, #OFFSET_START_INFO]
+	ldr		lr, [x12, #OFFSET_HYPERVISOR_CALLBACK]
+
+	cmp		lr, #0
+	beq		restore
+
+	ldr		x0, .LChypervisor_stack   	// running L1 hypervisor stack
+	mov		x12, sp
+	str		x12, [x0, x11, lsl #3]
+
+	// Get guest stack
+	ldr		x12, [x10, #OFFSET_G_SP]
+	mov		sp, x12
+
+	// setting pseudo_usr_mode / x0, x1 re-assigned right after
+	ldr 	x0, .LCpseudo_usr_mode
+	mov		x1, #1
+	str		x1, [x0, x11, lsl #3]
+
+	// x0 contains a reference to the stack pointer
+	mov		x0, sp
+
+	// Go up to the guest for evtchn processing
+	br		lr
+
+restore:
+
+	current_cpu x11
+
+	// Setting pseudo_usr_mode / x0, x1 re-assigned right after
+	ldr 	x0, .LCpseudo_usr_mode
+	mov		x1, #1
+	str		x1, [x0, x11, lsl #3]
+
+	// Restore saved registers
+
+	ldr		x0, .LChypervisor_stack   	// running SVC hypervisor stack
+	mov		x10, sp
+	str		x10, [x0, x11, lsl #3]
+
+	curdom	x10, x11
+
+	// Get guest stack
+	ldr		x11, [x10, #OFFSET_G_SP]
+	mov		sp, x11
+
+out_irq:
+
 	ldr		x0, [sp, #OFFSET_PSTATE]
 	msr		spsr_el1, x0
+
+	ldr		x0, [sp, #OFFSET_SP]
+	msr		sp_el0, x0
+
+	ldr		x0, [sp, #OFFSET_PC]
+	msr		elr_el1, x0
 
   	kernel_exit
 
@@ -233,7 +395,8 @@ ENTRY(pre_ret_to_user)
 
 	// Get a reference to our domain descriptor
 	curdom	x10, x11
-	str		xzr, [x10, #OFFSET_HYPERVISOR_CALLBACK]
+	ldr		x11, [x10, #OFFSET_START_INFO]
+	str		xzr, [x11, #OFFSET_HYPERVISOR_CALLBACK]
 
 	current_cpu 	x11
 
@@ -247,9 +410,9 @@ ENTRY(pre_ret_to_user)
 	mov		x1, #1
 	str		x1, [x0, x11, lsl #3]
 
-	ldr		x2, [sp, #S_PC]  // Entry point of the guest
-	ldr		x21, [sp, #S_X21] // Device tree (fdt_addr)
-	ldr		x22, [sp, #S_X22] // Address of start_info
+	ldr		x2, [sp, #OFFSET_PC]  // Entry point of the guest
+	ldr		x21, [sp, #OFFSET_X21] // Device tree (fdt_addr)
+	ldr		x22, [sp, #OFFSET_X22] // Address of start_info
 
 	// Ready to jump into the Linux domain...
 	blr		x2
@@ -288,146 +451,20 @@ ENTRY(after_migrate_to_user)
 	b do_upcall
 #endif
 
-ENTRY(ret_to_user)
-
-	// Ensure IRQs are disabled
-	disable_irq
-
-	bl	do_softirq
-
-	curdom  x10, x11
-	ldr		x11, [x10, #OFFSET_SHARED_INFO]
-
-	// If the softirq handling leads to trigger an interrupt in the guest,
-	// it will be processed by do_evtchn_do_upcall. The way how to
-	// process an interrupt with potentially IRQs off is under the
-	// responsibility of the guest
-
-	// Are some IRQs pending?
-	ldrb	w12, [x11, #OFFSET_EVTCHN_UPCALL_PENDING]
-	tst		w12, #0xff
-
-	b.eq	restore
-
-	b	do_upcall
-
-
-/*
- * Send event to guest domain
- */
-
-#if 0
-	disable_irq
-
-	current_cpu r11
-
-	curdom  r10
-
-	ldr		lr, [r10, #OFFSET_HYPERVISOR_CALLBACK]
-	cmp		lr, #0
-	beq		restore
-
-	ldr		r0, .LChypervisor_stack   	@ running SVC hypervisor stack
-	str		sp, [r0, r11, lsl #2]
-
-	@ get guest stack (already stacked from save_svc_context)
-	ldr		sp, [r10, #OFFSET_G_SP]
-
-	@ setting pseudo_usr_mode / r0, r1 re-assigned right after
-	ldr 	r0, .LCpseudo_usr_mode
-	mov		r1, #1
-	str		r1, [r0, r11, lsl #2]
-
-	@ r0 contains a reference to the stack pointer
-	mov		r0, sp
-
-	ldr		r1, [sp, #S_R1]
-
-	mov		pc, lr
-#endif
-
-
-#if 0
-	current_cpu r11
-
-	@ setting pseudo_usr_mode / r0, r1 re-assigned right after
-	ldr 	r0, .LCpseudo_usr_mode
-	mov		r1, #1
-	str		r1, [r0, r11, lsl #2]
-
-
-	@ restore saved registers
-
-	ldr		r0, .LChypervisor_stack   	@ running SVC hypervisor stack
-	str		sp, [r0, r11, lsl #2]
-
-	curdom	r10
-
-	@ get guest stack (already stacked from save_svc_context)
-	ldr		sp, [r10, #OFFSET_G_SP]
-
-	ldr		r0, [sp, #S_PSR]			@ Check if return is in guest SVC or guest USR
-	msr		spsr_cxsf, r0
-
-	and		r0, r0, #PSR_MODE_MASK
-	cmp		r0, #PSR_MODE_USR   			@ usr ?
-	bne		restore_svc
-
-	ldr     lr, [sp, #S_PC]!                @ Get PC
-
-	ldmdb   sp, {r0 - lr}^                  @ Get calling r0 - lr
-	mov     r0, r0
-	add     sp, sp, #S_FRAME_SIZE - S_PC
-
-	movs    pc, lr                          @ return & move spsr_svc into cpsr
-
-restore_svc:
-
-	ldmia	sp, {r0 - pc}^		@ load r0 - pc, cpsr
-#endif
-
-/*
- * Register switch
- * r0 = previous vcpu, r1 = previous vcpu_guest_context, r2 = next vcpu_guest_context
- * previous and next are guaranteed not to be the same.
- *
- */
-ENTRY(__switch_to)
-
-	mov		x10, #(OFFSET_CPU_REGS + OFFSET_X19)
-	add		x8, x0, x10
-	mov		x9, sp
-
-save_ctx:
-
-	stp		x19, x20, [x8], #16		// store callee-saved registers
-	stp		x21, x22, [x8], #16
-	stp		x23, x24, [x8], #16
-	stp		x25, x26, [x8], #16
-	stp		x27, x28, [x8], #16
-	stp		x29, lr, [x8], #16
-	str		x9, [x8]
-
-	// Prepare to retrieve the regs from the stack
-	add		x8, x1, x10
-
-load_ctx:
-
-	ldp		x19, x20, [x8], #16		// restore callee-saved registers
-	ldp		x21, x22, [x8], #16
-	ldp		x23, x24, [x8], #16
-	ldp		x25, x26, [x8], #16
-	ldp		x27, x28, [x8], #16
-	ldp		x29, lr, [x8], #16
-	ldr		x9, [x8]
-	mov		sp, x9
-
-	ret
-
 pseudo_usr_mode:
 	.space NR_CPUS * 8
 
 // Hypervisor stack is used for the *current* (running) vcpu svc stack address
+svc_path:
+
+	mov		x0, sp
+
+	str		lr, [sp, #-8]!
+    bl 		irq_handle
+	ldr		lr, [sp], #8
+
+    b 		out_irq
+
 hypervisor_stack:
 	.space NR_CPUS * 8
 

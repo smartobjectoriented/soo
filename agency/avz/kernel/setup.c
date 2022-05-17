@@ -45,22 +45,6 @@ extern void startup_cpu_idle_loop(void);
 
 struct domain *idle_domain[NR_CPUS];
 
-void do_set_callbacks(unsigned long event, unsigned long domcall)
-{
-	struct domain *d = current;
-
-	d->event_callback = event;
-	d->domcall = domcall;
-
-	if (d->domain_id == DOMID_AGENCY) {
-		/*
-		 * Do the same thing for the realtime subdomain.
-		 */
-		domains[DOMID_AGENCY_RT]->event_callback = d->event_callback;
-		domains[DOMID_AGENCY_RT]->domcall = d->domcall;
-	}
-}
-
 void dump_backtrace_entry(unsigned long where, unsigned long from)
 {
 	printk("Function entered at [<%08lx>] from [<%08lx>]\n", where, from);
