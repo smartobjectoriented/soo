@@ -28,13 +28,12 @@
  * AVZ HYPERCALLS
  */
 
-#define __HYPERVISOR_set_callbacks         0
-#define __HYPERVISOR_event_channel_op      1
-#define __HYPERVISOR_console_io            2
-#define __HYPERVISOR_physdev_op            3
-#define __HYPERVISOR_sched_op              4
-#define __HYPERVISOR_domctl                5
-#define __HYPERVISOR_soo_hypercall         6
+#define __HYPERVISOR_event_channel_op      0
+#define __HYPERVISOR_console_io            1
+#define __HYPERVISOR_physdev_op            2
+#define __HYPERVISOR_sched_op              3
+#define __HYPERVISOR_domctl                4
+#define __HYPERVISOR_soo_hypercall         5
 
 /*
  * VIRTUAL INTERRUPTS
@@ -130,33 +129,42 @@ extern void hypercall_trampoline(int hcall, long a0, long a2, long a3, long a4);
  */
 
 struct start_info {
+	int	domID;
 
-    int	domID;
+	unsigned long nr_pages;     /* Total pages allocated to this domain.  */
 
-    unsigned long nr_pages;     /* Total pages allocated to this domain.  */
+	shared_info_t *shared_info;  /* AVZ virtual address of the shared info page */
 
-    shared_info_t *shared_info;  /* AVZ virtual address of the shared info page */
+	/* Hypercall vector addr for direct branching without syscall */
+	unsigned long hypercall_vaddr;
 
-    unsigned long hypercall_addr; /* Hypercall vector addr for direct branching without syscall */
-    unsigned long fdt_paddr;
+	/* Interrupt routine in the domain */
+	unsigned long vectors_vaddr;
 
-    /* Low-level print function mainly for debugging purpose */
-    void (*printch)(char c);
+	/* Domcall routine in the domain */
+	unsigned long domcall_vaddr;
 
-    unsigned long store_mfn;    /* MACHINE page number of shared page.    */
+	/* Trap routine in the domain */
+	unsigned long traps_vaddr;
 
-    unsigned long nr_pt_frames; /* Number of bootstrap p.t. frames.       */
-    unsigned long dom_phys_offset;
+	unsigned long fdt_paddr;
 
-    unsigned long pt_vaddr;  /* Virtual address of the page table used when the domain is bootstraping */
+	/* Low-level print function mainly for debugging purpose */
+	void (*printch)(char c);
 
-    unsigned long logbool_ht_set_addr;  /* Address of the logbool ht_set function which can be used in the domain. */
+	unsigned long store_mfn;    /* MACHINE page number of shared page.    */
 
-    /* We inform the domain about the hypervisor memory region so that the
-     * domain can re-map correctly.
-     */
-    addr_t hypervisor_vaddr;
+	unsigned long nr_pt_frames; /* Number of bootstrap p.t. frames.       */
+	unsigned long dom_phys_offset;
 
+	unsigned long pt_vaddr;  /* Virtual address of the page table used when the domain is bootstraping */
+
+	unsigned long logbool_ht_set_addr;  /* Address of the logbool ht_set function which can be used in the domain. */
+
+	/* We inform the domain about the hypervisor memory region so that the
+	 * domain can re-map correctly.
+	 */
+	addr_t hypervisor_vaddr;
 };
 typedef struct start_info start_info_t;
 

@@ -105,6 +105,7 @@ void injector_receive_ME(void *ME, size_t size) {
 void injector_prepare(uint32_t size) {
 	current_size = 0;
 	ME_size = size;
+
 	/* The buffer is allocated here and freed once the ME is completely received
 	and injected in the `injector_receive_ME` function */
 	ME_buffer = vzalloc(size);

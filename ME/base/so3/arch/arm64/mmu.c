@@ -560,11 +560,15 @@ void duplicate_user_space(struct pcb *from, struct pcb *to) {
 
 }
 
-/* Duplicate the kernel area by doing a copy of L1 PTEs from the system page table */
-void pgtable_copy_kernel_area(void *l0pgtable) {
+void ramdev_create_mapping(void *root_pgtable, addr_t ramdev_start, addr_t ramdev_end) {
 
-	/* We consider to copy some key element as the ramfs for example */
-	ramdev_create_mapping(l0pgtable);
+	if (valid_ramdev())
+		create_mapping(root_pgtable, RAMDEV_VADDR, ramdev_start, ramdev_end-ramdev_start, false);
+}
+
+/* Duplicate the essentials of the kernel area */
+void pgtable_copy_kernel_area(void *l0pgtable) {
+	/* Nothing to do - We stay with ttbr0_el1 to the right sys page table. */
 }
 
 #if 0
@@ -574,9 +578,15 @@ void dump_current_pgtable(void) {
 
 #endif
 
-/*
- * Get the physical address from a virtual address (valid for any virt. address).
+/**
+ *
+ * Get the physical address from any virtual address including
+ * addresses out of the linear address space.
+ * .
  * The function reads the page table(s).
+ *
+ * @param vaddr	virtual address
+ * @return	physical addr corresponding to vaddr
  */
 addr_t virt_to_phys_pt(addr_t vaddr) {
 	addr_t *l0pte, *l1pte, *l2pte, *l3pte;
@@ -588,32 +598,26 @@ addr_t virt_to_phys_pt(addr_t vaddr) {
 	BUG_ON(!*l0pte);
 
 	l1pte = l1pte_offset(l0pte, vaddr);
-
-
-	// To be completed...
-
-#if 0
-	addr_t *l1pte, *l2pte;
-	uint32_t offset;
-
-	/* Get the L1 PTE. */
-	l1pte = l1pte_offset(current_pgtable(), vaddr);
-
-	offset = vaddr & ~PAGE_MASK;
 	BUG_ON(!*l1pte);
-	if (l1pte_is_sect(*l1pte)) {
 
-		return (*l1pte & TTB_L1_SECT_ADDR_MASK) | offset;
+	if (pte_type(l1pte) == PTE_TYPE_BLOCK)
+		return (*l1pte & TTB_L1_BLOCK_ADDR_MASK) | offset;
 
-	} else {
+	BUG_ON(pte_type(l1pte) != PTE_TYPE_TABLE);
 
-		l2pte = l2pte_offset(l1pte, vaddr);
+	l2pte = l2pte_offset(l1pte, vaddr);
+	BUG_ON(!*l2pte);
 
-		return (*l2pte & TTB_L2_ADDR_MASK) | offset;
-	}
-#endif
+	if (pte_type(l2pte) == PTE_TYPE_BLOCK)
+		return (*l2pte & TTB_L2_BLOCK_ADDR_MASK) | offset;
 
-	return 0;
+	BUG_ON(pte_type(l2pte) != PTE_TYPE_TABLE);
+
+	l3pte = l3pte_offset(l2pte, vaddr);
+	BUG_ON(!*l3pte);
+	BUG_ON(pte_type(l3pte) != PTE_TYPE_PAGE);
+
+	return (*l3pte & TTB_L3_PAGE_ADDR_MASK) | offset;
 }
 
 

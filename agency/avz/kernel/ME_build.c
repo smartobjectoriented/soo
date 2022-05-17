@@ -33,17 +33,13 @@
 
 #include <soo/uapi/logbool.h>
 
-extern char hypercall_start[];
-
 /*
  * construct_ME sets up a new Mobile Entity.
  */
 int construct_ME(struct domain *d) {
 	unsigned int slotID;
-	unsigned long vstartinfo_start;
 	unsigned long v_start;
 	unsigned long alloc_spfn;
-	struct start_info *si = NULL;
 	unsigned long nr_pages;
 	addrspace_t prev_addrspace;
 
@@ -57,8 +53,8 @@ int construct_ME(struct domain *d) {
 	/* We are already on the swapper_pg_dir page table to have full access to RAM */
 
 	/* The following page will contain start_info information */
-	vstartinfo_start = (unsigned long) memalign(PAGE_SIZE, PAGE_SIZE);
-	BUG_ON(!vstartinfo_start);
+	d->si = (struct start_info *) memalign(PAGE_SIZE, PAGE_SIZE);
+	BUG_ON(!d->si);
 
 	d->max_pages = ~0U;
 	d->tot_pages = 0;
@@ -84,37 +80,33 @@ int construct_ME(struct domain *d) {
 
 	mmu_switch(&d->addrspace);
 
-	si = (start_info_t *) vstartinfo_start;
+	memset(d->si, 0, PAGE_SIZE);
 
-	memset(si, 0, PAGE_SIZE);
+	d->si->domID = d->domain_id;
 
-	si->domID = d->domain_id;
+	d->si->nr_pages = d->tot_pages;
+	d->si->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
 
-	si->nr_pages = d->tot_pages;
-	si->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
+	d->si->shared_info = d->shared_info;
+	d->si->hypercall_vaddr = (unsigned long) hypercall_entry;
 
-	si->shared_info = d->shared_info;
-	si->hypercall_addr = (unsigned long) hypercall_start;
+	d->si->logbool_ht_set_addr = (unsigned long) ht_set;
 
-	si->logbool_ht_set_addr = (unsigned long) ht_set;
+	d->si->fdt_paddr = memslot[slotID].fdt_paddr;
 
-	si->fdt_paddr = memslot[slotID].fdt_paddr;
+	d->si->hypervisor_vaddr = CONFIG_HYPERVISOR_VADDR;
 
-	si->hypervisor_vaddr = CONFIG_HYPERVISOR_VADDR;
+	printk("ME FDT device tree: 0x%lx (phys)\n", d->si->fdt_paddr);
 
-	printk("ME FDT device tree: 0x%lx (phys)\n", si->fdt_paddr);
+	d->si->printch = printch;
 
-	si->printch = printch;
-
-	si->pt_vaddr = d->addrspace.pgtable_vaddr;
+	d->si->pt_vaddr = d->addrspace.pgtable_vaddr;
 
 	mmu_switch(&prev_addrspace);
 
-	d->vstartinfo_start = vstartinfo_start;
-
 	/* Create the first thread associated to this domain. */
 
-	new_thread(d, v_start + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
+	new_thread(d, v_start + L_TEXT_OFFSET, d->si->fdt_paddr, v_start + memslot[slotID].size, (addr_t) d->si);
 
 	return 0;
 }

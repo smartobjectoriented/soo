@@ -95,26 +95,31 @@ ENTRY(__vectors)
 
 	// Current EL with SP0 / Synchronous
 	.align 7
-	b	not_used
+1:
+	b	1b
 
 	// Current EL with SP0 / IRQ
 	.align 7
-	b 	not_used
+1:
+	b	1b
 
 	// Current EL with SP0 / FIQ
 	.align 7
-	b 	not_used
+1:
+	b	1b
 
 	// Current EL with SP0 / SError
 	.align 7
-	b	not_used
+1:
+	b	1b
 
 	// Current EL with SPx / Synchronous
 	.align 7
 
 	mrs	x0, esr_el1
 
-	b	not_used
+1:
+	b	1b
 
 	// Current EL with SPx / IRQ
 	.align 7
@@ -123,7 +128,8 @@ ENTRY(__vectors)
 
 	// Current EL with SPx / FIQ
 	.align 7
-	b	not_used
+1:
+	b	1b
 
 	// Current EL with SPx / SError
 	.align 7
@@ -145,74 +151,33 @@ ENTRY(__vectors)
 
 	// Lower EL using AArch64 / FIQ
 	.align 7
-	b	not_used
+1:
+	b	1b
 
 	// Lower EL using AArch64 / SError
 	.align 7
-	b	not_used
+1:
+	b	1b
 
 	// Lower EL using AArch32 / Synchronous
 	.align 7
-	b	not_used
+1:
+	b	1b
 
 	// Lower EL using AArch32 / IRQ
 	.align 7
-	b	not_used
+1:
+	b	1b
 
 	// Lower EL using AArch32 / FIQ
 	.align 7
-	b	not_used
+1:
+	b	1b
 
 	// Lower EL using AArch32 / SError
 	.align 7
-	b	not_used
-
-
-
-.align  5
-not_used:
-    b not_used
-
-.macro kernel_entry
-	sub		sp, sp, #S_FRAME_SIZE
-
-	stp		x0, x1, [sp, #OFFSET_X0]
-	stp		x2, x3, [sp, #OFFSET_X2]
-	stp		x4, x5, [sp, #OFFSET_X4]
-	stp		x6, x7, [sp, #OFFSET_X6]
-	stp		x8, x9, [sp, #OFFSET_X8]
-	stp		x10, x11, [sp, #OFFSET_X10]
-	stp		x12, x13, [sp, #OFFSET_X12]
-	stp		x14, x15, [sp, #OFFSET_X14]
-	stp		x16, x17, [sp, #OFFSET_X16]
-	stp		x18, x19, [sp, #OFFSET_X18]
-	stp		x20, x21, [sp, #OFFSET_X20]
-	stp		x22, x23, [sp, #OFFSET_X22]
-	stp		x24, x25, [sp, #OFFSET_X24]
-	stp		x26, x27, [sp, #OFFSET_X26]
-	stp		x28, x29, [sp, #OFFSET_X28]
-.endm
-
-.macro kernel_exit
-
-	ldp		x0, x1, [sp, #OFFSET_X0]
-	ldp		x2, x3, [sp, #OFFSET_X2]
-	ldp		x4, x5, [sp, #OFFSET_X4]
-	ldp		x6, x7, [sp, #OFFSET_X6]
-	ldp		x8, x9, [sp, #OFFSET_X8]
-	ldp		x10, x11, [sp, #OFFSET_X10]
-	ldp		x12, x13, [sp, #OFFSET_X12]
-	ldp		x14, x15, [sp, #OFFSET_X14]
-	ldp		x16, x17, [sp, #OFFSET_X16]
-	ldp		x18, x19, [sp, #OFFSET_X18]
-	ldp		x20, x21, [sp, #OFFSET_X20]
-	ldp		x22, x23, [sp, #OFFSET_X22]
-	ldp		x24, x25, [sp, #OFFSET_X24]
-	ldp		x26, x27, [sp, #OFFSET_X26]
-	ldp		x28, x29, [sp, #OFFSET_X28]
-
-	add		sp, sp, #S_FRAME_SIZE
-.endm
+1:
+	b	1b
 
 
 #if 0
@@ -404,16 +369,7 @@ el0_sync_handler:
 	// Make sure r0 refers to the base of the stack frame
 	mov		x0, sp
 
-	str		lr, [sp, #-8]!
-
-	enable_irq
     bl 		trap_handle
-    disable_irq
-
- 	ldr		lr, [sp], #8
-
-	// Return value
-	str		x0, [sp, #OFFSET_X0]
 
 	ldr		x0, [sp, #OFFSET_LR]
 	msr		elr_el1, x0
@@ -530,100 +486,6 @@ el1_irq_handler:
 fiq:
     b  fiq
 #endif
-
-#ifdef CONFIG_SO3VIRT
-
-// We may reach this point only during along the upcall
-// path of a hypercall return.
-
-.align 5
-ENTRY(avz_vector_callback)
-
-	// Check if the stack is 16-byte aligned.
-
-1:
-	// x0 is set to cpu_regs_t by avz
-	bl 		irq_handle
-
-	ldr		lr, [sp, #S_PC]
-
-	// PSTATE contains the daif state at the entry in
-	// the hypervisor.
-
-	ldr		x8, [sp, #(8 * 33)]  // Get PSTATE
-
-	// Restore the IRQ status before the hypercall
-	msr		daif, x8
-
-	ldp		x0, x1, [sp, #(16 * 0)]
-	ldp		x2, x3, [sp, #(16 * 1)]
-	ldp		x4, x5, [sp, #(16 * 2)]
-	ldp		x6, x7, [sp, #(16 * 3)]
-	ldp		x8, x9, [sp, #(16 * 4)]
-	ldp		x10, x11, [sp, #(16 * 5)]
-	ldp		x12, x13, [sp, #(16 * 6)]
-	ldp		x14, x15, [sp, #(16 * 7)]
-	ldp		x16, x17, [sp, #(16 * 8)]
-	ldp		x18, x19, [sp, #(16 * 9)]
-	ldp		x20, x21, [sp, #(16 * 10)]
-	ldp		x22, x23, [sp, #(16 * 11)]
-	ldp		x24, x25, [sp, #(16 * 12)]
-	ldp		x26, x27, [sp, #(16 * 13)]
-	ldp		x28, x29, [sp, #(16 * 14)]
-
-	add		sp, sp, #0x110  // From avz stack frame
-
-	ret
-
-
-.align 5
-    /*
-     * Hypercall trampoline has the following arguments:
-     * - x0: hypercall number
-     * - x1: first arg (-> r0)
-     * - x2: second arg
-     * - x3: third arg
-     * - x4: fourth arg
-     * - x5: work register
-     * - x7: hypecall number (ABI)
-     * - x11: cpsr
-     */
-ENTRY(hypercall_trampoline)
-
-    // Stack alignment must stay on 16 bytes.
-    sub     sp, sp, #12*8
-
-    stp 	x1, x2, [sp, #16 * 0]
-    stp 	x3, x4, [sp, #16 * 1]
-    stp		x5, x6, [sp, #16 * 2]
-    stp		x7, x8, [sp, #16 * 3]
-    stp		x9, x10, [sp, #16 * 4]
-    stp		x11, lr, [sp, #16 * 5]
-
-    mov 	x7, x0
-    mov 	x0, x1
-    mov 	x1, x2
-    mov 	x2, x3
-    mov 	x3, x4
-    mov 	x4, x5
-
-    ldr 	x5, =HYPERVISOR_hypercall_addr
-	ldr		x5, [x5]
-
-    blr		x5
-
-    ldp 	x1, x2, [sp, #16 * 0]
-    ldp 	x3, x4, [sp, #16 * 1]
-    ldp		x5, x6, [sp, #16 * 2]
-    ldp		x7, x8, [sp, #16 * 3]
-    ldp		x9, x10, [sp, #16 * 4]
-    ldp		x11, lr, [sp, #16 * 5]
-
-    add     sp, sp, #12*8
-
-    ret
-
-#endif /* CONFIG_SO3VIRT */
 
 .LCcurrent:
 	.quad current_thread

@@ -29,13 +29,12 @@
  * AVZ HYPERCALLS
  */
 
-#define __HYPERVISOR_set_callbacks         0
-#define __HYPERVISOR_event_channel_op      1
-#define __HYPERVISOR_console_io            2
-#define __HYPERVISOR_physdev_op            3
-#define __HYPERVISOR_sched_op              4
-#define __HYPERVISOR_domctl                5
-#define __HYPERVISOR_soo_hypercall         6
+#define __HYPERVISOR_event_channel_op      0
+#define __HYPERVISOR_console_io            1
+#define __HYPERVISOR_physdev_op            2
+#define __HYPERVISOR_sched_op              3
+#define __HYPERVISOR_domctl                4
+#define __HYPERVISOR_soo_hypercall         5
 
 /*
  * VIRTUAL INTERRUPTS
@@ -140,7 +139,11 @@ struct start_info {
 
     shared_info_t *shared_info;  /* AVZ virtual address of the shared info page */
 
-    unsigned long hypercall_addr; /* Hypercall vector addr for direct branching without syscall */
+    unsigned long hypercall_vaddr; /* Hypercall vector addr for direct branching without syscall */
+    unsigned long vectors_vaddr;
+    unsigned long domcall_vaddr;
+    unsigned long traps_vaddr;
+
     unsigned long fdt_paddr;
 
     /* Low-level print function mainly for debugging purpose */
@@ -180,7 +183,7 @@ typedef void (*domcall_t)(int cmd, void *arg);
 
 struct DOMCALL_presetup_adjust_variables_args {
 	start_info_t *start_info_virt; /* IN */
-	unsigned int clocksource_vaddr; /* IN */
+	addr_t clocksource_vaddr; /* IN */
 };
 
 struct DOMCALL_postsetup_adjust_variables_args {

@@ -68,9 +68,6 @@ struct domain_migration_info
 	cpu_regs_t cpu_regs;
 	addr_t   g_sp; 	/* G-stack */
 
-	addr_t	domcall;
-	addr_t event_callback;
-
 	struct vfp_state vfp;
 
 	addrspace_t addrspace;

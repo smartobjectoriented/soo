@@ -20,6 +20,7 @@
 #include <memory.h>
 #include <heap.h>
 #include <initcall.h>
+#include <syscall.h>
 
 #include <asm/cacheflush.h>
 #include <asm/mmu.h>
@@ -34,10 +35,6 @@
 
 #include <soo/debug/logbool.h>
 
-/* Avoid large area on stack (limited to 1024 bytes */
-
-unsigned char vectors_tmp[PAGE_SIZE];
-
 /* Force the variable to be stored in .data section so that the BSS can be freely cleared.
  * The value is set during the head.S execution before clear_bss().
  */
@@ -46,8 +43,6 @@ uint32_t avz_dom_phys_offset;
 
 volatile uint32_t *HYPERVISOR_hypercall_addr;
 volatile shared_info_t *HYPERVISOR_shared_info;
-
-void *__guestvectors = NULL;
 
 int do_presetup_adjust_variables(void *arg)
 {
@@ -62,7 +57,7 @@ int do_presetup_adjust_variables(void *arg)
 
 	mem_info.phys_base = avz_dom_phys_offset;
 
-	HYPERVISOR_hypercall_addr = (uint32_t *) avz_start_info->hypercall_addr;
+	HYPERVISOR_hypercall_addr = (uint32_t *) avz_start_info->hypercall_vaddr;
 
 	__printch = avz_start_info->printch;
 
@@ -78,8 +73,6 @@ int do_postsetup_adjust_variables(void *arg)
 
 	/* Updating pfns where used. */
 	readjust_io_map(args->pfn_offset);
-
-	vectors_setup();
 
 	return 0;
 }
@@ -140,7 +133,7 @@ void avz_setup(void) {
 	avz_dom_phys_offset = avz_start_info->dom_phys_offset;
 
 	/* Immediately prepare for hypercall processing */
-	HYPERVISOR_hypercall_addr = (uint32_t *) avz_start_info->hypercall_addr;
+	HYPERVISOR_hypercall_addr = (uint32_t *) avz_start_info->hypercall_vaddr;
 
 	lprintk("SOO Agency Virtualizer (avz) Start info :\n\n");
 
@@ -160,21 +153,13 @@ void avz_setup(void) {
  	   to access the shared info page */
 	HYPERVISOR_shared_info = (shared_info_t *) avz_start_info->shared_info;
 
-	DBG("Set HYPERVISOR_set_callbacks at %lx\n", (unsigned long) linux0_hypervisor_callback);
-
-	hypercall_trampoline(__HYPERVISOR_set_callbacks, (unsigned long) avz_vector_callback, (unsigned long) domcall, 0, 0);
+	avz_start_info->domcall_vaddr = (unsigned long) domcall;
+	avz_start_info->vectors_vaddr = (unsigned long) avz_vector_callback;
+	avz_start_info->traps_vaddr = (unsigned long) trap_handle;
 
 	virq_init();
 }
 
-void pre_irq_init_setup(void) {
-
-	/* Create a private vector page for the guest vectors */
-	 __guestvectors = memalign(PAGE_SIZE, PAGE_SIZE);
-	BUG_ON(!__guestvectors);
-
-	vectors_setup();
-}
 
 void post_init_setup(void) {
 
@@ -195,6 +180,7 @@ void post_init_setup(void) {
 	/*
 	 * Now, the ME requests to be paused by setting its state to ME_state_preparing. As a consequence,
 	 * the agency will pause it.
+	 * The state is moving from ME_state_booting to ME_state_preparing.
 	 */
 	set_ME_state(ME_state_preparing);
 
@@ -215,6 +201,8 @@ void post_init_setup(void) {
 		}
 	}
 
+	BUG_ON(get_ME_state() != ME_state_booting);
+
 	/* Write the entries related to the ME ID in vbstore */
 	vbstore_ME_ID_populate();
 
@@ -226,5 +214,4 @@ void post_init_setup(void) {
 	DBG("ME running as domain %d\n", ME_domID());
 }
 
-REGISTER_PRE_IRQ_INIT(pre_irq_init_setup)
 REGISTER_POSTINIT(post_init_setup)

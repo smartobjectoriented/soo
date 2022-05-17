@@ -82,6 +82,9 @@ __start:
 
     // Up to here, a stack should be initialized
 
+	// Some CPU setup
+	msr pmuserenr_el0, xzr
+
 	// Set up the MMU
     b		mmu_setup
 
@@ -301,6 +304,9 @@ ENTRY(secondary_startup)
 	// Enable FP/ASIMD
 	mov	x0, #3 << 20
 	msr	cpacr_el1, x0
+
+	// Some CPU setup
+	msr pmuserenr_el0, xzr
 
     adr 	x4, __secondary_data
 
