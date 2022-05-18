@@ -1,6 +1,6 @@
 
 # This script is sourced by initd script
 
-export SOO_NAME="soo"
+export SOO_NAME="SOO-virt64"
 
-echo ${SOO_NAME} > /sys/devices/system/soo/soo0/soo_name
+echo ${SOO_NAME} > /sys/soo/name

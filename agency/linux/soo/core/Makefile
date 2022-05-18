@@ -1,5 +1,5 @@
 
-obj-y += core.o crc32.o sysfs.o
+obj-y += core.o crc32.o 
 
 obj-y += migmgr.o
 obj-y += upgrader.o

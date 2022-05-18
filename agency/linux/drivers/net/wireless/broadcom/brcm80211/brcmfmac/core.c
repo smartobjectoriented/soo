@@ -285,8 +285,8 @@ static bool brcmf_skb_is_iapp(struct sk_buff *skb)
 #endif
 }
 
-/* SOO.tech */
-/* static */ netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
+
+static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
 					   struct net_device *ndev)
 {
 	int ret;

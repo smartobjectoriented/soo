@@ -23,6 +23,9 @@
 #include <net/xdp.h>
 #include <net/net_failover.h>
 
+/* SOO.tech */
+#include <soo/soolink/plugin/ethernet.h>
+
 static int napi_weight = NAPI_POLL_WEIGHT;
 module_param(napi_weight, int, 0444);
 
@@ -1042,6 +1045,11 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
 	struct sk_buff *skb;
 	struct virtio_net_hdr_mrg_rxbuf *hdr;
 
+	/* SOO.tech */
+	uint8_t mac_src[ETH_ALEN];
+	__be16 skb_protocol;
+	struct ethhdr *p_ethhdr;
+
 	if (unlikely(len < vi->hdr_len + ETH_HLEN)) {
 		pr_debug("%s: short packet %i\n", dev->name, len);
 		dev->stats.rx_length_errors++;
@@ -1084,7 +1092,17 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
 	pr_debug("Receiving skb proto 0x%04x len %i type %i\n",
 		 ntohs(skb->protocol), skb->len, skb->pkt_type);
 
-	napi_gro_receive(&rq->napi, skb);
+	/* SOO.tech */
+	p_ethhdr = eth_hdr(skb);
+	memcpy(mac_src, p_ethhdr->h_source, ETH_ALEN);
+
+	/* Clear the flag bits */
+	skb_protocol = ntohs(skb->protocol) & 0x10ff;
+
+	if ((skb_protocol > ETH_P_SL_MIN) && (skb_protocol < ETH_P_SL_MAX))
+		plugin_ethernet_rx(skb, dev, mac_src);
+	else
+		napi_gro_receive(&rq->napi, skb);
 	return;
 
 frame_err:

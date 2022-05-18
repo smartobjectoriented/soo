@@ -40,11 +40,7 @@
 perform various tests. This variant has no rootfs (only kernel threads).";
 
 	frontends {
-		/* Enabling vdummy for testing purposes */
-		vdummy {
-			status = "ok";
-		};
-
+ 
 		/* Enabling the console */
 		vuart {
 			status = "ok";
