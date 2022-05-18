@@ -26,26 +26,37 @@
 #include <linux/string.h>
 #include <linux/kthread.h>
 
-#include "baos_client.h"
-
 #if 0
 #define DEBUG
 #endif
 
-#if 0
+#if 1
 #define DEBUG_THREAD
 #endif
 
-
+#ifdef DEBUG_THREAD
+#include "baos_client.h"
+#endif
 
 /* Access to serdev */
 static struct kberry838_uart *kberry838;
 
-/* Number of subscriber to tcm515 */
-static int subscribers_count = 0;
+/**
+ * @brief Prints an array of bytes. Use for debug proposes.
+ * 
+ * @param buf Array of bytes
+ * @param len Array length
+ */
+#ifdef DEBUG
+static void kberry838_print_buffer(byte *buf, int len) {
+    int i;
 
-/* Array callback funtions provided by the subscribers */
-static void (*subscribers[MAX_SUBSCRIBERS])(byte *data);
+    dev_info(kberry838->dev, "Buffer length: %d\n",len);
+    for (i = 0; i < len; i++) {
+        dev_info(kberry838->dev, "[%d]: 0x%02X\n", i, buf[i]);
+    }
+}
+#endif
 
 /**
  * @brief Write synchronously to serial port.
@@ -61,7 +72,7 @@ int kberry838_write_buf(const byte *buffer, size_t len) {
     BUG_ON(!kberry838->is_open);
 
     if (serdev_device_write_room(kberry838->serdev) < len) {
-        dev_err(kberry838->dev, "Not enough room\n");
+        dev_err(kberry838->dev, "Not enough room. Length: %u\n", len);
         BUG();
     }
 
@@ -82,8 +93,11 @@ int kberry838_write_buf(const byte *buffer, size_t len) {
     return byte_written;
 }
 
+/**
+ * @brief Reset the kberry838 device internal registers and state of the stack
+ * 
+ */
 static void kberry838_send_reset(void) {
-    kberry838->status = SEND_RST;
     kberry838_write_buf(kberry838_reset, sizeof(kberry838_reset));
 
     if (wait_for_completion_timeout(&kberry838->wait_rsp, 
@@ -91,13 +105,32 @@ static void kberry838_send_reset(void) {
         dev_err(kberry838->dev, "Acknowledge timeout reached");
         BUG();
     }
+    dev_info(kberry838->dev, "Resetted successfully");
 }
 
+/**
+ * @brief Acknowledge new data received.
+ * 
+ */
 static void kberry838_send_ack(void) {
     kberry838_write_buf(kberry838_ack, sizeof(kberry838_ack));
 }
 
+/**
+ * @brief Invert the frame parity.
+ * 
+ */
+void kberry838_switch_frame_parity(void) {
+    kberry838->even = kberry838->even ? false : true;
+}
 
+/**
+ * @brief Convert a BAOS frame into a FT12 array of byte to be sent to the kberry838 device.
+ * 
+ * @param baos_frame Frame to encapsulate
+ * @param len Number of bytes of the frame
+ * @return byte* FT12 array of bytes
+ */
 static byte *kberry838_build_ft12_frame(byte *baos_frame, int len) {
     byte *ft12_frame;
     long ft12_checksum = 0;
@@ -108,8 +141,10 @@ static byte *kberry838_build_ft12_frame(byte *baos_frame, int len) {
 
     /** FT 1.2 Header **/
     ft12_frame[FT12_START_OFF] = FT12_START_CHAR;
-    ft12_frame[FT12_LENGTH_OFF] = len;
-    ft12_frame[FT12_REPEAT_LENGTH_OFF] = len;
+
+    /** Account for FT12 Control field **/
+    ft12_frame[FT12_LENGTH_OFF] = len + 1;
+    ft12_frame[FT12_REPEAT_LENGTH_OFF] = len + 1;
     ft12_frame[FT12_REPEAT_START_OFF] = FT12_START_CHAR;
     ft12_frame[FT12_CONTROL_BYTE_OFF] = kberry838->even ? FT12_EVEN_FRAME : FT12_ODD_FRAME;
 
@@ -130,36 +165,42 @@ static byte *kberry838_build_ft12_frame(byte *baos_frame, int len) {
     return ft12_frame;
 }
 
+/**
+ * @brief Send a BAOS frame to the kberry838 device.
+ * 
+ * @param baos_frame Frame to send
+ * @param len Number of byte of the frame
+ */
 void kberry838_send_data(byte *baos_frame, int len) {
-    byte *buf;
-    int i;
-    int buf_len;
+    byte *ft12_array;
+    int ft12_len;
 
-    buf_len = FT12_HEADER_SIZE + len + FT12_END_FRAME_SIZE;
+    ft12_len = FT12_HEADER_SIZE + len + FT12_END_FRAME_SIZE;
+    ft12_array = kberry838_build_ft12_frame(baos_frame, len);
+    BUG_ON(!ft12_array);
 
-    kberry838->status = SEND_MSG;
-
-    buf = kberry838_build_ft12_frame(baos_frame, len);
-
-    dev_info(kberry838->dev, "Send data:\n");
-    for (i = 0; i < buf_len; i++) {
-        dev_info(kberry838->dev, "[%d]: 0x%02X\n", i, buf[i]);
-    }
-
-    kberry838_write_buf(buf, buf_len);
+    kberry838_write_buf(ft12_array, ft12_len);
     if (wait_for_completion_timeout(&kberry838->wait_rsp, 
                                     msecs_to_jiffies(KBERRY838_RSP_TIMEOUT)) == 0) {
         dev_err(kberry838->dev, "Send data timeout reached");
         BUG();
     }
 
-    if (kberry838->even)
-        kberry838->even = false;
-    else
-        kberry838->even = true;
+    kfree(ft12_array);
+
+    // kthread_run(kberry838_send_data_th, args, "send_data_th");
 }
 
-static byte *kberry838_process_ft12_frame(const byte *data, size_t len) {
+/**
+ * @brief Process incoming serial data and extract BAOS frame.
+ * 
+ * @param data Data received from the serial port.
+ * @param len Length of the received data
+ * @param frame_len return number of bytes in the frame
+ * @param bytes_read return number of byte processed
+ * @return byte* if the end frame byte is found return the BAOS frame, NULL otherwise
+ */
+static byte *kberry838_process_ft12_frame(const byte *data, size_t len, int *frame_len, int *bytes_read) {
     static baos_decode_status_t decode_status = GET_START;
     static int processed_bytes = 0;
     static byte *baos_frame = NULL;
@@ -172,38 +213,64 @@ static byte *kberry838_process_ft12_frame(const byte *data, size_t len) {
         {
         case GET_START:
             if (data[i] == FT12_START_CHAR) {
-                if (processed_bytes > 2)
-                    decode_status = GET_CONTROL_FIELD;
-                else 
-                    decode_status = GET_LENGTH;
-            }
+                decode_status = GET_LENGTH;
+                processed_bytes = 0;
+            } 
             break;
         
         case GET_LENGTH:
-            if (processed_bytes > 1) {
+            if (processed_bytes == 2) {
                 BUG_ON(baos_frame_len != data[i]);
-                decode_status = GET_START;
+                decode_status = GET_SECOND_START;
             }
             else
                 baos_frame_len = data[i];
             break;
 
+        case GET_SECOND_START:
+            if (data[i] != FT12_START_CHAR) {
+                BUG();
+            }
+            decode_status = GET_CONTROL_FIELD;
+            break;
+
         case GET_CONTROL_FIELD:
             ft12_control_field = data[i];
+            if (kberry838->even) {
+                if (ft12_control_field != FT12_EVEN_RSP) {
+                    dev_err(kberry838->dev, "Control field is 0x%02X instead of 0x%02X",
+                            ft12_control_field, FT12_EVEN_RSP);
+                    BUG();
+                }
+            } else {
+                if (ft12_control_field != FT12_ODD_RSP) {
+                    dev_err(kberry838->dev, "Control field is 0x%02X instead of 0x%02X",
+                            ft12_control_field, FT12_ODD_RSP);
+                    BUG();
+                }
+            }
+
+            ft12_checksum += ft12_control_field;
+            /** Remove FT12 control field from length **/
+            baos_frame_len -= 1;
             decode_status = GET_BAOS;
-            baos_frame = kzalloc(baos_frame_len * sizeof(byte), GFP_KERNEL);
-            BUG_ON(!baos_frame);
+            if (baos_frame_len > 1) {
+                baos_frame = kzalloc(baos_frame_len * sizeof(byte), GFP_KERNEL);
+                BUG_ON(!baos_frame);
+            }
             break;
 
         case GET_BAOS:
-            if (processed_bytes > FT12_HEADER_SIZE + baos_frame_len) {
+            if (processed_bytes == FT12_HEADER_SIZE + baos_frame_len) {
                 decode_status = GET_STOP;
                 ft12_checksum %= 0x100;
+                /** Check if there errors **/
                 if ((byte)ft12_checksum != data[i]) {
                     dev_err(kberry838->dev, "FT12 checksum is wrong. Calculated: 0x%02X, Read: 0x%02X",
                             (byte)ft12_checksum, data[i]);
                     kfree(baos_frame);
                     decode_status = GET_START;
+                    *bytes_read += 1;
                     return NULL;
                 }
 
@@ -215,12 +282,12 @@ static byte *kberry838_process_ft12_frame(const byte *data, size_t len) {
         
         case GET_STOP:
             if (data[i] == FT12_STOP_CHAR) {
-                processed_bytes = 0;
+                *frame_len = baos_frame_len;
                 baos_frame_len = 0;
                 ft12_checksum = 0;
                 ft12_control_field = 0;
                 decode_status = GET_START;
-
+                *bytes_read += 1;
                 return baos_frame;
             }
             break;
@@ -229,56 +296,47 @@ static byte *kberry838_process_ft12_frame(const byte *data, size_t len) {
             break;
         }
         processed_bytes++;
+        *bytes_read += 1;
     }
 
     return NULL;
 }
 
+/**
+ * @brief Callback called by serdev controller when new data is received
+ * 
+ * @param serdev 
+ * @param buf 
+ * @param len 
+ * @return int 
+ */
 static int kberry838_serdev_receive_buf(struct serdev_device *serdev, const byte *buf, size_t len) {
-    int i;
-    byte *baos_frame;
+    byte *baos_frame = NULL;
+    int baos_frame_len = 0;
+    int bytes_processed = 0;
 
-    dev_info(kberry838->dev, "New data received:\n");
-    for (i = 0; i < len; i++)
-        dev_info(kberry838->dev, "[%d]: 0x%02X\n", i, buf[i]);
-
-    switch (kberry838->status) {
-        case SEND_RST:
-            if (buf[0] != KBERRY838_ACK) {
-                dev_err(kberry838->dev, "Failed to reset kberry838 module");
-                BUG();
-            } 
-            dev_info(kberry838->dev, "Successfully resetted kberry838 module");
+    while (bytes_processed < len) {
+        /** Check if acknowledge **/
+        if (buf[bytes_processed] == FT12_ACK) {
+            dev_info(kberry838->dev, "ACK received");
             complete(&kberry838->wait_rsp);
-            kberry838->status = IDLE;
-            break;
-
-        case SEND_MSG:
-           if (buf[0] != KBERRY838_ACK) {
-                dev_err(kberry838->dev, "Failed to send message to kberry838 module");
-                BUG();
-            } 
-            kberry838->status = WAIT_DATA;
-            break;
-
-        case WAIT_DATA:
-            baos_frame = kberry838_process_ft12_frame(buf, len);
-            if (baos_frame) {
-                complete(&kberry838->wait_rsp);
-                kberry838_send_ack();
-                kberry838->status = IDLE;
-                kfree(baos_frame);
-            }
-            break;
-
-        case IDLE:
-            dev_err(kberry838->dev, "Don't know what to do with recevived data. Dropping it.");
-            dev_err(kberry838->dev, "Data received:\n");
-            for (i = 0; i < len; i++)
-                dev_err(kberry838->dev, "[%d]: 0x%02X\n", i, buf[i]);
-            break;
+            bytes_processed++;
+            if (len == 1)
+                break; 
+        }
+        /** Extract BAOS frame **/
+        baos_frame = kberry838_process_ft12_frame(&buf[bytes_processed], len - bytes_processed,
+                                                    &baos_frame_len, &bytes_processed);
+        if (baos_frame) {
+#ifdef DEBUG
+            dev_info(kberry838->dev, "Received new BAOS frame");
+#endif
+            kberry838_send_ack();
+            baos_store_response(baos_frame, baos_frame_len);
+            kberry838_switch_frame_parity();
+            kfree(baos_frame);
+        }
     }
-
     return len;
 }
 
@@ -287,21 +345,87 @@ static const struct serdev_device_ops uart_serdev_device_ops = {
     .write_wakeup = serdev_device_write_wakeup,
 };
 
-int kberry838_subscribe(void (*callback)(byte *data)) {
-    if (!callback)
-        return -1;
+/**
+ * @brief Read the firmware version to test communication with the kberry838 device.
+ * 
+ */
+static void kberry838_init_server(void) {
+    baos_frame_t *rsp;
+    char *serial_num;
+    int i;
 
-    if (subscribers_count >= MAX_SUBSCRIBERS) {
-        dev_err(kberry838->dev, "Subsciber limit reached");
-        return -1;
+    rsp = baos_get_server_item(BAOS_ID_SERIAL_NUM, 0x01);
+    if (rsp) {
+        if (rsp->server_items[0]) {
+            serial_num = kzalloc(2 * rsp->server_items[0]->length * sizeof(char), GFP_KERNEL);
+            BUG_ON(!serial_num);
+            for (i = 0; i < rsp->server_items[0]->length; i++)
+                sprintf(&serial_num[2 * i], "%02X", rsp->server_items[0]->data[i]);
+            dev_info(kberry838->dev, "Kberry838 Serial number: %s\n", serial_num);
+            baos_free_frame(rsp);
+        }
+
+    } else {
+        dev_err(kberry838->dev, "Failed to read kberry838 serial number\n");
+        BUG();
     }
+}
 
-    dev_info(kberry838->dev, "New subscriber registered");
+#ifdef DEBUG_THREAD
+/**
+ * @brief Test thread. Send command DOWN -> STOP -> UP
+ * 
+ * @param data NULL 
+ * @return int 0
+ */
+static int test_thread(void *data) {
+    baos_frame_t *rsp;
+    byte up_dn [2] = {0x00, 0x01};
+    baos_datapoint_t blind[1] = { 
+        {.id.val = 0x01, .command = SET_NEW_VALUE_AND_SEND_ON_BUS, sizeof(up_dn[1]), &up_dn[1]} 
+    };
 
-    subscribers[subscribers_count++] = callback;
+    /** Wait for boot to complete **/
+    msleep(10000);
+
+    /** Blind get position **/
+    rsp = baos_get_datapoint_value(0x05, 0x01);
+    baos_print_frame(rsp);
+    if (rsp->first_obj_id.val == 0x05) {
+        dev_info(kberry838->dev, "Blind postion: 0x%02X\n", rsp->datapoints[0]->data[0]);
+    }
+    baos_free_frame(rsp);
+    msleep(1000);
+
+    /** Blind down **/
+    dev_info(kberry838->dev, "========= Send blind down ========");
+    baos_set_datapoint_value(blind, 1);
+    msleep(3000);
+
+    /** Blind stop **/
+    dev_info(kberry838->dev, "========= Send blind stop ========");
+    blind[0].id.val = 0x02;
+    baos_set_datapoint_value(blind, 1);
+    msleep(8000);
+    
+    /** Blind get position **/
+    rsp = baos_get_datapoint_value(0x05, 0x01);
+    baos_print_frame(rsp);
+    if (rsp->first_obj_id.val == 0x05) {
+        dev_info(kberry838->dev, "Blind postion: 0x%02X\n", rsp->datapoints[0]->data[0]);
+    }
+    baos_free_frame(rsp);
+    msleep(1000);
+
+    /** Blind up **/
+    dev_info(kberry838->dev, "========= Send blind up ========");
+    blind[0].id.val = 0x01;
+    blind[0].data = &up_dn[0];
+    baos_set_datapoint_value(blind, 1);
 
     return 0;
 }
+#endif
 
 static int kberry838_serdev_probe(struct serdev_device *serdev) {
     struct device *dev;
@@ -326,7 +450,6 @@ static int kberry838_serdev_probe(struct serdev_device *serdev) {
     kberry838->serdev = serdev;
     kberry838->dev = dev;
     kberry838->baud = baud;
-    kberry838->status = IDLE;
     init_completion(&kberry838->wait_rsp);
 
     ret = serdev_device_open(serdev);
@@ -350,8 +473,11 @@ static int kberry838_serdev_probe(struct serdev_device *serdev) {
 
     kberry838_send_reset();
     kberry838->even = false;
+    kberry838_init_server();
 
-    baos_get_server_item(BAOS_ID_SERIAL_NUM, 0x01);
+#ifdef DEBUG_THREAD
+    kthread_run(test_thread, NULL, "test-thread");
+#endif
 
     dev_info(dev,"Probed successfully\n");
 
