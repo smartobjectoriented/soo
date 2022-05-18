@@ -25,17 +25,6 @@
 
 #include <soo/soolink/soolink.h>
 
-#ifdef CONFIG_BRCMFMAC_SDIO
-#define WLAN_NET_DEV_NAME 	"wlan0"
-netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb, struct net_device *ndev);
-#endif
-
-#ifndef WLAN_NET_DEV_NAME
-#define WLAN_NET_DEV_NAME	"wlandummy"
-#endif
-
 void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
-
-void plugin_wlan_delete_remote(uint64_t agencyUID);
 
 #endif /* PLUGIN_WLAN_H */

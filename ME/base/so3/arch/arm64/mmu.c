@@ -560,11 +560,13 @@ void duplicate_user_space(struct pcb *from, struct pcb *to) {
 
 }
 
+#ifdef CONFIG_RAMDEV
 void ramdev_create_mapping(void *root_pgtable, addr_t ramdev_start, addr_t ramdev_end) {
 
 	if (valid_ramdev())
 		create_mapping(root_pgtable, RAMDEV_VADDR, ramdev_start, ramdev_end-ramdev_start, false);
 }
+#endif /* CONFIG_RAMDEV */
 
 /* Duplicate the essentials of the kernel area */
 void pgtable_copy_kernel_area(void *l0pgtable) {

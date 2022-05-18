@@ -7,8 +7,14 @@ CONFIG_ARCH_ARM64=y
 CONFIG_SO3VIRT=y
 CONFIG_ARCH="arm64"
 CONFIG_CROSS_COMPILE="aarch64-none-linux-gnu-"
-# CONFIG_THREAD_ENV is not set
-CONFIG_PROC_ENV=y
+CONFIG_KERNEL_VADDR=0xffff800000000000
+
+#
+# Platform
+#
+# end of Platform
+
+CONFIG_THREAD_ENV=y
 
 #
 # SO3 Scheduling configuration
@@ -31,7 +37,7 @@ CONFIG_UART=y
 CONFIG_SO3VIRT_SERIAL=y
 CONFIG_UART_LL_PADDR=0x09000000
 # CONFIG_MMC is not set
-CONFIG_RAMDEV=y
+# CONFIG_RAMDEV is not set
 # CONFIG_ARM_TIMER is not set
 # CONFIG_GIC is not set
 CONFIG_VIRQ=y
@@ -48,17 +54,16 @@ CONFIG_VIRQ=y
 #
 # Filesystems
 #
-CONFIG_FS_FAT=y
-# CONFIG_ROOTFS_NONE is not set
+CONFIG_ROOTFS_NONE=y
 # CONFIG_ROOTFS_MMC is not set
-CONFIG_ROOTFS_RAMDEV=y
+# CONFIG_ROOTFS_RAMDEV is not set
 # end of Filesystems
 
 #
 # IPC
 #
-CONFIG_IPC_SIGNAL=y
-CONFIG_IPC_PIPE=y
+# CONFIG_IPC_SIGNAL is not set
+# CONFIG_IPC_PIPE is not set
 # end of IPC
 
 #

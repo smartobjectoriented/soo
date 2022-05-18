@@ -1159,6 +1159,7 @@ SYM_CODE_START(hypercall_trampoline)
     stp		x5, x6, [sp, #16 * 2]
     stp		x7, x8, [sp, #16 * 3]
     stp		x9, x10, [sp, #16 * 4]
+	str		lr, [sp, #16 * 5]
 
     mov 	x7, x0
     mov 	x0, x1
@@ -1225,7 +1226,7 @@ out_upcall:
     ldp		x5, x6, [sp, #16 * 2]
     ldp		x7, x8, [sp, #16 * 3]
     ldp		x9, x10, [sp, #16 * 4]
-    ldp		x11, lr, [sp, #16 * 5]
+    ldr		lr, [sp, #16 * 5]
 
     add     sp, sp, #12*8
 

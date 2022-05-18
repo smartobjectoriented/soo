@@ -3,7 +3,7 @@
 #
 #
 
-obj-y	+= console/ debug/ 
+obj-y	+= console/ debug/  
 obj-y	+= vbus/ vbstore/
 
 obj-$(CONFIG_ARM) += arm32/
@@ -11,6 +11,7 @@ obj-$(CONFIG_ARM64) += arm64/
 obj-$(CONFIG_X86) += x86/
 
 obj-y   += setup.o
+obj-y	+= sysfs.o
 obj-y	+= hypervisor.o
 obj-y	+= evtchn.o
 obj-y	+= gnttab.o
