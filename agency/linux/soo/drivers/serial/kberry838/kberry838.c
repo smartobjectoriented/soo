@@ -25,17 +25,14 @@
 #include <soo/device/kberry838.h>
 #include <linux/string.h>
 #include <linux/kthread.h>
+#include <soo/device/baos_client.h> 
 
 #if 0
 #define DEBUG
 #endif
 
-#if 1
+#if 0
 #define DEBUG_THREAD
-#endif
-
-#ifdef DEBUG_THREAD
-#include "baos_client.h"
 #endif
 
 /* Access to serdev */

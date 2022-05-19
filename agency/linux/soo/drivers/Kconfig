@@ -104,6 +104,13 @@ config KBERRY838
 	help
 		Create an uart device that uses the serdev framework and allows 
 		to communicate with a kberry838 KNX module.
+
+config VKNX_BACKEND
+	bool "KNX backend driver"
+	depends on KBERRY838=y
+	default n
+	help
+	  This driver enabled to deal with a virtualized interface for the KNX bus.
 	  
 source "soo/drivers/vnetback/Kconfig"
 

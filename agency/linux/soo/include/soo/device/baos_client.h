@@ -24,6 +24,9 @@
 
 #include <soo/device/kberry838.h>
 
+#define BAOS_CLIENT_NAME		                    "baos_client"
+#define BAOS_CLIENT_PREFIX		                    "[" BAOS_CLIENT_NAME " ] "
+
 #define BAOS_MAIN_SERVICE                           0xF0
 #define BAOS_START_OBJECT_SIZE                      0x02
 #define BAOS_COUNT_OBJECT_SIZE                      0x02
@@ -65,7 +68,7 @@ typedef enum {
     SET_DATAPOINT_HISTORY_COMMAND = 0x08,
     GET_DATAPOINT_HISTORY_STATE = 0x09,
     GET_DATAPOINT_HISTORY = 0x0A
-}baos_subservices;
+} baos_subservices;
 
 /**
  * @brief BAOS datapoint command codes. See datasheet
@@ -86,7 +89,7 @@ typedef enum {
  */
 typedef enum {
     SERVER_ITEM = 0,
-    DATAPOINT
+    DATAPOINT,
 } baos_frame_type;
 
 /**
