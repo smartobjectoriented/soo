@@ -21,11 +21,14 @@
 #include "so3virt.dtsi"
 
 &ME {
-	/* 4 MB is enough */
-	domain-size = <0x400000>;
+	/* 16 MB is enough */
+	domain-size =  <0x1000000>;
 	
 	/* SPID on 128-bit encoding */
 	spid = /bits/ 64 <0x0020000000000001>;
+
+	/* SPAD capabilities on 64-bit encoding */
+	spadcaps = /bits/ 64 <0x0000000000000000>;
 		
 	/* Name of this ME */
 	me_name = "SOO.blind";
@@ -42,12 +45,12 @@ various parameters from other ME like SOO.outdoor to get smarter.";
 		vuart {
 			status = "ok";
 		};
-	
-		vdoga12v6nm {
+
+		venocean {
 			status = "ok";
 		};
-	  
-		vuihandler {
+
+		vknx {
 			status = "ok";
 		};
 	};

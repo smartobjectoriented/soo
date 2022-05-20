@@ -42,5 +42,8 @@ config VENOCEAN_FRONTEND
 config VWAGOLED_FRONTEND
     bool "Wagoled frontend"
 
+config VKNX_FRONTEND
+    bool "KNX frontend"
+
 endmenu
 

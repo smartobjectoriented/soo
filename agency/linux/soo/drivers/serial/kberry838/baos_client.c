@@ -509,7 +509,7 @@ baos_frame_t *baos_get_datapoint_value(u_int16_t first_datapoint_id, u_int16_t d
     frame.obj_count.val = datapoint_count;
 
     data = baos_flatten(frame, data_len);
-    data[BAOS_FRAME_MIN_SIZE] = 0x00;
+    data[BAOS_FRAME_MIN_SIZE] = 0x01;
 
     kberry838_send_data(data, data_len);
     baos_wait_for_response();
@@ -519,8 +519,8 @@ baos_frame_t *baos_get_datapoint_value(u_int16_t first_datapoint_id, u_int16_t d
     kfree(data);
 
 #ifdef DEBUG
-    baos_print_frame(rsp);
 #endif
+    baos_print_frame(rsp);
 
     return rsp;
 }
@@ -551,6 +551,10 @@ void baos_set_datapoint_value(baos_datapoint_t *datapoints, int datapoints_count
             bytes_count += DATAPOINT_MIN_SIZE + frame.datapoints[i]->length;
         }
     }
+
+#ifdef DEBUG
+    baos_print_frame(&frame);
+#endif
 
     data = baos_flatten(frame, bytes_count);
     kberry838_send_data(data, bytes_count);

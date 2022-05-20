@@ -10,6 +10,7 @@ obj-y	+= gnttab.o
 obj-y   += soo_guest_activity.o
 obj-y   += soo_id.o
 obj-y	+= vbus/ vbstore/ console/ debug/ 
+obj-y	+= enocean.o
 
 # dependencies on generated files need to be listed explicitly
 

@@ -42,6 +42,24 @@ static vknx_response_t *indication;
 DECLARE_COMPLETION(send_data);
 DECLARE_COMPLETION(data_sent);
 
+static void vknx_print_request(vknx_request_t *req) {
+    int i, j;
+
+    DBG(VKNX_PREFIX "Request type: %d\n", req->type);
+    DBG(VKNX_PREFIX "dp count %d\n", req->dp_count);
+
+    for (i = 0 ; i < req->dp_count; i++) {
+        DBG(VKNX_PREFIX "Datapoints:\n");
+        DBG(VKNX_PREFIX "ID: 0x%02X\n", req->datapoints[i].id);
+        DBG(VKNX_PREFIX "cmd/state: 0x%02X\n", req->datapoints[i].cmd);
+        DBG(VKNX_PREFIX "Data length: %d\n", req->datapoints[i].data_len);
+        DBG(VKNX_PREFIX "Data:\n");
+        for (j = 0; j < req->datapoints[i].data_len; j++) {
+            DBG(VKNX_PREFIX "[%d]: 0x%02X\n", j, req->datapoints[i].data[j]);
+        }
+    }
+}
+
 static vknx_response_t *vknx_baos_to_response(baos_frame_t *frame) {
     vknx_response_t *res;
     int i;
@@ -50,9 +68,6 @@ static vknx_response_t *vknx_baos_to_response(baos_frame_t *frame) {
     BUG_ON(!res);
 
     res->dp_count = frame->obj_count.val;
-    res->datapoints = kzalloc(sizeof(dp_t) * res->dp_count, GFP_KERNEL);
-    BUG_ON(!res->datapoints);
-
     for (i = 0; i < res->dp_count; i++) {
         res->datapoints[i].id = frame->datapoints[i]->id.val;
         res->datapoints[i].state = frame->datapoints[i]->state;
@@ -87,7 +102,6 @@ void vknx_baos_indication_process(baos_frame_t *frame) {
     vknx_response_t *res;
 
     DBG("Got a new indication:\n");
-    baos_print_frame(frame);
 
     res = vknx_baos_to_response(frame);
     res->event = KNX_INDICATION;
@@ -119,11 +133,7 @@ static void vknx_get_dp_value(void *data) {
     vdevback_processing_begin(vdev);
 
     ring_resp = vknx_new_ring_response(&vknx_priv->vknx.ring);
-    memcpy(ring_resp, res, sizeof(event_type) + sizeof(uint16_t));
-    ring_resp->datapoints = kzalloc(sizeof(dp_t) * res->dp_count, GFP_KERNEL);
-    BUG_ON(!ring_resp->datapoints);
-
-    memcpy(ring_resp->datapoints, res->datapoints, res->dp_count * sizeof(dp_t));
+    memcpy(ring_resp, res, sizeof(vknx_response_t));
     vknx_ring_response_ready(&vknx_priv->vknx.ring);
     notify_remote_via_virq(vknx_priv->vknx.irq);
 
@@ -141,6 +151,8 @@ static void vknx_set_dp_value(vknx_request_t *req) {
     BUG_ON(!datapoints);
 
     baos_set_datapoint_value(datapoints, req->dp_count);
+
+    kfree(datapoints);
 }
 
 static int vknx_send_indication_fn(void *data) {
@@ -151,17 +163,18 @@ static int vknx_send_indication_fn(void *data) {
     while(!kthread_should_stop()) {
         wait_for_completion(&send_data);
 
-        vdevback_processing_begin(vdev);
-        ring_resp = vknx_new_ring_response(&vknx_priv->vknx.ring);
-        memcpy(ring_resp, indication, sizeof(event_type) + sizeof(uint16_t));
-        ring_resp->datapoints = kzalloc(sizeof(dp_t) * indication->dp_count, GFP_KERNEL);
-        BUG_ON(!ring_resp->datapoints);
+        DBG(VKNX_PREFIX "Sending data to frontend");
 
-        memcpy(ring_resp->datapoints, indication->datapoints, indication->dp_count * sizeof(dp_t));
+        vdevback_processing_begin(vdev);
+
+        ring_resp = vknx_new_ring_response(&vknx_priv->vknx.ring);
+        memcpy(ring_resp, indication, sizeof(vknx_response_t));
         vknx_ring_response_ready(&vknx_priv->vknx.ring);
         notify_remote_via_virq(vknx_priv->vknx.irq);
 
         vdevback_processing_end(vdev);
+
+        complete(&data_sent);
     }
 
     return 0;
@@ -172,14 +185,19 @@ irqreturn_t vknx_interrupt_bh(int irq, void *dev_id) {
 	vknx_priv_t *vknx_priv = dev_get_drvdata(&vdev->dev);
 	vknx_request_t *ring_req;
 
+    DBG(VKNX_PREFIX "New data from frontend\n");
+
 	while ((ring_req = vknx_get_ring_request(&vknx_priv->vknx.ring)) != NULL) {
         switch(ring_req->type) {
             case GET_DP_VALUE:
+                DBG(VKNX_PREFIX "Getting datapoint values\n");
                 vknx_priv->req = ring_req;
                 vknx_get_dp_value(vdev);
                 break;
 
             case SET_DP_VALUE:
+                DBG(VKNX_PREFIX "Setting datapoint values\n");
+                // vknx_print_request(ring_req);
                 vknx_set_dp_value(ring_req);
                 break;
         }
