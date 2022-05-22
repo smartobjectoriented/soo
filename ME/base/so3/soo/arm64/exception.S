@@ -85,6 +85,9 @@ ENTRY(hypercall_trampoline)
 	b.eq	out_upcall
 
 	kernel_entry
+
+	// Set x0 to sp
+	mov		x0, sp
 	bl 		irq_handle
 	kernel_exit
 

@@ -26,42 +26,19 @@
 
 /*
  * On Rpi4, iperf3 shows skb len of 1'514 bytes.
- * On our side, we can have packet payload of 1'472 bytes taking into
- * account the various headers.
+ * On our side, we can have packet payload of 1'481 bytes taking into
+ * account the various headers (compatible with aarch64 too).
  */
-#define SL_PACKET_PAYLOAD_MAX_SIZE 	1472
-
-#define CODER_CONSISTENCY_SIMPLE	0x00
-#define CODER_CONSISTENCY_EXT		0x01
+#define SL_PACKET_PAYLOAD_MAX_SIZE 	1481
 
 /*
- * Simple packet format is used when a data block does not exceed SL_CODER_PACKET_MAX_SIZE
+ * General transcoder packet format; it has to be noted that the payload is refered by its byte
  */
-typedef struct {
-	uint8_t	consistency_type;  	/* Consistency algorithm ID */
-} simple_packet_format_t;
+typedef struct __attribute__((packed)) {
 
-/*
- * Extended packet format used when a block must be splitted into multiple packets.
- */
-typedef struct {
-	 uint8_t	consistency_type; 	/* Consistency ID refering to a specific consistency algorithm */
-	 uint32_t	packetID;		/* Sequential packet ID */
-	 uint32_t	nr_packets;		/* Number of packets */
-	 uint16_t	payload_length;		/* Length of the payload */
-} ext_packet_format_t;
-
-typedef union {
-	simple_packet_format_t	simple;
-	ext_packet_format_t	ext;
-} transcoder_packet_format_t;
-
-/*
- * General transcoder packet format; it has to be noted that the payload is refered by itsbyte
- */
-typedef struct {
-
-	transcoder_packet_format_t u;
+	uint32_t	packetID;		/* Sequential packet ID */
+	uint32_t	nr_packets;		/* Number of packets */
+	uint16_t	payload_length;		/* Length of the payload */
 
 	uint8_t payload[0];
 
@@ -81,7 +58,7 @@ typedef struct {
 	void		*incoming_block;
 
 	/* Accumulated size of the block */
-	size_t		size;
+	uint32_t	size;
 
 	uint32_t	cur_packetID;
 	uint8_t		*cur_pos;
@@ -99,10 +76,10 @@ typedef struct {
 } decoder_block_t;
 
 int decoder_recv(sl_desc_t *sl_desc, void **data);
-void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size);
+void decoder_rx(sl_desc_t *sl_desc, void *data, uint32_t size);
 
 void transcoder_init(void);
 
-void coder_send(sl_desc_t *sl_desc, void *data, size_t size);
+void coder_send(sl_desc_t *sl_desc, void *data, uint32_t size);
 
 #endif /* TRANSCODER_H */

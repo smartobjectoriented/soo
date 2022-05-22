@@ -50,14 +50,14 @@
 
 typedef struct {
 	void *ME_data;	/* Reference to the uncompressed ME */
-	size_t size;		/* Size of this ME ready to be compressed */
+	uint32_t size;		/* Size of this ME ready to be compressed */
 	uint32_t prio;		/* Priority of this ME (unused at the moment) */
 } dcm_ioctl_send_args_t;
 
 typedef struct {
 	void *ME_data;
-	size_t buffer_size;
-	size_t ME_size;
+	uint32_t buffer_size;
+	uint32_t ME_size;
 } dcm_ioctl_recv_args_t;
 
 /*
@@ -92,7 +92,7 @@ typedef struct {
 	 * Reference to the ME buffer.
 	 */
 	void *ME_data;
-	size_t size;
+	uint32_t size;
 
 	uint32_t prio;
 
@@ -101,7 +101,7 @@ typedef struct {
 #endif /* __KERNEL__ */
 
 #ifdef __KERNEL__
-int dcm_ME_rx(void *ME_buffer, size_t size);
+int dcm_ME_rx(void *ME_buffer, uint32_t size);
 #endif /* __KERNEL__ */
 
 #endif /* DCM_H */

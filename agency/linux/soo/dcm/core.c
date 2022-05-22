@@ -46,6 +46,8 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
+#include <soo/core/core.h>
+
 /* Protection of the buffers */
 static struct mutex recv_lock;
 
@@ -80,8 +82,9 @@ static int find_free_buffer(void) {
 static void dcm_send_ME(unsigned long arg) {
 	dcm_ioctl_send_args_t args;
 	void *ME_data;
-	size_t size = 0;
+	uint32_t size = 0;
 	int ret;
+
 #ifdef CONFIG_SOO_CORE_ASF
 	void *ME_crypt;
 #endif
@@ -98,7 +101,7 @@ static void dcm_send_ME(unsigned long arg) {
 	}
 
 	/* Check for end of transmission. */
-	size = compress_data(COMPRESSOR_LZ4, &ME_data, args.ME_data, args.size);
+	size = compress_data(&ME_data, args.ME_data, args.size);
 
 #ifdef CONFIG_SOO_CORE_ASF
 	/* ME encryption */
@@ -187,7 +190,7 @@ static long dcm_recv_ME(unsigned long arg) {
  * If there is no free buffer, the function returns -ENOMEM. The caller must free
  * the ME buffer itself.
  */
-int dcm_ME_rx(void *ME_buffer, size_t size) {
+int dcm_ME_rx(void *ME_buffer, uint32_t size) {
 	int buffer_idx;
 	dcm_buffer_desc_t *buffer_desc;
 

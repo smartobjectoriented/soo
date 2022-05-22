@@ -214,7 +214,12 @@ int adjust_l2_page_tables(unsigned long addr, unsigned long end, uint32_t *pgtab
 
 /****************************************************/
 
-static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
+/**
+ * Fixup the page tables belonging to processes (user & kernel space).
+ *
+ * @param args	arguments of this domcall
+ */
+static void do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
 	pcb_t *pcb;
 	uint32_t vaddr;
 	uint32_t *l1pte, *l1pte_current;
@@ -245,52 +250,44 @@ static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
 		mmu_page_table_flush((uint32_t) pcb->pgtable, (uint32_t) (pcb->pgtable + TTB_L1_ENTRIES));
 	}
 
-	return 0;
 }
 
 #endif
 
 /* Main callback function used by AVZ */
-int domcall(int cmd, void *arg)
+void domcall(int cmd, void *arg)
 {
-#if 0
-	int rc = 0;
-
 	switch (cmd) {
 
 	case DOMCALL_presetup_adjust_variables:
-		rc = do_presetup_adjust_variables(arg);
+		do_presetup_adjust_variables(arg);
 		break;
 
 	case DOMCALL_postsetup_adjust_variables:
-		rc = do_postsetup_adjust_variables(arg);
+		do_postsetup_adjust_variables(arg);
 		break;
 
 	case DOMCALL_fix_other_page_tables:
-		rc = do_fix_other_page_tables((struct DOMCALL_fix_page_tables_args *) arg);
+		//do_fix_other_page_tables((struct DOMCALL_fix_page_tables_args *) arg);
 		break;
 
 	case DOMCALL_sync_domain_interactions:
-		rc = do_sync_domain_interactions(arg);
+		do_sync_domain_interactions(arg);
 		break;
 
 	case DOMCALL_sync_directcomm:
-		rc = do_sync_directcomm(arg);
+		do_sync_directcomm(arg);
 		break;
 
 	case DOMCALL_soo:
-		rc = do_soo_activity(arg);
+		do_soo_activity(arg);
 		break;
 
 	default:
-		printk("Unknowmn cmd %#x\n", cmd);
-		rc = -1;
+		printk("Unknowmn domcall %#x\n", cmd);
+		BUG();
 		break;
 	}
-
-	return rc;
-#endif
-	return 0;
 }
 
 

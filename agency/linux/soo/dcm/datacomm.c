@@ -44,6 +44,8 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
+#include <soo/core/core.h>
+
 /* The main requester descriptor managed by Soolink */
 static sl_desc_t *datacomm_sl_desc = NULL;
 
@@ -53,7 +55,7 @@ static bool datacomm_initialized = false;
  * At the moment, we experiment a broadcast (no known recipient) and
  * a fixed prio got from the DCM Core.
  */
-void datacomm_send(void *ME_buffer, size_t size, uint32_t prio) {
+void datacomm_send(void *ME_buffer, uint32_t size, uint32_t prio) {
 	if (unlikely(!datacomm_initialized))
 		BUG();
 
@@ -63,8 +65,8 @@ void datacomm_send(void *ME_buffer, size_t size, uint32_t prio) {
 /**
  * This function is synchronous and blocks until an incoming ME is available.
  */
-static void datacomm_recv(void **ME_buffer, size_t *size_p) {
-	size_t size;
+static void datacomm_recv(void **ME_buffer, uint32_t *size_p) {
+	uint32_t size;
 	void *priv_buffer = NULL;
 
 	if (unlikely(!datacomm_initialized))
@@ -79,13 +81,12 @@ static void datacomm_recv(void **ME_buffer, size_t *size_p) {
 
 static int recv_thread_task_fn(void *data) {
 	void *ME_compressed_buffer, *ME_decompressed_buffer;
-	size_t compressed_size, decompressed_size;
+	uint32_t compressed_size, decompressed_size;
 	int ret;
 #ifdef CONFIG_SOO_CORE_ASF
 	int size;
 	void *ME_decrypt;
 #endif
-
 	while (1) {
 		/* Receive data from SOOlink */
 		datacomm_recv(&ME_compressed_buffer, &compressed_size);
@@ -118,16 +119,8 @@ static int recv_thread_task_fn(void *data) {
 
 #else /* !CONFIG_SOO_CORE_ASF */
 
-		if ((ret = decompress_data(&ME_decompressed_buffer, ME_compressed_buffer, compressed_size)) < 0) {
-			/*
-			 * If dcm_decompress_ME returns -EIO, this means that the decompressor could not
-			 * decompress the ME. We have to discard it.
-			 */
+		decompress_data(&ME_decompressed_buffer, ME_compressed_buffer, compressed_size);
 
-			vfree((void *) ME_decompressed_buffer);
-			vfree((void *) ME_compressed_buffer);
-			continue;
-		}
 #endif /* !CONFIG_SOO_CORE_ASF */
 
 		decompressed_size = ret;
