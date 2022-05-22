@@ -133,7 +133,7 @@ typedef enum {
 #define WNET_BEACON_PING		(1 << 3)
 #define WNET_BEACON_QUERY_STATE		(1 << 4)
 
-typedef struct {
+typedef struct __attribute__((packed)) {
 
 	uint8_t id;
 
@@ -182,7 +182,7 @@ typedef struct {
  * General state of the neighbour (paired speaker, processing state)
  * Used by the WNET_BEACON_QUERY_STATE
  */
-typedef struct {
+typedef struct __attribute__((packed)) {
 
 	/*
 	 * Paired speaker is used to bind a listener to a speaker during transmission
@@ -214,7 +214,6 @@ typedef struct {
 	bool processed;
 
 	neighbour_desc_t *neighbour;
-	uint32_t last_transID;
 
 	uint64_t paired_speaker;
 

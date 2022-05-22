@@ -113,7 +113,7 @@ typedef struct {
 typedef struct {
 	sl_desc_t	*sl_desc;
 	void		*data;
-	size_t		size;
+	uint32_t	size;
 	uint64_t	agencyUID;
 	uint32_t	prio;
 } sl_send_args_t;
@@ -121,7 +121,7 @@ typedef struct {
 typedef struct {
 	sl_desc_t	*sl_desc;
 	void		**data;
-	size_t		*size_p;
+	uint32_t	*size_p;
 } sl_recv_args_t;
 
 void sl_set_exclusive(sl_desc_t *sl_desc, bool active);
@@ -137,7 +137,7 @@ uint32_t sl_neighbour_count(void);
 int soolink_init(void);
 
 /* prio can be 0 to 99 (the greater the higher priority) */
-void sl_send(sl_desc_t *sl_desc, void *data, size_t size, uint64_t agencyUID, uint32_t prio);
+void sl_send(sl_desc_t *sl_desc, void *data, uint32_t size, uint64_t agencyUID, uint32_t prio);
 int sl_recv(sl_desc_t *sl_desc, void **data);
 
 #endif /* SOOLINK_H */

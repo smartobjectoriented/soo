@@ -459,7 +459,7 @@ int soo_env_fn(void *args) {
 	/* Start activities - Simulation mode */
 
 	/* Prepare the environment */
-	soo_env->soo_simul = kzalloc(sizeof(struct soo_simul_env), GFP_KERNEL);
+	soo_env->soo_simul = vmalloc(sizeof(struct soo_simul_env));
 	BUG_ON(!soo_env->soo_simul);
 
 	INIT_LIST_HEAD(&soo_env->soo_simul->topo_links);

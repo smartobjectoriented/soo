@@ -1,7 +1,6 @@
 /*
- * Copyright (C) 2016-2018 Baptiste Delporte <bonel@bonel.net>
- * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
- *
+ * Copyright (C) 2022 Daniel Rossier <daniel.rossier@soo.tech>
+ * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -17,16 +16,12 @@
  *
  */
 
-#ifndef PLUGIN_WLAN_H
-#define PLUGIN_WLAN_H
+#ifndef SOO_DEBUG_H
+#define SOO_DEBUG_H
 
-#include <linux/skbuff.h>
-#include <linux/netdevice.h>
+#define HEXDUMP_COLS 64
 
-#include <soo/soolink/soolink.h>
+void hexdump(void *mem, unsigned int len);
 
-#define WLAN_NET_DEV_NAME 	"wlan0"
 
-void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
-
-#endif /* PLUGIN_WLAN_H */
+#endif /* SOO_DEBUG_H */

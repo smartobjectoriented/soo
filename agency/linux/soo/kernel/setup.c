@@ -32,7 +32,6 @@
 #include <soo/uapi/logbool.h>
 
 start_info_t *avz_start_info;
-unsigned long avz_guest_phys_offset;
 
 volatile unsigned long *HYPERVISOR_hypercall_addr;
 
