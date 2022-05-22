@@ -77,9 +77,6 @@ static int debug = 16;
 static int debug = 3;
 #endif
 
-/* SOO.tech */
-extern req_type_t get_sl_req_type_from_protocol(uint16_t protocol);
-
 module_param(debug, int, 0);
 MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
 

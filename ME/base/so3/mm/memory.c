@@ -483,6 +483,10 @@ void memory_init(void) {
 
 	memcpy((void *) VECTOR_VADDR, (void *) &__vectors_start, (void *) &__vectors_end - (void *) &__vectors_start);
 #endif
+
+	/* Update the system page table vaddr required for memory re-implantation after migration */
+	avz_start_info->pt_vaddr = __sys_root_pgtable;
+
 #endif
 	set_pgtable(__sys_root_pgtable);
 

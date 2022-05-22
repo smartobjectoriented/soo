@@ -22,6 +22,10 @@
 #ifndef __KERNEL__
 #include <stdbool.h>
 #include <stdint.h>
+#else
+#ifdef __AVZ__
+#include <types.h>
+#endif
 #endif
 
 #ifndef __AVZ__
@@ -54,8 +58,8 @@ typedef struct {
 /* This structure is used as the first field of the ME buffer frame header */
 typedef struct {
 
-	size_t	ME_size;
-	size_t	size_mig_structure;
+	uint32_t ME_size;
+	uint32_t size_mig_structure;
 
 } ME_info_transfer_t;
 

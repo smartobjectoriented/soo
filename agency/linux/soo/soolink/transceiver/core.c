@@ -29,6 +29,8 @@
 #include <soo/uapi/debug.h>
 #include <soo/debug/time.h>
 
+#include <soo/debug.h>
+
 struct soo_transceiver_env {
 	struct mutex sender_lock;
         struct mutex receiver_lock;
@@ -40,7 +42,7 @@ struct soo_transceiver_env {
  * the packet has to be given back to the Receiver.
  * The size parameter refers to the whole transceiver packet.
  */
-void __receiver_rx(sl_desc_t *sl_desc, void *packet, size_t size) {
+void __receiver_rx(sl_desc_t *sl_desc, void *packet, uint32_t size) {
 	transceiver_packet_t *transceiver_packet;
 
 	transceiver_packet = (transceiver_packet_t *) packet;
@@ -62,8 +64,8 @@ void receiver_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 	{
 		int i;
 
-		for (i = 0; i < transceiver_packet->size; i++)
-			lprintk("%x ", transceiver_packet->payload[i]);
+		for (i = 0; i < packet->size; i++)
+			lprintk("%x ", packet->payload[i]);
 		lprintk("\n");
 	}
 #endif
@@ -80,7 +82,7 @@ void receiver_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
  * This function is called by the producer.
  * The size parameter refers to the payload.
  */
-int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed) {
+int sender_tx(sl_desc_t *sl_desc, void *data, uint32_t size, bool completed) {
 	int ret;
 	transceiver_packet_t *packet;
 

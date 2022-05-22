@@ -6,6 +6,7 @@ obj-y += boot/
 obj-y += mmu.o
 obj-y += vfp.o
 obj-y += backtrace.o backtrace_asm.o
+obj-y += migration.o
 
 obj-y += lib/
 

@@ -23,8 +23,9 @@
 #include <net/xdp.h>
 #include <net/net_failover.h>
 
-/* SOO.tech */
-#include <soo/soolink/plugin/ethernet.h>
+#include <soo/uapi/console.h>
+
+void hexdump(void *mem, unsigned int len);
 
 static int napi_weight = NAPI_POLL_WEIGHT;
 module_param(napi_weight, int, 0444);
@@ -36,7 +37,16 @@ module_param(napi_tx, bool, 0644);
 
 /* FIXME: MTU in config. */
 #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-#define GOOD_COPY_LEN	128
+
+/* SOO.tech */
+/* Investigations showed that the frame is well received in receive_buf()
+ * but GOOD_COPY_LEN will keep the skb data portion very small (why??)
+ * Since we have a MTU of 1460 bytes (having a max of 1500 bytes at the end),
+ * we increase GOOD_COPY_LEN to 2048
+ *
+ */
+//#define GOOD_COPY_LEN	256
+#define GOOD_COPY_LEN	2048
 
 #define VIRTNET_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD)
 
@@ -1010,6 +1020,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
 	}
 
 	ewma_pkt_len_add(&rq->mrg_avg_pkt_len, head_skb->len);
+
 	return head_skb;
 
 err_xdp:
@@ -1044,11 +1055,6 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
 	struct net_device *dev = vi->dev;
 	struct sk_buff *skb;
 	struct virtio_net_hdr_mrg_rxbuf *hdr;
-
-	/* SOO.tech */
-	uint8_t mac_src[ETH_ALEN];
-	__be16 skb_protocol;
-	struct ethhdr *p_ethhdr;
 
 	if (unlikely(len < vi->hdr_len + ETH_HLEN)) {
 		pr_debug("%s: short packet %i\n", dev->name, len);
@@ -1092,17 +1098,7 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
 	pr_debug("Receiving skb proto 0x%04x len %i type %i\n",
 		 ntohs(skb->protocol), skb->len, skb->pkt_type);
 
-	/* SOO.tech */
-	p_ethhdr = eth_hdr(skb);
-	memcpy(mac_src, p_ethhdr->h_source, ETH_ALEN);
-
-	/* Clear the flag bits */
-	skb_protocol = ntohs(skb->protocol) & 0x10ff;
-
-	if ((skb_protocol > ETH_P_SL_MIN) && (skb_protocol < ETH_P_SL_MAX))
-		plugin_ethernet_rx(skb, dev, mac_src);
-	else
-		napi_gro_receive(&rq->napi, skb);
+	napi_gro_receive(&rq->napi, skb);
 	return;
 
 frame_err:

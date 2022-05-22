@@ -26,7 +26,7 @@ extern start_info_t *avz_start_info;
 
 shared_info_t *avz_map_shared_info(unsigned long pa);
 
-int domcall(int cmd, void *arg);
+void domcall(int cmd, void *arg);
 
 void spad_enable_cooperate(void);
 void spad_disable_cooperate(void);

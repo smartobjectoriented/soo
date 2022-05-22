@@ -86,7 +86,7 @@ static bool identify_remote_soo(req_type_t req_type, transceiver_packet_t *packe
 	plugin_remote_soo_desc_t *remote_soo_desc_cur;
 	unsigned long flags;
 
-	soo_log("[soo:soolink:plugin] Looking for MAC");
+	soo_log("[soo:soolink:plugin] Looking for MAC ");
 	soo_log_buffer(mac_src, ETH_ALEN);
 
 	spin_lock_irqsave(&current_soo_plugin->list_lock, flags);
