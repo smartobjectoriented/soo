@@ -31,6 +31,9 @@ static bool log_soo_core = false;
 /* DCM */
 static bool log_soo_dcm = false;
 
+/* SOOlink */
+static bool log_soo_soolink = false;
+
 /* Discovery */
 static bool log_soo_soolink_discovery = false;
 
@@ -135,6 +138,10 @@ void __soo_log(char *info, char *buf) {
 
 	/* DCM */
 	if ((log_soo_dcm && (strstr(__internal_buf, "[soo:dcm"))))
+		outlog = true;
+
+	/* SOOlink overall logs */
+	if (log_soo_soolink && (strstr(__internal_buf, "[soo:soolink")))
 		outlog = true;
 
 	/* SOOlink Discovery functional block */

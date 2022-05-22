@@ -118,7 +118,7 @@ uint32_t sl_neighbour_count(void) {
  * and prevent other smart objects belonging to the neighborhood to become a speaker.
  *
  */
-void sl_send(sl_desc_t *sl_desc, void *data, size_t size, uint64_t agencyUID, uint32_t prio) {
+void sl_send(sl_desc_t *sl_desc, void *data, uint32_t size, uint64_t agencyUID, uint32_t prio) {
 
 	soo_log("[soo:soolink] Now sending to the coder / size: %d\n", size);
 
@@ -131,6 +131,8 @@ void sl_send(sl_desc_t *sl_desc, void *data, size_t size, uint64_t agencyUID, ui
 	sl_desc->prio = prio;
 
 	coder_send(sl_desc, data, size);
+
+	plugin_tx(sl_desc, data, size);
 
 	soo_log("[soo:soolink] send to the coder achieved successfully.\n");
 }

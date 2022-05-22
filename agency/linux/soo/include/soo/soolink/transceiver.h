@@ -30,12 +30,12 @@
 #define TRANSCEIVER_PKT_DATA	 	1
 #define TRANSCEIVER_PKT_DATALINK 	2
 
-typedef struct {
+typedef struct __attribute__((packed)) {
 
 	uint8_t packet_type;
 
 	/* The size is the size of the payload */
-	size_t size;
+	uint32_t size;
 
 	uint32_t transID;
 
@@ -49,10 +49,10 @@ typedef struct {
 
 void transceiver_init(void);
 
-int sender_tx(sl_desc_t *sl_desc, void *data, size_t size, bool completed);
+int sender_tx(sl_desc_t *sl_desc, void *data, uint32_t size, bool completed);
 void __sender_tx(sl_desc_t *sl_desc, transceiver_packet_t *packet);
 
-void __receiver_rx(sl_desc_t *sl_desc, void *packet, size_t size);
+void __receiver_rx(sl_desc_t *sl_desc, void *packet, uint32_t size);
 void receiver_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet);
 
 /* Cancel an ongoing receipt of buffer */

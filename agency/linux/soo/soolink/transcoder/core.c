@@ -155,7 +155,7 @@ static decoder_block_t *pick_next_available(sl_desc_t *sl_desc) {
  */
 int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	decoder_block_t *block;
-	size_t size;
+	uint32_t size;
 
 	/* We still need to manage a timeout according to the specification */
 	wait_for_completion(&sl_desc->recv_event);
@@ -189,10 +189,9 @@ int decoder_recv(sl_desc_t *sl_desc, void **data) {
 	return size;
 }
 
-void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
+void decoder_rx(sl_desc_t *sl_desc, void *data, uint32_t size) {
 	transcoder_packet_t *pkt;
 	decoder_block_t *block;
-
 
 	mutex_lock(&current_soo_transcoder->decoder_lock);
 
@@ -223,11 +222,11 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		pkt = (transcoder_packet_t *) data;
 
 		/* Allocate the memory for this new (simple) block */
-		block->incoming_block = vmalloc(size - sizeof(transcoder_packet_format_t));
+		block->incoming_block = vmalloc(size - sizeof(transcoder_packet_t));
 
 		/* Transfer the block frame */
-		memcpy(block->incoming_block, pkt->payload, size - sizeof(transcoder_packet_format_t));
-		block->size = size - sizeof(transcoder_packet_format_t);
+		memcpy(block->incoming_block, pkt->payload, size - sizeof(transcoder_packet_t));
+		block->size = size - sizeof(transcoder_packet_t);
 
 		block->ready = true;
 
@@ -242,14 +241,14 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 	/* Check the kind of packet we have */
 	pkt = (transcoder_packet_t *) data;
 
-	if (pkt->u.simple.consistency_type == CODER_CONSISTENCY_SIMPLE) {
+	if (pkt->nr_packets == 1) {
 
 		/* Allocate the memory for this new (simple) block */
-		block->incoming_block = vmalloc(size - sizeof(transcoder_packet_format_t));
+		block->incoming_block = vmalloc(size - sizeof(transcoder_packet_t));
 
 		/* Transfer the block frame */
-		memcpy(block->incoming_block, pkt->payload, size - sizeof(transcoder_packet_format_t));
-		block->size = size - sizeof(transcoder_packet_format_t);
+		memcpy(block->incoming_block, pkt->payload, size - sizeof(transcoder_packet_t));
+		block->size = size - sizeof(transcoder_packet_t);
 
 		/* The block is ready to be processed. */
 		block->ready = true;
@@ -259,18 +258,18 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 	} else {
 
 		/* At the moment... */
-		BUG_ON(size > sizeof(transcoder_packet_format_t) + SL_PACKET_PAYLOAD_MAX_SIZE);
+		BUG_ON(size > sizeof(transcoder_packet_t) + SL_PACKET_PAYLOAD_MAX_SIZE);
 
-		if ((block->block_ext_in_progress) && (pkt->u.ext.packetID != block->cur_packetID+1)) {
+		if ((block->block_ext_in_progress) && (pkt->packetID != block->cur_packetID+1)) {
 
-			soo_log("[soo:soolink:decoder] Discard current packetID: %d expected: %d", pkt->u.ext.packetID, block->cur_packetID+1);
+			soo_log("[soo:soolink:decoder] Discard current packetID: %d expected: %d", pkt->packetID, block->cur_packetID+1);
 
 			/* If the received packetID is smaller than the expected one, it means
 			 * that a frame has been re-sent because the sender did not receive an ack.
 			 * We discard the whole block.
 			 */
 
-			if (pkt->u.ext.packetID > block->cur_packetID+1) {
+			if (pkt->packetID > block->cur_packetID+1) {
 
 				if (block->incoming_block)
 					vfree(block->incoming_block);
@@ -292,7 +291,7 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 		}
 
 		if (!block->block_ext_in_progress) {
-			if (pkt->u.ext.packetID != 1) {
+			if (pkt->packetID != 1) {
 				soo_log("[soo:soolink:decoder] !! Missed some packets !!\n");
 				/*
 				 * We have missed some packets of a new block when processing the current block.
@@ -305,20 +304,20 @@ void decoder_rx(sl_desc_t *sl_desc, void *data, size_t size) {
 			block->size = 0;
 			block->cur_packetID = -1;
 
-			block->incoming_block = vmalloc(pkt->u.ext.nr_packets * SL_PACKET_PAYLOAD_MAX_SIZE);
+			block->incoming_block = vmalloc(pkt->nr_packets * SL_PACKET_PAYLOAD_MAX_SIZE);
 			BUG_ON(block->incoming_block == NULL);
 
 			block->cur_pos = block->incoming_block;
 			block->block_ext_in_progress = true;
 		}
 
-		memcpy(block->cur_pos, pkt->payload, pkt->u.ext.payload_length);
+		memcpy(block->cur_pos, pkt->payload, pkt->payload_length);
 
-		block->cur_pos += pkt->u.ext.payload_length;
-		block->size += pkt->u.ext.payload_length;
-		block->cur_packetID = pkt->u.ext.packetID;
+		block->cur_pos += pkt->payload_length;
+		block->size += pkt->payload_length;
+		block->cur_packetID = pkt->packetID;
 
-		if (block->cur_packetID == pkt->u.ext.nr_packets) {
+		if (block->cur_packetID == pkt->nr_packets) {
 
 			current_soo_transcoder->last_block = block;
 
@@ -390,7 +389,7 @@ static int decoder_watchdog_task_fn(void *arg)  {
  * Send data according to requirements based on the sl_desc descriptor and performs
  * consistency algorithms/packet splitting if required.
  */
-void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
+void coder_send(sl_desc_t *sl_desc, void *data, uint32_t size) {
 	transcoder_packet_t *pkt;
 	uint32_t packetID, nr_packets;
 	bool completed;
@@ -399,14 +398,12 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 
 	/* Bypass the Coder if the requester is of Bluetooth or TCP type */
 	if ((sl_desc->if_type == SL_IF_BT) || (sl_desc->if_type == SL_IF_TCP) || (sl_desc->req_type == SL_REQ_PEER)) {
-		pkt = kmalloc(sizeof(transcoder_packet_format_t) + size, GFP_ATOMIC);
+		pkt = kmalloc(sizeof(transcoder_packet_t) + size, GFP_ATOMIC);
 
-		/* In fact, do not care about the consistency_type field */
-		pkt->u.simple.consistency_type = CODER_CONSISTENCY_SIMPLE;
 		memcpy(pkt->payload, data, size);
 
 		/* Forward the packet to the Transceiver */
-		sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + size, true);
+		sender_tx(sl_desc, pkt, sizeof(transcoder_packet_t) + size, true);
 
 		kfree(pkt);
 
@@ -426,21 +423,25 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 	 */
 	mutex_lock(&current_soo_transcoder->coder_tx_lock);
 
-	/* Check if the block has to be split into multiple packets */
+	/* Check if the block needs to be split into multiple packets */
 	if (size <= SL_PACKET_PAYLOAD_MAX_SIZE) {
 		DBG("Simple packet\n");
 
 		/* Create the simple packet */
-		pkt = kmalloc(sizeof(transcoder_packet_format_t) + size, GFP_ATOMIC);
+		pkt = kzalloc(sizeof(transcoder_packet_t) + size, GFP_ATOMIC);
+		BUG_ON(!pkt);
 
-		pkt->u.simple.consistency_type = CODER_CONSISTENCY_SIMPLE;
+		pkt->nr_packets = 1;
+
 		memcpy(pkt->payload, data, size);
+
+		pkt->payload_length = size;
 
 		/* We forward the packet to the Transceiver. The size at the reception
 		 * will be taken from the plugin (RX).
 		 */
 
-		sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + size, true);
+		sender_tx(sl_desc, pkt, sizeof(transcoder_packet_t) + size, true);
 
 		kfree(pkt);
 
@@ -452,7 +453,7 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 		DBG("Extended packet, nr_packets=%d\n", nr_packets);
 
 		/* Need to iterate over multiple packets */
-		pkt = kmalloc(sizeof(transcoder_packet_format_t) + SL_PACKET_PAYLOAD_MAX_SIZE, GFP_ATOMIC);
+		pkt = kzalloc(sizeof(transcoder_packet_t) + SL_PACKET_PAYLOAD_MAX_SIZE, GFP_ATOMIC);
 		BUG_ON(!pkt);
 
 		for (packetID = 1; packetID < nr_packets + 1; packetID++) {
@@ -462,22 +463,21 @@ void coder_send(sl_desc_t *sl_desc, void *data, size_t size) {
 
 			/* Create an extended packet */
 
-			pkt->u.ext.consistency_type = CODER_CONSISTENCY_EXT;
-			pkt->u.ext.nr_packets = nr_packets;
+			pkt->nr_packets = nr_packets;
 
-			pkt->u.ext.packetID = packetID;
-			pkt->u.ext.payload_length = ((size > SL_PACKET_PAYLOAD_MAX_SIZE) ? SL_PACKET_PAYLOAD_MAX_SIZE : size);
+			pkt->packetID = packetID;
+			pkt->payload_length = ((size > SL_PACKET_PAYLOAD_MAX_SIZE) ? SL_PACKET_PAYLOAD_MAX_SIZE : size);
 
-			memcpy(pkt->payload, data, pkt->u.ext.payload_length);
-			data += pkt->u.ext.payload_length;
-			size -= pkt->u.ext.payload_length;
+			memcpy(pkt->payload, data, pkt->payload_length);
+			data += pkt->payload_length;
+			size -= pkt->payload_length;
 
 			/*
 			 * We forward the packet to the Transceiver. The size at the reception
 			 * will be taken from the plugin (RX).
 			 */
 
-			if (sender_tx(sl_desc, pkt, sizeof(transcoder_packet_format_t) + pkt->u.ext.payload_length, completed) < 0) {
+			if (sender_tx(sl_desc, pkt, sizeof(transcoder_packet_t) + pkt->payload_length, completed) < 0) {
 				/* There has been something wrong with Datalink. Abort the transmission of the block. */
 				break;
 			}

@@ -24,6 +24,7 @@
 #include <linux/if_ether.h>
 #include <linux/netdevice.h>
 #include <linux/kthread.h>
+#include <linux/rtnetlink.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/console.h>
@@ -115,27 +116,39 @@ static void plugin_ethernet_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 		HARD_TX_LOCK(soo_plugin_eth->net_dev, txq, cpu);
 	}
 
+
 	netdev_start_xmit(skb, soo_plugin_eth->net_dev, txq, 0);
 
 	HARD_TX_UNLOCK(soo_plugin_eth->net_dev, txq);
 	local_bh_enable();
 }
 
-/*
- * This function has to be called in a non-realtime context.
- * Called from drivers/net/ethernet/smsc/smsc911x.c
- */
-void plugin_ethernet_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src) {
-
+rx_handler_result_t plugin_ethernet_rx_handler(struct sk_buff **pskb) {
 	soo_plugin_eth_t *soo_plugin_eth;
+	struct sk_buff *skb = *pskb;
+	struct ethhdr *hdr = eth_hdr(skb);
+	__be16 skb_protocol;
+
+	/* It may happen that virtnet send an empty skb for some obscure reason... */
+	if (skb->len == 0)
+		return RX_HANDLER_PASS;
+
+	/* Clear the flag bits */
+	skb_protocol = ntohs(skb->protocol) & 0x10ff;
+
+	if (!((skb_protocol > ETH_P_SL_MIN) && (skb_protocol < ETH_P_SL_MAX)))
+		return RX_HANDLER_PASS;
 
 	soo_plugin_eth = container_of(current_soo_plugin->__intf[SL_IF_ETH], soo_plugin_eth_t, plugin_eth_desc);
 
 	plugin_rx(&soo_plugin_eth->plugin_eth_desc,
-		  get_sl_req_type_from_protocol(ntohs(skb->protocol)), mac_src, skb->data, skb->len);
+		  get_sl_req_type_from_protocol(ntohs(skb->protocol)), hdr->h_source, skb->data, skb->len);
 
 	kfree_skb(skb);
 
+	*pskb = NULL;
+
+	return RX_HANDLER_CONSUMED;
 }
 
 
@@ -185,6 +198,16 @@ static int net_dev_detect(void *args) {
 		msleep(NET_DEV_DETECT_DELAY);
 		soo_plugin_eth->net_dev = dev_get_by_name(&init_net, ETHERNET_NET_DEV_NAME);
 	}
+
+	/* Wait for the net_device to be running AND operational */
+	while (!(netif_running(soo_plugin_eth->net_dev) && netif_oper_up(soo_plugin_eth->net_dev))) {
+		msleep(NET_DEV_DETECT_DELAY);
+	}
+	DBG("NET_DEV now operational and running!\n");
+
+	rtnl_lock();
+	netdev_rx_handler_register(soo_plugin_eth->net_dev, plugin_ethernet_rx_handler, NULL);
+	rtnl_unlock();
 
 	soo_plugin_eth->plugin_ready = true;
 

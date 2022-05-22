@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Baptiste Delporte <bonel@bonel.net>
- * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2016-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,16 +16,14 @@
  *
  */
 
-#ifndef PLUGIN_WLAN_H
-#define PLUGIN_WLAN_H
+#ifndef ASM_MIGRATION_H
+#define ASM_MIGRATION_H
 
-#include <linux/skbuff.h>
-#include <linux/netdevice.h>
+void fix_kernel_boot_page_table_ME(unsigned int ME_slotID);
 
-#include <soo/soolink/soolink.h>
+/* Start of ME RAM in virtual address space of idle domain */
+extern unsigned long vaddr_start_ME;
 
-#define WLAN_NET_DEV_NAME 	"wlan0"
+extern long pfn_offset;
 
-void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
-
-#endif /* PLUGIN_WLAN_H */
+#endif /* ASM_MIGRATION_H */

@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -35,65 +35,25 @@
 #include <soo/uapi/debug.h>
 #include <soo/uapi/console.h>
 
-#if defined(CONFIG_DCM_LZ4)
 #include <linux/lz4.h>
-#endif /* CONFIG_DCM_LZ4 */
 
-static compressor_method_t *compressor_methods[COMPRESSOR_N_METHODS] = { NULL };
-
-#if defined(CONFIG_DCM_LZ4)
-static uint8_t *work_lz4_mem;
-#endif /* CONFIG_DCM_LZ4 */
-
-static int no_compression_compress_data(void **data_compressed, void *source_data, size_t source_size) {
-	compressor_data_t *alloc_data = vmalloc(source_size + sizeof(compressor_data_t));
-
-	memcpy(alloc_data->payload, (void *) source_data, source_size);
-
-	alloc_data->compression_method = COMPRESSOR_NO_COMPRESSION;
-	alloc_data->decompressed_size = source_size + sizeof(compressor_data_t);
-	*data_compressed = alloc_data;
-
-	return alloc_data->decompressed_size;
-}
-
-static int no_compression_decompress_data(void **data_decompressed, compressor_data_t *data, size_t compressed_size) {
-	size_t size_decompressed = data->decompressed_size;
-	void *alloc_buffer = vmalloc(size_decompressed);
-
-	memcpy(alloc_buffer, data->payload, size_decompressed);
-
-	*data_decompressed = alloc_buffer;
-
-	return size_decompressed;
-}
-
-/*
- * Callbacks of the "no compression" method
- */
-static compressor_method_t method_no_compression = {
-	.compress_callback 	= no_compression_compress_data,
-	.decompress_callback	= no_compression_decompress_data
-};
-
-#ifdef CONFIG_DCM_LZ4
+static void *lz4_ctx;
 
 static int lz4_compress_data(void **data_compressed, void *source_data, size_t source_size) {
 
 	/* lz4_compressbound gives the worst reachable size after compression */
 	compressor_data_t *alloc_data;
 	size_t size_compressed;
-	int ret;
 
 	alloc_data = vmalloc(LZ4_compressBound(source_size) + sizeof(compressor_data_t));
 	BUG_ON(!alloc_data);
 
-	if ((size_compressed = LZ4_compress_default((const char *) source_data, alloc_data->payload, source_size, LZ4_compressBound(source_size), work_lz4_mem)) < 0) {
+	if ((size_compressed = LZ4_compress_default((const char *) source_data, alloc_data->payload, source_size,
+						    LZ4_compressBound(source_size), lz4_ctx)) < 0) {
 		lprintk("Error when compressing the ME\n");
-		return ret;
+		BUG();
 	}
 
-	alloc_data->compression_method = COMPRESSOR_LZ4;
 	alloc_data->decompressed_size = source_size;
 
 	/* Add the size of the compressor_data_t header */
@@ -128,42 +88,18 @@ static int lz4_decompress_data(void **data_decompressed, compressor_data_t *data
 	return decompressed_size;
 }
 
-/*
- * Callbacks of the LZ4 method
- */
-static compressor_method_t method_lz4 = {
-	.compress_callback 	= lz4_compress_data,
-	.decompress_callback	= lz4_decompress_data
-};
-
-#endif /* CONFIG_DCM_LZ4 */
-
-int compress_data(uint8_t method, void **data_compressed, void *source_data, size_t source_size) {
-	if ((compressor_methods[method]) && (compressor_methods[method]->compress_callback))
-		return compressor_methods[method]->compress_callback(data_compressed, source_data, source_size);
-
-	return -EINVAL;
+int compress_data(void **data_compressed, void *source_data, size_t source_size) {
+	return lz4_compress_data(data_compressed, source_data, source_size);
 }
 
-int decompress_data(void **data_decompressed, void *data_compressed, size_t compressed_size) {
+void decompress_data(void **data_decompressed, void *data_compressed, size_t compressed_size) {
 	compressor_data_t *data = (compressor_data_t *) data_compressed;
-	uint8_t method = data->compression_method;
 
-	if ((compressor_methods[method]) && (compressor_methods[method]->decompress_callback))
-		return compressor_methods[method]->decompress_callback(data_decompressed, data, compressed_size);
+	lz4_decompress_data(data_decompressed, data, compressed_size);
 
-	return -EINVAL;
-}
-
-void compressor_method_register(uint8_t method, compressor_method_t *method_desc) {
-	compressor_methods[method] = method_desc;
 }
 
 void compressor_init(void) {
-	compressor_method_register(COMPRESSOR_NO_COMPRESSION, &method_no_compression);
-
-#if defined(CONFIG_DCM_LZ4)
-	work_lz4_mem = vmalloc(LZ4_MEM_COMPRESS);
-	compressor_method_register(COMPRESSOR_LZ4, &method_lz4);
-#endif /* CONFIG_DCM_LZ4 */
+	lz4_ctx = vmalloc(LZ4_MEM_COMPRESS);
+	BUG_ON(!lz4_ctx);
 }
