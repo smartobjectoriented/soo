@@ -66,7 +66,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 
 	sh_chat->me_common.here = agency_ctl_args.u.agencyUID;
 
-	DBG("==========MEEE: originUID: %d\n", sh_chat->me_common.here);
+	DBG("ME %d: originUID: %d\n", ME_domID(), sh_chat->me_common.here);
 
 	/* If it is the first pre_activate, init the originUID of the cur_chat */
 	if (!originUID_initd) {
@@ -103,18 +103,17 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 		return 0;
 	}
 
-	sh_chat->need_propagate = PROPAGATE_STATUS_YES;
-
 	spin_lock(&propagate_lock);
 
 	pre_propagate_args->propagate_status = (sh_chat->need_propagate ? PROPAGATE_STATUS_YES : PROPAGATE_STATUS_NO);
 
 	/* To be killed - only one propagation, here we set the real propagate_status */
-	// if (!pre_propagate_args->propagate_status && (get_ME_state() == ME_state_dormant))
-	// 	set_ME_state(ME_state_killed);
+	if (!pre_propagate_args->propagate_status && (get_ME_state() == ME_state_dormant)) {
+		set_ME_state(ME_state_killed);
+		DBG("Now killing the ME %d\n", ME_domID());
+	}
 
-	/* Only once (internal status) */
-	// sh_chat->need_propagate = false;
+	sh_chat->need_propagate = false;
 
 	spin_unlock(&propagate_lock);
 
@@ -158,7 +157,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	agency_ctl_args_t agency_ctl_args;
 	sh_chat_t *incoming_sh_chat;
 	uint32_t pfn;
-	bool should_send_chat = false;
 	chat_entry_t *last_chat;
 	LIST_HEAD(incoming_hosts);
 
@@ -166,22 +164,19 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
-		/*
-		 * If we are alone in this smart object, we stay here.
+		/**
+		 * If we are alone in this smart object, we go dormant and ask to propagate ourself. 
+		 * same if the ME we are cooperating with is NOT a SOO.chat
+		 * The ME killing decision is takin in the pre_propagate cb 
 		 */
-		if (cooperate_args->alone) {
-			/*
-			 * We will stay resident in this smart object. We re-init the list of (visited) hosts.
-			 * Only our resident SOO is at the first position.
-			 */
-			clear_hosts(&visits);
-
-			new_host(&visits, sh_chat->me_common.here, NULL, 0);
-
-			sh_chat->me_common.origin = sh_chat->me_common.here;
-
+		if (cooperate_args->alone || get_spid() != cooperate_args->u.target_coop.spid) {
+			/* If we are alone, just keep propagating, and ask to kill this ME 
+			We don't want to stay in a SmartObject*/
+			set_ME_state(ME_state_dormant);
+			sh_chat->need_propagate = true;
 			return 0;
 		}
+
 
 		/* Collaboration with the target ME */
 
@@ -198,28 +193,24 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 		/* Perform the cooperate in the target ME */
 		args->__agency_ctl(&agency_ctl_args);
-
-		/* Can be dormant or be killed...*/
+	
 
 		/*
 		 * If we reach the smart object initiator, we can disappear, otherwise we keep propagating once.
 		 */
 		if (sh_chat->initiator == sh_chat->me_common.here) {
-
-			set_ME_state(ME_state_killed);
-
 			spin_lock(&propagate_lock);
 			sh_chat->need_propagate = false;
 			spin_unlock(&propagate_lock);
-		
 		} else if (get_ME_state() != ME_state_killed) {
-
-			set_ME_state(ME_state_dormant);
-
 			spin_lock(&propagate_lock);
 			sh_chat->need_propagate = true;
 			spin_unlock(&propagate_lock);
 		}
+
+		/* In any cases, we don't want the ME to stay here, so we put it dormant it
+		the next pre_propagate will decide if the ME will be killed or propagated further */	
+		set_ME_state(ME_state_dormant);
 
 		break;
 
@@ -228,12 +219,10 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		pfn = cooperate_args->u.initiator_coop.pfn;
 		incoming_sh_chat = (sh_chat_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
+		DBG("TARGET (%d), INITIATOR (%d)\n", ME_domID(), cooperate_args->u.initiator_coop.slotID);
 
 		/* Are we cooperating with the resident or another (migrating) ME ? */
-		if (get_ME_state() == ME_state_dormant) { 
-
-			/* Resident */
-
+		if (get_ME_state() == ME_state_dormant) {
 			/* If the two MEs are issued from the same SOO origin, hence we can merge
 			 * the list of visited hosts and kill the other, no matter if we have more or less
 			 * visited hosts.
@@ -251,25 +240,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 				agency_ctl_args.cmd = AG_KILL_ME;
 				agency_ctl_args.slotID = cooperate_args->u.initiator_coop.slotID;
 				args->__agency_ctl(&agency_ctl_args);
-
-			}
-
-			last_chat = find_chat_in_history(incoming_sh_chat->cur_chat.originUID);
-
-			/* If no message from this sender is in our history or 
-			the new message is more recent, we send the message and add/update it to our history */
-			if (last_chat == NULL || (last_chat->stamp < incoming_sh_chat->cur_chat.stamp)) {
-				add_chat_in_history(&incoming_sh_chat->cur_chat);
-				send_chat_to_tablet(incoming_sh_chat->cur_chat.originUID, incoming_sh_chat->cur_chat.text);
-			} 
+			}			
 
 		} else {
-
-#if 0
-			/* Migrating */
-			sh_chat->initiator = incoming_sh_chat->initiator;
-
-			/* Retrieve the last chat from this originUID */
 			last_chat = find_chat_in_history(incoming_sh_chat->cur_chat.originUID);
 
 			/* If no message from this sender is in our history or 
@@ -277,29 +250,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			if (last_chat == NULL || (last_chat->stamp < incoming_sh_chat->cur_chat.stamp)) {
 				add_chat_in_history(&incoming_sh_chat->cur_chat);
 				send_chat_to_tablet(incoming_sh_chat->cur_chat.originUID, incoming_sh_chat->cur_chat.text);
-			} 
-#endif
-
-#if 0
-			/* Look for all known SOOs updated */
-			if (!find_host(&visits, incoming_sh_chat->me_common.origin)) {
-
-				/* Insert this new SOO.ledctrl smart object */
-				new_host(&known_soo_list, incoming_sh_chat->me_common.origin, NULL, 0);
-			}
-
-			if (sh_chat->initiator == sh_chat->me_common.here) {
-
-				/* We compare the list of visits of this incoming ME against
-				 * our list of known SOOs.
-				 */
-				expand_hosts(&incoming_hosts, incoming_sh_chat->me_common.soohosts,
-						incoming_sh_chat->me_common.soohost_nr);
-
-				/* Remove ourself, we are not in the known_soo_list */
-				del_host(&incoming_hosts, sh_chat->me_common.here);
-			}
-#endif			
+			}	
 		}
 
 		io_unmap((uint32_t) incoming_sh_chat);
