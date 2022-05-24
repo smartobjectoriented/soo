@@ -847,6 +847,10 @@ static void rfcomm_tty_close(struct tty_struct *tty, struct file *filp)
 
 	BT_DBG("tty %p dev %p dlc %p opened %d", tty, dev, dev->dlc,
 						dev->port.count);
+	/* SOO.tech */
+#ifdef CONFIG_VUIHANDLER_BACKEND
+	vuihandler_close_rfcomm();
+#endif						
 
 	tty_port_close(&dev->port, tty, filp);
 }

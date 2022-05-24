@@ -263,19 +263,13 @@ irqreturn_t vuihandler_rx_interrupt(int irq, void *dev_id) {
 
 
 /**
- * Send a signal to the process holding the /dev/rfcommX entry.
+ * Called by the TTY RFCOMM driver once the connection is closed 
  */
-void rfcomm_send_sigterm(void) {
+void vuihandler_close_rfcomm(void) {
 	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
+
 	mutex_lock(&vdrv_priv->rfcomm_lock);
-
-	if (vdrv_priv->rfcomm_tty_pid) {
-		DBG(VUIHANDLER_PREFIX "Send SIGTERM to rfcomm (%d) in user space\n", vdrv_priv->rfcomm_tty_pid);
-
-		sys_kill(vdrv_priv->rfcomm_tty_pid, SIGTERM);
-		vdrv_priv->rfcomm_tty_pid = 0;
-	}
-
+	vdrv_priv->rfcomm_tty_pid = 0;
 	mutex_unlock(&vdrv_priv->rfcomm_lock);
 }
 

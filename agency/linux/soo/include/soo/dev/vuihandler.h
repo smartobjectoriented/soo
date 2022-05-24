@@ -131,7 +131,7 @@ void vuihandler_get_app_spid(uint64_t spid);
 
 #include <asm/signal.h>
 
-void rfcomm_send_sigterm(void);
+void vuihandler_close_rfcomm(void);
 
 #endif /* CONFIG_BT_RFCOMM */
 
