@@ -89,6 +89,10 @@ u64 get_spid_spad(char *what) {
 	return val;
 }
 
+u64 get_spid(void) {
+	return get_spid_spad("spid");
+}
+
 /**
  * Write the entries related to the ME ID in vbstore
  */

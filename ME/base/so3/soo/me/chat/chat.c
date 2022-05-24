@@ -171,7 +171,6 @@ bool is_chat_in_history(chat_entry_t *chat) {
 
 void send_chat_to_tablet(uint64_t senderUID, char* text) {
 	char msg[MAX_MSG_LENGTH];
-	// printk("NOW sending chat...\n");
 
 	xml_prepare_chat(msg, senderUID, text);
 	vuihandler_send(msg, strlen(msg)+1);
@@ -183,8 +182,6 @@ void send_chat_to_tablet(uint64_t senderUID, char* text) {
  * @return
  */
 void process_events(char * data, size_t size) {
-
-	// printk("GOT AN EVENT TO PARSE\n");
 	char id[ID_MAX_LENGTH];
 	char action[ACTION_MAX_LENGTH];
 	char content[MAX_MSG_LENGTH];
@@ -220,6 +217,7 @@ void process_events(char * data, size_t size) {
 		/* We update the chat_entry_t which will be delivered across the network */
 		sh_chat->cur_chat.stamp++;
 		memcpy(sh_chat->cur_chat.text, cur_text, sizeof(cur_text)+1);
+		sh_chat->need_propagate = true;
 	}
 }
 
