@@ -40,20 +40,142 @@
 
 #include <soo/dev/vuihandler.h>
 
-#include <me/ledctrl.h>
+#include <me/chat.h>
 
 #include <soo/xmlui.h>
 
 
-#define MAX_MSG_LENGTH 		200 
-#define ID_MAX_LENGTH		20
-#define ACTION_MAX_LENGTH	20
-
 /* Contains the current chat message. */
 char cur_text[MAX_MSG_LENGTH];
 
+/**
+ * Contains the history from the last messages each SO has sent.
+ * Used to compare arriving messages and keep track of who sent us what
+ */
+static LIST_HEAD(chat_history);
 
 
+
+/********* History Management ********************/
+
+/**
+ * @brief Check if the sender, defined by senderUID, is in the history
+ * 
+ * @param senderUID UID of the sender SOO we are checking the presence
+ * @return bool true if the sender is present, false otherwise
+ */ 
+bool sender_is_in_history(uint64_t senderUID) {
+	chat_t *chat;
+
+	list_for_each_entry(chat, &chat_history, list) {
+		if (chat->chat_entry.originUID == senderUID) {
+			return true;
+		}
+	}		
+	return false;
+}
+
+/**
+ * @brief Get the chat specified by the senderUID
+ * 
+ * @param senderUID UID of the sender which sent the chat
+ * @return chat_entry_t* The last chat by the sender, NULL if it does not exist
+ */
+chat_entry_t *find_chat_in_history(uint64_t senderUID) {
+	chat_t *chat;
+
+	list_for_each_entry(chat, &chat_history, list)
+		if (chat->chat_entry.originUID == senderUID)
+			return &chat->chat_entry;
+
+	return NULL;
+}
+
+
+/**
+ * @brief Add a chat to the history. 
+ * It is the only function you need to add a chat, as it checks if it needs to
+ * add it or to call update_chat_in_history to update it if a chat from the sender
+ * is already present
+ * 
+ * @param new_chat A chat_entry_t struct containing the chat to add
+ */
+void add_chat_in_history(chat_entry_t *new_chat) {
+	chat_t *chat;
+
+	/* First, we check if the history already contains a message from 
+	this sender. If so, we just update the chat */
+	if (sender_is_in_history(new_chat->originUID)) {
+		update_chat_in_history(new_chat);
+		return;
+	}
+
+	/* If no chat from this sender is present, add the chat */
+	chat = malloc(sizeof(chat_t));
+	BUG_ON(!chat);
+
+	chat->chat_entry.originUID = new_chat->originUID;
+	chat->chat_entry.stamp = new_chat->stamp;
+
+	memcpy(chat->chat_entry.text, new_chat->text, strlen(new_chat->text+1));
+
+	list_add_tail(&chat->list, &chat_history);
+}
+
+
+/**
+ * @brief Update an existing chat in the history. 
+ * IT SHOULD NOT BE USED DIRECTLY, as it is used by add_chat_in_history.
+ * 
+ * @param updated_chat A chat_entry_t struct containing the chat to update
+ * @return bool true if the chat was updated, false otherwise
+ */
+bool update_chat_in_history(chat_entry_t *updated_chat) {
+	chat_entry_t *chat_entry = find_chat_in_history(updated_chat->originUID);
+
+	if (chat_entry == NULL) {
+		printk("Cannot retreive chat in history...\n");
+		return false;
+	}
+
+	chat_entry->stamp = updated_chat->stamp;
+	memcpy(chat_entry->text, updated_chat->text, strlen(updated_chat->text+1));
+	return true;
+}
+
+
+/**
+ * Check if the chat is already present. 
+ * 
+ * @param chat chat_entry_t* The chat we want to check the presence
+ * @return bool true if the exact same chat is present (originUID, stamp and text are the same)
+ * 
+ */ 
+bool is_chat_in_history(chat_entry_t *chat) {
+	chat_entry_t *chat_entry = find_chat_in_history(chat->originUID);
+
+	if (chat_entry == NULL) {
+		printk("No chat from this sender was found.\n");
+		return false;
+	}
+
+	/* If the chat from this sender is the same (same stamp and same text) 
+	it means that the chat is already present in the history */
+	if (chat_entry->stamp == chat->stamp && !strcmp(chat_entry->text, chat->text)) {
+		return true;
+	}
+
+	return false;
+}
+
+
+void send_chat_to_tablet(uint64_t senderUID, char* text) {
+	char msg[MAX_MSG_LENGTH];
+	// printk("NOW sending chat...\n");
+
+	xml_prepare_chat(msg, senderUID, text);
+	vuihandler_send(msg, strlen(msg)+1);
+}
 
 /**
  *
@@ -75,7 +197,7 @@ void process_events(char * data, size_t size) {
 
 	xml_parse_event(data, id, action);
 
-	/* If it is a tex-edit event, it means the user typed something
+	/* If it is a text-edit event, it means the user typed something
 	so we save it in the temporary buffer */
 	if (!strcmp(id, TEXTEDIT_ID)) {
 
@@ -87,17 +209,21 @@ void process_events(char * data, size_t size) {
 		if (!strcmp(cur_text, "")) return;
 		// TODO replace 0 by slotID 
 		/* Pepare an send the chat message */
-		xml_prepare_chat(msg, 0, cur_text);
-		vuihandler_send(msg, strlen(msg)+1);
+		send_chat_to_tablet(sh_chat->cur_chat.originUID, cur_text);
 		
 		/* Notify the text-edit widget that it must clear its text */
 		memset(msg, 0, MAX_MSG_LENGTH);	
 		xml_prepare_message(msg, TEXTEDIT_ID, "");
 		vuihandler_send(msg, strlen(msg)+1);
-	}
 
+
+		/* We update the chat_entry_t which will be delivered across the network */
+		sh_chat->cur_chat.stamp++;
+		memcpy(sh_chat->cur_chat.text, cur_text, sizeof(cur_text)+1);
+	}
 }
 
+#define TEST_CHAT 0
 /*
  * The main application of the ME is executed right after the bootstrap. It may be empty since activities can be triggered
  * by external events based on frontend activities.
@@ -111,6 +237,15 @@ int app_thread_main(void *args) {
 
 	/* register our process_event callback to the vuihandler */ 
 	vuihandler_register_callback(NULL, process_events);
+
+	sh_chat->cur_chat.stamp = 0;
+	memset(sh_chat->cur_chat.text, 0, MAX_MSG_LENGTH);
+
+
+#if TEST_CHAT
+	sh_chat->cur_chat.stamp = 1;
+	sprintf(sh_chat->cur_chat.text, "Test MSG");
+#endif
 
 	while(1);
 

@@ -24,26 +24,45 @@
 
 #include <me/common.h>
 
+
+#define MAX_MSG_LENGTH 		200 
+#define ID_MAX_LENGTH		20
+#define ACTION_MAX_LENGTH	20
+
+
+
+/**
+ * This is used to keep an history of the different 
+ * messages we received from the MEs.
+ * It stores the originUID, the message and the 
+*/
+typedef struct {
+    uint64_t originUID;
+    size_t stamp;
+    char text[MAX_MSG_LENGTH];
+} chat_entry_t;
+
+typedef struct {
+    struct list_head list;
+    chat_entry_t chat_entry;
+} chat_t;
+
 /*
  * Never use lock (completion, spinlock, etc.) in the shared page since
  * the use of ldrex/strex instructions will fail with cache disabled.
  */
 typedef struct {
 
-	int local_nr;
-	int incoming_nr;
+    chat_entry_t cur_chat;
 
-	/* A stamp to keep track of the current change. A greater value means an update is required. */
-	int stamp;
-
-	/* If an acknowledge is required from all SOO.ledctrl smart objects */
-	bool waitack;
+    bool has_a_new_msg;
 
 	/* To determine if the ME needs to be propagated.
 	 * If it is the same state, no need to be propagated.
 	 */
 	bool need_propagate;
 
+    /* UID of the initiator SOO, on which this ME was deployed at boot time */
 	uint64_t initiator;
 
 	/*
@@ -55,8 +74,23 @@ typedef struct {
 } sh_chat_t;
 
 
+
+
 /* Protecting variables between domcalls and the active context */
 extern spinlock_t propagate_lock;
+
+extern sh_chat_t *sh_chat;
+
+
+/* Bellow are the functions used to manage the message history */
+bool sender_is_in_history(uint64_t senderUID);
+chat_entry_t *find_chat_in_history(uint64_t senderUID);
+void add_chat_in_history(chat_entry_t *new_chat);
+bool update_chat_in_history(chat_entry_t *updated_chat);
+bool is_chat_in_history(chat_entry_t *chat);
+
+
+void send_chat_to_tablet(uint64_t senderUID, char* text);
 
 #endif /* CHAT_H */
 
