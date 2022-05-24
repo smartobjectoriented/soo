@@ -321,6 +321,16 @@ void vuihandler_probe(struct vbus_device *vdev) {
 	vbus_transaction_end(vbt);
 
 	vuihandler_init_tx_circ_buf(vdev);
+
+
+	/* Init the completions */
+	vuihandler_priv->send_compl = malloc(sizeof(completion_t));
+	vuihandler_priv->send_done_compl = malloc(sizeof(completion_t));
+	init_completion(vuihandler_priv->send_compl);
+	init_completion(vuihandler_priv->send_done_compl);
+
+	/* Start the TX thread */
+	kernel_thread(vuihandler_send_fn, "vuihandler_send_fn", (void *) vdev, 0);
 }
 
 void vuihandler_suspend(struct vbus_device *vdev) {
@@ -335,20 +345,12 @@ void vuihandler_resume(struct vbus_device *vdev) {
 
 void vuihandler_connected(struct vbus_device *vdev) {
 	vuihandler_priv_t *vuihandler_priv = dev_get_drvdata(vdev->dev);
-	
-	vuihandler_priv->send_compl = malloc(sizeof(completion_t));
-	vuihandler_priv->send_done_compl = malloc(sizeof(completion_t));
 
 	DBG0(VUIHANDLER_PREFIX "Frontend connected\n");
 
 	/* Force the processing of pending requests, if any */
 	notify_remote_via_virq(vuihandler_priv->vuihandler.tx_irq);
 	notify_remote_via_virq(vuihandler_priv->vuihandler.rx_irq);
-
-	init_completion(vuihandler_priv->send_compl);
-	init_completion(vuihandler_priv->send_done_compl);
-
-	kernel_thread(vuihandler_send_fn, "vuihandler_send_fn", (void *) vdev, 0);
 }
 
 void vuihandler_reconfiguring(struct vbus_device *vdev) {
