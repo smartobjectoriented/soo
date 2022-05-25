@@ -33,14 +33,16 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-#include <me/wagoled.h>
+#include <me/blind.h>
 
 static LIST_HEAD(visits);
 static LIST_HEAD(known_soo_list);
 
 
 /* Reference to the shared content helpful during synergy with other MEs */
-sh_wagoled_t *sh_wagoled;
+sh_blind_t *sh_blind;
+struct completion send_data_lock;
+atomic_t shutdown;
 
 /**
  * PRE-ACTIVATE
@@ -48,8 +50,21 @@ sh_wagoled_t *sh_wagoled;
  * Should receive local information through args
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
+	agency_ctl_args_t agency_ctl_args;
+	agency_ctl_args.cmd = AG_AGENCY_UID;
 
 	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
+
+	/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
+	args->__agency_ctl(&agency_ctl_args);
+	sh_blind->me_common.here = agency_ctl_args.u.agencyUID;
+	DBG(">> ME %d: Agency UID %d\n", ME_domID(), sh_blind->me_common.here);
+
+	agency_ctl_args.cmd = AG_CHECK_DEVCAPS;
+	args->__agency_ctl(&agency_ctl_args);
+
+	DBG(">> ME %d: devcaps.class = %d, devcaps.devcaps = %d\n", ME_domID(), 
+		agency_ctl_args.u.devcaps_args.class, agency_ctl_args.u.devcaps_args.devcaps);
 
 #if 0 /* To be implemented... */
 	logmsg("[soo:me:SOO.wagoled] ME %d: cb_pre_activate..\n", ME_domID());
@@ -109,7 +124,7 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
 
-	lprintk("[soo:me:SOO.wagoled] ME %d: cb_cooperate...\n", ME_domID());
+	// lprintk("[soo:me:SOO.blind] ME %d: cb_cooperate...\n", ME_domID());
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
@@ -167,9 +182,13 @@ int cb_post_activate(soo_domcall_arg_t *args) {
  */
 
 int cb_force_terminate(void) {
-	DBG(">> ME %d: cb_force_terminate...\n", ME_domID());
+	printk(">> ME %d: cb_force_terminate...\n", ME_domID());
 	DBG("ME state: %d\n", get_ME_state());
 
+	atomic_set(&shutdown, 0);
+
+	printk("ME state: %d\n", get_ME_state());
+	
 	/* We do nothing particular here for this ME,
 	 * however we proceed with the normal termination of execution.
 	 */
@@ -181,11 +200,17 @@ int cb_force_terminate(void) {
 
 void callbacks_init(void) {
 
+	init_completion(&send_data_lock);
+	atomic_set(&shutdown, 1);
+
 	/* Allocate the shared page. */
-	sh_wagoled = (sh_wagoled_t *) get_contig_free_vpages(1);
+	sh_blind = (sh_blind_t *) get_contig_free_vpages(1);;
 
 	/* Initialize the shared content page used to exchange information between other MEs */
-	memset(sh_wagoled, 0, PAGE_SIZE);
+	memset(sh_blind, 0, PAGE_SIZE);
+
+	sh_blind->switch_event = false;
+	sh_blind->cmd = NONE;
 
 	/* Set the SPAD capabilities */
 	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));

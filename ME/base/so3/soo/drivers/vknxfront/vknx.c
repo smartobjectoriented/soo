@@ -246,7 +246,7 @@ static void vknx_shutdown(struct vbus_device *vdev) {
 static void vknx_closed(struct vbus_device *vdev) {
 	vknx_priv_t *vknx_priv = dev_get_drvdata(vdev->dev);
 
-	DBG0(VKNX_PREFIX " Frontend close\n");
+	DBG0(VKNX_PREFIX " close\n");
 
 	/**
 	 * Free the ring and deallocate the proper data.
@@ -265,6 +265,12 @@ static void vknx_closed(struct vbus_device *vdev) {
 		unbind_from_irqhandler(vknx_priv->vknx.irq);
 
 	vknx_priv->vknx.irq = 0;
+
+	DBG0(VKNX_PREFIX " close\n");
+
+	free(vknx_priv);
+
+	DBG0(VKNX_PREFIX " closed\n");
 }
 
 static void vknx_suspend(struct vbus_device *vdev) {

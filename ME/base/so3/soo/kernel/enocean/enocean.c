@@ -20,8 +20,9 @@
 #include <heap.h>
 #include <string.h>
 
-#include <soo/enocean.h>
+#include <soo/enocean/enocean.h>
 #include <soo/debug.h>
+#include <soo/dev/venocean.h>
 
 enocean_telegram_t * enocean_buffer_to_telegram(byte *buf, int len) {
     enocean_telegram_t *tel;
@@ -56,6 +57,15 @@ enocean_telegram_t * enocean_buffer_to_telegram(byte *buf, int len) {
     tel->status = buf[ENOCEAN_TELEGRAM_DATA_OFF + tel->data_len + ENOCEAN_SENDER_ID_SIZE];
 
     return tel;
+}
+
+enocean_telegram_t *enocean_get_data(void) {
+    char data[ENOCEAN_TELEGRAM_BUF_SIZE];
+    int data_len;
+
+    data_len = venocean_get_data(data);
+
+    return enocean_buffer_to_telegram(data, data_len);
 }
 
 void enocean_print_telegram(enocean_telegram_t *tel) {

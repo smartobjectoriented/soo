@@ -320,7 +320,7 @@ static void baos_build_datapoint(baos_frame_t *frame, byte *buf) {
  */
 static baos_frame_t *baos_build_object(byte *buf, int len) {
     baos_frame_t *frame;
-    byte error_code;
+    // byte error_code;
 
     frame = kzalloc(sizeof(baos_frame_t), GFP_KERNEL);
     BUG_ON(!frame);
@@ -333,6 +333,7 @@ static baos_frame_t *baos_build_object(byte *buf, int len) {
     frame->first_obj_id.bytes.lsb = buf[BAOS_START_OBJECT_OFF + 1];
     frame->obj_count.bytes.msb = buf[BAOS_OBJECT_COUNT_OFF];
     frame->obj_count.bytes.lsb = buf[BAOS_OBJECT_COUNT_OFF + 1];
+    frame->error_code = 0;
 
     switch (frame->subservice) {
         case DATAPOINT_VALUE_INDICATION:
@@ -352,13 +353,8 @@ static baos_frame_t *baos_build_object(byte *buf, int len) {
     }
 
     if (frame->obj_count.val == 0) {
-        error_code = buf[BAOS_FIRST_OBJECT_OFF];
-        if (error_code != 0) {
-            pr_err("Error: %s\n", error_string[error_code]);
-            BUG();
-        } else {
-            return frame;
-        }
+        frame->error_code = buf[BAOS_FIRST_OBJECT_OFF];
+        return frame;
     }
 
     switch(frame->type) {
@@ -509,18 +505,25 @@ baos_frame_t *baos_get_datapoint_value(u_int16_t first_datapoint_id, u_int16_t d
     frame.obj_count.val = datapoint_count;
 
     data = baos_flatten(frame, data_len);
-    data[BAOS_FRAME_MIN_SIZE] = 0x01;
+    data[BAOS_FRAME_MIN_SIZE] = 0x00;
 
     kberry838_send_data(data, data_len);
     baos_wait_for_response();
+
+    if (baos_client_priv.response->error_code != 0) {
+        pr_err("Error on request %s(%d, %d): %s\n", __func__, first_datapoint_id,
+                datapoint_count, error_string[baos_client_priv.response->error_code]);
+        BUG();
+    }
+
     baos_check_response(frame.subservice, __func__);
     baos_copy_frame(&rsp, baos_client_priv.response);
 
     kfree(data);
 
 #ifdef DEBUG
-#endif
     baos_print_frame(rsp);
+#endif
 
     return rsp;
 }

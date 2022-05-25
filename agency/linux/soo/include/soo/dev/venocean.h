@@ -71,6 +71,11 @@ typedef struct {
 
 DEFINE_RING_TYPES(venocean, venocean_request_t, venocean_response_t);
 
+typedef struct {
+    struct list_head list;
+    int32_t id;
+} domid_priv_t;
+
 /*
  * General structure for this virtual device (backend side)
  */

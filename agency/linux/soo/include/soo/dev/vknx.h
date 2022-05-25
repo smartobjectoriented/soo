@@ -47,6 +47,8 @@ To activate add to bcm2711-<platform>.dts:
 #include <soo/ring.h>
 #include <soo/grant_table.h>
 #include <soo/vdevback.h>
+#include <linux/list.h>
+#include <linux/mutex.h>
 
 #define VKNX_NAME		                    "vknx"
 #define VKNX_PREFIX		                    "[" VKNX_NAME " backend] "
@@ -54,6 +56,7 @@ To activate add to bcm2711-<platform>.dts:
 #define VKNX_DATAPOINT_DATA_MAX_SIZE        14
 #define VKNX_MAX_DATAPOINTS                 10
 #define VKNX_RING_PAGES_NUMBER              8
+#define VKNX_MIN_DOMIDS_NUMBER              10
 
 typedef enum {
     KNX_RESPONSE = 0,
@@ -94,10 +97,14 @@ typedef struct  {
  */
 DEFINE_RING_TYPES(vknx, vknx_request_t, vknx_response_t);
 
+typedef struct {
+    struct list_head list;
+    int32_t id;
+} domid_priv_t;
+
 /*
  * General structure for this virtual device (backend side)
  */
-
 typedef struct {
 
 	/* Must be the first field */
@@ -105,6 +112,10 @@ typedef struct {
 
 	vknx_back_ring_t ring;
 	unsigned int irq;
+
+    int32_t otherend_id;
+
+    uint64_t spid;
 
 } vknx_t;
 

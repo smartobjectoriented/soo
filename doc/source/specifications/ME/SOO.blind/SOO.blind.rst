@@ -2,14 +2,19 @@
 
 SOO.blind
 =========
-This document aims at describing the SOO.Blind role, use-cases and architecture.
+This document aims at describing the **SOO.Blind** role, use-cases and architecture.
 
-SOO.blind propose
+SOO.blind purpose
 =================
-
+The main purpose of **SOO.blind** is to interact with a blind. The blind is accessed through
+the KNX bus using a Kberry838. The blind is controlled using an EnOcean switch which allows 
+to perform basic actions like UP, DOWN and STOP. A more complete control of the blind will be
+achieved using the SOO android application.
 
 SOO.blind architecture
 ======================
+The figure below shows the general architecture and components used in the SOO environnement by
+the ME to interact with the hardware.
 
 .. image:: /img/specifications/MEs/SOO.blind.drawio.png
 
@@ -20,7 +25,7 @@ Every smart object having either a KNX BE or a EnOcean BE has a residing SOO.bli
 event occurs (switch pressed) the ME will migrate in search of its counter part residing on a 
 smart object having a KNX BE.
 
-The migration diagram below shows this behavior.
+The diagram below shows the behavior that triggers a migration.
 
 .. uml:: 
     @startuml
@@ -35,6 +40,9 @@ The migration diagram below shows this behavior.
     cb_suspend_2 : Don't propagate and resume normal activities
 
     @enduml
+
+
+The diagram below shows the behavior of SOO.blind when it arrives on a new smart object. 
 
 .. uml::
     @startuml

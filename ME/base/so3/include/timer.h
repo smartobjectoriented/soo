@@ -31,6 +31,7 @@
 #define MILLISECS(_ms)  ((u64)((_ms) * 1000000ull))
 #define MICROSECS(_us)  ((u64)((_us) * 1000ull))
 #define STIME_MAX 	((u64)(~0ull))
+#define NS_TO_MS(_ns)   ((u64)((_ns) / 1000000ull))
 
 struct timer {
     /* System time expiry value (nanoseconds since boot). */

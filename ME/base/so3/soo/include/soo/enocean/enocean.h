@@ -30,7 +30,7 @@
 #define ENOCEAN_RSP_DATA_SIZE       0x01
 #define ENOCEAN_1BS_DATA_SIZE       0x01
 
-
+#define ENOCEAN_TELEGRAM_BUF_SIZE   21
 
 /** Enocean Radio telegram types, 
  * see https://www.enocean-alliance.org/wp-content/uploads/2020/07/EnOcean-Equipment-Profiles-3-1.pdf
@@ -42,26 +42,44 @@ typedef enum {
 
 typedef unsigned char byte;
 
-struct sender_id {
+typedef struct {
     union
     {
         uint32_t val;
         byte bytes[ENOCEAN_SENDER_ID_SIZE];
     };
     
-};
-typedef struct sender_id sender_id_t;
+} sender_id_t;
 
-struct enocean_telegram {
+/**
+ * @brief Enocean telegram struct
+ * 
+ * @param rorg Radio telegram type. See enum
+ * @param data_len Byte contained in the data array
+ * @param data Array containing telegram data
+ * @param sender_id Enocean device unique ID
+ * @param status Telegram status byte
+ */
+typedef struct {
     RORG rorg;
     int data_len;
     byte data[ENOCEAN_MAX_DATA_SIZE];
     sender_id_t sender_id;
     byte status;
-};
-typedef struct enocean_telegram enocean_telegram_t;
+} enocean_telegram_t;
 
-enocean_telegram_t * enocean_buffer_to_telegram(byte *buf, int len);
+/**
+ * @brief Print an enocean telegram
+ * 
+ * @param tel enocean telegram to print
+ */
 void enocean_print_telegram(enocean_telegram_t *tel);
+
+/**
+ * @brief Wait for data to be received by the enocean frontend. This function is blocking.
+ * 
+ * @return enocean_telegram_t* received enocean data
+ */
+enocean_telegram_t *enocean_get_data(void);
 
 #endif

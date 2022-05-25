@@ -151,6 +151,7 @@ struct baos_frame {
     object_id_t first_obj_id;
     object_count_t obj_count;
     baos_frame_type type;
+    byte error_code;
 
     union {
         baos_server_item_t **server_items;

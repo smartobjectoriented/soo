@@ -22,40 +22,99 @@
 #include <completion.h>
 #include <spinlock.h>
 #include <printk.h>
+#include <completion.h>
+#include <asm/atomic.h>
 
 #include <me/common.h>
+#include <soo/vbwa88pg.h>
+#include <soo/enocean/pt210.h>
 
 #define MEBLIND_NAME		"ME blind"
 #define MEBLIND_PREFIX	"[ " MEBLIND_NAME " ]"
 
-/*** Compatible devices ***/
-/*** PTM 210 ***/
-#define BUTTON_ID 			0x00367BBB
-#define BUTTON_ID_SIZE		0x4
-#define SWITCH_IS_RELEASED 0x00 
-#define SWITCH_IS_UP 0x70
-#define SWITCH_IS_DOWN 0x50
+#if 1
+#define ENOCEAN_SWITCH
+#endif
 
-/*** Data offesets ***/
-#define RORG_OFFS			0x0
-#define CMD_OFFS			0x1
-#define ID_OFFS				0x02
+#if 1
+#define BLIND_VBWA88PG
+#endif
 
-/*** First byte of received data ***/
-#define RORG_BYTE			0xF6
+/**
+ * @brief Blind models
+ * 
+ */
+typedef enum {
+	VBWA88PG = 0
+} blind_type;
 
-/*** Minimun data length ***/
-#define MIN_LENGTH			0x06
+/**
+ * @brief Switch models
+ * 
+ */
+typedef enum {
+	PT210 = 0
+} switch_type;
 
-/*** ROOMS ***/
-#define ROOM1	0x0
-#define ROOM2	0x1
+/**
+ * @brief Possible switch commands
+ * 
+ */
+typedef enum {
+	NONE = 0,
+	SWITCH_UP,
+	SWITCH_DOWN,
+	SWITCH_RELEASED
+} switch_cmd;
+
+/**
+ * @brief Generic blind struct. More kinds of blind can be added
+ * 
+ * @param blind specific blind model struct
+ * @param type blind model
+ * 
+ */
+typedef struct {
+#ifdef BLIND_VBWA88PG
+	blind_vbwa88pg_t blind;
+#endif
+
+	blind_type type;
+} blind_t;
+
+/**
+ * @brief Generic switch struct
+ * 
+ * @param sw Specific switch model
+ * @param cmd Command received by the switch
+ * @param switch model
+ */
+typedef struct {
+#ifdef ENOCEAN_SWITCH
+	pt210_t sw;
+#endif
+	switch_cmd cmd;
+	switch_type type;
+
+} switch_t;
 
 /*
  * Never use lock (completion, spinlock, etc.) in the shared page since
  * the use of ldrex/strex instructions will fail with cache disabled.
  */
+/**
+ * @brief Shared struct for blind ME
+ * 
+ * @param switch_event set to true if an switch event is received
+ * @param cmd last switch command received
+ * @param need_progate set to true if the ME need to migrate  
+ */
 typedef struct {
+
+	bool switch_event;
+	switch_cmd cmd;
+
+	bool need_propagate;
 	/*
 	 * MUST BE the last field, since it contains a field at the end which is used
 	 * as "payload" for a concatened list of hosts.
@@ -66,6 +125,18 @@ typedef struct {
 
 /* Export the reference to the shared content structure */
 extern sh_blind_t *sh_blind;
+
+/**
+ * @brief Completion use to wait for a switch event to move the blind
+ * 
+ */
+extern struct completion send_data_lock;
+
+/**
+ * @brief Condition of which the threads are running
+ * 
+ */
+extern atomic_t shutdown;
 
 #define pr_err(fmt, ...) \
 	do { \

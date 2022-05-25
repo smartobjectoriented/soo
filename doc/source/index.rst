@@ -27,6 +27,7 @@
    aarch64
    dev_flow
    glossary
+   specifications/specifications
    
 ======================================
 Smart Object Oriented (SOO) Technology

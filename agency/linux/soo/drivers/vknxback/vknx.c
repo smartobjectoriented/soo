@@ -23,7 +23,6 @@
 #include <linux/of.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
-#include <linux/mutex.h>
 
 #include <soo/evtchn.h>
 #include <soo/dev/vknx.h>
@@ -41,6 +40,14 @@ typedef struct {
 static vknx_response_t *indication;
 DECLARE_COMPLETION(send_data);
 DECLARE_COMPLETION(data_sent);
+
+/** List of all the connected vbus devices **/
+static struct list_head *vdev_list;
+
+/** List of all the domids of the connected vbus devices **/
+static struct list_head *domid_list;
+
+struct mutex list_mutex;
 
 static void vknx_print_request(vknx_request_t *req) {
     int i, j;
@@ -156,23 +163,29 @@ static void vknx_set_dp_value(vknx_request_t *req) {
 }
 
 static int vknx_send_indication_fn(void *data) {
-    struct vbus_device *vdev = (struct vbus_device*)data;
-    vknx_priv_t * vknx_priv = dev_get_drvdata(&vdev->dev);
+    vknx_priv_t *vknx_priv;
     vknx_response_t *ring_resp;
+    struct vbus_device *vdev;
+    domid_priv_t *domid_priv;
 
     while(!kthread_should_stop()) {
         wait_for_completion(&send_data);
 
-        DBG(VKNX_PREFIX "Sending data to frontend");
+        list_for_each_entry(domid_priv, domid_list, list) {
+            DBG(VKNX_PREFIX "Sending data to frontend: %d\n", domid_priv->id);
+            
+            vdev = vdevback_get_entry(domid_priv->id, vdev_list);
+            vdevback_processing_begin(vdev);
+            vknx_priv = dev_get_drvdata(&vdev->dev);
+            
 
-        vdevback_processing_begin(vdev);
+            ring_resp = vknx_new_ring_response(&vknx_priv->vknx.ring);
+            memcpy(ring_resp, indication, sizeof(vknx_response_t));
+            vknx_ring_response_ready(&vknx_priv->vknx.ring);
+            notify_remote_via_virq(vknx_priv->vknx.irq);
 
-        ring_resp = vknx_new_ring_response(&vknx_priv->vknx.ring);
-        memcpy(ring_resp, indication, sizeof(vknx_response_t));
-        vknx_ring_response_ready(&vknx_priv->vknx.ring);
-        notify_remote_via_virq(vknx_priv->vknx.irq);
-
-        vdevback_processing_end(vdev);
+            vdevback_processing_end(vdev);
+        }
 
         complete(&data_sent);
     }
@@ -185,7 +198,9 @@ irqreturn_t vknx_interrupt_bh(int irq, void *dev_id) {
 	vknx_priv_t *vknx_priv = dev_get_drvdata(&vdev->dev);
 	vknx_request_t *ring_req;
 
-    DBG(VKNX_PREFIX "New data from frontend\n");
+    vdevback_processing_begin(vdev);
+
+    DBG(VKNX_PREFIX "New data from frontend: %d\n", vdev->otherend_id);
 
 	while ((ring_req = vknx_get_ring_request(&vknx_priv->vknx.ring)) != NULL) {
         switch(ring_req->type) {
@@ -197,7 +212,6 @@ irqreturn_t vknx_interrupt_bh(int irq, void *dev_id) {
 
             case SET_DP_VALUE:
                 DBG(VKNX_PREFIX "Setting datapoint values\n");
-                // vknx_print_request(ring_req);
                 vknx_set_dp_value(ring_req);
                 break;
         }
@@ -214,22 +228,46 @@ irqreturn_t vknx_interrupt(int irq, void *dev_id) {
 
 void vknx_probe(struct vbus_device *vdev) {
 	vknx_priv_t *vknx_priv;
+    domid_priv_t *domid_priv;
+	
+    DBG(VKNX_PREFIX "Probe: %d\n", vdev->otherend_id);
 
-	vknx_priv = kzalloc(sizeof(vknx_priv_t), GFP_ATOMIC);
+    domid_priv = kzalloc(sizeof(domid_t), GFP_KERNEL);
+    BUG_ON(!domid_priv);
+
+    domid_priv->id = vdev->otherend_id;
+    list_add(&domid_priv->list, domid_list);
+
+    vknx_priv = kzalloc(sizeof(vknx_priv_t), GFP_ATOMIC);
 	BUG_ON(!vknx_priv);
 
 	dev_set_drvdata(&vdev->dev, vknx_priv);
+    vdevback_add_entry(vdev, vdev_list);
 
-    kthread_run(vknx_send_indication_fn, vdev, "send_indication_fn");
-
-	DBG(VKNX_PREFIX "Probe: %d\n", vdev->otherend_id);
+    DBG(VKNX_PREFIX "Probed: %d\n", vdev->otherend_id);
 }
 
 void vknx_remove(struct vbus_device *vdev) {
 	vknx_priv_t *vknx_priv = dev_get_drvdata(&vdev->dev);
+    domid_priv_t *domid_priv;
+    int32_t id = vdev->otherend_id;
 
-	DBG("%s: freeing the vknx structure for %s\n", __func__,vdev->nodename);
+    DBG(VKNX_PREFIX "Remove: %d\n", id);
+
+    /** Remove entry when frontend is leaving **/
+    list_for_each_entry(domid_priv, domid_list, list) {
+        if (domid_priv->id == vdev->otherend_id) {
+            list_del(&domid_priv->list);
+            kfree(domid_priv);
+            break;
+        }
+    }
+
+    DBG("%s: freeing the venocean structure for %s\n", __func__,vdev->nodename);
+    vdevback_del_entry(vdev, vdev_list);
 	kfree(vknx_priv);
+
+    DBG(VKNX_PREFIX "Removed: %d\n", id);
 }
 
 void vknx_close(struct vbus_device *vdev) {
@@ -240,7 +278,6 @@ void vknx_close(struct vbus_device *vdev) {
 	/*
 	 * Free the ring.
 	 */
-
 	BACK_RING_INIT(&vknx_priv->vknx.ring, (&vknx_priv->vknx.ring)->sring, PAGE_SIZE);
 
 	/* Unbind the irq */
@@ -248,6 +285,8 @@ void vknx_close(struct vbus_device *vdev) {
 
 	vbus_unmap_ring_vfree(vdev, vknx_priv->vknx.ring.sring);
 	vknx_priv->vknx.ring.sring = NULL;
+
+    DBG(VKNX_PREFIX "Closed: %d\n", vdev->otherend_id);
 }
 
 void vknx_suspend(struct vbus_device *vdev) {
@@ -315,9 +354,21 @@ int vknx_init(void) {
 	if (!of_device_is_available(np))
 		return 0;
 
+    vdev_list = (struct list_head *)kzalloc(sizeof(struct list_head), GFP_ATOMIC);
+    BUG_ON(!vdev_list);
+
+    INIT_LIST_HEAD(vdev_list);
+
+    domid_list = (struct list_head *)kzalloc(sizeof(struct list_head), GFP_KERNEL);
+    BUG_ON(!domid_list);
+
+    INIT_LIST_HEAD(domid_list);
+
 	vdevback_init(VKNX_NAME, &vknxdrv);
 
     baos_client_subscribe_to_indications(vknx_baos_indication_process);
+
+    kthread_run(vknx_send_indication_fn, NULL, "send_indication_fn");
 
     DBG(VKNX_PREFIX "Initialized\n");
 	
