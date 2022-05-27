@@ -28,10 +28,9 @@
 #include <keyhandler.h>
 #include <percpu.h>
 #include <heap.h>
+#include <soo.h>
 
 #include <asm/backtrace.h>
-
-#include <soo/soo.h>
 
 static void dump_timerq(unsigned char key);
 

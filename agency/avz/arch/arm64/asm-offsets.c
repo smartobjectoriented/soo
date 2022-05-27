@@ -32,16 +32,13 @@
 int main(void)
 {
 
-	DEFINE(OFFSET_SHARED_INFO, offsetof(struct domain, shared_info));
-	DEFINE(OFFSET_START_INFO, offsetof(struct domain, si));
+	DEFINE(OFFSET_AVZ_SHARED, offsetof(struct domain, avz_shared));
 
-	DEFINE(OFFSET_DOMAIN_ID, offsetof(struct domain, domain_id));
+	DEFINE(OFFSET_EVTCHN_UPCALL_PENDING, offsetof(struct avz_shared, evtchn_upcall_pending));
 
-	DEFINE(OFFSET_EVTCHN_UPCALL_PENDING, offsetof(struct shared_info, evtchn_upcall_pending));
-
-	DEFINE(OFFSET_HYPERVISOR_CALLBACK,  offsetof(struct start_info, vectors_vaddr));
-	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct start_info, domcall_vaddr));
-	DEFINE(OFFSET_TRAPS_CALLBACK, offsetof(struct start_info, traps_vaddr));
+	DEFINE(OFFSET_HYPERVISOR_CALLBACK,  offsetof(struct avz_shared, vectors_vaddr));
+	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct avz_shared, domcall_vaddr));
+	DEFINE(OFFSET_TRAPS_CALLBACK, offsetof(struct avz_shared, traps_vaddr));
 
 	DEFINE(OFFSET_G_SP,		 offsetof(struct domain, g_sp));
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2016-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,8 +16,8 @@
  *
  */
 
-#ifndef __AVZ_H__
-#define __AVZ_H__
+#ifndef UAPI_AVZ_H
+#define UAPI_AVZ_H
 
 #include <soo/uapi/soo.h>
 
@@ -73,24 +73,53 @@
 #define NR_EVTCHN 128
 
 /*
- * avz/domain shared data -- pointer provided in start_info.
+ * Shared info page, shared between AVZ and the domain.
  */
-struct shared_info {
+struct avz_shared {
 
-	uint8_t evtchn_upcall_pending;
+	domid_t domID;
 
-	/*
-	 * Updates to the following values are preceded and followed by an
-	 * increment of 'version'. The guest can therefore detect updates by
-	 * looking for changes to 'version'. If the least-significant bit of
-	 * the version number is set then an update is in progress and the guest
-	 * must wait to read a consistent set of values.
-	 * The correct way to interact with the version number is similar to
-	 * ME's seqlock: see the implementations of read_seqbegin/read_seqretry.
+	/* Domain related information */
+	unsigned long nr_pages;     /* Total pages allocated to this domain.  */
+
+	/* Hypercall vector addr for direct branching without syscall */
+	addr_t hypercall_vaddr;
+
+	/* Interrupt routine in the domain */
+	addr_t vectors_vaddr;
+
+	/* Domcall routine in the domain */
+	addr_t domcall_vaddr;
+
+	/* Trap routine in the domain */
+	addr_t traps_vaddr;
+
+	addr_t fdt_paddr;
+
+	/* Low-level print function mainly for debugging purpose */
+	void (*printch)(char c);
+
+	/* VBstore pfn */
+	unsigned long vbstore_pfn;
+
+	unsigned long dom_phys_offset;
+
+	/* Physical and virtual address of the page table used when the domain is bootstraping */
+	addr_t pagetable_paddr;
+	addr_t pagetable_vaddr; /* Required when bootstrapping the domain */
+
+	/* Address of the logbool ht_set function which can be used in the domain. */
+	unsigned long logbool_ht_set_addr;
+
+	/* We inform the domain about the hypervisor memory region so that the
+	 * domain can re-map correctly.
 	 */
-	uint32_t version;
-	uint64_t tsc_timestamp;   /* Current (local) TSC from the free-running clocksource */
-	uint64_t tsc_prev;
+	addr_t hypervisor_vaddr;
+
+	/* Other fields related to domain life */
+
+	unsigned long domain_stack;
+	uint8_t evtchn_upcall_pending;
 
 	/*
 	 * A domain can create "event channels" on which it can send and receive
@@ -103,69 +132,16 @@ struct shared_info {
 
 	atomic_t dc_event;
 
-	/* Clocksource reference used during migration */
-	uint64_t clocksource_ref;
-	uint64_t clocksource_base;
-
 	/* Agency or ME descriptor */
 	dom_desc_t dom_desc;
 
-	struct shared_info *subdomain_shared_info;
+	struct avz_shared *subdomain_shared;
 
 	/* Reference to the logbool hashtable (one per each domain) */
 	void *logbool_ht;
 };
 
-typedef struct shared_info shared_info_t;
-
-extern volatile shared_info_t *HYPERVISOR_shared_info;
-
-extern void hypercall_trampoline(int hcall, long a0, long a2, long a3, long a4);
-
-#define avz_shared_info ((smp_processor_id() == 1) ? (HYPERVISOR_shared_info)->subdomain_shared_info : HYPERVISOR_shared_info)
-
-#define avz_primary_shared_info ((shared_info_t *) HYPERVISOR_shared_info)
-
-
-/*
- * start_info structure
- */
-
-struct start_info {
-
-    int	domID;
-
-    unsigned long nr_pages;     /* Total pages allocated to this domain.  */
-
-    shared_info_t *shared_info;  /* AVZ virtual address of the shared info page */
-
-    unsigned long hypercall_vaddr; /* Hypercall vector addr for direct branching without syscall */
-    unsigned long vectors_vaddr;
-    unsigned long domcall_vaddr;
-    unsigned long traps_vaddr;
-
-    unsigned long fdt_paddr;
-
-    /* Low-level print function mainly for debugging purpose */
-    void (*printch)(char c);
-
-    unsigned long store_mfn;    /* MACHINE page number of shared page.    */
-
-    unsigned long nr_pt_frames; /* Number of bootstrap p.t. frames.       */
-    unsigned long dom_phys_offset;
-
-    unsigned long pt_vaddr;  /* Virtual address of the page table used when the domain is bootstraping */
-
-    unsigned long logbool_ht_set_addr;  /* Address of the logbool ht_set function which can be used in the domain. */
-
-    /* We inform the domain about the hypervisor memory region so that the
-     * domain can re-map correctly.
-     */
-    addr_t hypervisor_vaddr;
-};
-typedef struct start_info start_info_t;
-
-extern start_info_t *avz_start_info;
+typedef struct avz_shared avz_shared_t;
 
 /*
  * DOMCALLs
@@ -182,8 +158,7 @@ typedef void (*domcall_t)(int cmd, void *arg);
 #define DOMCALL_soo				8
 
 struct DOMCALL_presetup_adjust_variables_args {
-	start_info_t *start_info_virt; /* IN */
-	addr_t clocksource_vaddr; /* IN */
+	avz_shared_t *avz_shared; /* IN */
 };
 
 struct DOMCALL_postsetup_adjust_variables_args {
@@ -200,17 +175,15 @@ struct DOMCALL_directcomm_args {
 };
 
 struct DOMCALL_sync_vbstore_args {
-	unsigned int vbstore_pfn; 		/* OUT */
+	unsigned int vbstore_pfn;  /* OUT */
 	unsigned int vbstore_revtchn; /* Agency side */
 };
 
 struct DOMCALL_sync_domain_interactions_args {
 	unsigned int vbstore_pfn; 	/* IN */
 	unsigned int vbstore_levtchn;
-	shared_info_t *shared_info_page; /* IN */
 };
 
-void postmig_adjust_timer(unsigned int clocksource_vaddr);
+void postmig_adjust_timer(void);
 
-#endif /* __AVZ_H__ */
-
+#endif /* UAPI_AVZ */

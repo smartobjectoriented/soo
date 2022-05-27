@@ -39,14 +39,14 @@
 */
 #define DBG(fmt, ...) \
 	do { \
-		force_print("%s:%i > "fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+		force_print("(CPU %d) %s:%i > "fmt, smp_processor_id(), __func__, __LINE__, ##__VA_ARGS__); \
 	} while (0)
 
 /* rtdm_printk() is broken for the time being. Use lprintk() instead.
  * One can safely switch back to rtdm_printk() once the issues are solved. */
 #define RTDBG(fmt, ...) \
 	do { \
-		force_print("%s:%i > "fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+		force_print("(CPU %d) %s:%i > "fmt, smp_processor_id(), __func__, __LINE__, ##__VA_ARGS__); \
 	} while (0)
 
 #define DBG0(...) DBG("%s", ##__VA_ARGS__)

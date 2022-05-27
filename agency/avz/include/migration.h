@@ -20,13 +20,14 @@
 #define __MIGRATION_H__
 
 #include <sched.h>
+#include <soo.h>
 
 #include <soo/uapi/avz.h>
 
+#include <asm/migration.h>
+
 struct domain_migration_info
 {
-	domid_t domain_id;
-
 	/*
 	 *  Event channel struct information.
 	 */
@@ -40,21 +41,9 @@ struct domain_migration_info
 	unsigned int nr_pirqs;
 
 	bool evtchn_pending[NR_EVTCHN];
-	bool evtchn_mask[NR_EVTCHN];
-
-	u64 clocksource_ref;
 
 	/* Start info page */
-	unsigned char start_info_page[PAGE_SIZE];
-
-	dom_desc_t dom_desc;
-
-	/* Domain start pfn */
-	unsigned long start_pfn;
-
-	int cpu_id;
-
-	int processor;
+	avz_shared_t avz_shared;
 
 	bool need_periodic_timer;
 
@@ -69,15 +58,20 @@ struct domain_migration_info
 	addr_t   g_sp; 	/* G-stack */
 
 	struct vfp_state vfp;
-
-	addrspace_t addrspace;
-
-	/* Must be the first field of this structure (see exception.S) */
-	uint8_t evtchn_upcall_pending;
-
-	uint32_t version;
-	uint64_t tsc_timestamp;
-	uint64_t tsc_prev;
 };
+
+void mig_restore_domain_migration_info(unsigned int ME_slotID, struct domain *me);
+void after_migrate_to_user(void);
+
+void migration_init(soo_hyp_t *op);
+void migration_final(soo_hyp_t *op);
+
+void read_migration_structures(soo_hyp_t *op);
+void write_migration_structures(soo_hyp_t *op);
+
+void restore_migrated_domain(unsigned int ME_slotID);
+void restore_injected_domain(unsigned int ME_slotID);
+
+void inject_me(soo_hyp_t *op);
 
 #endif /* __MIGRATION_H__ */

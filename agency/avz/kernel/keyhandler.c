@@ -120,18 +120,18 @@ static void dump_domains(unsigned char key)
 	for (i = 0; i < MAX_DOMAINS; i++) {
 		d = domains[i];
 
-		printk("General information for domain %u:\n", d->domain_id);
+		printk("General information for domain %u:\n", d->avz_shared->domID);
 
-		printk("    dying=%d nr_pages=%d max_pages=%u\n", d->is_dying, d->tot_pages, d->max_pages);
+		printk("    dying=%d nr_pages=%d max_pages=%u\n", d->is_dying, d->avz_shared->nr_pages, d->max_pages);
 
-		printk("VCPU information and callbacks for domain %u:\n", d->domain_id);
+		printk("VCPU information and callbacks for domain %u:\n", d->avz_shared->domID);
 
 		printk("    CPU%d [has=%c] flags=%lx "
 			"upcall_pend = %02x",
 			d->processor,
 			d->is_running ? 'T':'F',
 			d->pause_flags,
-			d->shared_info->evtchn_upcall_pending);
+			d->avz_shared->evtchn_upcall_pending);
 
 		printk("    %s\n", tmpstr);
 

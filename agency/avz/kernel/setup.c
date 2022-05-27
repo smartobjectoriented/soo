@@ -26,6 +26,7 @@
 #include <memslot.h>
 #include <keyhandler.h>
 #include <event.h>
+#include <soo.h>
 
 #include <device/device.h>
 
@@ -34,8 +35,6 @@
 #include <asm/io.h>
 #include <asm/vfp.h>
 #include <asm/setup.h>
-
-#include <soo/soo.h>
 
 #include <soo/uapi/logbool.h>
 

@@ -59,7 +59,7 @@ void do_domctl(domctl_t *args)
 	case DOMCTL_unpauseME:
 
 		/* Retrieve info from hypercall parameter structure */
-		d->si->store_mfn = args->u.unpause_ME.store_mfn;
+		d->avz_shared->vbstore_pfn = args->u.unpause_ME.vbstore_pfn;
 
 		DBG("%s: unpausing ME\n", __func__);
 

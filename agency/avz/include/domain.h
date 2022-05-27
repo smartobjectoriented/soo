@@ -19,6 +19,9 @@
 #ifndef DOMAIN_H
 #define DOMAIN_H
 
+#include <spinlock.h>
+#include <timer.h>
+
 #include <soo/uapi/avz.h>
 
 #include <asm/vfp.h>
@@ -45,12 +48,13 @@ struct evtchn
 
 struct domain
 {
+	/* The spinlocks are placed here to have a 8-byte alignement
+	 * required by ldaxr instruction.
+	 */
 
 	spinlock_t virq_lock;
 	spinlock_t domain_lock;
 	spinlock_t event_lock;
-
-	domid_t domain_id;
 
 	/* Fields related to the underlying CPU */
 	cpu_regs_t cpu_regs;
@@ -58,13 +62,9 @@ struct domain
 
 	struct vfp_state vfp;
 
-	/* Information to the related address space for this domain. */
-	addrspace_t addrspace;
+	avz_shared_t *avz_shared;     /* shared data area between AVZ and the domain */
 
-	shared_info_t *shared_info;     /* shared data area */
-
-	unsigned int tot_pages;       /* number of pages currently possesed */
-	unsigned int max_pages;       /* maximum value for tot_pages        */
+	unsigned int max_pages;    /* maximum value for tot_pages        */
 
 	/* Event channel information. */
 	struct evtchn evtchn[NR_EVTCHN];
@@ -93,8 +93,6 @@ struct domain
 	/* IRQ-safe virq_lock protects against delivering VIRQ to stale evtchn. */
 	u16 virq_to_evtchn[NR_VIRQS];
 
-	struct start_info *si;
-
 	unsigned long domain_stack;
 };
 
@@ -108,7 +106,7 @@ extern struct domain *domains[MAX_DOMAINS];
 extern int construct_agency(struct domain *d);
 extern int construct_ME(struct domain *d);
 
-extern void new_thread(struct domain *d, unsigned long start_pc, unsigned long r2_arg, unsigned long start_stack, unsigned long start_info);
+extern void new_thread(struct domain *d, unsigned long start_pc, unsigned long r2_arg, unsigned long start_stack);
 void *setup_dom_stack(struct domain *d);
 
 extern void domain_call(struct domain *target_dom, int cmd, void *arg);
@@ -116,7 +114,7 @@ extern void domain_call(struct domain *target_dom, int cmd, void *arg);
 void machine_halt(void);
 
 void arch_domain_create(struct domain *d, int cpu_id);
-void arch_setup_domain_frame(struct domain *d, cpu_regs_t *domain_frame, addr_t fdt_addr, addr_t start_info, addr_t start_stack, addr_t start_pc);
+void arch_setup_domain_frame(struct domain *d, cpu_regs_t *domain_frame, addr_t fdt_addr, addr_t start_stack, addr_t start_pc);
 
 /*
  * setup_page_table_guestOS() is setting up the 1st-level and 2nd-level page tables within the domain.
