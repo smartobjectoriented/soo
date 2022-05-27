@@ -69,17 +69,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-
-
-	pre_propagate_args->propagate_status = 0;
-#if 0
-	/* Enable migration - here, we migrate 3 times before being killed. */
-	if ((get_ME_state() != ME_state_dormant) || (migration_count != 3)) {
-		pre_propagate_args->propagate_status = 1;
-		migration_count++;
-	} else
-		set_ME_state(ME_state_killed);
-#endif
+	pre_propagate_args->propagate_status = PROPAGATE_STATUS_YES;
 
 	return 0;
 }
@@ -143,17 +133,17 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 		/* Perform the cooperate in the target ME */
 		args->__agency_ctl(&agency_ctl_args);
-
-
+#if 0
+		set_ME_state(ME_state_killed);
+#endif
 		break;
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
-
-		/* In the SOO.refso3 ME, we simply destroy the initiator */
-		agency_ctl_args.cmd = AG_KILL_ME;
-		agency_ctl_args.slotID = cooperate_args->u.initiator_coop.slotID;
-		args->__agency_ctl(&agency_ctl_args);
+#if 1
+		/* Destroy us */
+		set_ME_state(ME_state_terminated);
+#endif
 
 		break;
 

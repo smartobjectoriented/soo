@@ -91,10 +91,10 @@ static void rtdm_dc_isr_task_fn(void *arg) {
 	while (true) {
 		rtdm_event_wait(&dc_isr_event);
 
-		dc_event = atomic_read((const atomic_t *) &avz_shared_info->dc_event);
+		dc_event = atomic_read((const atomic_t *) &AVZ_shared->dc_event);
 
 		/* Reset the dc_event now so that the domain can send another dc_event */
-		atomic_set((atomic_t *) &avz_shared_info->dc_event, DC_NO_EVENT);
+atomic_set((atomic_t *) &AVZ_shared->dc_event, DC_NO_EVENT);
 
 		/* Perform the associated callback function to this particular dc_event */
 		if (rtdm_dc_event_callback[dc_event] != NULL)
@@ -135,9 +135,9 @@ void rtdm_dc_sl_fn(dc_event_t dc_event) {
 static int rtdm_dc_isr(rtdm_irq_t *unused) {
 	dc_event_t dc_event;
 
-	DBG("(ME domid %d): Received directcomm interrupt for event: %d\n", smp_processor_id(), avz_shared_info->dc_event);
+	DBG("(ME domid %d): Received directcomm interrupt for event: %d\n", smp_processor_id(), AVZ_shared->dc_event);
 
-	dc_event = atomic_read((const atomic_t *) &avz_shared_info->dc_event);
+	dc_event = atomic_read((const atomic_t *) &AVZ_shared->dc_event);
 
 	/* We should not receive twice a same dc_event, before it has been fully processed. */
 	BUG_ON(atomic_read(&rtdm_dc_incoming_domID[dc_event]) != -1);
@@ -163,12 +163,12 @@ static int rtdm_dc_isr(rtdm_irq_t *unused) {
 		break;
 
 	default:
-		lprintk("%s: something weird happened on CPU %d, RT directcomm interrupt was triggered, but no DC event (%d) was configured !\n", __func__, smp_processor_id(), avz_shared_info->dc_event);
+		lprintk("%s: something weird happened on CPU %d, RT directcomm interrupt was triggered, but no DC event (%d) was configured !\n", __func__, smp_processor_id(), AVZ_shared->dc_event);
 		break;
 	}
 
 	/* Reset the dc_event now so that the domain can send another dc_event */
-	atomic_set((atomic_t *) &avz_shared_info->dc_event, DC_NO_EVENT);
+	atomic_set((atomic_t *) &AVZ_shared->dc_event, DC_NO_EVENT);
 
 	return RTDM_IRQ_HANDLED;
 }

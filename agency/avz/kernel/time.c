@@ -33,9 +33,9 @@
 #include <limits.h>
 #include <div64.h>
 #include <bitops.h>
-#include <device/timer.h>
+#include <soo.h>
 
-#include <soo/soo.h>
+#include <device/timer.h>
 
 #include <asm/setup.h>
 #include <asm/processor.h>

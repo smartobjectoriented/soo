@@ -121,9 +121,6 @@ void vbs_get_absolute_path(struct vbs_node *node, char *path);
 void vbs_dump(void);
 void vbs_dump_watches(void);
 
-extern struct vbstore_domain_interface *vbstore_intf[MAX_DOMAINS];
-extern void *__vbstore_vaddr[MAX_DOMAINS];
-
 extern vbstore_intf_t *__intf;
 
 extern struct list_head watches_rt;

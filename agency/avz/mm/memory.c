@@ -401,27 +401,24 @@ void put_ME_slot(unsigned int slotID) {
 #endif
 }
 
-
-
 /*
  * switch_mm() is used to perform a memory context switch between domains.
  * @d refers to the domain
  * @next_addrspace refers to the address space to be considered with this domain.
  * @current_addrspace will point to the current address space.
  */
-void switch_mm(struct domain *d, addrspace_t *next_addrspace) {
-	addrspace_t prev_addrspace;
+void switch_mm(struct domain *d) {
+	addr_t current_pgtable_paddr;
 
-	/* Preserve the current configuration of MMU registers of the running domain before doing a switch */
-	get_current_addrspace(&prev_addrspace);
+	get_current_pgtable(&current_pgtable_paddr);
 
-	if (is_addrspace_equal(next_addrspace, &prev_addrspace))
+	if (current_pgtable_paddr == d->avz_shared->pagetable_paddr)
 	/* Check if the current page table is identical to the next one. */
 		return ;
 
 	set_current(d);
 
-	mmu_switch(next_addrspace);
+	mmu_switch(d->avz_shared->pagetable_paddr);
 }
 
 void dump_page(unsigned int pfn) {

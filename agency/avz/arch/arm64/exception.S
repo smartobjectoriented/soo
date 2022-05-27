@@ -229,7 +229,7 @@ el0_sync_handler:
 
 	mov		sp, x0
 	curdom  x10, x12
-	ldr		x12, [x10, #OFFSET_START_INFO]
+	ldr		x12, [x10, #OFFSET_AVZ_SHARED]
 	ldr		x10, [x12, #OFFSET_TRAPS_CALLBACK]
 
 	// Come back on the domain stack
@@ -303,7 +303,7 @@ el01_irq_handler:
 	ldr		lr, [sp], #8
 
 	curdom	x10, x11
-	ldr		x11, [x10, #OFFSET_SHARED_INFO]
+	ldr		x11, [x10, #OFFSET_AVZ_SHARED]
 
 	// If the softirq handling leads to trigger an interrupt in the guest,
 	// it will be processed by do_evtchn_do_upcall. The way how to
@@ -323,7 +323,7 @@ upcall_path:
 	current_cpu x11
 
 	curdom  x10, x12
-	ldr		x12, [x10, #OFFSET_START_INFO]
+	ldr		x12, [x10, #OFFSET_AVZ_SHARED]
 	ldr		lr, [x12, #OFFSET_HYPERVISOR_CALLBACK]
 
 	cmp		lr, #0
@@ -395,7 +395,7 @@ ENTRY(pre_ret_to_user)
 
 	// Get a reference to our domain descriptor
 	curdom	x10, x11
-	ldr		x11, [x10, #OFFSET_START_INFO]
+	ldr		x11, [x10, #OFFSET_AVZ_SHARED]
 	str		xzr, [x11, #OFFSET_HYPERVISOR_CALLBACK]
 
 	current_cpu 	x11
@@ -428,28 +428,9 @@ ENTRY(pre_ret_to_user)
  *
  */
 ENTRY(after_migrate_to_user)
-#if 0
-    @ should be enough
 
-    @ We need to set up a correct vector offset in S_CONTEXT
+	b upcall_path
 
-    current_cpu r11
-
-    curdom  r10
-
-	ldr		r0, .LChypervisor_stack   	@ running SVC hypervisor stack
-	str		sp, [r0, r11, lsl #2]
-
-	@ get guest stack (already stacked from save_svc_context)
-	ldr		sp, [r10, #OFFSET_G_SP]
-
-	mov		r9, #0x18   @ IRQ -> will drive to evtchn_do_upcall() in the guest
-    str		r9, [sp, #S_CONTEXT]
-
-	ldr		sp, [r0, r11, lsl #2]
-
-	b do_upcall
-#endif
 
 pseudo_usr_mode:
 	.space NR_CPUS * 8

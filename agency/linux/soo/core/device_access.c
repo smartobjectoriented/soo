@@ -22,6 +22,7 @@
 #include <soo/core/sysfs.h>
 
 #include <soo/guest_api.h>
+#include <soo/avz.h>
 
 #include <soo/uapi/soo.h>
 #include <soo/uapi/avz.h>
@@ -128,7 +129,7 @@ void devaccess_dump_soo_name(void) {
 }
 
 void agencyUID_read(char *str) {
-	sprintf(str, "%16llx", HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID);
+	sprintf(str, "%16llx", AVZ_shared->dom_desc.u.agency.agencyUID);
 }
 
 /*

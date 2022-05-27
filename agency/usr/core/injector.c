@@ -67,7 +67,7 @@ int inject_ME(void *ME_buffer, size_t size) {
 /**
  * Try to retrieve a ME from the DCM and deploy it.
  */
-void ME_inject(unsigned char *ME_buffer, size_t size) {
+void ME_inject(unsigned char *ME_buffer, uint32_t size) {
 	int slotID;
 
 	slotID = inject_ME(ME_buffer, size);

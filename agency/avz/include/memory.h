@@ -79,9 +79,8 @@ void memory_init(void);
 
 uint32_t get_kernel_size(void);
 
-void get_current_addrspace(addrspace_t *addrspace);
-bool is_addrspace_equal(addrspace_t *addrspace1, addrspace_t *addrspace2);
-void switch_mm(struct domain *d, addrspace_t *next_addrspace);
+void switch_mm(struct domain *d);
+
 void dump_page(unsigned int pfn);
 
 static inline int get_order_from_bytes(addr_t size)

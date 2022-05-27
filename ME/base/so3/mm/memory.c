@@ -31,6 +31,10 @@
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
 
+#ifdef CONFIG_SO3VIRT
+#include <soo/avz.h>
+#endif
+
 extern unsigned long __vectors_start, __vectors_end;
 mem_info_t mem_info;
 
@@ -40,7 +44,7 @@ page_t *frame_table;
 static spinlock_t ft_lock;
 
 /* First pfn of available pages */
-addr_t pfn_start;
+volatile addr_t pfn_start;
 
 /* Page-aligned kernel size (including frame table) */
 static uint32_t kernel_size;
@@ -395,22 +399,26 @@ void io_unmap(addr_t vaddr) {
 /**
  * Re-adjust PFNs used for various purposes.
  */
-void readjust_io_map(unsigned pfn_offset) {
+void readjust_io_map(long pfn_offset) {
 	io_map_t *io_map;
 	struct list_head *pos;
+	addr_t offset;
 
 	/*
 	 * Re-adjust I/O area since it does not intend to be HW I/O in SO3VIRT, but
-	 * can be used for gnttab entries for example.
+	 * can be used for gnttab entries or other mappings for example.
 	 */
 	list_for_each(pos, &io_maplist) {
 		io_map = list_entry(pos, io_map_t, list);
-		io_map->paddr += pfn_to_phys(pfn_offset);
+
+		offset = io_map->paddr & (PAGE_SIZE - 1);
+		io_map->paddr = pfn_to_phys(phys_to_pfn(io_map->paddr) + pfn_offset);
+		io_map->paddr += offset;
+
 	}
 
 	/* Re-adjust other PFNs used for frametable management. */
 	pfn_start += pfn_offset;
-
 }
 
 #endif /* CONFIG_SO3VIRT */
@@ -484,10 +492,13 @@ void memory_init(void) {
 	memcpy((void *) VECTOR_VADDR, (void *) &__vectors_start, (void *) &__vectors_end - (void *) &__vectors_start);
 #endif
 
+#else
 	/* Update the system page table vaddr required for memory re-implantation after migration */
-	avz_start_info->pt_vaddr = __sys_root_pgtable;
+	AVZ_shared->pagetable_vaddr = (addr_t)__sys_root_pgtable;
+	AVZ_shared->pagetable_paddr = __pa(__sys_root_pgtable);
 
 #endif
+
 	set_pgtable(__sys_root_pgtable);
 
 #endif /* CONFIG_MMU */

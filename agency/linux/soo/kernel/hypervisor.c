@@ -30,7 +30,7 @@
 #include <soo/uapi/domctl.h>
 #include <soo/uapi/physdev.h>
 
-void avz_ME_unpause(domid_t domain_id, uint32_t store_mfn)
+void avz_ME_unpause(domid_t domain_id, addr_t vbstore_pfn)
 {
 	struct domctl op;
 
@@ -40,7 +40,7 @@ void avz_ME_unpause(domid_t domain_id, uint32_t store_mfn)
 
 	op.domain = domain_id;
 
-	op.u.unpause_ME.store_mfn = store_mfn;
+	op.u.unpause_ME.vbstore_pfn = vbstore_pfn;
 
 	hypercall_trampoline(__HYPERVISOR_domctl, (long) &op, 0 ,0 ,0);
 }

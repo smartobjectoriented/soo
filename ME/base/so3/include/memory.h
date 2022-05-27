@@ -90,7 +90,7 @@ struct page {
 typedef struct page page_t;
 
 extern page_t *frame_table;
-extern addr_t pfn_start;
+extern volatile addr_t pfn_start;
 
 #define pfn_to_phys(pfn) ((pfn) << PAGE_SHIFT)
 #define phys_to_pfn(phys) (((addr_t) phys) >> PAGE_SHIFT)
@@ -136,7 +136,7 @@ void init_io_mapping(void);
 addr_t io_map(addr_t phys, size_t size);
 void io_unmap(addr_t vaddr);
 io_map_t *find_io_map_by_paddr(addr_t paddr);
-void readjust_io_map(unsigned pfn_offset);
+void readjust_io_map(long pfn_offset);
 
 void dump_io_maplist(void);
 

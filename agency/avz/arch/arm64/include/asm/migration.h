@@ -24,6 +24,6 @@ void fix_kernel_boot_page_table_ME(unsigned int ME_slotID);
 /* Start of ME RAM in virtual address space of idle domain */
 extern unsigned long vaddr_start_ME;
 
-extern long pfn_offset;
+extern volatile long pfn_offset;
 
 #endif /* ASM_MIGRATION_H */

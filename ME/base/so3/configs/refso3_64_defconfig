@@ -69,7 +69,6 @@ CONFIG_ROOTFS_NONE=y
 #
 # SOO Mobile Entity - Smart Object Oriented subsystem
 #
-CONFIG_VBSTORE_VADDR=0xffff7a0000000000
 CONFIG_SOO_REFSO3=y
 # CONFIG_SOO_BLIND is not set
 # CONFIG_SOO_OUTDOOR is not set

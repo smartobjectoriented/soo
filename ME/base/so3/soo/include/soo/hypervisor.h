@@ -22,10 +22,6 @@
 #include <soo/avz.h>
 #include <soo/physdev.h>
 
-extern start_info_t *avz_start_info;
-
-shared_info_t *avz_map_shared_info(unsigned long pa);
-
 void domcall(int cmd, void *arg);
 
 void spad_enable_cooperate(void);

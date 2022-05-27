@@ -25,16 +25,13 @@
 
 #include <linux/cpumask.h>
 
-extern start_info_t *avz_start_info;
 extern bool __domcall_in_progress;
-
-shared_info_t *avz_map_shared_info(unsigned long pa);
 
 void avz_dump_page(unsigned int pfn);
 void avz_dump_logbool(void);
 
-void avz_ME_unpause(domid_t domain_id, uint32_t store_mfn);
-void avz_ME_pause(domid_t domain_id);
+void avz_ME_unpause(domid_t domID, addr_t vbstore_pfn);
+void avz_ME_pause(domid_t domID);
 
 void domcall(int cmd, void *arg);
 void avz_linux_callback(void);

@@ -4,8 +4,8 @@ add_executable(agency
         asf.c ta_installation.c
         device_access.c 
         injector.c 
-        leds.c 
-        migration.c send.c receive.c
+        leds.c
+        migration.c 
         upgrader.c
 )
 
