@@ -65,7 +65,6 @@ void smp_boot_secondary(unsigned int cpu) {
 		if (pen_release == -1)
 			break;
 
-		//udelay(1000);
 	} while (1);
 
 	gic_secondary_init(0);
