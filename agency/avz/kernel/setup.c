@@ -153,7 +153,7 @@ void kernel_start(void)
 	/* Enabling VFP module on this CPU */
 	vfp_enable();
 #endif
- //while(1);
+	
 	domain_unpause_by_systemcontroller(agency);
 
 	set_current(idle_domain[smp_processor_id()]);
