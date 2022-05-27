@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -50,7 +50,7 @@ atomic_t dc_incoming_domID[DC_EVENT_MAX];
 
 static struct completion dc_stable_lock[DC_EVENT_MAX];
 
-int __pfn_offset = 0;
+long __pfn_offset = 0;
 
 void dc_stable(int dc_event)
 {
@@ -168,12 +168,12 @@ void soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2
 /*
  * Set the pfn offset after migration
  */
-void set_pfn_offset(int pfn_offset)
+void set_pfn_offset(long pfn_offset)
 {
 	__pfn_offset = pfn_offset;
 }
 
-int get_pfn_offset(void)
+long get_pfn_offset(void)
 {
 	return __pfn_offset;
 }
@@ -183,7 +183,7 @@ int get_pfn_offset(void)
  */
 int get_ME_state(void)
 {
-	return avz_shared_info->dom_desc.u.ME.state;
+	return AVZ_shared->dom_desc.u.ME.state;
 }
 
 void set_ME_state(ME_state_t state)
@@ -191,10 +191,10 @@ void set_ME_state(ME_state_t state)
 	/* Be careful if the ME is in living state and suddently is set to killed.
 	 * Backends will be in a weird state.
 	 */
-	if ((state == ME_state_killed) && (avz_shared_info->dom_desc.u.ME.state == ME_state_living))
+	if ((state == ME_state_killed) && (AVZ_shared->dom_desc.u.ME.state == ME_state_living))
 		lprintk("## WARNING ! ME %d is set to killed while living!\n", ME_domID());
 
-	avz_shared_info->dom_desc.u.ME.state = state;
+	AVZ_shared->dom_desc.u.ME.state = state;
 }
 
 void perform_task(dc_event_t dc_event)
@@ -274,7 +274,7 @@ void perform_task(dc_event_t dc_event)
 		break;
 
 	default:
-		lprintk("Wrong DC event %d\n", avz_shared_info->dc_event);
+		lprintk("Wrong DC event %d\n", AVZ_shared->dc_event);
 	}
 
 	tell_dc_stable(dc_event);
@@ -362,12 +362,12 @@ void agency_ctl(agency_ctl_args_t *agency_ctl_args)
 
 ME_desc_t *get_ME_desc(void)
 {
-	return &avz_shared_info->dom_desc.u.ME;
+	return (ME_desc_t *) &AVZ_shared->dom_desc.u.ME;
 }
 
 agency_desc_t *get_agency_desc(void)
 {
-	return &avz_shared_info->dom_desc.u.agency;
+	return (agency_desc_t *) &AVZ_shared->dom_desc.u.agency;
 }
 
 void soo_guest_activity_init(void)

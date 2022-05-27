@@ -271,7 +271,7 @@ void gnttab_init(void)
 		BUG();
 	}
 
-	DBG("Exporting grant_ref table pfn %05lx virt %p \n", phys_to_pfn(virt_to_phys_pt((unsigned int) gnttab)), gnttab);
+	DBG("Exporting grant_ref table pfn %05lx virt %p \n", phys_to_pfn(virt_to_phys_pt((addr_t) gnttab)), gnttab);
 
 	for (i = NR_RESERVED_ENTRIES; i < NR_GRANT_ENTRIES; i++)
 		gnttab_list[i] = i + 1;

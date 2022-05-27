@@ -97,7 +97,7 @@ __start:
 
 #ifdef CONFIG_SO3VIRT
 
-  ldr	x10, =avz_start_info
+  ldr	x10, =AVZ_shared
   str 	x22, [x10]
 
 #endif /* CONFIG_SO3VIRT */

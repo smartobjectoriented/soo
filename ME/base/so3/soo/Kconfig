@@ -4,9 +4,6 @@
 
 menu "SOO Mobile Entity - Smart Object Oriented subsystem"
 
-config VBSTORE_VADDR
-	hex "Virtual base address of the VBstore shared page"
-
 source "soo/me/Kconfig"
 source "soo/drivers/Kconfig"
 

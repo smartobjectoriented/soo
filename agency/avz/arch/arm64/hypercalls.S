@@ -38,7 +38,7 @@ ENTRY(ret_from_hypercall)
 	bl		do_softirq
 
 	curdom	x10, x11
-	ldr		x11, [x10, #OFFSET_SHARED_INFO]
+	ldr		x11, [x10, #OFFSET_AVZ_SHARED]
 
 	// If the softirq handling leads to trigger an interrupt in the guest,
 	// it will be processed by do_evtchn_do_upcall. The way how to

@@ -262,32 +262,81 @@ void create_mapping(void *l0pgtable, addr_t virt_base, addr_t phys_base, size_t 
 	mmu_page_table_flush((addr_t) l0pgtable, (addr_t) (l0pgtable + TTB_L0_SIZE));
 }
 
-void release_mapping(void *pgtable, addr_t virt_base, addr_t size) {
+static bool empty_table(void *pgtable) {
+	int i;
+	uint64_t *ptr = (uint64_t *) pgtable;
 
-#if 0
-	addr_t addr, end, length, next;
-	u64 *l0pte;
+	/* All levels of page table have the same number of entries */
+	for (i = 0; i < TTB_L0_ENTRIES; i++)
+		if (*(ptr+i))
+			return false;
+	/* The page table has no mapping */
+
+	return true;
+}
+
+void release_mapping(void *pgtable, addr_t vaddr, size_t size) {
+	uint64_t *l0pte, *l1pte, *l2pte, *l3pte;
+	size_t free_size = 0;
 
 	/* If l1pgtable is NULL, we consider the system page table */
 	if (pgtable == NULL)
-		pgtable = __sys_l1pgtable;
+		pgtable = __sys_root_pgtable;
 
-	addr = virt_base & PAGE_MASK;
-	length = ALIGN_UP(size + (virt_base & ~PAGE_MASK), PAGE_SIZE);
+	vaddr = vaddr & PAGE_MASK;
+	size = ALIGN_UP(size + (vaddr & ~PAGE_MASK), PAGE_SIZE);
 
-	l1pte = l1pte_offset(pgtable, addr);
+	while (free_size < size) {
+		l0pte = l0pte_offset(pgtable, vaddr);
+		if (!*l0pte)
+			/* Already free */
+			return ;
 
-	end = addr + length;
+		l1pte = l1pte_offset(l0pte, vaddr);
+		BUG_ON(!*l1pte);
 
-	do {
-		next = l1sect_addr_end(addr, end);
+		if (pte_type(l1pte) == PTE_TYPE_BLOCK) {
+			*l1pte = 0;
+			flush_pte_entry(vaddr, l1pte);
 
-		free_l1_mapping(l1pte, addr, next);
+			free_size += BLOCK_1G_OFFSET;
+			vaddr += BLOCK_1G_OFFSET;
 
-		addr = next;
+			if (empty_table(l0pte))
+				free(l0pte);
+		} else {
+			BUG_ON(pte_type(l1pte) != PTE_TYPE_TABLE);
+			l2pte = l2pte_offset(l1pte, vaddr);
+			BUG_ON(!*l2pte);
 
-	} while (l1pte++, addr != end);
-#endif
+			if (pte_type(l2pte) == PTE_TYPE_BLOCK) {
+				*l2pte = 0;
+				flush_pte_entry(vaddr, l2pte);
+
+				free_size += BLOCK_2M_OFFSET;
+				vaddr += BLOCK_2M_OFFSET;
+
+				if (empty_table(l1pte))
+					free(l1pte);
+			} else {
+				BUG_ON(pte_type(l2pte) != PTE_TYPE_TABLE);
+				l3pte = l3pte_offset(l2pte, vaddr);
+				BUG_ON(!*l3pte);
+
+				*l3pte = 0;
+				flush_pte_entry(vaddr, l3pte);
+
+				free_size += PAGE_SIZE;
+				vaddr += PAGE_SIZE;
+
+				if (empty_table(l2pte))
+					free(l2pte);
+			}
+		}
+	}
+
+	if (empty_table(pgtable))
+		free(pgtable);
 }
 
 /*
@@ -310,7 +359,7 @@ void *new_root_pgtable(void) {
 
 	/* Preserve the AVZ hypervisor */
 
-	*l0pte_offset(pgtable, avz_start_info->hypervisor_vaddr) = *l0pte_offset(__sys_root_pgtable, avz_start_info->hypervisor_vaddr);
+	*l0pte_offset(pgtable, AVZ_shared->hypervisor_vaddr) = *l0pte_offset(__sys_root_pgtable, AVZ_shared->hypervisor_vaddr);
 
 #endif /* CONFIG_SO3VIRT */
 
@@ -427,8 +476,8 @@ void mmu_configure(void) {
 
 	/* Copy the level 0 PTE to get full access to the hypervisor */
 
-	*l0pte_offset(__sys_root_pgtable, avz_start_info->hypervisor_vaddr) =
-		*l0pte_offset(avz_start_info->pt_vaddr, avz_start_info->hypervisor_vaddr);
+	*l0pte_offset(__sys_root_pgtable, AVZ_shared->hypervisor_vaddr) =
+		*l0pte_offset(AVZ_shared->pagetable_vaddr, AVZ_shared->hypervisor_vaddr);
 
 #else /* !CONFIG_SO3VIRT */
 

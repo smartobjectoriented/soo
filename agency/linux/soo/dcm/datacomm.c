@@ -88,6 +88,7 @@ static int recv_thread_task_fn(void *data) {
 	void *ME_decrypt;
 #endif
 	while (1) {
+
 		/* Receive data from SOOlink */
 		datacomm_recv(&ME_compressed_buffer, &compressed_size);
 

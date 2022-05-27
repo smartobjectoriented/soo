@@ -63,8 +63,7 @@ void evtchn_destroy_final(struct domain *d); /* from complete_domain_destroy */
 #define domain_unlock(d) spin_unlock_recursive(&(d)->domain_lock)
 #define domain_is_locked(d) spin_is_locked(&(d)->domain_lock)
 
-
-#define is_idle_domain(d) ((d)->domain_id == DOMID_IDLE)
+#define is_idle_domain(d) ((d)->avz_shared->domID == DOMID_IDLE)
 
 #define DOMAIN_DESTROYED (1<<31) /* assumes atomic_t is >= 32 bits */
 

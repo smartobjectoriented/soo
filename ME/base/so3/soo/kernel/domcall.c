@@ -47,10 +47,11 @@
  */
 #define BASEADDR_BITMAP_BYTES 	256
 
+#if 0
 extern addr_t __heap_base_addr;
 static addr_t heap_base_vaddr = (addr_t ) &__heap_base_addr;
 
-#if 0
+
 static unsigned char baseaddr_2nd_bitmap[BASEADDR_BITMAP_BYTES];
 
 /* Init the bitmap */
@@ -295,13 +296,13 @@ void domcall(int cmd, void *arg)
  * Enable the cooperation between this ME and the other.
  */
 void spad_enable_cooperate(void) {
-	avz_shared_info->dom_desc.u.ME.spad.valid = true;
+	AVZ_shared->dom_desc.u.ME.spad.valid = true;
 }
 
 /**
  * Enable the cooperation between this ME and the other.
  */
 void spad_disable_cooperate(void) {
-	avz_shared_info->dom_desc.u.ME.spad.valid = false;
+	AVZ_shared->dom_desc.u.ME.spad.valid = false;
 }
 

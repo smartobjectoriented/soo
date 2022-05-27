@@ -67,8 +67,6 @@
 
 #ifndef __ASSEMBLY__
 
-int current_domain_id(void);
-
 /*
  * Pseudo-usr mode allows the hypervisor to switch back to the right stack (G-stach/H-stack) depending on whether
  * the guest issued a hypercall or if an interrupt occurred during some processing in the hypervisor.
