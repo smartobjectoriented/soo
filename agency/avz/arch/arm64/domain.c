@@ -26,10 +26,10 @@
 
 #include <mach/uart.h>
 
-void arch_setup_domain_frame(struct domain *d, struct cpu_regs *domain_frame, addr_t fdt_addr, addr_t start_info, addr_t start_stack, addr_t start_pc) {
+void arch_setup_domain_frame(struct domain *d, struct cpu_regs *domain_frame, addr_t fdt_addr, addr_t start_stack, addr_t start_pc) {
 
 	domain_frame->x21 = fdt_addr;
-	domain_frame->x22 = start_info;
+	domain_frame->x22 = (unsigned long) d->avz_shared;
 
 	domain_frame->sp = start_stack;
 	domain_frame->pc = start_pc;
@@ -57,15 +57,8 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 	/* Initial L0 page table for the domain */
 	new_pt = new_root_pgtable();
 
-	d->addrspace.pgtable_vaddr = (addr_t) new_pt;
-	d->addrspace.pgtable_paddr = __pa(new_pt);
-	d->addrspace.ttbr1[d->processor] = __pa(new_pt);
-
-	/* Keep a reference to the page table on Agency CPU for MEs
-	 * because we will switch to it after the setup of page tables.
-	 */
-	if (d->processor != AGENCY_CPU)
-		d->addrspace.ttbr1[AGENCY_CPU] = __pa(new_pt);
+	d->avz_shared->pagetable_vaddr = (addr_t) new_pt;
+	d->avz_shared->pagetable_paddr = __pa(new_pt);
 
 	/* Copy the hypervisor area */
 #ifdef CONFIG_VA_BITS_48
@@ -84,11 +77,7 @@ lprintk("########   new_pt = %lx      value: %lx addr: %lx\n", new_pt, *l0pte_of
 
 void arch_domain_create(struct domain *d, int cpu_id) {
 
-	if (is_idle_domain(d)) {
-		d->addrspace.pgtable_paddr = __pa(__sys_root_pgtable);
-		d->addrspace.pgtable_vaddr = (addr_t) __sys_root_pgtable;
-
-		d->addrspace.ttbr1[cpu_id] = __pa(__sys_root_pgtable);
-	}
+	if (is_idle_domain(d))
+		d->avz_shared->pagetable_paddr = __pa(__sys_root_pgtable);
 }
 

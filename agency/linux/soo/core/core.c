@@ -107,7 +107,8 @@ static struct device soo_dev;
  */
 static void force_terminate(unsigned int ME_slotID) {
 
-	if (get_ME_state(ME_slotID) == ME_state_living)
+	/* The ME may be ME_state_terminated after a cooperate callback */
+	if ((get_ME_state(ME_slotID) == ME_state_living) || (get_ME_state(ME_slotID) == ME_state_terminated))
 		do_sync_dom(ME_slotID, DC_FORCE_TERMINATE);
 
 	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated))
@@ -116,6 +117,7 @@ static void force_terminate(unsigned int ME_slotID) {
 
 /**
  * Walk through all MEs to see if some have to be terminated.
+ * Called after final migration.
  */
 void check_terminated_ME(void) {
 	int slotID;

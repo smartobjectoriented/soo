@@ -29,6 +29,7 @@
 #include <types.h>
 #include <sched.h>
 #include <event.h>
+#include <soo.h>
 
 #include <device/irq.h>
 #include <device/arch/gic.h>
@@ -38,13 +39,11 @@
 #include <soo/uapi/debug.h>
 #include <soo/uapi/avz.h>
 
-#include <soo/soo.h>
-
 int do_physdev_op(int cmd, void *args)
 {
 	int val;
 	struct domain *__current;
-	addrspace_t prev_addrspace;
+	addr_t current_pgtable_paddr;
 	send_ipi_args_t send_ipi_args;
 
 	switch (cmd) {
@@ -54,12 +53,14 @@ int do_physdev_op(int cmd, void *args)
 		memcpy(&val, args, sizeof(int));
 
 		__current = current;
-		get_current_addrspace(&prev_addrspace);
-		switch_mm(idle_domain[smp_processor_id()], &idle_domain[smp_processor_id()]->addrspace);
+		get_current_pgtable(&current_pgtable_paddr);
+
+		switch_mm(idle_domain[smp_processor_id()]);
 
 		dump_page(val);
 
-		switch_mm(__current, &prev_addrspace);
+		set_current(__current);
+		mmu_switch(current_pgtable_paddr);
 
 		break;
 	}

@@ -1196,6 +1196,9 @@ SYM_CODE_START(hypercall_trampoline)
 	stp		x28, x29, [sp, #S_X28]
 	str		lr, [sp, #S_LR]
 
+	// Update PSTATE accordingly
+	str		x9, [sp, #S_PSTATE]
+
 	mov		x0, sp
 	bl 		evtchn_do_upcall
 

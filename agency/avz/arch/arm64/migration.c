@@ -35,8 +35,8 @@ static void adjust_pte(uint64_t *pte, uint64_t addr_mask) {
 
 	uint64_t old_pfn;
 
-	old_pfn = (*pte & addr_mask) >> PAGE_SHIFT;
-	*pte = (*pte & ~addr_mask) | (((old_pfn + pfn_offset) << PAGE_SHIFT) & addr_mask);
+	old_pfn = phys_to_pfn(*pte & addr_mask);
+	*pte = (*pte & ~addr_mask) | (pfn_to_phys(old_pfn + pfn_offset) & addr_mask);
 }
 
 /**
@@ -50,21 +50,22 @@ void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 {
 	struct domain *me = domains[ME_slotID];
 	uint64_t *pgtable_ME;
-	unsigned long old_pfn;
 	uint64_t *l0pte, *l1pte, *l2pte, *l3pte;
 	int l0, l1, l2, l3;
 
 	/* Locate the system ME (L0) page table */
-	pgtable_ME = (uint64_t *) (vaddr_start_ME + me->si->pt_vaddr - ME_PAGE_OFFSET);
+	me->avz_shared->pagetable_paddr = pfn_to_phys(phys_to_pfn(me->avz_shared->pagetable_paddr) + pfn_offset);
+
+	pgtable_ME = (uint64_t *) __lva(me->avz_shared->pagetable_paddr);
 
 	/* Walk through L0 page table */
-	for (l0 = 0; l0 < TTB_L0_ENTRIES; l0++) {
+	for (l0 = l0pte_index(ME_PAGE_OFFSET); l0 < TTB_L0_ENTRIES; l0++) {
 
 		l0pte = pgtable_ME + l0;
 		if (!*l0pte)
 			continue;
 
-		adjust_pte(l0pte, TTB_L1_TABLE_ADDR_MASK);
+		adjust_pte(l0pte, TTB_L0_TABLE_ADDR_MASK);
 
 		/* Walk through L1 page table */
 		for (l1 = 0; l1 < TTB_L1_ENTRIES; l1++) {
@@ -89,7 +90,7 @@ void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 					if (pte_type(l2pte) == PTE_TYPE_BLOCK)
 						adjust_pte(l2pte, TTB_L2_BLOCK_ADDR_MASK);
 					else {
-						adjust_pte(l2pte, TTB_L1_BLOCK_ADDR_MASK);
+						adjust_pte(l2pte, TTB_L2_TABLE_ADDR_MASK);
 
 						for (l3 = 0; l3 < TTB_L3_ENTRIES; l3++) {
 							l3pte = ((uint64_t *) __lva(*l2pte & TTB_L2_TABLE_ADDR_MASK)) + l3;
@@ -107,22 +108,5 @@ void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 
 	/* Fixup the hypervisor */
 	*l0pte_offset(pgtable_ME, CONFIG_HYPERVISOR_VADDR) = *l0pte_offset(__sys_root_pgtable, CONFIG_HYPERVISOR_VADDR);
-
-
-	/**********************/
-
-	/* Fix the physical address of the ME kernel page table */
-	me->addrspace.pgtable_paddr = me->addrspace.pgtable_paddr + pfn_to_phys(pfn_offset);
-
-	/* Fix other phys. var. such as TTBR* */
-
-	old_pfn = phys_to_pfn(me->addrspace.ttbr1[ME_CPU]);
-
-	me->addrspace.ttbr1[ME_CPU] = pfn_to_phys(old_pfn + pfn_offset);
-
-	old_pfn = phys_to_pfn(me->addrspace.ttbr1[smp_processor_id()]);
-
-	/* Need to be called also on CPU #0 (AGENCY_CPU) */
-	me->addrspace.ttbr1[smp_processor_id()] = pfn_to_phys(old_pfn + pfn_offset);
 
 }

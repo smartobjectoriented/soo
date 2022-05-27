@@ -22,6 +22,6 @@
 
 #include <soo/uapi/soo.h>
 
-bool ME_processing_receive(void);
+void ME_processing_receive(void);
 
 #endif /* RECEIVE_H */

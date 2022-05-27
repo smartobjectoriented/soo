@@ -68,7 +68,7 @@
  *
  *             mask        block size
  *
- *    L0: FF8000000000       512GB
+ *    L0: FF8000000000       256GB
  *    L1:   7FC0000000       1G
  *    L2:     3FE00000       2M
  *    L3:       1FF000       4K
@@ -458,7 +458,7 @@ addr_t virt_to_phys_pt(addr_t vaddr);
 void pgtable_copy_kernel_area(void *l1pgtable);
 
 void create_mapping(void *pgtable, addr_t virt_base, addr_t phys_base, size_t size, bool nocache);
-void release_mapping(void *pgtable, addr_t virt_base, addr_t size);
+void release_mapping(void *pgtable, addr_t virt_base, size_t size);
 
 void reset_l1pgtable(void *l1pgtable, bool remove);
 

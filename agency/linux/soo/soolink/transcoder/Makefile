@@ -1,3 +1,3 @@
 
-obj-y := core.o consistency.o
+obj-y := transcoder.o
 

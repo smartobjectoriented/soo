@@ -337,15 +337,9 @@ void vbstore_me_init(void) {
 
 	vbus_probe_frontend_init();
 
-	/* Regarding MEs, avz_start_info->store_mfn is mapped statically at CONFIG_VBSTORE_VADDR
-	 * in trap_init() earlier in the startup sequence */
-
-	__intf = (vbstore_intf_t *) CONFIG_VBSTORE_VADDR;
-
 	/* Initialize the interface to vbstore. */
 
 	vbus_vbstore_init();
-
 }
 
 void vbstore_init_dev_populate(void) {

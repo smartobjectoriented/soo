@@ -55,7 +55,7 @@ ENTRY(avz_vector_callback)
  * - x7: hypecall number (ABI)
  *
  * - x8 will contain 0 if no pending evtchn, 1 otherwise
- * - x9 will contain the PSTATE at the hypercall entry
+ * - x9 will contain the PSTATE at the hypercall entry and exit
  */
 ENTRY(hypercall_trampoline)
 
@@ -85,6 +85,9 @@ ENTRY(hypercall_trampoline)
 	b.eq	out_upcall
 
 	kernel_entry
+
+	// Update PSTATE accordingly
+	str		x9, [sp, #OFFSET_PSTATE]
 
 	// Set x0 to sp
 	mov		x0, sp

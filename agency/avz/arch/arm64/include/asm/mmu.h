@@ -338,8 +338,6 @@
  })
 
 
-#define clear_page(page)	memset((void *)(page), 0, PAGE_SIZE)
-
 #define PFN_DOWN(x)   ((x) >> PAGE_SHIFT)
 #define PFN_UP(x)     (((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
 
@@ -394,16 +392,6 @@ static inline int pte_type(u64 *pte)
 	return *pte & PTE_TYPE_MASK;
 }
 
-/*
- * This structure holds internal fields required to
- * manage the MMU configuration regarding address space.
- */
-typedef struct {
-	uint64_t ttbr1[NR_CPUS];
-	addr_t pgtable_paddr;
-	addr_t pgtable_vaddr;
-} addrspace_t;
-
 #define cpu_get_l0pgtable()	\
 ({						\
 	unsigned long ttbr;			\
@@ -434,11 +422,11 @@ void set_pte(u64 *pte, enum dcache_option option);
 extern void __mmu_switch(void *root_pgtable_phys);
 
 void create_mapping(void *pgtable, addr_t virt_base, addr_t phys_base, size_t size, bool nocache);
-void release_mapping(void *pgtable, addr_t virt_base, addr_t size);
+void release_mapping(void *pgtable, addr_t virt_base, size_t size);
 
 void *new_root_pgtable(void);
 
-void mmu_switch(addrspace_t *addrspace);
+void mmu_switch(addr_t pgtable_paddr);
 void dump_pgtable(void *l0pgtable);
 
 void dump_current_pgtable(void);
@@ -447,7 +435,8 @@ void mmu_setup(void *pgtable);
 
 void vectors_init(void);
 
-void set_current_pgtable(void *pgtable);
+void get_current_pgtable(addr_t *pgtable_paddr);
+
 void replace_current_pgtable_with(void *pgtable);
 
 #endif

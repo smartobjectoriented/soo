@@ -1978,12 +1978,19 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 		 * and we have to re-send a new acknowledgment.
 		 */
 
+		/* First frame ? */
+		if (packet->transID == 0)
+			current_soo_winenet->expected_transID = 0;
+
 		if ((packet->transID & WNET_MAX_PACKET_TRANSID) < current_soo_winenet->expected_transID) {
 
 			/* A packet we already received; might happen if a ACK has not been received by the speaker. */
 
 			if (((packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME == WNET_N_PACKETS_IN_FRAME - 1) || (packet->transID & WNET_LAST_PACKET))
 				wnet_send_ack(current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, ACK_STATUS_OK, true);
+
+			wnet_trace("*** [soo:soolink:winenet] Pkt chain broken: (expected_transID=%d)/(packet->transID=%d)\n",
+				   current_soo_winenet->expected_transID, packet->transID & WNET_MAX_PACKET_TRANSID);
 
 			return ;
 
@@ -2003,6 +2010,9 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 
 		/* Save the last ID of the last received packet */
 		current_soo_winenet->expected_transID = (packet->transID & WNET_MAX_PACKET_TRANSID) + 1;
+
+		/* Time to rethink to a better way... ? */
+		BUG_ON(current_soo_winenet->expected_transID == WNET_MAX_PACKET_TRANSID);
 
 		/* If all the packets of the frame have been received, forward them to the upper layer */
 		if (((packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME == WNET_N_PACKETS_IN_FRAME - 1) || (packet->transID & WNET_LAST_PACKET)) {

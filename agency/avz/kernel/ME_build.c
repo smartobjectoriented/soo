@@ -40,33 +40,26 @@ int construct_ME(struct domain *d) {
 	unsigned int slotID;
 	unsigned long v_start;
 	unsigned long alloc_spfn;
-	unsigned long nr_pages;
-	addrspace_t prev_addrspace;
+	addr_t prev_pagetable_paddr;
 
-	slotID = d->domain_id;
+	slotID = d->avz_shared->domID;
 
-	printk(	"***************************** Loading Mobile Entity (ME) *****************************\n");
+	printk("***************************** Loading Mobile Entity (ME) *****************************\n");
 
 	if (memslot[slotID].size == 0)
 		panic("No domU image supplied\n");
 
 	/* We are already on the swapper_pg_dir page table to have full access to RAM */
 
-	/* The following page will contain start_info information */
-	d->si = (struct start_info *) memalign(PAGE_SIZE, PAGE_SIZE);
-	BUG_ON(!d->si);
-
 	d->max_pages = ~0U;
-	d->tot_pages = 0;
 
-	nr_pages = memslot[slotID].size >> PAGE_SHIFT;
+	d->avz_shared->nr_pages = memslot[slotID].size >> PAGE_SHIFT;
 	printk("Max dom size %d\n", memslot[slotID].size);
 
-	printk("Domain length = %lu pages.\n", nr_pages);
+	printk("Domain length = %lu pages.\n", d->avz_shared->nr_pages);
 
 	ASSERT(d);
 
-	d->tot_pages = memslot[slotID].size >> PAGE_SHIFT;
 	alloc_spfn = memslot[slotID].base_paddr >> PAGE_SHIFT;
 
 	clear_bit(_VPF_down, &d->pause_flags);
@@ -76,37 +69,26 @@ int construct_ME(struct domain *d) {
 	__setup_dom_pgtable(d, v_start, memslot[slotID].size, (alloc_spfn << PAGE_SHIFT));
 
 	/* Lets switch to the page table of our new domain - required for sharing page info */
-	get_current_addrspace(&prev_addrspace);
+	get_current_pgtable(&prev_pagetable_paddr);
 
-	mmu_switch(&d->addrspace);
+	mmu_switch(d->avz_shared->pagetable_paddr);
 
-	memset(d->si, 0, PAGE_SIZE);
+	d->avz_shared->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
+	d->avz_shared->hypercall_vaddr = (unsigned long) hypercall_entry;
+	d->avz_shared->logbool_ht_set_addr = (unsigned long) ht_set;
+	d->avz_shared->fdt_paddr = memslot[slotID].fdt_paddr;
 
-	d->si->domID = d->domain_id;
+	d->avz_shared->hypervisor_vaddr = CONFIG_HYPERVISOR_VADDR;
 
-	d->si->nr_pages = d->tot_pages;
-	d->si->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
+	printk("ME FDT device tree: 0x%lx (phys)\n", d->avz_shared->fdt_paddr);
 
-	d->si->shared_info = d->shared_info;
-	d->si->hypercall_vaddr = (unsigned long) hypercall_entry;
+	d->avz_shared->printch = printch;
 
-	d->si->logbool_ht_set_addr = (unsigned long) ht_set;
-
-	d->si->fdt_paddr = memslot[slotID].fdt_paddr;
-
-	d->si->hypervisor_vaddr = CONFIG_HYPERVISOR_VADDR;
-
-	printk("ME FDT device tree: 0x%lx (phys)\n", d->si->fdt_paddr);
-
-	d->si->printch = printch;
-
-	d->si->pt_vaddr = d->addrspace.pgtable_vaddr;
-
-	mmu_switch(&prev_addrspace);
+	mmu_switch(prev_pagetable_paddr);
 
 	/* Create the first thread associated to this domain. */
 
-	new_thread(d, v_start + L_TEXT_OFFSET, d->si->fdt_paddr, v_start + memslot[slotID].size, (addr_t) d->si);
+	new_thread(d, v_start + L_TEXT_OFFSET, d->avz_shared->fdt_paddr, v_start + memslot[slotID].size);
 
 	return 0;
 }

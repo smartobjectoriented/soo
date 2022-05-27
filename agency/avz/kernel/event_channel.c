@@ -22,12 +22,11 @@
 #include <event.h>
 #include <sched-if.h>
 #include <keyhandler.h>
+#include <soo.h>
 
 #include <device/irq.h>
 
 #include <asm/cacheflush.h>
-
-#include <soo/soo.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/event_channel.h>
@@ -42,7 +41,7 @@
 #define ERROR_EXIT_DOM(_errno, _dom)                                \
 		do {                                                            \
 			printk("EVTCHNOP failure: domain %d, error %d\n",          \
-					(_dom)->domain_id, (_errno));                       \
+					(_dom)->avz_shared->domID, (_errno));                       \
 					BUG();                                                   \
 		} while ( 0 )
 
@@ -97,7 +96,7 @@ static void evtchn_bind_interdomain(evtchn_bind_interdomain_t *bind) {
 	revtchn = bind->remote_evtchn;
 
 	if (rdom == DOMID_SELF)
-		rdom = current->domain_id;
+		rdom = current->avz_shared->domID;
 
 	rd = domains[rdom];
 
@@ -119,7 +118,7 @@ static void evtchn_bind_interdomain(evtchn_bind_interdomain_t *bind) {
 
 	valid = ((rchn->state == ECS_INTERDOMAIN) && (rchn->interdomain.remote_dom == NULL));
 
-	if (!valid && ((rchn->state != ECS_UNBOUND) || (rchn->unbound.remote_domid != ld->domain_id)))
+	if (!valid && ((rchn->state != ECS_UNBOUND) || (rchn->unbound.remote_domid != ld->avz_shared->domID)))
 		ERROR_EXIT_DOM(-EINVAL, rd);
 
 	lchn->interdomain.remote_dom = rd;
@@ -149,7 +148,7 @@ void evtchn_bind_existing_interdomain(struct domain *ld, struct domain *remote, 
 
 	DBG("%s\n", __FUNCTION__);
 
-	rd = domains[remote->domain_id];
+	rd = domains[remote->avz_shared->domID];
 
 	/* Avoid deadlock by first acquiring lock of domain with smaller id. */
 	if (ld < rd) {
@@ -164,12 +163,12 @@ void evtchn_bind_existing_interdomain(struct domain *ld, struct domain *remote, 
 	lchn = &ld->evtchn[levtchn];
 	rchn = &rd->evtchn[revtchn];
 
-	/* Check if the remote is still equal to local (due to IMEC initializing for example) */
+	/* Check if the remote is still equal to local */
 
-	if (lchn->unbound.remote_domid == ld->domain_id)
-		rchn->unbound.remote_domid = remote->domain_id;
+	if (lchn->unbound.remote_domid == ld->avz_shared->domID)
+		rchn->unbound.remote_domid = remote->avz_shared->domID;
 
-	if ((rchn->state != ECS_UNBOUND) || ((rchn->unbound.remote_domid != DOMID_SELF) && (rchn->unbound.remote_domid != ld->domain_id)))
+	if ((rchn->state != ECS_UNBOUND) || ((rchn->unbound.remote_domid != DOMID_SELF) && (rchn->unbound.remote_domid != ld->avz_shared->domID)))
 		ERROR_EXIT_DOM(-EINVAL, rd);
 
 	lchn->interdomain.remote_dom = rd;
@@ -271,7 +270,7 @@ again:
 			BUG_ON(chn2->interdomain.remote_dom != d1);
 
 			chn2->state = ECS_UNBOUND;
-			chn2->unbound.remote_domid = d1->domain_id;
+			chn2->unbound.remote_domid = d1->avz_shared->domID;
 		}
 		break;
 
@@ -280,7 +279,7 @@ again:
 	}
 
 	/* Clear pending event to avoid unexpected behavior on re-bind. */
-	d1->shared_info->evtchn_pending[chn] = false;
+	d1->avz_shared->evtchn_pending[chn] = false;
 
 	/* Reset binding when the channel is freed. */
 	chn1->state = ECS_FREE;
@@ -309,7 +308,7 @@ void evtchn_send(struct domain *d, unsigned int levtchn) {
 	if (lchn->state != ECS_INTERDOMAIN) {
 		/* Abnormal situation */
 		printk("%s: failure, undefined state: %d, local domain: %d, remote domain: %d, revtchn: %d, levtchn: %d, CPU: %d\n",
-			__func__, lchn->state, ld->domain_id, ((rd != NULL) ? rd->domain_id : -1), revtchn, levtchn, smp_processor_id());
+			__func__, lchn->state, ld->avz_shared->domID, ((rd != NULL) ? rd->avz_shared->domID : -1), revtchn, levtchn, smp_processor_id());
 
 		BUG();
 	}
@@ -339,8 +338,8 @@ static void evtchn_set_pending(struct domain *d, int evtchn) {
 	 */
 	ASSERT(local_irq_is_disabled());
 
-	d->shared_info->evtchn_pending[evtchn] = true;
-	d->shared_info->evtchn_upcall_pending = 1;
+	d->avz_shared->evtchn_pending[evtchn] = true;
+	d->avz_shared->evtchn_upcall_pending = 1;
 
 	smp_mb();
 
@@ -399,7 +398,7 @@ static void evtchn_status(evtchn_status_t *status) {
 
 	case ECS_INTERDOMAIN:
 		status->status = EVTCHNSTAT_interdomain;
-		status->u.interdomain.dom = chn->interdomain.remote_dom->domain_id;
+		status->u.interdomain.dom = chn->interdomain.remote_dom->avz_shared->domID;
 		status->u.interdomain.evtchn = chn->interdomain.remote_evtchn;
 		break;
 
@@ -540,7 +539,7 @@ static void domain_dump_evtchn_info(struct domain *d) {
 		if (chn->state == ECS_FREE)
 			continue;
 
-		printk("  Dom: %d  chn: %d pending:%d: state: %d", d->domain_id, i, d->shared_info->evtchn_pending[i], chn->state);
+		printk("  Dom: %d  chn: %d pending:%d: state: %d", d->avz_shared->domID, i, d->avz_shared->evtchn_pending[i], chn->state);
 
 		switch (chn->state) {
 		case ECS_UNBOUND:
@@ -548,7 +547,7 @@ static void domain_dump_evtchn_info(struct domain *d) {
 			break;
 
 		case ECS_INTERDOMAIN:
-			printk(" interdomain remote_dom:%d remove_evtchn: %d", chn->interdomain.remote_dom->domain_id, chn->interdomain.remote_evtchn);
+			printk(" interdomain remote_dom:%d remove_evtchn: %d", chn->interdomain.remote_dom->avz_shared->domID, chn->interdomain.remote_evtchn);
 			break;
 
 		case ECS_VIRQ:
