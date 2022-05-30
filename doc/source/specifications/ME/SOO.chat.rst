@@ -94,13 +94,13 @@ This chapter describes:
 
 -  The app behaviour
 
-Migration
-~~~~~~~~~
+Migration and cllbacks
+~~~~~~~~~~~~~~~~~~~~~~
 
 Every Smart Object has a residing SOO.chat ME. Once the tablet sends a
 new message to our residing ME, the ME is sent to migrate in the system.
 The migrating ME now needs to go trough the whole system to distribute
-the message. It keeps a list of known_neighbors which it visited.
+the message. It keeps a list of `visits` which it visited.
 
 .. figure:: /img/specifications/MEs/SOO_chat_migration.png
    :align: center
@@ -109,7 +109,8 @@ the message. It keeps a list of known_neighbors which it visited.
 
 As described in the diagram above, the ME kills itself if it migrated in
 a visited SO. If it is a new SO, it continues its callback sequence and
-start a collaboration with the present ME.
+start a cooperation with the present ME. The last part of the diagram is split in two, one path for the migrating ME (initiator), the other one for the target.
+
 
 Callbacks
 ~~~~~~~~~
@@ -118,39 +119,42 @@ This chapter describes the callbacks behaviors.
 
 pre_activate
 ^^^^^^^^^^^^
-
-The ME checks if there is at least one SOO.chat ME present in the SO. If
-so, it stays in the SO and collaborate with the present SOO.chat. The
-SOO.chat ME collaborate exclusively with other SOO.chat MEs.
+- The ME retrieve the originUID of the first agency it is deployed on (once).
+- The ME check if the host is already visited.
+  * If not: Add the host to the visited list
+  * If yes: ask to kill ourself
 
 cooperate
 ^^^^^^^^^
 
-Most of the job is done in the ``cooperate``
+Most of the job is done in the ``cooperate``. It is described in the migration flowchart.
+The cooperation is always the initiator (migrating ME) cooperating with an already present target ME (it can be a local or a migrating one).
+In our case, four scenarios are possible:
+ - No ME is present in the SO. So it means the migrating one is alone. We continue our propagation.
+ - An ME is present, but it is not a SOO.chat. We continue our propagation.
+ - A migrating SOO.chat is present. If we have the same message, merge the histories and kill the initiator, otherwise, don't do anything and continue our propagation.
+ - A local SOO.chat is present. The local SOO.chat checks if it already has the new message, and adds it to its history if needed. 
 
-.. figure:: /img/specifications/MEs/SOO_chat_ME_collaborate.png
-   :align: center
-   
-   Cooperation flowchart 
 
-
-The most common case will be the arriving ME having a newer message than
-the residing one, because if it is migrating, it means that it is
-distributing a new message.
+pre_propagate
+^^^^^^^^^^^^^
+The pre-propagate will decide if the ME will be propagated or if it must die. It is called periodically (300ms).
+It checks if any of the callbacks asked for a propagation (internal flag). If a propagation is needed, it checks if 
+it is dormant. If yes, it means we need to ask to kill ourself, if not, it means the ME must be propagated.
+The internal propagation flag is always resetted here, so if no other callback changes it, the ME will die as soon as it is dormant.
 
 SOO.chat app
 ~~~~~~~~~~~~
 
 The SOO.chat app is the core of the SOO.chat ME. It is able to store a
-small history for the messages which need to be distributed. It also
-contains and execute the helpers needed to compare and merge two
-histories.
+small history for the messages which  were distributed. It also
+contains and execute the helpers needed to compare and merge histories. 
 
 Messages id management
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Each time a new message is received from the tablet, the SOO.chat
-assigns it a ``message_id``, incrementing it each time. It is used as a
+assigns it a ``id``, incrementing it each time. It is used as a
 heuristic data, which, in addition to the ME age, is needed when doing
 histories merge.
 
@@ -165,7 +169,7 @@ A message is stored in the following structure:
 | orig   | uint | origin agency UID. Used to keep a trace of the       |
 | in_uid | 64_t | originating SO                                       |
 +--------+------+------------------------------------------------------+
-| data   | char | The message text                                     |
+| text   | char | The message text                                     |
 |        | \*   |                                                      |
 +--------+------+------------------------------------------------------+
 
