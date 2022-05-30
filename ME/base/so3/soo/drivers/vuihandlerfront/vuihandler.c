@@ -81,11 +81,11 @@ static int tx_buffer_put(uint8_t *data, uint32_t size) {
 	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
 	tx_circ_buf = vuihandler_priv->tx_circ_buf;
 
+	mutex_lock(&tx_circ_buf->tx_circ_buf_mutex);
+
 	/* abort if there are no place left on the circular buffer */
 	if (tx_circ_buf->cur_size == VUIHANDLER_MAX_TX_BUF_ENTRIES) 
 		return -1;
-
-	mutex_lock(&tx_circ_buf->tx_circ_buf_mutex);
 
 	/* Copy the data into the circular buffer */
 	tx_circ_buf->circ_buf[tx_circ_buf->cur_prod_idx].size = size;

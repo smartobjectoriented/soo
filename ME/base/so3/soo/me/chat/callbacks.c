@@ -170,6 +170,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		 * The ME killing decision is takin in the pre_propagate cb 
 		 */
 		if (cooperate_args->alone || get_spid() != cooperate_args->u.target_coop.spid) {
+			DBG("We are alone!\n");
 			/* If we are alone, just keep propagating, and ask to kill this ME 
 			We don't want to stay in a SmartObject*/
 			set_ME_state(ME_state_dormant);
