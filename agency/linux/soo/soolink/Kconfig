@@ -1,4 +1,4 @@
 
 
-source "soo/soolink/plugins/Kconfig"  
+source "soo/soolink/transceiver/Kconfig"  
 
