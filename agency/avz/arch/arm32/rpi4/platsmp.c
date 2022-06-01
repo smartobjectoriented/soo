@@ -33,7 +33,7 @@ extern void secondary_startup(void);
 
 void smp_prepare_cpus(unsigned int max_cpus)
 {
-	/* Nothing to do for Rpi4 */
+	/* Nothing to do for RPi4 */
 }
 
 void smp_boot_secondary(unsigned int cpu)
@@ -52,6 +52,6 @@ void smp_boot_secondary(unsigned int cpu)
 }
 
 void smp_secondary_init(unsigned int cpu) {
-	/* Nothing to do for Rpi4 */
+	/* Nothing to do for RPi4 */
 }
 
