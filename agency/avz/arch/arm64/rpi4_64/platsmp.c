@@ -58,6 +58,7 @@ void smp_boot_secondary(unsigned int cpu)
 }
 
 void smp_secondary_init(unsigned int cpu) {
-	/* Nothing to do for RPi4 */
+
+	gic_secondary_init(0);
 }
 

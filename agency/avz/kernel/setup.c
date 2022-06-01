@@ -147,6 +147,10 @@ void kernel_start(void)
 	/* Allow context switch between domains */
 	local_irq_enable();
 
+	init_timer(0);
+
+	while(1);
+
 	smp_init();
 
 #ifdef CONFIG_ARCH_ARM32
