@@ -19,7 +19,6 @@
 #include <smp.h>
 #include <io.h>
 #include <spinlock.h>
-#include <lib.h>
 #include <memory.h>
 
 #include <asm/cacheflush.h>
@@ -34,7 +33,7 @@ extern void secondary_startup(void);
 
 void smp_prepare_cpus(unsigned int max_cpus)
 {
-	/* Nothing to do for Rpi4 */
+	/* Nothing to do for RPi4 */
 }
 
 void smp_boot_secondary(unsigned int cpu)
@@ -44,15 +43,21 @@ void smp_boot_secondary(unsigned int cpu)
 
 	printk("%s: booting CPU: %d...\n", __func__, cpu);
 
-	intc_vaddr = ioremap(LOCAL_INTC_PHYS, LOCAL_INTC_SIZE);
+	/* According to linux/arch/arm64/kernel/smp_spin_table.c and DT value,
+	 * 0xf0 is used to start CPU #3 after sev instruction.
+	 */
+	writel(secondary_startup_phys, 0xf0);
 
-	writel(secondary_startup_phys, intc_vaddr + LOCAL_MAILBOX3_SET0 + 16 * cpu);
+	intc_vaddr = (void *) io_map(0xf0, 0x1000);
+
+	writel(secondary_startup_phys, intc_vaddr);
 
 	dsb(sy);
+
 	sev();
 }
 
 void smp_secondary_init(unsigned int cpu) {
-	/* Nothing to do for Rpi4 */
+	/* Nothing to do for RPi4 */
 }
 
