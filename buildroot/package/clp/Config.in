@@ -1,0 +1,13 @@
+config BR2_PACKAGE_CLP
+	bool "clp"
+	depends on BR2_PACKAGE_HOST_PKGCONF
+	select BR2_PACKAGE_COINUTILS
+	select BR2_PACKAGE_OPENBLAS
+	select BR2_PACKAGE_LAPACK
+	select BR2_PACKAGE_GLPK
+	select BR2_PACKAGE_BZIP2
+
+	help
+	  Clp (Coin-or linear programming) is an open-source linear programming solver.
+
+	  https://github.com/coin-or/Clp
