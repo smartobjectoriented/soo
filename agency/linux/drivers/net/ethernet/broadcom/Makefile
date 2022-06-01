@@ -6,7 +6,6 @@
 obj-$(CONFIG_B44) += b44.o
 obj-$(CONFIG_BCM63XX_ENET) += bcm63xx_enet.o
 obj-$(CONFIG_BCMGENET) += genet/
-obj-$(CONFIG_BCMGENET_ETHERCAT) += genet-ethercat/
 obj-$(CONFIG_BNX2) += bnx2.o
 obj-$(CONFIG_CNIC) += cnic.o
 obj-$(CONFIG_BNX2X) += bnx2x/
