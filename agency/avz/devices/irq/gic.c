@@ -85,7 +85,7 @@ static void gic_eoi_irq(unsigned int irq)
 	int cpu = smp_processor_id();
 
 	spin_lock(&per_cpu(intc_lock, cpu));
-	writel(gic_irq(irq), gic_cpu_base(irq) + GIC_CPU_EOI);
+	writei(gic_irq(irq), gic_cpu_base(irq) + GIC_CPU_EOI);
 	spin_unlock(&per_cpu(intc_lock, cpu));
 }
 
@@ -94,7 +94,7 @@ static void force_eoi_irq(unsigned int irq) {
 
 	if (gic_cpu_base_addr != NULL) {
 		spin_lock(&per_cpu(intc_lock, cpu));
-		writel(irq - gic_irq_offset, (unsigned long) gic_cpu_base_addr + GIC_CPU_EOI);
+		writei(irq - gic_irq_offset, (unsigned long) gic_cpu_base_addr + GIC_CPU_EOI);
 		spin_unlock(&per_cpu(intc_lock, cpu));
 	}
 }
@@ -106,7 +106,7 @@ static void gic_mask_irq(unsigned int irq)
 	int cpu = smp_processor_id();
 
 	spin_lock(&per_cpu(intc_lock, cpu));
-	writel(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_CLEAR + (gic_irq(irq) / 32) * 4);
+	writei(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_CLEAR + (gic_irq(irq) / 32) * 4);
 	spin_unlock(&per_cpu(intc_lock, cpu));
 
 }
@@ -117,7 +117,7 @@ static void gic_unmask_irq(unsigned int irq)
 	int cpu = smp_processor_id();
 
 	spin_lock(&per_cpu(intc_lock, cpu));
-	writel(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_SET + (gic_irq(irq) / 32) * 4);
+	writei(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_SET + (gic_irq(irq) / 32) * 4);
 	spin_unlock(&per_cpu(intc_lock, cpu));
 
 }
@@ -131,10 +131,10 @@ void gic_set_prio(unsigned int irq, unsigned char prio)
 	u32 prioff = (gicirq / 4) * 4;
 	u32 val;
 
-	val = readl(base + GIC_DIST_PRI + prioff);
+	val = readi(base + GIC_DIST_PRI + prioff);
 	val &= ~primask;
 	val |= prival;
-	writel(val, base + GIC_DIST_PRI + prioff);
+	writei(val, base + GIC_DIST_PRI + prioff);
 }
 
 int irq_set_affinity(unsigned int irq, int cpu)
@@ -152,9 +152,9 @@ int irq_set_affinity(unsigned int irq, int cpu)
 		return -EINVAL;
 	}
 
-	val = readl(reg) & ~(0xff << shift);
+	val = readi(reg) & ~(0xff << shift);
 	val |= 1 << (cpu + shift);
-	writel(val, reg);
+	writei(val, reg);
 	spin_unlock(&per_cpu(intc_lock, __cpu));
 
 	return 0;
@@ -182,13 +182,13 @@ static void gic_dist_init(struct gic_chip_data *gic, unsigned int irq_start)
 	unsigned int gic_irqs, irq_limit, i;
 	void *base = gic->dist_base;
 
-	writel(0, base + GIC_DIST_CTRL);
+	writei(0, base + GIC_DIST_CTRL);
 
 	/*
 	 * Find out how many interrupts are supported.
 	 * The GIC only supports up to 1020 interrupt sources.
 	 */
-	gic_irqs = readl(base + GIC_DIST_CTR) & 0x1f;
+	gic_irqs = readi(base + GIC_DIST_CTR) & 0x1f;
 	gic_irqs = (gic_irqs + 1) * 32;
 	if (gic_irqs > 1020)
 		gic_irqs = 1020;
@@ -197,26 +197,26 @@ static void gic_dist_init(struct gic_chip_data *gic, unsigned int irq_start)
 	 * Set all global interrupts to be level triggered, active low.
 	 */
 	for (i = 32; i < gic_irqs; i += 16)
-		writel(0, base + GIC_DIST_CONFIG + i * 4 / 16);
+		writei(0, base + GIC_DIST_CONFIG + i * 4 / 16);
 
 	/*
 	 * Major IRQs are routed to CPU #0
 	 */
 	for (i = 32; i < gic_irqs; i += 4)
-		writel(0x01010101, base + GIC_DIST_TARGET + i * 4 / 4);
+		writei(0x01010101, base + GIC_DIST_TARGET + i * 4 / 4);
 
 	/*
 	 * Set priority on all global interrupts.
 	 */
 	for (i = 32; i < gic_irqs; i += 4)
-		writel(0xa0a0a0a0, base + GIC_DIST_PRI + i * 4 / 4);
+		writei(0xa0a0a0a0, base + GIC_DIST_PRI + i * 4 / 4);
 
 	/*
 	 * Disable all interrupts.  Leave the PPI and SGIs alone
 	 * as these enables are banked registers.
 	 */
 	for (i = 32; i < gic_irqs; i += 32)
-		writel(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4 / 32);
+		writei(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4 / 32);
 
 	/*
 	 * Limit number of interrupts registered to the platform maximum
@@ -238,7 +238,7 @@ static void gic_dist_init(struct gic_chip_data *gic, unsigned int irq_start)
 
 	gic->max_irq = gic_irqs;
 
-	writel(1, base + GIC_DIST_CTRL);
+	writei(1, base + GIC_DIST_CTRL);
 
 	/*
 	 * By default, route all IRQs to CPU #0. Re-routing to other CPU can be performed subsequently using
@@ -258,14 +258,14 @@ void gic_cpu_config(void *base)
 	 * Deal with the banked PPI and SGI interrupts - disable all
 	 * PPI interrupts, ensure all SGI interrupts are enabled.
 	 */
-	writel(GICD_INT_EN_CLR_PPI, base + GIC_DIST_ENABLE_CLEAR);
-	writel(GICD_INT_EN_SET_SGI, base + GIC_DIST_ENABLE_SET);
+	writei(GICD_INT_EN_CLR_PPI, base + GIC_DIST_ENABLE_CLEAR);
+	writei(GICD_INT_EN_SET_SGI, base + GIC_DIST_ENABLE_SET);
 
 	/*
 	 * Set priority on PPI and SGI interrupts
 	 */
 	for (i = 0; i < 32; i += 4)
-		writel(GICD_INT_DEF_PRI_X4, base + GIC_DIST_PRI + i * 4 / 4);
+		writei(GICD_INT_DEF_PRI_X4, base + GIC_DIST_PRI + i * 4 / 4);
 
 }
 
@@ -277,10 +277,10 @@ static void gic_cpu_if_up(void)
 	/*
 	 * Preserve bypass disable bits to be written back later
 	 */
-	bypass = readl(cpu_base + GIC_CPU_CTRL);
+	bypass = readi(cpu_base + GIC_CPU_CTRL);
 	bypass &= GICC_DIS_BYPASS_MASK;
 
-	writel(bypass | GICC_ENABLE, cpu_base + GIC_CPU_CTRL);
+	writei(bypass | GICC_ENABLE, cpu_base + GIC_CPU_CTRL);
 }
 
 static void gic_cpu_init(struct gic_chip_data *gic)
@@ -298,7 +298,7 @@ static void gic_cpu_init(struct gic_chip_data *gic)
 
 	gic_cpu_config(dist_base);
 
-	writel(GICC_INT_PRI_THRESHOLD, base + GIC_CPU_PRIMASK);
+	writei(GICC_INT_PRI_THRESHOLD, base + GIC_CPU_PRIMASK);
 
 	gic_cpu_if_up();
 
@@ -331,7 +331,7 @@ static void gic_handle(cpu_regs_t *cpu_regs) {
 	ASSERT(local_irq_is_disabled());
 
 	do {
-		irqstat = readl(cpu_base + GIC_CPU_INTACK);
+		irqstat = readi(cpu_base + GIC_CPU_INTACK);
 		irqnr = irqstat & GICC_IAR_INT_ID_MASK;
 
 		smp_mb();
@@ -340,7 +340,7 @@ static void gic_handle(cpu_regs_t *cpu_regs) {
 			printk("## GIC failure: getting IRQ %d on CPU %d\n", irqnr, smp_processor_id());
 			BUG();
 		}
-
+lprintk("## GOT irq : %irqnr\n");
 		/* SPIs 32-irqmax */
 		if (likely((irqnr > 31) && (irqnr < 1021))) {
 			printk("## GIC failure: unexpected IRQ : %d\n", irqnr);
@@ -349,7 +349,7 @@ static void gic_handle(cpu_regs_t *cpu_regs) {
 
 		if (irqnr < 16) {
 			/* IPI are end-of-interrupt'ed like this. */
-			writel(irqstat, cpu_base + GIC_CPU_EOI);
+			writei(irqstat, cpu_base + GIC_CPU_EOI);
 
 			handle_IPI(irqnr);
 			continue;
@@ -453,7 +453,7 @@ void smp_cross_call(long cpu_mask, unsigned int irq)
 	smp_mb();
 
 	/* This always happens on GIC0 */
-	writel((cpu_mask << 16) | irq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
+	writei((cpu_mask << 16) | irq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
 
 	spin_unlock_irqrestore(&per_cpu(intc_lock, cpu), flags);
 }

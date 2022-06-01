@@ -122,7 +122,9 @@ void secondary_start_kernel(void)
 
 	unsigned int cpu = smp_processor_id();
 
-	//cpu_init();
+#ifdef CONFIG_ARCH_ARM32
+	cpu_init();
+#endif
 
 	printk("CPU%u: Booted secondary processor\n", cpu);
 
@@ -145,7 +147,9 @@ void secondary_start_kernel(void)
 	init_idle_domain();
 
 	/* Enabling VFP module on this CPU */
-	//vfp_enable();
+#ifdef CONFIG_ARCH_ARM32
+	vfp_enable();
+#endif
 
 	printk("%s: entering idle loop...\n", __func__);
 
@@ -176,7 +180,6 @@ void cpu_up(unsigned int cpu)
 
 	case ME_CPU:
 		secondary_data.stack = (void *) __cpu3_stack;
-		lprintk("## stack: %lx\n", secondary_data.stack);
 		break;
 
 	default:
@@ -202,7 +205,10 @@ void cpu_up(unsigned int cpu)
 	 * CPU was successfully started, wait for it
 	 * to come online or time out.
 	 */
+#warning not sure if still necessary...
+#ifdef CONFIG_ARCH_ARM32
 	smp_trigger_event(cpu);
+#endif
 
 	printk("Now waiting CPU %d to be up and running ...\n", cpu);
 

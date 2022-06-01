@@ -298,15 +298,15 @@ ENTRY(secondary_startup)
 	bl		el2_setup			// Drop to EL1, w0=cpu_boot_mode
 
 	// Initialize the vector table
-	ldr	x0, =__vectors
-	msr vbar_el1, x0
+	ldr		x0, =__vectors
+	msr 	vbar_el1, x0
 
 	// Enable FP/ASIMD
-	mov	x0, #3 << 20
-	msr	cpacr_el1, x0
+	mov		x0, #3 << 20
+	msr		cpacr_el1, x0
 
 	// Some CPU setup
-	msr pmuserenr_el0, xzr
+	msr 	pmuserenr_el0, xzr
 
     adr 	x4, __secondary_data
 

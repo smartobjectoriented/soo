@@ -67,7 +67,7 @@ void *get_ME_snapshot_user(void *origin, size_t size) {
 	args.buffer = origin;
 	args.slotID = size;
 
-	args.value = (int) malloc(size);
+	args.value = (unsigned long) malloc(size);
 	assert(args.value != 0);
 
 	ret = ioctl(fd_core, AGENCY_IOCTL_GET_ME_SNAPSHOT, &args);
@@ -89,7 +89,7 @@ void finalize_migration(unsigned int slotID) {
 
 int main(int argc, char *argv[]) {
 	void *buffer;
-	unsigned int buffer_size;
+	size_t buffer_size;
 	int ret;
 	struct zip_t *zip;
 
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
 
 	buffer = get_ME_snapshot_user(buffer, buffer_size);
 
-	printf("  * Got a ME buffer of %d bytes.\n", buffer_size);
+	printf("  * Got a ME buffer of %ld bytes.\n", buffer_size);
 
 	finalize_migration(2);
 
