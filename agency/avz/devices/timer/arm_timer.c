@@ -146,7 +146,7 @@ static struct clocksource arm_clocksource = {
  */
 void init_timer(int cpu)
 {
-	BUG_ON((cpu == AGENCY_CPU) || (cpu == AGENCY_RT_CPU));
+	//BUG_ON((cpu == AGENCY_CPU) || (cpu == AGENCY_RT_CPU));
 
 	/* System clocksource */
 	system_timer_clocksource = &arm_clocksource;
