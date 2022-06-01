@@ -335,12 +335,13 @@ static void gic_handle(cpu_regs_t *cpu_regs) {
 		irqnr = irqstat & GICC_IAR_INT_ID_MASK;
 
 		smp_mb();
-
+#if 0
 		if ((smp_processor_id() == AGENCY_CPU) || (smp_processor_id() == AGENCY_RT_CPU)){
 			printk("## GIC failure: getting IRQ %d on CPU %d\n", irqnr, smp_processor_id());
 			BUG();
 		}
-lprintk("## GOT irq : %irqnr\n");
+#endif
+lprintk("## GOT irq : %d\n", irqnr);
 		/* SPIs 32-irqmax */
 		if (likely((irqnr > 31) && (irqnr < 1021))) {
 			printk("## GIC failure: unexpected IRQ : %d\n", irqnr);

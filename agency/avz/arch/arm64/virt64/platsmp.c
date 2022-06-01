@@ -67,7 +67,7 @@ void smp_boot_secondary(unsigned int cpu) {
 
 	} while (1);
 
-	gic_secondary_init(0);
+	//gic_secondary_init(0);
 
 	/*
 	 * now the secondary core is starting up let it run its
