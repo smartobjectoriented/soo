@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -97,7 +97,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
-	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
+	// DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 	if (!full_initd) {
 		pre_propagate_args->propagate_status = PROPAGATE_STATUS_NO;
 		return 0;

@@ -17,7 +17,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -40,6 +40,7 @@
 
 ui_update_spid_t __ui_update_spid = NULL;
 ui_interrupt_t __ui_interrupt = NULL;
+ui_send_model_t __ui_send_model = NULL;
 
 /* Sent BT packet count */
 
@@ -74,7 +75,7 @@ unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
  * 
  * @return 0 on success, -1 on error
  */ 
-static int tx_buffer_put(uint8_t *data, uint32_t size) {
+static int tx_buffer_put(uint8_t *data, uint32_t size, uint8_t type) {
 	vuihandler_priv_t *vuihandler_priv;
 	tx_circ_buf_t *tx_circ_buf;
 
@@ -89,8 +90,8 @@ static int tx_buffer_put(uint8_t *data, uint32_t size) {
 
 	/* Copy the data into the circular buffer */
 	tx_circ_buf->circ_buf[tx_circ_buf->cur_prod_idx].size = size;
-
 	memcpy(tx_circ_buf->circ_buf[tx_circ_buf->cur_prod_idx].data, data, size);
+	tx_circ_buf->circ_buf[tx_circ_buf->cur_prod_idx].type = type;
 
 	/* Update the circular buffer info */
 	tx_circ_buf->cur_prod_idx = (tx_circ_buf->cur_prod_idx + 1) % VUIHANDLER_MAX_TX_BUF_ENTRIES;
@@ -154,7 +155,7 @@ irq_return_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	return IRQ_COMPLETED;
 }
 
-#if 1
+
 /**
  * Process pending responses in the rx_
  */
@@ -166,12 +167,28 @@ static void process_pending_rx_rsp(struct vbus_device *vdev) {
 	while ((ring_rsp = vuihandler_rx_get_ring_response(&vuihandler->rx_ring)) != NULL) {
 		DBG("rsp->id = %d, rsp->size = %d\n", ring_rsp->id, ring_rsp->size);
 		DBG("Packet as string is: %s\n", ring_rsp->buf);
-		if (__ui_interrupt)
-			(*__ui_interrupt)(ring_rsp->buf, ring_rsp->size);
+		switch (ring_rsp->type) {
+
+		/* Event management */	
+		case VUIHANDLER_POST:	
+		case VUIHANDLER_DATA:
+			if (__ui_interrupt)
+				(*__ui_interrupt)(ring_rsp->buf, ring_rsp->size);
+			break;
+
+		/* Model aksing */
+		case VUIHANDLER_SELECT:
+			if (__ui_send_model != NULL)
+				__ui_send_model();
+			break;
+		default:
+			break;					
+		}
+
 	
 	}
 }
-#endif
+
 
 /**
  * rx_ring interrupt.
@@ -186,11 +203,11 @@ irq_return_t vuihandler_rx_interrupt(int irq, void *dev_id) {
 /**
  * Send a packet to the tablet/smartphone.
  */
-void vuihandler_send(void *data, size_t size) {
+void vuihandler_send(void *data, size_t size, uint8_t type) {
 	vuihandler_priv_t *vuihandler_priv;
 	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
 
-	tx_buffer_put(data, size);
+	tx_buffer_put(data, size, type);
 	complete(vuihandler_priv->send_compl);
 }
 
@@ -439,8 +456,9 @@ void vuihandler_closed(struct vbus_device *vdev) {
 	vuihandler_priv->vuihandler.tx_irq = 0;
 }
 
-void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_interrupt_t ui_interrupt) {
+void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_send_model_t ui_send_model, ui_interrupt_t ui_interrupt) {
 	__ui_update_spid = ui_update_spid;
+	__ui_send_model = ui_send_model;
 	__ui_interrupt = ui_interrupt;
 }
 

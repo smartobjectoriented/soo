@@ -173,7 +173,11 @@ void send_chat_to_tablet(uint64_t senderUID, char* text) {
 	char msg[MAX_MSG_LENGTH];
 
 	xml_prepare_chat(msg, senderUID, text);
-	vuihandler_send(msg, strlen(msg)+1);
+	vuihandler_send(msg, strlen(msg)+1, VUIHANDLER_POST);
+}
+
+void send_chat_model(void) {
+	vuihandler_send(CHAT_MODEL, strlen(CHAT_MODEL)+1, VUIHANDLER_SELECT);
 }
 
 /**
@@ -211,7 +215,7 @@ void process_events(char * data, size_t size) {
 		/* Notify the text-edit widget that it must clear its text */
 		memset(msg, 0, MAX_MSG_LENGTH);	
 		xml_prepare_message(msg, TEXTEDIT_ID, "");
-		vuihandler_send(msg, strlen(msg)+1);
+		vuihandler_send(msg, strlen(msg)+1, VUIHANDLER_POST);
 
 
 		/* We update the chat_entry_t which will be delivered across the network */
@@ -234,7 +238,7 @@ int app_thread_main(void *args) {
 	printk("Enjoy the SOO.chat ME !\n");
 
 	/* register our process_event callback to the vuihandler */ 
-	vuihandler_register_callback(NULL, process_events);
+	vuihandler_register_callback(NULL, send_chat_model, process_events);
 
 	sh_chat->cur_chat.stamp = 0;
 	memset(sh_chat->cur_chat.text, 0, MAX_MSG_LENGTH);
