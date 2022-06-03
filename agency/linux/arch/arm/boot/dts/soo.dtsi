@@ -11,7 +11,7 @@
 
 			vdummy {
 				compatible = "vdummy,backend";
-				status = "disabled";
+				status = "ok";
 			};
 	
 			vuihandler {
@@ -43,6 +43,16 @@
             	compatible = "vweather,backend";
             	status = "disabled";
         	};
+
+			vwagoled {
+				compatible = "vwagoled,backend";
+				status = "disabled";
+			};
+
+			venocean {
+				compatible = "venocean,backend";
+				status = "disabled";
+			};
 
 		};
 	};
