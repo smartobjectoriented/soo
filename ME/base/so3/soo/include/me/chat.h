@@ -30,6 +30,32 @@
 #define ACTION_MAX_LENGTH	20
 
 
+#define CHAT_MODEL  "<model spid=\"00000200000000000000000000000004\">\
+        <name>SOO.chat</name>\
+        <description>\"SOO.chat permet de participer à un live chat entre Smart Objects\".</description>\
+        <layout>\
+            <row>\
+                <col span=\"2\">\
+                    <text>SOO.chat app</text>\
+                </col>\
+            </row>\
+            <row>\
+                <col span=\"8\">\
+                    <scroll id=\"msg-history\"></scroll>\
+                </col>\
+            </row>\
+            <row>\
+                <col span=\"3\">\
+                    <input id=\"text-edit\" ></input>\
+                </col>\
+                <col span=\"2\">\
+                    <button id=\"button-send\" lockable=\"false\">\"Send\"</button>\
+                </col>\
+            </row>\
+        </layout>\
+    </model>"
+
+
 
 /**
  * This is used to keep an history of the different 

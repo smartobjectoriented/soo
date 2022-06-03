@@ -61,6 +61,10 @@ typedef struct {
 
 #define VUIHANDLER_BEACON	0
 #define VUIHANDLER_DATA		1
+#define VUIHANDLER_ASK_LIST	4 /* Ask for the XML ME list */
+#define VUIHANDLER_SEND		5 /* Specify that the packet contains an event data to be forwarded to the ME */
+#define VUIHANDLER_SELECT	6 /* Ask for the ME model */
+#define VUIHANDLER_POST		7
 
 #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
 
@@ -68,6 +72,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t		id;
+	uint8_t 		type;
 	size_t			size;
 	uint8_t 		buf[VUIHANDLER_MAX_PAYLOAD_SIZE];
 } vuihandler_tx_request_t;
@@ -87,6 +92,7 @@ typedef struct {
 typedef struct {
 	uint32_t		id;
 	size_t			size;
+	uint8_t			type;
 	uint8_t 		buf[VUIHANDLER_MAX_PAYLOAD_SIZE];
 } vuihandler_rx_response_t;
 
@@ -122,8 +128,9 @@ typedef struct {
 
 
 typedef struct {
-	char 		data[2048];
+	char 		data[VUIHANDLER_MAX_PAYLOAD_SIZE];
 	size_t 		size;
+	uint8_t 	type;
 } tx_buf_entry_t;
 
 typedef struct {
@@ -145,10 +152,11 @@ bool vuihandler_ready(void);
 
 typedef void(*ui_update_spid_t)(uint8_t *);
 typedef void(*ui_interrupt_t)(char *data, size_t size);
+typedef void(*ui_send_model_t)(void);
 
-void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_interrupt_t ui_interrupt);
+void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_send_model_t ui_send_model,  ui_interrupt_t ui_interrupt);
 
-void vuihandler_send(void *data, size_t size);
+void vuihandler_send(void *data, size_t size, uint8_t type);
 
 void vuihandler_get_app_spid(uint64_t spid);
 
