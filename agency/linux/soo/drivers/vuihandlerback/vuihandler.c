@@ -160,7 +160,7 @@ int tx_buffer_put(uint8_t *data, uint32_t size, int32_t slotID, uint8_t type) {
 	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
 	vuihandler_pkt_t *cur_elem = vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.put_index].pkt;
 
-	soo_log("[soo:backend:vuihandler] Putting %dB of type %d in the TX buffer\n", size, type);
+	DBG("[soo:backend:vuihandler] Putting %dB of type %d in the TX buffer\n", size, type);
 
 	/* abort if there are no place left on the circular buffer */
 	if (vdrv_priv->tx_buf.cur_size == VUIHANDLER_TX_BUF_SIZE) 
@@ -228,7 +228,7 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 		slotID = vuihandler->otherend_id;		
 
 		/* Let the circular buffer add the packet to itself */
-		if (tx_buffer_put(ring_req->buf, ring_req->size, slotID, VUIHANDLER_DATA) == -1) {
+		if (tx_buffer_put(ring_req->buf, ring_req->size, slotID, ring_req->type) == -1) {
 			lprintk("Error: could not put the TX packet in the circular buffer!\n");
 			BUG();
 		}
@@ -282,15 +282,16 @@ static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, si
 	vuihandler_rx_response_t *ring_rsp = vuihandler_rx_new_ring_response(&vuihandler->rx_rings.ring);
 
 	size_t size = vuihandler_pkt_size - VUIHANDLER_BT_PKT_HEADER_SIZE;
-	void *data = vuihandler_pkt->payload;
 
 	ring_rsp->id = vdrv_priv->recv_count;
 	ring_rsp->size = size;
+	ring_rsp->type = vuihandler_pkt->type;
 
 	DBG(VUIHANDLER_PREFIX "id: %d\n", ring_rsp->id);
 
 	memset(ring_rsp->buf, '\0', RING_BUF_SIZE);
-	memcpy(ring_rsp->buf, vuihandler_pkt->payload, size);
+	if (size != 0)
+		memcpy(ring_rsp->buf, vuihandler_pkt->payload, size);
 
 
 	vuihandler_rx_ring_response_ready(&vuihandler->rx_rings.ring);
@@ -324,41 +325,6 @@ void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pk
 	}
 }
 
-
-
-char *test_me_list = "<mobile-entities>\
-<mobile-entity spid=\"00000200000000000000000000000004\">\
-<name>SOO.ledctrl</name>\
-<description>SOO.ledctrl is the ME running in SOO.ledctrl smart object which is a Raspberry Pi 4 enhanced with the Sense HAT extension. This ME basically uses the led matrix and joystick.</description>\
-</mobile-entity>\
-</mobile-entities>";
-
-
-char *test_chat_model = "<model spid=\"00000200000000000000000000000004\">\
-        <name>SOO.chat</name>\
-        <description>\"SOO.chat permet de participer à un live chat entre Smart Objects\".</description>\
-        <layout>\
-            <row>\
-                <col span=\"2\">\
-                    <text>SOO.chat app</text>\
-                </col>\
-            </row>\
-            <row>\
-                <col span=\"8\">\
-                    <scroll id=\"msg-history\"></scroll>\
-                </col>\
-            </row>\
-            <row>\
-                <col span=\"3\">\
-                    <input id=\"text-edit\" >your new msg here</input>\
-                </col>\
-                <col span=\"2\">\
-                    <button id=\"button-send\" lockable=\"false\">\"Send\"</button>\
-                </col>\
-            </row>\
-        </layout>\
-    </model>";
-
 /**
  * Ask the agency for the XML ME list and put it in the TX buffer
  * 
@@ -366,14 +332,14 @@ char *test_chat_model = "<model spid=\"00000200000000000000000000000004\">\
  * @return 0 on success, -1 on error
 */
 int send_ME_model_xml(int slotID) {
-#if 0
-	tx_buffer_put(ME_buf_xml, strlen(ME_buf_xml)+1, 0, VUIHANDLER_ASK_LIST);
-#else
-	tx_buffer_put(test_chat_model, strlen(test_chat_model)+1, 0, VUIHANDLER_SELECT);
-#endif
+	vuihandler_pkt_t vuihandler_pkt;
+
+	vuihandler_pkt.type = VUIHANDLER_SELECT;
+	vuihandler_pkt.slotID = slotID;
+
+	rx_push_response(slotID, &vuihandler_pkt, VUIHANDLER_BT_PKT_HEADER_SIZE);
 
 	return 0;
-
 }
 
 /**
@@ -384,7 +350,7 @@ int send_ME_model_xml(int slotID) {
 */
 int send_ME_list_xml(void) {
 	ME_id_t *ME_buf_raw = kzalloc(MAX_ME_DOMAINS * sizeof(ME_id_t), GFP_ATOMIC);
-	uint8_t *ME_buf_xml = NULL;
+	uint8_t *ME_buf_xml = NULL; /* will be allocated by xml_prepare_id_array */
 
 	get_ME_id_array(ME_buf_raw);
 	ME_buf_xml = xml_prepare_id_array(ME_buf_raw);
@@ -392,16 +358,14 @@ int send_ME_list_xml(void) {
 	if (ME_buf_xml == NULL) {
 		return -1;
 	}
-#if 0
+	
 	tx_buffer_put(ME_buf_xml, strlen(ME_buf_xml)+1, 0, VUIHANDLER_ASK_LIST);
-#else
-	tx_buffer_put(test_me_list, strlen(test_me_list)+1, 0, VUIHANDLER_ASK_LIST);
-#endif
 
+	/* release the buffers */
 	kfree(ME_buf_xml);
 	kfree(ME_buf_raw);
-	return 0;
 
+	return 0;
 }
 
 
@@ -417,15 +381,17 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 		return;
 	}
 
-	
+	/* Ask for the ME list */
 	if (vuihandler_pkt->type == VUIHANDLER_ASK_LIST) {
 		/* This is a vUIHandler beacon */
 		send_ME_list_xml();
 		return ;
 	}
+
+	/* Ask for a ME model */
 	if (vuihandler_pkt->type == VUIHANDLER_SELECT) {
 		/* This is a vUIHandler select ME  */
-		send_ME_model_xml(0);
+		send_ME_model_xml(vuihandler_pkt->slotID);
 		return ;
 	}
 
@@ -439,18 +405,12 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 	if (unlikely(size > VUIHANDLER_MAX_PAYLOAD_SIZE))
 		return ;
 
-	DBG(VUIHANDLER_PREFIX "Size: %d\n", size);
-
 	me_id = vuihandler_pkt->slotID;
-#if 1
-	me_id = 2;
-#endif	
 
+	/* Here we want to ensure that a correct ME is targeted */
 	if (me_id < 0) 
 		return;
-	
-	DBG(VUIHANDLER_PREFIX "ME ID: %d\n", me_id);
-
+	/* Here, the packet is sent to the ME, which will process it accordingly */
 	rx_push_response(me_id, vuihandler_pkt, vuihandler_pkt_size);
 }
 
