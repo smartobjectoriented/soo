@@ -84,7 +84,7 @@ static void alloc_init_l3(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
 			/* Attach the L2 PTE to this L3 page table */
 			*l2pte = __pa((addr_t) l3pgtable)  & TTB_L2_TABLE_ADDR_MASK;
 
-			set_pte_table(l2pte, DCACHE_WRITEALLOC);
+			set_pte_table(l2pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
 			DBG("Allocating a L3 page table at %p in l2pte: %p with contents: %lx\n", l3pgtable, l2pte, *l2pte);
 		}
@@ -141,7 +141,7 @@ static void alloc_init_l2(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
 			/* Attach the L1 PTE to this L2 page table */
 			*l1pte = __pa((addr_t) l2pgtable)  & TTB_L1_TABLE_ADDR_MASK;
 
-			set_pte_table(l1pte, DCACHE_WRITEALLOC);
+			set_pte_table(l1pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
 			DBG("Allocating a L2 page table at %p in l1pte: %p with contents: %lx\n", l2pgtable, l1pte, *l1pte);
 		}
@@ -199,7 +199,7 @@ static void alloc_init_l1(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, 
 			/* Attach the L0 PTE to this L1 page table */
 			*l0pte = __pa((addr_t) l1pgtable)  & TTB_L0_TABLE_ADDR_MASK;
 
-			set_pte_table(l0pte, DCACHE_WRITEALLOC);
+			set_pte_table(l0pte, (nocache ? DCACHE_OFF : DCACHE_WRITEALLOC));
 
 			DBG("Allocating a L1 page table at %p in l0pte: %p with contents: %lx\n", l1pgtable, l0pte, *l0pte);
 		}
