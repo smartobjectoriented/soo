@@ -146,7 +146,10 @@ static struct clocksource arm_clocksource = {
  */
 void init_timer(int cpu)
 {
-	//BUG_ON((cpu == AGENCY_CPU) || (cpu == AGENCY_RT_CPU));
+	BUG_ON((cpu == AGENCY_CPU) || (cpu == AGENCY_RT_CPU));
+
+	/* Low-leve init, disabled, interrupt off */
+	arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, 0);
 
 	/* System clocksource */
 	system_timer_clocksource = &arm_clocksource;

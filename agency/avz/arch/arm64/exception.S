@@ -330,9 +330,9 @@ el01_irq_handler:
 	// Make sure r0 refers to the base of the stack frame
 	mov		x0, sp
 
-	str		lr, [sp, #-8]!
+	str		lr, [sp, #-16]!
     bl 		irq_handle
-	ldr		lr, [sp], #8
+	ldr		lr, [sp], #16
 
 	curdom	x10, x11
 	ldr		x11, [x10, #OFFSET_AVZ_SHARED]

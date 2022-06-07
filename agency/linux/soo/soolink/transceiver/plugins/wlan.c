@@ -48,8 +48,8 @@ typedef struct {
 } soo_plugin_wlan_t;
 
 /*
- * Transmit on the WLAN interface from the RT domain.
- * At this point, we assume that the interface is up and available in the non-RT domain.
+ * Transmit on the WLAN interface
+ * At this point, we assume that the interface is up and available.
  */
 void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 	struct sk_buff *skb;
