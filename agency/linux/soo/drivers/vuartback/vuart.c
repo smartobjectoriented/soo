@@ -216,7 +216,7 @@ void vuart_close(struct vbus_device *vdev) {
 	 * Free the ring and unbind evtchn.
 	 */
 
-	BACK_RING_INIT(&vuart_priv->vuart.ring, (&vuart_priv->vuart.ring)->sring, PAGE_SIZE);
+	BACK_RING_INIT(&vuart_priv->vuart.ring, vuart_priv->vuart.ring.sring, PAGE_SIZE);
 	unbind_from_virqhandler(vuart_priv->vuart.irq, vdev);
 
 	vbus_unmap_ring_vfree(vdev, vuart_priv->vuart.ring.sring);
