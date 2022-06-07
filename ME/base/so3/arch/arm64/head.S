@@ -137,7 +137,7 @@ mmu_setup:
   bl 	mmu_configure
 
   // Readjust the stack
-  ldr	x0, =.LCstack_top
+  ldr	x0, .LCstack_top
   mov	sp, x0
 
   // Keep executing in the kernel space
