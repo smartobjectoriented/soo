@@ -199,7 +199,7 @@ void vuart_reconfiguring(struct vbus_device *vdev) {
 	vuart_priv->vuart.ring_ref = GRANT_INVALID_REF;
 
 	SHARED_RING_INIT(vuart_priv->vuart.ring.sring);
-	FRONT_RING_INIT(&vuart_priv->vuart.ring, (&vuart_priv->vuart.ring)->sring, PAGE_SIZE);
+	FRONT_RING_INIT(&vuart_priv->vuart.ring, vuart_priv->vuart.ring.sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
 
