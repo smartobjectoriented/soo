@@ -23,6 +23,7 @@
 #include <linux/init.h>
 #include <linux/if_ether.h>
 #include <linux/kthread.h>
+#include <linux/rtnetlink.h>
 
 #include <soo/soolink/soolink.h>
 #include <soo/soolink/plugin.h>
@@ -124,20 +125,30 @@ void plugin_wlan_tx(sl_desc_t *sl_desc, void *data, size_t size) {
 
 }
 
-/*
- * This function has to be called in a non-realtime context.
- * For example, called from drivers/net/wireless/broadcom/brcm80211/brfmfmac/core.c
- */
-void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src) {
+rx_handler_result_t plugin_wlan_rx_handler(struct sk_buff **pskb) {
 	soo_plugin_wlan_t *soo_plugin_wlan;
+	struct sk_buff *skb = *pskb;
+	struct ethhdr *hdr = eth_hdr(skb);
+	__be16 skb_protocol;
+
+	/* It may happen that virtnet send an empty skb for some obscure reason... */
+	if (skb->len == 0)
+		return RX_HANDLER_PASS;
+
+	/* Clear the flag bits */
+	skb_protocol = ntohs(skb->protocol) & 0x10ff;
+
+	if (!((skb_protocol > ETH_P_SL_MIN) && (skb_protocol < ETH_P_SL_MAX)))
+		return RX_HANDLER_PASS;
 
 	soo_plugin_wlan = container_of(current_soo_plugin->__intf[SL_IF_WLAN], soo_plugin_wlan_t, plugin_wlan_desc);
 
 	plugin_rx(&soo_plugin_wlan->plugin_wlan_desc,
-		  get_sl_req_type_from_protocol(ntohs(skb->protocol)), mac_src, skb->data, skb->len);
+		  get_sl_req_type_from_protocol(ntohs(skb->protocol)), hdr->h_source, skb->data, skb->len);
 
 	kfree_skb(skb);
 
+	*pskb = NULL;
 
 #if 0 /* Debugging purpose for measure bandwidth */
 	{
@@ -170,6 +181,7 @@ void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *ma
 	}
 #endif
 
+	return RX_HANDLER_CONSUMED;
 }
 
 #if 0 /* Debugging purpose for bandwidth assessment */
@@ -266,6 +278,10 @@ static int net_dev_detect(void *args) {
 	DBG("NET_DEV now operational and running!\n");
 
 	soo_plugin_wlan->plugin_ready = true;
+
+	rtnl_lock();
+	netdev_rx_handler_register(soo_plugin_wlan->net_dev, plugin_wlan_rx_handler, NULL);
+	rtnl_unlock();
 
 #if 0 /* Debugging purpose */
 	kthread_run(streampacket, NULL, "streampacket");

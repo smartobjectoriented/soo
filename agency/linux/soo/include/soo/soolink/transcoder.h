@@ -29,6 +29,7 @@
  * On our side, we can have packet payload of 1'481 bytes taking into
  * account the various headers (compatible with aarch64 too).
  */
+
 #define SL_PACKET_PAYLOAD_MAX_SIZE 	1481
 
 /*
