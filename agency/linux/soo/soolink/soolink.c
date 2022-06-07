@@ -132,8 +132,6 @@ void sl_send(sl_desc_t *sl_desc, void *data, uint32_t size, uint64_t agencyUID, 
 
 	coder_send(sl_desc, data, size);
 
-	plugin_tx(sl_desc, data, size);
-
 	soo_log("[soo:soolink] send to the coder achieved successfully.\n");
 }
 
