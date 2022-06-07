@@ -23,6 +23,7 @@
 #include <soo/enocean/pt210.h>
 #include <soo/enocean/enocean.h>
 #include <soo/debug.h>
+#include <timer.h>
 
 void pt210_reset(pt210_t *sw) {
     sw->up = false;
@@ -40,6 +41,10 @@ void pt210_wait_event(pt210_t *sw) {
     enocean_telegram_t *tel;
 
     tel = enocean_get_data();
+    if (!tel) {
+        sw->event = false;
+        return;
+    }
 
     DBG("%s: got new enocean data\n", __func__);
 
@@ -50,12 +55,15 @@ void pt210_wait_event(pt210_t *sw) {
         switch ((int)tel->data[0]) {
             case PT210_SWITCH_UP:
                 sw->up = true;
+                sw->press_time = NOW();
                 break;
             case PT210_SWITCH_DOWN:
                 sw->down = true;
+                sw->press_time = NOW();
                 break;
             case PT210_SWITCH_RELEASED:
                 sw->released = true;
+                sw->released_time = NOW();
                 break;
             default:
                 return;

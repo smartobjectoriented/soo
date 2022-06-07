@@ -24,6 +24,13 @@
 #include <soo/debug.h>
 #include <soo/dev/venocean.h>
 
+/**
+ * @brief 
+ * 
+ * @param buf 
+ * @param len 
+ * @return enocean_telegram_t* 
+ */
 enocean_telegram_t * enocean_buffer_to_telegram(byte *buf, int len) {
     enocean_telegram_t *tel;
     int i;
@@ -62,7 +69,7 @@ enocean_telegram_t * enocean_buffer_to_telegram(byte *buf, int len) {
 enocean_telegram_t *enocean_get_data(void) {
     char data[ENOCEAN_TELEGRAM_BUF_SIZE];
     int data_len;
-
+    
     data_len = venocean_get_data(data);
 
     return enocean_buffer_to_telegram(data, data_len);

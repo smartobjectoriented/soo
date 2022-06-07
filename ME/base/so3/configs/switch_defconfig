@@ -71,13 +71,13 @@ CONFIG_ROOTFS_NONE=y
 # SOO Mobile Entity - Smart Object Oriented subsystem
 #
 # CONFIG_SOO_REFSO3 is not set
-CONFIG_SOO_BLIND=y
+# CONFIG_SOO_BLIND is not set
 # CONFIG_SOO_OUTDOOR is not set
 # CONFIG_SOO_AGENCY is not set
 # CONFIG_SOO_NET is not set
 # CONFIG_SOO_LEDCTRL is not set
 # CONFIG_SOO_WAGOLED is not set
-# CONFIG_SOO_SWITCH is not set
+CONFIG_SOO_SWITCH=y
 
 #
 # SOO Mobile Entity frontend drivers
@@ -98,9 +98,9 @@ CONFIG_VUART_FRONTEND=y
 
 # CONFIG_VSENSELED_FRONTEND is not set
 # CONFIG_VSENSEJ_FRONTEND is not set
-# CONFIG_VENOCEAN_FRONTEND is not set
+CONFIG_VENOCEAN_FRONTEND=y
 # CONFIG_VWAGOLED_FRONTEND is not set
-CONFIG_VKNX_FRONTEND=y
+# CONFIG_VKNX_FRONTEND is not set
 # end of SOO Mobile Entity frontend drivers
 # end of SOO Mobile Entity - Smart Object Oriented subsystem
 

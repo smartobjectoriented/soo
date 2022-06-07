@@ -42,6 +42,10 @@ typedef enum {
 
 typedef unsigned char byte;
 
+/**
+ * @brief 
+ * 
+ */
 typedef struct {
     union
     {

@@ -18,7 +18,6 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <soo/device/tcm515.h>
 #include <linux/serdev.h>
 #include <linux/jiffies.h>
 #include <soo/uapi/console.h>
@@ -27,7 +26,7 @@
 #include <linux/kthread.h>
 #include <soo/device/baos_client.h> 
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -44,16 +43,16 @@ static struct kberry838_uart *kberry838;
  * @param buf Array of bytes
  * @param len Array length
  */
-#ifdef DEBUG
 static void kberry838_print_buffer(byte *buf, int len) {
+#ifdef DEBUG
     int i;
 
     dev_info(kberry838->dev, "Buffer length: %d\n",len);
     for (i = 0; i < len; i++) {
         dev_info(kberry838->dev, "[%d]: 0x%02X\n", i, buf[i]);
     }
-}
 #endif
+}
 
 /**
  * @brief Write synchronously to serial port.
@@ -119,6 +118,12 @@ static void kberry838_send_ack(void) {
  */
 void kberry838_switch_frame_parity(void) {
     kberry838->even = kberry838->even ? false : true;
+#ifdef DEBUG
+    if (kberry838->even)
+        dev_info(kberry838->dev, "Frame is even");
+    else 
+        dev_info(kberry838->dev, "Frame is odd");
+#endif
 }
 
 /**
@@ -133,7 +138,7 @@ static byte *kberry838_build_ft12_frame(byte *baos_frame, int len) {
     long ft12_checksum = 0;
     int i;
 
-    ft12_frame = kzalloc((FT12_HEADER_SIZE + len + FT12_END_FRAME_SIZE) * sizeof(byte), GFP_KERNEL);
+    ft12_frame = kzalloc((FT12_HEADER_SIZE + len + FT12_FOOTER_SIZE) * sizeof(byte), GFP_KERNEL);
     BUG_ON(!ft12_frame);
 
     /** FT 1.2 Header **/
@@ -162,6 +167,8 @@ static byte *kberry838_build_ft12_frame(byte *baos_frame, int len) {
     return ft12_frame;
 }
 
+static byte sent_buffer[2048];
+static int sent_buf_len = 0;
 /**
  * @brief Send a BAOS frame to the kberry838 device.
  * 
@@ -172,9 +179,12 @@ void kberry838_send_data(byte *baos_frame, int len) {
     byte *ft12_array;
     int ft12_len;
 
-    ft12_len = FT12_HEADER_SIZE + len + FT12_END_FRAME_SIZE;
+    ft12_len = FT12_HEADER_SIZE + len + FT12_FOOTER_SIZE;
     ft12_array = kberry838_build_ft12_frame(baos_frame, len);
     BUG_ON(!ft12_array);
+
+    // memcpy(&sent_buffer[sent_buf_len], ft12_array, ft12_len);
+    // sent_buf_len += ft12_len;
 
     kberry838_write_buf(ft12_array, ft12_len);
     if (wait_for_completion_timeout(&kberry838->wait_rsp, 
@@ -188,6 +198,7 @@ void kberry838_send_data(byte *baos_frame, int len) {
     // kthread_run(kberry838_send_data_th, args, "send_data_th");
 }
 
+
 /**
  * @brief Process incoming serial data and extract BAOS frame.
  * 
@@ -197,106 +208,160 @@ void kberry838_send_data(byte *baos_frame, int len) {
  * @param bytes_read return number of byte processed
  * @return byte* if the end frame byte is found return the BAOS frame, NULL otherwise
  */
-static byte *kberry838_process_ft12_frame(const byte *data, size_t len, int *frame_len, int *bytes_read) {
-    static baos_decode_status_t decode_status = GET_START;
-    static int processed_bytes = 0;
-    static byte *baos_frame = NULL;
-    static int baos_frame_len = 0, ft12_control_field = 0;
-    static long ft12_checksum = 0;
+static byte *kberry838_check_ft12_and_extract_baos(const byte *ft12buf, size_t ft12len, int baos_frame_len) {
+    byte *baos_frame = NULL;
+    long ft12_checksum = 0;
+
     int i;
 
-    for (i = 0; i < len; i++) {
-        switch (decode_status)
-        {
-        case GET_START:
-            if (data[i] == FT12_START_CHAR) {
-                decode_status = GET_LENGTH;
-                processed_bytes = 0;
-            } 
-            break;
-        
-        case GET_LENGTH:
-            if (processed_bytes == 2) {
-                BUG_ON(baos_frame_len != data[i]);
-                decode_status = GET_SECOND_START;
-            }
-            else
-                baos_frame_len = data[i];
-            break;
-
-        case GET_SECOND_START:
-            if (data[i] != FT12_START_CHAR) {
-                BUG();
-            }
-            decode_status = GET_CONTROL_FIELD;
-            break;
-
-        case GET_CONTROL_FIELD:
-            ft12_control_field = data[i];
-            if (kberry838->even) {
-                if (ft12_control_field != FT12_EVEN_RSP) {
-                    dev_err(kberry838->dev, "Control field is 0x%02X instead of 0x%02X",
-                            ft12_control_field, FT12_EVEN_RSP);
-                    BUG();
-                }
-            } else {
-                if (ft12_control_field != FT12_ODD_RSP) {
-                    dev_err(kberry838->dev, "Control field is 0x%02X instead of 0x%02X",
-                            ft12_control_field, FT12_ODD_RSP);
-                    BUG();
-                }
-            }
-
-            ft12_checksum += ft12_control_field;
-            /** Remove FT12 control field from length **/
-            baos_frame_len -= 1;
-            decode_status = GET_BAOS;
-            if (baos_frame_len > 1) {
-                baos_frame = kzalloc(baos_frame_len * sizeof(byte), GFP_KERNEL);
-                BUG_ON(!baos_frame);
-            }
-            break;
-
-        case GET_BAOS:
-            if (processed_bytes == FT12_HEADER_SIZE + baos_frame_len) {
-                decode_status = GET_STOP;
-                ft12_checksum %= 0x100;
-                /** Check if there errors **/
-                if ((byte)ft12_checksum != data[i]) {
-                    dev_err(kberry838->dev, "FT12 checksum is wrong. Calculated: 0x%02X, Read: 0x%02X",
-                            (byte)ft12_checksum, data[i]);
-                    kfree(baos_frame);
-                    decode_status = GET_START;
-                    *bytes_read += 1;
-                    return NULL;
-                }
-
-            } else {
-                baos_frame[processed_bytes - FT12_HEADER_SIZE] = data[i];
-                ft12_checksum += data[i];
-            }
-            break;
-        
-        case GET_STOP:
-            if (data[i] == FT12_STOP_CHAR) {
-                *frame_len = baos_frame_len;
-                baos_frame_len = 0;
-                ft12_checksum = 0;
-                ft12_control_field = 0;
-                decode_status = GET_START;
-                *bytes_read += 1;
-                return baos_frame;
-            }
-            break;
-
-        default:
-            break;
-        }
-        processed_bytes++;
-        *bytes_read += 1;
+    if (ft12buf[FT12_START_OFF] != FT12_START_CHAR) {
+        dev_err(kberry838->dev, "Error: FT1.2 first char is 0x%02X instead of 0x%02X", 
+                ft12buf[FT12_START_OFF], FT12_START_CHAR);
+        return NULL;
+    }
+    
+    if (ft12buf[FT12_LENGTH_OFF] != ft12buf[FT12_REPEAT_LENGTH_OFF]) {
+        dev_err(kberry838->dev, "Error: FT1.2 length is wrong. [1] is 0x%02X, [2] is 0x%02X", 
+                ft12buf[FT12_LENGTH_OFF], ft12buf[FT12_REPEAT_LENGTH_OFF]);
+        return NULL;
     }
 
-    return NULL;
+    if (ft12buf[FT12_REPEAT_START_OFF] != FT12_START_CHAR) {
+        dev_err(kberry838->dev, "Error: FT1.2 second start is 0x%02X instead of 0x%02X", 
+                ft12buf[FT12_REPEAT_START_OFF], FT12_START_CHAR);
+        return NULL;
+    }
+    
+    /** Check control byte **/
+    if (kberry838->even) {
+        if (ft12buf[FT12_CONTROL_BYTE_OFF] != FT12_EVEN_RSP) {
+            dev_err(kberry838->dev, "Error: FT1.2 CR byte is 0x%02X instead of 0x%02X", 
+                ft12buf[FT12_CONTROL_BYTE_OFF], FT12_EVEN_RSP);
+            return NULL;
+        }
+    } else {
+        if (ft12buf[FT12_CONTROL_BYTE_OFF] != FT12_ODD_RSP) {
+            dev_err(kberry838->dev, "Error: FT1.2 CR byte is 0x%02X instead of 0x%02X", 
+                ft12buf[FT12_CONTROL_BYTE_OFF], FT12_ODD_RSP);
+            return NULL;
+        }
+    }
+
+    ft12_checksum += ft12buf[FT12_CONTROL_BYTE_OFF];
+
+    baos_frame = kzalloc(baos_frame_len * sizeof(byte), GFP_KERNEL);
+    BUG_ON(!baos_frame);
+
+    memcpy(baos_frame, &ft12buf[FT12_START_BAOS_OFF], baos_frame_len);
+
+    for (i = 0; i < baos_frame_len; i++)
+        ft12_checksum += baos_frame[i];
+    
+    ft12_checksum %= 0x100;
+
+    if (ft12buf[FT12_START_BAOS_OFF + baos_frame_len] != (byte)ft12_checksum) {
+        dev_err(kberry838->dev, "Error: FT1.2 checksum byte is 0x%02X instead of 0x%02X", 
+                (byte)ft12_checksum, ft12buf[FT12_START_BAOS_OFF + baos_frame_len]);
+        kfree(baos_frame);
+        return NULL;
+    }
+
+    if (ft12buf[FT12_START_BAOS_OFF + baos_frame_len + 1] != FT12_STOP_CHAR) {
+        dev_err(kberry838->dev, "Error: FT1.2 last byte is 0x%02X instead of 0x%02X", 
+                ft12buf[FT12_START_BAOS_OFF + baos_frame_len + 1], FT12_STOP_CHAR );
+        kfree(baos_frame);
+        return NULL;
+    }
+    
+    return baos_frame;
+}
+
+static void kberry838_process_ft12_frame(const byte *data, size_t len){
+    static byte* ft12_frame;
+    static int ft12_len = 0;
+    static int ft12_decode_status = WAIT_FT12_START;
+    static bool start_found = false;
+    static int fbyte_proc = 0;
+    byte *baos_frame;
+    int baos_frame_len;
+    int i;
+
+#ifdef DEBUG
+    static byte buffer[2048] = {0};
+    static int buf_len = 0;
+
+    memcpy(&buffer[buf_len], data, len);
+    buf_len += len;
+#endif 
+
+    
+    for (i = 0; i < len; i++) {
+        if (data[i] == FT12_ACK && ft12_decode_status == WAIT_FT12_START) {
+#ifdef DEBUG
+            dev_info(kberry838->dev, "ACK received");
+#endif        
+            complete(&kberry838->wait_rsp);  
+        } else {
+            switch(ft12_decode_status) {
+                
+                case WAIT_FT12_START:
+                    if (data[i] == FT12_START_CHAR && !start_found)
+                        start_found = true;
+                    else if (start_found) {
+                        start_found = false;
+                        ft12_len = FT12_HEADER_SIZE + data[i] + 1;
+
+                        ft12_frame = kzalloc(ft12_len * sizeof(byte), GFP_KERNEL);
+                        BUG_ON(!ft12_frame);
+                        memset(ft12_frame, 0, ft12_len * sizeof(byte));
+
+                        ft12_frame[fbyte_proc++] = FT12_START_CHAR;
+                        ft12_frame[fbyte_proc++] = data[i];
+                        ft12_decode_status = WAIT_FT12_STOP;
+                    } else  {
+                        kberry838_print_buffer((byte*)data, len);
+                        BUG();
+                    }
+                    break;
+
+                case WAIT_FT12_STOP:
+                    if (data[i] != FT12_STOP_CHAR)
+                        ft12_frame[fbyte_proc++] = data[i];
+                    else {
+                        ft12_frame[fbyte_proc++] = data[i];
+                        kberry838_send_ack();
+                        
+                        baos_frame_len = ft12_len - FT12_HEADER_SIZE - FT12_FOOTER_SIZE;
+                        baos_frame = kberry838_check_ft12_and_extract_baos(ft12_frame, ft12_len, 
+                                                                            baos_frame_len);
+                        if (baos_frame) {
+                            baos_store_response(baos_frame, baos_frame_len);
+                            kberry838_switch_frame_parity();
+                            kfree(baos_frame);
+                            // dev_err(kberry838->dev, "Received data:");
+                            // kberry838_print_buffer(buffer, buf_len);
+                            // dev_err(kberry838->dev, "Sent data:");
+                            // kberry838_print_buffer(sent_buffer, sent_buf_len);
+                        } else {
+                            dev_err(kberry838->dev, "Failed to extract baos frame from FT1.2 data");
+                            kberry838_print_buffer((byte*)ft12_frame, ft12_len);
+#ifdef DEBUG
+                            // dev_err(kberry838->dev, "Sent data:");
+                            // kberry838_print_buffer(sent_buffer, sent_buf_len);
+                            dev_err(kberry838->dev, "Received data:");
+                            kberry838_print_buffer(buffer, buf_len);
+
+#endif
+
+                        }
+
+                        fbyte_proc = 0;
+                        ft12_decode_status = WAIT_FT12_START;
+                    }
+                    break;
+            }
+        }
+    }
 }
 
 /**
@@ -308,32 +373,7 @@ static byte *kberry838_process_ft12_frame(const byte *data, size_t len, int *fra
  * @return int 
  */
 static int kberry838_serdev_receive_buf(struct serdev_device *serdev, const byte *buf, size_t len) {
-    byte *baos_frame = NULL;
-    int baos_frame_len = 0;
-    int bytes_processed = 0;
-
-    while (bytes_processed < len) {
-        /** Check if acknowledge **/
-        if (buf[bytes_processed] == FT12_ACK) {
-            dev_info(kberry838->dev, "ACK received");
-            complete(&kberry838->wait_rsp);
-            bytes_processed++;
-            if (len == 1)
-                break; 
-        }
-        /** Extract BAOS frame **/
-        baos_frame = kberry838_process_ft12_frame(&buf[bytes_processed], len - bytes_processed,
-                                                    &baos_frame_len, &bytes_processed);
-        if (baos_frame) {
-#ifdef DEBUG
-            dev_info(kberry838->dev, "Received new BAOS frame");
-#endif
-            kberry838_send_ack();
-            baos_store_response(baos_frame, baos_frame_len);
-            kberry838_switch_frame_parity();
-            kfree(baos_frame);
-        }
-    }
+    kberry838_process_ft12_frame(buf, len);
     return len;
 }
 

@@ -1,1 +1,0 @@
-obj-y += enocean.o pt210.o

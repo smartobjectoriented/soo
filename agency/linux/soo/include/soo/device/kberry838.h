@@ -63,7 +63,7 @@ To activate add a node to uart definition to bcm2711-<platform>.dts:
 #define FT12_EVEN_RSP                               0xD3
 #define FT12_ODD_RSP                                0xF3
 #define FT12_HEADER_SIZE                            0x05
-#define FT12_END_FRAME_SIZE                         0x02
+#define FT12_FOOTER_SIZE                            0x02
 
 /** FT12 Frame offsets **/
 #define FT12_START_OFF                              0x00
@@ -99,8 +99,8 @@ static const byte kberry838_reset[] = {
  * 
  */
 enum baos_decode_status {
-    GET_START = 0,
-    GET_LENGTH,
+    CHECK_START1 = 0,
+    CHECK_LENGTH,
     GET_SECOND_START,
     GET_CONTROL_FIELD,
     GET_BAOS,
@@ -108,6 +108,11 @@ enum baos_decode_status {
     ERROR
 };
 typedef enum baos_decode_status baos_decode_status_t;
+
+typedef enum {
+    WAIT_FT12_START,
+    WAIT_FT12_STOP
+} ft12_decode_status;
 
 /**
  * @brief Kberry838 struct. Contains all the necessary attributes 

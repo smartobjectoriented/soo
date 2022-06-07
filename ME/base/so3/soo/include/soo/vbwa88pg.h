@@ -21,24 +21,24 @@
 
 #include <soo/dev/vknx.h>
 
-#define DATAPOINT_COUNT     0x06
+#define DATAPOINT_COUNT             0x06
 
-#define BLIND_UP            0x00
-#define BLIND_DOWN          0x01
-#define BLIND_INC           0x00
-#define BLIND_DEC           0x01
+#define VBWA88PG_BLIND_UP           0x00
+#define VBWA88PG_BLIND_DOWN         0x01
+#define VBWA88PG_BLIND_INC          0x00
+#define VBWA88PG_BLIND_DEC          0x01
 
 /**
  * @brief BAOS datapoint command codes. See datasheet
  * 
  */
 typedef enum {
-    NO_COMMAND = 0b0000,
-    SET_NEW_VALUE = 0b0001,
-    SEND_VALUE_ON_BUS = 0b0010,
-    SET_NEW_VALUE_AND_SEND_ON_BUS = 0b0011,
-    READ_NEW_VALUE_VIA_BUS = 0b0100,
-    CLEAR_DATA_POINT_TRANSMISSION_STATE = 0b0101
+    NO_COMMAND =                            0b0000,
+    SET_NEW_VALUE =                         0b0001,
+    SEND_VALUE_ON_BUS =                     0b0010,
+    SET_NEW_VALUE_AND_SEND_ON_BUS =         0b0011,
+    READ_NEW_VALUE_VIA_BUS =                0b0100,
+    CLEAR_DATA_POINT_TRANSMISSION_STATE =   0b0101
 } datapoint_commands;
 
 /** 
@@ -86,25 +86,8 @@ void vbwa88pg_blind_init(blind_vbwa88pg_t *blind, uint16_t first_dp_id);
  */
 void vbwa88pg_blind_update(blind_vbwa88pg_t *blind, dp_t *dps, int dp_count);
 
-/**
- * @brief Move blind up
- * 
- * @param blind Blind to move up
- */
-void vbwa88pg_blind_up(blind_vbwa88pg_t *blind);
+void vbwa88pg_blind_up_down(blind_vbwa88pg_t *blind);
 
-/**
- * @brief Move blind down
- * 
- * @param blind Blind to move down
- */
-void vbwa88pg_blind_down(blind_vbwa88pg_t *blind);
-
-/**
- * @brief Move the blind by one step or stop it.
- * 
- * @param blind Blind to move.
- */
-void vbwa88pg_blind_stop_step(blind_vbwa88pg_t *blind);
+void vbwa88pg_blind_inc_dec_stop(blind_vbwa88pg_t *blind);
 
 #endif // _VBWA88PG_H_

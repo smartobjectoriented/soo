@@ -42,7 +42,7 @@ void vbwa88pg_blind_init(blind_vbwa88pg_t *blind, uint16_t first_dp_id) {
         blind->dps[i].data[0] = 0x00;
     }
 
-    vknx_get_dp_value(blind->blind_id, DATAPOINT_COUNT);
+    // vknx_get_dp_value(blind->blind_id, DATAPOINT_COUNT);
 }
 
 void vbwa88pg_blind_update(blind_vbwa88pg_t *blind, dp_t *dps, int dp_count) {
@@ -65,7 +65,7 @@ void vbwa88pg_blind_update(blind_vbwa88pg_t *blind, dp_t *dps, int dp_count) {
  * 
  * @param blind Blind to control
  */
-void vbwa88pg_send_data_up_down(blind_vbwa88pg_t *blind) {
+void vbwa88pg_blind_up_down(blind_vbwa88pg_t *blind) {
     dp_t dps[1];
     dps[0] = blind->dps[UP_DOWN];
     vknx_set_dp_value(dps, 1);
@@ -76,12 +76,13 @@ void vbwa88pg_send_data_up_down(blind_vbwa88pg_t *blind) {
  * 
  * @param blind Blind to control
  */
-void vbwa88pg_send_data_inc_dec_stop(blind_vbwa88pg_t *blind) {
+void vbwa88pg_blind_inc_dec_stop(blind_vbwa88pg_t *blind) {
     dp_t dps[1];
     dps[0] = blind->dps[INC_DEC_STOP];
     vknx_set_dp_value(dps, 1);
 }
 
+#if 0
 void vbwa88pg_blind_up(blind_vbwa88pg_t *blind) {
 #ifdef BLIND_RELEASED_MODE
     blind->time = NOW();
@@ -100,6 +101,7 @@ void vbwa88pg_blind_up(blind_vbwa88pg_t *blind) {
     }
 #endif
 }
+
 void vbwa88pg_blind_down(blind_vbwa88pg_t *blind) {
 #ifdef BLIND_RELEASED_MODE
     blind->time = NOW();
@@ -141,3 +143,4 @@ void vbwa88pg_blind_stop_step(blind_vbwa88pg_t *blind) {
     return;
 #endif
 }
+#endif

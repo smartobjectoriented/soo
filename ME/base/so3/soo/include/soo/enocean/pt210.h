@@ -24,6 +24,7 @@
 #define PT210_SWITCH_UP             0x70
 #define PT210_SWITCH_DOWN           0x50
 #define PT210_SWITCH_RELEASED       0x00
+#define PT210_PRESSED_TIME_MS       500
 
 /**
  * @brief PT210 enocean switch struct
@@ -41,6 +42,8 @@ typedef struct {
     bool down;
     bool released;
     bool event;
+    uint64_t press_time;
+    uint64_t released_time;
 } pt210_t;
 
 /**

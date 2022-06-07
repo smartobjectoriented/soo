@@ -33,17 +33,24 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-#include <me/blind.h>
 #include <me/switch.h>
+
+
+#define SOO_BLIND_SPID 			0x0020000000000001
+#define SOO_WAGOLED_SPID		0x0020000000000003
 
 static LIST_HEAD(visits);
 static LIST_HEAD(known_soo_list);
 
 
 /* Reference to the shared content helpful during synergy with other MEs */
-sh_blind_t *sh_blind;
+sh_switch_t *sh_switch;
 struct completion send_data_lock;
 atomic_t shutdown;
+
+static volatile bool originUID_initd = false;
+
+spinlock_t propagate_lock;
 
 /**
  * PRE-ACTIVATE
@@ -52,20 +59,30 @@ atomic_t shutdown;
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
 	agency_ctl_args_t agency_ctl_args;
-	agency_ctl_args.cmd = AG_AGENCY_UID;
+	host_entry_t *host_entry;
 
 	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
 
 	/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
-	args->__agency_ctl(&agency_ctl_args);
-	sh_blind->me_common.here = agency_ctl_args.u.agencyUID;
-	DBG(">> ME %d: Agency UID %d\n", ME_domID(), sh_blind->me_common.here);
-
-	agency_ctl_args.cmd = AG_CHECK_DEVCAPS;
+	agency_ctl_args.cmd = AG_AGENCY_UID;
 	args->__agency_ctl(&agency_ctl_args);
 
-	DBG(">> ME %d: devcaps.class = %d, devcaps.devcaps = %d\n", ME_domID(), 
-		agency_ctl_args.u.devcaps_args.class, agency_ctl_args.u.devcaps_args.devcaps);
+	sh_switch->me_common.here = agency_ctl_args.u.agencyUID;
+	DBG(">> ME %d: originUID %d\n", ME_domID(), sh_switch->me_common.origin);
+
+	if (!originUID_initd) {
+		sh_switch->originUID = agency_ctl_args.u.agencyUID;
+		originUID_initd = true;
+	}
+
+	host_entry = find_host(&visits, sh_switch->me_common.here);
+	if (host_entry)
+		/** If we already visited this host we ask the agency to kill us **/
+		set_ME_state(ME_state_killed);
+	else 
+		/** We add the host to the visited hosts list **/
+		new_host(&visits, sh_switch->me_common.here, NULL, 0);
+
 
 #if 0 /* To be implemented... */
 	logmsg("[soo:me:SOO.wagoled] ME %d: cb_pre_activate..\n", ME_domID());
@@ -80,12 +97,27 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
  * The callback is executed in first stage to give a chance to a resident ME to stay or disappear, for example.
  */
 int cb_pre_propagate(soo_domcall_arg_t *args) {
-
+	static int kill_count = 0;
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
-	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
+	// DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-	pre_propagate_args->propagate_status = 0;
+	spin_lock(&propagate_lock);
+
+	pre_propagate_args->propagate_status = sh_switch->need_propagate ? PROPAGATE_STATUS_YES : PROPAGATE_STATUS_NO;
+
+	/* To be killed - only one propagation, here we set the real propagate_status */
+	if (!pre_propagate_args->propagate_status && (get_ME_state() == ME_state_dormant)) {
+		if (kill_count > 1)
+			set_ME_state(ME_state_killed);
+		DBG("Now killing the ME %d\n", ME_domID());
+	} else {
+		kill_count++;
+	}
+
+	sh_switch->need_propagate = false;
+
+	spin_unlock(&propagate_lock);
 
 	return 0;
 }
@@ -124,44 +156,90 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
  */
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
-	sh_switch_t *incoming_sh_switch;
-	static uint64_t switch_timestamp = 0;
-	uint32_t pfn;
+	sh_switch_t *target_sh;
+	agency_ctl_args_t agency_ctl_args;
 
 	// lprintk("[soo:me:SOO.blind] ME %d: cb_cooperate...\n", ME_domID());
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
 
-		if (cooperate_args->alone)
+		/** 
+		 * If we are alone or we encounter another SOO.switch, we go dormant and continue 
+		 * our migration 
+		 */
+		if (cooperate_args->alone) {
+			DBG("We are alone! Continue migration\n");
+			
+			set_ME_state(ME_state_dormant);
+			sh_switch->need_propagate = true;
 			return 0;
+		}
+
+		/** Check if we encountered another SOO.switch **/
+		if(get_spid() == cooperate_args->u.target_coop.spid) {
+			/**
+			 * Get the other SOO.switch shared data 
+			 */
+			sh_switch = (sh_switch_t*)io_map(pfn_to_phys(cooperate_args->u.target_coop.pfn), PAGE_SIZE);
+			
+			/** Check if we encountered ourself **/
+			if (sh_switch->originUID == target_sh->originUID) {
+				/** Check if we are newer **/
+				if (sh_switch->timestamp > target_sh->timestamp) {
+					/** copy shared data to in target ME **/
+					memcpy(target_sh, sh_switch, sizeof(sh_switch_t));
+				}
+				DBG("Found ourself. Killing initiator ME.\n");
+				set_ME_state(ME_state_dormant);
+				sh_switch->need_propagate = false;
+			} else {
+				/**
+				 * Continue migration 
+				 */
+				set_ME_state(ME_state_dormant);
+				sh_switch->need_propagate = true;
+				return 0;
+			}
+
+			io_unmap((uint32_t) sh_switch);
+		
+		} else if (cooperate_args->u.target_coop.spid == SOO_BLIND_SPID) {
+			/** Check if target is a SOO.Blind or **/
+			
+			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_switch));
+			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
+			/* This pattern enables the cooperation with the target ME */
+			agency_ctl_args.cmd = AG_COOPERATE;
+			agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
+
+			// lprintk("Cooperate with SOO.blind\n");
+			
+			/* Perform the cooperate in the target ME */
+			args->__agency_ctl(&agency_ctl_args);
+
+
+			set_ME_state(ME_state_dormant);
+			sh_switch->need_propagate = false;
+			return 0;
+
+		} else if (cooperate_args->u.target_coop.spid == SOO_WAGOLED_SPID) {
+			/** 
+			 * TODO: Coop with wagoled
+			 * 
+			 */
+		} else {
+			DBG("We cannot cooperate with this ME: 0x%16X! Continue migration\n", cooperate_args->u.target_coop.spid);
+			
+			set_ME_state(ME_state_dormant);
+			sh_switch->need_propagate = true;
+			return 0;
+		}
 
 		break;
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
-		/* Map the content page of the incoming ME to retrieve its data. */
-		pfn = cooperate_args->u.initiator_coop.pfn;
-		incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-
-
-		if (incoming_sh_switch->timestamp > switch_timestamp) {
-			
-			// lprintk("Incoming ts: %llu, current tm: %llu\n", incoming_sh_switch->timestamp, switch_timestamp);
-			switch_timestamp = incoming_sh_switch->timestamp;
-			sh_blind->sw_cmd = incoming_sh_switch->cmd;
-			sh_blind->sw_press = incoming_sh_switch->press;
-			sh_blind->switch_event = true;
-			
-			// lprintk("Cooperation with SOO.switch. cmd: %d, press: %d\n", incoming_sh_switch->cmd, incoming_sh_switch->press);
-		}
-
-		io_unmap((uint32_t) incoming_sh_switch);
-		
-		if (sh_blind->switch_event) {
-			sh_blind->switch_event = false;
-			complete(&send_data_lock);
-		}
 
 		break;
 
@@ -228,15 +306,17 @@ void callbacks_init(void) {
 
 	init_completion(&send_data_lock);
 	atomic_set(&shutdown, 1);
+	spin_lock_init(&propagate_lock);
 
 	/* Allocate the shared page. */
-	sh_blind = (sh_blind_t *) get_contig_free_vpages(1);;
+	sh_switch = (sh_switch_t *) get_contig_free_vpages(1);;
 
 	/* Initialize the shared content page used to exchange information between other MEs */
-	memset(sh_blind, 0, PAGE_SIZE);
+	memset(sh_switch, 0, PAGE_SIZE);
 
-	sh_blind->switch_event = false;
-	sh_blind->sw_cmd = NONE;
+	sh_switch->switch_event = false;
+	sh_switch->cmd = NONE;
+	sh_switch->need_propagate = false;
 
 	/* Set the SPAD capabilities */
 	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));
