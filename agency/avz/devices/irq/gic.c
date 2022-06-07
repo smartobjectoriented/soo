@@ -182,13 +182,18 @@ static void gic_dist_init(struct gic_chip_data *gic, unsigned int irq_start)
 	unsigned int gic_irqs, irq_limit, i;
 	void *base = gic->dist_base;
 
-	writei(0, base + GIC_DIST_CTRL);
+	/* Disable the controller so we can configure it before it passes any
+	 * interrupts to the CPU
+	 */
+
+	writei(GICD_DISABLE, base + GIC_DIST_CTRL);
 
 	/*
 	 * Find out how many interrupts are supported.
 	 * The GIC only supports up to 1020 interrupt sources.
 	 */
 	gic_irqs = readi(base + GIC_DIST_CTR) & 0x1f;
+
 	gic_irqs = (gic_irqs + 1) * 32;
 	if (gic_irqs > 1020)
 		gic_irqs = 1020;
@@ -225,9 +230,6 @@ static void gic_dist_init(struct gic_chip_data *gic, unsigned int irq_start)
 	if (irq_limit > NR_IRQS)
 		irq_limit = NR_IRQS;
 
-	/*
-	 * Setup the avz subsystem.
-	 */
 	for (i = irq_start; i < irq_limit; i++) {
 		set_irq_chip(i, &gic_chip);
 		set_irq_chip_data(i, gic);
@@ -280,7 +282,8 @@ static void gic_cpu_if_up(void)
 	bypass = readi(cpu_base + GIC_CPU_CTRL);
 	bypass &= GICC_DIS_BYPASS_MASK;
 
-	writei(bypass | GICC_ENABLE, cpu_base + GIC_CPU_CTRL);
+	writei(bypass | GICC_ENABLE | GIC_CPU_EOI, cpu_base + GIC_CPU_CTRL);
+
 }
 
 static void gic_cpu_init(struct gic_chip_data *gic)
@@ -341,7 +344,7 @@ static void gic_handle(cpu_regs_t *cpu_regs) {
 			BUG();
 		}
 #endif
-lprintk("## GOT irq : %d\n", irqnr);
+
 		/* SPIs 32-irqmax */
 		if (likely((irqnr > 31) && (irqnr < 1021))) {
 			printk("## GIC failure: unexpected IRQ : %d\n", irqnr);

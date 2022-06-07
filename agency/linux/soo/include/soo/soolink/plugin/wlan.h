@@ -25,7 +25,7 @@
 
 #include <soo/soolink/soolink.h>
 
-#define WLAN_NET_DEV_NAME 	"wlan0"
+#define WLAN_NET_DEV_NAME	"wlan0"
 
 void plugin_wlan_rx(struct sk_buff *skb, struct net_device *net_dev, uint8_t *mac_src);
 

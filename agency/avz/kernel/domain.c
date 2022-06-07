@@ -247,7 +247,7 @@ void context_switch(struct domain *prev, struct domain *next)
  * This is the H-stack and contains a reference to the domain as the bottom (base) of the stack.
  */
 void *setup_dom_stack(struct domain *d) {
-	addr_t *domain_stack;
+	void *domain_stack;
 
 	/* The stack must be aligned at STACK_SIZE bytes so that it is
 	 * possible to retrieve the cpu_info structure at the bottom
@@ -259,10 +259,10 @@ void *setup_dom_stack(struct domain *d) {
 	d->domain_stack = (unsigned long) domain_stack;
 
 	/* Put the address of the domain descriptor at the base of this stack */
-	*domain_stack = (addr_t) d;
+	*((addr_t *) domain_stack) = (addr_t) d;
 
 	/* Reserve the frame which will be restored later */
-	domain_stack += (STACK_SIZE - sizeof(cpu_regs_t))/sizeof(addr_t);
+	domain_stack += STACK_SIZE - sizeof(cpu_regs_t);
 
 	/* Returns the reference to the H-stack frame of this domain */
 
