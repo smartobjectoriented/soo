@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2020-2022 David Truan <david.truan@heig-vd.ch>
  * Copyright (C) 2018-2019 Baptiste Delporte <bonel@bonel.net>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -154,7 +155,15 @@ typedef void(*ui_update_spid_t)(uint8_t *);
 typedef void(*ui_interrupt_t)(char *data, size_t size);
 typedef void(*ui_send_model_t)(void);
 
-void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_send_model_t ui_send_model,  ui_interrupt_t ui_interrupt);
+/** 
+ * @brief Allows to register two callbacks to the vuihandler. 
+ * 
+ * @param ui_send_model: callbacks to send the model. It is a function to let the ME app do whatever it
+ * wants and not just pass a model char *.
+ * @param ui_interrupt: callbacks to be called when receiving a VUIHANDLER_POST or VUIHANDLER_DATA packet.
+ *
+ */ 
+void vuihandler_register_callbacks(ui_send_model_t ui_send_model,  ui_interrupt_t ui_interrupt);
 
 void vuihandler_send(void *data, size_t size, uint8_t type);
 

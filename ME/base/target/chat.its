@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2022 David Truan <david.truan@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,7 +19,7 @@
 /dts-v1/;
 
 / {
-	description = "SO3 image for the SOO.ledctrl ME";
+	description = "SO3 image for the SOO.chat ME";
 
 	images {
 	
