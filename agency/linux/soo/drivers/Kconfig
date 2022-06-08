@@ -70,7 +70,33 @@ config VSENSEJ_BACKEND
 	default n
 	help
 	  The vsensej driver captures joystick movements.
-	  
+
+config VWAGOLED_BACKEND
+	bool "vwagoled wago led controller backend"
+	default n
+	help
+	  The vwagoled driver allows to changes the status of the wago leds 
+
+config TCM515
+	bool "Support tmc515 uart communication from kernel"
+	depends on SERIAL_DEV_CTRL_TTYPORT=y
+	help
+		Create an uart device that uses the serdev framework and allows 
+		to communicate with a TCM515 en0cean module.
+
+config VENOCEAN_BACKEND
+	bool "enOcean backend driver"
+	depends on TCM515=y
+	default n
+	help
+	  This driver enabled to deal with a virtualized interface for the enOcean actuator.
+
+config RN2483
+	bool "Support rn2483 uart communication from kernel to provide LoRa support"
+	depends on SERIAL_DEV_CTRL_TTYPORT=y
+	help
+		Create an uart device that uses the serdev framework and allows 
+		to communicate with a RN2483 LoRa module.
 	  
 source "soo/drivers/vnetback/Kconfig"
 

@@ -392,5 +392,31 @@
 		vsensej {
 			status = "ok";
 		};
+
+		vwagoled {
+			status = "ok";
+		};
+
+		venocean {
+			status = "ok";
+		};
+	};
+};
+
+&v2m_serial1 {
+	status = "okay";
+		
+	enocean {
+		compatible = "enocean,tcm515";
+		current-speed = <57600>;
+	};
+};
+
+&v2m_serial2 {
+	status = "okay";
+		
+	lora {
+		compatible = "lora,rn2483";
+		current-speed = <57600>;
 	};
 };
