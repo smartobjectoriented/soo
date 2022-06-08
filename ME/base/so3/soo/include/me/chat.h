@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 David Truan <david.truan@heig-vd.ch>
+ * Copyright (C) 2022 David Truan <david.truan@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -60,12 +60,12 @@
 /**
  * This is used to keep an history of the different 
  * messages we received from the MEs.
- * It stores the originUID, the message and the 
+ * It stores the originUID, the message and an incremental stamp
 */
 typedef struct {
-    uint64_t originUID;
-    size_t stamp;
-    char text[MAX_MSG_LENGTH];
+    uint64_t originUID;         /* UID of the SO this ME was first deployed on */
+    size_t stamp;               /* Incremental local stamp to compare when distributing a message */
+    char text[MAX_MSG_LENGTH];  /* The message text itself */
 } chat_entry_t;
 
 typedef struct {
@@ -83,19 +83,19 @@ typedef struct {
 
     bool has_a_new_msg;
 
-	/* To determine if the ME needs to be propagated.
-	 * If it is the same state, no need to be propagated.
-	 */
-	bool need_propagate;
+    /* To determine if the ME needs to be propagated.
+        * If it is the same state, no need to be propagated.
+        */
+    bool need_propagate;
 
     /* UID of the initiator SOO, on which this ME was deployed at boot time */
-	uint64_t initiator;
+    uint64_t initiator;
 
-	/*
-	 * MUST BE the last field, since it contains a field at the end which is used
-	 * as "payload" for a concatened list of hosts.
-	 */
-	me_common_t me_common;
+    /*
+        * MUST BE the last field, since it contains a field at the end which is used
+        * as "payload" for a concatened list of hosts.
+        */
+    me_common_t me_common;
 
 } sh_chat_t;
 
@@ -110,11 +110,9 @@ extern sh_chat_t *sh_chat;
 
 /* Bellow are the functions used to manage the message history */
 bool sender_is_in_history(uint64_t senderUID);
-chat_entry_t *find_chat_in_history(uint64_t senderUID);
+chat_entry_t *find_chat_from_sender_in_history(uint64_t senderUID);
 void add_chat_in_history(chat_entry_t *new_chat);
-bool update_chat_in_history(chat_entry_t *updated_chat);
 bool is_chat_in_history(chat_entry_t *chat);
-
 
 void send_chat_to_tablet(uint64_t senderUID, char* text);
 

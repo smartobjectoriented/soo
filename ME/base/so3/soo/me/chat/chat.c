@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Daniel Rossier <daniel.rossier@soo.tech>
- * Copyright (C) 2016-2019 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2022 David Truan <david.truan@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -21,6 +20,9 @@
 #define DEBUG
 #endif
 
+/* Activate to add a first test chat at the ME boot */ 
+#define TEST_CHAT 0
+
 #include <mutex.h>
 #include <delay.h>
 #include <timer.h>
@@ -37,13 +39,10 @@
 #include <soo/debug/dbgvar.h>
 #include <soo/debug/logbool.h>
 #include <soo/evtchn.h>
-
+#include <soo/xmlui.h>
 #include <soo/dev/vuihandler.h>
 
 #include <me/chat.h>
-
-#include <soo/xmlui.h>
-
 
 /* Contains the current chat message. */
 char cur_text[MAX_MSG_LENGTH];
@@ -53,7 +52,6 @@ char cur_text[MAX_MSG_LENGTH];
  * Used to compare arriving messages and keep track of who sent us what
  */
 static LIST_HEAD(chat_history);
-
 
 
 /********* History Management ********************/
@@ -81,7 +79,7 @@ bool sender_is_in_history(uint64_t senderUID) {
  * @param senderUID UID of the sender which sent the chat
  * @return chat_entry_t* The last chat by the sender, NULL if it does not exist
  */
-chat_entry_t *find_chat_in_history(uint64_t senderUID) {
+chat_entry_t *find_chat_from_sender_in_history(uint64_t senderUID) {
 	chat_t *chat;
 
 	list_for_each_entry(chat, &chat_history, list)
@@ -91,6 +89,22 @@ chat_entry_t *find_chat_in_history(uint64_t senderUID) {
 	return NULL;
 }
 
+
+/**
+ * @brief Update an existing chat in the history. 
+ * IT SHOULD NOT BE USED DIRECTLY, as it is used by add_chat_in_history.
+ * 
+ * @param updated_chat A chat_entry_t struct containing the chat to update
+ * @return bool true if the chat was updated, false otherwise
+ */
+void update_chat_in_history(chat_entry_t *updated_chat) {
+	chat_entry_t *chat_entry = find_chat_from_sender_in_history(updated_chat->originUID);
+
+	BUG_ON(!chat_entry);
+
+	chat_entry->stamp = updated_chat->stamp;
+	strcpy(chat_entry->text, updated_chat->text);
+}
 
 /**
  * @brief Add a chat to the history. 
@@ -117,30 +131,9 @@ void add_chat_in_history(chat_entry_t *new_chat) {
 	chat->chat_entry.originUID = new_chat->originUID;
 	chat->chat_entry.stamp = new_chat->stamp;
 
-	memcpy(chat->chat_entry.text, new_chat->text, strlen(new_chat->text+1));
+	strcpy(chat->chat_entry.text, new_chat->text);
 
 	list_add_tail(&chat->list, &chat_history);
-}
-
-
-/**
- * @brief Update an existing chat in the history. 
- * IT SHOULD NOT BE USED DIRECTLY, as it is used by add_chat_in_history.
- * 
- * @param updated_chat A chat_entry_t struct containing the chat to update
- * @return bool true if the chat was updated, false otherwise
- */
-bool update_chat_in_history(chat_entry_t *updated_chat) {
-	chat_entry_t *chat_entry = find_chat_in_history(updated_chat->originUID);
-
-	if (chat_entry == NULL) {
-		printk("Cannot retreive chat in history...\n");
-		return false;
-	}
-
-	chat_entry->stamp = updated_chat->stamp;
-	memcpy(chat_entry->text, updated_chat->text, strlen(updated_chat->text+1));
-	return true;
 }
 
 
@@ -152,7 +145,7 @@ bool update_chat_in_history(chat_entry_t *updated_chat) {
  * 
  */ 
 bool is_chat_in_history(chat_entry_t *chat) {
-	chat_entry_t *chat_entry = find_chat_in_history(chat->originUID);
+	chat_entry_t *chat_entry = find_chat_from_sender_in_history(chat->originUID);
 
 	if (chat_entry == NULL) {
 		printk("No chat from this sender was found.\n");
@@ -169,7 +162,7 @@ bool is_chat_in_history(chat_entry_t *chat) {
 }
 
 
-void send_chat_to_tablet(uint64_t senderUID, char* text) {
+void send_chat_to_tablet(uint64_t senderUID, char *text) {
 	char msg[MAX_MSG_LENGTH];
 
 	xml_prepare_chat(msg, senderUID, text);
@@ -185,7 +178,7 @@ void send_chat_model(void) {
  * @param args - To be compliant... Actually not used.
  * @return
  */
-void process_events(char * data, size_t size) {
+void process_events(char *data, size_t size) {
 	char id[ID_MAX_LENGTH];
 	char action[ACTION_MAX_LENGTH];
 	char content[MAX_MSG_LENGTH];
@@ -203,7 +196,7 @@ void process_events(char * data, size_t size) {
 	if (!strcmp(id, TEXTEDIT_ID)) {
 
 		xml_get_event_content(data, content);
-		strncpy(cur_text, content, strlen(content)+1);
+		strcpy(cur_text, content);
 	} else if (!strcmp(id, BTN_SEND_ID) && !strcmp(action, "clickDown")) {
 			
 		/* We don't send empty text */	
@@ -220,12 +213,11 @@ void process_events(char * data, size_t size) {
 
 		/* We update the chat_entry_t which will be delivered across the network */
 		sh_chat->cur_chat.stamp++;
-		memcpy(sh_chat->cur_chat.text, cur_text, sizeof(cur_text)+1);
+		strcpy(sh_chat->cur_chat.text, cur_text);
 		sh_chat->need_propagate = true;
 	}
 }
 
-#define TEST_CHAT 0
 /*
  * The main application of the ME is executed right after the bootstrap. It may be empty since activities can be triggered
  * by external events based on frontend activities.
@@ -238,7 +230,7 @@ int app_thread_main(void *args) {
 	printk("Enjoy the SOO.chat ME !\n");
 
 	/* register our process_event callback to the vuihandler */ 
-	vuihandler_register_callback(NULL, send_chat_model, process_events);
+	vuihandler_register_callbacks(send_chat_model, process_events);
 
 	sh_chat->cur_chat.stamp = 0;
 	memset(sh_chat->cur_chat.text, 0, MAX_MSG_LENGTH);
@@ -249,7 +241,7 @@ int app_thread_main(void *args) {
 	sprintf(sh_chat->cur_chat.text, "Test MSG");
 #endif
 
-	while(1);
+	while(true) schedule();
 
 	return 0;
 }

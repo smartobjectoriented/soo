@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2020-2022 David Truan <david.truan@heig-vd.ch>
  * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@soo.tech>
  * Copyright (C) 2018-2019 Baptiste Delporte <bonel@bonel.net>
  *
@@ -38,24 +39,15 @@
 
 #include <soo/dev/vuihandler.h>
 
-ui_update_spid_t __ui_update_spid = NULL;
+/* Callbacks to be set by the ME app */
 ui_interrupt_t __ui_interrupt = NULL;
 ui_send_model_t __ui_send_model = NULL;
 
-/* Sent BT packet count */
-
-typedef struct {
-	void *data;
-	size_t size;
-} send_param_t;
 
 typedef struct {
 	vuihandler_t vuihandler;
-
 	uint32_t send_count;
-	completion_t *send_compl;
-	completion_t *send_done_compl;
-	send_param_t sp;
+	completion_t send_compl;
 	mutex_t send_mutex;
 	tx_circ_buf_t *tx_circ_buf;
 } vuihandler_priv_t;
@@ -65,7 +57,6 @@ static struct vbus_device *vuihandler_dev = NULL;
 
 /* In lib/vsprintf.c */
 unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
-
 
 /**
  * @brief Enqueue a packet to be sent in the internal circular buffer to be sent to the BE.
@@ -85,8 +76,10 @@ static int tx_buffer_put(uint8_t *data, uint32_t size, uint8_t type) {
 	mutex_lock(&tx_circ_buf->tx_circ_buf_mutex);
 
 	/* abort if there are no place left on the circular buffer */
-	if (tx_circ_buf->cur_size == VUIHANDLER_MAX_TX_BUF_ENTRIES) 
-		return -1;
+	if (tx_circ_buf->cur_size == VUIHANDLER_MAX_TX_BUF_ENTRIES) {
+		mutex_unlock(&tx_circ_buf->tx_circ_buf_mutex);
+		BUG();
+	}
 
 	/* Copy the data into the circular buffer */
 	tx_circ_buf->circ_buf[tx_circ_buf->cur_prod_idx].size = size;
@@ -118,8 +111,13 @@ static tx_buf_entry_t *tx_buffer_get(void) {
 
 	mutex_lock(&tx_circ_buf->tx_circ_buf_mutex);
 
-	if (tx_circ_buf->cur_size == 0)
-		return NULL;
+	/* We should never have no packet when trying to get one, if it happens,
+	it means something went off in the circular buffer */
+	if (tx_circ_buf->cur_size == 0) {
+		mutex_unlock(&tx_circ_buf->tx_circ_buf_mutex);
+		lprintk("[vuihandler-FE]: There was no packet in the TX circular buffer, aborting...\n");
+		BUG();
+	}
 
 	entry = &tx_circ_buf->circ_buf[tx_circ_buf->cur_cons_idx];
 
@@ -208,7 +206,7 @@ void vuihandler_send(void *data, size_t size, uint8_t type) {
 	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
 
 	tx_buffer_put(data, size, type);
-	complete(vuihandler_priv->send_compl);
+	complete(&vuihandler_priv->send_compl);
 }
 
 int vuihandler_send_fn(void *arg) {
@@ -220,8 +218,12 @@ int vuihandler_send_fn(void *arg) {
 	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vdev->dev);
 
 	while(1) {
-		wait_for_completion(vuihandler_priv->send_compl);
+		/* Wait for vuihandler_send to complete us */
+		wait_for_completion(&vuihandler_priv->send_compl);
+
+		/* Retrieve and check the packet to send */
 		tx_entry = tx_buffer_get();
+		if (tx_entry == NULL) continue;
 
 		vdevfront_processing_begin(vdev);
 		/*
@@ -254,11 +256,7 @@ void vuihandler_init_tx_circ_buf(struct vbus_device *vdev) {
 	vuihandler_priv = dev_get_drvdata(vdev->dev);
 
 	vuihandler_priv->tx_circ_buf = malloc(sizeof(tx_circ_buf_t));
-
-	if (!vuihandler_priv->tx_circ_buf) {
-		lprintk("[vuihandler][FE]: Could not allocate TX circular buffer.\n");
-		BUG();
-	}
+	BUG_ON(!vuihandler_priv->tx_circ_buf);
 
 	mutex_init(&vuihandler_priv->tx_circ_buf->tx_circ_buf_mutex);
 	vuihandler_priv->tx_circ_buf->cur_prod_idx = 0;
@@ -339,12 +337,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 
 	vuihandler_init_tx_circ_buf(vdev);
 
-
-	/* Init the completions */
-	vuihandler_priv->send_compl = malloc(sizeof(completion_t));
-	vuihandler_priv->send_done_compl = malloc(sizeof(completion_t));
-	init_completion(vuihandler_priv->send_compl);
-	init_completion(vuihandler_priv->send_done_compl);
+	init_completion(&vuihandler_priv->send_compl);
 
 	/* Start the TX thread */
 	kernel_thread(vuihandler_send_fn, "vuihandler_send_fn", (void *) vdev, 0);
@@ -456,8 +449,7 @@ void vuihandler_closed(struct vbus_device *vdev) {
 	vuihandler_priv->vuihandler.tx_irq = 0;
 }
 
-void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_send_model_t ui_send_model, ui_interrupt_t ui_interrupt) {
-	__ui_update_spid = ui_update_spid;
+void vuihandler_register_callbacks(ui_send_model_t ui_send_model, ui_interrupt_t ui_interrupt) {
 	__ui_send_model = ui_send_model;
 	__ui_interrupt = ui_interrupt;
 }

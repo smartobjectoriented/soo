@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@soo.tech>
- * Copyright (C) March 2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2022 David Truan <david.truan@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -97,7 +96,8 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
-	// DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
+	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
+
 	if (!full_initd) {
 		pre_propagate_args->propagate_status = PROPAGATE_STATUS_NO;
 		return 0;
