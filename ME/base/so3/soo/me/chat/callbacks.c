@@ -244,7 +244,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			}			
 
 		} else {
-			last_chat = find_chat_in_history(incoming_sh_chat->cur_chat.originUID);
+			last_chat = find_chat_from_sender_in_history(incoming_sh_chat->cur_chat.originUID);
 
 			/* If no message from this sender is in our history or 
 			the new message is more recent, we send the message and add/update it to our history */

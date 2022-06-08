@@ -53,8 +53,8 @@ if [ "$deploy_me" == "y" ]; then
         cd target
         ./mkuboot.sh $3
 
-        echo Copying the ITB image $2.itb in the target $2 directory
-        cp $3.itb ../../$2/target/
+        echo Copying the ITB image $2.itb in the $2 directory
+        cp $3.itb ../../$2/
 fi
 
 
