@@ -7,3 +7,5 @@ obj-$(CONFIG_VWEATHER_FRONTEND) += vweatherfront/
 obj-$(CONFIG_VUIHANDLER_FRONTEND) += vuihandlerfront/
 obj-$(CONFIG_VSENSELED_FRONTEND) += vsenseledfront/
 obj-$(CONFIG_VSENSEJ_FRONTEND) += vsensejfront/
+obj-$(CONFIG_VENOCEAN_FRONTEND) += venoceanfront/
+obj-$(CONFIG_VWAGOLED_FRONTEND) += vwagoledfront/

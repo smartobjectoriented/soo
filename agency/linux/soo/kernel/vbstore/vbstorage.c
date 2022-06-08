@@ -490,4 +490,14 @@ void vbstorage_agency_init(void) {
 	np = of_find_compatible_node(NULL, NULL, "vsensej,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vsensej");
+
+	/* Agency backend side of virtual wagoled device */
+	np = of_find_compatible_node(NULL, NULL, "vwagoled,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vwagoled");
+
+	/* Agency backend side of virtual en0cean device */
+	np = of_find_compatible_node(NULL, NULL, "venocean,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/venocean");
 }
