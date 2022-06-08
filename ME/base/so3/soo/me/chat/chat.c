@@ -161,7 +161,13 @@ bool is_chat_in_history(chat_entry_t *chat) {
 	return false;
 }
 
-
+/** 
+ * @brief send a chat to the connected tablet
+ * 
+ * @param senderUID: UID of the sender (the SO connected to the tablet)
+ * @param text: The chat text itself
+ * 
+ */ 
 void send_chat_to_tablet(uint64_t senderUID, char *text) {
 	char msg[MAX_MSG_LENGTH];
 
@@ -169,6 +175,10 @@ void send_chat_to_tablet(uint64_t senderUID, char *text) {
 	vuihandler_send(msg, strlen(msg)+1, VUIHANDLER_POST);
 }
 
+/**
+ * @brief Sends the model to the tablet 
+ * 
+ */ 
 void send_chat_model(void) {
 	vuihandler_send(CHAT_MODEL, strlen(CHAT_MODEL)+1, VUIHANDLER_SELECT);
 }
