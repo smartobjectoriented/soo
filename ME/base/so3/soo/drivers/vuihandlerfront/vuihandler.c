@@ -136,7 +136,6 @@ static void process_pending_tx_rsp(struct vbus_device *vdev) {
 	vuihandler_t *vuihandler = to_vuihandler(vdev);
 	vuihandler_tx_response_t *ring_req;
 	
-	dmb();
 	/* Consume the responses without doing anything */
 	while ((ring_req = vuihandler_tx_get_ring_response(&vuihandler->tx_ring)) != NULL);
 }
@@ -209,7 +208,7 @@ void vuihandler_send(void *data, size_t size, uint8_t type) {
 	complete(&vuihandler_priv->send_compl);
 }
 
-int vuihandler_send_fn(void *arg) {
+void *vuihandler_send_fn(void *arg) {
 	struct vbus_device *vdev = (struct vbus_device *) arg;
 	vuihandler_tx_request_t *ring_req;
 	vuihandler_priv_t *vuihandler_priv;
@@ -217,7 +216,8 @@ int vuihandler_send_fn(void *arg) {
 
 	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vdev->dev);
 
-	while(1) {
+	while (true) {
+
 		/* Wait for vuihandler_send to complete us */
 		wait_for_completion(&vuihandler_priv->send_compl);
 
@@ -248,7 +248,7 @@ int vuihandler_send_fn(void *arg) {
 		vdevfront_processing_end(vdev);
 	}
 
-	return 0;
+	return NULL;
 }
 
 void vuihandler_init_tx_circ_buf(struct vbus_device *vdev) {
@@ -297,7 +297,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	vuihandler_priv->vuihandler.rx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.rx_ring.sring)));
+	vuihandler_priv->vuihandler.rx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vuihandler_priv->vuihandler.rx_ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -326,7 +326,7 @@ void vuihandler_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	vuihandler_priv->vuihandler.tx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.tx_ring.sring)));
+	vuihandler_priv->vuihandler.tx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vuihandler_priv->vuihandler.tx_ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -380,7 +380,7 @@ void vuihandler_reconfiguring(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	vuihandler_priv->vuihandler.rx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.rx_ring.sring)));
+	vuihandler_priv->vuihandler.rx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vuihandler_priv->vuihandler.rx_ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -398,7 +398,7 @@ void vuihandler_reconfiguring(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	vuihandler_priv->vuihandler.tx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuihandler_priv->vuihandler.tx_ring.sring)));
+	vuihandler_priv->vuihandler.tx_ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vuihandler_priv->vuihandler.tx_ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -425,7 +425,7 @@ void vuihandler_closed(struct vbus_device *vdev) {
 	/* RX side */
 	if (vuihandler_priv->vuihandler.rx_ring_ref != GRANT_INVALID_REF) {
 		gnttab_end_foreign_access(vuihandler_priv->vuihandler.rx_ring_ref);
-		free_vpage((uint32_t) vuihandler_priv->vuihandler.rx_ring.sring);
+		free_vpage((addr_t) vuihandler_priv->vuihandler.rx_ring.sring);
 
 		vuihandler_priv->vuihandler.rx_ring_ref = GRANT_INVALID_REF;
 		vuihandler_priv->vuihandler.rx_ring.sring = NULL;
@@ -438,7 +438,7 @@ void vuihandler_closed(struct vbus_device *vdev) {
 	/* TX side */
 	if (vuihandler_priv->vuihandler.tx_ring_ref != GRANT_INVALID_REF) {
 		gnttab_end_foreign_access(vuihandler_priv->vuihandler.tx_ring_ref);
-		free_vpage((uint32_t) vuihandler_priv->vuihandler.tx_ring.sring);
+		free_vpage((addr_t) vuihandler_priv->vuihandler.tx_ring.sring);
 
 		vuihandler_priv->vuihandler.tx_ring_ref = GRANT_INVALID_REF;
 		vuihandler_priv->vuihandler.tx_ring.sring = NULL;
@@ -446,6 +446,7 @@ void vuihandler_closed(struct vbus_device *vdev) {
 
 	if (vuihandler_priv->vuihandler.tx_irq)
 		unbind_from_irqhandler(vuihandler_priv->vuihandler.tx_irq);
+
 	vuihandler_priv->vuihandler.tx_irq = 0;
 }
 

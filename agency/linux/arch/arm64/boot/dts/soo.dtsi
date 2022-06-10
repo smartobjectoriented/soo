@@ -14,6 +14,11 @@
 				status = "disabled";
 			};
 	
+			vuihandler {
+				compatible = "vuihandler,backend";
+				status = "disabled";
+			};
+	
 			vuart {
 				compatible = "vuart,backend";
 				status = "disabled";
@@ -29,6 +34,26 @@
             	status = "disabled";
         	};
 			
+			vdoga12v6nm {
+            	compatible = "vdoga12v6nm,backend";
+            	status = "disabled";
+            };
+            
+            vweather {
+            	compatible = "vweather,backend";
+            	status = "disabled";
+        	};
+
+			vwagoled {
+				compatible = "vwagoled,backend";
+				status = "disabled";
+			};
+
+			venocean {
+				compatible = "venocean,backend";
+				status = "disabled";
+			};
+
 		};
 	};
 	

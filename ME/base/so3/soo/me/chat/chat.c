@@ -235,7 +235,7 @@ void process_events(char *data, size_t size) {
  * The main application of the ME is executed right after the bootstrap. It may be empty since activities can be triggered
  * by external events based on frontend activities.
  */
-int app_thread_main(void *args) {
+void *app_thread_main(void *args) {
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
@@ -254,5 +254,5 @@ int app_thread_main(void *args) {
 	sprintf(sh_chat->cur_chat.text, "Test MSG");
 #endif
 
-	return 0;
+	return NULL;
 }
