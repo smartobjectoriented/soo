@@ -137,6 +137,8 @@ struct kberry838_uart {
 
     /** Completion used to wait for responses **/
     struct completion wait_rsp;
+
+    ft12_decode_status decode_status;
 };
 
 /** Forward declaration of BAOS frame (found in baos_client.h) **/

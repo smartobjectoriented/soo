@@ -36,8 +36,9 @@ typedef enum {
 	GET_STATUS,
 	/* Get devices connected to the DALI bus */
 	GET_TOPOLOGY,
-	NONE
-}wago_cmd_t;
+	
+	CMD_NONE
+} wago_cmd_t;
 
 /*** Normally DALI master can manage up to 64 devices ***/
 #define VWAGOLED_PACKET_SIZE	64

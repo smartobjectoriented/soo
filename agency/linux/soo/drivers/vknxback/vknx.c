@@ -37,7 +37,8 @@ typedef struct {
 
 } vknx_priv_t;
 
-static vknx_response_t *indication;
+static vknx_response_t *indication = NULL;
+
 DECLARE_COMPLETION(send_data);
 DECLARE_COMPLETION(data_sent);
 
@@ -106,21 +107,17 @@ static baos_datapoint_t *vknx_request_to_baos(vknx_request_t *req) {
 }
 
 void vknx_baos_indication_process(baos_frame_t *frame) {
-    vknx_response_t *res;
+    DBG(VKNX_PREFIX "Got a new indication:\n");
 
-    DBG("Got a new indication:\n");
-
-    res = vknx_baos_to_response(frame);
-    res->event = KNX_INDICATION;
-
-    indication = res;
+    indication = vknx_baos_to_response(frame);
+    indication->event = KNX_INDICATION;
 
     complete(&send_data);
-
     wait_for_completion(&data_sent);
 
-    kfree(res->datapoints);
-    kfree(res);
+    kfree(indication);
+
+    indication = NULL;
 }
 
 static void vknx_get_dp_value(void *data) {
@@ -178,7 +175,6 @@ static int vknx_send_indication_fn(void *data) {
             vdevback_processing_begin(vdev);
             vknx_priv = dev_get_drvdata(&vdev->dev);
             
-
             ring_resp = vknx_new_ring_response(&vknx_priv->vknx.ring);
             memcpy(ring_resp, indication, sizeof(vknx_response_t));
             vknx_ring_response_ready(&vknx_priv->vknx.ring);
@@ -186,6 +182,8 @@ static int vknx_send_indication_fn(void *data) {
 
             vdevback_processing_end(vdev);
         }
+
+        DBG(VKNX_PREFIX "Data sent\n");
 
         complete(&data_sent);
     }
@@ -256,14 +254,14 @@ void vknx_remove(struct vbus_device *vdev) {
 
     /** Remove entry when frontend is leaving **/
     list_for_each_entry(domid_priv, domid_list, list) {
-        if (domid_priv->id == vdev->otherend_id) {
+        if (domid_priv->id == id) {
             list_del(&domid_priv->list);
             kfree(domid_priv);
             break;
         }
     }
 
-    DBG("%s: freeing the venocean structure for %s\n", __func__,vdev->nodename);
+    DBG("%s: freeing the vknx structure for %s\n", __func__,vdev->nodename);
     vdevback_del_entry(vdev, vdev_list);
 	kfree(vknx_priv);
 
@@ -311,7 +309,6 @@ void vknx_reconfigured(struct vbus_device *vdev) {
 	/*
 	 * Set up a ring (shared page & event channel) between the agency and the ME.
 	 */
-
 	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
 	DBG(VKNX_PREFIX "BE: ring-ref=%ld, event-channel=%d\n", ring_ref, evtchn);
@@ -367,6 +364,9 @@ int vknx_init(void) {
 	vdevback_init(VKNX_NAME, &vknxdrv);
 
     baos_client_subscribe_to_indications(vknx_baos_indication_process);
+
+    // init_completion(&data_sent);
+    // init_completion(&send_data);
 
     kthread_run(vknx_send_indication_fn, NULL, "send_indication_fn");
 

@@ -42,6 +42,8 @@ static LIST_HEAD(known_soo_list);
 /* Reference to the shared content helpful during synergy with other MEs */
 sh_wagoled_t *sh_wagoled;
 
+struct completion send_data_lock;
+atomic_t shutdown;
 /**
  * PRE-ACTIVATE
  *
@@ -108,8 +110,11 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
  */
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
+	sh_switch_t *incoming_sh_switch;
+	static uint64_t switch_timestamp = 0;
+	uint32_t pfn;
 
-	lprintk("[soo:me:SOO.wagoled] ME %d: cb_cooperate...\n", ME_domID());
+	// lprintk("[soo:me:SOO.wagoled] ME %d: cb_cooperate...\n", ME_domID());
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
@@ -121,7 +126,28 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
+		/* Map the content page of the incoming ME to retrieve its data. */
+		pfn = cooperate_args->u.initiator_coop.pfn;
+		incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
+		if (incoming_sh_switch->timestamp > switch_timestamp) {
+			
+			// lprintk("Incoming ts: %llu, current tm: %llu\n", incoming_sh_switch->timestamp, switch_timestamp);
+			switch_timestamp = incoming_sh_switch->timestamp;
+			sh_wagoled->sw_pos = incoming_sh_switch->pos;
+			sh_wagoled->sw_status = incoming_sh_switch->status;
+			sh_wagoled->switch_event = true;
+			incoming_sh_switch->delivered = true;
+			
+			// lprintk("Cooperation with SOO.switch. cmd: %d, press: %d\n", incoming_sh_switch->cmd, incoming_sh_switch->press);
+		}
+
+		io_unmap((uint32_t) incoming_sh_switch);
+		
+		if (sh_wagoled->switch_event) {
+			sh_wagoled->switch_event = false;
+			complete(&send_data_lock);
+		}
 		break;
 
 	default:
@@ -170,6 +196,8 @@ int cb_force_terminate(void) {
 	DBG(">> ME %d: cb_force_terminate...\n", ME_domID());
 	DBG("ME state: %d\n", get_ME_state());
 
+	atomic_set(&shutdown, 0);
+
 	/* We do nothing particular here for this ME,
 	 * however we proceed with the normal termination of execution.
 	 */
@@ -180,12 +208,18 @@ int cb_force_terminate(void) {
 }
 
 void callbacks_init(void) {
+	init_completion(&send_data_lock);
+	atomic_set(&shutdown, 1);
 
 	/* Allocate the shared page. */
 	sh_wagoled = (sh_wagoled_t *) get_contig_free_vpages(1);
 
 	/* Initialize the shared content page used to exchange information between other MEs */
 	memset(sh_wagoled, 0, PAGE_SIZE);
+
+	sh_wagoled->sw_pos = POS_NONE;
+	sh_wagoled->sw_status = STATUS_NONE;
+	sh_wagoled->switch_event = false;
 
 	/* Set the SPAD capabilities */
 	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));

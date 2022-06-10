@@ -26,6 +26,8 @@
 #define PT210_SWITCH_RELEASED       0x00
 #define PT210_PRESSED_TIME_MS       500
 
+typedef unsigned char byte;
+
 /**
  * @brief PT210 enocean switch struct
  * 
@@ -45,6 +47,7 @@ typedef struct {
     uint64_t press_time;
     uint64_t released_time;
 } pt210_t;
+
 
 /**
  * @brief Initialize PT210 struct members

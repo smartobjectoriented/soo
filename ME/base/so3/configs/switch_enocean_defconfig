@@ -77,7 +77,8 @@ CONFIG_ROOTFS_NONE=y
 # CONFIG_SOO_NET is not set
 # CONFIG_SOO_LEDCTRL is not set
 # CONFIG_SOO_WAGOLED is not set
-CONFIG_SOO_SWITCH=y
+# CONFIG_SOO_SWITCH_KNX is not set
+CONFIG_SOO_SWITCH_ENOCEAN=y
 
 #
 # SOO Mobile Entity frontend drivers

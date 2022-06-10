@@ -46,7 +46,7 @@ void pt210_wait_event(pt210_t *sw) {
         return;
     }
 
-    DBG("%s: got new enocean data\n", __func__);
+    DBG("%s: got new enocean data: 0x%02X\n", __func__, tel->data[0]);
 
     if (tel->rorg != RPS)
         return;

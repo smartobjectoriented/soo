@@ -19,7 +19,6 @@
 #ifndef BLIND_H
 #define BLIND_H
 
-#include <completion.h>
 #include <spinlock.h>
 #include <printk.h>
 #include <completion.h>
@@ -27,6 +26,9 @@
 
 #include <me/common.h>
 #include <soo/vbwa88pg.h>
+
+#define ENOCEAN
+
 #include <me/switch.h>
 
 #define MEBLIND_NAME		"ME blind"
@@ -83,7 +85,7 @@ typedef struct {
 typedef struct {
 
 	bool switch_event;
-	switch_cmd sw_cmd;
+	switch_position sw_pos;
 	switch_press sw_press;
 
 	bool need_propagate;

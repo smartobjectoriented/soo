@@ -8,7 +8,8 @@ obj-$(CONFIG_SOO_AGENCY) += agency/
 obj-$(CONFIG_SOO_NET) += net/
 obj-$(CONFIG_SOO_LEDCTRL) += ledctrl/
 obj-$(CONFIG_SOO_WAGOLED) += wagoled/
-obj-$(CONFIG_SOO_SWITCH) += switch/
+obj-$(CONFIG_SOO_SWITCH_ENOCEAN) += switch/
+obj-$(CONFIG_SOO_SWITCH_KNX) += switch/
 
 
 

@@ -109,7 +109,10 @@ static void kberry838_send_reset(void) {
  * 
  */
 static void kberry838_send_ack(void) {
+    kberry838->decode_status = WAIT_FT12_START;
     kberry838_write_buf(kberry838_ack, sizeof(kberry838_ack));
+    serdev_device_wait_until_sent(kberry838->serdev, 0);
+    // wait_for_completion(&kberry838->serdev->write_comp);
 }
 
 /**
@@ -185,8 +188,9 @@ void kberry838_send_data(byte *baos_frame, int len) {
 
     // memcpy(&sent_buffer[sent_buf_len], ft12_array, ft12_len);
     // sent_buf_len += ft12_len;
-
+    kberry838->decode_status = WAIT_FT12_START;
     kberry838_write_buf(ft12_array, ft12_len);
+    serdev_device_wait_until_sent(kberry838->serdev, 0);
     if (wait_for_completion_timeout(&kberry838->wait_rsp, 
                                     msecs_to_jiffies(KBERRY838_RSP_TIMEOUT)) == 0) {
         dev_err(kberry838->dev, "Send data timeout reached");
@@ -279,7 +283,7 @@ static byte *kberry838_check_ft12_and_extract_baos(const byte *ft12buf, size_t f
 static void kberry838_process_ft12_frame(const byte *data, size_t len){
     static byte* ft12_frame;
     static int ft12_len = 0;
-    static int ft12_decode_status = WAIT_FT12_START;
+    // static int ft12_decode_status = WAIT_FT12_START;
     static bool start_found = false;
     static int fbyte_proc = 0;
     byte *baos_frame;
@@ -296,18 +300,19 @@ static void kberry838_process_ft12_frame(const byte *data, size_t len){
 
     
     for (i = 0; i < len; i++) {
-        if (data[i] == FT12_ACK && ft12_decode_status == WAIT_FT12_START) {
+        if (data[i] == FT12_ACK && kberry838->decode_status == WAIT_FT12_START) {
 #ifdef DEBUG
             dev_info(kberry838->dev, "ACK received");
 #endif        
             complete(&kberry838->wait_rsp);  
         } else {
-            switch(ft12_decode_status) {
+            switch(kberry838->decode_status) {
                 
                 case WAIT_FT12_START:
-                    if (data[i] == FT12_START_CHAR && !start_found)
+                    if (data[i] == FT12_START_CHAR && !start_found) {
                         start_found = true;
-                    else if (start_found) {
+                        fbyte_proc = 0;
+                    } else if (start_found) {
                         start_found = false;
                         ft12_len = FT12_HEADER_SIZE + data[i] + 1;
 
@@ -317,10 +322,10 @@ static void kberry838_process_ft12_frame(const byte *data, size_t len){
 
                         ft12_frame[fbyte_proc++] = FT12_START_CHAR;
                         ft12_frame[fbyte_proc++] = data[i];
-                        ft12_decode_status = WAIT_FT12_STOP;
+                        kberry838->decode_status = WAIT_FT12_STOP;
                     } else  {
+                        dev_err(kberry838->dev, "Don't know what to do with this value. Dropping it!");
                         kberry838_print_buffer((byte*)data, len);
-                        BUG();
                     }
                     break;
 
@@ -329,34 +334,20 @@ static void kberry838_process_ft12_frame(const byte *data, size_t len){
                         ft12_frame[fbyte_proc++] = data[i];
                     else {
                         ft12_frame[fbyte_proc++] = data[i];
-                        kberry838_send_ack();
                         
                         baos_frame_len = ft12_len - FT12_HEADER_SIZE - FT12_FOOTER_SIZE;
                         baos_frame = kberry838_check_ft12_and_extract_baos(ft12_frame, ft12_len, 
                                                                             baos_frame_len);
                         if (baos_frame) {
+                            kberry838_send_ack();
                             baos_store_response(baos_frame, baos_frame_len);
                             kberry838_switch_frame_parity();
                             kfree(baos_frame);
-                            // dev_err(kberry838->dev, "Received data:");
-                            // kberry838_print_buffer(buffer, buf_len);
-                            // dev_err(kberry838->dev, "Sent data:");
-                            // kberry838_print_buffer(sent_buffer, sent_buf_len);
                         } else {
                             dev_err(kberry838->dev, "Failed to extract baos frame from FT1.2 data");
-                            kberry838_print_buffer((byte*)ft12_frame, ft12_len);
-#ifdef DEBUG
-                            // dev_err(kberry838->dev, "Sent data:");
-                            // kberry838_print_buffer(sent_buffer, sent_buf_len);
-                            dev_err(kberry838->dev, "Received data:");
-                            kberry838_print_buffer(buffer, buf_len);
-
-#endif
-
                         }
 
-                        fbyte_proc = 0;
-                        ft12_decode_status = WAIT_FT12_START;
+                        kberry838->decode_status = WAIT_FT12_START;
                     }
                     break;
             }
@@ -487,6 +478,7 @@ static int kberry838_serdev_probe(struct serdev_device *serdev) {
     kberry838->serdev = serdev;
     kberry838->dev = dev;
     kberry838->baud = baud;
+    kberry838->decode_status = WAIT_FT12_START;
     init_completion(&kberry838->wait_rsp);
 
     ret = serdev_device_open(serdev);

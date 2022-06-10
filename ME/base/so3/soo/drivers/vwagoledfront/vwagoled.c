@@ -52,7 +52,7 @@ static struct vbus_device *vwagoled_dev = NULL;
  * @param req request to initialize
  */
 void init_request(vwagoled_request_t *req) {
-	req->cmd = NONE;
+	req->cmd = CMD_NONE;
 	req->dim_value = DEFAULT_DIM_VALUE;
 	memset(req->ids, -1, sizeof(int) * VWAGOLED_PACKET_SIZE);
 }

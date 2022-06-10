@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -69,13 +69,18 @@ void vknx_print_dps(dp_t *dps, int dp_count) {
 int get_knx_data(vknx_response_t *data) {
 	vknx_priv_t *vknx_priv = dev_get_drvdata(vknx_dev->dev);
 	vknx_response_t *ring_rsp;
+	int ret = 0;
 	
 	wait_for_completion(&vknx_priv->waitlock);
+	
+	vdevfront_processing_begin(vknx_dev);
 	if ((ring_rsp = vknx_get_ring_response(&vknx_priv->vknx.ring)) != NULL) {
 		memcpy(data, ring_rsp, sizeof(vknx_response_t));
-		return 0;
 	} else 
-		return -1;
+		ret = -1;
+	vdevfront_processing_end(vknx_dev);
+
+	return ret;
 }
 
 void vknx_get_dp_value(uint16_t first_dp, int dp_count) {
@@ -133,7 +138,7 @@ irq_return_t vknx_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vknx_priv_t *vknx_priv = dev_get_drvdata(vdev->dev);
 
-	DBG("%s, %d\n", __func__, ME_domID());
+	DBG(VKNX_PREFIX "%s, %d\n", __func__, ME_domID());
 	complete(&vknx_priv->waitlock);
 
 	return IRQ_COMPLETED;

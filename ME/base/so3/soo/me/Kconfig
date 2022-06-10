@@ -48,10 +48,13 @@ choice
 		help
 			TODO
 
-	config SOO_SWITCH
-		bool "SOO.switch Mobile Entity"
+	config SOO_SWITCH_KNX
+		bool "SOO.switch Mobile Entity using KNX" 
 		help
 			SOO.switch is a ME capable of ...
+	
+	config SOO_SWITCH_ENOCEAN
+		bool "SOO.switch Mobile Entity using enocean"
 		
 endchoice
 

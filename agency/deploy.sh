@@ -133,7 +133,7 @@ if [ "$deploy_me" == "y" ]; then
 
     # Deploy the usr apps related to the agency
     cd ../ME
-    ./deploy.sh $2
+    ./deploy.sh $2 $3
     cd ../agency
 fi
 

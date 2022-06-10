@@ -68,20 +68,22 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	args->__agency_ctl(&agency_ctl_args);
 
 	sh_switch->me_common.here = agency_ctl_args.u.agencyUID;
-	DBG(">> ME %d: originUID %d\n", ME_domID(), sh_switch->me_common.origin);
-
 	if (!originUID_initd) {
 		sh_switch->originUID = agency_ctl_args.u.agencyUID;
 		originUID_initd = true;
 	}
+	DBG(">> ME %d: originUID %d\n", ME_domID(), sh_switch->originUID);
 
 	host_entry = find_host(&visits, sh_switch->me_common.here);
-	if (host_entry)
+	if (host_entry) {
 		/** If we already visited this host we ask the agency to kill us **/
+		DBG(MESWITCH_PREFIX "Host already visited. Killing myself\n");
 		set_ME_state(ME_state_killed);
-	else 
+	} else {
 		/** We add the host to the visited hosts list **/
 		new_host(&visits, sh_switch->me_common.here, NULL, 0);
+		DBG(MESWITCH_PREFIX "Adding new host\n");
+	}
 
 
 #if 0 /* To be implemented... */
@@ -97,7 +99,6 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
  * The callback is executed in first stage to give a chance to a resident ME to stay or disappear, for example.
  */
 int cb_pre_propagate(soo_domcall_arg_t *args) {
-	static int kill_count = 0;
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
 	// DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
@@ -108,11 +109,8 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	/* To be killed - only one propagation, here we set the real propagate_status */
 	if (!pre_propagate_args->propagate_status && (get_ME_state() == ME_state_dormant)) {
-		if (kill_count > 1)
-			set_ME_state(ME_state_killed);
+		set_ME_state(ME_state_killed);
 		DBG("Now killing the ME %d\n", ME_domID());
-	} else {
-		kill_count++;
 	}
 
 	sh_switch->need_propagate = false;
@@ -172,67 +170,114 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			DBG("We are alone! Continue migration\n");
 			
 			set_ME_state(ME_state_dormant);
+
+			spin_lock(&propagate_lock);
 			sh_switch->need_propagate = true;
+			spin_unlock(&propagate_lock);
+
 			return 0;
 		}
 
 		/** Check if we encountered another SOO.switch **/
 		if(get_spid() == cooperate_args->u.target_coop.spid) {
+			DBG(MESWITCH_PREFIX "Found ME switch\n");
 			/**
 			 * Get the other SOO.switch shared data 
 			 */
-			sh_switch = (sh_switch_t*)io_map(pfn_to_phys(cooperate_args->u.target_coop.pfn), PAGE_SIZE);
+			target_sh = (sh_switch_t*)io_map(pfn_to_phys(cooperate_args->u.target_coop.pfn), PAGE_SIZE);
 			
-			/** Check if we encountered ourself **/
-			if (sh_switch->originUID == target_sh->originUID) {
-				/** Check if we are newer **/
-				if (sh_switch->timestamp > target_sh->timestamp) {
-					/** copy shared data to in target ME **/
-					memcpy(target_sh, sh_switch, sizeof(sh_switch_t));
-				}
-				DBG("Found ourself. Killing initiator ME.\n");
+			/** Check if we are of same type **/
+			if (sh_switch->type != target_sh->type) {
+				DBG(MESWITCH_PREFIX "We are not the same\n");
 				set_ME_state(ME_state_dormant);
-				sh_switch->need_propagate = false;
-			} else {
-				/**
-				 * Continue migration 
-				 */
-				set_ME_state(ME_state_dormant);
-				sh_switch->need_propagate = true;
-				return 0;
-			}
+				if (sh_switch->delivered) {
+					spin_lock(&propagate_lock);
+					sh_switch->need_propagate = false;
+					spin_unlock(&propagate_lock);
+					
+					DBG(MESWITCH_PREFIX "Data delivered.\n");
+				} else {
+					spin_lock(&propagate_lock);
+					sh_switch->need_propagate = true;
+					spin_unlock(&propagate_lock);
 
-			io_unmap((uint32_t) sh_switch);
+					DBG(MESWITCH_PREFIX "Continuing migration\n");
+				}
+			} else {
+
+				/** Check if we encountered ourself **/
+				if (sh_switch->originUID == target_sh->originUID) {
+				/** Check if we are newer **/
+					if (sh_switch->timestamp > target_sh->timestamp) {
+						/** copy shared data to in target ME **/
+						memcpy(target_sh, sh_switch, sizeof(sh_switch_t));
+					}
+					DBG("Found ourself. Killing initiator ME.\n");
+					set_ME_state(ME_state_dormant);
+
+					spin_lock(&propagate_lock);
+					sh_switch->need_propagate = false;
+					spin_unlock(&propagate_lock);
+				} else {
+					/**
+				 	* Continue migration 
+				 	*/
+					set_ME_state(ME_state_dormant);
+					spin_lock(&propagate_lock);
+					sh_switch->need_propagate = true;
+					spin_unlock(&propagate_lock);
+
+					DBG(MESWITCH_PREFIX "Continuing migration");
+				}
+			}
+			io_unmap((uint32_t) target_sh);
 		
-		} else if (cooperate_args->u.target_coop.spid == SOO_BLIND_SPID) {
+		} else if (cooperate_args->u.target_coop.spid == SOO_BLIND_SPID && sh_switch->type == PT210) {
 			/** Check if target is a SOO.Blind or **/
-			
+			DBG(MESWITCH_PREFIX "Cooperate with SOO.blind\n");
 			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_switch));
 			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 			/* This pattern enables the cooperation with the target ME */
 			agency_ctl_args.cmd = AG_COOPERATE;
 			agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
-
-			// lprintk("Cooperate with SOO.blind\n");
 			
 			/* Perform the cooperate in the target ME */
 			args->__agency_ctl(&agency_ctl_args);
 
 
 			set_ME_state(ME_state_dormant);
+			spin_lock(&propagate_lock);
 			sh_switch->need_propagate = false;
+			spin_unlock(&propagate_lock);
+
 			return 0;
 
-		} else if (cooperate_args->u.target_coop.spid == SOO_WAGOLED_SPID) {
-			/** 
-			 * TODO: Coop with wagoled
-			 * 
-			 */
+		} else if (cooperate_args->u.target_coop.spid == SOO_WAGOLED_SPID && sh_switch->type == GTL2TW) {
+			DBG(MESWITCH_PREFIX "Cooperate with SOO.wagoled\n");
+			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_switch));
+			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
+			/* This pattern enables the cooperation with the target ME */
+			agency_ctl_args.cmd = AG_COOPERATE;
+			agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
+			
+			/* Perform the cooperate in the target ME */
+			args->__agency_ctl(&agency_ctl_args);
+
+
+			set_ME_state(ME_state_dormant);
+			spin_lock(&propagate_lock);
+			sh_switch->need_propagate = false;
+			spin_unlock(&propagate_lock);
+
+			return 0;
 		} else {
 			DBG("We cannot cooperate with this ME: 0x%16X! Continue migration\n", cooperate_args->u.target_coop.spid);
 			
 			set_ME_state(ME_state_dormant);
+			spin_lock(&propagate_lock);
 			sh_switch->need_propagate = true;
+			spin_unlock(&propagate_lock);
+
 			return 0;
 		}
 
@@ -240,7 +285,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
-
 		break;
 
 	default:
@@ -315,8 +359,17 @@ void callbacks_init(void) {
 	memset(sh_switch, 0, PAGE_SIZE);
 
 	sh_switch->switch_event = false;
-	sh_switch->cmd = NONE;
+	sh_switch->pos = POS_NONE;
+	sh_switch->press = PRESS_NONE;
+	sh_switch->status = STATUS_NONE;
 	sh_switch->need_propagate = false;
+	sh_switch->delivered = false;
+
+#if defined(KNX)
+	sh_switch->type = GTL2TW;
+#elif defined(ENOCEAN)
+	sh_switch->type = PT210;
+#endif
 
 	/* Set the SPAD capabilities */
 	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));

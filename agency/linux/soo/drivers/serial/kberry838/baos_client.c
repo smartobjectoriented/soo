@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/jiffies.h>
 #include <linux/string.h>
+#include <linux/kthread.h>
 #include <soo/device/baos_client.h> 
 
 /**
@@ -401,36 +402,53 @@ void baos_free_frame(baos_frame_t *frame) {
     frame = NULL;
 }
 
-void baos_store_response(byte *buf, int len) {
-    int i;
+static int indication_thread(void *data) {
+    baos_frame_t *ind = (baos_frame_t *)data;
+    int  i;
 
+    if (!ind)
+        return -1;
+
+    for (i = 0; i < subscribers_count; i++) {
+        if (subscribers[i])
+            subscribers[i](ind);
+    }
+
+    baos_free_frame(ind);
+
+    return 0;
+}
+
+void baos_store_response(byte *buf, int len) {
+    baos_frame_t *indication;
+    int i;
+    
     baos_free_frame(baos_client_priv.response);
     baos_client_priv.response = NULL;
     baos_client_priv.response = baos_build_object(buf, len);
 
     switch (baos_client_priv.response->subservice)
     {
-    case SERVER_ITEM_INDICATION:
-        /** TODO: use it for something **/
-        pr_info("%s: Received a new server item indication\n", __func__);
-        break;
-    
-    case DATAPOINT_VALUE_INDICATION:
-        /** TODO: Forward to backend **/
-        pr_info("%s: Received a new datapoint indication\n", __func__);
-        for (i = 0; i < subscribers_count; i++) 
-            subscribers[i](baos_client_priv.response);
+        case SERVER_ITEM_INDICATION:
+            /** TODO: use it for something **/
+            pr_info("%s: Received a new server item indication\n", __func__);
+            break;
+        
+        case DATAPOINT_VALUE_INDICATION:
+            pr_info("%s: Received a new datapoint indication\n", __func__);
+            for (i = 0; i < subscribers_count; i++) {
+                if (subscribers[i])
+                    subscribers[i](baos_client_priv.response);
+            }
+            // baos_copy_frame(&indication, baos_client_priv.response);
+            // kthread_run(indication_thread, indication, "send_indication_th");
+            break;
 
-        if (baos_client_priv.response->first_obj_id.val == 0x05) {
-            pr_info("Blind position: 0x%02X\n", baos_client_priv.response->datapoints[0]->data[0]);
+        default:
+            /** All other cases the response is triggered by a request and not an event. **/
+            complete(&wait_response);
+            break;  
         }
-        break;
-
-    default:
-        /** All other cases the response is triggered by a request and not an event. **/
-        complete(&wait_response);
-        break;  
-    }
 }
 
 /**

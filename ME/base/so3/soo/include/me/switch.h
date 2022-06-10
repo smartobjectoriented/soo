@@ -26,14 +26,19 @@
 #include <asm/atomic.h>
 
 #include <me/common.h>
+#include <soo/knx/gtl2tw.h>
+#include <soo/enocean/pt210.h>
 
-
-#if 0
-#define KNX_SWITCH
+#ifdef CONFIG_SOO_SWITCH_KNX
+#define MESWITCH_NAME		"ME switch KNX"
+#define KNX
+#elif defined(CONFIG_SOO_SWITCH_ENOCEAN)
+#define MESWITCH_NAME		"ME switch ENOCEAN"
+#define ENOCEAN
+#else
+#define MESWITCH_NAME		"ME switch"
 #endif
 
-
-#define MESWITCH_NAME		"ME switch"
 #define MESWITCH_PREFIX	    "[ " MESWITCH_NAME " ] "
 
 
@@ -42,7 +47,8 @@
  * 
  */
 typedef enum {
-	PT210 = 0
+	PT210 = 0,
+	GTL2TW
 } switch_type;
 
 /**
@@ -50,16 +56,24 @@ typedef enum {
  * 
  */
 typedef enum {
-	NONE = 0,
-	SWITCH_UP,
-	SWITCH_DOWN
-} switch_cmd;
+	POS_LEFT_UP = 0,
+	POS_LEFT_DOWN,
+	POS_RIGHT_UP,
+	POS_RIGHT_DOWN,
+	POS_NONE
+} switch_position;
 
 typedef enum {
-    LONG_PRESS = 0,
-    SHORT_PRESS
+    PRESS_LONG = 0,
+    PRESS_SHORT,
+	PRESS_NONE
 } switch_press;
 
+typedef enum {
+	STATUS_OFF = 0,
+	STATUS_ON,
+	STATUS_NONE
+} switch_status;
 
 /**
  * @brief Generic switch struct
@@ -69,8 +83,12 @@ typedef enum {
  * @param switch model
  */
 typedef struct {
-#ifdef ENOCEAN_SWITCH
+#ifdef ENOCEAN
 	pt210_t sw;
+#endif
+
+#ifdef KNX
+	gtl2tw_t sw;
 #endif
 	switch_type type;
 
@@ -89,11 +107,13 @@ typedef struct {
  */
 typedef struct {
 	bool switch_event;
-	switch_cmd cmd;
+	switch_position pos;
     switch_press press;
+	switch_status status;
+	switch_type type;
 	bool need_propagate;
+	bool delivered;
     uint64_t timestamp;
-
     uint64_t originUID;
 
 	/*

@@ -298,11 +298,12 @@ static int tcm515_serdev_probe(struct serdev_device *serdev) {
     get_id_version = esp3_packet_to_byte_buffer(&co_rd_version_packet);
     if (get_id_version) {
         tcm515_write_buf(get_id_version, CO_READ_VERSION_BUFFER_SIZE, true, tcm515_read_id);
+        dev_info(dev,"Probed successfully\n");
+        return 0;
+    } else {
+        dev_err(dev, "Probe failed\n");
+        return -1;
     }
-    
-    dev_info(dev,"Probed successfully\n");
-
-    return 0;
 }
 
 static void tcm515_serdev_remove(struct serdev_device *serdev) {

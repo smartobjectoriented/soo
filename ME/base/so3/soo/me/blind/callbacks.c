@@ -83,7 +83,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
-	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
+	// DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
 	pre_propagate_args->propagate_status = 0;
 
@@ -128,8 +128,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	static uint64_t switch_timestamp = 0;
 	uint32_t pfn;
 
-	// lprintk("[soo:me:SOO.blind] ME %d: cb_cooperate...\n", ME_domID());
-
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
 
@@ -149,9 +147,10 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			
 			// lprintk("Incoming ts: %llu, current tm: %llu\n", incoming_sh_switch->timestamp, switch_timestamp);
 			switch_timestamp = incoming_sh_switch->timestamp;
-			sh_blind->sw_cmd = incoming_sh_switch->cmd;
+			sh_blind->sw_pos = incoming_sh_switch->pos;
 			sh_blind->sw_press = incoming_sh_switch->press;
 			sh_blind->switch_event = true;
+			incoming_sh_switch->delivered = true;
 			
 			// lprintk("Cooperation with SOO.switch. cmd: %d, press: %d\n", incoming_sh_switch->cmd, incoming_sh_switch->press);
 		}
@@ -236,7 +235,8 @@ void callbacks_init(void) {
 	memset(sh_blind, 0, PAGE_SIZE);
 
 	sh_blind->switch_event = false;
-	sh_blind->sw_cmd = NONE;
+	sh_blind->sw_pos = POS_NONE;
+	sh_blind->sw_press = PRESS_NONE;
 
 	/* Set the SPAD capabilities */
 	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));

@@ -45,13 +45,9 @@
 			status = "ok";
 		};
 
-		venocean {
+		vknx {
 			status = "ok";
 		};
-
-		// vknx {
-		// 	status = "disabled";
-		// };
 	};
 	
 };
