@@ -39,6 +39,7 @@
 
 __pre_head:
 	b	__start					// branch to the main entry point
+
 	.long	0					// reserved
 
 	.quad	0					// Image load offset from start of RAM, little-endian
@@ -57,10 +58,6 @@ __start:
 
 	// Mostly for future usage...
 	bl		el2_setup			// Drop to EL1, w0=cpu_boot_mode
-
-    // Initialize stack pointers for current mode (normal case if no MMU is used)
-    adrp	x0, .LCcpu0_stack
-    mov		sp, x0
 
 	/* Clear the BSS */
 
@@ -109,7 +106,7 @@ mmu_setup:
   bl 	mmu_configure
 
   // Readjust the stack
-  ldr	x0, =.LCcpu0_stack
+  ldr	x0, =__cpu0_stack
   mov	sp, x0
 
   // Keep executing in the kernel space
@@ -347,7 +344,6 @@ __secondary_data:
     .quad   .
     .quad   secondary_data
 
-
 .ltorg
 
 __fdt_addr:
@@ -366,8 +362,3 @@ __fdt_addr:
 	.space 4096
 temp_stack:
 
-.LCcpu0_stack:
-  .quad __cpu0_stack
-
-.LCvectors:
-  .quad __vectors_start
