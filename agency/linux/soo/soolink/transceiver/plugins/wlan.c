@@ -259,17 +259,10 @@ static int net_dev_detect(void *args) {
 	soo_plugin_wlan = container_of(current_soo_plugin->__intf[SL_IF_WLAN], soo_plugin_wlan_t, plugin_wlan_desc);
 
 	while (!soo_plugin_wlan->net_dev) {
-<<<<<<< HEAD
-		soo_plugin_wlan->net_dev = dev_get_by_name(&init_net, WLAN_NET_DEV_NAME);
-		msleep(NET_DEV_DETECT_DELAY);
-	}
-	DBG("NET_DEV addr: 0x%X\n", soo_plugin_wlan->net_dev);
-
-=======
 		msleep(NET_DEV_DETECT_DELAY);
 		soo_plugin_wlan->net_dev = dev_get_by_name(&init_net, WLAN_NET_DEV_NAME);
 	}
- 	/* Wait for the net_device to be running AND operational */
+	/* Wait for the net_device to be running AND operational */
 	while (!(netif_running(soo_plugin_wlan->net_dev) && netif_oper_up(soo_plugin_wlan->net_dev))) {
 		msleep(NET_DEV_DETECT_DELAY);
 	}

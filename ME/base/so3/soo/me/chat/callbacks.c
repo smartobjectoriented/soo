@@ -184,7 +184,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		/* Update the list of hosts */
 		sh_chat->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_chat->me_common.soohosts);
 
-		agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_chat));
+		agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_chat));
 		agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
 		/* This pattern enables the cooperation with the target ME */
@@ -254,7 +254,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			}	
 		}
 
-		io_unmap((uint32_t) incoming_sh_chat);
+		io_unmap((addr_t) incoming_sh_chat);
 		break;
 
 	default:
