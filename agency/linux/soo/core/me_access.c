@@ -135,6 +135,8 @@ bool get_ME_id(uint32_t slotID, ME_id_t *ME_id) {
 
 		strcpy(ME_id->shortdesc, prop);
 		kfree(prop);
+
+		ME_id->slotID = slotID;
 	}
 
 	return true;
@@ -169,16 +171,12 @@ char *xml_prepare_id_array(ME_id_t *ME_id_array) {
 	uint32_t pos;
 	char *__buffer;
 	char *buffer; /* Output buffer */
-	node_t *root, *messages, *me, *name, *shortdesc;
+	node_t *messages, *me, *name, *shortdesc;
 	char spid[17]; /* 64-bit hex string + null terminator */
-
-	/* Adding attributes to xml node */
-	root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
+	char slotID[2];
 
 	/* Adding the messages node */
-	messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "mobile-entities", NULL);
+	messages = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "mobile-entities", NULL);
 
 	for (pos = 0; pos < MAX_ME_DOMAINS; pos++) {
 
@@ -191,6 +189,10 @@ char *xml_prepare_id_array(ME_id_t *ME_id_array) {
 			sprintf(spid, "%016llx", ME_id_array[pos].spid);
 			roxml_add_node(me, 0, ROXML_ATTR_NODE, "spid", spid);
 
+			/* Add the slotID */
+			sprintf(slotID, "%d", ME_id_array[pos].slotID);
+			roxml_add_node(me, 0, ROXML_ATTR_NODE, "slotID", slotID);
+
 			/* Add short name */
 			name = roxml_add_node(me, 0, ROXML_ELM_NODE, "name", NULL);
 			roxml_add_node(name, 0, ROXML_TXT_NODE, NULL, ME_id_array[pos].name);
@@ -198,11 +200,12 @@ char *xml_prepare_id_array(ME_id_t *ME_id_array) {
 			/* And the short description */
 			shortdesc = roxml_add_node(me, 0, ROXML_ELM_NODE, "description", NULL);
 			roxml_add_node(shortdesc, 0, ROXML_TXT_NODE, NULL, ME_id_array[pos].shortdesc);
+
 		}
 
 	}
 
-	roxml_commit_changes(root, NULL, &__buffer, 1);
+	roxml_commit_changes(messages, NULL, &__buffer, 1);
 
 	/* Allocate the buffer here, as the caller has no way to determine it */
 	buffer = (char *) kzalloc(strlen(__buffer), GFP_KERNEL);
@@ -213,7 +216,7 @@ char *xml_prepare_id_array(ME_id_t *ME_id_array) {
 	strcpy(buffer, __buffer);
 
 	roxml_release(RELEASE_LAST);
-	roxml_close(root);
+	roxml_close(messages);
 
 	return buffer;
 }
