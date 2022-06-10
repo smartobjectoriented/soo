@@ -80,44 +80,34 @@ ENTRY(__vectors)
 
 	// Current EL with SP0 / Synchronous
 	.align 7
-1:
-  mov x0, #'1'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
+
+	mov	x0, lr
+	b trap_handle
 
 	// Current EL with SP0 / IRQ
 	.align 7
-1:
-	mov x0, #'2'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
+
+	mov	x0, lr
+	b trap_handle
 
 	// Current EL with SP0 / FIQ
 	.align 7
-1:
-    mov x0, #'3'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
+
+	mov	x0, lr
+	b trap_handle
 
 	// Current EL with SP0 / SError
 	.align 7
-1:
- mov x0, #'4'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
+
+	mov	x0, lr
+	b trap_handle_error
 
 	// Current EL with SPx / Synchronous
 	.align 7
 
-	mrs	x0, elr_el1
-	mrs	x1, esr_el1
+	mov	x0, lr
+	b trap_handle_error
 
-
-   mov x0, #'5'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
-1:
-	b 1b
 	// Current EL with SPx / IRQ
 	.align 7
 
@@ -125,77 +115,61 @@ str x0, [x1]
 
 	// Current EL with SPx / FIQ
 	.align 7
-1:
-   mov x0, #'7'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
+
+	mov	x0, lr
+	b trap_handle_error
 
 	// Current EL with SPx / SError
 	.align 7
-mov x0, #'8'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
-	mrs	x0, elr_el1
-	mrs	x1, esr_el1
 
-	b	__sync_serror
+	mov	x0, lr
+	b trap_handle_error
 
 	// Lower EL using AArch64 / Synchronous
 	.align 7
-mov x0, #'9'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
+
 	b	el0_sync_handler
 
 	// Lower EL using AArch64 / IRQ
 	.align 7
 
-mov x0, #'a'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
 	b 	el01_irq_handler
 
 	// Lower EL using AArch64 / FIQ
 	.align 7
-1:
-  mov x0, #'b'
-ldr x1, =0xffff7000008d6040
-str x0, [x1]
+
+	mov	x0, lr
+	b trap_handle_error
 
 	// Lower EL using AArch64 / SError
 	.align 7
-1:
-   mov x0, #'c'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
+
+	mov	x0, lr
+	b trap_handle_error
 
 	// Lower EL using AArch32 / Synchronous
-	mov x0, #'d'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
-1:
-    b 1b
+	.align 7
+
+	mov	x0, lr
+	b trap_handle_error
 
 	// Lower EL using AArch32 / IRQ
-	mov x0, #'e'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
-1:
-    b 1b
+	.align 7
+
+	mov	x0, lr
+	b trap_handle_error
 
 	// Lower EL using AArch32 / FIQ
 	.align 7
-1:
-   mov x0, #'f'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
+
+	mov x0, lr
+	b trap_handle_error
 
 	// Lower EL using AArch32 / SError
 	.align 7
-1:
-  mov x0, #'g'
-ldr x1, =0xffff7000008d7040
-str x0, [x1]
+
+	mov	x0, lr
+	b trap_handle_error
 
 
 .macro kernel_entry

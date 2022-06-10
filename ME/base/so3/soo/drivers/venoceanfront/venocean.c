@@ -128,7 +128,7 @@ void venocean_probe(struct vbus_device *vdev) {
 	FRONT_RING_INIT(&venocean_priv->venocean.ring, sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) venocean_priv->venocean.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) venocean_priv->venocean.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -163,11 +163,11 @@ void venocean_reconfiguring(struct vbus_device *vdev) {
 	venocean_priv->venocean.ring_ref = GRANT_INVALID_REF;
 
 	SHARED_RING_INIT(venocean_priv->venocean.ring.sring);
-	FRONT_RING_INIT(&venocean_priv->venocean.ring, (&venocean_priv->venocean.ring)->sring, PAGE_SIZE);
+	FRONT_RING_INIT(&venocean_priv->venocean.ring, venocean_priv->venocean.ring.sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) venocean_priv->venocean.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) venocean_priv->venocean.ring.sring)));
 	BUG_ON(res < 0);
 
 	venocean_priv->venocean.ring_ref = res;
@@ -197,7 +197,7 @@ void venocean_closed(struct vbus_device *vdev) {
 	/* Free resources associated with old device channel. */
 	if (venocean_priv->venocean.ring_ref != GRANT_INVALID_REF) {
 		gnttab_end_foreign_access(venocean_priv->venocean.ring_ref);
-		free_vpage((uint32_t) venocean_priv->venocean.ring.sring);
+		free_vpage((addr_t) venocean_priv->venocean.ring.sring);
 
 		venocean_priv->venocean.ring_ref = GRANT_INVALID_REF;
 		venocean_priv->venocean.ring.sring = NULL;
@@ -241,7 +241,7 @@ vdrvfront_t venoceandrv = {
 	.connected = venocean_connected
 };
 
-static int venocean_init(dev_t *dev) {
+static int venocean_init(dev_t *dev, int fdt_offset) {
 	venocean_priv_t *venocean_priv;
 
 	venocean_priv = malloc(sizeof(venocean_priv_t));
