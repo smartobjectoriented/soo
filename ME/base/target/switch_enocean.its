@@ -19,7 +19,7 @@
 /dts-v1/;
 
 / {
-	description = "SO3 image for the SOO.switch ME";
+	description = "SO3 image for the SOO.switch ENOCEAN ME";
 
 	images {
 	

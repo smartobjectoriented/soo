@@ -20,15 +20,9 @@
 #define DEBUG
 #endif
 
-#if 1
-#define BLIND_RELEASED_MODE
-#endif
-
 #include <soo/vbwa88pg.h>
 #include <timer.h>
 #include <soo/debug.h>
-
-#define MS_DELAY    500
 
 void vbwa88pg_blind_init(blind_vbwa88pg_t *blind, uint16_t first_dp_id) {
     int i;
@@ -41,8 +35,6 @@ void vbwa88pg_blind_init(blind_vbwa88pg_t *blind, uint16_t first_dp_id) {
         blind->dps[i].data_len = 1;
         blind->dps[i].data[0] = 0x00;
     }
-
-    // vknx_get_dp_value(blind->blind_id, DATAPOINT_COUNT);
 }
 
 void vbwa88pg_blind_update(blind_vbwa88pg_t *blind, dp_t *dps, int dp_count) {
@@ -81,66 +73,3 @@ void vbwa88pg_blind_inc_dec_stop(blind_vbwa88pg_t *blind) {
     dps[0] = blind->dps[INC_DEC_STOP];
     vknx_set_dp_value(dps, 1);
 }
-
-#if 0
-void vbwa88pg_blind_up(blind_vbwa88pg_t *blind) {
-#ifdef BLIND_RELEASED_MODE
-    blind->time = NOW();
-    blind->prev_cmd = BLIND_UP;
-#else
-    dp_t dps[1];
-
-    if (blind->dps[UP_DOWN].data[0] != BLIND_UP) {
-        blind->dps[UP_DOWN].data[0] = BLIND_UP;
-        dps[0] = blind->dps[UP_DOWN];
-        vknx_set_dp_value(dps, 1);
-    } else {
-        blind->dps[INC_DEC_STOP].data[0] = BLIND_STOP;
-        dps[0] = blind->dps[INC_DEC_STOP];
-        vknx_set_dp_value(dps, 1);
-    }
-#endif
-}
-
-void vbwa88pg_blind_down(blind_vbwa88pg_t *blind) {
-#ifdef BLIND_RELEASED_MODE
-    blind->time = NOW();
-    blind->prev_cmd = BLIND_DOWN;
-#else
-    dp_t dps[1];
-    
-    if (blind->dps[UP_DOWN].data[0] != BLIND_DOWN) {
-        blind->dps[UP_DOWN].data[0] = BLIND_DOWN;
-        dps[0] = blind->dps[UP_DOWN];
-        vknx_set_dp_value(dps, 1);
-    } else {
-        blind->dps[INC_DEC_STOP].data[0] = BLIND_STOP;
-        dps[0] = blind->dps[INC_DEC_STOP];
-        vknx_set_dp_value(dps, 1);
-    }
-#endif
-}
-
-void vbwa88pg_blind_stop_step(blind_vbwa88pg_t *blind) {
-#ifdef BLIND_RELEASED_MODE
-    uint64_t delay_ms = NS_TO_MS(NOW() - blind->time);
-
-    DBG("delay %llu ms\n", delay_ms);
-
-    if (delay_ms > MS_DELAY) {
-        blind->dps[UP_DOWN].data[0] = blind->prev_cmd;
-        vbwa88pg_send_data_up_down(blind);
-    } else {
-        if (blind->prev_cmd == BLIND_UP)
-            blind->dps[INC_DEC_STOP].data[0] = BLIND_INC;
-        else if (blind->prev_cmd == BLIND_DOWN)
-            blind->dps[INC_DEC_STOP].data[0] = BLIND_DEC;
-        else
-            return;     
-        vbwa88pg_send_data_inc_dec_stop(blind);
-    }
-#else
-    return;
-#endif
-}
-#endif

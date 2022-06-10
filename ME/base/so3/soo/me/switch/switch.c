@@ -116,7 +116,7 @@ int switch_wait_data_th(void *args) {
 			sh_switch->need_propagate = true;
 			spin_unlock(&propagate_lock);
 
-			DBG("New switch event. pos: %d, press: %d, status %d\n", sh_switch->pos, sh_switch->press,
+			DBG(MESWITCH_PREFIX "New switch event. pos: %d, press: %d, status %d\n", sh_switch->pos, sh_switch->press,
 				sh_switch->status);
 			sh_switch->switch_event = false;
 		} else {

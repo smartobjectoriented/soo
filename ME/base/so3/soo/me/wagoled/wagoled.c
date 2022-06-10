@@ -62,6 +62,7 @@ int wagoled_send_cmd(void *args) {
 
 		}
 		
+		DBG("Set LED %s\n", room_cmd == LED_ON ? "On" : "Off");
 		vwagoled_set(selected_room, LED_PER_ROOM, room_cmd);
 	}
 	

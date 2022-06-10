@@ -27,19 +27,10 @@
 #include <me/common.h>
 #include <soo/vbwa88pg.h>
 
-#define ENOCEAN
-
 #include <me/switch.h>
 
 #define MEBLIND_NAME		"ME blind"
-#define MEBLIND_PREFIX	"[ " MEBLIND_NAME " ]"
-
-#if 0
-#define ENOCEAN_SWITCH
-#include <soo/enocean/enocean.h>
-#include <soo/enocean/pt210.h>
-#include <timer.h>
-#endif
+#define MEBLIND_PREFIX	"[ " MEBLIND_NAME " ] "
 
 #if 1
 #define BLIND_VBWA88PG

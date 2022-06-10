@@ -421,7 +421,6 @@ static int indication_thread(void *data) {
 
 void baos_store_response(byte *buf, int len) {
     baos_frame_t *indication;
-    int i;
     
     baos_free_frame(baos_client_priv.response);
     baos_client_priv.response = NULL;
@@ -436,12 +435,8 @@ void baos_store_response(byte *buf, int len) {
         
         case DATAPOINT_VALUE_INDICATION:
             pr_info("%s: Received a new datapoint indication\n", __func__);
-            for (i = 0; i < subscribers_count; i++) {
-                if (subscribers[i])
-                    subscribers[i](baos_client_priv.response);
-            }
-            // baos_copy_frame(&indication, baos_client_priv.response);
-            // kthread_run(indication_thread, indication, "send_indication_th");
+            baos_copy_frame(&indication, baos_client_priv.response);
+            kthread_run(indication_thread, indication, "send_indication_th");
             break;
 
         default:

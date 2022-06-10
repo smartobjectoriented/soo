@@ -26,7 +26,7 @@
 #include <linux/kthread.h>
 #include <soo/device/baos_client.h> 
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -170,8 +170,6 @@ static byte *kberry838_build_ft12_frame(byte *baos_frame, int len) {
     return ft12_frame;
 }
 
-static byte sent_buffer[2048];
-static int sent_buf_len = 0;
 /**
  * @brief Send a BAOS frame to the kberry838 device.
  * 
@@ -198,8 +196,6 @@ void kberry838_send_data(byte *baos_frame, int len) {
     }
 
     kfree(ft12_array);
-
-    // kthread_run(kberry838_send_data_th, args, "send_data_th");
 }
 
 

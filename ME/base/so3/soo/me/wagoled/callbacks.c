@@ -114,8 +114,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	static uint64_t switch_timestamp = 0;
 	uint32_t pfn;
 
-	// lprintk("[soo:me:SOO.wagoled] ME %d: cb_cooperate...\n", ME_domID());
-
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
 
@@ -131,15 +129,11 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
 		if (incoming_sh_switch->timestamp > switch_timestamp) {
-			
-			// lprintk("Incoming ts: %llu, current tm: %llu\n", incoming_sh_switch->timestamp, switch_timestamp);
 			switch_timestamp = incoming_sh_switch->timestamp;
 			sh_wagoled->sw_pos = incoming_sh_switch->pos;
 			sh_wagoled->sw_status = incoming_sh_switch->status;
 			sh_wagoled->switch_event = true;
 			incoming_sh_switch->delivered = true;
-			
-			// lprintk("Cooperation with SOO.switch. cmd: %d, press: %d\n", incoming_sh_switch->cmd, incoming_sh_switch->press);
 		}
 
 		io_unmap((uint32_t) incoming_sh_switch);

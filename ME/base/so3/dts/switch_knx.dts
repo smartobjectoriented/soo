@@ -31,7 +31,7 @@
 	spadcaps = /bits/ 64 <0x0000000000000000>;
 		
 	/* Name of this ME */
-	me_name = "SOO.switch";
+	me_name = "SOO.switch KNX";
 		
 	/* Short description */
 	me_shortdesc =
