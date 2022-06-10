@@ -123,7 +123,7 @@ void vwagoled_reconfigured(struct vbus_device *vdev) {
 
 	/* No handler required, however used to notify the remote domain */
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vwagoled_interrupt, 
-													vwagoled_interrupt_bh, 0, VWAGOLED_NAME "-backend", vdev);
+						     vwagoled_interrupt_bh, 0, VWAGOLED_NAME "-backend", vdev);
 	BUG_ON(res < 0);
 
 	vwagoled_priv->vwagoled.irq = res;
