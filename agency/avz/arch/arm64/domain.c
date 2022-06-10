@@ -68,8 +68,6 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 #else
 #error "Wrong VA_BITS configuration."
 #endif
-lprintk("########   new_pt = %lx      value: %lx addr: %lx\n", new_pt, *l0pte_offset(new_pt, CONFIG_HYPERVISOR_VADDR),
-	l0pte_offset(new_pt, CONFIG_HYPERVISOR_VADDR));
 
 	/* Do the mapping of new domain at its virtual address location */
 	create_mapping(new_pt, v_start, p_start, map_size, false);
