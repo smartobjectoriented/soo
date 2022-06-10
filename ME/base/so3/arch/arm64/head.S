@@ -137,7 +137,7 @@ mmu_setup:
   bl 	mmu_configure
 
   // Readjust the stack
-  ldr	x0, .LCstack_top
+  ldr	x0, =__stack_top
   mov	sp, x0
 
   // Keep executing in the kernel space
@@ -325,9 +325,3 @@ temp_stack:
 
 .LCvirt_entry:
   .quad __kernel_main
-
-.LCstack_top:
-  .quad __stack_top
-
-.LCvectors:
-  .quad __vectors_start
