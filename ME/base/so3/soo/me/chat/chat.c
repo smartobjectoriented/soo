@@ -251,7 +251,5 @@ int app_thread_main(void *args) {
 	sprintf(sh_chat->cur_chat.text, "Test MSG");
 #endif
 
-	while(true) schedule();
-
 	return 0;
 }
