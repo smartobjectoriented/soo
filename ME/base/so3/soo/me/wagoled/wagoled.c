@@ -131,7 +131,7 @@ void process_cmd(unsigned char cmd){
 	}
 }
 
-int app_thread_main(void *args) {
+void *app_thread_main(void *args) {
 	int i;
 	int cmd;
 	int data_len;
@@ -144,7 +144,7 @@ int app_thread_main(void *args) {
 
 	printk("Welcome to WAGO led ME\n");
 
-	while (1) {
+	while (true) {
 		DBG(MEWAGOLED_PREFIX "ME wagoled waiting for new data\n");
 		if ((data_len = venocean_get_data(data)) > 0) {
 			
@@ -166,5 +166,5 @@ int app_thread_main(void *args) {
 		}
 	}
 
-	return 0;
+	return NULL;
 }
