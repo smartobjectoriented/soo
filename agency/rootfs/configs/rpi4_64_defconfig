@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Buildroot -g9d84ea6dc4-dirty Configuration
+# Buildroot -g96cbe03aba-dirty Configuration
 #
 BR2_HAVE_DOT_CONFIG=y
 BR2_HOST_GCC_AT_LEAST_4_9=y
@@ -1739,7 +1739,7 @@ BR2_PACKAGE_GNUTLS_OPENSSL=y
 BR2_PACKAGE_LIBGCRYPT=y
 BR2_PACKAGE_LIBGPG_ERROR_ARCH_SUPPORTS=y
 BR2_PACKAGE_LIBGPG_ERROR=y
-BR2_PACKAGE_LIBGPG_ERROR_SYSCFG="aarch64-none-linux-gnu"
+BR2_PACKAGE_LIBGPG_ERROR_SYSCFG="aarch64-unknown-linux-gnu"
 # BR2_PACKAGE_LIBGPGME is not set
 # BR2_PACKAGE_LIBKCAPI is not set
 # BR2_PACKAGE_LIBKSBA is not set
@@ -2068,7 +2068,7 @@ BR2_PACKAGE_LIBXSLT=y
 # BR2_PACKAGE_LIBYAML is not set
 # BR2_PACKAGE_MXML is not set
 # BR2_PACKAGE_PUGIXML is not set
-# BR2_PACKAGE_RAPIDJSON is not set
+BR2_PACKAGE_RAPIDJSON=y
 # BR2_PACKAGE_RAPIDXML is not set
 # BR2_PACKAGE_RAPTOR is not set
 # BR2_PACKAGE_TINYXML is not set
