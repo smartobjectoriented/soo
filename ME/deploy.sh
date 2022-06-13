@@ -8,8 +8,6 @@ cd ../agency/filesystem
 
 ./mount.sh 3
 
-sudo rm -rf fs/*
-
 if [ "$1" != "clean" ]; then
     if [ "$1" != "" ]; then
 
