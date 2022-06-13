@@ -122,7 +122,7 @@ static void vsensej_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	vsensej_priv->vsensej.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vsensej_priv->vsensej.ring.sring)));
+	vsensej_priv->vsensej.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vsensej_priv->vsensej.ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -152,11 +152,11 @@ static void vsensej_reconfiguring(struct vbus_device *vdev) {
 	vsensej_priv->vsensej.ring_ref = GRANT_INVALID_REF;
 
 	SHARED_RING_INIT(vsensej_priv->vsensej.ring.sring);
-	FRONT_RING_INIT(&vsensej_priv->vsensej.ring, (&vsensej_priv->vsensej.ring)->sring, PAGE_SIZE);
+	FRONT_RING_INIT(&vsensej_priv->vsensej.ring, vsensej_priv->vsensej.ring.sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vsensej_priv->vsensej.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vsensej_priv->vsensej.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -187,7 +187,7 @@ static void vsensej_closed(struct vbus_device *vdev) {
 	/* Free resources associated with old device channel. */
 	if (vsensej_priv->vsensej.ring_ref != GRANT_INVALID_REF) {
 		gnttab_end_foreign_access(vsensej_priv->vsensej.ring_ref);
-		free_vpage((uint32_t) vsensej_priv->vsensej.ring.sring);
+		free_vpage((addr_t) vsensej_priv->vsensej.ring.sring);
 
 		vsensej_priv->vsensej.ring_ref = GRANT_INVALID_REF;
 		vsensej_priv->vsensej.ring.sring = NULL;
