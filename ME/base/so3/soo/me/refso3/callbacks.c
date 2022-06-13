@@ -69,7 +69,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-	pre_propagate_args->propagate_status = PROPAGATE_STATUS_YES;
+	pre_propagate_args->propagate_status = PROPAGATE_STATUS_NO;
 
 	return 0;
 }
@@ -114,7 +114,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
-
+return 0;
 		if (cooperate_args->alone)
 			return 0;
 

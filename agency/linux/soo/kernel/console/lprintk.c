@@ -35,7 +35,7 @@ static bool log_soo_dcm = false;
 static bool log_soo_soolink = false;
 
 /* Discovery */
-static bool log_soo_soolink_discovery = false;
+static bool log_soo_soolink_discovery = true;
 
 /* Transcoder */
 static bool log_soo_soolink_transcoder = false;
