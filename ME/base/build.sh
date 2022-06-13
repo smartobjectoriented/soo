@@ -79,7 +79,6 @@ fi
 echo $ME_NAME
 
 ME_DEFCONFIG=$ME_NAME"_defconfig"
-ME_DTS=$ME_NAME".dts"
 ME_ITS=$ME_NAME".its"
 
 if [ "$build_clean" == "y" ]; then
@@ -107,13 +106,6 @@ if [ "$build_kernel" == "y" ]; then
       exit
   fi
   cd $BASE_PATH
-
-  # Check if dts exists
-  cd $SO3_PATH/dts
-  if [ ! -f $ME_DTS ]; then
-    echo "${RED}Error: $SO3_PATH/dts/$ME_DTS not found${NC}"
-    exit
-  fi
 
   # Check if its exists
   cd $BASE_PATH/target
