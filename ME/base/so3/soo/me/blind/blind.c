@@ -171,7 +171,6 @@ int knx_wait_data_th(void *args) {
 	}
 
 	DBG(MEBLIND_PREFIX "Stopped: %s\n", __func__);
-
 	return 0;
 }
 
@@ -187,9 +186,9 @@ int app_thread_main(void *args) {
 	printk(MEBLIND_PREFIX "Welcome\n");
 
 	blind_th = kernel_thread(blind_send_cmd_th, "blind_send_cmd_th", bl, THREAD_PRIO_DEFAULT);
-	knx_th = kernel_thread(knx_wait_data_th, "knx_wait_data_th", bl, THREAD_PRIO_DEFAULT);
+	// knx_th = kernel_thread(knx_wait_data_th, "knx_wait_data_th", bl, THREAD_PRIO_DEFAULT);
 
-	thread_join(knx_th);
+	// thread_join(knx_th);
 	thread_join(blind_th);
 
 	printk(MEBLIND_PREFIX "Goodbye\n");

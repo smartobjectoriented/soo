@@ -184,8 +184,6 @@ void kberry838_send_data(byte *baos_frame, int len) {
     ft12_array = kberry838_build_ft12_frame(baos_frame, len);
     BUG_ON(!ft12_array);
 
-    // memcpy(&sent_buffer[sent_buf_len], ft12_array, ft12_len);
-    // sent_buf_len += ft12_len;
     kberry838->decode_status = WAIT_FT12_START;
     kberry838_write_buf(ft12_array, ft12_len);
     serdev_device_wait_until_sent(kberry838->serdev, 0);
@@ -279,7 +277,6 @@ static byte *kberry838_check_ft12_and_extract_baos(const byte *ft12buf, size_t f
 static void kberry838_process_ft12_frame(const byte *data, size_t len){
     static byte* ft12_frame;
     static int ft12_len = 0;
-    // static int ft12_decode_status = WAIT_FT12_START;
     static bool start_found = false;
     static int fbyte_proc = 0;
     byte *baos_frame;

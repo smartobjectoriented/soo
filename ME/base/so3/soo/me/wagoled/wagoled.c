@@ -32,7 +32,10 @@ int wagoled_send_cmd(void *args) {
 	int room1_ids [] = {1, 2, 3, 4, 5, 6};
 	int room2_ids [] = {7, 8, 9, 10, 11, 12};
 	int selected_room[LED_PER_ROOM] = {0};
-	wago_cmd_t room_cmd = LED_ON;
+	wago_cmd_t room_cmd = LED_OFF;
+
+	vwagoled_set(room1_ids, LED_PER_ROOM, LED_OFF);
+	vwagoled_set(room2_ids, LED_PER_ROOM, LED_OFF);
 
 	while(_atomic_read(shutdown)) {
 		wait_for_completion(&send_data_lock);

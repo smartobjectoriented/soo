@@ -70,7 +70,7 @@ void gtl2tw_wait_event(gtl2tw_t *sw) {
                         DBG("UP left\n");
                         if (sw->status[0] != data.datapoints[i].data[0]) {
                             sw->events[0] = true;
-                            sw->status[0] = !sw->status[0];
+                            sw->status[0] = sw->status[0] == ON ? OFF : ON;
                         }
                         break;
                     case GTL2TW_DOWN_LEFT:
