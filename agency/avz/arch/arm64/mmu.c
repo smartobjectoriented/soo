@@ -287,7 +287,7 @@ void create_mapping(void *pgtable, addr_t virt_base, addr_t phys_base, size_t si
  * @param size
  * @param nocache	true for I/O access typically
  */
-void create_mapping(u64 *l1pgtable, addr_t virt_base, addr_t phys_base, size_t size, bool nocache) {
+void create_mapping(void *l1pgtable, addr_t virt_base, addr_t phys_base, size_t size, bool nocache) {
 	addr_t addr, end, length, next, phys;
 	u64 *l1pte;
 
