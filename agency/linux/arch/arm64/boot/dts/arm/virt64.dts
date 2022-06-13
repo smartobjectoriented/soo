@@ -409,11 +409,15 @@
 		vuart {
 			status = "ok";
 		};
-	};
-	
-	frontends {	
-		vuart {
+		
+		vsensej {
 			status = "ok";
 		};
+
+		vsenseled {
+			status = "ok";
+		};
+		
 	};
+
 };

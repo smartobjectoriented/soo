@@ -24,9 +24,11 @@
 
 #include <linux/platform_device.h>
 
+#include <soo/uapi/console.h>
+
 #include "rpisense-led.h"
 
-#ifdef CONFIG_ARCH_VEXPRESS
+#if defined(CONFIG_ARCH_VEXPRESS) || defined(CONFIG_ARCH_VIRT64)
 
 bool leds[5]; /* 5 LEDs state */
 
@@ -116,9 +118,9 @@ unsigned char leds[][64][2] = {
 /* In drivers/video/fbdev/rpisense-fb.c */
 void update_rpisense_fb_mem(uint8_t *matrix);
 
-#endif /* !CONFIG_ARCH_VEXPRESS */
+#endif /* !CONFIG_ARCH_VEXPRESS/VIRT64 */
 
-#ifdef CONFIG_ARCH_VEXPRESS
+#if defined(CONFIG_ARCH_VEXPRESS) || defined(CONFIG_ARCH_VIRT64)
 
 void display_led(int led_nr, bool on) {
 	leds[led_nr] = on;
@@ -159,14 +161,14 @@ void display_led(int led_nr, bool on) {
 	i2c_master_send(rpisense->i2c_client, matrix, SIZE_FB);
 }
 
-#endif /* !CONFIG_ARCH_VEXPRESS */
+#endif /* !CONFIG_ARCH_VEXPRESS/VIRT64 */
 
 EXPORT_SYMBOL(display_led);
 
 void senseled_init(void) {
 	int i;
 
-#ifdef CONFIG_ARCH_VEXPRESS
+#if defined(CONFIG_ARCH_VEXPRESS) || defined(CONFIG_ARCH_VIRT64)
 
 	for (i = 0; i < 5; i++)
 		leds[i] = false;
