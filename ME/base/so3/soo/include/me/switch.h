@@ -16,51 +16,83 @@
  *
  */
 
-#ifndef BLIND_H
-#define BLIND_H
+#ifndef _SWITCH_H_
+#define _SWITCH_H_
 
+#include <completion.h>
 #include <spinlock.h>
 #include <printk.h>
 #include <completion.h>
 #include <asm/atomic.h>
 
 #include <me/common.h>
-#include <soo/vbwa88pg.h>
+#include <soo/knx/gtl2tw.h>
+#include <soo/enocean/pt210.h>
 
-#include <me/switch.h>
-
-#define MEBLIND_NAME		"ME blind"
-#define MEBLIND_PREFIX	"[ " MEBLIND_NAME " ] "
-
-#if 1
-#define BLIND_VBWA88PG
+#ifdef CONFIG_SOO_SWITCH_KNX
+#define MESWITCH_NAME		"ME switch KNX"
+#define KNX
+#elif defined(CONFIG_SOO_SWITCH_ENOCEAN)
+#define MESWITCH_NAME		"ME switch ENOCEAN"
+#define ENOCEAN
+#else
+#define MESWITCH_NAME		"ME switch"
 #endif
 
+#define MESWITCH_PREFIX	    "[ " MESWITCH_NAME " ] "
+
+
 /**
- * @brief Blind models
+ * @brief Switch models
  * 
  */
 typedef enum {
-	VBWA88PG = 0
-} blind_type;
-
-
+	PT210 = 0,
+	GTL2TW
+} switch_type;
 
 /**
- * @brief Generic blind struct. More kinds of blind can be added
- * 
- * @param blind specific blind model struct
- * @param type blind model
+ * @brief Possible switch commands
  * 
  */
+typedef enum {
+	POS_LEFT_UP = 0,
+	POS_LEFT_DOWN,
+	POS_RIGHT_UP,
+	POS_RIGHT_DOWN,
+	POS_NONE
+} switch_position;
+
+typedef enum {
+    PRESS_LONG = 0,
+    PRESS_SHORT,
+	PRESS_NONE
+} switch_press;
+
+typedef enum {
+	STATUS_OFF = 0,
+	STATUS_ON,
+	STATUS_NONE
+} switch_status;
+
+/**
+ * @brief Generic switch struct
+ * 
+ * @param sw Specific switch model
+ * @param cmd Command received by the switch
+ * @param switch model
+ */
 typedef struct {
-#ifdef BLIND_VBWA88PG
-	blind_vbwa88pg_t blind;
+#ifdef ENOCEAN
+	pt210_t sw;
 #endif
 
-	blind_type type;
-} blind_t;
+#ifdef KNX
+	gtl2tw_t sw;
+#endif
+	switch_type type;
 
+} switch_t;
 
 /*
  * Never use lock (completion, spinlock, etc.) in the shared page since
@@ -74,22 +106,29 @@ typedef struct {
  * @param need_progate set to true if the ME need to migrate  
  */
 typedef struct {
-
 	bool switch_event;
-	switch_position sw_pos;
-	switch_press sw_press;
-
+	switch_position pos;
+    switch_press press;
+	switch_status status;
+	switch_type type;
 	bool need_propagate;
+	bool delivered;
+    uint64_t timestamp;
+    uint64_t originUID;
+
 	/*
 	 * MUST BE the last field, since it contains a field at the end which is used
 	 * as "payload" for a concatened list of hosts.
 	 */
 	me_common_t me_common;
 
-} sh_blind_t;
+} sh_switch_t;
 
 /* Export the reference to the shared content structure */
-extern sh_blind_t *sh_blind;
+extern sh_switch_t *sh_switch;
+
+/* Protecting variables between domcalls and the active context */
+extern spinlock_t propagate_lock;
 
 /**
  * @brief Completion use to wait for a switch event to move the blind
@@ -108,6 +147,6 @@ extern atomic_t shutdown;
 		printk("[%s:%i] Error: "fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
 	} while(0)
 
-#endif /* BLIND_H */
+#endif /* _SWITCH_H_ */
 
 

@@ -16,54 +16,62 @@
  *
  */
 
-#ifndef VWAGOLED_H
-#define VWAGOLED_H
+#ifndef VKNX_H
+#define VKNX_H
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
 #include <soo/vdevfront.h>
 
-#define DEFAULT_DIM_VALUE		0
+
+#define VKNX_NAME		                    "vknx"
+#define VKNX_PREFIX		                    "[" VKNX_NAME " frontend] "
+
+#define VKNX_DATAPOINT_DATA_MAX_SIZE        14
+#define VKNX_MAX_DATAPOINTS                 10
+#define VKNX_RING_PAGES_NUMBER              8
+
 
 typedef enum {
-	/* Turn led off */
-	LED_OFF = 0,
-	/* Turn led on */
-	LED_ON,
+    KNX_RESPONSE = 0,
+    KNX_INDICATION
+} event_type;
 
-	/*** !!! Not yet implemented, ***/
-	/* Get current status */
-	GET_STATUS,
-	/* Get devices connected to the DALI bus */
-	GET_TOPOLOGY,
-	
-	CMD_NONE
-} wago_cmd_t;
+typedef enum {
+    GET_DP_VALUE = 0,
+    SET_DP_VALUE
+} request_type;
 
-/*** Normally DALI master can manage up to 64 devices ***/
-#define VWAGOLED_PACKET_SIZE	64
-
-#define VWAGOLED_NAME		"vwagoled"
-#define VWAGOLED_PREFIX		"[" VWAGOLED_NAME " frontend] "
+struct dp {
+    uint16_t id;
+    union {
+        uint8_t state;
+        uint8_t cmd;
+    };
+    uint8_t data_len;
+    uint8_t data[VKNX_DATAPOINT_DATA_MAX_SIZE];
+};
+typedef struct dp dp_t;
 
 typedef struct {
-	uint8_t cmd;
-	uint8_t dim_value;
-	int ids[VWAGOLED_PACKET_SIZE];
-	uint8_t ids_count;
-} vwagoled_request_t;
+    request_type type;
+    uint16_t dp_count;
+    dp_t datapoints[VKNX_MAX_DATAPOINTS];
+} vknx_request_t;
 
 typedef struct  {
-	uint8_t cmd;
-	uint8_t dim_value;
-	int ids[VWAGOLED_PACKET_SIZE];
-	uint8_t ids_count;
-} vwagoled_response_t;
+    event_type event;
+    uint16_t dp_count;
+    dp_t datapoints[VKNX_MAX_DATAPOINTS];
+
+} vknx_response_t;
+
+
 
 /*
  * Generate ring structures and types.
  */
-DEFINE_RING_TYPES(vwagoled, vwagoled_request_t, vwagoled_response_t);
+DEFINE_RING_TYPES(vknx, vknx_request_t, vknx_response_t);
 
 /*
  * General structure for this virtual device (frontend side)
@@ -73,24 +81,18 @@ typedef struct {
 	/* Must be the first field */
 	vdevfront_t vdevfront;
 
-	vwagoled_front_ring_t ring;
+	vknx_front_ring_t ring;
 	unsigned int irq;
 
 	grant_ref_t ring_ref;
 	grant_handle_t handle;
 	uint32_t evtchn;
 
-} vwagoled_t;
+} vknx_t;
 
+int get_knx_data(vknx_response_t *data);
+void vknx_set_dp_value(dp_t* dps, int dp_count);
+void vknx_get_dp_value(uint16_t first_dp, int dp_count);
+void vknx_print_dps(dp_t *dps, int dp_count);
 
-/**
- * @brief Send a command to vwagoled backend
- * 
- * @param ids Leds ids to apply the command to.
- * @param size Number of ids in the ids array
- * @param cmd Command to execute. See wago_cmd_t enum
- * @return int 0 if success, -1 if error
- */
-int vwagoled_set(int *ids, int size, wago_cmd_t cmd);
-
-#endif /* WAGOLED_H */
+#endif /* BLIND_H */

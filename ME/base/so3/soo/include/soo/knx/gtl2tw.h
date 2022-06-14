@@ -16,35 +16,29 @@
  *
  */
 
-/dts-v1/;
+#ifndef _GTL2TW_H_
+#define _GTL2TW_H_ 
 
-/ {
-	description = "SO3 image for the SOO.blind ME";
+#include <types.h>
 
-	images {
-	
-		so3 {
-			description = "SO3 OS kernel";
-			data = /incbin/("../so3/so3.bin");
-			type = "ME";
-			arch = "arm";
-			os = "linux";
-			compression = "none";
-			
-			hash {
-				algo = "crc32";
-			};
-		};
+#define DP_COUNT        4
 
-		fdt {
-			description = "Flattened Device Tree blob";
-			data = /incbin/("../so3/dts/blind.dtb");
-			type = "flat_dt";
-			arch = "arm";
-			compression = "none";
-			hash {
-				algo = "crc32";
-			};
-		};	
-    };
-};
+#define FIRST_DP_ID     0x07
+#define SECOND_DP_ID    (FIRST_DP_ID + 1)
+#define THIRD_DP_ID     (FIRST_DP_ID + 2)  
+#define FORTH_DP_ID     (FIRST_DP_ID + 3)  
+
+typedef unsigned char byte;
+
+static const int dp_ids [] = { 0x07, 0x08, 0x09, 0x0A };
+
+typedef struct {
+    bool status[DP_COUNT];
+    bool events [DP_COUNT];
+} gtl2tw_t;
+
+void gtl2tw_init(gtl2tw_t *sw);
+
+void gtl2tw_wait_event(gtl2tw_t *sw);
+
+#endif // GTL2TW
