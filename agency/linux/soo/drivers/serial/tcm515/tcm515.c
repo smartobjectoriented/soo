@@ -41,6 +41,13 @@ static int subscribers_count = 0;
 /* Array callback funtions provided by the subscribers */
 static void (*subscribers[MAX_SUBSCRIBERS])(esp3_packet_t *packet);
 
+/*** Commands packets ***/
+static esp3_packet_t co_rd_version_packet = {
+    .header = {0x01, 0x00, COMMON_COMMAND},
+    .data = (byte[]){CO_RD_VERSION},
+    .optional_data = NULL,
+};
+
 /**
  * @brief Process the response obtained by sending the command CO_RD_VERSION
  *        which return basic informations of the TCM515 device
@@ -298,11 +305,12 @@ static int tcm515_serdev_probe(struct serdev_device *serdev) {
     get_id_version = esp3_packet_to_byte_buffer(&co_rd_version_packet);
     if (get_id_version) {
         tcm515_write_buf(get_id_version, CO_READ_VERSION_BUFFER_SIZE, true, tcm515_read_id);
+        dev_info(dev,"Probed successfully\n");
+        return 0;
+    } else {
+        dev_err(dev, "Probe failed\n");
+        return -1;
     }
-    
-    dev_info(dev,"Probed successfully\n");
-
-    return 0;
 }
 
 static void tcm515_serdev_remove(struct serdev_device *serdev) {

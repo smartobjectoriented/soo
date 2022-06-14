@@ -123,7 +123,7 @@ void vwagoled_reconfigured(struct vbus_device *vdev) {
 
 	/* No handler required, however used to notify the remote domain */
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vwagoled_interrupt, 
-						     vwagoled_interrupt_bh, 0, VWAGOLED_NAME "-backend", vdev);
+													vwagoled_interrupt_bh, 0, VWAGOLED_NAME "-backend", vdev);
 	BUG_ON(res < 0);
 
 	vwagoled_priv->vwagoled.irq = res;
@@ -148,7 +148,7 @@ vdrvback_t vwagoleddrv = {
 int vwagoled_init(void) {
 	struct device_node *np;
 
-    DBG(VWAGOLED_PREFIX "Starting\n");
+    printk(VWAGOLED_PREFIX "Starting\n");
 
 	np = of_find_compatible_node(NULL, NULL, "vwagoled,backend");
 
@@ -162,7 +162,7 @@ int vwagoled_init(void) {
 		BUG();
 	}
 
-    DBG(VWAGOLED_PREFIX "Initialized\n");
+    printk(VWAGOLED_PREFIX "Initialized\n");
 	
     return 0;
 }
