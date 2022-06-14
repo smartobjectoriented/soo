@@ -114,7 +114,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
-return 0;
+
 		if (cooperate_args->alone)
 			return 0;
 
