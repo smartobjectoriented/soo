@@ -466,6 +466,7 @@ int rn2483_subscribe(void (*callback)(byte *data)) {
     return 0;
 }
 
+#if 0
 /**
  * @brief This functions is used for developpement. Activate DEBUG_THREAD to use it. 
  * It sends a message every 5 seconds
@@ -485,6 +486,7 @@ static int rn2483_send_data_test(void *args) {
 
     return 0;
 }
+#endif
 
 static int rn2483_serdev_probe(struct serdev_device *serdev) {
     struct device *dev;
