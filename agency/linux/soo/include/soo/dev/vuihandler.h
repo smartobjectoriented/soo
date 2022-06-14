@@ -38,7 +38,7 @@
 #define VUIHANDLER_APP_VBSTORE_DIR	"backend/" VUIHANDLER_NAME
 #define VUIHANDLER_APP_VBSTORE_NODE	"connected-app-me-spid"
 
-typedef struct t __attribute__((packed)) {
+typedef struct __attribute__((packed)) {
 	int32_t		slotID;
 	uint8_t		type;
 	uint8_t		payload[0];
