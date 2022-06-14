@@ -43,7 +43,7 @@
 /* vUIHandler packet send period */
 #define VUIHANDLER_PERIOD	1000
 
-typedef struct {
+typedef struct t __attribute__((packed)) {
 	int32_t		slotID;
 	uint8_t		type;
 	uint8_t		payload[0];
