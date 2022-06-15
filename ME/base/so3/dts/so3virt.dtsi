@@ -111,6 +111,11 @@
 				compatible = "venocean,frontend";
 				status = "disabled";
 			};
+
+			vknx {
+				compatible = "vknx,frontend";
+				status = "disabled";
+			};
 		};
 
 	};

@@ -50,9 +50,9 @@ void show_invalid_entry_message(u32 type, u64 esr, u64 address)
     printk("ERROR CAUGHT: ");
     printk(entry_error_messages[type]);
     printk(", ESR: ");
-    printk("%d", esr);
+    printk("%lx", esr);
     printk(", Address: ");
-    printk("lx\n", address);
+    printk("%lx\n", address);
 
 }
 
@@ -69,8 +69,6 @@ void trap_handle_error(addr_t lr) {
  */
 void trap_handle(cpu_regs_t *regs) {
 	unsigned long esr = read_sysreg(esr_el1);
-
-	lprintk("### ESR_Elx_EC(esr): %lx\n", ESR_ELx_EC(esr));
 
 	switch (ESR_ELx_EC(esr)) {
 
@@ -119,6 +117,7 @@ void trap_handle(cpu_regs_t *regs) {
 #endif
 
 	default:
+		lprintk("### ESR_Elx_EC(esr): %lx\n", ESR_ELx_EC(esr));
 		kernel_panic();
 	}
 

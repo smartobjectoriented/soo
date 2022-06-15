@@ -46,14 +46,6 @@ various parameters from other ME like SOO.outdoor to get smarter.";
 			status = "ok";
 		};
 	
-		vdoga12v6nm {
-			status = "ok";
-		};
-	  
-		vuihandler {
-			status = "ok";
-		};
-
 		vknx {
 			status = "ok";
 		};
