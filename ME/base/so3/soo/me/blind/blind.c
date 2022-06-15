@@ -189,9 +189,6 @@ void *app_thread_main(void *args) {
 	// knx_th = kernel_thread(knx_wait_data_th, "knx_wait_data_th", bl, THREAD_PRIO_DEFAULT);
 
 	// thread_join(knx_th);
-	thread_join(blind_th);
-
-	printk(MEBLIND_PREFIX "Goodbye\n");
 
 	return NULL;
 }
