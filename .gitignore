@@ -36,6 +36,7 @@ agency/rootfs/host/**
 agency/rootfs/images/**
 agency/rootfs/target/**
 
+optee_ta/**
 
 # except the followings:
 !.gitignore #Don't ignore the ignore file ;-)

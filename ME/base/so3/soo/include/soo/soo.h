@@ -25,6 +25,9 @@
 #include <list.h>
 
 #include <asm/atomic.h>
+#include <me/indoor/indoor.h>
+#include <me/heat/heat.h>
+
 
 #define MAX_ME_DOMAINS				5
 

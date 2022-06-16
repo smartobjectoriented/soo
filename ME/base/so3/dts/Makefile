@@ -10,11 +10,14 @@ endif
 
 endif
 
-dtb-$(CONFIG_SOO_OUTDOOR) += outdoor.dtb
-dtb-$(CONFIG_SOO_BLIND) += blind.dtb
-dtb-$(CONFIG_SOO_AGENCY) += agency.dtb
-dtb-$(CONFIG_SOO_NET) += net.dtb
-dtb-$(CONFIG_SOO_LEDCTRL) += ledctrl.dtb
-dtb-$(CONFIG_SOO_WAGOLED) += wagoled.dtb
+dtb-$(CONFIG_SOO_OUTDOOR)	+= outdoor.dtb
+dtb-$(CONFIG_SOO_BLIND) 	+= blind.dtb
+dtb-$(CONFIG_SOO_AGENCY) 	+= agency.dtb
+dtb-$(CONFIG_SOO_NET) 		+= net.dtb
+dtb-$(CONFIG_SOO_LEDCTRL) 	+= ledctrl.dtb
+dtb-$(CONFIG_SOO_WAGOLED) 	+= wagoled.dtb
+dtb-$(CONFIG_SOO_HEAT) 		+= heat.dtb
+dtb-$(CONFIG_SOO_INDOOR) 	+= indoor.dtb
+dtb-$(CONFIG_SOO_DOMO) 		+= domo.dtb
 
 
