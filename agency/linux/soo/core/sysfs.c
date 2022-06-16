@@ -32,6 +32,7 @@ char *soo_sysfs_names[] = {
 	[name] = "name",
 	[buffer_count] = "buffer_count",
 	[neighbours] = "neighbours",
+	[neighbours_ext] = "neighbours_ext",
 	[vsensej_js]= "vsensej_js",
 	[vwagoled_notify] = "vwagoled_notify",
 	[vwagoled_debug] = "vwagoled_debug",
@@ -116,6 +117,7 @@ static struct kobj_attribute name_attr = __ATTR(name, 0664, attr_show, attr_stor
 
 static struct kobj_attribute buffer_count_attr = __ATTR(buffer_count, 0664, attr_show, attr_store);
 static struct kobj_attribute neighbours_attr = __ATTR(neighbours, 0664, attr_show, attr_store);
+static struct kobj_attribute neighbours_ext_attr = __ATTR(neighbours_ext, 0664, attr_show, attr_store);
 
 /** Backends **/
 
@@ -144,6 +146,7 @@ static struct kobj_attribute vwagoled_get_status_attr = __ATTR(vwagoled_get_stat
 static struct attribute *soolink_discovery_attrs[] = {
 	&buffer_count_attr.attr,
 	&neighbours_attr.attr,
+	&neighbours_ext_attr.attr,
 	NULL,	/* need to NULL terminate the list of attributes */
 };
 
