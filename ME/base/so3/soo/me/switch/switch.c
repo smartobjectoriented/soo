@@ -49,6 +49,11 @@ void switch_init(switch_t *sw) {
 	sh_switch->timestamp = 0;
 }
 
+void switch_deinit(switch_t *sw) {
+#ifdef ENOCEAN
+	pt210_deinit(&sw->sw);
+#endif
+}
 /**
  * @brief Generic switch get data. Wait for an event.
  * 
@@ -56,22 +61,25 @@ void switch_init(switch_t *sw) {
  */
 void switch_get_data(switch_t *sw) {
 #ifdef ENOCEAN
-	uint64_t pressed_time;
 
-	pt210_wait_event(&sw->sw);
-	if (sw->sw.event) {
-		if (sw->sw.up) 
+	wait_for_completion(&sw->sw._wait_event);
+	if (atomic_read(&sw->sw.event)) {
+		if (atomic_read(&sw->sw.up)) 
 			sh_switch->pos = POS_LEFT_UP;
-		else if (sw->sw.down) 
+		else if (atomic_read(&sw->sw.down)) 
 			sh_switch->pos = POS_LEFT_DOWN;
-		else if (sw->sw.released) {
-			pressed_time = NS_TO_MS(sw->sw.released_time - sw->sw.press_time);
-			sh_switch->press = pressed_time > PT210_PRESSED_TIME_MS ? PRESS_LONG : PRESS_SHORT;
-			sh_switch->switch_event= true;
-		}
+		else
+			sh_switch->pos = POS_NONE;
+		
+		if (atomic_read(&sw->sw.released)) 
+			sh_switch->press = PRESS_SHORT;
+		else
+			sh_switch->press = PRESS_LONG;
+
+		sh_switch->switch_event= true;
+		pt210_reset(&sw->sw);
 	} 
 			
-	pt210_reset(&sw->sw);
 #endif
 		
 #ifdef KNX
@@ -123,6 +131,8 @@ int switch_wait_data_th(void *args) {
 			DBG(MESWITCH_PREFIX "No switch event\n");
 		}
 	}
+
+	switch_deinit(sw);
 
 	DBG(MESWITCH_PREFIX "Stopped: %s\n", __func__);
 

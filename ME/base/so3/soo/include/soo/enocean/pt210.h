@@ -20,11 +20,15 @@
 #define _PT210_H_ 
 
 #include <types.h>
+#include <timer.h>
+#include <completion.h>
+#include <thread.h>
+#include <asm/atomic.h>
 
 #define PT210_SWITCH_UP             0x70
 #define PT210_SWITCH_DOWN           0x50
 #define PT210_SWITCH_RELEASED       0x00
-#define PT210_PRESSED_TIME_MS       500
+#define PT210_PRESSED_TIME_MS       300
 
 typedef unsigned char byte;
 
@@ -40,12 +44,17 @@ typedef unsigned char byte;
  */
 typedef struct {
     uint32_t id;
-    bool up;
-    bool down;
-    bool released;
-    bool event;
-    uint64_t press_time;
-    uint64_t released_time;
+    atomic_t up;
+    atomic_t down;
+    atomic_t released;
+    atomic_t event;
+
+    // private
+    timer_t _pressed_time;
+    struct completion _wait_event;
+    tcb_t *_wait_event_th;
+    atomic_t _th_run;
+
 } pt210_t;
 
 
@@ -57,6 +66,8 @@ typedef struct {
  */
 void pt210_init(pt210_t *sw, uint32_t switch_id);
 
+
+void pt210_deinit(pt210_t *sw);
 /**
  * @brief Wait for an event coming from the PT210 device. This call is blocking.
  * 

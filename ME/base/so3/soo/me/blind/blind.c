@@ -29,6 +29,7 @@
 #include <delay.h>
 
 #include <me/blind.h>
+#include <soo/knx/gtl2tw.h>
 
 /**
  * @brief Generic blind initialization
@@ -146,6 +147,8 @@ int knx_wait_data_th(void *args) {
 	blind_t *bl = (blind_t *)args;
 	vknx_response_t data;
 
+	blind_init(bl);
+
 	DBG(MEBLIND_PREFIX "Started: %s\n", __func__);
 
 	while (_atomic_read(shutdown)) {
@@ -160,12 +163,20 @@ int knx_wait_data_th(void *args) {
 		{
 		case KNX_RESPONSE:
 			DBG(MEBLIND_PREFIX "KNX response\n");
-			vbwa88pg_blind_update(&bl->blind, data.datapoints, data.dp_count);
+			// vbwa88pg_blind_update(&bl->blind, data.datapoints, data.dp_count);
 			break;
 		
 		case KNX_INDICATION:
 			/** Not used yet **/
 			DBG(MEBLIND_PREFIX "KNX indication\n");
+
+			if (data.datapoints[0].id == 0x07) {
+				blind_up(bl);
+			}
+
+			if (data.datapoints[0].id == 0x09) {
+				blind_down(bl);
+			}
 			break;
 		}
 	}
@@ -179,6 +190,7 @@ int app_thread_main(void *args) {
 	blind_t *bl;
 
 	bl = (blind_t *)malloc(sizeof(blind_t));
+	sh_blind->sw_press = PRESS_SHORT;
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();

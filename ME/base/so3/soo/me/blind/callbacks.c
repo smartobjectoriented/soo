@@ -144,15 +144,11 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 
 		if (incoming_sh_switch->timestamp > switch_timestamp) {
-			
-			// lprintk("Incoming ts: %llu, current tm: %llu\n", incoming_sh_switch->timestamp, switch_timestamp);
 			switch_timestamp = incoming_sh_switch->timestamp;
 			sh_blind->sw_pos = incoming_sh_switch->pos;
 			sh_blind->sw_press = incoming_sh_switch->press;
 			sh_blind->switch_event = true;
 			incoming_sh_switch->delivered = true;
-			
-			// lprintk("Cooperation with SOO.switch. cmd: %d, press: %d\n", incoming_sh_switch->cmd, incoming_sh_switch->press);
 		}
 
 		io_unmap((uint32_t) incoming_sh_switch);
