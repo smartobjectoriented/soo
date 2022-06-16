@@ -20,7 +20,7 @@
 #define CONFIG_PRINTK
 #endif
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -260,6 +260,8 @@ static int tcm515_serdev_probe(struct serdev_device *serdev) {
     byte *get_id_version;
     int ret = 0;
     u32 baud;
+
+    printk("PROBE !!!!!!!!!!\n");
 
     dev = &serdev->dev;
     BUG_ON(!dev);

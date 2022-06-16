@@ -306,10 +306,10 @@ static int venocean_init(void) {
 	vdevback_init(VENOCEAN_NAME, &venoceandrv);
 
 	/* Add callback function to the list of callback of tcm515-serdev */
-	if (tcm515_subscribe(tcm515_callback) < 0) {
-		DBG(VENOCEAN_PREFIX " failed to subscribe to tcm515");
-		BUG();
-	}
+	// if (tcm515_subscribe(tcm515_callback) < 0) {
+	// 	DBG(VENOCEAN_PREFIX " failed to subscribe to tcm515");
+	// 	BUG();
+	// }
 
 	pr_info(VENOCEAN_PREFIX " Initialized successfully\n");
 
