@@ -19,6 +19,7 @@ if [ "$1" != "clean" ]; then
     fi
 
 else
+    sudo rm fs/*
     echo "The MEs in the third partition were removed"    
 fi
 ./umount.sh

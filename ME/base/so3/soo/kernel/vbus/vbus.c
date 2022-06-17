@@ -378,8 +378,7 @@ static struct vbus_device *vbus_probe_node(struct vbus_type *bus, const char *ty
 	BUG_ON(state != VbusStateInitialising);
 
 	vdev = malloc(sizeof(struct vbus_device));
-	if (!vdev)
-		BUG();
+	BUG_ON(!vdev);
 
 	memset(vdev, 0, sizeof(struct vbus_device));
 
@@ -392,7 +391,10 @@ static struct vbus_device *vbus_probe_node(struct vbus_type *bus, const char *ty
 	vdev->vbus = bus;
 
 	vdev->dev = find_device(compat);
-	BUG_ON(!vdev->dev);
+	if (!vdev->dev) {
+		printk("## Failed at finding device %s\n", compat);
+		BUG();
+	}
 
 	strcpy(vdev->nodename, nodename);
 	strcpy(vdev->devicetype, type);

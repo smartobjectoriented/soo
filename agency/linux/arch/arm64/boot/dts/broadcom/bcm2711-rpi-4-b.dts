@@ -82,7 +82,7 @@
 	/* Backends */
 	backends {
 		vuart {
-		status = "ok";
+			status = "ok";
 		};
 			
 		vuihandler {
@@ -113,6 +113,10 @@
 		};
 
 		venocean {
+			status = "ok";
+		};
+
+		vknx {
 			status = "ok";
 		};
 
