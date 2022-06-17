@@ -37,7 +37,7 @@
  * @param sw Switch to init
  */
 void switch_init(switch_t *sw) {
-
+#warning to be avoided...
 #ifdef ENOCEAN
 	pt210_init(&sw->sw, ENOCEAN_SWITCH_ID);
 #endif
@@ -104,7 +104,7 @@ void *switch_wait_data_th(void *args) {
 	switch_init(sw);
 
 	DBG(MESWITCH_PREFIX "Started: %s\n", __func__);
-	while(atomic_read(&shutdown)) {
+	while (atomic_read(&shutdown)) {
 		
 		switch_get_data(sw);
 
@@ -133,7 +133,7 @@ void *app_thread_main(void *args) {
 	tcb_t *switch_th;
 	switch_t *sw;
 
-	sw = (switch_t *)malloc(sizeof(switch_t));
+	sw = (switch_t *) malloc(sizeof(switch_t));
 	if (!sw) {
 		DBG(MESWITCH_PREFIX "Failed to allocate switch_t\n");
 		kernel_panic();
@@ -149,9 +149,6 @@ void *app_thread_main(void *args) {
 		DBG(MESWITCH_PREFIX "Failed to start switch thread\n");
 		kernel_panic();
 	}
-	thread_join(switch_th);
-
-	printk(MESWITCH_PREFIX "Goodbye\n");
 
 	return NULL;
 }

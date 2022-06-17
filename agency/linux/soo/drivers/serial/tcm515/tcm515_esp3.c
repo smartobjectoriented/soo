@@ -87,7 +87,6 @@ byte esp3_calc_crc8(const byte *buf, size_t len) {
  * @return int 0 on success, -1 on error
  */
 int esp3_check_crc8(const byte *buf, size_t len, byte crc8) {
-    int i;
     byte crc8_calc;
 
     crc8_calc = esp3_calc_crc8(buf, len);
