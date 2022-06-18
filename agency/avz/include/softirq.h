@@ -10,7 +10,6 @@ enum {
 
 #include <config.h>
 #include <smp.h>
-#include <asm/bitops.h>
 
 #define NR_SOFTIRQS NR_COMMON_SOFTIRQS
 

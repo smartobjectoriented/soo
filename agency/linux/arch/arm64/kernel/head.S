@@ -463,7 +463,7 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	str_l	x21, __fdt_pointer, x5		// Save FDT pointer
 
 	// SOO.tech
-	adr_l	x4, avz_start_info
+	adr_l	x4, avz_shared
 	str 	x22, [x4]
 
 	// Update vabits_actual used along __pa() macro
@@ -478,9 +478,9 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	// Set new PHYS_OFFSET in x0
 	ldr		x0, [x22, AVZ_DOM_PHYS_OFFSET]
 
-	ldr_l	x4, kimage_vaddr		// Save the offset between
-	sub		x4, x4, x0			// the kernel virtual and
-	str_l	x4, kimage_voffset, x5		// physical mappings
+	ldr_l	x4, kimage_vaddr	// Save the offset between the kernel virtual and physical mappings
+	sub		x4, x4, x0
+	str_l	x4, kimage_voffset, x5
 
 #if 0 /* SOO.tech */
 	// Clear BSS
@@ -496,7 +496,9 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	// We prepare this page table which will be used from this point
 
 	adr_l 	x0, init_pg_dir
-	ldr 	x1, [x22, AVZ_PT_VADDR]
+
+	// Get the virtual address of page table
+	ldr 	x1, [x22, #AVZ_PAGETABLE_VADDR]
 
 	add		x4, x0, #PAGE_SIZE
 1:

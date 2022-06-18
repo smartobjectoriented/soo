@@ -60,6 +60,12 @@ typedef struct {
 	venocean_t venocean;
 } venocean_priv_t;
 
+/** List of all the connected vbus devices **/
+static struct list_head *vdev_list;
+
+/** List of all the domids of the connected vbus devices **/
+static struct list_head *domid_list;
+
 /**
  * @brief This function is used as a callback when a new ESP3 packet is received by tcm515.
  * 
@@ -134,35 +140,42 @@ void tcm515_callback(esp3_packet_t *packet) {
  * @return int 0 for success
  */
 static int venocean_send_data_fn(void *data) {
-	struct vbus_device *vdev = (struct vbus_device*)data;
-	venocean_priv_t  *venocean_priv = dev_get_drvdata(&vdev->dev);
+	venocean_priv_t  *venocean_priv;
 	venocean_response_t *ring_resp;
+	struct vbus_device *vdev;
+    domid_priv_t *domid_priv;
 
 	while(!kthread_should_stop()) {
 		wait_for_completion(&send_data_completion);
 
-		if (vdev->state == VbusStateConnected){
-		
-			DBG(VENOCEAN_PREFIX " creating new ring response\n");
-			if (last_packet->header.data_len < BUFFER_SIZE - 1) {
-				vdevback_processing_begin(vdev);
-				
-				ring_resp = venocean_new_ring_response(&venocean_priv->venocean.ring);
-				memcpy(ring_resp->buffer, last_packet->data, last_packet->header.data_len);
-				ring_resp->len = last_packet->header.data_len;
+		list_for_each_entry(domid_priv, domid_list, list) {
+			vdev = vdevback_get_entry(domid_priv->id, vdev_list);
+			vdevback_processing_begin(vdev);
+			venocean_priv = dev_get_drvdata(&vdev->dev);
 
-				DBG(VENOCEAN_PREFIX " data: %s, len: %d\n", last_packet->data, last_packet->header.data_len);
-				
-				venocean_ring_response_ready(&venocean_priv->venocean.ring);
-				notify_remote_via_virq(venocean_priv->venocean.irq);
-				
-				vdevback_processing_end(vdev);
+			if (vdev->state == VbusStateConnected){
+			
+				DBG(VENOCEAN_PREFIX " creating new ring response\n");
+				if (last_packet->header.data_len < BUFFER_SIZE - 1) {
+					
+					ring_resp = venocean_new_ring_response(&venocean_priv->venocean.ring);
+					memcpy(ring_resp->buffer, last_packet->data, last_packet->header.data_len);
+					ring_resp->len = last_packet->header.data_len;
+
+					DBG(VENOCEAN_PREFIX " data: %s, len: %d\n", last_packet->data, last_packet->header.data_len);
+					
+					venocean_ring_response_ready(&venocean_priv->venocean.ring);
+					notify_remote_via_virq(venocean_priv->venocean.irq);
+					
+				} else {
+					DBG(VENOCEAN_PREFIX " last packet data is too big\n");
+				}
 			} else {
-				DBG(VENOCEAN_PREFIX " last packet data is too big\n");
+				DBG(VENOCEAN_PREFIX "fronted not found. Nothing will be sent\n");
 			}
-		} else {
-			DBG(VENOCEAN_PREFIX "fronted not found. Nothing will be sent\n");
+			vdevback_processing_end(vdev);
 		}
+
 
 		DBG(VENOCEAN_PREFIX " freeing last packet\n");
 		
@@ -180,8 +193,6 @@ static int venocean_send_data_fn(void *data) {
 
 irqreturn_t venocean_interrupt_bh(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
-	venocean_priv_t *venocean_priv = dev_get_drvdata(&vdev->dev);
-	venocean_request_t *ring_req;
 
 	vdevback_processing_begin(vdev);
 
@@ -198,23 +209,41 @@ irqreturn_t venocean_interrupt(int irq, void *dev_id) {
 
 void venocean_probe(struct vbus_device *vdev) {
 	venocean_priv_t *venocean_priv;
+	domid_priv_t *domid_priv;
+
+	domid_priv = kzalloc(sizeof(domid_t), GFP_KERNEL);
+    BUG_ON(!domid_priv);
+
+    domid_priv->id = vdev->otherend_id;
+    list_add(&domid_priv->list, domid_list);
 
 	venocean_priv = kzalloc(sizeof(venocean_priv_t), GFP_ATOMIC);
 	BUG_ON(!venocean_priv);
 
 	dev_set_drvdata(&vdev->dev, venocean_priv);
-
-	/* Modify once we have multiple FE **/
-	kthread_run(venocean_send_data_fn, vdev, "send_data_fn");
+	vdevback_add_entry(vdev, vdev_list);
 	
 	DBG(VENOCEAN_PREFIX "Backend probe: %d\n", vdev->otherend_id);
 }
 
 void venocean_remove(struct vbus_device *vdev) {
 	venocean_priv_t *venocean_priv = dev_get_drvdata(&vdev->dev);
+	domid_priv_t *domid_priv;
+
+	/** Remove entry when frontend is leaving **/
+	list_for_each_entry(domid_priv, domid_list, list) {
+		if (domid_priv->id == vdev->otherend_id) {
+				list_del(&domid_priv->list);
+				kfree(domid_priv);
+				break;
+		}
+	}
 
 	DBG("%s: freeing the venocean structure for %s\n", __func__,vdev->nodename);
+	vdevback_del_entry(vdev, vdev_list);
 	kfree(venocean_priv);
+
+	DBG(VENOCEAN_PREFIX "Removed: %d\n", id);
 }
 
 void venocean_close(struct vbus_device *vdev) {
@@ -303,13 +332,26 @@ static int venocean_init(void) {
 		return -1;
 	}
 
+	vdev_list = (struct list_head *)kzalloc(sizeof(struct list_head), GFP_ATOMIC);
+    BUG_ON(!vdev_list);
+
+    INIT_LIST_HEAD(vdev_list);
+
+    domid_list = (struct list_head *)kzalloc(sizeof(struct list_head), GFP_KERNEL);
+    BUG_ON(!domid_list);
+
+	INIT_LIST_HEAD(domid_list);
+
 	vdevback_init(VENOCEAN_NAME, &venoceandrv);
 
 	/* Add callback function to the list of callback of tcm515-serdev */
-	// if (tcm515_subscribe(tcm515_callback) < 0) {
-	// 	DBG(VENOCEAN_PREFIX " failed to subscribe to tcm515");
-	// 	BUG();
-	// }
+	if (tcm515_subscribe(tcm515_callback) < 0) {
+		DBG(VENOCEAN_PREFIX " failed to subscribe to tcm515");
+		BUG();
+	}
+
+		/* Modify once we have multiple FE **/
+	kthread_run(venocean_send_data_fn, NULL, "send_data_fn");
 
 	pr_info(VENOCEAN_PREFIX " Initialized successfully\n");
 

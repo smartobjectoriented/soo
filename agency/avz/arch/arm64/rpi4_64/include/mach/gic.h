@@ -23,7 +23,7 @@
 #define GIC_DIST_SIZE	0x1000
 
 #define GIC_CPU_PHYS	0xff842000
-#define GIC_CPU_SIZE	0x1000
+#define GIC_CPU_SIZE	0x2000
 
 
 #endif /* MACH_GIC_H */

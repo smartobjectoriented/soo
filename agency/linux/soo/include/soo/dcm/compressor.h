@@ -22,14 +22,7 @@
 
 #include <linux/types.h>
 
-#define COMPRESSOR_NO_COMPRESSION	0
-#define COMPRESSOR_LZ4			1
-#define COMPRESSOR_N_METHODS		2
-
 typedef struct {
-
-	uint8_t	compression_method;
-
 	size_t	decompressed_size;
 
 	/*
@@ -37,22 +30,11 @@ typedef struct {
 	 * payload buffer.
 	 */
 	uint8_t	payload[0];
-
 } compressor_data_t;
 
-typedef struct {
-	/* Function to be called when compressing data */
-	int (*compress_callback)(void **data_compressed, void *source_data, size_t source_size);
+int compress_data(void **data_compressed, void *source_data, size_t source_size);
+void decompress_data(void **data_decompressed, void *data_compressed, size_t compressed_size);
 
-	/* Function to be called when decompressing data */
-	int (*decompress_callback)(void **data_decompressed, compressor_data_t *data_compressed, size_t compressed_size);
-
-} compressor_method_t;
-
-int compress_data(uint8_t method, void **data_compressed, void *source_data, size_t source_size);
-int decompress_data(void **data_decompressed, void *data_compressed, size_t compressed_size);
-
-void compressor_method_register(uint8_t method, compressor_method_t *method_desc);
 void compressor_init(void);
 
 #endif /* COMPRESSOR_H */

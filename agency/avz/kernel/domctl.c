@@ -42,7 +42,6 @@ extern long arch_do_domctl(struct domctl *op, domctl_t *args);
 
 void do_domctl(domctl_t *args)
 {
-	struct start_info *si;
 	struct domain *d;
 
 	spin_lock(&domctl_lock);
@@ -59,10 +58,8 @@ void do_domctl(domctl_t *args)
 
 	case DOMCTL_unpauseME:
 
-		si = (struct start_info *) d->vstartinfo_start;
-
 		/* Retrieve info from hypercall parameter structure */
-		si->store_mfn = args->u.unpause_ME.store_mfn;
+		d->avz_shared->vbstore_pfn = args->u.unpause_ME.vbstore_pfn;
 
 		DBG("%s: unpausing ME\n", __func__);
 

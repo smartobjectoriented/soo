@@ -27,8 +27,7 @@
 #include <softirq.h>
 #include <time.h>
 #include <errno.h>
-
-#include <soo/soo.h>
+#include <soo.h>
 
 #include <soo/uapi/debug.h>
 #include <soo/uapi/domctl.h>
@@ -88,7 +87,7 @@ struct task_slice flip_do_schedule(void)
 		ret.time = CONFIG_SCHED_FLIP_SCHEDFREQ;
 
 #if 0
-	printk("%s: on cpu %d picking now: %lx \n", __func__, smp_processor_id(), ret.d->domain_id);
+	printk("%s: on cpu %d picking now: %lx \n", __func__, smp_processor_id(), ret.d->avz_shared->domID);
 #endif
 
 	return ret;
@@ -99,14 +98,14 @@ struct task_slice flip_do_schedule(void)
  */
 static void flip_sleep(struct domain *d)
 {
-	DBG("flip_sleep was called, domain-id %i\n", d->domain_id);
+	DBG("flip_sleep was called, domain-id %i\n", d->avz_shared->domID);
 
 	if (is_idle_domain(d))
 		return;
 
-	domains_runnable[d->domain_id] = NULL;
+	domains_runnable[d->avz_shared->domID] = NULL;
 
-	if (sched_flip.sched_data.current_dom == d->domain_id)
+	if (sched_flip.sched_data.current_dom == d->avz_shared->domID)
 		cpu_raise_softirq(d->processor, SCHEDULE_SOFTIRQ);
 
 }
@@ -114,9 +113,9 @@ static void flip_sleep(struct domain *d)
 
 static void flip_wake(struct domain *d)
 {
-	DBG("flip_wake was called, domain-id %i\n", v->domain_id);
+	DBG("flip_wake was called, domain-id %i\n", d->avz_shared->domID);
 
-	domains_runnable[d->domain_id] = d;
+	domains_runnable[d->avz_shared->domID] = d;
 
 	cpu_raise_softirq(d->processor, SCHEDULE_SOFTIRQ);
 

@@ -1134,55 +1134,6 @@ NOKPROBE(__sdei_asm_handler)
 
 
 /* SOO.tech */
-// We may reach this point only during along the upcall
-// path of a hypercall return.
-
-.align 5
-SYM_CODE_START(avz_linux_callback)
-
-	// Check if the stack is 16-byte aligned.
-	mov		x0, sp
-	tst		x0, #0xf
-	b.eq	1f
-
-	ldr		x0, =__stack_alignment_fault
-	blr		x0
-1:
-	bl 		evtchn_do_upcall
-
-	ldr		lr, [sp, #S_PC]
-
-	// PSTATE contains the daif state at the entry in
-	// the hypervisor.
-
-	ldr		x8, [sp, #(8 * 33)]  // Get PSTATE
-
-	// Restore the IRQ status before the hypercall
-	msr		daif, x8
-
-	ldp		x0, x1, [sp, #(16 * 0)]
-	ldp		x2, x3, [sp, #(16 * 1)]
-	ldp		x4, x5, [sp, #(16 * 2)]
-	ldp		x6, x7, [sp, #(16 * 3)]
-	ldp		x8, x9, [sp, #(16 * 4)]
-	ldp		x10, x11, [sp, #(16 * 5)]
-	ldp		x12, x13, [sp, #(16 * 6)]
-	ldp		x14, x15, [sp, #(16 * 7)]
-	ldp		x16, x17, [sp, #(16 * 8)]
-	ldp		x18, x19, [sp, #(16 * 9)]
-	ldp		x20, x21, [sp, #(16 * 10)]
-	ldp		x22, x23, [sp, #(16 * 11)]
-	ldp		x24, x25, [sp, #(16 * 12)]
-	ldp		x26, x27, [sp, #(16 * 13)]
-	ldp		x28, x29, [sp, #(16 * 14)]
-
-	add		sp, sp, #0x110  // From avz stack frame
-
-	ret
-
-
-SYM_CODE_END(avz_linux_callback)
-
 
 .align 5
     /*
@@ -1194,7 +1145,9 @@ SYM_CODE_END(avz_linux_callback)
      * - x4: fourth arg
      * - x5: work register
      * - x7: hypecall number (ABI)
-     * - x11: cpsr
+     *
+     * - x8 will contain 0 if no pending evtchn, 1 otherwise
+     * - x9 will contain the PSTATE at the hypercall entry
      */
 SYM_CODE_START(hypercall_trampoline)
 
@@ -1206,7 +1159,7 @@ SYM_CODE_START(hypercall_trampoline)
     stp		x5, x6, [sp, #16 * 2]
     stp		x7, x8, [sp, #16 * 3]
     stp		x9, x10, [sp, #16 * 4]
-    stp		x11, lr, [sp, #16 * 5]
+	str		lr, [sp, #16 * 5]
 
     mov 	x7, x0
     mov 	x0, x1
@@ -1220,12 +1173,64 @@ SYM_CODE_START(hypercall_trampoline)
 
     blr		x5
 
+	cmp 	x8, #0
+	b.eq	out_upcall
+
+	// Build a valid stack frame
+	sub		sp, sp, #S_FRAME_SIZE
+
+	stp		x0, x1, [sp, #S_X0]
+	stp		x2, x3, [sp, #S_X2]
+	stp		x4, x5, [sp, #S_X4]
+	stp		x6, x7, [sp, #S_X6]
+	stp		x8, x9, [sp, #S_X8]
+	stp		x10, x11, [sp, #S_X10]
+	stp		x12, x13, [sp, #S_X12]
+	stp		x14, x15, [sp, #S_X14]
+	stp		x16, x17, [sp, #S_X16]
+	stp		x18, x19, [sp, #S_X18]
+	stp		x20, x21, [sp, #S_X20]
+	stp		x22, x23, [sp, #S_X22]
+	stp		x24, x25, [sp, #S_X24]
+	stp		x26, x27, [sp, #S_X26]
+	stp		x28, x29, [sp, #S_X28]
+	str		lr, [sp, #S_LR]
+
+	// Update PSTATE accordingly
+	str		x9, [sp, #S_PSTATE]
+
+	mov		x0, sp
+	bl 		evtchn_do_upcall
+
+	ldp		x0, x1, [sp, #S_X0]
+	ldp		x2, x3, [sp, #S_X2]
+	ldp		x4, x5, [sp, #S_X4]
+	ldp		x6, x7, [sp, #S_X6]
+	ldp		x8, x9, [sp, #S_X8]
+	ldp		x10, x11, [sp, #S_X10]
+	ldp		x12, x13, [sp, #S_X12]
+	ldp		x14, x15, [sp, #S_X14]
+	ldp		x16, x17, [sp, #S_X16]
+	ldp		x18, x19, [sp, #S_X18]
+	ldp		x20, x21, [sp, #S_X20]
+	ldp		x22, x23, [sp, #S_X22]
+	ldp		x24, x25, [sp, #S_X24]
+	ldp		x26, x27, [sp, #S_X26]
+	ldp		x28, x29, [sp, #S_X28]
+	ldr		lr, [sp, #S_LR]
+
+	add		sp, sp, #S_FRAME_SIZE
+
+	// Restore original PSTATE
+	msr		daif, x9
+
+out_upcall:
     ldp 	x1, x2, [sp, #16 * 0]
     ldp 	x3, x4, [sp, #16 * 1]
     ldp		x5, x6, [sp, #16 * 2]
     ldp		x7, x8, [sp, #16 * 3]
     ldp		x9, x10, [sp, #16 * 4]
-    ldp		x11, lr, [sp, #16 * 5]
+    ldr		lr, [sp, #16 * 5]
 
     add     sp, sp, #12*8
 

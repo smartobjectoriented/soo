@@ -33,11 +33,12 @@
 #define PAGE_SIZE       (1 << PAGE_SHIFT)
 #define PAGE_MASK       (~(PAGE_SIZE-1))
 
-#define PAGE_OFFSET	((u64) CONFIG_HYPERVISOR_VIRT_ADDR)
 #ifdef CONFIG_VA_BITS_48
 #define L_PAGE_OFFSET	UL(0xffff800010000000)
+#define ME_PAGE_OFFSET	UL(0xffff800000000000)
 #elif CONFIG_VA_BITS_39
 #define L_PAGE_OFFSET	UL(0xffffffc010000000)
+#define ME_PAGE_OFFSET  UL(0xffffffc000000000)
 #else
 #error "Wrong VA_BITS configuration."
 #endif
@@ -51,24 +52,6 @@
 #define BLOCK_256G_MASK		(~BLOCK_256G_OFFSET)
 #define BLOCK_1G_MASK		(~BLOCK_1G_OFFSET)
 #define BLOCK_2M_MASK		(~BLOCK_2M_OFFSET)
-
-/*
- * We add two functions for retrieving virt and phys address relative to
- * Linux offset according to the memory map (used to access guest mem)
- */
-#define __lpa(vaddr) ((vaddr) - L_PAGE_OFFSET + CONFIG_RAM_BASE)
-#define __lva(paddr) ((paddr) - CONFIG_RAM_BASE + L_PAGE_OFFSET)
-
-#define __pa(vaddr)             (((addr_t) vaddr) - PAGE_OFFSET + ((addr_t) CONFIG_RAM_BASE))
-#define __va(paddr)             (((addr_t) paddr) - ((addr_t) CONFIG_RAM_BASE) + PAGE_OFFSET)
-
-#define virt_to_phys(x)     (__pa(x))
-#define phys_to_virt(x)     (__va(x))
-
-#define pfn_to_phys(pfn) ((pfn) << PAGE_SHIFT)
-#define phys_to_pfn(phys) (((addr_t) phys) >> PAGE_SHIFT)
-#define virt_to_pfn(virt) (phys_to_pfn(__va((addr_t) virt)))
-#define pfn_to_virt(pfn) (phys_to_virt(pfn_to_phys(pfn)))
 
 /*
  *  With 4k page granule, a virtual address is split into 4 lookup parts
@@ -191,13 +174,13 @@
 #define PTE_BLOCK_INNER_SHARE	(3UL << 8)
 #define PTE_BLOCK_AF		(1UL << 10)
 #define PTE_BLOCK_NG		(1UL << 11)
+#define PTE_BLOCK_DBM		(1UL << 51)
 #define PTE_BLOCK_PXN		(1UL << 53)
 #define PTE_BLOCK_UXN		(1UL << 54)
 
 /*
  * TCR flags.
  */
-#define TCR_EL1_RSVD		(1UL << 31)
 
 #define TCR_T0SZ_OFFSET		0
 #define TCR_T1SZ_OFFSET		16
@@ -330,7 +313,7 @@
 
 #define pte_index_to_vaddr(i0, i1, i2, i3) ((i0 << TTB_I0_SHIFT) | i1 << TTB_I1_SHIFT) | (i2 << TTB_I2_SHIFT) | (i3 << TTB_I3_SHIFT))
 
-#define l0pte_offset(pgtable, addr)     ((u64 *) (pgtable + l0pte_index(addr)))
+#define l0pte_offset(pgtable, addr)     ((u64 *) ((u64 *) pgtable + l0pte_index(addr)))
 #define l1pte_offset(l0pte, addr)	((u64 *) (__va(*l0pte & TTB_L0_TABLE_ADDR_MASK)) + l1pte_index(addr))
 #define l2pte_offset(l1pte, addr)	((u64 *) (__va(*l1pte & TTB_L1_TABLE_ADDR_MASK)) + l2pte_index(addr))
 #define l3pte_offset(l2pte, addr)	((u64 *) (__va(*l2pte & TTB_L2_TABLE_ADDR_MASK)) + l3pte_index(addr))
@@ -355,8 +338,6 @@
  })
 
 
-#define clear_page(page)	memset((void *)(page), 0, PAGE_SIZE)
-
 #define PFN_DOWN(x)   ((x) >> PAGE_SHIFT)
 #define PFN_UP(x)     (((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
 
@@ -370,14 +351,6 @@ enum dcache_option {
 	DCACHE_WRITEALLOC = MT_NORMAL,
 };
 
-static inline void set_pte_block(u64 *pte, enum dcache_option option)
-{
-	u64 attrs = PTE_BLOCK_MEMTYPE(option);
-
-	*pte |= PTE_TYPE_BLOCK | PTE_BLOCK_AF | PTE_BLOCK_INNER_SHARE | PTE_BLOCK_NS;
-	*pte |= attrs;
-}
-
 static inline void set_pte_table(u64 *pte, enum dcache_option option)
 {
 	u64 attrs = PTE_TABLE_NS;
@@ -386,9 +359,29 @@ static inline void set_pte_table(u64 *pte, enum dcache_option option)
 	*pte |= attrs;
 }
 
+static inline void set_pte_block(u64 *pte, enum dcache_option option)
+{
+	u64 attrs = PTE_BLOCK_MEMTYPE(option);
+
+	/* Permissions of R/W/Executable will be set in create_mapping() function
+	 * according to the VA. The combination of UXN/PXN/AP[2:1]/SCTLR_ELx.WXN
+	 * determines the level of access permission. It is not possible
+	 * to have R/W/Exec at EL0/EL1 at the same time.
+	 */
+
+	*pte |= PTE_TYPE_BLOCK | PTE_BLOCK_AF | PTE_BLOCK_INNER_SHARE | PTE_BLOCK_NS;
+	*pte |= attrs;
+}
+
 static inline void set_pte_page(u64 *pte, enum dcache_option option)
 {
 	u64 attrs = PTE_BLOCK_MEMTYPE(option);
+
+	/* Permissions of R/W/Executable will be set in create_mapping() function
+	 * according to the VA. The combination of UXN/PXN/AP[2:1]/SCTLR_ELx.WXN
+	 * determines the level of access permission. It is not possible
+	 * to have R/W/Exec at EL0/EL1 at the same time.
+	 */
 
 	*pte |= PTE_TYPE_PAGE | PTE_BLOCK_AF | PTE_BLOCK_INNER_SHARE | PTE_BLOCK_NS;
 	*pte |= attrs;
@@ -399,29 +392,11 @@ static inline int pte_type(u64 *pte)
 	return *pte & PTE_TYPE_MASK;
 }
 
-/*
- * This structure holds internal fields required to
- * manage the MMU configuration regarding address space.
- */
-typedef struct {
-	uint64_t ttbr1[NR_CPUS];
-	addr_t pgtable_paddr;
-	addr_t pgtable_vaddr;
-} addrspace_t;
-
-#define cpu_get_l1pgtable()	\
+#define cpu_get_l0pgtable()	\
 ({						\
 	unsigned long ttbr;			\
 	__asm__("mrs	%0, ttbr1_el1"	\
 		 : "=r" (ttbr) : : "cc");	\
-	ttbr &= TTBR0_BASE_ADDR_MASK;		\
-})
-
-#define cpu_get_ttbr0() \
-({						\
-	unsigned long ttbr;			\
-	__asm__("mrs	%0, ttbr1_el1"	\
-		 : "=r" (ttbr) : : "cc");		\
 	ttbr;					\
 })
 
@@ -440,33 +415,29 @@ static inline void set_sctlr(unsigned int val)
 	asm volatile("isb");
 }
 
-extern u64 __sys_l0pgtable[], __sys_idmap_l1pgtable[], __sys_linearmap_l1pgtable[];
+extern addr_t __sys_root_pgtable[], __sys_idmap_l1pgtable[], __sys_linearmap_l1pgtable[];
 
-void set_pte(addr_t *pte, enum dcache_option option);
+void set_pte(u64 *pte, enum dcache_option option);
 
-extern void __mmu_switch(uint32_t l1pgtable_phys);
+extern void __mmu_switch(void *root_pgtable_phys);
 
-void pgtable_copy_kernel_area(uint32_t *l1pgtable);
+void create_mapping(void *pgtable, addr_t virt_base, addr_t phys_base, size_t size, bool nocache);
+void release_mapping(void *pgtable, addr_t virt_base, size_t size);
 
-void create_mapping(u64 *l0pgtable, addr_t virt_base, addr_t phys_base, size_t size, bool nocache);
-void release_mapping(u64 *pgtable, addr_t virt_base, addr_t size);
+void *new_root_pgtable(void);
 
-u64 *new_sys_pgtable(void);
-void reset_l1pgtable(uint32_t *l1pgtable, bool remove);
-
-void clear_l1pte(uint32_t *l1pgtable, uint32_t vaddr);
-
-void mmu_switch(addrspace_t *addrspace);
-void dump_pgtable(u64 *l1pgtable);
+void mmu_switch(addr_t pgtable_paddr);
+void dump_pgtable(void *l0pgtable);
 
 void dump_current_pgtable(void);
 
-void mmu_setup(u64 *pgtable);
+void mmu_setup(void *pgtable);
 
 void vectors_init(void);
 
-void set_current_pgtable(uint64_t *pgtable);
-void replace_current_pgtable_with(uint64_t *pgtable);
+void get_current_pgtable(addr_t *pgtable_paddr);
+
+void replace_current_pgtable_with(void *pgtable);
 
 #endif
 

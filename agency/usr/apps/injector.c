@@ -69,7 +69,7 @@ bool get_ME_id(uint32_t slotID, ME_id_t *me_id) {
 /**
  * Make a snapshot of the ME.
  */
-void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size) {
+void read_ME_snapshot(unsigned int slotID, void **buffer, uint32_t *buffer_size) {
 	struct agency_ioctl_args args;
 
 	args.slotID = slotID;
@@ -144,7 +144,7 @@ int inject_ME(void *ME_buffer, size_t size) {
 /**
  * Try to retrieve a ME from the DCM and deploy it.
  */
-void ME_inject(unsigned char *ME_buffer, size_t size) {
+void ME_inject(unsigned char *ME_buffer, uint32_t size) {
 	int slotID;
 
 	slotID = inject_ME(ME_buffer, size);

@@ -229,6 +229,8 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 	iamasoo_pkt = (iamasoo_pkt_t *) data;
 #endif
 
+	soo_log("[soo:soolink:discovery] Got a beacon\n");
+
 	/* Check if there is a binding with the MAC address already. */
 	attach_agencyUID(iamasoo_pkt->agencyUID, mac_src);
 

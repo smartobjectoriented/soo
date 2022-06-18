@@ -28,6 +28,7 @@
 #include <domain.h>
 #include <errno.h>
 #include <types.h>
+#include <migration.h>
 
 #include <asm/io.h>
 #include <asm/percpu.h>
@@ -36,8 +37,6 @@
 
 #include <soo/uapi/debug.h>
 #include <soo/uapi/soo.h>
-
-#include <soo_migration.h>
 
 /**
  * Return the state of the ME corresponding to the ME_slotID.
@@ -48,19 +47,19 @@ ME_state_t get_ME_state(unsigned int ME_slotID) {
 	if (domains[ME_slotID] == NULL)
 		return ME_state_dead;
 	else
-		return domains[ME_slotID]->shared_info->dom_desc.u.ME.state;
+		return domains[ME_slotID]->avz_shared->dom_desc.u.ME.state;
 
 }
 
 void set_ME_state(unsigned int ME_slotID, ME_state_t state) {
-	domains[ME_slotID]->shared_info->dom_desc.u.ME.state = state;
+	domains[ME_slotID]->avz_shared->dom_desc.u.ME.state = state;
 }
 
 void shutdown_ME(unsigned int ME_slotID)
 {
 	struct domain *dom;
 	struct domain *__current_domain;
-	addrspace_t prev_addrspace;
+	addr_t current_pgtable_paddr;
 
 	dom = domains[ME_slotID];
 
@@ -76,19 +75,20 @@ void shutdown_ME(unsigned int ME_slotID)
 	DBG("Switching address space ...\n");
 
 	__current_domain = current;
-	get_current_addrspace(&prev_addrspace);
+	get_current_pgtable(&current_pgtable_paddr);
 
-	switch_mm(idle_domain[smp_processor_id()], &idle_domain[smp_processor_id()]->addrspace);
+	switch_mm(idle_domain[smp_processor_id()]);
 
 	memset((void *) __lva(memslot[ME_slotID].base_paddr), 0, memslot[ME_slotID].size);
 
-	switch_mm(__current_domain, &prev_addrspace);
+	set_current(__current_domain);
+	mmu_switch(current_pgtable_paddr);
 
 	DBG("Destroying domain structure ...\n");
 
 	domain_destroy(dom);
 
-	DBG("-now resetting domains to NULL.\n");
+	DBG("Now resetting domains to NULL.\n");
 
 	/* bye bye dear ME ! */
 	domains[ME_slotID] = NULL;
@@ -154,7 +154,7 @@ void agency_ctl(agency_ctl_args_t *args)
 		break;
 
 	case AG_AGENCY_UID:
-		args->u.agencyUID = domains[0]->shared_info->dom_desc.u.agency.agencyUID;
+		args->u.agencyUID = domains[0]->avz_shared->dom_desc.u.agency.agencyUID;
 		return ;
 
 	case AG_COOPERATE:
@@ -168,10 +168,10 @@ void agency_ctl(agency_ctl_args_t *args)
 		domcall_args.u.cooperate_args.u.initiator_coop.pfn = args->u.cooperate_args.pfn;
 
 		/* Transfer the capabilities of the target ME */
-		memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.spad, &domains[args->slotID]->shared_info->dom_desc.u.ME.spad, sizeof(spad_t));
+		memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.spad, &domains[args->slotID]->avz_shared->dom_desc.u.ME.spad, sizeof(spad_t));
 
 		/* Transfer the SPID of the target ME */
-		domcall_args.u.cooperate_args.u.initiator_coop.spid = domains[args->slotID]->shared_info->dom_desc.u.ME.spid;
+		domcall_args.u.cooperate_args.u.initiator_coop.spid = domains[args->slotID]->avz_shared->dom_desc.u.ME.spid;
 
 		domcall_args.u.cooperate_args.role = COOPERATE_TARGET;
 		target_dom = domains[args->slotID];
@@ -192,7 +192,7 @@ void agency_ctl(agency_ctl_args_t *args)
 	cpu = smp_processor_id();
 
 	/* Originating ME */
-	domcall_args.slotID = current->domain_id;
+	domcall_args.slotID = current->avz_shared->domID;
 
 	domain_call(target_dom, DOMCALL_soo, &domcall_args);
 
@@ -259,7 +259,7 @@ void soo_cooperate(unsigned int slotID)
 	bool itself;   /* Used to detect a ME of a same SPID */
 
 	/* Are we OK to collaborate ? */
-	if (!domains[slotID]->shared_info->dom_desc.u.ME.spad.valid)
+	if (!domains[slotID]->avz_shared->dom_desc.u.ME.spad.valid)
 		return;
 
 	/* Reset anything in the cooperate_args */
@@ -287,18 +287,18 @@ void soo_cooperate(unsigned int slotID)
 			 * to cooperate, the spid is passed as argument anyway so that the arrived ME can be aware of its presence and decide
 			 * to do something accordingly.
 			 */
-			itself = ((domains[i]->shared_info->dom_desc.u.ME.spid == domains[slotID]->shared_info->dom_desc.u.ME.spid) ? true : false);
+			itself = ((domains[i]->avz_shared->dom_desc.u.ME.spid == domains[slotID]->avz_shared->dom_desc.u.ME.spid) ? true : false);
 
 			/* If the ME authorizes us to enter into a cooperation process... */
-			if (domains[i]->shared_info->dom_desc.u.ME.spad.valid || itself) {
+			if (domains[i]->avz_shared->dom_desc.u.ME.spad.valid || itself) {
 
 				/* target_coop.slotID contains the slotID of the ME initiator in the cooperation process. */
 				domcall_args.u.cooperate_args.u.target_coop.slotID = i;
 
-				domcall_args.u.cooperate_args.u.target_coop.spad = domains[i]->shared_info->dom_desc.u.ME.spad;
+				domcall_args.u.cooperate_args.u.target_coop.spad = domains[i]->avz_shared->dom_desc.u.ME.spad;
 
 				/* Transfer the SPID of the target ME */
-				domcall_args.u.cooperate_args.u.target_coop.spid = domains[i]->shared_info->dom_desc.u.ME.spid;
+				domcall_args.u.cooperate_args.u.target_coop.spid = domains[i]->avz_shared->dom_desc.u.ME.spid;
 			}
 		}
 	}
@@ -329,7 +329,7 @@ static void dump_backtrace(unsigned char key)
 
 	domcall_args.cmd = CB_DUMP_BACKTRACE;
 
-	local_irq_save(flags);
+	flags = local_irq_save();
 
 	printk("Agency:\n\n");
 
@@ -353,7 +353,7 @@ static void dump_vbstore(unsigned char key)
 
 	domcall_args.cmd = CB_DUMP_VBSTORE;
 
-	local_irq_save(flags);
+	flags = local_irq_save();
 
 	domain_call(domains[0], DOMCALL_soo, &domcall_args);
 
@@ -387,7 +387,7 @@ void get_dom_desc(unsigned int slotID, dom_desc_t *dom_desc) {
 		dom_desc->u.ME.size = 0;
 	else
 		/* Copy the content to the target desc */
-		memcpy(dom_desc, &domains[slotID]->shared_info->dom_desc, sizeof(dom_desc_t));
+		memcpy(dom_desc, &domains[slotID]->avz_shared->dom_desc, sizeof(dom_desc_t));
 
 }
 
@@ -421,7 +421,6 @@ void do_soo_hypercall(soo_hyp_t *args) {
 		soo_pre_activate(*((unsigned int *) op.p_val1));
 		break;
 
-#ifdef CONFIG_ARCH_ARM32
 	case AVZ_MIG_INIT:
 		migration_init(&op);
 		break;
@@ -463,8 +462,6 @@ void do_soo_hypercall(soo_hyp_t *args) {
 		inject_me(&op);
 		break;
 
-#endif /* CONFIG_ARCH_ARM32 */
-
 	case AVZ_DC_SET:
 		/*
 		 * AVZ_DC_SET is used to assign a new dc_event number in the (target) domain shared info page.
@@ -478,7 +475,7 @@ void do_soo_hypercall(soo_hyp_t *args) {
 		BUG_ON(dom == NULL);
 
 		/* The shared info page is set as non cacheable, i.e. if a CPU tries to update it, it becomes visible to other CPUs */
-		if (atomic_cmpxchg(&dom->shared_info->dc_event, DC_NO_EVENT, dc_event_args->dc_event) != DC_NO_EVENT)
+		if (atomic_cmpxchg(&dom->avz_shared->dc_event, DC_NO_EVENT, dc_event_args->dc_event) != DC_NO_EVENT)
 			dc_event_args->state = -EBUSY;
 		else
 			dc_event_args->state = ESUCCESS;

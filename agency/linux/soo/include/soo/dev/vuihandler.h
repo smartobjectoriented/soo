@@ -38,7 +38,7 @@
 #define VUIHANDLER_APP_VBSTORE_DIR	"backend/" VUIHANDLER_NAME
 #define VUIHANDLER_APP_VBSTORE_NODE	"connected-app-me-spid"
 
-typedef struct {
+typedef struct __attribute__((packed)) {
 	int32_t		slotID;
 	uint8_t		type;
 	uint8_t		payload[0];
@@ -62,7 +62,7 @@ typedef struct {
 #define VUIHANDLER_ME_SIZE	3 /* Specify that a ME injection is to be initiated. The packet contains the ME size */
 #define VUIHANDLER_ASK_LIST	4 /* Ask for the XML ME list */
 #define VUIHANDLER_SEND		5 /* Specify that the packet contains an event data to be forwarded to the ME */
-#define VUIHANDLER_SELECT	6
+#define VUIHANDLER_SELECT	6 /* Ask for the ME model */
 #define VUIHANDLER_POST		7
 
 /* The header size is stripped from the payload address, as the payload
@@ -71,6 +71,8 @@ directly follows the type in term of bytes in memory */
 
 /* Number of TX packets which can be queued in the TX buffer */
 #define VUIHANDLER_TX_BUF_SIZE 	8
+
+#define RING_BUF_SIZE		1024
 
 typedef struct {
 	vuihandler_pkt_t *pkt;
@@ -88,8 +90,9 @@ typedef struct {
 
 typedef struct {
 	uint32_t		id;
+	uint8_t 		type;
 	size_t			size;
-	uint8_t 		buf[2048];
+	uint8_t 		buf[RING_BUF_SIZE];
 } vuihandler_tx_request_t;
 
 /* Not used */
@@ -107,7 +110,8 @@ typedef struct {
 typedef struct {
 	uint32_t		id;
 	size_t			size;
-	uint8_t 		buf[2048];
+	uint8_t			type;
+	uint8_t 		buf[RING_BUF_SIZE];
 } vuihandler_rx_response_t;
 
 DEFINE_RING_TYPES(vuihandler_rx, vuihandler_rx_request_t, vuihandler_rx_response_t);
@@ -129,7 +133,7 @@ void vuihandler_get_app_spid(uint64_t spid);
 
 #include <asm/signal.h>
 
-void rfcomm_send_sigterm(void);
+void vuihandler_close_rfcomm(void);
 
 #endif /* CONFIG_BT_RFCOMM */
 

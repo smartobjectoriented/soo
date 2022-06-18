@@ -23,6 +23,10 @@
 #include <net/xdp.h>
 #include <net/net_failover.h>
 
+#include <soo/uapi/console.h>
+
+void hexdump(void *mem, unsigned int len);
+
 static int napi_weight = NAPI_POLL_WEIGHT;
 module_param(napi_weight, int, 0444);
 
@@ -33,7 +37,16 @@ module_param(napi_tx, bool, 0644);
 
 /* FIXME: MTU in config. */
 #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-#define GOOD_COPY_LEN	128
+
+/* SOO.tech */
+/* Investigations showed that the frame is well received in receive_buf()
+ * but GOOD_COPY_LEN will keep the skb data portion very small (why??)
+ * Since we have a MTU of 1460 bytes (having a max of 1500 bytes at the end),
+ * we increase GOOD_COPY_LEN to 2048
+ *
+ */
+//#define GOOD_COPY_LEN	256
+#define GOOD_COPY_LEN	2048
 
 #define VIRTNET_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD)
 
@@ -1007,6 +1020,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
 	}
 
 	ewma_pkt_len_add(&rq->mrg_avg_pkt_len, head_skb->len);
+
 	return head_skb;
 
 err_xdp:

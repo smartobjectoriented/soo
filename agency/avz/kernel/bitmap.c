@@ -257,34 +257,6 @@ int __bitmap_subset(const unsigned long *bitmap1,
 	return 1;
 }
 
-#if BITS_PER_LONG == 32
-int __bitmap_weight(const unsigned long *bitmap, int bits)
-{
-	int k, w = 0, lim = bits/BITS_PER_LONG;
-
-	for (k = 0; k < lim; k++)
-		w += hweight32(bitmap[k]);
-
-	if (bits % BITS_PER_LONG)
-		w += hweight32(bitmap[k] & BITMAP_LAST_WORD_MASK(bits));
-
-	return w;
-}
-#else
-int __bitmap_weight(const unsigned long *bitmap, int bits)
-{
-	int k, w = 0, lim = bits/BITS_PER_LONG;
-
-	for (k = 0; k < lim; k++)
-		w += generic_hweight64(bitmap[k]);
-
-	if (bits % BITS_PER_LONG)
-		w += generic_hweight64(bitmap[k] & BITMAP_LAST_WORD_MASK(bits));
-
-	return w;
-}
-#endif
-
 /*
  * Bitmap printing & parsing functions: first version by Bill Irwin,
  * second version by Paul Jackson, third by Joe Korty.

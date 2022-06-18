@@ -53,8 +53,7 @@
 #define STACK_ORDER 1
 #define STACK_SIZE  (PAGE_SIZE << STACK_ORDER)
 
-#define HYPERVISOR_SIZE		UL(0x00c00000)  /* 12 MB */
-#define HYPERVISOR_PHYS_START 	CONFIG_RAM_BASE
+#define HYPERVISOR_PADDR 	CONFIG_RAM_BASE
 
 #ifndef __ASSEMBLY__
 
@@ -67,8 +66,6 @@
 #define STR(...) __STR(__VA_ARGS__)
 
 #ifndef __ASSEMBLY__
-
-int current_domain_id(void);
 
 /*
  * Pseudo-usr mode allows the hypervisor to switch back to the right stack (G-stach/H-stack) depending on whether

@@ -27,9 +27,6 @@
 /* SOO.tech */
 #include <soo/uapi/avz.h>
 
-/* OpenCN */
-#include <opencn/hal/hal_priv.h>
-
 int main(void)
 {
   DEFINE(TSK_ACTIVE_MM,		offsetof(struct task_struct, active_mm));
@@ -152,13 +149,9 @@ int main(void)
 #endif
 
   /* SOO.tech */
-  DEFINE(AVZ_DOM_PHYS_OFFSET, offsetof(start_info_t, dom_phys_offset));
-  DEFINE(AVZ_PT_VADDR, offsetof(start_info_t, pt_vaddr));
-
-  /* OpenCN */
-  BLANK();
-
-  DEFINE(HAL_SHMEM_PINS, offsetof(hal_data_t, pin_list_ptr));
+  DEFINE(AVZ_DOM_PHYS_OFFSET, offsetof(avz_shared_t, dom_phys_offset));
+  DEFINE(AVZ_PAGETABLE_PADDR, offsetof(avz_shared_t, pagetable_paddr));
+  DEFINE(AVZ_PAGETABLE_VADDR, offsetof(avz_shared_t, pagetable_vaddr));
 
   return 0;
 }

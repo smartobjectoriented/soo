@@ -160,7 +160,7 @@ int tx_buffer_put(uint8_t *data, uint32_t size, int32_t slotID, uint8_t type) {
 	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
 	vuihandler_pkt_t *cur_elem = vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.put_index].pkt;
 
-	soo_log("[soo:backend:vuihandler] Putting %dB of type %d in the TX buffer\n", size, type);
+	DBG("[soo:backend:vuihandler] Putting %dB of type %d in the TX buffer\n", size, type);
 
 	/* abort if there are no place left on the circular buffer */
 	if (vdrv_priv->tx_buf.cur_size == VUIHANDLER_TX_BUF_SIZE) 
@@ -181,9 +181,9 @@ int tx_buffer_put(uint8_t *data, uint32_t size, int32_t slotID, uint8_t type) {
 	vdrv_priv->tx_buf.put_index = (vdrv_priv->tx_buf.put_index + 1) % VUIHANDLER_TX_BUF_SIZE;
 	vdrv_priv->tx_buf.cur_size++;
 
-	complete(&vdrv_priv->tx_completion);
 
 	spin_unlock(&vdrv_priv->tx_lock);
+	complete(&vdrv_priv->tx_completion);
 
 	return 0;
 }
@@ -223,17 +223,17 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	int32_t slotID = -1;
 
 	while ((ring_req = vuihandler_tx_get_ring_request(&vuihandler->tx_rings.ring)) != NULL) {
-
 		DBG(VUIHANDLER_PREFIX "%d, %d\n", ring_req->id, ring_req->size);
-
-		slotID = vuihandler->otherend_id;			
+	
+		slotID = vuihandler->otherend_id;		
 
 		/* Let the circular buffer add the packet to itself */
-		if (tx_buffer_put(ring_req->buf, ring_req->size, slotID, VUIHANDLER_DATA) == -1) {
+		if (tx_buffer_put(ring_req->buf, ring_req->size, slotID, ring_req->type) == -1) {
 			lprintk("Error: could not put the TX packet in the circular buffer!\n");
 			BUG();
 		}
 	}
+	
 
 	return IRQ_HANDLED;
 }
@@ -263,19 +263,13 @@ irqreturn_t vuihandler_rx_interrupt(int irq, void *dev_id) {
 
 
 /**
- * Send a signal to the process holding the /dev/rfcommX entry.
+ * Called by the TTY RFCOMM driver once the connection is closed 
  */
-void rfcomm_send_sigterm(void) {
+void vuihandler_close_rfcomm(void) {
 	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
+
 	mutex_lock(&vdrv_priv->rfcomm_lock);
-
-	if (vdrv_priv->rfcomm_tty_pid) {
-		DBG(VUIHANDLER_PREFIX "Send SIGTERM to rfcomm (%d) in user space\n", vdrv_priv->rfcomm_tty_pid);
-
-		sys_kill(vdrv_priv->rfcomm_tty_pid, SIGTERM);
-		vdrv_priv->rfcomm_tty_pid = 0;
-	}
-
+	vdrv_priv->rfcomm_tty_pid = 0;
 	mutex_unlock(&vdrv_priv->rfcomm_lock);
 }
 
@@ -288,14 +282,17 @@ static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, si
 	vuihandler_rx_response_t *ring_rsp = vuihandler_rx_new_ring_response(&vuihandler->rx_rings.ring);
 
 	size_t size = vuihandler_pkt_size - VUIHANDLER_BT_PKT_HEADER_SIZE;
-	void *data = vuihandler_pkt->payload;
 
 	ring_rsp->id = vdrv_priv->recv_count;
 	ring_rsp->size = size;
-
-	memcpy(ring_rsp->buf, data, size);
+	ring_rsp->type = vuihandler_pkt->type;
 
 	DBG(VUIHANDLER_PREFIX "id: %d\n", ring_rsp->id);
+
+	memset(ring_rsp->buf, '\0', RING_BUF_SIZE);
+	if (size != 0)
+		memcpy(ring_rsp->buf, vuihandler_pkt->payload, size);
+
 
 	vuihandler_rx_ring_response_ready(&vuihandler->rx_rings.ring);
 
@@ -328,6 +325,22 @@ void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pk
 	}
 }
 
+/**
+ * Ask the agency for the XML ME list and put it in the TX buffer
+ * 
+ * 
+ * @return 0 on success, -1 on error
+*/
+int send_ME_model_xml(int slotID) {
+	vuihandler_pkt_t vuihandler_pkt;
+
+	vuihandler_pkt.type = VUIHANDLER_SELECT;
+	vuihandler_pkt.slotID = slotID;
+
+	rx_push_response(slotID, &vuihandler_pkt, VUIHANDLER_BT_PKT_HEADER_SIZE);
+
+	return 0;
+}
 
 /**
  * Ask the agency for the XML ME list and put it in the TX buffer
@@ -337,7 +350,7 @@ void handle_agency_packet(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pk
 */
 int send_ME_list_xml(void) {
 	ME_id_t *ME_buf_raw = kzalloc(MAX_ME_DOMAINS * sizeof(ME_id_t), GFP_ATOMIC);
-	uint8_t *ME_buf_xml = NULL;
+	uint8_t *ME_buf_xml = NULL; /* will be allocated by xml_prepare_id_array */
 
 	get_ME_id_array(ME_buf_raw);
 	ME_buf_xml = xml_prepare_id_array(ME_buf_raw);
@@ -345,12 +358,14 @@ int send_ME_list_xml(void) {
 	if (ME_buf_xml == NULL) {
 		return -1;
 	}
+	
+	tx_buffer_put(ME_buf_xml, strlen(ME_buf_xml)+1, 0, VUIHANDLER_ASK_LIST);
 
-	tx_buffer_put(ME_buf_xml, strlen(ME_buf_xml)+1, 0, 0);
-
+	/* release the buffers */
+	kfree(ME_buf_xml);
 	kfree(ME_buf_raw);
-	return 0;
 
+	return 0;
 }
 
 
@@ -366,11 +381,17 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 		return;
 	}
 
-	
+	/* Ask for the ME list */
 	if (vuihandler_pkt->type == VUIHANDLER_ASK_LIST) {
 		/* This is a vUIHandler beacon */
 		send_ME_list_xml();
+		return ;
+	}
 
+	/* Ask for a ME model */
+	if (vuihandler_pkt->type == VUIHANDLER_SELECT) {
+		/* This is a vUIHandler select ME  */
+		send_ME_model_xml(vuihandler_pkt->slotID);
 		return ;
 	}
 
@@ -384,15 +405,12 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 	if (unlikely(size > VUIHANDLER_MAX_PAYLOAD_SIZE))
 		return ;
 
-	DBG(VUIHANDLER_PREFIX "Size: %d\n", size);
-
 	me_id = vuihandler_pkt->slotID;
 
+	/* Here we want to ensure that a correct ME is targeted */
 	if (me_id < 0) 
 		return;
-	
-	DBG(VUIHANDLER_PREFIX "ME ID: %d\n", me_id);
-
+	/* Here, the packet is sent to the ME, which will process it accordingly */
 	rx_push_response(me_id, vuihandler_pkt, vuihandler_pkt_size);
 }
 

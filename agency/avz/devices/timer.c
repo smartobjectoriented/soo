@@ -41,7 +41,7 @@ void timer_interrupt(bool periodic) {
 			 */
 			if ((domains[i] != NULL) && !domains[i]->is_dying) {
 				if ((domains[i]->runstate == RUNSTATE_running) || (domains[i]->runstate == RUNSTATE_runnable)) {
-					if ((domains[i]->need_periodic_timer) && (domains[i]->shared_info != NULL))
+					if (domains[i]->need_periodic_timer)
 
 						/* Forward to the guest */
 						send_timer_event(domains[i]);

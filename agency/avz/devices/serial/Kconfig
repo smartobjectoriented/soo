@@ -1,7 +1,7 @@
 
 config PL011_UART
 	bool "PL011 UART serial interface"
-	depends on VEXPRESS
+	depends on VEXPRESS || VIRT64
 
 config BCM283x_MU_UART
 	bool "BCM283x mini-UART"

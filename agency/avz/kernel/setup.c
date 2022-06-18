@@ -26,6 +26,7 @@
 #include <memslot.h>
 #include <keyhandler.h>
 #include <event.h>
+#include <soo.h>
 
 #include <device/device.h>
 
@@ -35,8 +36,6 @@
 #include <asm/vfp.h>
 #include <asm/setup.h>
 
-#include <soo/soo.h>
-
 #include <soo/uapi/logbool.h>
 
 #define DEBUG
@@ -44,22 +43,6 @@
 extern void startup_cpu_idle_loop(void);
 
 struct domain *idle_domain[NR_CPUS];
-
-void do_set_callbacks(unsigned long event, unsigned long domcall)
-{
-	struct domain *d = current;
-
-	d->event_callback = event;
-	d->domcall = domcall;
-
-	if (d->domain_id == DOMID_AGENCY) {
-		/*
-		 * Do the same thing for the realtime subdomain.
-		 */
-		domains[DOMID_AGENCY_RT]->event_callback = d->event_callback;
-		domains[DOMID_AGENCY_RT]->domcall = d->domcall;
-	}
-}
 
 void dump_backtrace_entry(unsigned long where, unsigned long from)
 {
@@ -130,13 +113,10 @@ void kernel_start(void)
 
 	event_channel_init();
 
-#ifdef CONFIG_ARCH_ARM32
 	soo_activity_init();
-#endif
 
 	/* Deal with secondary processors.  */
 	printk("spinning up at most %d total processors ...\n", NR_CPUS);
-
 
 	/* Create initial domain 0. */
 	domains[DOMID_AGENCY] = domain_create(DOMID_AGENCY, AGENCY_CPU);
@@ -173,7 +153,7 @@ void kernel_start(void)
 	/* Enabling VFP module on this CPU */
 	vfp_enable();
 #endif
-
+	
 	domain_unpause_by_systemcontroller(agency);
 
 	set_current(idle_domain[smp_processor_id()]);

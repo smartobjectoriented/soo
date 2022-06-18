@@ -20,6 +20,8 @@
 #include <linux/delay.h>
 #include <linux/kthread.h>
 
+#include <soo/uapi/console.h>
+
 #include "rpisense-joystick.h"
 
 static joystick_handler_t __joystick_handler = NULL;

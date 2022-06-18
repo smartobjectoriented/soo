@@ -265,10 +265,11 @@ void do_soo_activity(void *arg)
 	}
 }
 
-/*
- * Agency ctl operations
+/**
+ * Agency_ctrl operations
+ *
+ * @param agency_ctl_args Agency control command
  */
-
 void agency_ctl(agency_ctl_args_t *agency_ctl_args)
 {
 

@@ -35,6 +35,7 @@
 #include <soo/sooenv.h>
 #include <soo/hypervisor.h>
 #include <soo/simulation.h>
+#include <soo/avz.h>
 
 #include <soo/dcm/dcm.h>
 
@@ -400,17 +401,17 @@ int soo_env_fn(void *args) {
 #endif
 
 #ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
+	AVZ_shared->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
 	plugin_ethernet_init();
 #endif
 
 #ifdef CONFIG_SOOLINK_PLUGIN_WLAN
-	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
+	AVZ_shared->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
 	plugin_wlan_init();
 #endif
 
 #ifdef CONFIG_SOOLINK_PLUGIN_BLUETOOTH
-	HYPERVISOR_shared_info->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
+	AVZ_shared->dom_desc.u.agency.agencyUID = soo_env->agencyUID;
 	plugin_bt_init();
 #endif
 
@@ -459,7 +460,7 @@ int soo_env_fn(void *args) {
 	/* Start activities - Simulation mode */
 
 	/* Prepare the environment */
-	soo_env->soo_simul = kzalloc(sizeof(struct soo_simul_env), GFP_KERNEL);
+	soo_env->soo_simul = vmalloc(sizeof(struct soo_simul_env));
 	BUG_ON(!soo_env->soo_simul);
 
 	INIT_LIST_HEAD(&soo_env->soo_simul->topo_links);

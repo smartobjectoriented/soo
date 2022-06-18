@@ -26,6 +26,6 @@
 void injector_init(void);
 void inject_from_BT(void);
 
-void ME_inject(unsigned char *ME_buffer, size_t size);
+void ME_inject(unsigned char *ME_buffer, uint32_t size);
 
 #endif /* INJECTOR_CORE_H */

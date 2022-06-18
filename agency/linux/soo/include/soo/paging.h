@@ -23,6 +23,6 @@
 #include <linux/types.h>
 
 void *paging_remap(unsigned long phys, size_t size);
-void paging_remap_page_range(unsigned long addr, unsigned long end, phys_addr_t physaddr);
+void paging_remap_page_range(unsigned long vaddr, unsigned long end, phys_addr_t physaddr);
 
 #endif /* PAGING_H */

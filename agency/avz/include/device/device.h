@@ -22,6 +22,6 @@
 void devices_init(void);
 
 void init_irq(void);
-void init_timer(void);
+void init_timer(int cpu);
 
 #endif /* DEVICE_H */

@@ -24,6 +24,41 @@
 #include <asm/processor.h>
 #include <asm/mmu.h>
 
+// Switch from a domain to another
+// Requires to re-configure the vbar_el1 vector table address
+ENTRY(__switch_to)
+
+	mov		x10, #(OFFSET_CPU_REGS + OFFSET_X19)
+	add		x8, x0, x10
+	mov		x9, sp
+
+save_ctx:
+
+	stp		x19, x20, [x8], #16		// store callee-saved registers
+	stp		x21, x22, [x8], #16
+	stp		x23, x24, [x8], #16
+	stp		x25, x26, [x8], #16
+	stp		x27, x28, [x8], #16
+	stp		x29, lr, [x8], #16
+	str		x9, [x8]
+
+	// Prepare to retrieve the regs from the stack
+	add		x8, x1, x10
+
+load_ctx:
+
+	ldp		x19, x20, [x8], #16		// restore callee-saved registers
+	ldp		x21, x22, [x8], #16
+	ldp		x23, x24, [x8], #16
+	ldp		x25, x26, [x8], #16
+	ldp		x27, x28, [x8], #16
+	ldp		x29, lr, [x8], #16
+	ldr		x9, [x8]
+	mov		sp, x9
+
+
+	ret
+
 
 // Switch the MMU to a L0 page table
 // x0 contains the TTBR related to this CPU for the L0 page table
@@ -34,7 +69,7 @@ ENTRY(__mmu_switch)
     isb                          /* Ensure synchronization with previous changes to text */
 
     // At the hypervisor level, we take care about TTBR1 page table only.
-    msr    TTBR1_EL1, x0
+    msr    ttbr1_el1, x0
 
     isb
 

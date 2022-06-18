@@ -59,7 +59,7 @@ extern void logbool_init(void);
 #else /* !__AVZ__ */
 typedef void(*ht_set_t)(logbool_hashtable_t *, char *, logbool_t);
 extern ht_set_t __ht_set;
-#define logbool_hashtable avz_shared_info->logbool_ht
+#define logbool_hashtable AVZ_shared->logbool_ht
 #endif
 
 extern void ht_set(logbool_hashtable_t *hashtable, char *key, logbool_t value);

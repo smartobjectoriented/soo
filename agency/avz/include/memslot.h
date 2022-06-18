@@ -21,9 +21,9 @@
 #include <libelf.h>
 #include <memory.h>
 
-#include <soo/uapi/soo.h>
-#include <soo/soo.h>
+#include <soo.h>
 
+#include <soo/uapi/soo.h>
 
 /* Number of possible MEs in the local SOO */
 #define MEMSLOT_BASE	  2
