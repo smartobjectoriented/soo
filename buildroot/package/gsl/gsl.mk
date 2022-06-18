@@ -4,6 +4,9 @@
 #
 ################################################################################
 
+# OpenCN
+# Version 2.5 is required
+#GSL_VERSION = 2.6
 GSL_VERSION = 2.5
 GSL_SITE = $(BR2_GNU_MIRROR)/gsl
 GSL_INSTALL_STAGING = YES

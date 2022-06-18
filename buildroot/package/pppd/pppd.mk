@@ -10,6 +10,11 @@ PPPD_LICENSE = LGPL-2.0+, LGPL, BSD-4-Clause, BSD-3-Clause, GPL-2.0+
 PPPD_LICENSE_FILES = \
 	pppd/tdb.c pppd/plugins/pppoatm/COPYING \
 	pppdump/bsd-comp.c pppd/ccp.c pppd/plugins/passprompt.c
+PPPD_CPE_ID_VENDOR = samba
+PPPD_CPE_ID_PRODUCT = ppp
+
+# 0001-pppd-Fix-bounds-check.patch
+PPPD_IGNORE_CVES += CVE-2020-8597
 
 PPPD_MAKE_OPTS = HAVE_INET6=y
 ifeq ($(BR2_TOOLCHAIN_USES_GLIBC),y)

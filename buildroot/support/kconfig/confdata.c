@@ -744,7 +744,7 @@ int conf_write(const char *name)
 	struct menu *menu;
 	const char *basename;
 	const char *str;
-	char dirname[PATH_MAX+1], tmpname[PATH_MAX+22], newname[PATH_MAX+8];
+	char dirname[PATH_MAX+1], tmpname[PATH_MAX+13], newname[PATH_MAX+1];
 	char *env;
 
 	if (!name)

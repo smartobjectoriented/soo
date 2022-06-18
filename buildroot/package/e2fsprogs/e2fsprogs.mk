@@ -4,11 +4,12 @@
 #
 ################################################################################
 
-E2FSPROGS_VERSION = 1.45.5
+E2FSPROGS_VERSION = 1.45.6
 E2FSPROGS_SOURCE = e2fsprogs-$(E2FSPROGS_VERSION).tar.xz
 E2FSPROGS_SITE = $(BR2_KERNEL_MIRROR)/linux/kernel/people/tytso/e2fsprogs/v$(E2FSPROGS_VERSION)
 E2FSPROGS_LICENSE = GPL-2.0, MIT-like with advertising clause (libss and libet)
 E2FSPROGS_LICENSE_FILES = NOTICE lib/ss/mit-sipb-copyright.h lib/et/internal.h
+E2FSPROGS_CPE_ID_VENDOR = e2fsprogs_project
 E2FSPROGS_INSTALL_STAGING = YES
 
 # Use libblkid and libuuid from util-linux for host and target packages.
@@ -16,6 +17,8 @@ E2FSPROGS_INSTALL_STAGING = YES
 # problems for other packages.
 E2FSPROGS_DEPENDENCIES = host-pkgconf util-linux
 HOST_E2FSPROGS_DEPENDENCIES = host-pkgconf host-util-linux
+
+E2FSPROGS_SELINUX_MODULES = fstools
 
 # e4defrag doesn't build on older systems like RHEL5.x, and we don't
 # need it on the host anyway.
@@ -29,7 +32,9 @@ HOST_E2FSPROGS_CONF_OPTS = \
 	--disable-testio-debug \
 	--enable-symlink-install \
 	--enable-elf-shlibs \
-	--with-crond-dir=no
+	--with-crond-dir=no \
+	--with-udev-rules-dir=no \
+	--with-systemd-unit-dir=no
 
 # Set the binary directories to "/bin" and "/sbin", as busybox does,
 # so that we do not end up with two versions of e2fs tools.

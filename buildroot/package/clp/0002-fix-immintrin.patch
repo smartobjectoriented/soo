@@ -1,0 +1,15 @@
+--- clp-1.17.3/Clp/src/ClpSimplexDual.cpp	2021-04-02 11:46:46.486933584 +0200
++++ clp-1.17.3/Clp/src/ClpSimplexDual.cpp	2021-04-02 11:47:02.629363749 +0200
+@@ -3556,10 +3556,10 @@
+ #endif
+ #ifdef _MSC_VER
+ #include <intrin.h>
+-#elif defined(__arm__)
++#elif defined(__ARM_FEATURE_SIMD32) || defined(__ARM_NEON)
+ #include <arm_neon.h>
+ #else
+-#include <immintrin.h>
++//#include <immintrin.h> // deemed unnecessary in #126; if that was wrong, then try to do as suggested in #127
+ //#include <fmaintrin.h>
+ #endif
+ int ClpSimplexDual::dualColumn0(const CoinIndexedVector *rowArray,

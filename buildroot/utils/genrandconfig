@@ -206,13 +206,6 @@ def fixup_config(sysinfo, configfile):
 
     if "BR2_NEEDS_HOST_JAVA=y\n" in configlines and not sysinfo.has("java"):
         return False
-    if "BR2_NEEDS_HOST_JAVAC=y\n" in configlines and not sysinfo.has("javac"):
-        return False
-    if "BR2_NEEDS_HOST_JAR=y\n" in configlines and not sysinfo.has("jar"):
-        return False
-    # python-nfc needs bzr
-    if 'BR2_PACKAGE_PYTHON_NFC=y\n' in configlines and not sysinfo.has("bzr"):
-        return False
     # The ctng toolchain is affected by PR58854
     if 'BR2_PACKAGE_LTTNG_TOOLS=y\n' in configlines and \
        BR2_TOOLCHAIN_EXTERNAL_URL + 'armv5-ctng-linux-gnueabi.tar.xz"\n' in configlines:
@@ -307,6 +300,22 @@ def fixup_config(sysinfo, configfile):
     if 'BR2_TOOLCHAIN_EXTERNAL_CODESOURCERY_NIOSII=y\n' in configlines and \
        'BR2_PACKAGE_FLANN=y\n' in configlines:
         return False
+
+    if 'BR2_PACKAGE_HOST_UBOOT_TOOLS_ENVIMAGE=y\n' in configlines:
+        bootenv = os.path.join(args.outputdir, "boot_env.txt")
+        with open(bootenv, "w+") as bootenvf:
+            bootenvf.write("prop=value")
+        configlines.remove('BR2_PACKAGE_HOST_UBOOT_TOOLS_ENVIMAGE_SOURCE=""\n')
+        configlines.append('BR2_PACKAGE_HOST_UBOOT_TOOLS_ENVIMAGE_SOURCE="%s"\n' % bootenv)
+        configlines.remove('BR2_PACKAGE_HOST_UBOOT_TOOLS_ENVIMAGE_SIZE=""\n')
+        configlines.append('BR2_PACKAGE_HOST_UBOOT_TOOLS_ENVIMAGE_SIZE="0x1000"\n')
+
+    if 'BR2_PACKAGE_HOST_UBOOT_TOOLS_BOOT_SCRIPT=y\n' in configlines:
+        bootscr = os.path.join(args.outputdir, "boot_script.txt")
+        with open(bootscr, "w+") as bootscrf:
+            bootscrf.write("prop=value")
+        configlines.remove('BR2_PACKAGE_HOST_UBOOT_TOOLS_BOOT_SCRIPT_SOURCE=""\n')
+        configlines.append('BR2_PACKAGE_HOST_UBOOT_TOOLS_BOOT_SCRIPT_SOURCE="%s"\n' % bootscr)
 
     with open(configfile, "w+") as configf:
         configf.writelines(configlines)
