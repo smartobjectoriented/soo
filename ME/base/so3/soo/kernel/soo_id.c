@@ -89,6 +89,10 @@ u64 get_spid_spad(char *what) {
 	return val;
 }
 
+u64 get_spid(void) {
+	return get_spid_spad("spid");
+}
+
 /**
  * Write the entries related to the ME ID in vbstore
  */
@@ -103,8 +107,8 @@ void vbstore_ME_ID_populate(void) {
 	spid = get_spid_spad("spid");
 	spadcaps = get_spid_spad("spadcaps");
 
-	avz_shared_info->dom_desc.u.ME.spid = spid;
-	avz_shared_info->dom_desc.u.ME.spad.spadcaps = spadcaps;
+	AVZ_shared->dom_desc.u.ME.spid = spid;
+	AVZ_shared->dom_desc.u.ME.spad.spadcaps = spadcaps;
 
 	/* Set the name */
 	name = get_me_name();

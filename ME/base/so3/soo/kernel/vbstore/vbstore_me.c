@@ -21,6 +21,8 @@
 #define DEBUG
 #endif
 
+#include <memory.h>
+
 #include <soo/avz.h>
 #include <soo/soo.h>
 #include <soo/hypervisor.h>
@@ -274,6 +276,12 @@ void remove_vbstore_entries(void) {
 		DBG("%s: removing venocean from vbstore...\n", __func__);
 		vbstore_dev_remove(ME_domID(), "venocean");
 	}
+
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "vknx,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: removing vknx from vbstore...\n", __func__);
+		vbstore_dev_remove(ME_domID(), "vknx");
+	}
 }
 
 /*
@@ -343,6 +351,12 @@ void vbstore_devices_populate(void) {
 		DBG("%s: init venocean...\n", __func__);
 		vbstore_dev_init(ME_domID(), "venocean", false, "venocean,frontend");
 	} 
+
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "vknx,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: init vknx...\n", __func__);
+		vbstore_dev_init(ME_domID(), "vknx", false, "vknx,frontend");
+	} 
 }
 
 void vbstore_trigger_dev_probe(void) {
@@ -359,15 +373,9 @@ void vbstore_me_init(void) {
 
 	vbus_probe_frontend_init();
 
-	/* Regarding MEs, avz_start_info->store_mfn is mapped statically at 0xffe01000
-	 * in trap_init() earlier in the startup sequence */
-
-	__intf = (vbstore_intf_t *) HYPERVISOR_VBSTORE_VADDR;
-
 	/* Initialize the interface to vbstore. */
 
 	vbus_vbstore_init();
-
 }
 
 void vbstore_init_dev_populate(void) {

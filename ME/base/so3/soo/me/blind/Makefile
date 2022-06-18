@@ -1,3 +1,3 @@
 
-obj-y += outdoor.o callbacks.o
+obj-y += blind.o callbacks.o vbwa88pg.o
 

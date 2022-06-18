@@ -42,9 +42,6 @@
 			type = "flat_dt";
 			arch = "arm";
 			compression = "none";
-			hash {
-				algo = "crc32";
-			};
 		};	
 
         ramfs {

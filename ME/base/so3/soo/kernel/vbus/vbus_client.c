@@ -26,12 +26,12 @@
 
 #include <soo/gnttab.h>
 #include <soo/grant_table.h>
-
 #include <soo/hypervisor.h>
 #include <soo/avz.h>
-#include <soo/event_channel.h>
 #include <soo/console.h>
 #include <soo/vbus.h>
+
+#include <soo/uapi/event_channel.h>
 
 const char *vbus_strstate(enum vbus_state state)
 {

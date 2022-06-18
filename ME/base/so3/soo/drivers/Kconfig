@@ -42,12 +42,8 @@ config VENOCEAN_FRONTEND
 config VWAGOLED_FRONTEND
     bool "Wagoled frontend"
 
-config VVALVE_FRONTEND
-	bool "vValve frontend for the SOO.Heat valve (Electrovanne)"
-
-config VDOGABLIND_FRONTEND
-	bool "vDogaBlind frontend for the SOO.Blind (Doga Blind motor)"
-
+config VKNX_FRONTEND
+    bool "KNX frontend"
 
 endmenu
 

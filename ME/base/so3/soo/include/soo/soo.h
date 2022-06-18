@@ -25,9 +25,8 @@
 #include <list.h>
 
 #include <asm/atomic.h>
-#include <me/indoor/indoor.h>
-#include <me/heat/heat.h>
 
+#include <soo/uapi/avz.h>
 
 #define MAX_ME_DOMAINS				5
 
@@ -45,38 +44,15 @@ typedef enum {
 	DC_FORCE_TERMINATE,
 	DC_POST_ACTIVATE,
 	DC_TRIGGER_DEV_PROBE,
+
 	DC_EVENT_MAX			/* Used to determine the number of DC events */
 } dc_event_t;
 
 extern atomic_t dc_outgoing_domID[DC_EVENT_MAX];
 extern atomic_t dc_incoming_domID[DC_EVENT_MAX];
 
-void set_pfn_offset(int pfn_offset);
-int get_pfn_offset(void);
-
-/*
- * ME states:
- * - ME_state_booting:		ME is currently booting...
- * - ME_state_preparing:	ME is being paused during the boot process, in the case of an injection, before the frontend initialization
- * - ME_state_living:		ME is full-functional and activated (all frontend devices are consistent)
- * - ME_state_suspended:	ME is suspended before migrating. This state is maintained for the resident ME instance
- * - ME_state_migrating:	ME just arrived in SOO
- * - ME_state_dormant:		ME is resident, but not living (running)
- * - ME_state_killed:		ME has been killed before to be resumed
- * - ME_state_terminated:	ME has been terminated (by a force_terminate)
- * - ME_state_dead:		ME does not exist
- */
-typedef enum {
-	ME_state_booting,
-	ME_state_preparing,
-	ME_state_living,
-	ME_state_suspended,
-	ME_state_migrating,
-	ME_state_dormant,
-	ME_state_killed,
-	ME_state_terminated,
-	ME_state_dead
-} ME_state_t;
+void set_pfn_offset(long pfn_offset);
+long get_pfn_offset(void);
 
 int get_ME_state(void);
 void set_ME_state(ME_state_t state);
@@ -93,55 +69,6 @@ typedef enum {
 #define SOO_NAME_SIZE				16
 
 extern uint64_t my_agencyUID;
-
-/*
- * Agency descriptor
- */
-typedef struct {
-
-	/*
-	 * SOO agencyUID unique ID - Allowing to identify a SOO device.
-	 * agencyUID 0 is NOT valid.
-	 */
-
-	uint64_t agencyUID; /* Agency UID */
-
-} agency_desc_t;
-
-/* This part is shared between the kernel and user spaces */
-
-/*
- * Capabilities for the Species Aptitude Descriptor (SPAD) structure
- *
- */
-
-#define SPADCAP_HEATING_CONTROL		(1 << 0)
-
-/*
- * Species Aptitude Descriptor (SPAD)
- */
-typedef struct {
-	bool valid; /* True means that the ME accepts to collaborate with other ME */
-	uint64_t spadcaps;
-} spad_t;
-
-/*
- * ME descriptor
- *
- * WARNING !! Be careful when modifying this structure. It *MUST* be aligned with
- * the same structure used in AVZ and Agency.
- */
-typedef struct {
-	unsigned int	slotID;
-
-	ME_state_t	state;
-
-	unsigned int	size; /* Size of the ME */
-	unsigned int	pfn;
-
-	uint64_t	spid; /* Species ID */
-	spad_t		spad; /* ME Species Aptitude Descriptor */
-} ME_desc_t;
 
 ME_desc_t *get_ME_desc(void);
 
@@ -194,17 +121,6 @@ typedef struct {
 #define DEVCAP_APP_OUTDOOR		(1 << 1)
 
 #define DEVCAPS_CLASS_NR		16
-
-/*
- * SOO agency & ME descriptor - This structure is used in the shared info page of the agency or ME domain.
- */
-
-typedef struct {
-	union {
-		agency_desc_t agency;
-		ME_desc_t ME;
-	} u;
-} dom_desc_t;
 
 /* struct agency_tx_args used in IOCTLs */
 typedef struct agency_tx_args {
@@ -464,7 +380,6 @@ int cb_post_activate(soo_domcall_arg_t *args);
 int cb_kill_me(soo_domcall_arg_t *args);
 
 int cb_force_terminate(void);
-int cb_imec_setup_peer(void);
 
 void callbacks_init(void);
 

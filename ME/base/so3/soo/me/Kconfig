@@ -42,11 +42,25 @@ choice
 			a Raspberry Pi 4 enhanced with the Sense HAT extension. This ME
 			basically uses the led matric and joystick. It is mainly used
 			for demonstration purposes.
+			
+	config SOO_CHAT
+		bool "SOO.chat Mobile Entity"
+		help
+			Test text
+
 
 	config SOO_WAGOLED
 		bool "SOO.wagoled Mobile Entity"
 		help
-			TODO		
+			TODO
+
+	config SOO_SWITCH_KNX
+		bool "SOO.switch Mobile Entity using KNX" 
+		help
+			SOO.switch is a ME capable of ...
+	
+	config SOO_SWITCH_ENOCEAN
+		bool "SOO.switch Mobile Entity using enocean"
 		
 endchoice
 

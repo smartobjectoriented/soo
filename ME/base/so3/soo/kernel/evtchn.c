@@ -29,7 +29,6 @@
 
 #include <soo/hypervisor.h>
 #include <soo/evtchn.h>
-#include <soo/event_channel.h>
 #include <soo/physdev.h>
 #include <soo/console.h>
 #include <soo/debug.h>
@@ -65,11 +64,10 @@ static inline bool evtchn_is_masked(unsigned int b) {
 
 void dump_evtchn_pending(void) {
 	int i;
-	volatile shared_info_t *s = avz_shared_info;
 
 	printk("   Evtchn info in Agency/ME domain %d\n\n", ME_domID());
 	for (i = 0; i < NR_EVTCHN; i++)
-		printk("e:%d m:%d p:%d  ", i, evtchn_info.evtchn_mask[i], s->evtchn_pending[i]);
+		printk("e:%d m:%d p:%d  ", i, evtchn_info.evtchn_mask[i], AVZ_shared->evtchn_pending[i]);
 
 	printk("\n\n");
 }
@@ -91,7 +89,6 @@ void evtchn_do_upcall(cpu_regs_t *regs)
 {
 	unsigned int evtchn;
 	int l1, irq;
-	volatile shared_info_t *s = avz_shared_info;
 
 	int loopmax = 0;
 
@@ -111,19 +108,19 @@ void evtchn_do_upcall(cpu_regs_t *regs)
 	 * of the IRQ line).
 	 */
 
-	if (irqs_disabled_flags(regs->psr))
+	if (irqs_disabled_flags(regs))
 		return ;
 
 	in_upcall_progress = true;
 
 retry:
 
-	l1 = xchg(&s->evtchn_upcall_pending, 0);
+	l1 = xchg(&AVZ_shared->evtchn_upcall_pending, 0);
 	BUG_ON(l1 == 0);
 
 	while (true) {
 		for (evtchn = 0; evtchn < NR_EVTCHN; evtchn++)
-			if ((s->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
+			if ((AVZ_shared->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
 				break;
 
 		/* Found an evtchn? */
@@ -153,7 +150,7 @@ retry:
 
 	};
 
-	if (s->evtchn_upcall_pending)
+	if (AVZ_shared->evtchn_upcall_pending)
 		goto retry;
 
 	in_upcall_progress = false;
@@ -242,7 +239,7 @@ void bind_virq(unsigned int virq)
 	int evtchn;
 	unsigned long flags;
 
-	spin_lock_irqsave(&irq_mapping_update_lock, flags);
+	flags = spin_lock_irqsave(&irq_mapping_update_lock);
 
 	bind_virq.virq = virq;
 	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_virq, (long) &bind_virq, 0, 0);

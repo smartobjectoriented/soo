@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2022 Mattia Gallacchi <mattia.gallaccchi@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -46,14 +46,5 @@
 				algo = "crc32";
 			};
 		};	
-
-        ramfs {
-        	description = "SO3 environment minimal rootfs";
-        	data = /incbin/("../rootfs/board/so3virt/rootfs.fat");
-        	type = "ramdisk";
-            arch = "arm";
-            os = "linux";
-            compression = "none";
-        };
     };
 };

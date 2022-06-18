@@ -69,17 +69,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-
-
-	pre_propagate_args->propagate_status = 0;
-#if 0
-	/* Enable migration - here, we migrate 3 times before being killed. */
-	if ((get_ME_state() != ME_state_dormant) || (migration_count != 3)) {
-		pre_propagate_args->propagate_status = 1;
-		migration_count++;
-	} else
-		set_ME_state(ME_state_killed);
-#endif
+	pre_propagate_args->propagate_status = PROPAGATE_STATUS_NO;
 
 	return 0;
 }
@@ -119,9 +109,7 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
 	agency_ctl_args_t agency_ctl_args;
-
-	unsigned int i;
-
+        
 	lprintk("[soo:me:SOO.refSO3] ME %d: cb_cooperate...\n", ME_domID());
 
 	switch (cooperate_args->role) {
@@ -130,32 +118,32 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		if (cooperate_args->alone)
 			return 0;
 
-		for (i = 0; i < MAX_ME_DOMAINS; i++) {
-			if (cooperate_args->u.target_coop[i].spad.valid) {
+		/* Collaboration ... */
 
-				/* Collaboration ... */
+		/* Update the list of hosts */
+		sh_refso3->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_refso3->me_common.soohosts);
 
-				/* Update the list of hosts */
-				sh_refso3->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_refso3->me_common.soohosts);
+		agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_refso3));
+		agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
-				agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_refso3));
-				agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
+		/* This pattern enables the cooperation with the target ME */
 
-				/* This pattern enables the cooperation with the target ME */
+		agency_ctl_args.cmd = AG_COOPERATE;
+		agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
 
-				agency_ctl_args.cmd = AG_COOPERATE;
-				agency_ctl_args.slotID = cooperate_args->u.target_coop[i].slotID;
-
-				/* Perform the cooperate in the target ME */
-				args->__agency_ctl(&agency_ctl_args);
-
-			}
-		}
-
+		/* Perform the cooperate in the target ME */
+		args->__agency_ctl(&agency_ctl_args);
+#if 0
+		set_ME_state(ME_state_killed);
+#endif
 		break;
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
+#if 1
+		/* Destroy us */
+		set_ME_state(ME_state_terminated);
+#endif
 
 		break;
 
@@ -222,8 +210,9 @@ void callbacks_init(void) {
 	/* Initialize the shared content page used to exchange information between other MEs */
 	memset(sh_refso3, 0, PAGE_SIZE);
 
-	/* Set the SPAD capabilities */
-	memset(get_ME_desc()->spad.caps, 0, SPAD_CAPS_SIZE);
+	/* Set the SPAD capabilities (currently not used) */
+	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));
+
 }
 
 

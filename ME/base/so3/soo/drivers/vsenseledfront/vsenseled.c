@@ -117,7 +117,7 @@ static void vsenseled_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	vsenseled_priv->vsenseled.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vsenseled_priv->vsenseled.ring.sring)));
+	vsenseled_priv->vsenseled.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vsenseled_priv->vsenseled.ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -147,11 +147,11 @@ static void vsenseled_reconfiguring(struct vbus_device *vdev) {
 	vsenseled_priv->vsenseled.ring_ref = GRANT_INVALID_REF;
 
 	SHARED_RING_INIT(vsenseled_priv->vsenseled.ring.sring);
-	FRONT_RING_INIT(&vsenseled_priv->vsenseled.ring, (&vsenseled_priv->vsenseled.ring)->sring, PAGE_SIZE);
+	FRONT_RING_INIT(&vsenseled_priv->vsenseled.ring, vsenseled_priv->vsenseled.ring.sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vsenseled_priv->vsenseled.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vsenseled_priv->vsenseled.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -220,7 +220,7 @@ vdrvfront_t vsenseleddrv = {
 	.connected = vsenseled_connected
 };
 
-static int vsenseled_init(dev_t *dev) {
+static int vsenseled_init(dev_t *dev, int fdt_offset) {
 	vsenseled_priv_t *vsenseled_priv;
 
 	vsenseled_priv = malloc(sizeof(vsenseled_priv_t));

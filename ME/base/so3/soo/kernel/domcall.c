@@ -23,8 +23,6 @@
 #include <asm/cacheflush.h>
 #include <asm/processor.h>
 
-#include <mach/uart.h>
-
 #include <soo/hypervisor.h>
 #include <soo/vbus.h>
 #include <soo/console.h>
@@ -49,8 +47,10 @@
  */
 #define BASEADDR_BITMAP_BYTES 	256
 
-extern uint32_t __heap_base_addr;
-static uint32_t heap_base_vaddr = (uint32_t ) &__heap_base_addr;
+#if 0
+extern addr_t __heap_base_addr;
+static addr_t heap_base_vaddr = (addr_t ) &__heap_base_addr;
+
 
 static unsigned char baseaddr_2nd_bitmap[BASEADDR_BITMAP_BYTES];
 
@@ -68,7 +68,7 @@ static void init_baseaddr_2nd_bitmap(void) {
 static void set_baseaddr_2nd_bitmap(unsigned int baseaddr) {
 	unsigned int pos, mod;
 
-	baseaddr = (baseaddr - (CONFIG_RAM_BASE + (heap_base_vaddr - CONFIG_KERNEL_VIRT_ADDR))) >> 10;
+	baseaddr = (baseaddr - (CONFIG_RAM_BASE + (heap_base_vaddr - CONFIG_KERNEL_VADDR))) >> 10;
 
 	pos = baseaddr >> 3;
 	mod = baseaddr % 8;
@@ -82,7 +82,7 @@ static void set_baseaddr_2nd_bitmap(unsigned int baseaddr) {
 static unsigned int is_set_baseaddr_2nd_bitmap(unsigned int baseaddr) {
 	unsigned int pos, mod;
 
-	baseaddr = (baseaddr - (CONFIG_RAM_BASE + (heap_base_vaddr - CONFIG_KERNEL_VIRT_ADDR))) >> 10;
+	baseaddr = (baseaddr - (CONFIG_RAM_BASE + (heap_base_vaddr - CONFIG_KERNEL_VADDR))) >> 10;
 
 	pos = baseaddr >> 3;
 	mod = baseaddr % 8;
@@ -215,7 +215,12 @@ int adjust_l2_page_tables(unsigned long addr, unsigned long end, uint32_t *pgtab
 
 /****************************************************/
 
-static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
+/**
+ * Fixup the page tables belonging to processes (user & kernel space).
+ *
+ * @param args	arguments of this domcall
+ */
+static void do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
 	pcb_t *pcb;
 	uint32_t vaddr;
 	uint32_t *l1pte, *l1pte_current;
@@ -229,9 +234,9 @@ static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
 	list_for_each_entry(pcb, &proc_list, list)
 	{
 
-		for (vaddr = CONFIG_KERNEL_VIRT_ADDR; ((vaddr != 0) && (vaddr < 0xffffffff)); vaddr += TTB_SECT_SIZE) {
+		for (vaddr = CONFIG_KERNEL_VADDR; ((vaddr != 0) && (vaddr < 0xffffffff)); vaddr += TTB_SECT_SIZE) {
 			l1pte = l1pte_offset(pcb->pgtable, vaddr);
-			l1pte_current = l1pte_offset(__sys_l1pgtable, vaddr);
+			l1pte_current = l1pte_offset(__sys_root_pgtable, vaddr);
 
 			*l1pte = *l1pte_current;
 
@@ -240,66 +245,64 @@ static int do_fix_other_page_tables(struct DOMCALL_fix_page_tables_args *args) {
 
 		/* Finally, remap the whole user space */
 
-		adjust_l1_page_tables(0, CONFIG_KERNEL_VIRT_ADDR, pcb->pgtable, args);
-		adjust_l2_page_tables(0, CONFIG_KERNEL_VIRT_ADDR, pcb->pgtable, args);
+		adjust_l1_page_tables(0, CONFIG_KERNEL_VADDR, pcb->pgtable, args);
+		adjust_l2_page_tables(0, CONFIG_KERNEL_VADDR, pcb->pgtable, args);
 
 		mmu_page_table_flush((uint32_t) pcb->pgtable, (uint32_t) (pcb->pgtable + TTB_L1_ENTRIES));
 	}
 
-	return 0;
 }
 
-/* Main callback function used by AVZ */
-int domcall(int cmd, void *arg)
-{
-	int rc = 0;
+#endif
 
+/* Main callback function used by AVZ */
+void domcall(int cmd, void *arg)
+{
 	switch (cmd) {
 
 	case DOMCALL_presetup_adjust_variables:
-		rc = do_presetup_adjust_variables(arg);
+		do_presetup_adjust_variables(arg);
 		break;
 
 	case DOMCALL_postsetup_adjust_variables:
-		rc = do_postsetup_adjust_variables(arg);
+		do_postsetup_adjust_variables(arg);
 		break;
 
 	case DOMCALL_fix_other_page_tables:
-		rc = do_fix_other_page_tables((struct DOMCALL_fix_page_tables_args *) arg);
+		//do_fix_other_page_tables((struct DOMCALL_fix_page_tables_args *) arg);
 		break;
 
 	case DOMCALL_sync_domain_interactions:
-		rc = do_sync_domain_interactions(arg);
+		do_sync_domain_interactions(arg);
 		break;
 
 	case DOMCALL_sync_directcomm:
-		rc = do_sync_directcomm(arg);
+		do_sync_directcomm(arg);
 		break;
 
 	case DOMCALL_soo:
-		rc = do_soo_activity(arg);
+		do_soo_activity(arg);
 		break;
 
 	default:
-		printk("Unknowmn cmd %#x\n", cmd);
-		rc = -1;
+		printk("Unknowmn domcall %#x\n", cmd);
+		BUG();
 		break;
 	}
-
-	return rc;
 }
+
 
 /**
  * Enable the cooperation between this ME and the other.
  */
 void spad_enable_cooperate(void) {
-	avz_shared_info->dom_desc.u.ME.spad.valid = true;
+	AVZ_shared->dom_desc.u.ME.spad.valid = true;
 }
 
 /**
  * Enable the cooperation between this ME and the other.
  */
 void spad_disable_cooperate(void) {
-	avz_shared_info->dom_desc.u.ME.spad.valid = false;
+	AVZ_shared->dom_desc.u.ME.spad.valid = false;
 }
 

@@ -16,7 +16,9 @@
  *
  */
 
-#include <xmlui.h>
+#include <soo/xmlui.h>
+#include <roxml.h>
+#include <string.h>
 
 /**
  * Prepare a XML message for sending to the UI app
@@ -26,17 +28,12 @@
  * @param value		Message content
  */
 void xml_prepare_message(char *buffer, char *id, char *value) {
+
 	char *__buffer;
-	node_t *root, *messages, *msg;
-
-	root = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "xml", NULL);
-
-	/* Adding attributes to xml node */
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "version", "1.0");
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "encoding", "UTF-8");
+	node_t *messages, *msg;
 
 	/* Adding the messages node */
-	messages = roxml_add_node(root, 0, ROXML_ELM_NODE, "messages", NULL);
+	messages = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "messages", NULL);
 
 	/* Adding the message itself */
 	msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
@@ -45,12 +42,12 @@ void xml_prepare_message(char *buffer, char *id, char *value) {
 
 	roxml_add_node(msg, 0, ROXML_TXT_NODE, NULL, value);
 
-	roxml_commit_changes(root, NULL, &__buffer, 1);
+	roxml_commit_changes(messages, NULL, &__buffer, 1);
 
 	strcpy(buffer, __buffer);
 
 	roxml_release(RELEASE_LAST);
-	roxml_close(root);
+	roxml_close(messages);
 
 }
 
@@ -69,8 +66,8 @@ void xml_parse_event(char *buffer, char *id, char *action) {
 	root = roxml_load_buf(buffer);
 	xml =  roxml_get_chld(root, NULL,  0);
 
-	events = roxml_get_chld(xml, NULL, 0);
-	event = roxml_get_chld(events, NULL, 0);
+	events = roxml_get_chld(root, "events", 0);
+	event = roxml_get_chld(events, "event", 0);
 	__from = roxml_get_attr(event, "from", 0);
 	__action = roxml_get_attr(event, "action", 0);
 
@@ -81,4 +78,35 @@ void xml_parse_event(char *buffer, char *id, char *action) {
 	roxml_release(RELEASE_LAST);
 	roxml_close(root);
 
+}
+
+void xml_get_event_content(char *buffer, char *content) {
+
+	node_t *root;
+	node_t *events, *event;
+
+	root = roxml_load_buf(buffer);
+
+	events = roxml_get_chld(root, "events", 0);
+	event = roxml_get_chld(events, "event", 0);
+
+	strcpy(content, roxml_get_content(event, NULL, 0, NULL));
+
+	roxml_release(RELEASE_LAST);
+	roxml_close(root);
+}
+
+/**
+ * Prepare a chat message for the SOO.chat ME
+ * 
+ * @param buffer	Already allocated buffer which will receive the XML message with a chat inside
+ * @param sender	The sender slotID
+ * 
+ */ 
+void xml_prepare_chat(char *buffer, int sender, char *text) {
+
+	char chat_xml[512] = { 0 };
+
+	sprintf(chat_xml, "<chat from=\"%d\">%s</chat>", sender, text);
+	xml_prepare_message(buffer, SCROLL_ID, chat_xml);
 }

@@ -102,22 +102,6 @@
 				status = "disabled";
 			};
 
-			vtemp {
-            	compatible = "vtemp,frontend";
-            	status = "disabled";
-        	};
-            
-            vvalve {
-            	compatible = "vvalve,frontend";
-            	status = "disabled";
-        	};
-            
-            vdogablind {
-            	compatible = "vdogablind,frontend";
-            	status = "disabled";
-        	};
-
-
 			vwagoled {
 				compatible = "vwagoled,frontend";
 				status = "disabled";
@@ -128,11 +112,10 @@
 				status = "disabled";
 			};
 
-			vknxblind {
-            	compatible = "vknxblind,frontend";
-            	status = "disabled";
-        	};
-
+			vknx {
+				compatible = "vknx,frontend";
+				status = "disabled";
+			};
 		};
 
 	};

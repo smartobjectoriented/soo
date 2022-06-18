@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2020-2022 David Truan <david.truan@heig-vd.ch>
  * Copyright (C) 2018-2019 Baptiste Delporte <bonel@bonel.net>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -42,7 +43,7 @@
 /* vUIHandler packet send period */
 #define VUIHANDLER_PERIOD	1000
 
-typedef struct {
+typedef struct __attribute__((packed)) {
 	int32_t		slotID;
 	uint8_t		type;
 	uint8_t		payload[0];
@@ -61,13 +62,20 @@ typedef struct {
 
 #define VUIHANDLER_BEACON	0
 #define VUIHANDLER_DATA		1
+#define VUIHANDLER_ASK_LIST	4 /* Ask for the XML ME list */
+#define VUIHANDLER_SEND		5 /* Specify that the packet contains an event data to be forwarded to the ME */
+#define VUIHANDLER_SELECT	6 /* Ask for the ME model */
+#define VUIHANDLER_POST		7
 
 #define VUIHANDLER_BT_PKT_HEADER_SIZE	sizeof(vuihandler_pkt_t)
 
+#define VUIHANDLER_MAX_TX_BUF_ENTRIES	6
+
 typedef struct {
 	uint32_t		id;
+	uint8_t 		type;
 	size_t			size;
-	uint8_t 		buf[2048];
+	uint8_t 		buf[VUIHANDLER_MAX_PAYLOAD_SIZE];
 } vuihandler_tx_request_t;
 
 /* Not used */
@@ -85,7 +93,8 @@ typedef struct {
 typedef struct {
 	uint32_t		id;
 	size_t			size;
-	uint8_t 		buf[2048];
+	uint8_t			type;
+	uint8_t 		buf[VUIHANDLER_MAX_PAYLOAD_SIZE];
 } vuihandler_rx_response_t;
 
 DEFINE_RING_TYPES(vuihandler_rx, vuihandler_rx_request_t, vuihandler_rx_response_t);
@@ -118,6 +127,22 @@ typedef struct {
     
 } vuihandler_t;
 
+
+typedef struct {
+	char 		data[VUIHANDLER_MAX_PAYLOAD_SIZE];
+	size_t 		size;
+	uint8_t 	type;
+} tx_buf_entry_t;
+
+typedef struct {
+	size_t cur_prod_idx;
+	size_t cur_cons_idx;
+	size_t cur_size;
+	mutex_t tx_circ_buf_mutex;
+	tx_buf_entry_t circ_buf[VUIHANDLER_MAX_TX_BUF_ENTRIES];
+
+} tx_circ_buf_t;
+
 static inline vuihandler_t *to_vuihandler(struct vbus_device *vdev) {
 	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
 	return container_of(vdevback, vuihandler_t, vdevfront);
@@ -128,10 +153,19 @@ bool vuihandler_ready(void);
 
 typedef void(*ui_update_spid_t)(uint8_t *);
 typedef void(*ui_interrupt_t)(char *data, size_t size);
+typedef void(*ui_send_model_t)(void);
 
-void vuihandler_register_callback(ui_update_spid_t ui_update_spid, ui_interrupt_t ui_interrupt);
+/** 
+ * @brief Allows to register two callbacks to the vuihandler. 
+ * 
+ * @param ui_send_model: callbacks to send the model. It is a function to let the ME app do whatever it
+ * wants and not just pass a model char *.
+ * @param ui_interrupt: callbacks to be called when receiving a VUIHANDLER_POST or VUIHANDLER_DATA packet.
+ *
+ */ 
+void vuihandler_register_callbacks(ui_send_model_t ui_send_model,  ui_interrupt_t ui_interrupt);
 
-void vuihandler_send(void *data, size_t size);
+void vuihandler_send(void *data, size_t size, uint8_t type);
 
 void vuihandler_get_app_spid(uint64_t spid);
 

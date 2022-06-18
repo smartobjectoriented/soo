@@ -81,7 +81,7 @@ static int alloc_shared_buffer(struct vbus_device *dev) {
 	if (!vweather->weather_data)
 		BUG();
 
-	vweather->weather_pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) vweather->weather_data));
+	vweather->weather_pfn = phys_to_pfn(virt_to_phys_pt((addr_t) vweather->weather_data));
 
 	DBG(VWEATHER_PREFIX "Frontend: data pfn=%x\n", vweather->weather_pfn);
 
@@ -129,7 +129,7 @@ static int setup_shared_buffer(struct vbus_device *dev) {
  * Setup notification without ring.
  */
 static int setup_notification(struct vbus_device *dev) {
-	vweather_t *vweather = to_vweather(dev);
+
 	int res;
 	unsigned int update_evtchn;
 	struct vbus_transaction vbt;
@@ -164,7 +164,7 @@ static void free_shared_buffer(struct vbus_device *dev) {
 	/* Weather data shared buffer */
 
 	if ((vweather->weather_data) && (vweather->weather_pfn)) {
-		free_vpage((uint32_t) vweather->weather_data);
+		free_vpage((addr_t) vweather->weather_data);
 
 		vweather->weather_data = NULL;
 		vweather->weather_pfn = 0;
@@ -228,7 +228,7 @@ vdrvfront_t vweatherdrv = {
 	.connected = vweather_connected
 };
 
-static int vweather_init(dev_t *dev) {
+static int vweather_init(dev_t *dev, int fdt_offset) {
 	vweather_priv_t *vweather_priv;
 
 	vweather_priv = malloc(sizeof(vweather_priv_t));

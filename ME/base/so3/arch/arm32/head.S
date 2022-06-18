@@ -24,10 +24,10 @@
 
 #include <asm/processor.h>
 #include <asm/mmu.h>
-#include <asm/memory.h>
+
 #include <thread.h>
 
-.global _start
+.global __start
 .global __fdt_addr
 
 .extern clear_bss
@@ -73,7 +73,7 @@
 
 .endm
 
-_start:
+__start:
 
   @ r1 = machine id
   @ r2 = dtb address
@@ -92,7 +92,7 @@ _start:
 
   mcr 	p15, 0, r1, c12, c0, 0		@ vector table
 
-#endif
+#endif /* !CONFIG_SO3VIRT */
 
   @ prepare to clear bss and zero fp
   ldr	r6, =__bss_start
@@ -153,7 +153,7 @@ mmu_setup:
 
   @ Refer to the 1st-level page table
 #ifdef CONFIG_SO3VIRT
-  ldr 	r4, =CONFIG_KERNEL_VIRT_ADDR + TTB_L1_SYS_OFFSET
+  ldr 	r4, =CONFIG_KERNEL_VADDR + TTB_L1_SYS_OFFSET
 #else
   ldr	r4, =CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET
 #endif
@@ -182,7 +182,6 @@ mmu_setup:
 __fdt_addr:
   .word 	0
 
-@ Keep the stack aligned on 8 KB according to EABI
 .align 13
 
 @ Before MMU is enabled, we cannot refer to the normal stack as declared in the linker script
@@ -199,3 +198,5 @@ temp_stack:
 .LCvectors:
   .word __vectors_start
 
+.LCsys_root_pgtable:
+  .word __sys_root_pgtable
