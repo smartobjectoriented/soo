@@ -28,13 +28,17 @@ usage() {
   echo "  - SOO.outdoor"
   echo "  - SOO.refso3"
   echo "  - SOO.wagoled"
+  echo "  - SOO.switch"
   echo ""
   echo "OPTIONAL_CONFIG can be one of the following:"
   echo "  - refso3_ramfs"
+  echo "  - switch_knx"
+  echo "  - switch_enocean"
   echo ""
   echo "Examples:"
   echo "$0 -k SOO.refso3"
   echo "$0 -ku SOO.refso3 refso3_ramfs"
+  echo "$0 -ku SOO.switch switch_knx"
 }
 
 while getopts "ku:c:" opt; do
@@ -76,22 +80,17 @@ else
   IFS=''
 fi
 
-echo $ME_NAME
+# echo $ME_NAME
 
 ME_DEFCONFIG=$ME_NAME"_defconfig"
 ME_DTS=$ME_NAME".dts"
 ME_ITS=$ME_NAME".its"
 
 if [ "$build_clean" == "y" ]; then
-  cd $SO3_PATH
-  make clean
   cd $BASE_PATH
 
-  echo "Removing $ME_NAME.itb from $BASE_PATH/target"
-  rm -f target/$ME_NAME.itb
-
   echo "Removing all ITB images in SOO.$ME_NAME"
-  rm -f $BASE_PATH/../SOO.$ME_NAME/target/*.itb
+  rm -f $BASE_PATH/../SOO.$ME_NAME/*.itb
 
   exit 1
 fi

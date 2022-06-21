@@ -16,25 +16,36 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
-#include <soo/enocean/pt210.h>
+#include <soo/enocean/ptm210.h>
 #include <soo/enocean/enocean.h>
 #include <soo/debug.h>
 #include <heap.h>
 
+/**
+ * @brief Timer callback. This function is called when the timer expires.
+ * @param args: ptm210_t switch to whom the callback is connected
+ * @retval None
+ */
 void pressed_time_cb(void *args) {
-    pt210_t *sw = (pt210_t*)args;
+    ptm210_t *sw = (ptm210_t*)args;
 
     DBG("Timer event\n");
 
     complete(&sw->_wait_event);
 }
 
+/**
+ * @brief Wait for a switch event. The event can come from the switch or from the 
+ *        expiration of the timer (Long press).
+ * @param  args: ptm210_t Switch 
+ * @retval 
+ */
 int wait_event_th(void *args) {
-    pt210_t *sw = (pt210_t*)args;
+    ptm210_t *sw = (ptm210_t*)args;
     enocean_telegram_t *tel;
 
     while(atomic_read(&sw->_th_run)) {
@@ -51,13 +62,13 @@ int wait_event_th(void *args) {
 
         if (tel->sender_id.val == sw->id) {
             switch ((int)tel->data[0]) {
-                case PT210_SWITCH_UP:
+                case PTM210_SWITCH_UP:
                     atomic_set(&sw->up, 1);
                     break;
-                case PT210_SWITCH_DOWN:
+                case PTM210_SWITCH_DOWN:
                     atomic_set(&sw->down, 1);
                     break;
-                case PT210_SWITCH_RELEASED:
+                case PTM210_SWITCH_RELEASED:
                     atomic_set(&sw->released, 1);
                     complete(&sw->_wait_event);
                     stop_timer(&sw->_pressed_time);
@@ -66,7 +77,7 @@ int wait_event_th(void *args) {
                     continue;
             }
             atomic_set(&sw->event, 1);
-            set_timer(&sw->_pressed_time, NOW() + MILLISECS(PT210_PRESSED_TIME_MS));
+            set_timer(&sw->_pressed_time, NOW() + MILLISECS(PTM210_PRESSED_TIME_MS));
         } 
 
         free(tel);
@@ -75,21 +86,21 @@ int wait_event_th(void *args) {
     return 0;
 }
 
-void pt210_deinit(pt210_t *sw) {
+void ptm210_deinit(ptm210_t *sw) {
     atomic_set(&sw->_th_run, 0);
     thread_join(sw->_wait_event_th);
 }
 
-void pt210_reset(pt210_t *sw) {
+void ptm210_reset(ptm210_t *sw) {
     atomic_set(&sw->up, 0);
     atomic_set(&sw->down, 0);
     atomic_set(&sw->released, 0);
     atomic_set(&sw->event, 0);
 }
 
-void pt210_init(pt210_t *sw, uint32_t switch_id) {
+void ptm210_init(ptm210_t *sw, uint32_t switch_id) {
     sw->id = switch_id;
-    pt210_reset(sw);
+    ptm210_reset(sw);
 
     init_timer(&sw->_pressed_time, pressed_time_cb, sw);
     init_completion(&sw->_wait_event);
@@ -97,9 +108,3 @@ void pt210_init(pt210_t *sw, uint32_t switch_id) {
     atomic_set(&sw->_th_run, 1);
     sw->_wait_event_th = kernel_thread(wait_event_th, "wait_event_th", sw, THREAD_PRIO_DEFAULT);
 }
-
-// void pt210_wait_event() {
-        
-//     /** Second case either we get an release or the timer expires **/
-//     wait_for_completion(&sw->_wait_event);
-// }

@@ -43,8 +43,8 @@ typedef enum {
 typedef unsigned char byte;
 
 /**
- * @brief 
- * 
+ * @brief Structure containing the sender ID. Can be accessed as a 
+ *          32 bit unsigned or byte per byte.
  */
 typedef struct {
     union
@@ -73,7 +73,7 @@ typedef struct {
 } enocean_telegram_t;
 
 /**
- * @brief Print an enocean telegram
+ * @brief Print an enocean telegram. Used for debug proposes
  * 
  * @param tel enocean telegram to print
  */

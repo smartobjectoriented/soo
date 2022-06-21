@@ -16,8 +16,8 @@
  *
  */
 
-#ifndef _PT210_H_
-#define _PT210_H_ 
+#ifndef _PTM210_H_
+#define _PTM210_H_ 
 
 #include <types.h>
 #include <timer.h>
@@ -25,22 +25,23 @@
 #include <thread.h>
 #include <asm/atomic.h>
 
-#define PT210_SWITCH_UP             0x70
-#define PT210_SWITCH_DOWN           0x50
-#define PT210_SWITCH_RELEASED       0x00
-#define PT210_PRESSED_TIME_MS       300
+#define PTM210_SWITCH_UP             0x70
+#define PTM210_SWITCH_DOWN           0x50
+#define PTM210_SWITCH_RELEASED       0x00
+#define PTM210_PRESSED_TIME_MS       300
 
 typedef unsigned char byte;
 
 /**
- * @brief PT210 enocean switch struct
+ * @brief PTM210 enocean switch struct
  * 
  * @param id Enocean unique ID
  * @param up Switch up pressed
  * @param down Switch down pressed
  * @param released Switch released
  * @param event Switch event. One of the above is set to true
- * 
+ * @param _pressed_time Timer used to discriminate a long press from a short
+ * @param _wait_event Completion 
  */
 typedef struct {
     uint32_t id;
@@ -55,25 +56,23 @@ typedef struct {
     tcb_t *_wait_event_th;
     atomic_t _th_run;
 
-} pt210_t;
+} ptm210_t;
 
 
 /**
- * @brief Initialize PT210 struct members
+ * @brief Initialize PTM210 struct members
  * 
- * @param sw PT210 switch to initialize
+ * @param sw PTM210 switch to initialize
  * @param switch_id Enocean id. Read on the back of the device
  */
-void pt210_init(pt210_t *sw, uint32_t switch_id);
+void ptm210_init(ptm210_t *sw, uint32_t switch_id);
 
-
-void pt210_deinit(pt210_t *sw);
 /**
- * @brief Wait for an event coming from the PT210 device. This call is blocking.
- * 
- * @param sw switch to wait for.
+ * @brief Stop the event thread
+ * @param  sw: Switch to stop listening for 
+ * @retval None
  */
-void pt210_wait_event(pt210_t *sw);
+void ptm210_deinit(ptm210_t *sw);
 
 /**
  * @brief Reset switch values. Not the id. After an event is received and treated this function 
@@ -81,6 +80,6 @@ void pt210_wait_event(pt210_t *sw);
  * 
  * @param sw switch to reset the values of
  */
-void pt210_reset(pt210_t *sw);
+void ptm210_reset(ptm210_t *sw);
 
-#endif //_PT210_H_
+#endif //_PTM210_H_

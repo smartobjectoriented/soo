@@ -49,6 +49,12 @@ typedef struct {
 
 static struct vbus_device *vknx_dev = NULL;
 
+/**
+ * @brief  Print a datapoint array. Use for debug purposes.  
+ * @param  dps: Array of datapoints 
+ * @param  dp_count: Number of datapoints in the array 
+ * @retval None
+ */
 void vknx_print_dps(dp_t *dps, int dp_count) {
 	int i, j;
 

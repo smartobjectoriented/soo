@@ -83,7 +83,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
-	// DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
+	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
 	pre_propagate_args->propagate_status = 0;
 
@@ -141,7 +141,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		/* Map the content page of the incoming ME to retrieve its data. */
 		pfn = cooperate_args->u.initiator_coop.pfn;
 		incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-
 
 		if (incoming_sh_switch->timestamp > switch_timestamp) {
 			switch_timestamp = incoming_sh_switch->timestamp;
@@ -220,7 +219,6 @@ int cb_force_terminate(void) {
 }
 
 void callbacks_init(void) {
-
 	init_completion(&send_data_lock);
 	atomic_set(&shutdown, 1);
 

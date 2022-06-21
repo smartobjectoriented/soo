@@ -27,7 +27,7 @@
 
 #include <me/common.h>
 #include <soo/knx/gtl2tw.h>
-#include <soo/enocean/pt210.h>
+#include <soo/enocean/ptm210.h>
 
 #ifdef CONFIG_SOO_SWITCH_KNX
 #define MESWITCH_NAME		"ME switch KNX"
@@ -44,16 +44,16 @@
 
 /**
  * @brief Switch models
- * 
+ * @param PTM210 Enocena switch
+ * @param GTL2TW KNX switch
  */
 typedef enum {
-	PT210 = 0,
+	PTM210 = 0,
 	GTL2TW
 } switch_type;
 
 /**
- * @brief Possible switch commands
- * 
+ * @brief Possible switch press positions
  */
 typedef enum {
 	POS_LEFT_UP = 0,
@@ -63,12 +63,18 @@ typedef enum {
 	POS_NONE
 } switch_position;
 
+/**
+ * @brief  Possible press types
+ */
 typedef enum {
     PRESS_LONG = 0,
     PRESS_SHORT,
 	PRESS_NONE
 } switch_press;
 
+/**
+ * @brief  Possible switch status
+ */
 typedef enum {
 	STATUS_OFF = 0,
 	STATUS_ON,
@@ -77,14 +83,12 @@ typedef enum {
 
 /**
  * @brief Generic switch struct
- * 
  * @param sw Specific switch model
- * @param cmd Command received by the switch
- * @param switch model
+ * @param type model
  */
 typedef struct {
 #ifdef ENOCEAN
-	pt210_t sw;
+	ptm210_t sw;
 #endif
 
 #ifdef KNX

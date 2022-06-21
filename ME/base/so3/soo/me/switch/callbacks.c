@@ -232,7 +232,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			}
 			io_unmap((uint32_t) target_sh);
 		
-		} else if (cooperate_args->u.target_coop.spid == SOO_BLIND_SPID && sh_switch->type == PT210) {
+		} else if (cooperate_args->u.target_coop.spid == SOO_BLIND_SPID && sh_switch->type == PTM210) {
 			/** Check if target is a SOO.Blind or **/
 			DBG(MESWITCH_PREFIX "Cooperate with SOO.blind\n");
 			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_switch));
@@ -368,7 +368,7 @@ void callbacks_init(void) {
 #if defined(KNX)
 	sh_switch->type = GTL2TW;
 #elif defined(ENOCEAN)
-	sh_switch->type = PT210;
+	sh_switch->type = PTM210;
 #endif
 
 	/* Set the SPAD capabilities */

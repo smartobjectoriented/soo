@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -29,6 +29,7 @@
 
 #include <me/switch.h>
 
+/** Temporary Switch ID for EnOcean switch **/
 #define ENOCEAN_SWITCH_ID	0x002A3D45
 
 /**
@@ -39,7 +40,7 @@
 void switch_init(switch_t *sw) {
 
 #ifdef ENOCEAN
-	pt210_init(&sw->sw, ENOCEAN_SWITCH_ID);
+	ptm210_init(&sw->sw, ENOCEAN_SWITCH_ID);
 #endif
 
 #ifdef KNX
@@ -49,9 +50,14 @@ void switch_init(switch_t *sw) {
 	sh_switch->timestamp = 0;
 }
 
+/**
+ * @brief  Generic switch deinit
+ * @param  sw: Switch to deinit 
+ * @retval None
+ */
 void switch_deinit(switch_t *sw) {
 #ifdef ENOCEAN
-	pt210_deinit(&sw->sw);
+	ptm210_deinit(&sw->sw);
 #endif
 }
 /**
@@ -77,7 +83,7 @@ void switch_get_data(switch_t *sw) {
 			sh_switch->press = PRESS_LONG;
 
 		sh_switch->switch_event= true;
-		pt210_reset(&sw->sw);
+		ptm210_reset(&sw->sw);
 	} 
 			
 #endif

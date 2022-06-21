@@ -25,11 +25,11 @@
 #include <soo/dev/venocean.h>
 
 /**
- * @brief 
+ * @brief Convert a buffer containing EnOcean data to an enocean telegram structure.
  * 
- * @param buf 
- * @param len 
- * @return enocean_telegram_t* 
+ * @param buf Array of bytes containing the EnOcean data.
+ * @param len Array length
+ * @return enocean_telegram_t* Structure containing EnOcean data
  */
 enocean_telegram_t * enocean_buffer_to_telegram(byte *buf, int len) {
     enocean_telegram_t *tel;

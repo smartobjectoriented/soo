@@ -86,8 +86,18 @@ void vbwa88pg_blind_init(blind_vbwa88pg_t *blind, uint16_t first_dp_id);
  */
 void vbwa88pg_blind_update(blind_vbwa88pg_t *blind, dp_t *dps, int dp_count);
 
+/**
+ * @brief  Move the blind up or down
+ * @param  blind: blind to apply the movement to
+ * @retval None
+ */
 void vbwa88pg_blind_up_down(blind_vbwa88pg_t *blind);
 
+/**
+ * @brief  Move the blind by a step or stop it if it is already moving
+ * @param  blind: blind to apply the movement to
+ * @retval None
+ */
 void vbwa88pg_blind_inc_dec_stop(blind_vbwa88pg_t *blind);
 
 #endif // _VBWA88PG_H_
