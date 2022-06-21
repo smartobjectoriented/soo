@@ -110,15 +110,17 @@ typedef struct {
  * @param need_progate set to true if the ME need to migrate  
  */
 typedef struct {
-	bool switch_event;
 	switch_position pos;
     switch_press press;
 	switch_status status;
 	switch_type type;
-	bool need_propagate;
-	bool delivered;
-    uint64_t timestamp;
     uint64_t originUID;
+    uint64_t timestamp;
+	bool delivered;
+
+	/** Private **/
+	bool need_propagate;
+	bool switch_event;
 
 	/*
 	 * MUST BE the last field, since it contains a field at the end which is used

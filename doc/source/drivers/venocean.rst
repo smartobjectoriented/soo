@@ -94,11 +94,11 @@ Switches
 +-------------+-----------+------------+---------------------------+
 | Byte        | Content   | Value hex  | Description               |
 +=============+===========+============+===========================+
-| 0x00        | RORG      | 0x76       | Radio telegram type RPS   |
+| 0x00        | RORG      | 0xF6       | Radio telegram type RPS   |
 +-------------+-----------+------------+---------------------------+
-| 0x01        | Data      | 0xnn       | - 0x00 switch released    |
-|             |           |            | - 0x70 switch press up    |
-|             |           |            | - 0x50 switch press down  |
+|| 0x01       || Data     || 0xnn      || - 0x00 switch released   |
+||            ||          ||           || - 0x70 switch press up   |
+||            ||          ||           || - 0x50 switch press down |
 +-------------+-----------+------------+---------------------------+
 | 0x02 - 0x05 | Sender ID | 0xnnnnnnnn | EnOcean Unique ID         |
 +-------------+-----------+------------+---------------------------+

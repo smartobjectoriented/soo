@@ -26,7 +26,6 @@ For a new version, the following steps are performed:
 
 .. _gitFlow:
 .. uml::
-   :align: center
 
    master->>FeatureA: Create branch
    master->>FeatureB: Create branch
