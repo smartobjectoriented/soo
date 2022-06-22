@@ -42,11 +42,10 @@ save_ctx:
 	stp		x29, lr, [x8], #16
 	str		x9, [x8]
 
-	// Prepare to retrieve the regs from the stack
-	add		x8, x1, x10
-
 load_ctx:
-
+        // Prepare to retrieve the regs from the stack
+	add		x8, x1, x10
+	
 	ldp		x19, x20, [x8], #16		// restore callee-saved registers
 	ldp		x21, x22, [x8], #16
 	ldp		x23, x24, [x8], #16

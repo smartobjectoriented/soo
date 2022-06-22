@@ -833,7 +833,9 @@
 /* Safe value for MPIDR_EL1: Bit31:RES1, Bit30:U:0, Bit24:MT:0 */
 #define SYS_MPIDR_SAFE_VAL	(BIT(31))
 
-#define S_FRAME_SIZE	(8 * 34)
+/* The stack must be 16-byte aligned */
+
+#define S_FRAME_SIZE	(8 * 36)
 
 #ifdef __ASSEMBLY__
 
@@ -1032,7 +1034,6 @@ static inline int cpu_mode(void)
 #define GIC_PRIO_IRQOFF			(GIC_PRIO_IRQON & ~0x80)
 #define GIC_PRIO_PSR_I_SET		(1 << 4)
 
-
 typedef struct cpu_regs {
 	u64 x0;
 	u64 x1;
@@ -1068,6 +1069,8 @@ typedef struct cpu_regs {
 	u64 sp;
 	u64 pc;
 	u64 pstate;
+	u64 elr_el1;
+	u64 padding;
 } cpu_regs_t;
 
 static inline int smp_processor_id(void) {

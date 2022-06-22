@@ -25,18 +25,20 @@
 
 #include <sizes.h>
 
-#define USER_SPACE_VADDR		UL(0x1000)
+#define USER_SPACE_VADDR	UL(0x1000)
 
-#define IO_MAPPING_BASE			UL(0xffff900000000000)
+#define IO_MAPPING_BASE		UL(0xffff900000000000)
 
-#define RAMDEV_VADDR			UL(0xffffa00000000000)
+#define RAMDEV_VADDR		UL(0xffffa00000000000)
 
+/* Fixmap page used for temporary mapping */
+#define FIXMAP_MAPPING		UL(0xffffb00000000000)
 
 /* The user space can be up to bits [47:0] and uses ttbr0_el1
  * as main L0 page table.
  */
 
-#define USER_STACK_TOP_VADDR		UL(0x0001000000000000)
+#define USER_STACK_TOP_VADDR	UL(0x0001000000000000)
 
 #define	SZ_256G		(256UL * SZ_1G)
 
@@ -68,7 +70,7 @@
  *
  *             mask        block size
  *
- *    L0: FF8000000000       256GB
+ *    L0: FF8000000000       512GB
  *    L1:   7FC0000000       1G
  *    L2:     3FE00000       2M
  *    L3:       1FF000       4K

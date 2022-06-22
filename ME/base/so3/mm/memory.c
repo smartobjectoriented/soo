@@ -428,14 +428,13 @@ void readjust_io_map(long pfn_offset) {
  */
 
 void memory_init(void) {
+#ifdef CONFIG_MMU
 
 #ifndef CONFIG_SO3VIRT
 #ifdef CONFIG_ARCH_ARM32
 	addr_t vectors_paddr;
 #endif
-#endif /* !CONFIG_SO3 */
-
-#ifdef CONFIG_MMU
+#endif /* !CONFIG_SO3VIRT */
 
 	void *new_sys_root_pgtable;
 

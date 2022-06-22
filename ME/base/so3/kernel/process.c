@@ -64,7 +64,7 @@ static uint32_t pid_current = 1;
 static pcb_t *root_process = NULL; /* root process */
 
 /* Used to update regs during fork */
-extern void __save_context(tcb_t *newproc, uint32_t stack_addr);
+extern void __save_context(tcb_t *newproc, addr_t stack_addr);
 
 /* only the following sections are supported */
 #define SUPPORTED_SECTION_COUNT 6
@@ -418,7 +418,7 @@ void *preserve_args_and_env(int argc, char **argv, char **envp)
 
 	/* Environment string addresses */
 	if (!envp) {
-		*((int *) args_p) = 0; /* Keep array-end with NULL */
+		*((addr_t *) args_p) = 0; /* Keep array-end with NULL */
 		args_p += sizeof(char *);
 
 	} else {

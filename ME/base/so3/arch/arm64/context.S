@@ -50,7 +50,6 @@
 
 .extern __check_ptrace_traceme
 .extern ret_from_fork
-.extern kernel_panic
 
 #endif
 
@@ -91,7 +90,6 @@ __get_syscall_args_ext:
 	str		x10, [x1]
 
 	ret
-
 
 // Kernel thread initial entry point
 // Called once per thread
@@ -135,6 +133,26 @@ __thread_prologue_user:
 // Store the current registers into a cpu_regs structure passed in r0 (as first argument)
 __save_context:
 
+	// Adjust the kernel stack pointer so that we can proceed with ret_from_fork.
+	// S_FRAME_SIZE/8 registers are preserved when at the syscall vector entry point
+
+	// Adjust the sp which is stored on the stack. Make sure
+	// it refers to this stack and not the one issue from the copy
+	// as during fork().
+
+	str		x1, [x1, #(OFFSET_SP - S_FRAME_SIZE)]
+
+	sub		x2, x1, #S_FRAME_SIZE
+
+	// Prepare to configure sp during the context switch.
+	str		x2, [x0, #(OFFSET_TCB_CPU_REGS + OFFSET_SP)]
+
+	// Prepare the lr to branch to ret_from_fork
+	ldr		x1, .LCret_from_fork
+	str		x1, [x0, #(OFFSET_TCB_CPU_REGS + OFFSET_LR)]
+
+	// The other registers are not important.
+
 	ret
 
 ENTRY(__switch_context)
@@ -144,7 +162,6 @@ ENTRY(__switch_context)
 	cbz 	x0, load_ctx
 
 	add		x8, x0, x10
-	mov		x9, sp
 
 save_ctx:
 
@@ -155,13 +172,12 @@ save_ctx:
 	stp		x27, x28, [x8], #16
 	stp		x29, lr, [x8], #16
 
+	mov		x9, sp
 	str		x9, [x8]
-
-	// Prepare to retrieve the regs from the stack
-	add		x8, x1, x10
 
 load_ctx:
 
+	// Prepare to retrieve the regs from the stack
 	add		x8, x1, x10
 
 	ldp		x19, x20, [x8], #16		// restore callee-saved registers

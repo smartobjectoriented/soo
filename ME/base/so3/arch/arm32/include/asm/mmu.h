@@ -35,6 +35,9 @@
 
 #define TTB_L1_SYS_OFFSET	0x4000
 
+/* Fixmap page used for temporary mapping */
+#define FIXMAP_MAPPING		0xf0000000
+
 /* Define the number of entries in each page table */
 
 #define TTB_L1_ORDER      12
@@ -206,7 +209,7 @@ void reset_root_pgtable(void *pgtable, bool remove);
 void clear_l1pte(void *l1pgtable, addr_t vaddr);
 
 void mmu_switch(void *l1pgtable);
-void mmu_switch_sys(void *l1pgtable););
+void mmu_switch_sys(void *l1pgtable);
 
 void flush_tlb_all(void);
 
