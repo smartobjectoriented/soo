@@ -25,7 +25,7 @@
 #include <sizes.h>
 #include <string.h>
 
-#include <mach/uart.h>
+#include <device/ramdev.h>
 
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
@@ -63,6 +63,14 @@ void set_domain(uint32_t val)
 	"mcr	p15, 0, %0, c3, c0	@ set domain" : : "r" (val) : "memory");
 	isb();
 }
+
+#ifdef CONFIG_RAMDEV
+void ramdev_create_mapping(void *root_pgtable, addr_t ramdev_start, addr_t ramdev_end) {
+
+	if (valid_ramdev())
+		create_mapping(root_pgtable, RAMDEV_VADDR, ramdev_start, ramdev_end-ramdev_start, false);
+}
+#endif /* CONFIG_RAMDEV */
 
 /* Reference to the system 1st-level page table */
 static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long end, unsigned long pfn, bool nocache)
@@ -441,6 +449,10 @@ void mmu_switch(void *l1pgtable) {
 
 }
 
+void mmu_switch_sys(void *l1pgtable) {
+	mmu_switch(l1pgtable);
+}
+
 /* Duplicate the kernel area by doing a copy of L1 PTEs from the system page table */
 void pgtable_copy_kernel_area(void *l1pgtable) {
 	int i1;
@@ -506,7 +518,7 @@ void duplicate_user_space(struct pcb *from, struct pcb *to) {
 					/* Add the new page to the process list */
 					add_page_to_proc(to, (page_t *) phys_to_page(paddr));
 
-					create_mapping(current_pgtable(), TRANSITIONAL_MAPPING, paddr, PAGE_SIZE, false);
+					create_mapping(current_pgtable(), FIXMAP_MAPPING, paddr, PAGE_SIZE, false);
 
 					*l2pte_dst = paddr;
 
@@ -514,13 +526,13 @@ void duplicate_user_space(struct pcb *from, struct pcb *to) {
 
 					vaddr = (void *) pte_index_to_vaddr(i, j);
 
-					memcpy((void *) TRANSITIONAL_MAPPING, vaddr, PAGE_SIZE);
+					memcpy((void *) FIXMAP_MAPPING, vaddr, PAGE_SIZE);
 
 				}
 			}
 		}
 	}
-	release_mapping(current_pgtable(), TRANSITIONAL_MAPPING, PAGE_SIZE);
+	release_mapping(current_pgtable(), FIXMAP_MAPPING, PAGE_SIZE);
 }
 
 void dump_pgtable(void *l1pgtable) {

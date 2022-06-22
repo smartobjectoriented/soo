@@ -24,6 +24,7 @@
 #include <heap.h>
 #include <sizes.h>
 #include <string.h>
+#include <process.h>
 
 #include <device/ramdev.h>
 #include <device/fdt.h>
@@ -572,41 +573,108 @@ void mmu_switch_sys(void *l0pgtable) {
 
 }
 
-void duplicate_user_space(struct pcb *from, struct pcb *to) {
-#if 0
-	int i, j;
-	u64 *l0pgtable = (u64 *) from;
-	u64 *pte_origin;
-	u64 *l1pgtable_origin, *l1pgtable;
+/**
+ * Duplicate a highest level of page table from an entry of a lowest level page table.
+ *
+ * @param from	Entry which refers to a highest level page table
+ * @param to	Same in the target page table
+ * @param mask	Linked to the level of page table
+ */
+void duplicate_pgtable_entry(u64 *from, u64 *to, int level, u64 vaddr, pcb_t *pcb_to) {
+	u64 *__from, *__to;
+	u64 mask;
+	u64 i;
+	int ttb_entries, size;
+	u64 paddr_to, __vaddr;
 
-	for (i = l0pte_index(CONFIG_KERNEL_VADDR); i < TTB_L0_ENTRIES; i++) {
-		pte_origin = __sys_root_pgtable + i;
+	if (level < 3) {
 
-		if (*pte_origin) {
-			l1pgtable_origin = (u64 *) __va(*pte_origin & TTB_L0_TABLE_ADDR_MASK);
+		switch(level) {
+		case 0:
+			ttb_entries = TTB_L0_ENTRIES;
+			mask = TTB_L0_TABLE_ADDR_MASK;
+			size = TTB_L0_SIZE;
+			break;
+		case 1:
+			ttb_entries = TTB_L1_ENTRIES;
+			mask = TTB_L1_TABLE_ADDR_MASK;
+			size = TTB_L1_SIZE;
+			break;
+		case 2:
+			ttb_entries = TTB_L2_ENTRIES;
+			mask = TTB_L2_TABLE_ADDR_MASK;
+			size = TTB_L2_SIZE;
+			break;
+		}
 
-			l1pgtable = memalign(TTB_L1_SIZE, PAGE_SIZE);
-			if (!l1pgtable) {
-				printk("%s: heap overflow...\n", __func__);
-				kernel_panic();
+		for (i = 0; i < ttb_entries; i++) {
+
+			if (from[i]) {
+				__from = (u64 *) __va(from[i] & mask);
+
+				__to = memalign(size, PAGE_SIZE);
+				BUG_ON(!__to);
+
+				to[i] = (from[i] & ~mask) | (__pa(__to) & mask);
+
+				switch(level) {
+				case 0:
+					__vaddr = i << TTB_I0_SHIFT;
+					break;
+				case 1:
+					__vaddr = vaddr + (i << TTB_I1_SHIFT);
+					break;
+				case 2:
+					__vaddr = vaddr + (i << TTB_I2_SHIFT);
+					break;
+				}
+
+				duplicate_pgtable_entry(__from, __to, level+1, __vaddr, pcb_to);
+			}
+		}
+		mmu_page_table_flush((addr_t) to, (addr_t) (to + ttb_entries));
+
+
+	} else {
+
+		for (i = 0; i < TTB_L3_ENTRIES; i++) {
+
+			if (from[i]) {
+
+				__vaddr = vaddr + (i << TTB_I3_SHIFT);
+
+				/* Get a new free page */
+				paddr_to = get_free_page();
+				BUG_ON(!paddr_to);
+
+				to[i] = (from[i] & ~TTB_L3_PAGE_ADDR_MASK) | (paddr_to & TTB_L3_PAGE_ADDR_MASK);
+
+				/* Add the new page to the process list */
+				add_page_to_proc(pcb_to, (page_t *) phys_to_page(paddr_to));
+
+				create_mapping(NULL, FIXMAP_MAPPING, paddr_to, PAGE_SIZE, false);
+
+				memcpy((void *) FIXMAP_MAPPING, (void *) __vaddr, PAGE_SIZE);
 			}
 
-			/* Empty the page table */
-			memset(l1pgtable, 0, TTB_L1_SIZE);
-
-			/* Copy all entries of the L1 pgtable */
-			for (j = 0; j < TTB_L1_ENTRIES; j++)
-				l1pgtable[j] = l1pgtable_origin[j];
-
-			mmu_page_table_flush((addr_t) l1pgtable, (addr_t) (l1pgtable + TTB_L1_ENTRIES));
-
-			__l0pgtable[i] = (*pte_origin & ~TTB_L0_TABLE_ADDR_MASK) | (__pa(l1pgtable) & TTB_L0_TABLE_ADDR_MASK);
 		}
+		release_mapping(current_pgtable(), FIXMAP_MAPPING, PAGE_SIZE);
 	}
+}
 
-	mmu_page_table_flush((addr_t) __l0pgtable, (addr_t) (__l0pgtable + TTB_L0_ENTRIES));
-#endif
+/**
+ * Duplicate the user space along a fork syscall.
+ * User space is mapped with 4 KB page only.
+ *
+ *
+ * @param from	Origin L0 pagetable
+ * @param to	Target pagetable of the new process
+ */
+void duplicate_user_space(pcb_t *from, pcb_t *to) {
 
+	/* Walk through the L0 pgtable and copy the entries */
+
+	duplicate_pgtable_entry((u64 *) from->pgtable, (u64 *) to->pgtable, 0, 0, to);
 }
 
 #ifdef CONFIG_RAMDEV
