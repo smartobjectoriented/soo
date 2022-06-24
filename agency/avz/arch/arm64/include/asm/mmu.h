@@ -104,16 +104,6 @@
 
 /*
  * Memory types available.
- *
- * IMPORTANT: MT_NORMAL must be index 0 since vm_get_page_prot() may 'or' in
- *	      the MT_NORMAL_TAGGED memory type for PROT_MTE mappings. Note
- *	      that protection_map[] only contains MT_NORMAL attributes.
- */
-
-/* WARNING !! The following definitions related to MAIR must absolutely be identical
- * to the ones in the Linux domain (asm/memory.h, mm/proc.S) because Linux will
- * configure the MAIR register which should be done with MMU off; if values are identical,
- * the MMU can remain enabled.
  */
 #define MT_NORMAL		0
 #define MT_NORMAL_TAGGED	1
@@ -338,6 +328,8 @@
  })
 
 
+#define clear_page(page)	memset((void *)(page), 0, PAGE_SIZE)
+
 #define PFN_DOWN(x)   ((x) >> PAGE_SHIFT)
 #define PFN_UP(x)     (((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
 
@@ -392,13 +384,27 @@ static inline int pte_type(u64 *pte)
 	return *pte & PTE_TYPE_MASK;
 }
 
-#define cpu_get_l0pgtable()	\
+
+#define cpu_get_ttbr0() \
 ({						\
 	unsigned long ttbr;			\
 	__asm__("mrs	%0, ttbr1_el1"	\
-		 : "=r" (ttbr) : : "cc");	\
+		 : "=r" (ttbr) : : "cc");		\
 	ttbr;					\
 })
+
+/**
+ * Check if a virtual address is within the user space range.
+ *
+ * @param addr	Virtual address to be checked
+ * @return	true if the 16 MSB is to 0xffff, false otherwise
+ */
+static inline bool user_space_vaddr(addr_t addr) {
+	if ((addr >> 48) & 0xffff)
+		return false;
+	else
+		return true;
+}
 
 static inline unsigned int get_sctlr(void)
 {
@@ -426,8 +432,8 @@ void release_mapping(void *pgtable, addr_t virt_base, size_t size);
 
 void *new_root_pgtable(void);
 
-void mmu_switch(addr_t pgtable_paddr);
-void dump_pgtable(void *l0pgtable);
+void mmu_switch(void *pgtable);
+void dump_pgtable(void *pgtable);
 
 void dump_current_pgtable(void);
 

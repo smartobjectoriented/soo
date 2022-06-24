@@ -71,7 +71,7 @@ int construct_ME(struct domain *d) {
 	/* Lets switch to the page table of our new domain - required for sharing page info */
 	get_current_pgtable(&prev_pagetable_paddr);
 
-	mmu_switch(d->avz_shared->pagetable_paddr);
+	mmu_switch((void *) d->avz_shared->pagetable_paddr);
 
 	d->avz_shared->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
 	d->avz_shared->hypercall_vaddr = (unsigned long) hypercall_entry;
@@ -84,7 +84,7 @@ int construct_ME(struct domain *d) {
 
 	d->avz_shared->printch = printch;
 
-	mmu_switch(prev_pagetable_paddr);
+	mmu_switch((void *) prev_pagetable_paddr);
 
 	/* Create the first thread associated to this domain. */
 

@@ -82,7 +82,7 @@ void shutdown_ME(unsigned int ME_slotID)
 	memset((void *) __lva(memslot[ME_slotID].base_paddr), 0, memslot[ME_slotID].size);
 
 	set_current(__current_domain);
-	mmu_switch(current_pgtable_paddr);
+	mmu_switch((void *) current_pgtable_paddr);
 
 	DBG("Destroying domain structure ...\n");
 
@@ -299,21 +299,21 @@ void soo_cooperate(unsigned int slotID)
 
 				/* Transfer the SPID of the target ME */
 				domcall_args.u.cooperate_args.u.target_coop.spid = domains[i]->avz_shared->dom_desc.u.ME.spid;
+
+				/* Perform a domcall on the specific ME */
+				DBG("Cooperate callback being issued...\n");
+
+				domcall_args.slotID = slotID;
+
+				domain_call(domains[slotID], DOMCALL_soo, &domcall_args);
 			}
 		}
 	}
 
-	/* Well, at this point, we may have zero, one or several MEs for a possible cooperation.
-	 * If there is no ME, we call the cooperate callback anyway to let the ME
-	 * decide what to do (it has to detect ifself that no ME is ready to cooperate).
+	/* Check if some ME got killed during the cooperation process.
+	 * If the initiatore kills itself, the cooperation is done with other residing ME
+	 * even if the initiatior is killed.
 	 */
-
-	/* Perform a domcall on the specific ME */
-	DBG("Cooperate callback being issued...\n");
-
-	domcall_args.slotID = slotID;
-
-	domain_call(domains[slotID], DOMCALL_soo, &domcall_args);
 
 	check_killed_ME();
 }

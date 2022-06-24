@@ -117,7 +117,6 @@ mmu_setup:
 
   blr	x0
 
-
 /*
  * If we're fortunate enough to boot at EL2, ensure that the world is
  * sane before dropping to EL1.

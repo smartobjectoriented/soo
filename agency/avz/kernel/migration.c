@@ -423,7 +423,7 @@ void restore_migrated_domain(unsigned int ME_slotID) {
 	if (get_ME_state(ME_slotID) == ME_state_dead) {
 
 		set_current(agency);
-		mmu_switch(current_pgtable_paddr);
+		mmu_switch((void *) current_pgtable_paddr);
 
 		return ;
 	}
@@ -444,7 +444,7 @@ void restore_migrated_domain(unsigned int ME_slotID) {
 	if ((domains[ME_slotID] == NULL) || (get_ME_state(ME_slotID) == ME_state_dead) || (get_ME_state(ME_slotID) == ME_state_dormant)) {
 
 		set_current(agency);
-		mmu_switch(current_pgtable_paddr);
+		mmu_switch((void *) current_pgtable_paddr);
 
 		return ;
 	}
@@ -460,7 +460,7 @@ void restore_migrated_domain(unsigned int ME_slotID) {
 	domain_unpause_by_systemcontroller(me);
 
 	set_current(agency);
-	mmu_switch(current_pgtable_paddr);
+	mmu_switch((void *) current_pgtable_paddr);
 
 }
 
