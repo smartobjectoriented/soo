@@ -47,6 +47,7 @@ choice
 		bool "SOO.chat Mobile Entity"
 		help
 			Test text
+                select VUIHANDLER_FRONTEND
 
 
 	config SOO_WAGOLED
