@@ -48,7 +48,6 @@ typedef struct {
     uint64_t released_time;
 } pt210_t;
 
-
 /**
  * @brief Initialize PT210 struct members
  * 

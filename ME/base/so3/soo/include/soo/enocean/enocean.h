@@ -29,6 +29,7 @@
 
 #define ENOCEAN_RSP_DATA_SIZE       0x01
 #define ENOCEAN_1BS_DATA_SIZE       0x01
+#define ENOCEAN_4BS_DATA_SIZE       0x04
 
 #define ENOCEAN_TELEGRAM_BUF_SIZE   21
 
@@ -37,7 +38,8 @@
  */
 typedef enum {
     RPS = 0xF6,
-    BS_1 = 0xD5
+    BS_1 = 0xD5,
+    BS_4 = 0xA5
 } RORG; 
 
 typedef unsigned char byte;
