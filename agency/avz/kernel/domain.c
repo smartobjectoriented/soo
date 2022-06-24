@@ -357,7 +357,7 @@ void domain_call(struct domain *target_dom, int cmd, void *arg)
 	set_current(__current);
 
 	/* Switch back to our domain address space. */
-	mmu_switch(prev);
+	mmu_switch((void *) prev);
 }
 
 

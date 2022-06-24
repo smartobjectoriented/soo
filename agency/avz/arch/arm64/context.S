@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2022 Daniel Rossier <daniel.rossier//heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,7 +30,6 @@ ENTRY(__switch_to)
 
 	mov		x10, #(OFFSET_CPU_REGS + OFFSET_X19)
 	add		x8, x0, x10
-	mov		x9, sp
 
 save_ctx:
 
@@ -40,18 +39,22 @@ save_ctx:
 	stp		x25, x26, [x8], #16
 	stp		x27, x28, [x8], #16
 	stp		x29, lr, [x8], #16
+
+	mov		x9, sp
 	str		x9, [x8]
 
 load_ctx:
-        // Prepare to retrieve the regs from the stack
+
+	// Prepare to retrieve the regs from the stack
 	add		x8, x1, x10
-	
+
 	ldp		x19, x20, [x8], #16		// restore callee-saved registers
 	ldp		x21, x22, [x8], #16
 	ldp		x23, x24, [x8], #16
 	ldp		x25, x26, [x8], #16
 	ldp		x27, x28, [x8], #16
 	ldp		x29, lr, [x8], #16
+
 	ldr		x9, [x8]
 	mov		sp, x9
 
@@ -63,12 +66,13 @@ load_ctx:
 // x0 contains the TTBR related to this CPU for the L0 page table
 
 ENTRY(__mmu_switch)
+ 	// Ensure the flushes happen before continuing
+	dsb   sy
 
-	dsb   sy                     /* Ensure the flushes happen before continuing */
-    isb                          /* Ensure synchronization with previous changes to text */
+	// Ensure synchronization with previous code changes
+    isb
 
-    // At the hypervisor level, we take care about TTBR1 page table only.
-    msr    ttbr1_el1, x0
+	msr    ttbr1_el1, x0
 
     isb
 

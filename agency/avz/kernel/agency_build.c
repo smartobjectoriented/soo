@@ -75,7 +75,7 @@ int construct_agency(struct domain *d) {
 
 	/* Lets switch to the page table of our new domain - required for sharing page info */
 
-	mmu_switch(d->avz_shared->pagetable_paddr);
+	mmu_switch((void *) d->avz_shared->pagetable_paddr);
 
 	d->avz_shared->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
 
@@ -92,7 +92,7 @@ int construct_agency(struct domain *d) {
 
 	d->avz_shared->printch = printch;
 
-	mmu_switch(current->avz_shared->pagetable_paddr);
+	mmu_switch((void *) current->avz_shared->pagetable_paddr);
 
 	/* Set up a new domain stack for the RT domain */
 	domain_stack = (unsigned long) setup_dom_stack(domains[DOMID_AGENCY_RT]);

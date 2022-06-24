@@ -833,7 +833,9 @@
 /* Safe value for MPIDR_EL1: Bit31:RES1, Bit30:U:0, Bit24:MT:0 */
 #define SYS_MPIDR_SAFE_VAL	(BIT(31))
 
+/* The stack must be 16-byte aligned */
 
+#define S_FRAME_SIZE	(8 * 34)
 
 #ifdef __ASSEMBLY__
 
@@ -869,15 +871,56 @@
 	.endr
 	.equ	.L__reg_num_xzr, 31
 
-	.macro	mrs_s, rt, sreg
+.macro	mrs_s, rt, sreg
 	 __emit_inst(0xd5200000|(\sreg)|(.L__reg_num_\rt))
-	.endm
+.endm
 
-	.macro	msr_s, sreg, rt
+.macro	msr_s, sreg, rt
 	__emit_inst(0xd5000000|(\sreg)|(.L__reg_num_\rt))
-	.endm
+.endm
 
-#define S_FRAME_SIZE	(8 * 34)
+.macro kernel_entry
+	sub		sp, sp, #S_FRAME_SIZE
+
+	stp		x0, x1, [sp, #OFFSET_X0]
+	stp		x2, x3, [sp, #OFFSET_X2]
+	stp		x4, x5, [sp, #OFFSET_X4]
+	stp		x6, x7, [sp, #OFFSET_X6]
+	stp		x8, x9, [sp, #OFFSET_X8]
+	stp		x10, x11, [sp, #OFFSET_X10]
+	stp		x12, x13, [sp, #OFFSET_X12]
+	stp		x14, x15, [sp, #OFFSET_X14]
+	stp		x16, x17, [sp, #OFFSET_X16]
+	stp		x18, x19, [sp, #OFFSET_X18]
+	stp		x20, x21, [sp, #OFFSET_X20]
+	stp		x22, x23, [sp, #OFFSET_X22]
+	stp		x24, x25, [sp, #OFFSET_X24]
+	stp		x26, x27, [sp, #OFFSET_X26]
+	stp		x28, x29, [sp, #OFFSET_X28]
+	str		lr, [sp, #OFFSET_LR]
+.endm
+
+.macro kernel_exit
+
+	ldp		x0, x1, [sp, #OFFSET_X0]
+	ldp		x2, x3, [sp, #OFFSET_X2]
+	ldp		x4, x5, [sp, #OFFSET_X4]
+	ldp		x6, x7, [sp, #OFFSET_X6]
+	ldp		x8, x9, [sp, #OFFSET_X8]
+	ldp		x10, x11, [sp, #OFFSET_X10]
+	ldp		x12, x13, [sp, #OFFSET_X12]
+	ldp		x14, x15, [sp, #OFFSET_X14]
+	ldp		x16, x17, [sp, #OFFSET_X16]
+	ldp		x18, x19, [sp, #OFFSET_X18]
+	ldp		x20, x21, [sp, #OFFSET_X20]
+	ldp		x22, x23, [sp, #OFFSET_X22]
+	ldp		x24, x25, [sp, #OFFSET_X24]
+	ldp		x26, x27, [sp, #OFFSET_X26]
+	ldp		x28, x29, [sp, #OFFSET_X28]
+	ldr		lr, [sp, #OFFSET_LR]
+
+	add		sp, sp, #S_FRAME_SIZE
+.endm
 
 #else
 
@@ -1132,6 +1175,8 @@ struct domain;
 void __switch_to(struct domain *prev, struct domain *next);
 void ret_to_user(void);
 void pre_ret_to_user(void);
+
+void trap_handle(cpu_regs_t *regs);
 
 void cpu_do_idle(void);
 

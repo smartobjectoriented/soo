@@ -21,8 +21,8 @@ typedef struct { volatile int counter; } atomic_t;
 
 #define ATOMIC_INIT(i)	{ (i) }
 
-#define _atomic_read(v) ((v).counter)
-#define atomic_read(v)	((v)->counter)
+#define atomic_read(v)			READ_ONCE((v)->counter)
+#define atomic_set(v, i)		WRITE_ONCE(((v)->counter), (i))
 
 /*
  * AArch64 UP and SMP safe atomic ops.  We use load exclusive and

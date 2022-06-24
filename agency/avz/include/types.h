@@ -186,7 +186,7 @@ typedef	long		time_t;
 #define DEFINE_CACHE_ALIGN_BUFFER(type, name, size)			\
 	DEFINE_ALIGN_BUFFER(type, name, size, ARCH_DMA_MINALIGN)
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]) + __must_be_array(x))
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 typedef unsigned char bool;
 #define false 	0

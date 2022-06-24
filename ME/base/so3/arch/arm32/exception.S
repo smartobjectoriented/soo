@@ -33,10 +33,6 @@
 .globl ret_from_fork
 .global __call_sig_handler
 
-#ifdef CONFIG_SO3VIRT
-.global inject_syscall_vector
-#endif /* CONFIG_SO3VIRT */
-
 .extern current_thread
 .extern irq_handle
 .extern syscall_handle
@@ -81,10 +77,6 @@
 
 #endif /* 0 */
 
-#ifdef CONFIG_SO3VIRT
-.extern __guest_vectors
-#endif /* CONFIG_SO3VIRT */
-
 /* use the special section (.vectors.text), to enable fine-tuning
  * of the placement of this section inside the linker script
  */
@@ -108,24 +100,6 @@ _not_used:              .word not_used
 _irq:                   .word irq
 _fiq:                   .word fiq
 _pad:                   .word 0x12345678 @ now 16*4=64
-
-#ifdef CONFIG_SO3VIRT
-
-@ Inject the real syscall vector used by SO3
-@ Modified registers: r0, r1
-inject_syscall_vector:
-
-	ldr r0, =__vectors
-	ldr r1, [r0, #8] 	@ Vector location of swi in standard ARM vector table
-	ldr r2, [r0, #36] 	@ And the re-direction stored in the same page, at this position (+36), following the vector table.
-
-	ldr r0, =VECTOR_VADDR
-
-	str r1, [r0, #8]
-	str r2, [r0, #36]
-
-	mov pc, lr
-#endif /* CONFIG_SO3VIRT */
 
 @ exception handlers
 .align  5

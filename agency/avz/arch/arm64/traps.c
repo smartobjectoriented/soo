@@ -117,7 +117,8 @@ void trap_handle(cpu_regs_t *regs) {
 #endif
 
 	default:
-		lprintk("### ESR_Elx_EC(esr): %lx\n", ESR_ELx_EC(esr));
+		lprintk("### ESR_Elx_EC(esr): 0x%lx\n", ESR_ELx_EC(esr));
+		trap_handle_error(regs->lr);
 		kernel_panic();
 	}
 

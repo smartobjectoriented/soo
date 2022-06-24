@@ -418,7 +418,7 @@ void switch_mm(struct domain *d) {
 
 	set_current(d);
 
-	mmu_switch(d->avz_shared->pagetable_paddr);
+	mmu_switch((void *) d->avz_shared->pagetable_paddr);
 }
 
 void dump_page(unsigned int pfn) {

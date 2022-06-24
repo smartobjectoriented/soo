@@ -45,7 +45,7 @@ void get_current_pgtable(addr_t *pgtable_paddr) {
 
 	cpu = smp_processor_id();
 
-	*pgtable_paddr = cpu_get_l0pgtable();
+	*pgtable_paddr = cpu_get_ttbr0();
 }
 
 static void alloc_init_l3(u64 *l0pgtable, addr_t addr, addr_t end, addr_t phys, bool nocache)
@@ -454,7 +454,7 @@ void replace_current_pgtable_with(void *pgtable) {
 	 * Warning !! After the switch, we do not have any mapped I/O until the driver core gets initialized.
 	 */
 
-	mmu_switch(__pa(pgtable));
+	mmu_switch((void *) __pa(pgtable));
 
 	/* Re-configuring the original system page table */
 #ifdef CONFIG_VA_BITS_48
@@ -467,7 +467,7 @@ void replace_current_pgtable_with(void *pgtable) {
 #endif
 
 	/* Finally, switch back to the original location of the system page table */
-	mmu_switch(__pa(__sys_root_pgtable));
+	mmu_switch((void *) __pa(__sys_root_pgtable));
 }
 
 
@@ -550,10 +550,10 @@ void mmu_configure(addr_t fdt_addr) {
  * i.e. starting with 0xffff.... So ttbr0 is not used as soon as the id mapping in the RAM
  * is not necessary anymore.
  */
-void mmu_switch(addr_t pgtable_paddr) {
+void mmu_switch(void *pgtable) {
 	flush_dcache_all();
 
-	__mmu_switch((void *) pgtable_paddr);
+	__mmu_switch(pgtable);
 
 	invalidate_icache_all();
 	__asm_invalidate_tlb_all();

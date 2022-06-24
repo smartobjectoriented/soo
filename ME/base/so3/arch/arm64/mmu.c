@@ -340,6 +340,13 @@ void release_mapping(void *pgtable, addr_t vaddr, size_t size) {
 		free(pgtable);
 }
 
+
+/* Duplicate the essentials of the kernel area */
+void pgtable_copy_kernel_area(void *pgtable) {
+	*l0pte_offset(pgtable, AVZ_shared->hypervisor_vaddr) = *l0pte_offset(__sys_root_pgtable, AVZ_shared->hypervisor_vaddr);
+
+}
+
 /*
  * Allocate a new page table. Return NULL if it fails.
  * The page table must be 4 KB aligned.
@@ -355,15 +362,6 @@ void *new_root_pgtable(void) {
 
 	/* Empty the page table */
 	memset(pgtable, 0, TTB_L0_SIZE);
-
-#ifdef CONFIG_SO3VIRT
-
-	/* Preserve the AVZ hypervisor */
-
-	*l0pte_offset(pgtable, AVZ_shared->hypervisor_vaddr) = *l0pte_offset(__sys_root_pgtable, AVZ_shared->hypervisor_vaddr);
-
-#endif /* CONFIG_SO3VIRT */
-
 
 	return pgtable;
 }
@@ -615,6 +613,8 @@ void duplicate_pgtable_entry(u64 *from, u64 *to, int level, u64 vaddr, pcb_t *pc
 				__to = memalign(size, PAGE_SIZE);
 				BUG_ON(!__to);
 
+				memset(__to, 0, PAGE_SIZE);
+
 				to[i] = (from[i] & ~mask) | (__pa(__to) & mask);
 
 				switch(level) {
@@ -632,7 +632,7 @@ void duplicate_pgtable_entry(u64 *from, u64 *to, int level, u64 vaddr, pcb_t *pc
 				duplicate_pgtable_entry(__from, __to, level+1, __vaddr, pcb_to);
 			}
 		}
-		mmu_page_table_flush((addr_t) to, (addr_t) (to + ttb_entries));
+		mmu_page_table_mlush((addr_t) to, (addr_t) (to + ttb_entries));
 
 
 	} else {
@@ -684,11 +684,6 @@ void ramdev_create_mapping(void *root_pgtable, addr_t ramdev_start, addr_t ramde
 		create_mapping(root_pgtable, RAMDEV_VADDR, ramdev_start, ramdev_end-ramdev_start, false);
 }
 #endif /* CONFIG_RAMDEV */
-
-/* Duplicate the essentials of the kernel area */
-void pgtable_copy_kernel_area(void *l0pgtable) {
-	/* Nothing to do - We stay with ttbr0_el1 to the right sys page table. */
-}
 
 #if 0
 void dump_current_pgtable(void) {

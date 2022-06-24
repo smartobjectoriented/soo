@@ -60,7 +60,7 @@ int do_physdev_op(int cmd, void *args)
 		dump_page(val);
 
 		set_current(__current);
-		mmu_switch(current_pgtable_paddr);
+		mmu_switch((void *) current_pgtable_paddr);
 
 		break;
 	}

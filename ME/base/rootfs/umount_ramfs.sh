@@ -2,7 +2,7 @@
 
 if [ $# -ne 1 ]; then
         echo "Usage: ./umount_ramfs <board>"
-	echo "Please provide the board name (vexpress, rpi4, so3virt)"
+	echo "Please provide the board name (vexpress, rpi4, virt64, rpi4_64, so3virt)"
 	exit 0
 fi
 

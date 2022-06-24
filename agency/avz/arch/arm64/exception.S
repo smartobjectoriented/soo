@@ -82,19 +82,19 @@ ENTRY(__vectors)
 	.align 7
 
 	mov	x0, lr
-	b trap_handle
+	b trap_handle_error
 
 	// Current EL with SP0 / IRQ
 	.align 7
 
 	mov	x0, lr
-	b trap_handle
+	b trap_handle_error
 
 	// Current EL with SP0 / FIQ
 	.align 7
 
 	mov	x0, lr
-	b trap_handle
+	b trap_handle_error
 
 	// Current EL with SP0 / SError
 	.align 7
@@ -105,8 +105,7 @@ ENTRY(__vectors)
 	// Current EL with SPx / Synchronous
 	.align 7
 
-	mov	x0, lr
-	b trap_handle_error
+	b	el0_sync_handler
 
 	// Current EL with SPx / IRQ
 	.align 7
@@ -123,7 +122,9 @@ ENTRY(__vectors)
 	.align 7
 
 	mov	x0, lr
-	b trap_handle_error
+	mrs	x1, esr_el1
+
+	b	__sync_serror
 
 	// Lower EL using AArch64 / Synchronous
 	.align 7
@@ -162,7 +163,7 @@ ENTRY(__vectors)
 	// Lower EL using AArch32 / FIQ
 	.align 7
 
-	mov x0, lr
+	mov	x0, lr
 	b trap_handle_error
 
 	// Lower EL using AArch32 / SError
@@ -170,49 +171,6 @@ ENTRY(__vectors)
 
 	mov	x0, lr
 	b trap_handle_error
-
-
-.macro kernel_entry
-	sub		sp, sp, #S_FRAME_SIZE
-
-	stp		x0, x1, [sp, #OFFSET_X0]
-	stp		x2, x3, [sp, #OFFSET_X2]
-	stp		x4, x5, [sp, #OFFSET_X4]
-	stp		x6, x7, [sp, #OFFSET_X6]
-	stp		x8, x9, [sp, #OFFSET_X8]
-	stp		x10, x11, [sp, #OFFSET_X10]
-	stp		x12, x13, [sp, #OFFSET_X12]
-	stp		x14, x15, [sp, #OFFSET_X14]
-	stp		x16, x17, [sp, #OFFSET_X16]
-	stp		x18, x19, [sp, #OFFSET_X18]
-	stp		x20, x21, [sp, #OFFSET_X20]
-	stp		x22, x23, [sp, #OFFSET_X22]
-	stp		x24, x25, [sp, #OFFSET_X24]
-	stp		x26, x27, [sp, #OFFSET_X26]
-	stp		x28, x29, [sp, #OFFSET_X28]
-	str		lr, [sp, #OFFSET_LR]
-.endm
-
-.macro kernel_exit
-	ldp		x0, x1, [sp, #OFFSET_X0]
-	ldp		x2, x3, [sp, #OFFSET_X2]
-	ldp		x4, x5, [sp, #OFFSET_X4]
-	ldp		x6, x7, [sp, #OFFSET_X6]
-	ldp		x8, x9, [sp, #OFFSET_X8]
-	ldp		x10, x11, [sp, #OFFSET_X10]
-	ldp		x12, x13, [sp, #OFFSET_X12]
-	ldp		x14, x15, [sp, #OFFSET_X14]
-	ldp		x16, x17, [sp, #OFFSET_X16]
-	ldp		x18, x19, [sp, #OFFSET_X18]
-	ldp		x20, x21, [sp, #OFFSET_X20]
-	ldp		x22, x23, [sp, #OFFSET_X22]
-	ldp		x24, x25, [sp, #OFFSET_X24]
-	ldp		x26, x27, [sp, #OFFSET_X26]
-	ldp		x28, x29, [sp, #OFFSET_X28]
-	ldr		lr, [sp, #OFFSET_LR]
-
-	add		sp, sp, #S_FRAME_SIZE
-.endm
 
 el0_sync_handler:
 
@@ -321,8 +279,6 @@ el01_irq_handler:
 	tst		w12, #0xff
 
 	b.eq	restore
-
-	b		upcall_path
 
 upcall_path:
 
