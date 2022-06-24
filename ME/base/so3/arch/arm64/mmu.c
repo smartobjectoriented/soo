@@ -632,7 +632,7 @@ void duplicate_pgtable_entry(u64 *from, u64 *to, int level, u64 vaddr, pcb_t *pc
 				duplicate_pgtable_entry(__from, __to, level+1, __vaddr, pcb_to);
 			}
 		}
-		mmu_page_table_mlush((addr_t) to, (addr_t) (to + ttb_entries));
+		mmu_page_table_flush((addr_t) to, (addr_t) (to + ttb_entries));
 
 
 	} else {
