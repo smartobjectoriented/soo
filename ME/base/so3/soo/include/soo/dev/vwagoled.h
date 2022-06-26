@@ -26,10 +26,10 @@
 #define DEFAULT_DIM_VALUE		0
 
 typedef enum {
-	/* Turn led off */
-	LED_OFF = 0,
 	/* Turn led on */
-	LED_ON,
+	LED_ON = 0,
+	/* Turn led off*/
+	LED_OFF,
 
 	/*** !!! Not yet implemented, ***/
 	/* Get current status */

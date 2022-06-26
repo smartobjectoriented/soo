@@ -25,7 +25,7 @@
 #include <asm/atomic.h>
 
 #include <me/common.h>
-#include <soo/vbwa88pg.h>
+#include <soo/knx/vbwa88pg.h>
 
 #include <me/switch.h>
 

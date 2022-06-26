@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -29,6 +29,7 @@
 
 #include <me/switch.h>
 
+/** Temporary Switch ID for EnOcean switch **/
 #define ENOCEAN_SWITCH_ID	0x002A3D45
 
 /**
@@ -39,7 +40,7 @@
 void switch_init(switch_t *sw) {
 #warning to be avoided...
 #ifdef ENOCEAN
-	pt210_init(&sw->sw, ENOCEAN_SWITCH_ID);
+	ptm210_init(&sw->sw, ENOCEAN_SWITCH_ID);
 #endif
 
 #ifdef KNX
@@ -50,28 +51,41 @@ void switch_init(switch_t *sw) {
 }
 
 /**
+ * @brief  Generic switch deinit
+ * @param  sw: Switch to deinit 
+ * @retval None
+ */
+void switch_deinit(switch_t *sw) {
+#ifdef ENOCEAN
+	ptm210_deinit(&sw->sw);
+#endif
+}
+/**
  * @brief Generic switch get data. Wait for an event.
  * 
  * @param sw Switch to get data from
  */
 void switch_get_data(switch_t *sw) {
 #ifdef ENOCEAN
-	uint64_t pressed_time;
 
-	pt210_wait_event(&sw->sw);
-	if (sw->sw.event) {
-		if (sw->sw.up) 
+	wait_for_completion(&sw->sw._wait_event);
+	if (atomic_read(&sw->sw.event)) {
+		if (atomic_read(&sw->sw.up)) 
 			sh_switch->pos = POS_LEFT_UP;
-		else if (sw->sw.down) 
+		else if (atomic_read(&sw->sw.down)) 
 			sh_switch->pos = POS_LEFT_DOWN;
-		else if (sw->sw.released) {
-			pressed_time = NS_TO_MS(sw->sw.released_time - sw->sw.press_time);
-			sh_switch->press = pressed_time > PT210_PRESSED_TIME_MS ? PRESS_LONG : PRESS_SHORT;
-			sh_switch->switch_event= true;
-		}
+		else
+			sh_switch->pos = POS_NONE;
+		
+		if (atomic_read(&sw->sw.released)) 
+			sh_switch->press = PRESS_SHORT;
+		else
+			sh_switch->press = PRESS_LONG;
+
+		sh_switch->switch_event= true;
+		ptm210_reset(&sw->sw);
 	} 
 			
-	pt210_reset(&sw->sw);
 #endif
 		
 #ifdef KNX
@@ -124,6 +138,8 @@ void *switch_wait_data_th(void *args) {
 		}
 	}
 
+	switch_deinit(sw);
+
 	DBG(MESWITCH_PREFIX "Stopped: %s\n", __func__);
 
 	return NULL;
@@ -133,7 +149,7 @@ void *app_thread_main(void *args) {
 	tcb_t *switch_th;
 	switch_t *sw;
 
-	sw = (switch_t *) malloc(sizeof(switch_t));
+	sw = (switch_t *)malloc(sizeof(switch_t));
 	if (!sw) {
 		DBG(MESWITCH_PREFIX "Failed to allocate switch_t\n");
 		kernel_panic();

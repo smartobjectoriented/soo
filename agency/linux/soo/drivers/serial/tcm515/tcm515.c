@@ -32,6 +32,13 @@
 #include <linux/jiffies.h>
 #include <soo/uapi/console.h>
 
+/*** Commands packets ***/
+static esp3_packet_t co_rd_version_packet = {
+    .header = {0x01, 0x00, COMMON_COMMAND},
+    .data = (byte[]){CO_RD_VERSION},
+    .optional_data = NULL,
+};
+
 /* Access to serdev */
 static struct tcm515_uart *tcm515;
 

@@ -25,13 +25,24 @@
 #include <soo/knx/gtl2tw.h>
 #include <soo/dev/vknx.h>
 
+#define DATAPOINT_1     0x00
+#define DATAPOINT_2     0x01
+#define DATAPOINT_3     0x02
+#define DATAPOINT_4     0x03
+
+/**
+ * @brief  Enum matching BAOS addresses to physical positions
+ */
 enum {
     GTL2TW_UP_LEFT = FIRST_DP_ID,
-    GTL2TW_DOWN_LEFT,
-    GTL2TW_UP_RIGHT,
-    GTL2TW_DOWN_RIGHT
+    GTL2TW_DOWN_LEFT = SECOND_DP_ID,
+    GTL2TW_UP_RIGHT = THIRD_DP_ID,
+    GTL2TW_DOWN_RIGHT = FORTH_DP_ID
 } ids;
 
+/**
+ * @brief  Enum describing the status ON/OFF sent by the switch.
+ */
 enum {
     OFF = 0x00,
     ON
@@ -68,32 +79,31 @@ void gtl2tw_wait_event(gtl2tw_t *sw) {
                 switch(data.datapoints[i].id) {
                     case GTL2TW_UP_LEFT:
                         DBG("UP left\n");
-                        if (sw->status[0] != data.datapoints[i].data[0]) {
-                            sw->events[0] = true;
-                            sw->status[0] = sw->status[0] == ON ? OFF : ON;
+                        if (sw->status[DATAPOINT_1] != data.datapoints[i].data[0]) {
+                            sw->events[DATAPOINT_1] = true;
+                            sw->status[0] = sw->status[DATAPOINT_1] == ON ? OFF : ON;
                         }
                         break;
                     case GTL2TW_DOWN_LEFT:
                         DBG("DOWN left\n");
-                        if (sw->status[1] != data.datapoints[i].data[0]) {
-                            sw->events[1] = true;
-                            sw->status[1] = sw->status[1] == ON ? OFF : ON;
+                        if (sw->status[DATAPOINT_2] != data.datapoints[i].data[0]) {
+                            sw->events[DATAPOINT_2] = true;
+                            sw->status[DATAPOINT_2] = sw->status[DATAPOINT_2] == ON ? OFF : ON;
                         }
                         break;
 
                     case GTL2TW_UP_RIGHT:
                         DBG("UP right\n");
-
-                        if (sw->status[2] != data.datapoints[i].data[0]) {
-                            sw->events[2] = true;
-                            sw->status[2] = sw->status[2] == ON ? OFF : ON;
+                        if (sw->status[DATAPOINT_3] != data.datapoints[i].data[0]) {
+                            sw->events[DATAPOINT_3] = true;
+                            sw->status[DATAPOINT_3] = sw->status[DATAPOINT_3] == ON ? OFF : ON;
                         }
                         break;
                     case GTL2TW_DOWN_RIGHT:
                         DBG("DOWN right\n");
-                        if (sw->status[3] != data.datapoints[i].data[0]) {
-                            sw->events[3] = true;
-                            sw->status[3] = sw->status[3] == ON ? OFF : ON;
+                        if (sw->status[DATAPOINT_4] != data.datapoints[i].data[0]) {
+                            sw->events[DATAPOINT_4] = true;
+                            sw->status[DATAPOINT_4] = sw->status[DATAPOINT_4] == ON ? OFF : ON;
                         }
                         break;
                 }

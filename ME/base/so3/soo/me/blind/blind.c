@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -29,6 +29,8 @@
 #include <delay.h>
 
 #include <me/blind.h>
+
+#define BLIND_FIRST_DP_ID		0x01
 
 /**
  * @brief Generic blind initialization
@@ -44,7 +46,7 @@ void blind_init(blind_t *bl)
 	switch (bl->type)
 	{
 	case VBWA88PG:
-		vbwa88pg_blind_init(&bl->blind, 0x01);
+		vbwa88pg_blind_init(&bl->blind, BLIND_FIRST_DP_ID);
 		break;
 	
 	default:
@@ -114,8 +116,6 @@ void *blind_send_cmd_th(void *args) {
 	while (atomic_read(&shutdown)) {
 		wait_for_completion(&send_data_lock);
 
-		// msleep(300);
-
 		switch(sh_blind->sw_pos) {
 			case POS_LEFT_UP:
 				blind_up(bl);
@@ -136,49 +136,12 @@ void *blind_send_cmd_th(void *args) {
 	return NULL;
 }
 
-/**
- * @brief Wait KNX data. May be the result of a request or an event
- * 
- * @param args (blind_t *) generic struct blind 
- * @return int 0
- */
-int knx_wait_data_th(void *args) {
-	blind_t *bl = (blind_t *)args;
-	vknx_response_t data;
-
-	DBG(MEBLIND_PREFIX "Started: %s\n", __func__);
-
-	while (atomic_read(&shutdown)) {
-		if (get_knx_data(&data) < 0) {
-			DBG(MEBLIND_PREFIX "Failed to get knx data\n");
-			continue;
-		} 
-
-		DBG(MEBLIND_PREFIX "Got new knx data. Type:\n");
-
-		switch (data.event)
-		{
-		case KNX_RESPONSE:
-			DBG(MEBLIND_PREFIX "KNX response\n");
-			vbwa88pg_blind_update(&bl->blind, data.datapoints, data.dp_count);
-			break;
-		
-		case KNX_INDICATION:
-			/** Not used yet **/
-			DBG(MEBLIND_PREFIX "KNX indication\n");
-			break;
-		}
-	}
-
-	DBG(MEBLIND_PREFIX "Stopped: %s\n", __func__);
-	return 0;
-}
-
 void *app_thread_main(void *args) {
 	tcb_t *knx_th, *blind_th;
 	blind_t *bl;
 
 	bl = (blind_t *)malloc(sizeof(blind_t));
+	sh_blind->sw_press = PRESS_SHORT;
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
@@ -186,9 +149,6 @@ void *app_thread_main(void *args) {
 	printk(MEBLIND_PREFIX "Welcome\n");
 
 	blind_th = kernel_thread(blind_send_cmd_th, "blind_send_cmd_th", bl, THREAD_PRIO_DEFAULT);
-	// knx_th = kernel_thread(knx_wait_data_th, "knx_wait_data_th", bl, THREAD_PRIO_DEFAULT);
-
-	// thread_join(knx_th);
 
 	return NULL;
 }
