@@ -10,6 +10,7 @@ source "devices/Kconfig"
 
 source "apps/Kconfig"
 
+source "mm/Kconfig"
 source "fs/Kconfig"
 source "ipc/Kconfig"
 
