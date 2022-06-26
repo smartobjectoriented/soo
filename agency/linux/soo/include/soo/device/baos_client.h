@@ -43,6 +43,7 @@
 
 /** BAOS items id **/
 #define BAOS_ID_SERIAL_NUM                          0x08
+#define BAOS_PROTOCOL_VERS                          0x10
 
 #define BAOS_RESPONSE_TIMEOUT                       5000 /** in ms **/
 
@@ -224,4 +225,12 @@ void baos_print_frame(baos_frame_t *frame);
  */
 void baos_client_subscribe_to_indications(void (*indication_fn)(baos_frame_t *frame));
 
+/**
+ * @brief Read the description of datapoints
+ * 
+ * @param first_datapoint_id First datapoint id
+ * @param datapoint_count Number of datapoint the get the value of. Starting from first id
+ * @return baos_frame_t* BAOS frame containing the response
+ */
+baos_frame_t *baos_get_datapoint_description(u_int16_t first_datapoint_id, u_int16_t datapoint_count);
 #endif

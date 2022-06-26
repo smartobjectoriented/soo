@@ -160,7 +160,7 @@ int tx_buffer_put(uint8_t *data, uint32_t size, int32_t slotID, uint8_t type) {
 	vuihandler_drv_priv_t *vdrv_priv = vdrv_get_priv(&vuihandlerdrv.vdrv);
 	vuihandler_pkt_t *cur_elem = vdrv_priv->tx_buf.ring[vdrv_priv->tx_buf.put_index].pkt;
 
-	DBG("[soo:backend:vuihandler] Putting %dB of type %d in the TX buffer\n", size, type);
+	soo_log("[soo:backend:vuihandler] Putting %dB of type %d in the TX buffer\n", size, type);
 
 	/* abort if there are no place left on the circular buffer */
 	if (vdrv_priv->tx_buf.cur_size == VUIHANDLER_TX_BUF_SIZE) 
@@ -223,6 +223,7 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	int32_t slotID = -1;
 
 	while ((ring_req = vuihandler_tx_get_ring_request(&vuihandler->tx_rings.ring)) != NULL) {
+
 		DBG(VUIHANDLER_PREFIX "%d, %d\n", ring_req->id, ring_req->size);
 	
 		slotID = vuihandler->otherend_id;		

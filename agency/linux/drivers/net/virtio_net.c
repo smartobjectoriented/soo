@@ -1020,7 +1020,6 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
 	}
 
 	ewma_pkt_len_add(&rq->mrg_avg_pkt_len, head_skb->len);
-
 	return head_skb;
 
 err_xdp:

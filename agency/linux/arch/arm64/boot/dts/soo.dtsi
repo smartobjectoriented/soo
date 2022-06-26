@@ -53,11 +53,12 @@
 				compatible = "venocean,backend";
 				status = "disabled";
 			};
-			
+
 			vknx {
 				compatible = "vknx,backend";
 				status = "disabled";
 			};
+
 		};
 	};
 	

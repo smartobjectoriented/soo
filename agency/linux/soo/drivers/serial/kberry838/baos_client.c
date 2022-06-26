@@ -44,13 +44,23 @@ static const char error_string [][STRING_SIZE] = {
     "Buffer is too small",
     "Item is not writeable",
     "Service not supported",
-    "Bad dervice parameter",
+    "Bad device parameter",
     "Bad id",
     "Bad command / value",
     "Bad length",
     "Message inconsistent",
     "Object server is busy"
 };
+
+static void print_buffer(byte *buf, int len) {
+    int i;
+
+    pr_info("Buffer length: %d\n",len);
+    for (i = 0; i < len; i++) {
+        printk("0x%02X ", buf[i]);
+    }
+    printk("\n");
+}
 
 /**
  * @brief Frame types string
@@ -172,8 +182,8 @@ void baos_print_frame(baos_frame_t *frame) {
             break;
         
         case DATAPOINT:
-            BUG_ON(!frame->datapoints);
-            baos_print_datapoint(frame);
+            if (frame->datapoints)
+                baos_print_datapoint(frame);
             break;
         }
     }
@@ -441,6 +451,7 @@ void baos_store_response(byte *buf, int len) {
 
         default:
             /** All other cases the response is triggered by a request and not an event. **/
+            // kberry838_send_ack();
             complete(&wait_response);
             break;  
         }
@@ -453,7 +464,6 @@ void baos_store_response(byte *buf, int len) {
 static int baos_wait_for_response(void) {
     if (wait_for_completion_timeout(&wait_response, msecs_to_jiffies(BAOS_RESPONSE_TIMEOUT)) == 0) {
         pr_err("Error: BAOS response timeout reached\n");
-        // BUG();
         return -1;
     }
 
@@ -528,13 +538,13 @@ baos_frame_t *baos_get_datapoint_value(u_int16_t first_datapoint_id, u_int16_t d
     frame.subservice = GET_DATAPOINT_VALUE;
     frame.first_obj_id.val = first_datapoint_id;
     frame.obj_count.val = datapoint_count;
+    frame.type = DATAPOINT;
 
     data = baos_flatten(frame, data_len);
     data[BAOS_FRAME_MIN_SIZE] = 0x00;
 
     kberry838_send_data(data, data_len);
 
-    
     if (baos_wait_for_response() < 0) {
         pr_err("%s: Request was:\n", __func__);
         baos_print_frame(&frame);
@@ -542,6 +552,49 @@ baos_frame_t *baos_get_datapoint_value(u_int16_t first_datapoint_id, u_int16_t d
         if (baos_client_priv.response->error_code != 0) {
             pr_err("Error on request %s(%d, %d): %s\n", __func__, first_datapoint_id,
                     datapoint_count, error_string[baos_client_priv.response->error_code]);
+        } else {
+            baos_check_response(frame.subservice, __func__);
+            baos_copy_frame(&rsp, baos_client_priv.response);
+        }
+    }
+
+    kfree(data);
+
+#ifdef DEBUG
+    baos_print_frame(rsp);
+#endif
+
+    return rsp;
+}
+
+baos_frame_t *baos_get_datapoint_description(u_int16_t first_datapoint_id, u_int16_t datapoint_count) {
+    baos_frame_t frame;
+    baos_frame_t *rsp;
+    byte *data;
+
+    baos_client_priv.response_type = DATAPOINT;
+    frame.subservice = GET_DATAPOINT_DESC;
+    frame.first_obj_id.val = first_datapoint_id;
+    frame.obj_count.val = datapoint_count;
+    frame.type = DATAPOINT;
+    frame.datapoints = NULL;
+
+    data = baos_flatten(frame,  BAOS_FRAME_MIN_SIZE);
+    
+    pr_info("%s:\n", __func__);
+    print_buffer(data,  BAOS_FRAME_MIN_SIZE);
+
+    kberry838_send_data(data, BAOS_FRAME_MIN_SIZE);
+
+    if (baos_wait_for_response() < 0) {
+        pr_err("%s: Request was:\n", __func__);
+        baos_print_frame(&frame);
+        rsp = NULL;
+    } else {
+        if (baos_client_priv.response->error_code != 0) {
+            pr_err("Error on request %s(%d, %d): %s\n", __func__, first_datapoint_id,
+                    datapoint_count, error_string[baos_client_priv.response->error_code]);
+            rsp = NULL;
         } else {
             baos_check_response(frame.subservice, __func__);
             baos_copy_frame(&rsp, baos_client_priv.response);

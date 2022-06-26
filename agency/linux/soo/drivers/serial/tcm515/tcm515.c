@@ -41,13 +41,6 @@ static int subscribers_count = 0;
 /* Array callback funtions provided by the subscribers */
 static void (*subscribers[MAX_SUBSCRIBERS])(esp3_packet_t *packet);
 
-/*** Commands packets ***/
-static esp3_packet_t co_rd_version_packet = {
-    .header = {0x01, 0x00, COMMON_COMMAND},
-    .data = (byte[]){CO_RD_VERSION},
-    .optional_data = NULL,
-};
-
 /**
  * @brief Process the response obtained by sending the command CO_RD_VERSION
  *        which return basic informations of the TCM515 device
