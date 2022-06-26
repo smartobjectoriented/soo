@@ -133,7 +133,10 @@ void init_io_mapping(void);
 addr_t io_map(addr_t phys, size_t size);
 void io_unmap(addr_t vaddr);
 io_map_t *find_io_map_by_paddr(addr_t paddr);
+
+#ifdef CONFIG_SO3VIRT
 void readjust_io_map(long pfn_offset);
+#endif
 
 void dump_io_maplist(void);
 
