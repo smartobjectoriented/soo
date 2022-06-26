@@ -20,7 +20,7 @@
 #define DEBUG
 #endif
 
-#include <soo/vbwa88pg.h>
+#include <soo/knx/vbwa88pg.h>
 #include <timer.h>
 #include <soo/debug.h>
 
