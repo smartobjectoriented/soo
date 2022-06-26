@@ -81,6 +81,7 @@
 	
 	/* Backends */
 	backends {
+		
 		vuart {
 			status = "ok";
 		};
@@ -401,10 +402,17 @@
 	pinctrl-0 = <&uart3_gpio4>;
 	status = "okay";
 
+#if 0
 	lora {
 		compatible = "lora,rn2483";
 		current-speed = <57600>;
 	};
+#else	
+	knx {
+		compatible = "knx,kberry838";
+		current-speed = <19200>;
+	};
+#endif
 };
 
 /* UART5 used for enOcean communication on soo.mp V1 */
@@ -412,12 +420,17 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart5_gpio12>;
 	status = "okay";
-
+#if 1
 	enocean {
 		compatible = "enocean,tcm515";
 		current-speed = <57600>;
 	};
-
+#else
+	knx {
+		compatible = "knx,kberry838";
+		current-speed = <19200>;
+	};
+#endif
 };	
 
 &spi1 {

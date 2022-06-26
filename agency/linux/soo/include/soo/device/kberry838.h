@@ -87,10 +87,17 @@ static const byte kberry838_ack [] = {FT12_ACK};
  * @brief Reset array
  * 
  */
-static const byte kberry838_reset[] = {
+static const byte kberry838_reset_req[] = {
     0x10,
     0x40,
     0x40,
+    FT12_STOP_CHAR
+};
+
+static const byte kberry838_reset_ind[] = {
+    0x10,
+    0xC0,
+    0xC0,
     FT12_STOP_CHAR
 };
 
@@ -114,6 +121,17 @@ typedef enum {
     WAIT_FT12_STOP
 } ft12_decode_status;
 
+
+typedef union {
+    byte val;
+    struct {
+        byte res_2:5;
+        byte frame_count:1;
+        byte res_1:1;
+        byte dir:1;
+    };
+} ft12_cr;
+
 /**
  * @brief Kberry838 struct. Contains all the necessary attributes 
  *          to interact with the kberry838 device and keep track of the current 
@@ -133,7 +151,9 @@ struct kberry838_uart {
     int is_open;
     
     /** Parity of the current processed frame **/
-    int even;
+    byte request_cr;
+
+    byte response_cr;
 
     /** Completion used to wait for responses **/
     struct completion wait_rsp;

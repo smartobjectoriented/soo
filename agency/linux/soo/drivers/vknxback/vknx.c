@@ -238,7 +238,7 @@ void vknx_probe(struct vbus_device *vdev) {
 	domid_priv->id = vdev->otherend_id;
 	list_add(&domid_priv->list, domid_list);
 
-	vknx_priv = kzalloc(sizeof(vknx_priv_t), GFP_ATOMIC);
+	vknx_priv = kzalloc(sizeof(vknx_priv_t), GFP_KERNEL);
 	BUG_ON(!vknx_priv);
 
 	dev_set_drvdata(&vdev->dev, vknx_priv);
