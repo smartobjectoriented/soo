@@ -7,12 +7,12 @@
 // options passed:  -nostdinc -I include -I . -I include -I .
 // -I ./lib/libfdt -I arch/arm64/include/ -I arch/arm64/so3virt/include/
 // -I soo/include
-// -iprefix /opt/toolchain/arm/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../lib/gcc/aarch64-none-linux-gnu/10.2.1/
-// -isysroot /opt/toolchain/arm/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc
+// -iprefix /opt/toolchains/aarch64-none-linux-gnu_10.2/bin/../lib/gcc/aarch64-none-linux-gnu/10.2.1/
+// -isysroot /opt/toolchains/aarch64-none-linux-gnu_10.2/bin/../aarch64-none-linux-gnu/libc
 // -D __KERNEL__ -D BITS_PER_LONG=64 -D KBUILD_STR(s)=#s
 // -D KBUILD_BASENAME=KBUILD_STR(asm_offsets)
 // -include include/generated/autoconf.h
-// -isystem /opt/toolchain/arm/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../lib/gcc/aarch64-none-linux-gnu/10.2.1/include
+// -isystem /opt/toolchains/aarch64-none-linux-gnu_10.2/bin/../lib/gcc/aarch64-none-linux-gnu/10.2.1/include
 // -MD arch/arm64/.asm-offsets.s.d arch/arm64/asm-offsets.c -mlittle-endian
 // -mabi=lp64 -auxbase-strip arch/arm64/asm-offsets.s -g -Wall -Wundef
 // -Wstrict-prototypes -Wno-trigraphs -Werror=implicit-function-declaration
@@ -493,12 +493,14 @@ main:
 	.section	.debug_str,"MS",@progbits,1
 .LASF4:
 	.string	"unsigned int"
+.LASF10:
+	.string	"/home/nils/soo/ME/base/so3"
 .LASF6:
 	.string	"long unsigned int"
 .LASF1:
 	.string	"signed char"
-.LASF10:
-	.string	"/home/rossierd/soo.tech/41-smart-domotics/ME/base/so3"
+.LASF0:
+	.string	"short unsigned int"
 .LASF3:
 	.string	"short int"
 .LASF8:
@@ -517,7 +519,5 @@ main:
 	.string	"main"
 .LASF7:
 	.string	"char"
-.LASF0:
-	.string	"short unsigned int"
 	.ident	"GCC: (GNU Toolchain for the A-profile Architecture 10.2-2020.11 (arm-10.16)) 10.2.1 20201103"
 	.section	.note.GNU-stack,"",@progbits

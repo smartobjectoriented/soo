@@ -6,12 +6,12 @@
 // GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
 // options passed:  -nostdinc -I include -I . -I include -I .
 // -I ./lib/libfdt -I arch/arm64/include/ -I arch/arm64/virt64/include/
-// -iprefix /opt/toolchain/arm/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../lib/gcc/aarch64-none-linux-gnu/10.2.1/
-// -isysroot /opt/toolchain/arm/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc
+// -iprefix /opt/toolchains/aarch64-none-linux-gnu_10.2/bin/../lib/gcc/aarch64-none-linux-gnu/10.2.1/
+// -isysroot /opt/toolchains/aarch64-none-linux-gnu_10.2/bin/../aarch64-none-linux-gnu/libc
 // -D __KERNEL__ -D __AVZ__ -D BITS_PER_LONG=64 -D KBUILD_STR(s)=#s
 // -D KBUILD_BASENAME=KBUILD_STR(asm_offsets)
 // -include include/generated/autoconf.h
-// -isystem /opt/toolchain/arm/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../lib/gcc/aarch64-none-linux-gnu/10.2.1/include
+// -isystem /opt/toolchains/aarch64-none-linux-gnu_10.2/bin/../lib/gcc/aarch64-none-linux-gnu/10.2.1/include
 // -MD arch/arm64/.asm-offsets.s.d arch/arm64/asm-offsets.c -mlittle-endian
 // -mabi=lp64 -auxbase-strip arch/arm64/asm-offsets.s -g -Wall -Wundef
 // -Wstrict-prototypes -Wno-trigraphs -Werror=implicit-function-declaration
@@ -558,10 +558,12 @@ main:
 	.section	.debug_str,"MS",@progbits,1
 .LASF5:
 	.string	"unsigned int"
+.LASF10:
+	.string	"/home/nils/soo/agency/avz"
 .LASF0:
 	.string	"long unsigned int"
-.LASF10:
-	.string	"/home/rossierd/soo.tech/41-smart-domotics/agency/avz"
+.LASF2:
+	.string	"signed char"
 .LASF4:
 	.string	"short int"
 .LASF8:
@@ -570,8 +572,6 @@ main:
 	.ascii	"ommon -fno-PIE -fno-dwarf2-cfi-asm -fno-ipa-sra -funwind-tab"
 	.ascii	"les -fno-delete-nul"
 	.string	"l-pointer-checks -fno-stack-protector -fomit-frame-pointer -fno-var-tracking-assignments -fno-strict-overflow -fno-merge-all-constants -fmerge-constants -fstack-check=no -fconserve-stack -fno-function-sections -fno-data-sections -fno-allow-store-data-races"
-.LASF2:
-	.string	"signed char"
 .LASF9:
 	.string	"arch/arm64/asm-offsets.c"
 .LASF3:
