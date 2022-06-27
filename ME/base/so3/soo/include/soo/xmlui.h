@@ -47,6 +47,6 @@ void xml_parse_event(char *buffer, char *id, char *action);
  */
 void xml_get_event_content(char *buffer, char *content);
 
-void xml_prepare_chat(char *buffer, int sender, char *text);
+void xml_prepare_chat(char *buffer, char *sender, char *text);
 
 #endif /* XMLUI_H */
