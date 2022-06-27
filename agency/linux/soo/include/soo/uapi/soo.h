@@ -114,6 +114,7 @@ int get_pfn_offset(void);
 #define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW('S', 9, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 10, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 11, agency_ioctl_args_t)
+#define AGENCY_IOCTL_BLACKLIST_SOO		_IOW('S', 12, agency_ioctl_args_t)
 
 #define SOO_NAME_SIZE				16
 
