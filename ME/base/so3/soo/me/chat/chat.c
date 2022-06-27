@@ -168,10 +168,10 @@ bool is_chat_in_history(chat_entry_t *chat) {
  * @param text: The chat text itself
  * 
  */ 
-void send_chat_to_tablet(uint64_t senderUID, char *text) {
+void send_chat_to_tablet(char *sender_name, char *text) {
 	char msg[MAX_MSG_LENGTH];
 
-	xml_prepare_chat(msg, senderUID, text);
+	xml_prepare_chat(msg, sender_name, text);
 	vuihandler_send(msg, strlen(msg)+1, VUIHANDLER_POST);
 }
 
@@ -202,21 +202,17 @@ void process_events(char *data, size_t size) {
 	xml_parse_event(data, id, action);
 
 	/* If it is a text-edit event, it means the user typed something
-	so we have it in the temporary buffer */
+	so we save it in the temporary buffer */
 	if (!strcmp(id, TEXTEDIT_ID)) {
 
 		xml_get_event_content(data, content);
 		strcpy(cur_text, content);
-
 	} else if (!strcmp(id, BTN_SEND_ID) && !strcmp(action, "clickDown")) {
 			
 		/* We don't send empty text */	
-		if (!strcmp(cur_text, ""))
-			return;
-#warning ?? still useful ?
-		// TODO replace 0 by slotID 
-		/* Pepare and send the chat message */
-		send_chat_to_tablet(sh_chat->cur_chat.originUID, cur_text);
+		if (!strcmp(cur_text, "")) return;
+		/* Pepare an send the chat message */
+		send_chat_to_tablet(sh_chat->soo_name, cur_text);
 		
 		/* Notify the text-edit widget that it must clear its text */
 		memset(msg, 0, MAX_MSG_LENGTH);	

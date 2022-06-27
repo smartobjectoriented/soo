@@ -103,10 +103,10 @@ void xml_get_event_content(char *buffer, char *content) {
  * @param sender	The sender slotID
  * 
  */ 
-void xml_prepare_chat(char *buffer, int sender, char *text) {
+void xml_prepare_chat(char *buffer, char *sender, char *text) {
 
 	char chat_xml[512] = { 0 };
 
-	sprintf(chat_xml, "<chat from=\"%d\">%s</chat>", sender, text);
+	sprintf(chat_xml, "<chat from=\"%s\">%s</chat>", sender, text);
 	xml_prepare_message(buffer, SCROLL_ID, chat_xml);
 }

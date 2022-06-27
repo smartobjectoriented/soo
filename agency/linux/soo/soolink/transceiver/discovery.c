@@ -61,6 +61,9 @@ struct soo_discovery_env {
 
 	struct mutex discovery_listener_lock;
 
+	char blacklisted_soo[BLACKLIST_MAX_SZ][SOO_NAME_SIZE];
+	uint32_t blacklist_idx;
+
 	sl_desc_t *discovery_sl_desc;
 };
 
@@ -218,6 +221,7 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 	struct list_head *cur;
 	neighbour_desc_t *neighbour;
 	iamasoo_pkt_t *iamasoo_pkt;
+	int i;
 
 	if (!current_soo_discovery->discovery_enabled)
 		return ;
@@ -229,7 +233,19 @@ void discovery_rx(plugin_desc_t *plugin_desc, void *data, size_t size, uint8_t *
 	iamasoo_pkt = (iamasoo_pkt_t *) data;
 #endif
 
+
 	soo_log("[soo:soolink:discovery] Got a beacon\n");
+
+	for (i = 0; i < current_soo_discovery->blacklist_idx; ++i) {
+		if (!strcmp(iamasoo_pkt->name, current_soo_discovery->blacklisted_soo[i])) {
+			mutex_unlock(&current_soo_discovery->discovery_listener_lock);
+#ifdef CONFIG_SOO_CORE_ASF
+			kfree(iamasoo_pkt);
+#endif				
+			return;
+		}
+	}
+
 
 	/* Check if there is a binding with the MAC address already. */
 	attach_agencyUID(iamasoo_pkt->agencyUID, mac_src);
@@ -584,6 +600,46 @@ uint32_t discovery_neighbour_count(void) {
 	return current_soo_discovery->neighbor_count;
 }
 
+
+uint32_t discovery_blacklist_neighbour(char *neighbour_name) {
+	struct list_head *cur, *tmp;
+	neighbour_desc_t *neighbour;
+
+	if (current_soo_discovery->blacklist_idx == BLACKLIST_MAX_SZ) {
+		printk("[discovery]: Blacklist full, cannot add the SOO to it.\n");
+		return -1;
+	}
+	DBG("Now blacklisting %s\n", neighbour_name);
+
+	mutex_lock(&current_soo_discovery->discovery_listener_lock);
+
+	strcpy(current_soo_discovery->blacklisted_soo[current_soo_discovery->blacklist_idx], neighbour_name);
+	current_soo_discovery->blacklist_idx++;
+
+	list_for_each_safe(cur, tmp, &current_soo_discovery->neighbour_list) {
+		neighbour = list_entry(cur, neighbour_desc_t, list);
+
+		if (!strcmp(neighbour_name, neighbour->name)) {
+			if (current_soo_discovery->__neighbour_list_protected) {
+				/* It will be removed later, during unprotect operation */
+				neighbour->present = false;  
+			} else {
+				/* Call the neighbour remove callbacks */
+				callbacks_remove_neighbour(neighbour);
+
+				list_del(cur);
+				kfree(neighbour);
+				
+			}
+			mutex_unlock(&current_soo_discovery->discovery_listener_lock);
+			return 0;
+		}
+	}
+
+	mutex_unlock(&current_soo_discovery->discovery_listener_lock);
+	return 0;
+}
+
 /**
  * Register a Discovery listener.
  */
@@ -606,11 +662,47 @@ void neighbours_read(char *str) {
 	sprintf(str, "%d", discovery_neighbour_count());
 }
 
+void neighbours_ext_read(char *str) {
+	struct list_head *cur;
+	neighbour_desc_t *neighbour;
+	uint32_t count = 0;
+	uint32_t char_cnt = 0;
+
+	mutex_lock(&current_soo_discovery->discovery_listener_lock);
+
+	/* There is no neighbour in the list, I am alone */
+	if (list_empty(&current_soo_discovery->neighbour_list)) {
+		mutex_unlock(&current_soo_discovery->discovery_listener_lock);
+		sprintf(str, "");
+		return;
+	}
+
+	list_for_each(cur, &current_soo_discovery->neighbour_list) {
+
+		neighbour = list_entry(cur, neighbour_desc_t, list);
+
+
+		if (neighbour->plugin) {
+			char_cnt += sprintf(str+char_cnt, "Neighbour %d (%llu) - %s: missed %u ticks\n", 
+				count+1, 
+				neighbour->agencyUID,
+				neighbour->name,  
+				neighbour->missing_tick);
+		}
+
+
+		count++;
+	}
+
+	mutex_unlock(&current_soo_discovery->discovery_listener_lock);
+}
+
 /*
  * Main initialization function of the Discovery functional block
  */
 void discovery_init(void) {
 	struct task_struct *__ts;
+	int i;
 
 	lprintk("SOOlink: Discovery init...\n");
 
@@ -646,10 +738,17 @@ void discovery_init(void) {
 
 		/* Create an entry in sysfs to export the number of neighbours to the user space */
 		soo_sysfs_register(neighbours, neighbours_read, NULL);
+
+		lprintk("SOOlink: registering <neighbours_ext> entry in /sys/soo/soolink...\n");
+		soo_sysfs_register(neighbours_ext, neighbours_ext_read, NULL);
 	}
 
 	__ts = kthread_create(iamasoo_task_fn, NULL, "iamasoo_task");
 	BUG_ON(!__ts);
+
+	for (i = 0; i < BLACKLIST_MAX_SZ; ++i) {
+		memset(current_soo_discovery->blacklisted_soo[i], 0, SOO_NAME_SIZE);
+	}
 
 	add_thread(current_soo, __ts->pid);
 

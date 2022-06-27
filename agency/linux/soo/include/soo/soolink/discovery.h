@@ -31,6 +31,7 @@
 #include <soo/uapi/soo.h>
 
 #define SOOLINK_MISSING_TICK_MAX	10
+#define BLACKLIST_MAX_SZ 32
 
 typedef struct {
 
@@ -95,5 +96,6 @@ void discovery_enable(void);
 void discovery_disable(void);
 
 void discovery_dump_neighbours(void);
+uint32_t discovery_blacklist_neighbour(char *neighbour_name);
 
 #endif /* DISCOVERY_H */
