@@ -30,7 +30,7 @@ typedef enum {
 	/** SOOlink **/
 
 	/**** Discovery ****/
-	buffer_count, neighbours,
+	buffer_count, neighbours, neighbours_ext,
 
 	/** Backend **/
 
