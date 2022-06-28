@@ -38,7 +38,7 @@
 
 #define DCM_MAJOR		127
 
-#define DCM_N_RECV_BUFFERS	10
+#define DCM_N_RECV_BUFFERS	1
 
 #endif /* __KERNEL__ */
 
