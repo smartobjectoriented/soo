@@ -182,7 +182,7 @@ static void vsenseled_closed(struct vbus_device *vdev) {
 	/* Free resources associated with old device channel. */
 	if (vsenseled_priv->vsenseled.ring_ref != GRANT_INVALID_REF) {
 		gnttab_end_foreign_access(vsenseled_priv->vsenseled.ring_ref);
-		free_vpage((uint32_t) vsenseled_priv->vsenseled.ring.sring);
+		free_vpage((addr_t) vsenseled_priv->vsenseled.ring.sring);
 
 		vsenseled_priv->vsenseled.ring_ref = GRANT_INVALID_REF;
 		vsenseled_priv->vsenseled.ring.sring = NULL;
