@@ -94,7 +94,7 @@ void ME_processing_receive(void) {
 		toggle = (toggle + 1) % 2;
 #endif
 
-		DBG("ME available: 0x%08x, %d\n", (unsigned int) dcm_buffer.ME_data, dcm_buffer.ME_size);
+		DBG("ME available: 0x%lx, %d\n", (unsigned long) dcm_buffer.ME_data, dcm_buffer.ME_size);
 
 		slotID = get_ME_free_slot(dcm_buffer.ME_size);
 		if (slotID > 0) {
@@ -107,7 +107,7 @@ void ME_processing_receive(void) {
 
 			initialize_migration(slotID);
 
-			DBG("Write snapshot located @ 0x%08x\n", (unsigned int) (dcm_buffer.ME_data));
+			DBG("Write snapshot located @ 0x%lx\n", (unsigned long) (dcm_buffer.ME_data));
 			write_ME_snapshot(slotID, dcm_buffer.ME_data);
 
 			DBG0("End write snapshot.\n");
