@@ -61,7 +61,6 @@ void *process_led(void *args) {
 			if (sh_ledctrl->local_nr != -1)
 				vsenseled_set(sh_ledctrl->local_nr, 0);
 
-
 			/* Switch on the correct led */
 			vsenseled_set(sh_ledctrl->incoming_nr, 1);
 
@@ -121,15 +120,7 @@ void *app_thread_main(void *args) {
 
 		sh_ledctrl->initiator = sh_ledctrl->me_common.here;
 
-		sh_ledctrl->stamp++;
-
-		spin_lock(&propagate_lock);
-		sh_ledctrl->need_propagate = true;
-
-		/* Required an acknowledge of all SOO.ledctrl smart objects */
-		sh_ledctrl->waitack = true;
-
-		spin_unlock(&propagate_lock);
+		propagate();
 
 		complete(&upd_lock);
 
