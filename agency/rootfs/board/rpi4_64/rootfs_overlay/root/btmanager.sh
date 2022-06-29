@@ -11,7 +11,7 @@ echo "Bluetooth configuration..."
 echo "- with MAC:" ${AGENCYUID}
 
 # Configure the controller with an address and load its firmware
-hciattach ${BT_TTY} bcm43xx 460800 flow - ${BDADDR}
+# hciattach ${BT_TTY} bcm43xx 460800 flow - ${BDADDR}
 
 DEFAULT_HCI_NAME="soo-bt"
 
