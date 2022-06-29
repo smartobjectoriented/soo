@@ -69,7 +69,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-	pre_propagate_args->propagate_status = PROPAGATE_STATUS_NO;
+	pre_propagate_args->propagate_status = PROPAGATE_STATUS_YES;
 
 	return 0;
 }
