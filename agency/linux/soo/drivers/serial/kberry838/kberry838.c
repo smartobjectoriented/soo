@@ -93,14 +93,16 @@ int kberry838_write_buf(const byte *buffer, size_t len) {
  * @brief Reset the kberry838 device internal registers and state of the stack
  * 
  */
-static void kberry838_send_reset_request(void) {
+static int kberry838_send_reset_request(void) {
     kberry838_write_buf(kberry838_reset_req, sizeof(kberry838_reset_req));
     if (wait_for_completion_timeout(&kberry838->wait_rsp, 
                                     msecs_to_jiffies(KBERRY838_RSP_TIMEOUT)) == 0) {
-        dev_err(kberry838->dev, "Acknowledge timeout reached");
-        BUG();
+        dev_err(kberry838->dev, "Acknowledge timeout reached, device is not connected");
+        return -1;
     }
     dev_info(kberry838->dev, "Resetted successfully");
+
+    return 0;
 }
 
 /**
@@ -496,7 +498,10 @@ static int kberry838_serdev_probe(struct serdev_device *serdev) {
         BUG();
     }
 
-    kberry838_send_reset_request();
+    if (kberry838_send_reset_request() < 0) {
+        return -1;
+    }
+    
     kberry838_init_server();
 
 #ifdef DEBUG_THREAD
