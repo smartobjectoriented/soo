@@ -22,6 +22,7 @@ else
     HCI_NAME=${DEFAULT_HCI_NAME}
 fi
 
+killall -9 /usr/libexec/bluetooth/bluetoothd
 # Launch the BT daemon. The --compat is MANDATORY
 /usr/libexec/bluetooth/bluetoothd --compat &
 hciconfig hci0 up
