@@ -38,8 +38,6 @@
 #include <me/ledctrl.h>
 
 static LIST_HEAD(visits);
-static LIST_HEAD(known_soo_list);
-static LIST_HEAD(ack_hosts);
 
 /* Reference to the shared content helpful during synergy with other MEs */
 sh_ledctrl_t *sh_ledctrl;
@@ -49,7 +47,23 @@ static volatile bool full_initd = false;
 struct completion upd_lock;
 
 /* Protecting variables between domcalls and the active context */
-spinlock_t propagate_lock;
+static spinlock_t propagate_lock;
+
+/**
+ * Prepare to be propagated
+ */
+void propagate(void) {
+
+	spin_lock(&propagate_lock);
+
+	/* Initialize the journey */
+	clear_hosts(&visits);
+
+	sh_ledctrl->need_propagate = true;
+
+	spin_unlock(&propagate_lock);
+
+}
 
 /**
  * PRE-ACTIVATE
@@ -157,12 +171,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			/* No LED currently switched on. */
 			sh_ledctrl->local_nr = -1;
 
-			/*
-			 * We will stay resident in this smart object. We re-init the list of (visited) hosts.
-			 * Only our resident SOO is at the first position.
-			 */
-			clear_hosts(&visits);
-
 			new_host(&visits, sh_ledctrl->me_common.here, NULL, 0);
 
 			sh_ledctrl->me_common.origin = sh_ledctrl->me_common.here;
@@ -217,7 +225,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		/* Are we cooperating with the resident or another (migrating) ME ? */
 		if (get_ME_state() == ME_state_dormant) {
 
-			/* If we the two MEs are issued from the same SOO origin, hence we can merge
+			/* If the two MEs are issued from the same SOO origin, hence we can merge
 			 * the list of visited hosts and kill the other, no matter if we have more or less
 			 * visited hosts.
 			 */
@@ -243,54 +251,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 			sh_ledctrl->initiator = incoming_sh_ledctrl->initiator;
 
-			/* Look for all known SOOs updated */
-
-			if (!find_host(&known_soo_list, incoming_sh_ledctrl->me_common.origin))
-
-				/* Insert this new SOO.ledctrl smart object */
-				new_host(&known_soo_list, incoming_sh_ledctrl->me_common.origin, NULL, 0);
-
-			if (sh_ledctrl->initiator == sh_ledctrl->me_common.here) {
-
-				/* We compare the list of visits of this incoming ME against
-				 * our list of known SOOs.
-				 */
-				expand_hosts(&incoming_hosts, incoming_sh_ledctrl->me_common.soohosts,
-						incoming_sh_ledctrl->me_common.soohost_nr);
-
-				/* Remove ourself, we are not in the known_soo_list */
-				del_host(&incoming_hosts, sh_ledctrl->me_common.here);
-
-				merge_hosts(&ack_hosts, &incoming_hosts);
-
-				if (sh_ledctrl->waitack && (incoming_sh_ledctrl->stamp == sh_ledctrl->stamp) &&
-					hosts_equals(&ack_hosts, &known_soo_list)) {
-
-					/* We can reset our state */
-					sh_ledctrl->incoming_nr = 0;
-
-					/* Reset the boolean telling we need an ack */
-					sh_ledctrl->waitack = false;
-
-					clear_hosts(&ack_hosts);
-
-					complete(&upd_lock);
-				}
-			} else
-				complete(&upd_lock);
-
-			/* If the incoming ME has a more recent stamp (greater value), then
-			 * we can propagate ourself to say "hey, I got it, I acknowledge".
-			 */
-
-			if (incoming_sh_ledctrl->stamp > sh_ledctrl->stamp) {
-
-				spin_lock(&propagate_lock);
-				sh_ledctrl->need_propagate = true;
-				spin_unlock(&propagate_lock);
-
-				sh_ledctrl->stamp = incoming_sh_ledctrl->stamp;
-			}
+			complete(&upd_lock);
 		}
 
 		io_unmap((addr_t) incoming_sh_ledctrl);
@@ -359,7 +320,6 @@ void callbacks_init(void) {
 
 	sh_ledctrl->local_nr = -1;
 	sh_ledctrl->incoming_nr = -1;
-	sh_ledctrl->stamp = 0;
 
 	/* Set the SPAD capabilities (currently not used) */
 	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));
