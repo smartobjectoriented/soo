@@ -19,12 +19,16 @@
 #ifndef XMLUI_H
 #define XMLUI_H
 
+/* ID for the different models */
 
 /* SOO.chat widgets id */
-/* ID for the different models */
 #define TEXTEDIT_ID		"text-edit"
 #define SCROLL_ID		"msg-history"
 #define BTN_SEND_ID		"button-send"
+
+/* SOO.wagoled widgets id */
+#define BUTTON_LED_R_ID   "btn-led-r"
+#define BUTTON_LED_L_ID   "btn-led-l"
 
 /* XML id and action length */
 #define ID_MAX_LENGTH		20
