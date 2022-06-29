@@ -41,7 +41,6 @@ CONFIG_UART_LL_PADDR=0x09000000
 # CONFIG_ARM_TIMER is not set
 # CONFIG_GIC is not set
 CONFIG_VIRQ=y
-# CONFIG_SO3VIRT_FB is not set
 # CONFIG_SO3VIRT_INPUT is not set
 # end of Drivers
 
@@ -75,8 +74,10 @@ CONFIG_SOO_BLIND=y
 # CONFIG_SOO_AGENCY is not set
 # CONFIG_SOO_NET is not set
 # CONFIG_SOO_LEDCTRL is not set
+# CONFIG_SOO_CHAT is not set
 # CONFIG_SOO_WAGOLED is not set
-# CONFIG_SOO_SWITCH is not set
+# CONFIG_SOO_SWITCH_KNX is not set
+# CONFIG_SOO_SWITCH_ENOCEAN is not set
 
 #
 # SOO Mobile Entity frontend drivers
@@ -87,7 +88,7 @@ CONFIG_VUART_FRONTEND=y
 # CONFIG_VINPUT_FRONTEND is not set
 # CONFIG_VDOGA12V6NM_FRONTEND is not set
 # CONFIG_VWEATHER_FRONTEND is not set
-# CONFIG_VUIHANDLER_FRONTEND is not set
+CONFIG_VUIHANDLER_FRONTEND=y
 # CONFIG_VNET_FRONTEND is not set
 
 #

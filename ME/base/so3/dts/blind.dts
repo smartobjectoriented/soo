@@ -49,6 +49,10 @@ various parameters from other ME like SOO.outdoor to get smarter.";
 		vknx {
 			status = "ok";
 		};
+        
+		vuihandler {
+			status = "ok";
+		};
 	};
 	
 };

@@ -49,6 +49,10 @@ on DALI bus";
 		vwagoled {
 			status = "ok";
 		};
+
+		vuihandler {
+			status = "ok";
+		};
 	};
 	
 };
