@@ -147,7 +147,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
-return 0;
+
 		/*
 		 * If we are alone in this smart object, we stay here.
 		 * The post_activate callback will update the LED.

@@ -113,8 +113,12 @@ static int dcm_rx_available_ME(void) {
 	int count = 0;
 	struct list_head *cur;
 
+	mutex_lock(&recv_lock);
+
 	list_for_each(cur, &dcm_rx_buffers)
 		count++;
+
+	mutex_unlock(&recv_lock);
 
 	return count;
 }
@@ -162,8 +166,10 @@ int dcm_ME_rx(void *ME_buffer, uint32_t size) {
 
 	soo_log("[soo:dcm] Got a ME buffer rx size: %x bytes\n", size);
 
-	if (buffers_rx_count == DCM_N_RECV_BUFFERS)
+	if (buffers_rx_count == DCM_N_RECV_BUFFERS) {
+		mutex_unlock(&recv_lock);
 		return -1;
+	}
 
 	dcm_buffer_entry = kmalloc(sizeof(dcm_buffer_entry_t), GFP_KERNEL);
 	BUG_ON(!dcm_buffer_entry);
