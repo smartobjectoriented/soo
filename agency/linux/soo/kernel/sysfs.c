@@ -48,6 +48,7 @@ static struct kobject *soolink_discovery_kobj;
 
 static struct kobject *backend_kobj;
 static struct kobject *backend_vsensej_kobj;
+static struct kobject *backend_vwagoled_kobj;
 
 
 /* Internal list structure to manage the diversity of callback functions related to attributes */
@@ -169,6 +170,21 @@ static struct attribute_group backend_vsensej_group = {
 	.attrs = backend_vsensej_attrs,
 };
 
+static struct attribute *backend_vwagoled_attrs[] = {
+	&vwagoled_notify_attr.attr,
+	&vwagoled_debug_attr.attr,
+	&vwagoled_led_on_attr.attr,
+	&vwagoled_led_off_attr.attr,
+	&vwagoled_get_topology_attr.attr,
+	&vwagoled_get_status_attr.attr,
+
+	NULL,	/* need to NULL terminate the list of attributes */
+};
+
+static struct attribute_group backend_vwagoled_group = {
+	.attrs = backend_vwagoled_attrs,
+};
+
 void soo_sysfs_init(void) {
         int ret;
 
@@ -207,6 +223,12 @@ void soo_sysfs_init(void) {
 	ret = sysfs_create_group(backend_vsensej_kobj, &backend_vsensej_group);
 	BUG_ON(ret);
 
+	/**** vwagoled ****/
+	backend_vwagoled_kobj = kobject_create_and_add("vwagoled", backend_kobj);
+	BUG_ON(!backend_vsensej_kobj);
+
+	ret = sysfs_create_group(backend_vwagoled_kobj, &backend_vwagoled_group);
+	BUG_ON(ret);
 }
 
 
