@@ -33,12 +33,6 @@ typedef struct {
 	int local_nr;
 	int incoming_nr;
 
-	/* A stamp to keep track of the current change. A greater value means an update is required. */
-	int stamp;
-
-	/* If an acknowledge is required from all SOO.ledctrl smart objects */
-	bool waitack;
-
 	/* To determine if the ME needs to be propagated.
 	 * If it is the same state, no need to be propagated.
 	 */
@@ -59,8 +53,7 @@ extern sh_ledctrl_t *sh_ledctrl;
 
 extern struct completion upd_lock;
 
-/* Protecting variables between domcalls and the active context */
-extern spinlock_t propagate_lock;
+void propagate(void);
 
 #endif /* LEDCTRL_H */
 
