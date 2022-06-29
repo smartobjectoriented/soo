@@ -30,6 +30,11 @@
 #define BUTTON_LED_R_ID   "btn-led-r"
 #define BUTTON_LED_L_ID   "btn-led-l"
 
+/* SOO.blind widgets id */
+#define BTN_BLIND_UP_ID   "blind-up"
+#define BTN_BLIND_DOWN_ID "btn-led-l"
+
+
 /* XML id and action length */
 #define ID_MAX_LENGTH		20
 #define ACTION_MAX_LENGTH	20
