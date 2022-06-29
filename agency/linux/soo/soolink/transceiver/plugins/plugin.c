@@ -199,8 +199,10 @@ void plugin_rx(plugin_desc_t *plugin_desc, req_type_t req_type, uint8_t *mac_src
 	medium_rx_t *rsp;
 
 	/* Prepare to propagate the data to the plugin block */
-	while (RING_RSP_FULL(&current_soo->soo_plugin->rx_ring_back))
-		schedule();
+	/* Cannot schedule because we are in an atomic context. */
+
+	if (RING_RSP_FULL(&current_soo->soo_plugin->rx_ring_back))
+		return ;
 
 	mutex_lock(&rx_lock);
 
