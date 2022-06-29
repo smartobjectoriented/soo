@@ -32,7 +32,7 @@
 
 /* SOO.blind widgets id */
 #define BTN_BLIND_UP_ID   "blind-up"
-#define BTN_BLIND_DOWN_ID "btn-led-l"
+#define BTN_BLIND_DOWN_ID "blind-down"
 
 
 /* XML id and action length */
