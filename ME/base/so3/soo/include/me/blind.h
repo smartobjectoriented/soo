@@ -36,6 +36,19 @@
 #define BLIND_VBWA88PG
 #endif
 
+#define BLIND_MODEL "<model spid=\"00000200000000000000000000000001\">\
+        <name>SOO.blind</name>\
+        <description>\"SOO.blind permet de gérer la position des stores.\"</description>\
+        <layout>\
+            <row>\
+                <col span=\"2\"><label for=\"blind-up\">Position des stores :</label></col>\
+                <col span=\"2\"><button id=\"blind-up\" lockable=\"true\" lockable-after=\"1.5\">\"Monter\"</button></col>\
+                <col span=\"2\"><button id=\"blind-down\" lockable=\"true\" lockable-after=\"1.5\">\"Descendre\"</button></col>\
+            </row>\
+        </layout>\
+    </model>"
+
+
 /**
  * @brief Blind models
  * 

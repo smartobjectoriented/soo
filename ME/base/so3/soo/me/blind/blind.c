@@ -24,13 +24,43 @@
 #include <heap.h>
 
 #include <soo/dev/vknx.h>
+#include <soo/dev/vuihandler.h>
 #include <soo/debug.h>
+#include <soo/xmlui.h>
 #include <timer.h>
 #include <delay.h>
 
 #include <me/blind.h>
 
 #define BLIND_FIRST_DP_ID		0x01
+
+
+void blind_send_model(void) {
+	vuihandler_send(BLIND_MODEL, strlen(BLIND_MODEL)+1, VUIHANDLER_SELECT);
+}
+
+void blind_process_events(char *data, size_t size) {
+	char id[ID_MAX_LENGTH];
+	char action[ACTION_MAX_LENGTH];
+
+	memset(id, 0, ID_MAX_LENGTH);
+	memset(action, 0, ACTION_MAX_LENGTH);
+
+	xml_parse_event(data, id, action);
+
+	if (!strcmp(action, "clickDown")) {
+		sh_blind->sw_press = PRESS_SHORT;
+
+		if (!strcmp(id, BTN_BLIND_UP_ID)) {
+			sh_blind->sw_pos = POS_LEFT_UP;
+
+		} else if(!strcmp(id, BTN_BLIND_DOWN_ID)) {
+			sh_blind->sw_pos = POS_LEFT_DOWN;
+			
+		}
+		complete(&send_data_lock);
+	}
+}
 
 /**
  * @brief Generic blind initialization
@@ -137,7 +167,7 @@ void *blind_send_cmd_th(void *args) {
 }
 
 void *app_thread_main(void *args) {
-	tcb_t *knx_th, *blind_th;
+	tcb_t *blind_th;
 	blind_t *bl;
 
 	bl = (blind_t *)malloc(sizeof(blind_t));
@@ -147,6 +177,8 @@ void *app_thread_main(void *args) {
 	spad_enable_cooperate();
 
 	printk(MEBLIND_PREFIX "Welcome\n");
+
+	vuihandler_register_callbacks(blind_send_model, blind_process_events);
 
 	blind_th = kernel_thread(blind_send_cmd_th, "blind_send_cmd_th", bl, THREAD_PRIO_DEFAULT);
 
