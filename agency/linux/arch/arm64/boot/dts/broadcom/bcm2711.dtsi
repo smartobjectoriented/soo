@@ -538,7 +538,8 @@
 				      0x0 0xc0000000>;
 			brcm,enable-ssc;
 		};
-		
+
+#if 0 /* SOO.tech */
 		genet: ethernet@7d580000 {
 			compatible = "brcm,bcm2711-genet-v5";
 			reg = <0x0 0x7d580000  0x0 0x10000>;
@@ -554,6 +555,33 @@
 				reg-names = "mdio";
 				#address-cells = <0x0>;
 				#size-cells = <0x1>;
+			};
+		};
+#endif
+                genet: genet@7d580000 {
+			compatible = "brcm,genet-v5";
+			reg = <0x0 0x7d580000  0x0 0x10000>;
+			#address-cells = <0x1>;
+			#size-cells = <0x1>;
+			interrupts = <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>;
+			status = "okay";
+			
+			phy-handle = <&phy1>;
+			phy-mode = "rgmii";
+			mdio@e14 {
+				#address-cells = <0x0>;
+				#size-cells = <0x1>;
+				compatible = "brcm,genet-mdio-v5";
+				reg = <0xe14 0x8>;
+				reg-names = "mdio";
+				phy1: genet-phy@0 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					/* No interrupts - use PHY_POLL */
+					max-speed = <1000>;
+					reg = <0x1>;
+					led-modes = <0x00 0x08>; /* link/activity link */
+				};
 			};
 		};
 	};
