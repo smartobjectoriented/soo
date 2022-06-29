@@ -28,7 +28,7 @@
 
 #define LED_PER_ROOM	6
 
-int wagoled_send_cmd(void *args) {
+void *wagoled_send_cmd(void *args) {
 	int room1_ids [] = {1, 2, 3, 4, 5, 6};
 	int room2_ids [] = {7, 8, 9, 10, 11, 12};
 	int selected_room[LED_PER_ROOM] = {0};
@@ -37,7 +37,7 @@ int wagoled_send_cmd(void *args) {
 	vwagoled_set(room1_ids, LED_PER_ROOM, LED_OFF);
 	vwagoled_set(room2_ids, LED_PER_ROOM, LED_OFF);
 
-	while(_atomic_read(shutdown)) {
+	while(atomic_read(&shutdown)) {
 		wait_for_completion(&send_data_lock);
 
 		switch(sh_wagoled->sw_pos) {
@@ -68,12 +68,10 @@ int wagoled_send_cmd(void *args) {
 		DBG("Set LED %s\n", room_cmd == LED_ON ? "On" : "Off");
 		vwagoled_set(selected_room, LED_PER_ROOM, room_cmd);
 	}
-	
-	
 	return 0;
 }
 
-int app_thread_main(void *args) {
+void *app_thread_main(void *args) {
 	tcb_t *wagoled_th;
 
 	/* The ME can cooperate with the others. */

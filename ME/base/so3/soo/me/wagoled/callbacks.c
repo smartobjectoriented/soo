@@ -112,7 +112,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
 	sh_switch_t *incoming_sh_switch;
 	static uint64_t switch_timestamp = 0;
-	uint32_t pfn;
+	addr_t pfn;
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
@@ -136,7 +136,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			incoming_sh_switch->delivered = true;
 		}
 
-		io_unmap((uint32_t) incoming_sh_switch);
+		io_unmap((addr_t)incoming_sh_switch);
 		
 		if (sh_wagoled->switch_event) {
 			sh_wagoled->switch_event = false;
