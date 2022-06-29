@@ -23,10 +23,50 @@
 #include <thread.h>
 #include <string.h>
 
+#include <soo/xmlui.h>
+
+#include <soo/dev/vuihandler.h>
 #include <soo/dev/vwagoled.h>
 #include <me/wagoled.h>
 
 #define LED_PER_ROOM	6
+
+
+
+void wagoled_process_event(char *data, size_t size) {
+	char id[ID_MAX_LENGTH];
+	char action[ACTION_MAX_LENGTH];
+
+	static switch_status sw_status_r = STATUS_OFF; 
+	static switch_status sw_status_l = STATUS_OFF; 
+
+	memset(id, 0, ID_MAX_LENGTH);
+	memset(action, 0, ACTION_MAX_LENGTH);
+
+	xml_parse_event(data, id, action);
+
+	if (!strcmp(action, "clickDown")) {
+
+		if (!strcmp(id, BUTTON_LED_R_ID)) {
+			sh_wagoled->sw_pos = POS_RIGHT_UP;
+			sw_status_r = sw_status_r == STATUS_OFF ? STATUS_ON : STATUS_OFF;
+			sh_wagoled->sw_status = sw_status_r;
+
+		} else if(!strcmp(id, BUTTON_LED_L_ID)) {
+			sh_wagoled->sw_pos = POS_LEFT_UP;
+			sw_status_l = sw_status_l == STATUS_OFF ? STATUS_ON : STATUS_OFF;
+			sh_wagoled->sw_status = sw_status_l;
+			
+		}
+		complete(&send_data_lock);
+	}
+
+
+}
+
+void wagoled_send_model(void) {
+	vuihandler_send(WAGOLED_MODEL, strlen(WAGOLED_MODEL)+1, VUIHANDLER_SELECT);
+}
 
 void *wagoled_send_cmd(void *args) {
 	int room1_ids [] = {1, 2, 3, 4, 5, 6};
@@ -77,6 +117,8 @@ void *app_thread_main(void *args) {
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
 	printk("Welcome to WAGO led ME\n");
+
+	vuihandler_register_callbacks(wagoled_send_model, wagoled_process_event);
 
 	wagoled_th = kernel_thread(wagoled_send_cmd, "wagoled_send_command", NULL, THREAD_PRIO_DEFAULT);
 	thread_join(wagoled_th);

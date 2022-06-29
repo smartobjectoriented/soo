@@ -31,6 +31,21 @@
 #define MEWAGOLED_NAME		"ME wagoled"
 #define MEWAGOLED_PREFIX	"[ " MEWAGOLED_NAME " ]"
 
+
+#define WAGOLED_MODEL  "<model spid=\"00000200000000000000000000000003\">\
+		<name>SOO.wagoled</name>\
+		<description>\"SOO.blind permet de gérer l'allumage d'un luminaire Wago\"</description>\
+		<layout>\
+			<row>\
+				<col span=\"2\"><label for=\"btn-led-l\">Lamp gauche :</label></col>\
+				<col span=\"2\"><button id=\"btn-led-l\" lockable=\"true\" lockable-after=\"1.5\">Click</button></col>\
+				<col span=\"2\"><label for=\"btn-led-r\">Lamp droite :</label></col>\
+				<col span=\"2\"><button id=\"btn-led-r\" lockable=\"true\" lockable-after=\"1.5\">Click</button></col>\
+			</row>\
+		</layout>\
+	</model>"
+
+
 /*
  * Never use lock (completion, spinlock, etc.) in the shared page since
  * the use of ldrex/strex instructions will fail with cache disabled.
