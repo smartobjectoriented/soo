@@ -46,10 +46,6 @@ on DALI bus";
 			status = "ok";
 		};
 
-		venocean {
-			status = "ok";
-		};
-
 		vwagoled {
 			status = "ok";
 		};

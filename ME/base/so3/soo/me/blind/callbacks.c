@@ -126,7 +126,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
 	sh_switch_t *incoming_sh_switch;
 	static uint64_t switch_timestamp = 0;
-	uint32_t pfn;
+	addr_t pfn;
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
