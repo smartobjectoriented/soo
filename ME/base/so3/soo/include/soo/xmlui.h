@@ -26,6 +26,9 @@
 #define SCROLL_ID		"msg-history"
 #define BTN_SEND_ID		"button-send"
 
+/* XML id and action length */
+#define ID_MAX_LENGTH		20
+#define ACTION_MAX_LENGTH	20
 
 /*
  * Prepare a XML message.

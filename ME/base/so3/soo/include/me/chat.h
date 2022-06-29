@@ -27,8 +27,6 @@
 
 
 #define MAX_MSG_LENGTH 		200 
-#define ID_MAX_LENGTH		20
-#define ACTION_MAX_LENGTH	20
 
 
 #define CHAT_MODEL  "<model spid=\"00000200000000000000000000000004\">\
