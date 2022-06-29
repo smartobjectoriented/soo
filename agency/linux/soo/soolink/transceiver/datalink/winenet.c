@@ -880,7 +880,7 @@ void wnet_send_ack(uint64_t agencyUID, int status, bool pkt_data) {
 	retrieve_current_neighbour_state(current_soo_winenet->ourself, &neighbour_state);
 
 	/* Additional field to complete for PKT_DATA */
-	if (pkt_data && (status == ACK_STATUS_OK)) {
+	if (pkt_data) {
 
 		neighbour_state.pkt_data = true;
 		neighbour_state.transID = current_soo_winenet->wnet_rx.transID & WNET_MAX_PACKET_TRANSID;
@@ -1301,7 +1301,7 @@ bool s_frame_tx(wnet_neighbour_t *neighbour, void *arg) {
 	/* Each frame must be acknowledged by the receiver. */
 	ack = wait_for_ack();
 
-	if (ack == ACK_STATUS_TIMEOUT) {
+	if ((ack == ACK_STATUS_TIMEOUT) || (ack == ACK_STATUS_ABORT)) {
 
 		retry_count = 0;
 		do {
@@ -1988,19 +1988,24 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 
 			if (((packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME == WNET_N_PACKETS_IN_FRAME - 1) || (packet->transID & WNET_LAST_PACKET))
 				wnet_send_ack(current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, ACK_STATUS_OK, true);
+			else {
+				wnet_send_ack(current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, ACK_STATUS_ABORT, true);
 
-			wnet_trace("*** [soo:soolink:winenet] Pkt chain broken: (expected_transID=%d)/(packet->transID=%d)\n",
-				   current_soo_winenet->expected_transID, packet->transID & WNET_MAX_PACKET_TRANSID);
+				/* Reset to the beginning of the frame */
+				current_soo_winenet->expected_transID = (current_soo_winenet->expected_transID / WNET_N_PACKETS_IN_FRAME) * WNET_N_PACKETS_IN_FRAME;
+			}
 
 			return ;
 
 
 		} else if (packet->transID && ((packet->transID & WNET_MAX_PACKET_TRANSID) != current_soo_winenet->expected_transID)) {
 
-			/* The packet chain is (temporary) broken by ack timeout processing from the sender. */
+			/* The packet chain is broken (bad transmission)  */
+			wnet_send_ack(current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, ACK_STATUS_ABORT, true);
 
-			wnet_trace("*** [soo:soolink:winenet] Pkt chain broken: (expected_transID=%d)/(packet->transID=%d)\n",
-				   current_soo_winenet->expected_transID, packet->transID & WNET_MAX_PACKET_TRANSID);
+			/* Reset to the beginning of the frame */
+			current_soo_winenet->expected_transID = (current_soo_winenet->expected_transID / WNET_N_PACKETS_IN_FRAME) * WNET_N_PACKETS_IN_FRAME;
+
 
 			return ;
 		}
