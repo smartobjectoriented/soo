@@ -137,7 +137,6 @@ typedef struct {
 	size_t cur_prod_idx;
 	size_t cur_cons_idx;
 	size_t cur_size;
-	mutex_t tx_circ_buf_mutex;
 	tx_buf_entry_t circ_buf[VUIHANDLER_MAX_TX_BUF_ENTRIES];
 
 } tx_circ_buf_t;
