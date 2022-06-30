@@ -18,7 +18,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 

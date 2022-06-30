@@ -21,21 +21,31 @@
 
 #include <types.h>
 
-typedef unsigned char byte;
+#define LIGHT_SENSOR_MAX    (uint16_t) 999 // lux
+#define TEMP_DIFF           (char) 120 // °C
+#define TEMP_REDUC          (char) 40 // °C
+#define WIND_SPEED_MAX      (uint8_t) 70 // m/s
+#define ID_MASK             0xF0
+#define LRNB_MASK           0x4
+#define DAY_NIGHT_MASK      0x2
+#define RAIN_MASK           0x1
+
+#define TYPE_MSG            
 
 /**
  * @brief 
  * 
  */
 typedef struct {
-    uint32_t id;
-    byte dawnSensor;    // 8 bits
-    byte outdoorTemp;   // 8 bits
-    byte windSpeed;     // 8 bits
-    byte identifier;    // 4 bits
+    uint32_t    id;
+    uint16_t    lightSensor;    // 8 bits
+    char        outdoorTemp;   // 8 bits
+    uint8_t     windSpeed;     // 8 bits
+    uint8_t     identifier;    // 4 bits
     bool LRNBit;
     bool day0_night1;
     bool rain;
+    bool event;
 } p04_t;
 
 /**

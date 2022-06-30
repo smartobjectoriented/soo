@@ -65,7 +65,7 @@ void switch_get_data(switch_t *sw) {
 		else if (sw->sw.down) 
 			sh_switch->pos = POS_LEFT_DOWN;
 		else if (sw->sw.released) {
-			pressed_time = NS_TO_MS(sw->sw.released_time - sw->sw.press_time);
+			// pressed_time = NS_TO_MS(sw->sw.released_time - sw->sw.press_time);
 			sh_switch->press = pressed_time > PT210_PRESSED_TIME_MS ? PRESS_LONG : PRESS_SHORT;
 			sh_switch->switch_event= true;
 		}

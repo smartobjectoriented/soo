@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -32,166 +32,110 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
-#include <me/outdoor/outdoor.h>
+#include <me/outdoor.h>
 
-#include <me/eco_stability.h>
 
-static bool outdoor_initialized = false;
+static LIST_HEAD(visits);
+static LIST_HEAD(known_soo_list);
 
-/*
- * Agency UID history.
- * This array saves the Smart Object's agency UID from which the ME is sent. This is used to prevent a ME to
- * go back to the originater (vicious circle).
- * The agency UIDs are in inverted chronological order: the oldest value is at index 0.
- */
-static agencyUID_t agencyUID_history[2];
+sh_weatherstation_t *sh_weatherstation;
+struct completion send_data_lock;
+atomic_t shutdown;
 
-static agencyUID_t last_agencyUID;
+static volatile bool originUID_initd = false;
 
-/* Limited number of migrations */
-static bool limited_migrations = false;
-static uint32_t migration_count = 0;
-
-/* SPID of the SOO.blind ME */
-uint8_t SOO_blind_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0b, 0x11, 0x8d };
+spinlock_t propagate_lock;
 
 /**
  * PRE-ACTIVATE
+ *
+ * Should receive local information through args
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
 	agency_ctl_args_t agency_ctl_args;
+	host_entry_t *host_entry;
 
-	DBG("Pre-activate %d\n", ME_domID());
+	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
 
-	/* Retrieve the agency UID of the Smart Object on which the ME has migrated */
+	/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
 	agency_ctl_args.cmd = AG_AGENCY_UID;
 	args->__agency_ctl(&agency_ctl_args);
-	memcpy(&target_agencyUID, &agency_ctl_args.u.agencyUID_args.agencyUID, SOO_AGENCY_UID_SIZE);
 
-	/* Detect if the ME has migrated, that is, it is now on another Smart Object */
-	has_migrated = (agencyUID_is_valid(&last_agencyUID) && (memcmp(&target_agencyUID, &last_agencyUID, SOO_AGENCY_UID_SIZE) != 0));
-	memcpy(&last_agencyUID, &target_agencyUID, SOO_AGENCY_UID_SIZE);
+	sh_weatherstation->me_common.here = agency_ctl_args.u.agencyUID;
+	if (!originUID_initd) {
+		sh_weatherstation->originUID = agency_ctl_args.u.agencyUID;
+		originUID_initd = true;
+	}
+	DBG(">> ME %d: originUID %d\n", ME_domID(), sh_weatherstation->originUID);
 
-	outdoor_action_pre_activate();
-
-	/* Retrieve the name of the Smart Object on which the ME has migrated */
-	agency_ctl_args.cmd = AG_SOO_NAME;
-	args->__agency_ctl(&agency_ctl_args);
-	strcpy(target_soo_name, (const char *) agency_ctl_args.u.soo_name_args.soo_name);
-
-	DBG("SOO." APP_NAME " ME now running on: ");
-	DBG_BUFFER(&target_agencyUID, SOO_AGENCY_UID_SIZE);
-
-	/* Check if the ME is not coming back to its source (vicious circle) */
-	if (!memcmp(&target_agencyUID, &agencyUID_history[0], SOO_AGENCY_UID_SIZE)) {
-		DBG("Back to the source\n");
-
-		/* Kill the ME to avoid circularity */
+	host_entry = find_host(&visits, sh_weatherstation->me_common.here);
+	if (host_entry) {
+		/** If we already visited this host we ask the agency to kill us **/
+		DBG(MEWEATHERSTATION_PREFIX "Host already visited. Killing myself\n");
 		set_ME_state(ME_state_killed);
-
-		return 0;
-	}
-
-	/* Ask if the Smart Object if a SOO.outdoor Smart Object */
-	agency_ctl_args.u.devcaps_args.class = DEVCAPS_CLASS_DOMOTICS;
-	agency_ctl_args.u.devcaps_args.devcaps = DEVCAP_WEATHER_DATA;
-	agency_ctl_args.cmd = AG_CHECK_DEVCAPS;
-	args->__agency_ctl(&agency_ctl_args);
-
-	if (agency_ctl_args.u.devcaps_args.supported) {
-		DBG("SOO." APP_NAME ": This is a SOO." APP_NAME " Smart Object\n");
-
-		/* Tell that the expected devcaps have been found on this Smart Object */
-		available_devcaps = true;
 	} else {
-		DBG("SOO." APP_NAME ": This is not a SOO." APP_NAME " Smart Object\n");
-
-		/* Tell that the expected devcaps have not been found on this Smart Object */
-		available_devcaps = false;
-
-		/* If the devcaps are not available, set the ID to 0xff */
-		my_id = 0xff;
-
-		/* Ask if the Smart Object offers the dedicated remote application devcap */
-		agency_ctl_args.u.devcaps_args.class = DEVCAPS_CLASS_APP;
-		agency_ctl_args.u.devcaps_args.devcaps = DEVCAP_APP_OUTDOOR;
-		agency_ctl_args.cmd = AG_CHECK_DEVCAPS;
-		args->__agency_ctl(&agency_ctl_args);
-
-		if (agency_ctl_args.u.devcaps_args.supported) {
-			DBG("SOO." APP_NAME " remote application connected\n");
-
-			/* Stay resident on the Smart Object */
-
-			remote_app_connected = true;
-		} else {
-			DBG("No SOO." APP_NAME " remote application connected\n");
-
-			/* Go to dormant state and migrate once */
-			limited_migrations = true;
-			migration_count = 0;
-
-			set_ME_state(ME_state_dormant);
-		}
+		/** We add the host to the visited hosts list **/
+		new_host(&visits, sh_weatherstation->me_common.here, NULL, 0);
+		DBG(MEWEATHERSTATION_PREFIX "Adding new host\n");
 	}
+
+
+#if 0 /* To be implemented... */
+	logmsg("[soo:me:SOO.wagoled] ME %d: cb_pre_activate..\n", ME_domID());
+#endif
 
 	return 0;
 }
 
 /**
  * PRE-PROPAGATE
+ *
+ * The callback is executed in first stage to give a chance to a resident ME to stay or disappear, for example.
  */
 int cb_pre_propagate(soo_domcall_arg_t *args) {
-	agency_ctl_args_t agency_ctl_args;
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
-	DBG("Pre-propagate %d\n", ME_domID());
+	// DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
-	pre_propagate_args->propagate_status = 1;
+	spin_lock(&propagate_lock);
 
-	if (limited_migrations) {
-		pre_propagate_args->propagate_status = 0;
+	pre_propagate_args->propagate_status = sh_weatherstation->need_propagate ? PROPAGATE_STATUS_YES : PROPAGATE_STATUS_NO;
 
-		DBG("Limited number of migrations: %d/%d\n", migration_count, MAX_MIGRATION_COUNT);
-
-		if ((get_ME_state() != ME_state_dormant) || (migration_count != MAX_MIGRATION_COUNT)) {
-			pre_propagate_args->propagate_status = 1;
-			migration_count++;
-		} else
-			set_ME_state(ME_state_killed);
-
-		goto propagate;
+	/* To be killed - only one propagation, here we set the real propagate_status */
+	if (!pre_propagate_args->propagate_status && (get_ME_state() == ME_state_dormant)) {
+		set_ME_state(ME_state_killed);
+		DBG("Now killing the ME %d\n", ME_domID());
 	}
 
-	/* SOO.outdoor: increment the age counter and reset the inertia counter */
-	inc_age_reset_inertia(&outdoor_lock, outdoor_data->info.presence);
+	sh_weatherstation->need_propagate = false;
 
-	/* SOO.outdoor: watch the inactive ages */
-	watch_ages(&outdoor_lock,
-			outdoor_data->info.presence, &outdoor_data->info,
-			tmp_outdoor_info->presence, tmp_outdoor_info,
-			sizeof(outdoor_info_t));
-
-propagate:
-	/* Save the previous source agency UID in the history */
-	memcpy(&agencyUID_history[0], &agencyUID_history[1], SOO_AGENCY_UID_SIZE);
-
-	/* Retrieve the agency UID of the Smart Object from which the ME will be sent */
-	agency_ctl_args.cmd = AG_AGENCY_UID;
-	args->__agency_ctl(&agency_ctl_args);
-	memcpy(&agencyUID_history[1], &agency_ctl_args.u.agencyUID_args.agencyUID, SOO_AGENCY_UID_SIZE);
-
-	DBG("SOO." APP_NAME " ME being sent by: ");
-	DBG_BUFFER(&agencyUID_history[1], SOO_AGENCY_UID_SIZE);
+	spin_unlock(&propagate_lock);
 
 	return 0;
 }
 
 /**
- * PRE-SUSPEND
+ * Kill domcall - if another ME tries to kill us.
+ */
+int cb_kill_me(soo_domcall_arg_t *args) {
+
+	DBG(">> ME %d: cb_kill_me...\n", ME_domID());
+
+	/* Do we accept to be killed? yes... */
+	set_ME_state(ME_state_killed);
+
+	return 0;
+}
+
+/**
+ * PRE_SUSPEND
+ *
+ * This callback is executed right before suspending the state of frontend drivers, before migrating
+ *
+ * Returns 0 if no propagation to the user space is required, 1 otherwise
  */
 int cb_pre_suspend(soo_domcall_arg_t *args) {
-	DBG("Pre-suspend %d\n", ME_domID());
+	DBG(">> ME %d: cb_pre_suspend...\n", ME_domID());
 
 	/* No propagation to the user space */
 	return 0;
@@ -199,110 +143,146 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
 
 /**
  * COOPERATE
+ *
+ * This callback is executed when an arriving ME (initiator) decides to cooperate with a residing ME (target).
  */
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
+	sh_weatherstation_t *target_sh;
 	agency_ctl_args_t agency_ctl_args;
-	bool SOO_outdoor_present = false;
-	void *recv_data;
-	size_t recv_data_size;
-	unsigned int pfn;
-	uint32_t i;
 
-	DBG0("Cooperate\n");
+	// lprintk("[soo:me:SOO.blind] ME %d: cb_cooperate...\n", ME_domID());
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
-		DBG("Cooperate: SOO." APP_NAME " Initiator %d\n", ME_domID());
 
-		for (i = 0; i < MAX_ME_DOMAINS; i++) {
-			/* Cooperation with a SOO.outdoor ME */
-			if (!memcmp(cooperate_args->u.target_coop_slot[i].spid, SOO_outdoor_spid, SPID_SIZE)) {
-				DBG("SOO." APP_NAME ": SOO.outdoor running on the Smart Object\n");
-				SOO_outdoor_present = true;
+		/** 
+		 * If we are alone or we encounter another SOO.switch, we go dormant and continue 
+		 * our migration 
+		 */
+		if (cooperate_args->alone) {
+			DBG("We are alone! Continue migration\n");
+			
+			set_ME_state(ME_state_dormant);
 
-				/* Only cooperate with MEs that accept to cooperate */
-				if (!cooperate_args->u.target_coop_slot[i].spad.valid)
-					continue;
+			spin_lock(&propagate_lock);
+			sh_weatherstation->need_propagate = true;
+			spin_unlock(&propagate_lock);
 
-				/*
-				 * Prepare the arguments to transmit to the target ME:
-				 * - Initiator's SPID
-				 * - Initiator's SPAD capabilities
-				 * - pfn of the localinfo
-				 */
-				agency_ctl_args.cmd = AG_COOPERATE;
-				agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
-				memcpy(agency_ctl_args.u.target_cooperate_args.spid, get_ME_desc()->spid, SPID_SIZE);
-				memcpy(agency_ctl_args.u.target_cooperate_args.spad_caps, get_ME_desc()->spad.caps, SPAD_CAPS_SIZE);
-				agency_ctl_args.u.target_cooperate_args.pfn.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
-				args->__agency_ctl(&agency_ctl_args);
-			}
-
-			/* Cooperation with a SOO.blind ME */
-			if (!memcmp(cooperate_args->u.target_coop_slot[i].spid, SOO_blind_spid, SPID_SIZE)) {
-				DBG("SOO." APP_NAME ": SOO.blind running on the Smart Object\n");
-
-				/* Only cooperate with MEs that accept to cooperate */
-				if (!cooperate_args->u.target_coop_slot[i].spad.valid)
-					continue;
-
-				/*
-				 * Prepare the arguments to transmit to the target ME:
-				 * - Initiator's SPID
-				 * - Initiator's SPAD capabilities
-				 * - pfn of the localinfo
-				 */
-				agency_ctl_args.cmd = AG_COOPERATE;
-				agency_ctl_args.slotID = cooperate_args->u.target_coop_slot[i].slotID;
-				memcpy(agency_ctl_args.u.target_cooperate_args.spid, get_ME_desc()->spid, SPID_SIZE);
-				memcpy(agency_ctl_args.u.target_cooperate_args.spad_caps, get_ME_desc()->spad.caps, SPAD_CAPS_SIZE);
-				agency_ctl_args.u.target_cooperate_args.pfn.content = phys_to_pfn(virt_to_phys_pt((uint32_t) localinfo_data));
-				args->__agency_ctl(&agency_ctl_args);
-			}
+			return 0;
 		}
 
-		/*
-		 * There are two cases in which we have to kill the initiator SOO.outdoor ME:
-		 * - There is already a SOO.outdoor ME running on the Smart Object, independently of its nature.
-		 * - There is no SOO.outdoor ME running on a non-SOO.outdoor Smart Object (the expected devcaps are not present) and there
-		 *   is no connected SOO.outdoor application.
-		 */
-		if (SOO_outdoor_present || (!SOO_outdoor_present && !available_devcaps && !remote_app_connected)) {
-			agency_ctl_args.cmd = AG_KILL_ME;
-			agency_ctl_args.slotID = ME_domID() + 1;
-			DBG("Kill ME in slot ID: %d\n", ME_domID() + 1);
-			args->__agency_ctl(&agency_ctl_args);
+		/** Check if we encountered another SOO.switch **/
+		if(get_spid() == cooperate_args->u.target_coop.spid) {
+			DBG(MEWEATHERSTATION_PREFIX "Found ME switch\n");
+			/**
+			 * Get the other SOO.switch shared data 
+			 */
+			target_sh = (sh_weatherstation_t*)io_map(pfn_to_phys(cooperate_args->u.target_coop.pfn), PAGE_SIZE);
+			
+			/** Check if we are of same type **/
+			if (sh_weatherstation->type != target_sh->type) {
+				DBG(MEWEATHERSTATION_PREFIX "We are not the same\n");
+				set_ME_state(ME_state_dormant);
+				if (sh_weatherstation->delivered) {
+					spin_lock(&propagate_lock);
+					sh_weatherstation->need_propagate = false;
+					spin_unlock(&propagate_lock);
+					
+					DBG(MEWEATHERSTATION_PREFIX "Data delivered.\n");
+				} else {
+					spin_lock(&propagate_lock);
+					sh_weatherstation->need_propagate = true;
+					spin_unlock(&propagate_lock);
+
+					DBG(MEWEATHERSTATION_PREFIX "Continuing migration\n");
+				}
+			} else {
+
+				/** Check if we encountered ourself **/
+				if (sh_weatherstation->originUID == target_sh->originUID) {
+				/** Check if we are newer **/
+					if (sh_weatherstation->timestamp > target_sh->timestamp) {
+						/** copy shared data to in target ME **/
+						memcpy(target_sh, sh_weatherstation, sizeof(sh_weatherstation_t));
+					}
+					DBG("Found ourself. Killing initiator ME.\n");
+					set_ME_state(ME_state_dormant);
+
+					spin_lock(&propagate_lock);
+					sh_weatherstation->need_propagate = false;
+					spin_unlock(&propagate_lock);
+				} else {
+					/**
+				 	* Continue migration 
+				 	*/
+					set_ME_state(ME_state_dormant);
+					spin_lock(&propagate_lock);
+					sh_weatherstation->need_propagate = true;
+					spin_unlock(&propagate_lock);
+
+					DBG(MEWEATHERSTATION_PREFIX "Continuing migration");
+				}
+			}
+			io_unmap((addr_t) target_sh);
+		
+		// } else if (cooperate_args->u.target_coop.spid == SOO_BLIND_SPID && sh_weatherstation->type == PT210) {
+		// 	/** Check if target is a SOO.Blind or **/
+		// 	DBG(MEWEATHERSTATION_PREFIX "Cooperate with SOO.blind\n");
+
+		// 	agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_weatherstation));
+		// 	agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
+
+		// 	/* This pattern enables the cooperation with the target ME */
+		// 	agency_ctl_args.cmd = AG_COOPERATE;
+		// 	agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
+			
+		// 	/* Perform the cooperate in the target ME */
+		// 	args->__agency_ctl(&agency_ctl_args);
+
+
+		// 	set_ME_state(ME_state_dormant);
+		// 	spin_lock(&propagate_lock);
+		// 	sh_weatherstation->need_propagate = false;
+		// 	spin_unlock(&propagate_lock);
+
+		// 	return 0;
+
+		// } else if (cooperate_args->u.target_coop.spid == SOO_WAGOLED_SPID && sh_weatherstation->type == GTL2TW) {
+		// 	DBG(MEWEATHERSTATION_PREFIX "Cooperate with SOO.wagoled\n");
+
+		// 	agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_weatherstation));
+		// 	agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
+
+		// 	/* This pattern enables the cooperation with the target ME */
+		// 	agency_ctl_args.cmd = AG_COOPERATE;
+		// 	agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
+			
+		// 	/* Perform the cooperate in the target ME */
+		// 	args->__agency_ctl(&agency_ctl_args);
+
+
+		// 	set_ME_state(ME_state_dormant);
+		// 	spin_lock(&propagate_lock);
+		// 	sh_weatherstation->need_propagate = false;
+		// 	spin_unlock(&propagate_lock);
+
+		// 	return 0;
+		} else {
+			DBG("We cannot cooperate with this ME: 0x%16X! Continue migration\n", cooperate_args->u.target_coop.spid);
+			
+			set_ME_state(ME_state_dormant);
+			spin_lock(&propagate_lock);
+			sh_weatherstation->need_propagate = true;
+			spin_unlock(&propagate_lock);
+
+			return 0;
 		}
 
 		break;
 
 	case COOPERATE_TARGET:
-		DBG("Cooperate: SOO." APP_NAME " Target %d\n", ME_domID());
-
-		DBG("SPID of the initiator: ");
-		DBG_BUFFER(cooperate_args->u.initiator_coop.spid, SPID_SIZE);
-		DBG("SPAD caps of the initiator: ");
-		DBG_BUFFER(cooperate_args->u.initiator_coop.spad_caps, SPAD_CAPS_SIZE);
-
-		/* Cooperation with a SOO.outdoor ME */
-		if (!memcmp(cooperate_args->u.initiator_coop.spid, SOO_outdoor_spid, SPID_SIZE)) {
-			DBG("Cooperation with SOO.outdoor\n");
-
-			pfn = cooperate_args->u.initiator_coop.pfn.content;
-
-			recv_data_size = DIV_ROUND_UP(sizeof(outdoor_info_t), PAGE_SIZE) * PAGE_SIZE;
-			recv_data = (void *) io_map(pfn_to_phys(pfn), recv_data_size);
-
-			merge_info(&outdoor_lock,
-					outdoor_data->info.presence, &outdoor_data->info,
-					((outdoor_data_t *) recv_data)->info.presence, recv_data,
-					tmp_outdoor_info->presence, tmp_outdoor_info,
-					sizeof(outdoor_info_t));
-
-			io_unmap((uint32_t) recv_data);
-		}
-
+		DBG("Cooperate: Target %d\n", ME_domID());
 		break;
 
 	default:
@@ -314,93 +294,73 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 }
 
 /**
- * PRE-RESUME
+ * PRE_RESUME
+ *
+ * This callback is executed right before resuming the frontend drivers, right after ME activation
+ *
+ * Returns 0 if no propagation to the user space is required, 1 otherwise
  */
 int cb_pre_resume(soo_domcall_arg_t *args) {
-	DBG("Pre-resume %d\n", ME_domID());
+	DBG(">> ME %d: cb_pre_resume...\n", ME_domID());
 
 	return 0;
 }
 
 /**
- * POST-ACTIVATE
+ * POST_ACTIVATE callback (async)
  */
 int cb_post_activate(soo_domcall_arg_t *args) {
-	DBG("Post-activate %d\n", ME_domID());
+#if 0
+	agency_ctl_args_t agency_ctl_args;
+	static uint32_t count = 0;
+#endif
 
-	/*
-	 * At the first post-activate, initialize the outdoor descriptor of this Smart Object and start the
-	 * threads.
-	 */
-	if (unlikely(!outdoor_initialized)) {
-		/* Save the agency UID of the Smart Object on which the ME has been injected */
-		memcpy(&origin_agencyUID, &target_agencyUID, SOO_AGENCY_UID_SIZE);
-
-		/* Save the name of the Smart Object on which the ME has been injected */
-		strcpy(origin_soo_name, target_soo_name);
-
-		create_my_desc();
-		get_my_id(outdoor_data->info.presence);
-
-		outdoor_start_threads();
-
-		outdoor_initialized = true;
-	}
-
-	outdoor_action_post_activate();
+	DBG(">> ME %d: cb_post_activate...\n", ME_domID());
 
 	return 0;
 }
 
 /**
- * LOCALINFO_UPDATE
+ * FORCE_TERMINATE callback (async)
+ *
+ * Returns 0 if no propagation to the user space is required, 1 otherwise
+ *
  */
-int cb_localinfo_update(void) {
-	DBG("Localinfo update %d\n", ME_domID());
 
-	return 0;
-}
-
-/**
- * FORCE_TERMINATE
- */
 int cb_force_terminate(void) {
-	DBG("ME %d force terminate, state: %d\n", ME_domID(), get_ME_state());
+	printk(">> ME %d: cb_force_terminate...\n", ME_domID());
+	DBG("ME state: %d\n", get_ME_state());
 
-	/* We do nothing particular here for this ME, however we proceed with the normal termination of execution */
+	atomic_set(&shutdown, 0);
+
+	printk("ME state: %d\n", get_ME_state());
+	
+	/* We do nothing particular here for this ME,
+	 * however we proceed with the normal termination of execution.
+	 */
+
 	set_ME_state(ME_state_terminated);
 
 	return 0;
 }
 
-/**
- * KILL_ME
- */
-int cb_kill_me(soo_domcall_arg_t *args) {
-	DBG("Kill-ME %d\n", ME_domID());
-
-	set_ME_state(ME_state_killed);
-
-	return 0;
-}
-
-/**
- * Initializations for callback handling.
- */
 void callbacks_init(void) {
-	int nr_pages = DIV_ROUND_UP(sizeof(outdoor_data_t), PAGE_SIZE);
 
-	DBG("Localinfo: size=%d, nr_pages=%d\n", sizeof(outdoor_data_t), nr_pages);
-	/* Allocate localinfo */
-	localinfo_data = (void *) get_contig_free_vpages(nr_pages);
+	init_completion(&send_data_lock);
+	atomic_set(&shutdown, 1);
+	spin_lock_init(&propagate_lock);
 
-	memcpy(&last_agencyUID, &null_agencyUID, SOO_AGENCY_UID_SIZE);
-	memcpy(&agencyUID_history[0], &null_agencyUID, SOO_AGENCY_UID_SIZE);
-	memcpy(&agencyUID_history[1], &null_agencyUID, SOO_AGENCY_UID_SIZE);
+	/* Allocate the shared page. */
+	sh_weatherstation = (sh_weatherstation_t *) get_contig_free_vpages(1);;
 
-	/* Get ME SPID */
-	memcpy(get_ME_desc()->spid, SOO_outdoor_spid, SPID_SIZE);
-	lprintk("ME SPID: ");
-	lprintk_buffer(SOO_outdoor_spid, SPID_SIZE);
+	/* Initialize the shared content page used to exchange information between other MEs */
+	memset(sh_weatherstation, 0, PAGE_SIZE);
+
+	sh_weatherstation->weatherstation_event = false;
+	sh_weatherstation->need_propagate = false;
+	sh_weatherstation->delivered = false;
+
+
+	/* Set the SPAD capabilities */
+	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));
 }
-
