@@ -21,11 +21,14 @@
 #include "so3virt.dtsi"
 
 &ME {
-	/* 4 MB is enough */
-	domain-size = <0x400000>;
+	/* 16 MB is enough */
+	domain-size = <0x1000000>;
 	
 	/* SPID on 64-bit encoding */
 	spid = /bits/ 64 <0x0020000000000002>;
+
+	/* SPAD capabilities on 64-bit encoding */
+	spadcaps = /bits/ 64 <0x0000000000000000>;
 		
 	/* Name of this ME */
 	me_name = "SOO.outdoor";
@@ -42,7 +45,7 @@ can be used in conjunction with other MEs which can use this kind of data.";
 			status = "ok";
 		};
 	
-		vweather {
+		venocean {
 			status = "ok";
 		};
 	  

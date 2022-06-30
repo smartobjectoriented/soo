@@ -3,6 +3,7 @@
 #
 #
 
+obj-y	+= enocean.o
 obj-y 	+= setup.o
 obj-y	+= domcall.o
 obj-y	+= evtchn.o
