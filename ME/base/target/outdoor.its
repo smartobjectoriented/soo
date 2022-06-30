@@ -46,14 +46,5 @@
 				algo = "crc32";
 			};
 		};	
-
-        ramfs {
-        	description = "SO3 environment minimal rootfs";
-        	data = /incbin/("../rootfs/board/so3virt/rootfs.fat");
-        	type = "ramdisk";
-            arch = "arm";
-            os = "linux";
-            compression = "none";
-        };
     };
 };

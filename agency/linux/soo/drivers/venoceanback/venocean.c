@@ -132,6 +132,8 @@ void tcm515_callback(esp3_packet_t *packet) {
 		return;
 }
 
+
+
 /**
  * @brief This thread function put last packet in the ring. If frontend is not connected packet is just dropped.
  * 			Waits on completion sent by tmc515 callback.
@@ -146,6 +148,7 @@ static int venocean_send_data_fn(void *data) {
     domid_priv_t *domid_priv;
 
 	while(!kthread_should_stop()) {
+
 		wait_for_completion(&send_data_completion);
 
 		list_for_each_entry(domid_priv, domid_list, list) {
@@ -243,7 +246,7 @@ void venocean_remove(struct vbus_device *vdev) {
 	vdevback_del_entry(vdev, vdev_list);
 	kfree(venocean_priv);
 
-	DBG(VENOCEAN_PREFIX "Removed: %d\n", id);
+	DBG(VENOCEAN_PREFIX "Removed: %d\n", vdev->otherend_id);
 }
 
 void venocean_close(struct vbus_device *vdev) {
