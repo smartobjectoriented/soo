@@ -41,9 +41,12 @@
         <description>\"SOO.blind permet de gérer la position des stores.\"</description>\
         <layout>\
             <row>\
-                <col span=\"2\"><label for=\"blind-up\">Position des stores :</label></col>\
-                <col span=\"2\"><button id=\"blind-up\" lockable=\"true\" lockable-after=\"1.5\">\"Monter\"</button></col>\
-                <col span=\"2\"><button id=\"blind-down\" lockable=\"true\" lockable-after=\"1.5\">\"Descendre\"</button></col>\
+                <col span=\"2\"><button id=\"blind-up\" lockable=\"true\" lockable-after=\"1.5\">STEP_UP</button></col>\
+                <col span=\"2\"><button id=\"blind-down\" lockable=\"true\" lockable-after=\"1.5\">STEP_DOWN</button></col>\
+            </row>\
+            <row>\
+                <col span=\"2\"><button id=\"blind-up-long\" lockable=\"true\" lockable-after=\"1.5\">UP</button></col>\
+                <col span=\"2\"><button id=\"blind-down-long\" lockable=\"true\" lockable-after=\"1.5\">DOWN</button></col>\
             </row>\
         </layout>\
     </model>"
