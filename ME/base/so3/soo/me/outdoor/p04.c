@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -52,15 +52,24 @@ void p04_wait_event(p04_t *ws){
         return;
     }
 
+    printk("[ ID ws        ] : 0x%x\n", ws->id);
+    printk("[ ID tel       ] : 0x%x\n", tel->sender_id.val);
+    printk("[ Ligth sensor ] : 0x%02x\n", tel->data[0]);// correct
+	printk("[ Outdoor temp ] : 0x%02x\n", tel->data[1]);// correct
+	printk("[ Wind speed   ] : 0x%02x\n", tel->data[2]);// correct
+	printk("[ Identifier   ] : 0x%x\n", ws->identifier);
+	printk("[ LRNBit       ] : 0x%x\n", ws->LRNBit);
+	printk("[ Day0_Night   ] : 0x%x\n", ws->day0_night1);
+	printk("[ Rain         ] : 0x%x\n", ws->rain);
     if(tel->sender_id.val == ws->id){
         DBG(NAME_P04 "Good id\n");
-        ws->lightSensor = (tel->data[3] / (uint16_t)255) * LIGHT_SENSOR_MAX;
-        ws->outdoorTemp = (tel->data[2] / (char)255) * TEMP_DIFF - TEMP_REDUC;
-        ws->windSpeed = (tel->data[1] / (char)255) * WIND_SPEED_MAX;
-        ws->identifier = (tel->data[0] & ID_MASK) >> 4;
-        ws->LRNBit = (bool)((tel->data[0] & LRNB_MASK) >> 5);
-        ws->day0_night1 = (bool)((tel->data[0] & DAY_NIGHT_MASK) >> 6);
-        ws->rain = (bool)((tel->data[0] & RAIN_MASK) >> 7);
+        ws->lightSensor = (uint16_t)(((float)tel->data[0] / (float)255) * LIGHT_SENSOR_MAX); //Modifier le calcul pour pas avoir des valeurs par exemple 0.3 vu que c'est des int
+        ws->outdoorTemp = (tel->data[1] / (char)255) * TEMP_DIFF - TEMP_REDUC;
+        ws->windSpeed = (tel->data[2] / (char)255) * WIND_SPEED_MAX;
+        ws->identifier = (tel->data[3] & ID_MASK) >> 4;
+        ws->LRNBit = (bool)((tel->data[3] & LRNB_MASK) >> 5);
+        ws->day0_night1 = (bool)((tel->data[3] & DAY_NIGHT_MASK) >> 6);
+        ws->rain = (bool)((tel->data[3] & RAIN_MASK) >> 7);
         ws->event = true;
     }else{
         DBG(NAME_P04 "Not good id\n");

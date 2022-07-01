@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -69,6 +68,7 @@ int venocean_get_data(char *buf) {
 	BUG_ON(!buf);
 
 	memcpy(buf, ring_rsp->buffer, len);
+	DBG("venocean get data %d\n", len);
 
 	return len;
 }

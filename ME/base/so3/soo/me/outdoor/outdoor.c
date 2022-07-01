@@ -18,7 +18,7 @@
  */
 
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -43,6 +43,7 @@
 #include <me/outdoor.h>
 
 #define ENOCEAN_OUTDOOR_ID 0x018C8B75
+// #define ENOCEAN_OUTDOOR_ID 0x758B8C01
 
 void weatherstation_init(weatherstation_t *ws){
 	p04_init(&ws->ws, ENOCEAN_OUTDOOR_ID);
@@ -50,6 +51,15 @@ void weatherstation_init(weatherstation_t *ws){
 
 void weatherstation_get_data(weatherstation_t *ws){
 	p04_wait_event(&ws->ws);
+
+	// printk("[ Ligth sensor ] : %d\n", ws->ws.lightSensor);
+	// printk("[ Outdoor temp ] : %d\n", ws->ws.outdoorTemp);
+	// printk("[ Wind speed ]   : %d\n", ws->ws.windSpeed);
+	// printk("[ Identifier ]   : %d\n", ws->ws.identifier);
+	// printk("[ LRNBit ]       : %d\n", ws->ws.LRNBit);
+	// printk("[ Day0_Night ]   : %d\n", ws->ws.day0_night1);
+	// printk("[ Rain ]         : %d\n", ws->ws.rain);
+
 	sh_weatherstation->lightSensor = ws->ws.lightSensor;
 	sh_weatherstation->outdoorTemp = ws->ws.outdoorTemp;
 	sh_weatherstation->windSpeed = ws->ws.windSpeed;
@@ -58,6 +68,7 @@ void weatherstation_get_data(weatherstation_t *ws){
 	sh_weatherstation->day0_night1 = ws->ws.day0_night1;
 	sh_weatherstation->rain = ws->ws.rain;
 	sh_weatherstation->event = ws->ws.event;
+
 	p04_reset(&ws->ws);
 }
 

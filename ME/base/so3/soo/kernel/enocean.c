@@ -15,6 +15,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#if 0
+#define DEBUG
+#endif
 
 #include <printk.h>
 #include <heap.h>
@@ -25,10 +28,6 @@
 #include <soo/dev/venocean.h>
 
 #define NAME_ENOCEAN    "[ Enocean ] "
-
-#if 1
-#define DEBUG
-#endif
 
 /**
  * @brief 
@@ -57,8 +56,10 @@ enocean_telegram_t * enocean_buffer_to_telegram(byte *buf, int len) {
             tel->data_len = ENOCEAN_1BS_DATA_SIZE;
             break;
         case BS_4:
+            DBG(NAME_ENOCEAN "case BS_4\n");
             tel->rorg = BS_4;
             tel->data_len = ENOCEAN_4BS_DATA_SIZE;
+            break;
         default:
             DBG("Enocean telegram type 0x%02X is not yet supported\n", 
                 buf[ENOCEAN_TELEGRAM_RORG_OFF]);
@@ -82,6 +83,8 @@ enocean_telegram_t *enocean_get_data(void) {
     int data_len;
     
     data_len = venocean_get_data(data);
+
+    DBG(NAME_ENOCEAN "data_len : %d\n", data_len);
 
     return enocean_buffer_to_telegram(data, data_len);
 }
