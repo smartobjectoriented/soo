@@ -35,6 +35,10 @@
 #define BTN_BLIND_DOWN_ID "blind-down"
 
 
+#define BTN_BLIND_UP_LONG_ID   "blind-up-long"
+#define BTN_BLIND_DOWN_LONG_ID "blind-down-long"
+
+
 /* XML id and action length */
 #define ID_MAX_LENGTH		20
 #define ACTION_MAX_LENGTH	20

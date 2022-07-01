@@ -49,13 +49,22 @@ void blind_process_events(char *data, size_t size) {
 	xml_parse_event(data, id, action);
 
 	if (!strcmp(action, "clickDown")) {
-		sh_blind->sw_press = PRESS_SHORT;
 
 		if (!strcmp(id, BTN_BLIND_UP_ID)) {
 			sh_blind->sw_pos = POS_LEFT_UP;
+			sh_blind->sw_press = PRESS_SHORT;
 
 		} else if(!strcmp(id, BTN_BLIND_DOWN_ID)) {
 			sh_blind->sw_pos = POS_LEFT_DOWN;
+			sh_blind->sw_press = PRESS_SHORT;
+			
+		} else if(!strcmp(id, BTN_BLIND_UP_LONG_ID)) {
+			sh_blind->sw_pos = POS_LEFT_UP;
+			sh_blind->sw_press = PRESS_LONG;
+			
+		} else if(!strcmp(id, BTN_BLIND_DOWN_LONG_ID)) {
+			sh_blind->sw_pos = POS_LEFT_DOWN;
+			sh_blind->sw_press = PRESS_LONG;
 			
 		}
 		complete(&send_data_lock);
