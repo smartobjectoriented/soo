@@ -279,6 +279,10 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	case AGENCY_IOCTL_GET_ME_ID_ARRAY:
 		get_ME_id_array((ME_id_t *) args.buffer);
 		break;
+		
+	case AGENCY_IOCTL_BLACKLIST_SOO:
+		discovery_blacklist_neighbour((char *) args.buffer);
+		break;
 
 	default:
 		lprintk("%s: Unrecognized IOCTL: 0x%x\n", __func__, cmd);
