@@ -11,6 +11,7 @@ endif
 endif
 
 dtb-$(CONFIG_SOO_OUTDOOR) += outdoor.dtb
+dtb-$(CONFIG_SOO_HEAT) += heat.dtb
 dtb-$(CONFIG_SOO_BLIND) += blind.dtb
 dtb-$(CONFIG_SOO_AGENCY) += agency.dtb
 dtb-$(CONFIG_SOO_NET) += net.dtb
@@ -19,5 +20,3 @@ dtb-$(CONFIG_SOO_CHAT) += chat.dtb
 dtb-$(CONFIG_SOO_WAGOLED) += wagoled.dtb
 dtb-$(CONFIG_SOO_SWITCH_KNX) += switch_knx.dtb
 dtb-$(CONFIG_SOO_SWITCH_ENOCEAN) += switch_enocean.dtb
-
-
