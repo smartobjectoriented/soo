@@ -16,16 +16,16 @@
  *
  */
 
+#include <memslot.h>
+#include <sched.h>
+#include <soo.h>
+
 #include <libfdt/fdt_support.h>
 
 #include <device/fdt.h>
 
-#include <memslot.h>
-#include <sched.h>
-
 #include <lib/image.h>
 
-#include <soo/soo.h>
 #include <soo/uapi/avz.h>
 
 #include <asm/mmu.h>

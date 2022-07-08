@@ -131,16 +131,21 @@ void process_response(struct vbus_device *vdev) {
 	}
 
 	vdevback_processing_end(vdev);
-
 }
 
-irqreturn_t vuart_interrupt(int irq, void *dev_id)
-{
+irqreturn_t vuart_interrupt_bh(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 
 	process_response(vdev);
 
 	return IRQ_HANDLED;
+}
+
+irqreturn_t vuart_interrupt(int irq, void *dev_id)
+{
+	/* All processing in the bottom half */
+
+	return IRQ_WAKE_THREAD;
 }
 
 /**
@@ -211,7 +216,7 @@ void vuart_close(struct vbus_device *vdev) {
 	 * Free the ring and unbind evtchn.
 	 */
 
-	BACK_RING_INIT(&vuart_priv->vuart.ring, (&vuart_priv->vuart.ring)->sring, PAGE_SIZE);
+	BACK_RING_INIT(&vuart_priv->vuart.ring, vuart_priv->vuart.ring.sring, PAGE_SIZE);
 	unbind_from_virqhandler(vuart_priv->vuart.irq, vdev);
 
 	vbus_unmap_ring_vfree(vdev, vuart_priv->vuart.ring.sring);
@@ -248,7 +253,7 @@ void vuart_reconfigured(struct vbus_device *vdev) {
 
 	BACK_RING_INIT(&vuart_priv->vuart.ring, sring, PAGE_SIZE);
 
-	vuart_priv->vuart.irq = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vuart_interrupt, NULL, 0, VUART_NAME "-backend", vdev);
+	vuart_priv->vuart.irq = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vuart_interrupt, vuart_interrupt_bh, 0, VUART_NAME "-backend", vdev);
 }
 
 void vuart_connected(struct vbus_device *vdev) {

@@ -30,13 +30,14 @@ void panic(const char *fmt, ...)
 {
 	va_list args;
 	unsigned long flags;
-	static DEFINE_SPINLOCK(lock);
 	static char buf[128];
+
+	static DEFINE_SPINLOCK(lock);
 
 	/* Protects buf[] and ensure multi-line message prints atomically. */
 	spin_lock_init(&console_lock);
 
-	spin_lock_irqsave(&lock, flags);
+	flags = spin_lock_irqsave(&lock);
 
 	va_start(args, fmt);
 	(void)vsnprintf(buf, sizeof(buf), fmt, args);

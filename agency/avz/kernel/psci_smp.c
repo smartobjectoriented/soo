@@ -46,18 +46,27 @@
  *
  */
 
-
 extern void secondary_startup(void);
 
 static DEFINE_SPINLOCK(cpu_lock);
 
-static unsigned long __invoke_psci_fn_smc(unsigned long function_id,
+unsigned long __invoke_psci_fn_smc(unsigned long function_id,
 			unsigned long arg0, unsigned long arg1,
 			unsigned long arg2)
 {
 	struct arm_smccc_res res;
 
 	arm_smccc_smc(function_id, arg0, arg1, arg2, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+unsigned long __invoke_psci_fn_hvc(unsigned long function_id,
+			unsigned long arg0, unsigned long arg1,
+			unsigned long arg2)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_hvc(function_id, arg0, arg1, arg2, 0, 0, 0, 0, &res);
 	return res.a0;
 }
 
@@ -79,24 +88,29 @@ static int psci_to_errno(int errno)
 }
 
 /* Switch off the current CPU */
-#ifndef CONFIG_MACH_SUN50I
 int cpu_off(unsigned long cpuid)
 {
 	int ret;
 
-	ret = __invoke_psci_fn_smc(PSCI_0_2_FN_CPU_ON, cpuid, 0, 0);
+#ifdef CONFIG_ARM_TRUSTZONE
+	ret = __invoke_psci_fn_smc(PSCI_0_2_FN_CPU_OFF, cpuid, 0, 0);
+#else
+	ret = __invoke_psci_fn_hvc(PSCI_0_2_FN_CPU_OFF, cpuid, 0, 0);
+#endif
 
 	return psci_to_errno(ret);
 }
-#endif
 
 /* Switch on a CPU */
 static int cpu_on(unsigned long cpuid, unsigned long entry_point)
 {
 	int ret;
 
+#ifdef CONFIG_ARM_TRUSTZONE
 	ret = __invoke_psci_fn_smc(PSCI_0_2_FN_CPU_ON, cpuid, entry_point, 0);
-
+#else
+	ret = __invoke_psci_fn_hvc(PSCI_0_2_FN_CPU_ON, cpuid, entry_point, 0);
+#endif
 	return psci_to_errno(ret);;
 }
 

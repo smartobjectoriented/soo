@@ -46,11 +46,11 @@ on DALI bus";
 			status = "ok";
 		};
 
-		venocean {
+		vwagoled {
 			status = "ok";
 		};
 
-		vwagoled {
+		vuihandler {
 			status = "ok";
 		};
 	};

@@ -22,40 +22,39 @@
 #include <completion.h>
 #include <spinlock.h>
 #include <printk.h>
+#include <asm/atomic.h>
 
 #include <me/common.h>
+#include <me/switch.h>
+
 
 #define MEWAGOLED_NAME		"ME wagoled"
 #define MEWAGOLED_PREFIX	"[ " MEWAGOLED_NAME " ]"
 
-/*** Compatible devices ***/
-/*** PTM 210 ***/
-#define BUTTON_ID 			0x00367BBB
-#define BUTTON_ID_SIZE		0x4
-#define SWITCH_IS_RELEASED 0x00 
-#define SWITCH_IS_UP 0x70
-#define SWITCH_IS_DOWN 0x50
 
-/*** Data offesets ***/
-#define RORG_OFFS			0x0
-#define CMD_OFFS			0x1
-#define ID_OFFS				0x02
+#define WAGOLED_MODEL  "<model spid=\"00000200000000000000000000000003\">\
+		<name>SOO.wagoled</name>\
+		<description>\"SOO.blind permet de gérer l'allumage d'un luminaire Wago\"</description>\
+		<layout>\
+			<row>\
+				<col span=\"2\"><label for=\"btn-led-l\">Lamp gauche :</label></col>\
+				<col span=\"2\"><button id=\"btn-led-l\" lockable=\"true\" lockable-after=\"1.5\">Click</button></col>\
+				<col span=\"2\"><label for=\"btn-led-r\">Lamp droite :</label></col>\
+				<col span=\"2\"><button id=\"btn-led-r\" lockable=\"true\" lockable-after=\"1.5\">Click</button></col>\
+			</row>\
+		</layout>\
+	</model>"
 
-/*** First byte of received data ***/
-#define RORG_BYTE			0xF6
-
-/*** Minimun data length ***/
-#define MIN_LENGTH			0x06
-
-/*** ROOMS ***/
-#define ROOM1	0x0
-#define ROOM2	0x1
 
 /*
  * Never use lock (completion, spinlock, etc.) in the shared page since
  * the use of ldrex/strex instructions will fail with cache disabled.
  */
 typedef struct {
+
+	bool switch_event;
+	switch_position sw_pos;
+	switch_status sw_status;
 	/*
 	 * MUST BE the last field, since it contains a field at the end which is used
 	 * as "payload" for a concatened list of hosts.
@@ -66,6 +65,18 @@ typedef struct {
 
 /* Export the reference to the shared content structure */
 extern sh_wagoled_t *sh_wagoled;
+
+/**
+ * @brief Completion used to wait for a switch event
+ * 
+ */
+extern struct completion send_data_lock;
+
+/**
+ * @brief Condition of which the threads are running
+ * 
+ */
+extern atomic_t shutdown;
 
 #define pr_err(fmt, ...) \
 	do { \

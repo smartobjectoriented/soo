@@ -40,8 +40,6 @@
 
 #include <soo/uapi/soo.h>
 
-int fd_core;
-
 /* Used by the polling function to know when to stop */
 bool upgrade_done = false;
 

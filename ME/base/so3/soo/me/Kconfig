@@ -53,7 +53,15 @@ choice
 	config SOO_WAGOLED
 		bool "SOO.wagoled Mobile Entity"
 		help
-			TODO		
+			TODO
+
+	config SOO_SWITCH_KNX
+		bool "SOO.switch Mobile Entity using KNX" 
+		help
+			SOO.switch is a ME capable of ...
+	
+	config SOO_SWITCH_ENOCEAN
+		bool "SOO.switch Mobile Entity using enocean"
 		
 endchoice
 

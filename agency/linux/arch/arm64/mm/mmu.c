@@ -37,6 +37,9 @@
 #include <asm/tlbflush.h>
 #include <asm/pgalloc.h>
 
+/* SOO.tech */
+#include <soo/avz.h>
+
 #define NO_BLOCK_MAPPINGS	BIT(0)
 #define NO_CONT_MAPPINGS	BIT(1)
 
@@ -677,14 +680,7 @@ static void __init map_kernel(pgd_t *pgdp)
 
 	/* SOO.tech */
 	/* Map the AVZ hypervisor */
-
-#ifdef CONFIG_ARM64_VA_BITS_48
-	set_pgd(pgd_offset_pgd(pgdp, 0xffff700000000000ul), *pgd_offset_k(0xffff700000000000));
-#elif CONFIG_ARM64_VA_BITS_39
-	set_pgd(pgd_offset_pgd(pgdp, 0xffffffb000000000ul), *pgd_offset_k(0xffffffb000000000));
-#else
-#error "Wrong VA_BITS configuration."
-#endif
+ 	set_pgd(pgd_offset_pgd(pgdp, AVZ_shared->hypervisor_vaddr), *pgd_offset_k(AVZ_shared->hypervisor_vaddr));
 
 	if (!READ_ONCE(pgd_val(*pgd_offset_pgd(pgdp, FIXADDR_START)))) {
 		/*
@@ -737,6 +733,11 @@ void __init paging_init(void)
 
 	/* (SOO.tech) The following function has been patched accordingly. */
 	idmap_cpu_replace_ttbr1(virt_to_phys(swapper_pg_dir));
+
+	/* (SOO.tech) ...and update the PT paddr */
+	AVZ_shared->pagetable_vaddr = (addr_t) swapper_pg_dir;
+	AVZ_shared->pagetable_paddr = (addr_t) virt_to_phys(swapper_pg_dir);
+	AVZ_shared->subdomain_shared->pagetable_paddr = AVZ_shared->pagetable_paddr;
 
 	local_flush_tlb_all();
 

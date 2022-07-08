@@ -148,7 +148,7 @@ vdrvback_t vwagoleddrv = {
 int vwagoled_init(void) {
 	struct device_node *np;
 
-    DBG(VWAGOLED_PREFIX "Starting\n");
+    printk(VWAGOLED_PREFIX "Starting\n");
 
 	np = of_find_compatible_node(NULL, NULL, "vwagoled,backend");
 
@@ -162,7 +162,7 @@ int vwagoled_init(void) {
 		BUG();
 	}
 
-    DBG(VWAGOLED_PREFIX "Initialized\n");
+    printk(VWAGOLED_PREFIX "Initialized\n");
 	
     return 0;
 }

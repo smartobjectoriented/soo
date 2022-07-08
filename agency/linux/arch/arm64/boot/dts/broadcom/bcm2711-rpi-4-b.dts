@@ -16,9 +16,9 @@
 
 	chosen {
 	 	/* bootargs = "console=ttyAMA0,115200n8 root=/dev/ram rw slub_debug=PUZ"; */
- 	   /*  bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=serial0,115200 console=tty1 root=/dev/ram elevator=deadline fsck.repair=yes rootwait"; */
-	bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=ttyS0,115200 root=/dev/ram fsck.repair=yes rootwait";
-
+		/*  bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=serial0,115200 console=tty1 root=/dev/ram elevator=deadline fsck.repair=yes rootwait"; */
+		/* bootargs = "initcall_debug=1 ignore_loglevel coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=ttyS0,115200 root=/dev/ram fsck.repair=yes rootwait"; */
+		bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=ttyS0,115200 root=/dev/ram fsck.repair=yes rootwait";
 #if 0 /* SOO.tech */
 		/* 8250 auxiliary UART instead of pl011 */
 		stdout-path = "serial1:115200n8";
@@ -28,7 +28,7 @@
 	/* Will be filled by the bootloader */
 	memory@0 {
 		device_type = "memory";
-		reg = <0 0 0x20000000>;
+		reg = <0 0 0>;
 	};
 
 	aliases {
@@ -81,17 +81,46 @@
 	
 	/* Backends */
 	backends {
+		
 		vuart {
-			compatible = "vuart,backend";
 			status = "ok";
 		};
-	};
-	
-	frontends {	
-		vuart {
-			compatible = "vuart,frontend";
+			
+		vuihandler {
 			status = "ok";
 		};
+				
+		vsenseled {
+			status = "ok";
+		};
+				
+		vsensej {
+			status = "ok";
+		};
+
+                vdoga {
+			status = "ok";
+
+			up_end-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
+			down_end-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
+
+			sleep-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
+			mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
+			in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
+		};
+
+		vwagoled {
+			status = "ok";
+		};
+
+		venocean {
+			status = "ok";
+		};
+
+		vknx {
+			status = "ok";
+		};
+
 	};
 
 };
@@ -121,6 +150,18 @@
 		brcm,pins = <8 7>;
 		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
 	};
+    
+    /* SOO.tech: Added SPI1 pin conf */
+    spi1_pins: spi1_pins {
+		brcm,pins = <19 20 21>;
+		brcm,function = <BCM2835_FSEL_ALT4>;
+	};
+
+	spi1_cs_pins: spi1_cs_pins {
+		brcm,pins = <18>;
+		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
+	};
+
 
 	spi3_pins: spi3_pins {
 		brcm,pins = <1 2 3>;
@@ -181,7 +222,12 @@
 	};
 
 	i2c4_pins: i2c4 {
+       
+	 /* SOO.tech */
+        brcm,pins = <6 7>;
+#if 0
 		brcm,pins = <8 9>;
+#endif
 		brcm,function = <BCM2835_FSEL_ALT5>;
 		brcm,pull = <BCM2835_PUD_UP>;
 	};
@@ -322,7 +368,6 @@
 	};
 };
 
-
 /* EMMC2 is used to drive the SD card */
 &emmc2 {
 	vqmmc-supply = <&sd_io_1v8_reg>;
@@ -351,82 +396,73 @@
 	status = "okay";
 };
 
-/* OpenCN */
-&spi {
+/* UART5 used for LoRa communication on soo.mp V1 */
+&uart3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_gpio4>;
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&spi0_pins &spi0_cs_pins>;
-	cs-gpios = <&gpio 8 1>, <&gpio 7 1>;
 
-	eth1: enc28j60@0{
-		compatible = "microchip,enc28j60";
-		reg = <0>; /* CE0 */
-		pinctrl-names = "default";
-		pinctrl-0 = <&eth1_pins>;
-		interrupt-parent = <&gpio>;
-		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
-		spi-max-frequency = <12000000>;
-		status = "okay";
+#if 0
+	lora {
+		compatible = "lora,rn2483";
+		current-speed = <57600>;
 	};
+#else	
+	knx {
+		compatible = "knx,kberry838";
+		current-speed = <19200>;
+	};
+#endif
 };
 
-/* OpenCN */
+/* UART5 used for enOcean communication on soo.mp V1 */
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart5_gpio12>;
+	status = "okay";
+#if 1
+	enocean {
+		compatible = "enocean,tcm515";
+		current-speed = <57600>;
+	};
+#else
+	knx {
+		compatible = "knx,kberry838";
+		current-speed = <19200>;
+	};
+#endif
+};	
+
 &spi1 {
-	status = "ok";
-	pinctrl-names = "default";
+	status = "okay";
+	cs-gpios = <&gpio 18 GPIO_ACTIVE_LOW>;
+	num-cs = <1>;
 
-	pinctrl-0 = <&spi1_pins &spi1_cs_pins>;
-	cs-gpios = <&gpio 18 0>;
-
-	eth2: enc28j60@0{
-		compatible = "microchip,enc28j60";
-		reg = <0>; /* CE0 */
-		pinctrl-names = "default";
-		pinctrl-0 = <&eth2_pins>;
-		interrupt-parent = <&gpio>;
-		interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
-		spi-max-frequency = <12000000>;
+	/* SOO.tech */
+	drv8703q1@0 {
+		compatible = "ti,drv8703q1";
 		status = "okay";
+		reg = <0>;
+		spi-max-frequency = <0x7735940>;
+		sleep-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>;
+		mode-gpio = <&gpio 10 GPIO_ACTIVE_HIGH>;
 	};
 };
 
-/* OpenCN */
-&gpio {
-	spi0_pins: spi0_pins {
-		brcm,pins = <9 10 11>;
-		brcm,function = <BCM2835_FSEL_ALT0>;
-	};
+/* SOO.tech */
+&i2c4 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c4_pins>;
+	clock-frequency = <100000>;
 
-	spi0_cs_pins: spi0_cs_pins {
-		brcm,pins = <8 7>;
-		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
-        // brcm,function = <BCM2835_FSEL_ALT0>;
-	};
-
-	spi1_pins: spi1_pins {
-		brcm,pins = <19 20 21>;
-		brcm,function = <BCM2835_FSEL_ALT4>;
-	};
-
-	spi1_cs_pins: spi1_cs_pins {
-		brcm,pins = <18>;
-		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
-	};
-
-	eth1_pins: eth1_pins {
-		brcm,pins = <22>;
-		brcm,function = <0>; /* in */
-		brcm,pull = <0>; /* none */
-	};
-
-	eth2_pins: eth2_pins {
-		brcm,pins = <25>;
-		brcm,function = <0>; /* in */
-		brcm,pull = <0>; /* none */
-	};
+    ds1050@28 {
+        compatible = "maxim,ds1050";
+        reg = <0x28>; /* This is due to the control byte (101) + A2, A1, A0 (000) combination (101000 = 0x28) */
+    };
 };
 
-#if 0 /* opencn */
+
 
 &i2c1 {
     compatible = "brcm,bcm2711-i2c", "brcm,bcm2835-i2c";
@@ -472,10 +508,7 @@
 		status = "okay";
 	};
 };
-#endif /* 0 */
 
 &vchiq {
 	interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 };
-
-

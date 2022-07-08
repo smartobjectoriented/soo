@@ -53,16 +53,6 @@
 
 #include "smsc911x.h"
 
-/* SOO.tech */
-#include <linux/workqueue.h>
-#include <linux/skbuff.h>
-
-#include <soo/uapi/debug.h>
-#include <soo/uapi/console.h>
-
-#include <soo/soolink/transceiver.h>
-#include <soo/soolink/plugin/ethernet.h>
-
 #define SMSC_CHIPNAME		"smsc911x"
 #define SMSC_MDIONAME		"smsc911x-mdio"
 #define SMSC_DRV_VERSION	"2008-10-21"
@@ -76,9 +66,6 @@ static int debug = 16;
 #else
 static int debug = 3;
 #endif
-
-/* SOO.tech */
-extern req_type_t get_sl_req_type_from_protocol(uint16_t protocol);
 
 module_param(debug, int, 0);
 MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
@@ -157,12 +144,6 @@ struct smsc911x_data {
 
 /* Easy access to information */
 #define __smsc_shift(pdata, reg) ((reg) << ((pdata)->config.shift))
-
-/* SOO.tech */
-static struct sk_buff_head smsc911x_skb_queue;
-static struct workqueue_struct *receiver_work_wq;
-static spinlock_t smsc911_lock;
-static struct net_device *smsc911x_netdev;
 
 static inline u32 __smsc911x_reg_read(struct smsc911x_data *pdata, u32 reg)
 {
@@ -1220,33 +1201,6 @@ smsc911x_rx_fastforward(struct smsc911x_data *pdata, unsigned int pktwords)
 	}
 }
 
-/* SOO.tech */
-/* See the comment in smsc911x_poll */
-static void receiver_work_handler(struct work_struct *w) {
-	struct sk_buff *skb;
-	struct ethhdr *p_ethhdr;
-	uint8_t mac_src[ETH_ALEN];
-
-	spin_lock(&smsc911_lock);
-
-	while ((skb = skb_dequeue(&smsc911x_skb_queue))) {
-		p_ethhdr = eth_hdr(skb);
-
-		memcpy(mac_src, p_ethhdr->h_source, ETH_ALEN);
-
-		/* SOO.tech */
-
-#ifdef CONFIG_SOOLINK_PLUGIN_ETHERNET
-		plugin_ethernet_rx(skb, smsc911x_netdev, mac_src);
-#endif
-	}
-
-	spin_unlock(&smsc911_lock);
-}
-
-/* SOO.tech */
-static DECLARE_DELAYED_WORK(receiver_work, receiver_work_handler);
-
 /* NAPI poll function */
 static int smsc911x_poll(struct napi_struct *napi, int budget)
 {
@@ -1309,22 +1263,7 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
 		skb_put(skb, pktlength - 4);
 		skb->protocol = eth_type_trans(skb, dev);
 		skb_checksum_none_assert(skb);
-
-		/* SOO.tech */
-		if ((ntohs(skb->protocol) > ETH_P_SL_MIN) && (ntohs(skb->protocol) < ETH_P_SL_MAX)) {
-			DBG("%s: %08x\n", __func__, ntohs(skb->protocol));
-
-			/*
-			 * We cannot directly call sl_plugin_ethernet_rx from the smsc911x_poll function
-			 * (atomic context: "scheduling while atomic" errors occur). Furthermore, we can
-			 * have deadlocks if Ethernet's TX and RX paths are not separated. For these
-			 * reasons, we are using a work queue that defers the propagation of the received
-			 * skbs to SOOlink.
-			 */
-			skb_queue_tail(&smsc911x_skb_queue, skb);
-			queue_delayed_work(receiver_work_wq, &receiver_work, 0);
-		} else
-			netif_receive_skb(skb);
+		netif_receive_skb(skb);
 
 		/* Update counters */
 		dev->stats.rx_packets++;
@@ -2240,9 +2179,6 @@ static int smsc911x_init(struct net_device *dev)
 	spin_lock_init(&pdata->dev_lock);
 	spin_lock_init(&pdata->mac_lock);
 
-	/* SOO.tech */
-	spin_lock_init(&smsc911_lock);
-
 	if (pdata->ioaddr == NULL) {
 		SMSC_WARN(pdata, probe, "pdata->ioaddr: 0x00000000");
 		return -ENODEV;
@@ -2361,11 +2297,6 @@ static int smsc911x_init(struct net_device *dev)
 	netif_napi_add(dev, &pdata->napi, smsc911x_poll, SMSC_NAPI_WEIGHT);
 	dev->netdev_ops = &smsc911x_netdev_ops;
 	dev->ethtool_ops = &smsc911x_ethtool_ops;
-
-	/* SOO.tech */
-	smsc911x_netdev = dev;
-	skb_queue_head_init(&smsc911x_skb_queue);
-	receiver_work_wq = create_singlethread_workqueue("receiver_work");
 
 	return 0;
 }

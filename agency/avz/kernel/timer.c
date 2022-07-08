@@ -28,10 +28,9 @@
 #include <keyhandler.h>
 #include <percpu.h>
 #include <heap.h>
+#include <soo.h>
 
 #include <asm/backtrace.h>
-
-#include <soo/soo.h>
 
 static void dump_timerq(unsigned char key);
 
@@ -40,7 +39,7 @@ u64 edf_current = STIME_MAX;
 struct timers {
 
 	spinlock_t lock;
-	bool_t overflow;
+	bool overflow;
 	struct timer **heap;
 	struct timer *list;
 	struct timer *running;

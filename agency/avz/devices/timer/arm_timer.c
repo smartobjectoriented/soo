@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -55,12 +55,12 @@ static irqreturn_t timer_handler(int irq, void *dev_id)
 {
 	unsigned long ctrl;
 
-	ctrl = arch_timer_reg_read(ARCH_TIMER_REG_CTRL);
+	ctrl = arch_timer_reg_read_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL);
 
 	if (ctrl & ARCH_TIMER_CTRL_IT_STAT) {
 
 		ctrl |= ARCH_TIMER_CTRL_IT_MASK;
-		arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
+		arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, ctrl);
 
 		if (smp_processor_id() == ME_CPU) {
 
@@ -83,9 +83,9 @@ static inline void timer_set_mode(int mode, struct clock_event_device *clk)
 
 	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_SHUTDOWN:
-		ctrl = arch_timer_reg_read(ARCH_TIMER_REG_CTRL);
+		ctrl = arch_timer_reg_read_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL);
 		ctrl &= ~ARCH_TIMER_CTRL_ENABLE;
-		arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
+		arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, ctrl);
 		break;
 	default:
 		break;
@@ -101,12 +101,12 @@ static inline void set_next_event(unsigned long evt, struct clock_event_device *
 {
 	unsigned long ctrl;
 
-	ctrl = arch_timer_reg_read(ARCH_TIMER_REG_CTRL);
+	ctrl = arch_timer_reg_read_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL);
 	ctrl |= ARCH_TIMER_CTRL_ENABLE;
 	ctrl &= ~ARCH_TIMER_CTRL_IT_MASK;
 
-	arch_timer_reg_write(ARCH_TIMER_REG_TVAL, evt);
-	arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
+	arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_TVAL, evt);
+	arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, ctrl);
 }
 
 static int arch_timer_set_next_event_virt(unsigned long evt, struct clock_event_device *clk)
@@ -139,12 +139,17 @@ static struct clocksource arm_clocksource = {
 		.flags		= CLOCK_SOURCE_IS_CONTINUOUS | CLOCK_SOURCE_SUSPEND_NONSTOP,
 };
 
-/*
- * According to the CPU, system_timer_clockevent will be commonly used for both non-RT and RT.
+/**
+ * Initialize and start the CPU system timer.
+ *
+ * @param cpu
  */
 void init_timer(int cpu)
 {
 	BUG_ON((cpu == AGENCY_CPU) || (cpu == AGENCY_RT_CPU));
+
+	/* Low-leve init, disabled, interrupt off */
+	arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, 0);
 
 	/* System clocksource */
 	system_timer_clocksource = &arm_clocksource;

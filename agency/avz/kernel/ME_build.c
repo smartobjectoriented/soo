@@ -28,98 +28,67 @@
 #include <heap.h>
 
 #include <asm/processor.h>
-
-#include <soo/uapi/logbool.h>
-
+#include <asm/setup.h>
 #include <asm/cacheflush.h>
 
-#define L_TEXT_OFFSET	0x8000
-
-extern char hypercall_start[];
+#include <soo/uapi/logbool.h>
 
 /*
  * construct_ME sets up a new Mobile Entity.
  */
 int construct_ME(struct domain *d) {
 	unsigned int slotID;
-	unsigned long vstartinfo_start;
 	unsigned long v_start;
 	unsigned long alloc_spfn;
-	unsigned long vpt_start;
-	struct start_info *si = NULL;
-	unsigned long nr_pages;
-	addrspace_t prev_addrspace;
+	addr_t prev_pagetable_paddr;
 
-	slotID = d->domain_id;
+	slotID = d->avz_shared->domID;
 
-	printk(	"***************************** Loading Mobile Entity (ME) *****************************\n");
+	printk("***************************** Loading Mobile Entity (ME) *****************************\n");
 
 	if (memslot[slotID].size == 0)
 		panic("No domU image supplied\n");
 
 	/* We are already on the swapper_pg_dir page table to have full access to RAM */
 
-	/* The following page will contain start_info information */
-	vstartinfo_start = (unsigned long) memalign(PAGE_SIZE, PAGE_SIZE);
-	BUG_ON(!vstartinfo_start);
-
 	d->max_pages = ~0U;
-	d->tot_pages = 0;
 
-	nr_pages = memslot[slotID].size >> PAGE_SHIFT;
+	d->avz_shared->nr_pages = memslot[slotID].size >> PAGE_SHIFT;
 	printk("Max dom size %d\n", memslot[slotID].size);
 
-	printk("Domain length = %lu pages.\n", nr_pages);
+	printk("Domain length = %lu pages.\n", d->avz_shared->nr_pages);
 
 	ASSERT(d);
 
-	d->tot_pages = memslot[slotID].size >> PAGE_SHIFT;
 	alloc_spfn = memslot[slotID].base_paddr >> PAGE_SHIFT;
 
 	clear_bit(_VPF_down, &d->pause_flags);
 
-	v_start = L_PAGE_OFFSET;
-
-	vpt_start = v_start + TTB_L1_SYS_OFFSET; /* Location of the system page table (see head.S). */
+	v_start = ME_PAGE_OFFSET;
 
 	__setup_dom_pgtable(d, v_start, memslot[slotID].size, (alloc_spfn << PAGE_SHIFT));
 
 	/* Lets switch to the page table of our new domain - required for sharing page info */
-	get_current_addrspace(&prev_addrspace);
+	get_current_pgtable(&prev_pagetable_paddr);
 
-	/* We do this trick to access the right address space linked to the current CPU. */
-	d->addrspace.ttbr0[smp_processor_id()] = d->addrspace.ttbr0[ME_CPU];
+	mmu_switch((void *) d->avz_shared->pagetable_paddr);
 
-	mmu_switch(&d->addrspace);
+	d->avz_shared->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
+	d->avz_shared->hypercall_vaddr = (unsigned long) hypercall_entry;
+	d->avz_shared->logbool_ht_set_addr = (unsigned long) ht_set;
+	d->avz_shared->fdt_paddr = memslot[slotID].fdt_paddr;
 
-	si = (start_info_t*) vstartinfo_start;
+	d->avz_shared->hypervisor_vaddr = CONFIG_HYPERVISOR_VADDR;
 
-	memset(si, 0, PAGE_SIZE);
+	printk("ME FDT device tree: 0x%lx (phys)\n", d->avz_shared->fdt_paddr);
 
-	si->domID = d->domain_id;
+	d->avz_shared->printch = printch;
 
-	si->nr_pages = d->tot_pages;
-	si->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
-
-	si->shared_info = d->shared_info;
-	si->hypercall_addr = (unsigned long) hypercall_start;
-
-	si->logbool_ht_set_addr = (unsigned long) ht_set;
-
-	si->fdt_paddr = memslot[slotID].fdt_paddr;
-
-	printk("ME FDT device tree: 0x%lx (phys)\n", si->fdt_paddr);
-
-	si->printch = printch;
-
-	si->pt_vaddr = d->addrspace.pgtable_vaddr;
-
-	mmu_switch(&prev_addrspace);
-
-	d->vstartinfo_start = vstartinfo_start;
+	mmu_switch((void *) prev_pagetable_paddr);
 
 	/* Create the first thread associated to this domain. */
-	new_thread(d, L_PAGE_OFFSET + L_TEXT_OFFSET, si->fdt_paddr, v_start + memslot[slotID].size, vstartinfo_start);
+
+	new_thread(d, v_start + L_TEXT_OFFSET, d->avz_shared->fdt_paddr, v_start + memslot[slotID].size);
 
 	return 0;
 }

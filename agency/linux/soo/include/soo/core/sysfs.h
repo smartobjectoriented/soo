@@ -30,7 +30,7 @@ typedef enum {
 	/** SOOlink **/
 
 	/**** Discovery ****/
-	buffer_count, neighbours,
+	buffer_count, neighbours, neighbours_ext,
 
 	/** Backend **/
 
@@ -38,7 +38,11 @@ typedef enum {
 	vsensej_js,
 
 	/**** vwagoled ****/
-	vwagoled_notify, vwagoled_debug, vwagoled_led_on, vwagoled_led_off, vwagoled_get_topology,
+	vwagoled_notify,
+	vwagoled_debug,
+	vwagoled_led_on,
+	vwagoled_led_off,
+	vwagoled_get_topology,
 	vwagoled_get_status
 
 } soo_sysfs_attr_t;

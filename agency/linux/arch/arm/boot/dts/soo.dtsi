@@ -54,6 +54,11 @@
 				status = "disabled";
 			};
 
+			vknx {
+				compatible = "vknx,backend";
+				status = "disabled";
+			};
+
 		};
 	};
 	

@@ -441,7 +441,11 @@
 			<GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+/* SOO.tech */
+#if 0
 		interrupt-affinity = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
+#endif
+		interrupt-affinity = <&cpu0>, <&cpu1>;
 	};
 
 	timer {
@@ -479,6 +483,8 @@
 			cpu-release-addr = <0x0 0x000000e0>;
 		};
 
+/* SOO.tech */
+#if 0
 		cpu2: cpu@2 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a72";
@@ -494,6 +500,7 @@
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x000000f0>;
 		};
+#endif
 	};
 
 	scb {
@@ -532,7 +539,7 @@
 			brcm,enable-ssc;
 		};
 
-#if 0 /* OpenCN */
+#if 0 /* SOO.tech */
 		genet: ethernet@7d580000 {
 			compatible = "brcm,bcm2711-genet-v5";
 			reg = <0x0 0x7d580000  0x0 0x10000>;
@@ -550,8 +557,8 @@
 				#size-cells = <0x1>;
 			};
 		};
-#else
-		genet: genet@7d580000 {
+#endif
+                genet: genet@7d580000 {
 			compatible = "brcm,genet-v5";
 			reg = <0x0 0x7d580000  0x0 0x10000>;
 			#address-cells = <0x1>;
@@ -559,7 +566,7 @@
 			interrupts = <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
-
+			
 			phy-handle = <&phy1>;
 			phy-mode = "rgmii";
 			mdio@e14 {
@@ -577,7 +584,6 @@
 				};
 			};
 		};
-#endif
 	};
 };
 

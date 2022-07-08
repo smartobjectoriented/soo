@@ -29,7 +29,7 @@
 #include <libfdt/libfdt_env.h>
 
 /* Virtual address of the device tree */
-addr_t *fdt_vaddr;
+void *fdt_vaddr;
 
 const struct fdt_property *fdt_find_property(void *fdt_addr, int offset, const char *propname) {
 	const struct fdt_property *prop;

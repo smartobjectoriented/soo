@@ -26,10 +26,9 @@
 #include <softirq.h>
 #include <spinlock.h>
 #include <errno.h>
+#include <soo.h>
 
 #include <device/irq.h>
-
-#include <soo/soo.h>
 
 #include <soo/uapi/schedop.h>
 

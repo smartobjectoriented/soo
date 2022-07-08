@@ -62,27 +62,38 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
 	agency_ctl_args.cmd = AG_AGENCY_UID;
 	args->__agency_ctl(&agency_ctl_args);
-
 	sh_chat->me_common.here = agency_ctl_args.u.agencyUID;
 
-	DBG("ME %d: originUID: %d\n", ME_domID(), sh_chat->me_common.here);
+
+	DBG("ME %d: originUID: %d\n", ME_domID(), sh_chat->initiator);
+
+	if (sh_chat->cur_chat.stamp != 0)
+		DBG("msg: %s\n", sh_chat->cur_chat.text);
+
 
 	/* If it is the first pre_activate, init the originUID of the cur_chat */
 	if (!originUID_initd) {
 		sh_chat->cur_chat.originUID = agency_ctl_args.u.agencyUID;
 		sh_chat->initiator = agency_ctl_args.u.agencyUID;
 		sh_chat->me_common.origin = agency_ctl_args.u.agencyUID;
+
+		/* Retrieve SOO name */
+		agency_ctl_args.cmd = AG_SOO_NAME;
+		args->__agency_ctl(&agency_ctl_args);
+		strcpy(sh_chat->soo_name, agency_ctl_args.u.soo_name_args.soo_name);
 		originUID_initd = true;
 	}
 
 	host_entry = find_host(&visits, sh_chat->me_common.here);
-	if (host_entry)
+	if (host_entry) {
 		/* We already visited this place. 
 		We ask the agency to kill this ME */
+		DBG("Now killing the ME %d HOST VISITED\n", ME_domID());
 		set_ME_state(ME_state_killed);
-	else
+	} else {
 		/* We add the host to the visited list if we never visited it */
 		new_host(&visits, sh_chat->me_common.here, NULL, 0);
+	}
 
 	return 0;
 }
@@ -110,7 +121,7 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 	/* To be killed - only one propagation, here we set the real propagate_status */
 	if (!pre_propagate_args->propagate_status && (get_ME_state() == ME_state_dormant)) {
 		set_ME_state(ME_state_killed);
-		DBG("Now killing the ME %d\n", ME_domID());
+		DBG("Now killing the ME %d NO PROPAGATE\n", ME_domID());
 	}
 
 	sh_chat->need_propagate = false;
@@ -156,7 +167,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
 	agency_ctl_args_t agency_ctl_args;
 	sh_chat_t *incoming_sh_chat;
-	uint32_t pfn;
+	addr_t pfn;
 	chat_entry_t *last_chat;
 	LIST_HEAD(incoming_hosts);
 
@@ -184,7 +195,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		/* Update the list of hosts */
 		sh_chat->me_common.soohost_nr = concat_hosts(&visits, (uint8_t *) sh_chat->me_common.soohosts);
 
-		agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) sh_chat));
+		agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_chat));
 		agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
 		/* This pattern enables the cooperation with the target ME */
@@ -250,11 +261,11 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			the new message is more recent, we send the message and add/update it to our history */
 			if (last_chat == NULL || (last_chat->stamp < incoming_sh_chat->cur_chat.stamp)) {
 				add_chat_in_history(&incoming_sh_chat->cur_chat);
-				send_chat_to_tablet(incoming_sh_chat->cur_chat.originUID, incoming_sh_chat->cur_chat.text);
+				send_chat_to_tablet(incoming_sh_chat->soo_name, incoming_sh_chat->cur_chat.text);
 			}	
 		}
 
-		io_unmap((uint32_t) incoming_sh_chat);
+		io_unmap((addr_t) incoming_sh_chat);
 		break;
 
 	default:
