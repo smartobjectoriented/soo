@@ -32,6 +32,13 @@
 #include <linux/jiffies.h>
 #include <soo/uapi/console.h>
 
+/*** Commands packets ***/
+static esp3_packet_t co_rd_version_packet = {
+    .header = {0x01, 0x00, COMMON_COMMAND},
+    .data = (byte[]){CO_RD_VERSION},
+    .optional_data = NULL,
+};
+
 /* Access to serdev */
 static struct tcm515_uart *tcm515;
 
@@ -298,11 +305,12 @@ static int tcm515_serdev_probe(struct serdev_device *serdev) {
     get_id_version = esp3_packet_to_byte_buffer(&co_rd_version_packet);
     if (get_id_version) {
         tcm515_write_buf(get_id_version, CO_READ_VERSION_BUFFER_SIZE, true, tcm515_read_id);
+        dev_info(dev,"Probed successfully\n");
+        return 0;
+    } else {
+        dev_err(dev, "Probe failed\n");
+        return -1;
     }
-    
-    dev_info(dev,"Probed successfully\n");
-
-    return 0;
 }
 
 static void tcm515_serdev_remove(struct serdev_device *serdev) {

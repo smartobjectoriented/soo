@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2020-2022 David Truan <david.truan@heig-vd.ch>
- * Copyright (C) 2018-2019 Baptiste Delporte <bonel@bonel.net>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -43,7 +42,7 @@
 /* vUIHandler packet send period */
 #define VUIHANDLER_PERIOD	1000
 
-typedef struct {
+typedef struct __attribute__((packed)) {
 	int32_t		slotID;
 	uint8_t		type;
 	uint8_t		payload[0];
@@ -138,7 +137,6 @@ typedef struct {
 	size_t cur_prod_idx;
 	size_t cur_cons_idx;
 	size_t cur_size;
-	mutex_t tx_circ_buf_mutex;
 	tx_buf_entry_t circ_buf[VUIHANDLER_MAX_TX_BUF_ENTRIES];
 
 } tx_circ_buf_t;

@@ -7,14 +7,9 @@ ENTRY(__start)
 
 /* The sizes of the stacks used by the application. */
  
-/*
- * SVC stack is used for kernel activities *and* for each newly created thread.
- * Indeed a user thread (running in the user space) will also involve kernel activities
- * with syscalls and other.
- */
-SVC_STACK_SIZE = 32 * 1024;  		/* Initial system stack */
-HEAP_SIZE = 2 * 1024 * 1024;    /* 2 MB dedicated to kernel heap */
- 
+HEAP_SIZE = 8 * 1024 * 1024;    /* 8 MB dedicated to kernel heap */
+STACK_SIZE = 8 * 1024;
+
 SECTIONS
 {
      /* We start at the same entry point than Linux */
@@ -22,7 +17,18 @@ SECTIONS
      /* where some firmware code is placed at 0x00000000 with a size of 0x1000 */
      
      . = ENTRY_ADDR + 0x80000;
+    
+    __vectors_start = .;
 
+    .vectors.text :
+    {
+        *(.vectors.text); 
+    }
+    
+  	__vectors_end = .;
+  
+    . = ALIGN(16384);
+    
     .head.text :
     {
         *(.head.text);
@@ -70,7 +76,7 @@ SECTIONS
     /* Here is the L0 system page table */
     . = ALIGN(4096);
     
-	__sys_l0pgtable = .;
+	__sys_root_pgtable = .;
 	
 	/* The size of this page table is 4 KB */
 	
@@ -95,5 +101,36 @@ SECTIONS
     
     . = ALIGN(4096);
     
+    .cpu0_stack : 
+    { 
+        . += STACK_SIZE;
+      
+        __cpu0_stack = . ;
+        
+    }
+
+    .cpu1_stack : 
+    { 
+        . += STACK_SIZE;
+      
+        __cpu1_stack = . ;
+        
+    }
+    
+    .cpu2_stack : 
+    { 
+        . += STACK_SIZE;
+      
+        __cpu2_stack = . ;
+        
+    }
+    
+    .cpu3_stack : 
+    { 
+        . += STACK_SIZE;
+      
+        __cpu3_stack = . ;
+        
+    }
     __end = .;
 }

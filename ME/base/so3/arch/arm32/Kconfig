@@ -3,6 +3,12 @@ if ARCH_ARM32
 
 menu "Platform"
 
+config KERNEL_VADDR
+	 
+	hex "Virtual base address of kernel space"
+
+if !SO3VIRT	
+
 choice
   prompt "Target"
 	
@@ -11,15 +17,13 @@ choice
 	
 	config RPI4    	
     		bool "Raspberry Pi 4 Model B support"
-     
-	config SO3VIRT
-		bool "SO3 avz"
-		depends on MMU
+ 		
 endchoice
-
 
 source "arch/arm32/vexpress/Kconfig"
 source "arch/arm32/rpi4/Kconfig"
+
+endif
 
 endmenu
 

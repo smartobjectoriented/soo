@@ -19,13 +19,29 @@
 #ifndef XMLUI_H
 #define XMLUI_H
 
+/* ID for the different models */
 
 /* SOO.chat widgets id */
-/* ID for the different models */
 #define TEXTEDIT_ID		"text-edit"
 #define SCROLL_ID		"msg-history"
 #define BTN_SEND_ID		"button-send"
 
+/* SOO.wagoled widgets id */
+#define BUTTON_LED_R_ID   "btn-led-r"
+#define BUTTON_LED_L_ID   "btn-led-l"
+
+/* SOO.blind widgets id */
+#define BTN_BLIND_UP_ID   "blind-up"
+#define BTN_BLIND_DOWN_ID "blind-down"
+
+
+#define BTN_BLIND_UP_LONG_ID   "blind-up-long"
+#define BTN_BLIND_DOWN_LONG_ID "blind-down-long"
+
+
+/* XML id and action length */
+#define ID_MAX_LENGTH		20
+#define ACTION_MAX_LENGTH	20
 
 /*
  * Prepare a XML message.
@@ -47,6 +63,6 @@ void xml_parse_event(char *buffer, char *id, char *action);
  */
 void xml_get_event_content(char *buffer, char *content);
 
-void xml_prepare_chat(char *buffer, int sender, char *text);
+void xml_prepare_chat(char *buffer, char *sender, char *text);
 
 #endif /* XMLUI_H */

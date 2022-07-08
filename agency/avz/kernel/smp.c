@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -119,10 +119,12 @@ void handle_IPI(int ipinr)
  */
 void secondary_start_kernel(void)
 {
-#ifndef CONFIG_ARCH_ARM64
+
 	unsigned int cpu = smp_processor_id();
 
+#ifdef CONFIG_ARCH_ARM32
 	cpu_init();
+#endif
 
 	printk("CPU%u: Booted secondary processor\n", cpu);
 
@@ -130,7 +132,7 @@ void secondary_start_kernel(void)
 	 * Give the platform a chance to do its own initialisation.
 	 */
 
-#ifndef CONFIG_PSCI
+#ifndef CONFIG_ARM_TRUSTZONE
 	smp_secondary_init(cpu);
 #endif
 
@@ -145,7 +147,9 @@ void secondary_start_kernel(void)
 	init_idle_domain();
 
 	/* Enabling VFP module on this CPU */
+#ifdef CONFIG_ARCH_ARM32
 	vfp_enable();
+#endif
 
 	printk("%s: entering idle loop...\n", __func__);
 
@@ -153,10 +157,8 @@ void secondary_start_kernel(void)
 	startup_cpu_idle_loop();
 
 	/* Never returned at this point ... */
-#endif
-}
 
-#ifndef CONFIG_ARCH_ARM64
+}
 
 extern void vcpu_periodic_timer_start(struct vcpu *v);
 
@@ -165,8 +167,9 @@ void cpu_up(unsigned int cpu)
 
 	/* We re-create a small identity mapping to allow the hypervisor
 	 * to bootstrap correctly on other CPUs.
+	 * The size must be enough to reach the stack.
 	 */
-	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_1M, false);
+	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_32M, false);
 
 	/*
 	 * We need to tell the secondary core where to find
@@ -176,7 +179,7 @@ void cpu_up(unsigned int cpu)
 	switch (cpu) {
 
 	case ME_CPU:
-		secondary_data.stack = &cpu3_stack;
+		secondary_data.stack = (void *) __cpu3_stack;
 		break;
 
 	default:
@@ -184,7 +187,7 @@ void cpu_up(unsigned int cpu)
 		BUG();
 	}
 
-	secondary_data.pgdir = virt_to_phys(__sys_l1pgtable);
+	secondary_data.pgdir = virt_to_phys(__sys_root_pgtable);
 
 	flush_dcache_all();
 
@@ -202,7 +205,10 @@ void cpu_up(unsigned int cpu)
 	 * CPU was successfully started, wait for it
 	 * to come online or time out.
 	 */
+#warning not sure if still necessary...
+#ifdef CONFIG_ARCH_ARM32
 	smp_trigger_event(cpu);
+#endif
 
 	printk("Now waiting CPU %d to be up and running ...\n", cpu);
 
@@ -214,7 +220,6 @@ void cpu_up(unsigned int cpu)
 	secondary_data.pgdir = 0;
 }
 
-#endif /* CONFIG_ARCH_ARM64 */
 
 /******************************************************************************/
 /* From linux kernel/smp.c */
@@ -229,9 +234,6 @@ void smp_init(void)
 	 */
 	per_cpu(current_domain, AGENCY_RT_CPU) = domains[DOMID_AGENCY_RT];
 
-/* CONFIG_ARM64 not yet supported at this point. */
-#ifndef CONFIG_ARCH_ARM64
-
 #ifndef CONFIG_PSCI
 	smp_prepare_cpus(NR_CPUS);
 #endif
@@ -239,8 +241,6 @@ void smp_init(void)
 	cpu_up(ME_CPU);
 
 	printk("Brought secondary CPUs for AVZ (CPU #2 and CPU #3)\n");
-
-#endif /* CONFIG_ARCH_ARM64 */
 
 }
 

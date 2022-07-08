@@ -24,25 +24,14 @@
 @ and on U-Boot implementation
 
 #include <linkage.h>
-
 #include <thread.h>
-
+#include <syscall.h>
 #include <asm-offsets.h>
 
-#include <asm/syscall.h>
 #include <asm/processor.h>
-
-/* use the special section (.vectors.text), to enable fine-tuning
- * of the placement of this section inside the linker script
- */
-.section ".vectors.text", "ax"
 
 .globl ret_from_fork
 .global __call_sig_handler
-
-#ifdef CONFIG_SO3VIRT
-.global inject_syscall_vector
-#endif /* CONFIG_SO3VIRT */
 
 .extern current_thread
 .extern irq_handle
@@ -60,7 +49,7 @@
 .extern sig_check
 .extern __stack_alignment_fault
 
-.extern _start
+.extern __start
 
 #if 0 /* Debugging purposes */
 .extern __log
@@ -88,12 +77,13 @@
 
 #endif /* 0 */
 
-#ifdef CONFIG_SO3VIRT
-.extern __guest_vectors
-#endif /* CONFIG_SO3VIRT */
+/* use the special section (.vectors.text), to enable fine-tuning
+ * of the placement of this section inside the linker script
+ */
+.section ".vectors.text", "ax"
 
 ENTRY(__vectors)
-		    b   _start @ reset
+		    b   __start @ reset
             ldr pc, _undefined_instruction
             ldr pc, _syscall_interrupt
             ldr pc, _prefetch_abort
@@ -110,24 +100,6 @@ _not_used:              .word not_used
 _irq:                   .word irq
 _fiq:                   .word fiq
 _pad:                   .word 0x12345678 @ now 16*4=64
-
-#ifdef CONFIG_SO3VIRT
-
-@ Inject the real syscall vector used by SO3
-@ Modified registers: r0, r1
-inject_syscall_vector:
-
-	ldr r0, =__vectors
-	ldr r1, [r0, #8] 	@ Vector location of swi in standard ARM vector table
-	ldr r2, [r0, #36] 	@ And the re-direction stored in the same page, at this position (+36), following the vector table.
-
-	ldr r0, =VECTOR_VADDR
-
-	str r1, [r0, #8]
-	str r2, [r0, #36]
-
-	mov pc, lr
-#endif /* CONFIG_SO3VIRT */
 
 @ exception handlers
 .align  5

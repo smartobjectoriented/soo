@@ -15,9 +15,6 @@
 #include <brcmu_utils.h>
 #include <brcmu_wifi.h>
 
-/* SOO.tech */
-#include <soo/soolink/plugin/wlan.h>
-
 #include "core.h"
 #include "bus.h"
 #include "debug.h"
@@ -285,8 +282,8 @@ static bool brcmf_skb_is_iapp(struct sk_buff *skb)
 #endif
 }
 
-/* SOO.tech */
-/* static */ netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
+
+static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
 					   struct net_device *ndev)
 {
 	int ret;
@@ -401,10 +398,6 @@ void brcmf_txflowblock_if(struct brcmf_if *ifp,
 
 void brcmf_netif_rx(struct brcmf_if *ifp, struct sk_buff *skb, bool inirq)
 {
-	/* SOO.tech */
-	uint8_t mac_src[ETH_ALEN];
-	__be16 skb_protocol;
-	struct ethhdr *p_ethhdr;
 
 	/* Most of Broadcom's firmwares send 802.11f ADD frame every time a new
 	 * STA connects to the AP interface. This is an obsoleted standard most
@@ -427,26 +420,14 @@ void brcmf_netif_rx(struct brcmf_if *ifp, struct sk_buff *skb, bool inirq)
 	ifp->ndev->stats.rx_packets++;
 
 	brcmf_dbg(DATA, "rx proto=0x%X\n", ntohs(skb->protocol));
-	/* SOO.tech */
-	p_ethhdr = eth_hdr(skb);
-	memcpy(mac_src, p_ethhdr->h_source, ETH_ALEN);
-
-	/* Clear the flag bits */
-	skb_protocol = ntohs(skb->protocol) & 0x10ff;
-
-	if ((skb_protocol > ETH_P_SL_MIN) && (skb_protocol < ETH_P_SL_MAX))
-		plugin_wlan_rx(skb, ifp->ndev, mac_src);
-	else {	
-		if (inirq) {
-			netif_rx(skb);
-		} else {
-			/* If the receive is not processed inside an ISR,
-			 * the softirqd must be woken explicitly to service
-			 * the NET_RX_SOFTIRQ.  This is handled by netif_rx_ni().
-			 */
-			netif_rx_ni(skb);
-		}
-	}
+	if (in_interrupt())
+		netif_rx(skb);
+	else
+		/* If the receive is not processed inside an ISR,
+		 * the softirqd must be woken explicitly to service
+		 * the NET_RX_SOFTIRQ.  This is handled by netif_rx_ni().
+		 */
+		netif_rx_ni(skb);
 }
 
 void brcmf_netif_mon_rx(struct brcmf_if *ifp, struct sk_buff *skb)

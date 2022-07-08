@@ -39,4 +39,4 @@ pen:
 	.align
 1:	.long	.
 	.long	pen_release
-ENDPROC(vexpress_secondary_startup)
+

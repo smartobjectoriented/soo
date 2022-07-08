@@ -26,18 +26,19 @@
 #define DEFAULT_DIM_VALUE		0
 
 typedef enum {
-	/* Turn led off */
-	LED_OFF = 0,
 	/* Turn led on */
-	LED_ON,
+	LED_ON = 0,
+	/* Turn led off*/
+	LED_OFF,
 
 	/*** !!! Not yet implemented, ***/
 	/* Get current status */
 	GET_STATUS,
 	/* Get devices connected to the DALI bus */
 	GET_TOPOLOGY,
-	NONE
-}wago_cmd_t;
+	
+	CMD_NONE
+} wago_cmd_t;
 
 /*** Normally DALI master can manage up to 64 devices ***/
 #define VWAGOLED_PACKET_SIZE	64

@@ -39,7 +39,7 @@ int printch(char c) {
 
 	if (c == '\n') {
 		while (!(ioread32(&bcm283x_mu->lsr) & UART_LSR_TX_READY)) ;
-		iowrite8(&bcm283x_mu->io, '\r');	/* Carriage return */
+		iowrite32(&bcm283x_mu->io, (uint32_t ) '\r');	/* Carriage return */
 	}
 
 	return 1;

@@ -78,7 +78,7 @@ config VWAGOLED_BACKEND
 	  The vwagoled driver allows to changes the status of the wago leds 
 
 config TCM515
-	bool "Support tmc515 uart communication from kernel"
+	bool "Support tmc515 uart communication from kernel to provide EnOcean support"
 	depends on SERIAL_DEV_CTRL_TTYPORT=y
 	help
 		Create an uart device that uses the serdev framework and allows 
@@ -97,6 +97,20 @@ config RN2483
 	help
 		Create an uart device that uses the serdev framework and allows 
 		to communicate with a RN2483 LoRa module.
+
+config KBERRY838
+	bool "Support kberry838 uart communication from kernel to provide KNX support"
+	depends on SERIAL_DEV_CTRL_TTYPORT=y
+	help
+		Create an uart device that uses the serdev framework and allows 
+		to communicate with a kberry838 KNX module.
+
+config VKNX_BACKEND
+	bool "KNX backend driver"
+	depends on KBERRY838=y
+	default n
+	help
+	  This driver enabled to deal with a virtualized interface for the KNX bus.
 	  
 source "soo/drivers/vnetback/Kconfig"
 

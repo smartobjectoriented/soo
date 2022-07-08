@@ -4,7 +4,7 @@
 
 OUTPUT_FORMAT(elf32-littlearm)
 OUTPUT_ARCH(arm)
-ENTRY(_start)
+ENTRY(__start)
 
 /* The sizes of the stacks used by the application. */
  
@@ -48,7 +48,19 @@ SECTIONS
     {
         *(.text*) 
     }
-
+    
+	. = ALIGN(4096);
+	
+	.root_proc_prologue :
+	{
+		__root_proc_start = .;
+		
+		*(.root_proc.text)
+		
+		__root_proc_end = .;
+		
+	}
+	
     . = ALIGN(4096);
     .data  : 
     { 
@@ -124,7 +136,7 @@ SECTIONS
       . += HEAP_SIZE;
     }
 
-    . = ALIGN(4096);
+    . = ALIGN(8192);
 
     .stack : 
     { 

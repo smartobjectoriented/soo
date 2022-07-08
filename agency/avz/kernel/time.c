@@ -32,12 +32,11 @@
 #include <softirq.h>
 #include <limits.h>
 #include <div64.h>
+#include <bitops.h>
+#include <soo.h>
 
 #include <device/timer.h>
 
-#include <soo/soo.h>
-
-#include <asm/bitops.h>
 #include <asm/setup.h>
 #include <asm/processor.h>
 

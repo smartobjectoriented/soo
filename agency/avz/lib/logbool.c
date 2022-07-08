@@ -37,12 +37,12 @@ void *ht_create(int size) {
 	int i;
 
 	/* Allocate the table itself. */
-	if ((hashtable = malloc(sizeof(logbool_hashtable_t))) == NULL)
-		BUG();
+	hashtable = malloc(sizeof(logbool_hashtable_t));
+	BUG_ON(!hashtable);
 
 	/* Allocate pointers to the head nodes. */
-	if ((hashtable->table = malloc(size * sizeof(entryp_t))) == NULL)
-		BUG();
+	hashtable->table = malloc(size * sizeof(entryp_t));
+	BUG_ON(!hashtable->table);
 
 	for (i = 0; i < size; i++)
 		hashtable->table[i] = NULL;
@@ -173,16 +173,16 @@ void dump_all_logbool(unsigned char key) {
 	/* Dump logbool hashtable of all domains including avz */
 
 	printk("***** Dumping non-RT Agency *****\n");
-	dump_logbool(domains[DOMID_AGENCY]->shared_info->logbool_ht);
+	dump_logbool(domains[DOMID_AGENCY]->avz_shared->logbool_ht);
 
 	printk("***** Dumping RT Agency *****\n");
-	dump_logbool(domains[DOMID_AGENCY_RT]->shared_info->logbool_ht);
+	dump_logbool(domains[DOMID_AGENCY_RT]->avz_shared->logbool_ht);
 
 	printk("***** Dumping ME logbool activities *****\n");
 	for (i = 1; i < MAX_DOMAINS; i++) {
 		if (domains[i] != NULL) {
 			printk("***** Dumping logbool of domain %d *****\n", i);
-			dump_logbool(domains[i]->shared_info->logbool_ht);
+			dump_logbool(domains[i]->avz_shared->logbool_ht);
 		}
 	}
 }

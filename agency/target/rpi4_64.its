@@ -28,7 +28,7 @@
         	data = /incbin/("../avz/avz.bin");
         	type = "kernel";
         	os = "linux";
-        	arch = "arm";
+        	arch = "arm64";
         	compression = "none";
         	load = <0x00080000>;
         	entry = <0x00080000>;
@@ -38,18 +38,18 @@
 			description = "Agency Linux kernel";
 			data = /incbin/("../linux/arch/arm64/boot/Image");
 			type = "agency";
-			arch = "arm";
+			arch = "arm64";
 			os = "linux";
 			compression = "none";
-			load = <0x01080000>;
-			entry = <0x01080000>;
+			load = <0x01000000>;
+			entry = <0x01000000>;
 		};
 
         fdt {
         	description = "SOO Agency device tree blob";
             data = /incbin/("../linux/arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dtb");
             type = "flat_dt";
-            arch = "arm";
+            arch = "arm64";
             compression = "none";
             load = <0x10a00000>;
         };
@@ -58,7 +58,7 @@
         	description = "Agency initial rootfs (initrd)";
             data = /incbin/("../rootfs/board/rpi4_64/initrd.cpio");
             type = "ramdisk";
-            arch = "arm";
+            arch = "arm64";
             os = "linux";
             compression = "none";
             load = <0x10c00000>;

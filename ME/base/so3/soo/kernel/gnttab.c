@@ -100,7 +100,7 @@ static int get_free_entries(int count)
 	int ref;
 	grant_ref_t head;
 
-	spin_lock_irqsave(&gnttab_list_lock, flags);
+	flags = spin_lock_irqsave(&gnttab_list_lock);
 
 	if (gnttab_free_count < count) {
 		spin_unlock_irqrestore(&gnttab_list_lock, flags);
@@ -126,7 +126,7 @@ static void put_free_entry(grant_ref_t ref)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&gnttab_list_lock, flags);
+	flags = spin_lock_irqsave(&gnttab_list_lock);
 
 	gnttab_list[ref] = gnttab_free_head;
 	gnttab_free_head = ref;
@@ -207,7 +207,7 @@ void gnttab_free_grant_references(grant_ref_t head)
 	int count = 1;
 	if (head == GNTTAB_LIST_END)
 		return;
-	spin_lock_irqsave(&gnttab_list_lock, flags);
+	flags = spin_lock_irqsave(&gnttab_list_lock);
 	ref = head;
 	while (gnttab_list[ref] != GNTTAB_LIST_END) {
 		ref = gnttab_list[ref];
@@ -241,7 +241,7 @@ int gnttab_remove(bool with_vbus) {
 	DBG("Removing grant table ...\n");
 
 	/* Free previous entries */
-	free_contig_vpages((uint32_t) gnttab, NR_GRANT_FRAMES);
+	free_contig_vpages((addr_t) gnttab, NR_GRANT_FRAMES);
 
 	if (with_vbus) {
 		sprintf(path, "domain/gnttab/%i", ME_domID());
@@ -271,7 +271,7 @@ void gnttab_init(void)
 		BUG();
 	}
 
-	DBG("Exporting grant_ref table pfn %05lx virt %p \n", phys_to_pfn(virt_to_phys_pt((unsigned int) gnttab)), gnttab);
+	DBG("Exporting grant_ref table pfn %05lx virt %p \n", phys_to_pfn(virt_to_phys_pt((addr_t) gnttab)), gnttab);
 
 	for (i = NR_RESERVED_ENTRIES; i < NR_GRANT_ENTRIES; i++)
 		gnttab_list[i] = i + 1;
@@ -284,7 +284,7 @@ void gnttab_init(void)
 
 	vbus_transaction_start(&vbt);
 
-	sprintf(buf, "%lX", phys_to_pfn(virt_to_phys_pt((unsigned int) gnttab)));
+	sprintf(buf, "%lX", phys_to_pfn(virt_to_phys_pt((addr_t) gnttab)));
 	sprintf(path, "domain/gnttab/%i", ME_domID());
 
 	vbus_write(vbt, path, "pfn", buf);

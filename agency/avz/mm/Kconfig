@@ -1,5 +1,7 @@
 
-config HYPERVISOR_VIRT_ADDR
+config HYPERVISOR_VADDR
 	hex "Virtual base address of the hypervisor"
-	default 0xff000000
 
+config HYPERVISOR_SIZE
+	hex "Size of hypervisor"
+	default 0xc0000000

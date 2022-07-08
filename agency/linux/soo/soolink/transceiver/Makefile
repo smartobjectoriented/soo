@@ -1,3 +1,6 @@
+obj-y += transceiver.o discovery.o 
 
-obj-y := core.o datalink.o discovery.o plugin.o
+obj-y += plugins/
 obj-y += datalink/
+
+

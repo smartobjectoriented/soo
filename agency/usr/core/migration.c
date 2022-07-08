@@ -116,7 +116,7 @@ bool get_ME_id(uint32_t slotID, ME_id_t *me_id) {
 /**
  * Make a snapshot of the ME.
  */
-void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size) {
+void read_ME_snapshot(unsigned int slotID, void **buffer, uint32_t *buffer_size) {
 	struct agency_ioctl_args args;
 
 	args.slotID = slotID;
@@ -187,7 +187,7 @@ long long get_system_time(void) {
  */
 void main_loop(int cycle_period) {
 	static unsigned int mig_count = 1;
-	bool available_ME = false;
+
 #ifdef WITH_LED_ACTIVITIES
 	uint32_t i;
 #endif
@@ -195,14 +195,10 @@ void main_loop(int cycle_period) {
 	while (!ag_cycle_interrupted) {
 		DBG("* Migration Cycle %d *\n", mig_count);
 
-		/* We start waiting a fixed delay between a send/receive lifecycle */
-		DBG0("Waiting between propagation...\n");
+		DBG0("Receiving ME...\n");
 
-		do {
-			/* Try to receive a ME and deploy it */
-			available_ME = ME_processing_receive();
-
-		} while (available_ME);
+		/* Try to receive a ME and deploy it */
+		ME_processing_receive();
 
 		DBG0("Send ME\n");
 

@@ -52,7 +52,7 @@ static struct vbus_device *vwagoled_dev = NULL;
  * @param req request to initialize
  */
 void init_request(vwagoled_request_t *req) {
-	req->cmd = NONE;
+	req->cmd = CMD_NONE;
 	req->dim_value = DEFAULT_DIM_VALUE;
 	memset(req->ids, -1, sizeof(int) * VWAGOLED_PACKET_SIZE);
 }
@@ -159,7 +159,7 @@ static void vwagoled_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vwagoled_priv->vwagoled.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vwagoled_priv->vwagoled.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -194,11 +194,11 @@ static void vwagoled_reconfiguring(struct vbus_device *vdev) {
 	vwagoled_priv->vwagoled.ring_ref = GRANT_INVALID_REF;
 
 	SHARED_RING_INIT(vwagoled_priv->vwagoled.ring.sring);
-	FRONT_RING_INIT(&vwagoled_priv->vwagoled.ring, (&vwagoled_priv->vwagoled.ring)->sring, PAGE_SIZE);
+	FRONT_RING_INIT(&vwagoled_priv->vwagoled.ring, vwagoled_priv->vwagoled.ring.sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vwagoled_priv->vwagoled.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vwagoled_priv->vwagoled.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -229,7 +229,7 @@ static void vwagoled_closed(struct vbus_device *vdev) {
 	/* Free resources associated with old device channel. */
 	if (vwagoled_priv->vwagoled.ring_ref != GRANT_INVALID_REF) {
 		gnttab_end_foreign_access(vwagoled_priv->vwagoled.ring_ref);
-		free_vpage((uint32_t) vwagoled_priv->vwagoled.ring.sring);
+		free_vpage((addr_t) vwagoled_priv->vwagoled.ring.sring);
 
 		vwagoled_priv->vwagoled.ring_ref = GRANT_INVALID_REF;
 		vwagoled_priv->vwagoled.ring.sring = NULL;
@@ -270,7 +270,7 @@ vdrvfront_t vwagoleddrv = {
 	.connected = vwagoled_connected
 };
 
-static int vwagoled_init(dev_t *dev) {
+static int vwagoled_init(dev_t *dev, int fdt_offset) {
 	vwagoled_priv_t *vwagoled_priv;
 
 	vwagoled_priv = malloc(sizeof(vwagoled_priv_t));

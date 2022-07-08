@@ -107,12 +107,12 @@ static inline bool evtchn_is_masked(unsigned int b) {
 
 void dump_evtchn_pending(void) {
 	int i;
-	volatile shared_info_t *s = avz_shared_info;
 
 	lprintk("   Evtchn info in Agency CPU %d\n\n", smp_processor_id());
 
 	for (i = 0; i < NR_EVTCHN; i++)
-		lprintk("e:%d m:%d p:%d  ", i, per_cpu(evtchn_info, smp_processor_id()).evtchn_mask[i], s->evtchn_pending[i]);
+		lprintk("e:%d m:%d p:%d  ", i, per_cpu(evtchn_info, smp_processor_id()).evtchn_mask[i],
+			AVZ_shared->evtchn_pending[i]);
 
 	lprintk("\n\n");
 }
@@ -142,7 +142,6 @@ asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
 {
 	unsigned int evtchn;
 	int l1, virq;
-	volatile shared_info_t *s = avz_shared_info;
 	int loopmax = 0;
 
 	BUG_ON(!hard_irqs_disabled());
@@ -156,11 +155,11 @@ asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
 	per_cpu(in_upcall_progress, smp_processor_id()) = true;
 
 retry:
-	l1 = xchg(&s->evtchn_upcall_pending, 0);
+	l1 = xchg(&AVZ_shared->evtchn_upcall_pending, 0);
 
 	while (true) {
 		for (evtchn = 0; evtchn < NR_EVTCHN; evtchn++)
-			if ((s->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
+			if ((AVZ_shared->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
 				break;
 
 		if (evtchn == NR_EVTCHN)
@@ -183,7 +182,7 @@ retry:
 		BUG_ON(!hard_irqs_disabled());
 	};
 
-	if (s->evtchn_upcall_pending)
+	if (AVZ_shared->evtchn_upcall_pending)
 		goto retry;
 
 	per_cpu(in_upcall_progress, smp_processor_id()) = false;

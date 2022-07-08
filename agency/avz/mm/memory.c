@@ -60,8 +60,6 @@ static uint32_t kernel_size;
 addr_t io_mapping_base;
 struct list_head io_maplist;
 
-extern unsigned long __vectors_start, __vectors_end;
-
 /*
  * Perform basic memory initialization, i.e. the existing memory slot.
  */
@@ -70,7 +68,7 @@ void early_memory_init(void) {
 
 	/* Hypervisor */
 	memslot[0].base_paddr = CONFIG_RAM_BASE;
-	memslot[0].size = HYPERVISOR_SIZE;
+	memslot[0].size = CONFIG_HYPERVISOR_SIZE;
 	memslot[0].busy = true;
 
 	/* The memslot[1] is reserved for the agency (two domains although one binary image only.
@@ -93,7 +91,7 @@ uint32_t get_kernel_size(void) {
  */
 
 void memory_init(void) {
-	void *__new_sys_pgtable;
+	void *__new_root_pgtable;
 
 #ifdef CONFIG_ARCH_ARM32
 	addr_t vectors_vaddr;
@@ -108,19 +106,19 @@ void memory_init(void) {
 	init_io_mapping();
 
 	/* Re-setup a system page table with a better granularity */
-	__new_sys_pgtable = (void *) new_sys_pgtable();
+	__new_root_pgtable = new_root_pgtable();
 
-	create_mapping(__new_sys_pgtable, CONFIG_HYPERVISOR_VIRT_ADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
+	create_mapping(__new_root_pgtable, CONFIG_HYPERVISOR_VADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
 
 	/* Mapping uart I/O for debugging purposes */
-	create_mapping(__new_sys_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true);
+	create_mapping(__new_root_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true);
 
 	/* Finally, create the Linux kernel area to be ready for the Agency domain, and for being able
 	 * to read the device tree.
 	 */
-	create_mapping(__new_sys_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false);
+	create_mapping(__new_root_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false);
 
-	replace_current_pgtable_with(__new_sys_pgtable);
+	replace_current_pgtable_with(__new_root_pgtable);
 
 #ifdef CONFIG_ARCH_ARM32
 
@@ -403,27 +401,24 @@ void put_ME_slot(unsigned int slotID) {
 #endif
 }
 
-
-
 /*
  * switch_mm() is used to perform a memory context switch between domains.
  * @d refers to the domain
  * @next_addrspace refers to the address space to be considered with this domain.
  * @current_addrspace will point to the current address space.
  */
-void switch_mm(struct domain *d, addrspace_t *next_addrspace) {
-	addrspace_t prev_addrspace;
+void switch_mm(struct domain *d) {
+	addr_t current_pgtable_paddr;
 
-	/* Preserve the current configuration of MMU registers of the running domain before doing a switch */
-	get_current_addrspace(&prev_addrspace);
+	get_current_pgtable(&current_pgtable_paddr);
 
-	if (is_addrspace_equal(next_addrspace, &prev_addrspace))
+	if (current_pgtable_paddr == d->avz_shared->pagetable_paddr)
 	/* Check if the current page table is identical to the next one. */
 		return ;
 
 	set_current(d);
 
-	mmu_switch(next_addrspace);
+	mmu_switch((void *) d->avz_shared->pagetable_paddr);
 }
 
 void dump_page(unsigned int pfn) {

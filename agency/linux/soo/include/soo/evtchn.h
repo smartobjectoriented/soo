@@ -25,6 +25,7 @@
 #include <linux/irq.h>
 
 #include <soo/hypervisor.h>
+#include <soo/avz.h>
 
 #include <soo/uapi/event_channel.h>
 #include <soo/uapi/soo.h>
@@ -43,9 +44,7 @@ enum {
 };
 
 static inline void clear_evtchn(u32 evtchn) {
-	volatile shared_info_t *s = avz_shared_info;
-
-	s->evtchn_pending[evtchn] = false;
+	AVZ_shared->evtchn_pending[evtchn] = false;
 }
 
 static inline void notify_remote_via_evtchn(uint32_t evtchn)

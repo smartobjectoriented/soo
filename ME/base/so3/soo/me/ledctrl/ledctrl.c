@@ -49,7 +49,7 @@
  * @param args - To be compliant... Actually not used.
  * @return
  */
-int process_led(void *args) {
+void *process_led(void *args) {
 
 	while (true) {
 
@@ -61,7 +61,6 @@ int process_led(void *args) {
 			if (sh_ledctrl->local_nr != -1)
 				vsenseled_set(sh_ledctrl->local_nr, 0);
 
-
 			/* Switch on the correct led */
 			vsenseled_set(sh_ledctrl->incoming_nr, 1);
 
@@ -69,14 +68,14 @@ int process_led(void *args) {
 		}
 	}
 
-	return 0;
+	return NULL;
 }
 
 /*
  * The main application of the ME is executed right after the bootstrap. It may be empty since activities can be triggered
  * by external events based on frontend activities.
  */
-int app_thread_main(void *args) {
+void *app_thread_main(void *args) {
 	struct input_event ie;
 
 	/* The ME can cooperate with the others. */
@@ -121,19 +120,11 @@ int app_thread_main(void *args) {
 
 		sh_ledctrl->initiator = sh_ledctrl->me_common.here;
 
-		sh_ledctrl->stamp++;
-
-		spin_lock(&propagate_lock);
-		sh_ledctrl->need_propagate = true;
-
-		/* Required an acknowledge of all SOO.ledctrl smart objects */
-		sh_ledctrl->waitack = true;
-
-		spin_unlock(&propagate_lock);
+		propagate();
 
 		complete(&upd_lock);
 
 	}
 
-	return 0;
+	return NULL;
 }

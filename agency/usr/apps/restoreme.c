@@ -58,7 +58,7 @@ void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer) {
 int main(int argc, char *argv[]) {
 	struct agency_ioctl_args args;
 	void *buffer = NULL;
-	unsigned int buffer_size;
+	size_t buffer_size;
 	struct zip_t *zip;
 
 	printf("*** SOO - Mobile Entity snapshot restorer ***\n");

@@ -115,7 +115,8 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state backend
 
 	case VbusStateReconfiguring:
 		BUG_ON(vdev->state == VbusStateConnected);
-
+		
+		BUG_ON(!vdrvfront->reconfiguring);
 		vdrvfront->reconfiguring(vdev);
 
 		mutex_unlock(&vdevfront->processing_lock);
@@ -123,6 +124,7 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state backend
 
 	case VbusStateClosed:
 		BUG_ON(vdev->state == VbusStateConnected);
+		BUG_ON(!vdrvfront->closed);
 
 		vdrvfront->closed(vdev);
 
@@ -138,6 +140,7 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state backend
 		mutex_lock(&vdevfront->processing_lock);
 
 		reinit_completion(&vdevfront->sync);
+		BUG_ON(!vdrvfront->suspend);
 
 		vdrvfront->suspend(vdev);
 		break;
@@ -147,6 +150,7 @@ static void __otherend_changed(struct vbus_device *vdev, enum vbus_state backend
 		DBG("Got that backend %s resuming now.....\n", dev->nodename);
 
 		BUG_ON(vdev->state == VbusStateConnected);
+		BUG_ON(!vdrvfront->resume);
 
 		vdrvfront->resume(vdev);
 

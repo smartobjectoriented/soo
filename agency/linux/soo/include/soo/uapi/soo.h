@@ -114,6 +114,7 @@ int get_pfn_offset(void);
 #define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW('S', 9, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 10, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 11, agency_ioctl_args_t)
+#define AGENCY_IOCTL_BLACKLIST_SOO		_IOW('S', 12, agency_ioctl_args_t)
 
 #define SOO_NAME_SIZE				16
 
@@ -295,19 +296,10 @@ typedef struct {
 
 #define WINENET_TASK_PRIO               50
 
-/* vNetstream virtual interface */
-
-#define VNETSTREAM_TASK_PRIO            50
-
 /* Tests related */
 #define PLUGIN_TEST_TASK_PRIO		50
 #define TRANSCODER_TEST_TASK_PRIO	50
 #define DISCOVERY_TEST_TASK_PRIO	50
-
-/* BCM2835 driver (Raspberry Pi 3) */
-#define DMA_COMPLETE_WORK_TASK_PRIO	50
-#define FWEH_EVENT_WORK_TASK_PRIO 	50
-#define SDIO_EVENT_WORK_TASK_PRIO 	50
 
 #ifndef __ASSEMBLY__
 
@@ -337,9 +329,9 @@ void rtdm_register_dc_event_callback(dc_event_t dc_event, dc_event_fn_t *callbac
 #define AVZ_GET_DOM_DESC		16
 
 /*
- * General structure to use with the SOO hypercall
+ * General structure to use with the SOO migration hypercall
  */
-typedef struct {
+typedef struct migrate_op {
 	int		cmd;
 	unsigned long	vaddr;
 	unsigned long	paddr;
@@ -356,8 +348,11 @@ typedef struct {
 } pre_activate_args_t;
 
 /*
- * pre_propagate val set to 0 if no propagation is required, 1 means the ME will be propagated.
+ * pre_propagate to tell the agency if the ME must be propagated or not.
  */
+#define PROPAGATE_STATUS_YES 	1
+#define PROPAGATE_STATUS_NO	0
+
 typedef struct {
 	int propagate_status;
 } pre_propagate_args_t;

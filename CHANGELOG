@@ -1,0 +1,43 @@
+
+CHANGELOG of SOO framework
+==========================
+
+# May 2022
+
+- Added support for 64-bit in avz, linux and SO3 Mobile Entity
+
+- Moved uint32_t to addr_t when needed
+
+Agency AVZ
+----------
+- Moved HYPERVISOR_VIRT_ADDR (renamed to HYPERVISOR_VADDR) and HYPERVISOR_SIZE in Kconfig
+- Added hypervisor_vaddr in start_info for mapping in SO3 domain.
+- Merged start_info et shared_info page to have a unique avz_shared page (AVZ_shared field in the domain)
+- Removed hypercall to set_callbacks (updating AVZ_shared by the domain directly)
+- Moved domID to avz_shared
+- Removed addrspace_t structure (still requires aarch32 alignment)
+- Fixed bug in negative pfn_offset after migration
+
+Agency Linux
+------------
+- Patched virtnet (virtio_net.c) to support skb data up to 1500 bytes (MTU)
+- Simplified the compressor and transcoder data structures
+- Refactored soo/uapi contents (avz.h) to have an identical content with AVZ
+- Renamed migmgr to migration
+- Simplified the handling of received ME buffers in the DCM
+- Removed unused consistency block (consistency.c)
+- Renamed core.c to a more specific name (dcm.c, transceiver.c, etc.)
+- Reworked handling of transID in Winenet (expected_transid now more efficient)
+
+Agency usr
+----------
+- Introduced the _ioctl_ to get the number of available received MEs to process a limited number of MEs
+- Merged send.c/receive.c in dcm.c
+
+ME SO3 base
+-----------
+- Removed CONFIG_VBSTORE_VADDR to have a malloc() allocated page
+- Removed check of IRQs enabled in PSTATE in devices/irq.c (hypercall path)
+- Updating AVZ_shared->pagetable_paddr with the new sys root pgtable
+- Refactored soo/uapi contents (avz.h) to have an identical content with AVZ
+

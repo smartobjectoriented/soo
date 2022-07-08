@@ -41,5 +41,6 @@ extern void *cpu1_stack, *cpu2_stack, *cpu3_stack;
 
 void setup_arch(void);
 void cpu_init(void);
+void vectors_setup(void);
 
 #endif /* ASM_SETUP_H */

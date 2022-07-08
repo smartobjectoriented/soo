@@ -738,10 +738,10 @@ void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus) {
 static irqreturn_t directcomm_isr_thread(int irq, void *args) {
 	dc_event_t dc_event;
 
-	dc_event = atomic_read((const atomic_t *) &avz_shared_info->dc_event);
+	dc_event = atomic_read((const atomic_t *) &AVZ_shared->dc_event);
 
 	/* Reset the dc_event now so that the domain can send another dc_event */
-	atomic_set((atomic_t *) &avz_shared_info->dc_event, DC_NO_EVENT);
+	atomic_set((atomic_t *) &AVZ_shared->dc_event, DC_NO_EVENT);
 
 	/* Perform the associated callback function to this particular dc_event */
 	if (dc_event_callback[dc_event] != NULL)
@@ -758,9 +758,9 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	dc_event_t dc_event;
 	unsigned int domID = *((unsigned int *) args);
 
-	dc_event = atomic_read((const atomic_t *) &avz_shared_info->dc_event);
+	dc_event = atomic_read((const atomic_t *) &AVZ_shared->dc_event);
 
-	DBG("Received directcomm interrupt for event: %d\n", avz_shared_info->dc_event);
+	DBG("Received directcomm interrupt for event: %d\n", AVZ_shared->dc_event);
 
 	/* We should not receive twice a same dc_event, before it has been fully processed. */
 	BUG_ON(atomic_read(&dc_incoming_domID[dc_event]) != -1);
@@ -799,7 +799,7 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	}
 
 	/* Reset the dc_event now so that the domain can send another dc_event */
-	atomic_set((atomic_t *) &avz_shared_info->dc_event, DC_NO_EVENT);
+	atomic_set((atomic_t *) &AVZ_shared->dc_event, DC_NO_EVENT);
 
 	return IRQ_HANDLED;
 }

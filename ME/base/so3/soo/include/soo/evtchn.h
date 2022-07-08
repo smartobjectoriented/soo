@@ -24,12 +24,11 @@
 #include <device/irq.h>
 
 #include <soo/hypervisor.h>
-#include <soo/event_channel.h>
-
 #include <soo/soo.h>
-
 #include <soo/console.h>
 #include <soo/vbstore.h>
+
+#include <soo/uapi/event_channel.h>
 
 extern unsigned int type_from_irq(int irq);
 
@@ -47,11 +46,10 @@ static inline u32 mk_irq_info(u32 type, u32 index, u32 evtchn) {
 }
 
 static inline void clear_evtchn(u32 evtchn) {
-	volatile shared_info_t *s = avz_shared_info;
 
-	s->evtchn_pending[evtchn] = false;
+	AVZ_shared->evtchn_pending[evtchn] = false;
 
-	dmb();
+	smp_mb();
 
 }
 static inline void notify_remote_via_evtchn(uint32_t evtchn) {

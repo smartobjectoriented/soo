@@ -91,7 +91,7 @@ struct soo_winenet_env {
 	struct mutex pending_beacons_lock;
 
 	/* Used to track transID in received packet */
-	uint32_t last_transID;
+	uint32_t expected_transID;
 
 	/* Management of the neighbourhood of SOOs. Used in the retry packet management. */
 	struct list_head wnet_neighbours;
@@ -534,7 +534,6 @@ static void winenet_add_neighbour(neighbour_desc_t *neighbour) {
 	BUG_ON(!wnet_neighbour);
 
 	wnet_neighbour->neighbour = neighbour;
-	wnet_neighbour->last_transID = 0;
 
 	wnet_trace("[soo:soolink:winenet:neighbour] Adding neighbour (our state is %s): ", get_current_state_str());
 	soo_log_printlnUID(neighbour->agencyUID);
@@ -881,7 +880,7 @@ void wnet_send_ack(uint64_t agencyUID, int status, bool pkt_data) {
 	retrieve_current_neighbour_state(current_soo_winenet->ourself, &neighbour_state);
 
 	/* Additional field to complete for PKT_DATA */
-	if (pkt_data && (status == ACK_STATUS_OK)) {
+	if (pkt_data) {
 
 		neighbour_state.pkt_data = true;
 		neighbour_state.transID = current_soo_winenet->wnet_rx.transID & WNET_MAX_PACKET_TRANSID;
@@ -1302,7 +1301,7 @@ bool s_frame_tx(wnet_neighbour_t *neighbour, void *arg) {
 	/* Each frame must be acknowledged by the receiver. */
 	ack = wait_for_ack();
 
-	if (ack == ACK_STATUS_TIMEOUT) {
+	if ((ack == ACK_STATUS_TIMEOUT) || (ack == ACK_STATUS_ABORT)) {
 
 		retry_count = 0;
 		do {
@@ -1550,7 +1549,7 @@ static void winenet_state_listener(wnet_state_t old_state) {
 		/* Timeout? */
 		if (remaining == 0) {
 
-			wnet_trace("[soo:soolink:winenet:beacon] ----------------------- TIMEOUT \n");
+			wnet_trace("[soo:soolink:winenet:beacon] ----------------------- Listener state out by TIMEOUT \n");
 
 			/* Trigger the sending of a QUERY_REQUEST to get the state of our neighbour */
 			if (current_soo_winenet->ourself->paired_speaker)
@@ -1979,30 +1978,34 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 		 * and we have to re-send a new acknowledgment.
 		 */
 
-		if (!packet->transID) {
+		/* First frame ? */
+		if (packet->transID == 0)
+			current_soo_winenet->expected_transID = 0;
 
-			/*
-			 * First packet of the frame: be ready to process the next packets of the frame.
-			 * By default, at the beginning, we set the new_frame boolean to true. If any packet in the frame is missed,
-			 * the boolean is set to false, meaning that the frame is invalid.
-			 */
-			clear_buf_rx_pkt();
-
-		} else if ((packet->transID & WNET_MAX_PACKET_TRANSID) < current_soo_winenet->last_transID) {
+		if ((packet->transID & WNET_MAX_PACKET_TRANSID) < current_soo_winenet->expected_transID) {
 
 			/* A packet we already received; might happen if a ACK has not been received by the speaker. */
 
 			if (((packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME == WNET_N_PACKETS_IN_FRAME - 1) || (packet->transID & WNET_LAST_PACKET))
 				wnet_send_ack(current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, ACK_STATUS_OK, true);
+			else {
+				wnet_send_ack(current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, ACK_STATUS_ABORT, true);
+
+				/* Reset to the beginning of the frame */
+				current_soo_winenet->expected_transID = (current_soo_winenet->expected_transID / WNET_N_PACKETS_IN_FRAME) * WNET_N_PACKETS_IN_FRAME;
+			}
 
 			return ;
 
 
-		} else if (packet->transID && (packet->transID & WNET_MAX_PACKET_TRANSID) != current_soo_winenet->last_transID + 1) {
+		} else if (packet->transID && ((packet->transID & WNET_MAX_PACKET_TRANSID) != current_soo_winenet->expected_transID)) {
 
-			/* The packet chain is (temporary) broken by ack timeout processing from the sender. */
+			/* The packet chain is broken (bad transmission)  */
+			wnet_send_ack(current_soo_winenet->wnet_rx.sl_desc->agencyUID_from, ACK_STATUS_ABORT, true);
 
-			wnet_trace("[soo:soolink:winenet] Pkt chain broken: (last_transID=%d)/(packet->transID=%d)\n", current_soo_winenet->last_transID, packet->transID & WNET_MAX_PACKET_TRANSID);
+			/* Reset to the beginning of the frame */
+			current_soo_winenet->expected_transID = (current_soo_winenet->expected_transID / WNET_N_PACKETS_IN_FRAME) * WNET_N_PACKETS_IN_FRAME;
+
 
 			return ;
 		}
@@ -2011,7 +2014,10 @@ void winenet_rx(sl_desc_t *sl_desc, transceiver_packet_t *packet) {
 		memcpy(current_soo_winenet->buf_rx_pkt[(packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME], packet, packet->size + sizeof(transceiver_packet_t));
 
 		/* Save the last ID of the last received packet */
-		current_soo_winenet->last_transID = (packet->transID & WNET_MAX_PACKET_TRANSID);
+		current_soo_winenet->expected_transID = (packet->transID & WNET_MAX_PACKET_TRANSID) + 1;
+
+		/* Time to rethink to a better way... ? */
+		BUG_ON(current_soo_winenet->expected_transID == WNET_MAX_PACKET_TRANSID);
 
 		/* If all the packets of the frame have been received, forward them to the upper layer */
 		if (((packet->transID & WNET_MAX_PACKET_TRANSID) % WNET_N_PACKETS_IN_FRAME == WNET_N_PACKETS_IN_FRAME - 1) || (packet->transID & WNET_LAST_PACKET)) {
@@ -2063,7 +2069,7 @@ void winenet_init(void) {
 	init_completion(&current_soo_winenet->data_event);
 
 	current_soo_winenet->wnet_tx.pending = TX_NO_DATA;
-	current_soo_winenet->last_transID = 0;
+	current_soo_winenet->expected_transID = 0;
 
 	mutex_init(&current_soo_winenet->wnet_xmit_lock);
 	mutex_init(&current_soo_winenet->pending_beacons_lock);

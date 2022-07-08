@@ -50,7 +50,7 @@ static char so3virt_get_byte(bool polling) {
 }
 
 
-static int so3virt_serial_init(dev_t *dev) {
+static int so3virt_serial_init(dev_t *dev, int fdt_offset) {
 
 	/* Init so3virt serial */
 
@@ -58,8 +58,6 @@ static int so3virt_serial_init(dev_t *dev) {
 
 	serial_ops.put_byte = so3virt_put_byte;
 	serial_ops.get_byte = so3virt_get_byte;
-
-	serial_ops.dev = dev;
 
 	return 0;
 }

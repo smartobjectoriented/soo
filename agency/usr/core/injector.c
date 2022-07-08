@@ -67,7 +67,7 @@ int inject_ME(void *ME_buffer, size_t size) {
 /**
  * Try to retrieve a ME from the DCM and deploy it.
  */
-void ME_inject(unsigned char *ME_buffer, size_t size) {
+void ME_inject(unsigned char *ME_buffer, uint32_t size) {
 	int slotID;
 
 	slotID = inject_ME(ME_buffer, size);
@@ -123,6 +123,10 @@ void inject_MEs_from_filesystem(void) {
 
 		/* Ignore . and .. */
 		if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || !strcmp(ent->d_name, "lost+found"))
+			continue;
+
+		/* Only .itb extensions are recognized */
+		if (!strstr(ent->d_name, ".itb"))
 			continue;
 
 		printf("Found new ME to inject : %s\n", ent->d_name);

@@ -21,13 +21,12 @@
 
 #include <completion.h>
 #include <spinlock.h>
+#include <soo/soo.h>
 
 #include <me/common.h>
 
 
 #define MAX_MSG_LENGTH 		200 
-#define ID_MAX_LENGTH		20
-#define ACTION_MAX_LENGTH	20
 
 
 #define CHAT_MODEL  "<model spid=\"00000200000000000000000000000004\">\
@@ -40,7 +39,7 @@
                 </col>\
             </row>\
             <row>\
-                <col span=\"8\">\
+                <col span=\"5\">\
                     <scroll id=\"msg-history\"></scroll>\
                 </col>\
             </row>\
@@ -90,6 +89,7 @@ typedef struct {
 
     /* UID of the initiator SOO, on which this ME was deployed at boot time */
     uint64_t initiator;
+    char soo_name[SOO_NAME_SIZE];
 
     /*
         * MUST BE the last field, since it contains a field at the end which is used
@@ -114,7 +114,7 @@ chat_entry_t *find_chat_from_sender_in_history(uint64_t senderUID);
 void add_chat_in_history(chat_entry_t *new_chat);
 bool is_chat_in_history(chat_entry_t *chat);
 
-void send_chat_to_tablet(uint64_t senderUID, char* text);
+void send_chat_to_tablet(char *sender_name, char* text);
 
 #endif /* CHAT_H */
 

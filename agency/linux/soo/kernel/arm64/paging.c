@@ -35,10 +35,10 @@ void *paging_remap(unsigned long paddr, size_t size) {
 	return vaddr;
 }
 
-void paging_remap_page_range(unsigned long addr, unsigned long end, phys_addr_t physaddr) {
+void paging_remap_page_range(unsigned long vaddr, unsigned long end, phys_addr_t physaddr) {
 	int ret;
 
-	ret = ioremap_page_range(addr, end, physaddr, __pgprot(PROT_NORMAL_NC));
+	ret = ioremap_page_range(vaddr, end, physaddr, __pgprot(PROT_NORMAL_NC));
 	BUG_ON(ret);
 
 }

@@ -349,13 +349,13 @@ asmlinkage notrace void secondary_start_kernel(void)
 	set_cpu_online(cpu, true);
 
 	if (smp_processor_id() == AGENCY_RT_CPU)
-		smp_cross_call(cpumask_of(AGENCY_CPU0), IPI_RT_TASK_CREATE);
+		smp_cross_call(cpumask_of(AGENCY_CPU), IPI_RT_TASK_CREATE);
 	else
 		complete(&cpu_running);
 
 	/* SOO.tech */
 	if (cpu == AGENCY_RT_CPU)
-		smp_cross_call(cpumask_of(AGENCY_CPU0), IPI_RESCHEDULE);
+		smp_cross_call(cpumask_of(AGENCY_CPU), IPI_RESCHEDULE);
 
 	local_daif_restore(DAIF_PROCCTX);
 

@@ -140,11 +140,6 @@ void setup_arch(void) {
 	setup_exception_stacks();
 #endif /* !CONFIG_SO3VIRT */
 
-	/* Keep a reference to the 1st-level system page table */
-#ifdef CONFIG_MMU
-	__sys_l1pgtable = (unsigned int *) (CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET);
-#endif
-
 #if 0 /* At the moment, we do not handle security in user space */
 	/* Change the domain access controller to enable kernel protection against user access */
 	set_domain(0xfffffffd);
@@ -159,3 +154,28 @@ void setup_arch(void) {
 	/* A low-level UART should be initialized here so that subsystems initialization (like MMC) can already print out logs ... */
 
 }
+
+void vectors_setup(void) {
+
+ 	/* Make a copy of the existing vectors. The L2 pagetable was allocated by AVZ and cannot be used as such by the guest.
+ 	 * Therefore, we will make our own mapping in the guest for this vector page.
+ 	 */
+ 	memcpy(vectors_tmp, (void *) VECTOR_VADDR, PAGE_SIZE);
+
+ 	/* Reset the L1 PTE used for the vector page. */
+ 	clear_l1pte(NULL, VECTOR_VADDR);
+
+ 	create_mapping(NULL, VECTOR_VADDR, __pa((uint32_t) __guestvectors), PAGE_SIZE, true);
+
+ 	memcpy((void *) VECTOR_VADDR, vectors_tmp, PAGE_SIZE);
+
+	/* We need to add handling of swi/svc software interrupt instruction for syscall processing.
+	 * Such an exception is fully processed by the SO3 domain.
+	 */
+	inject_syscall_vector();
+
+	flush_dcache_range(VECTOR_VADDR, VECTOR_VADDR + PAGE_SIZE);
+	invalidate_icache_all();
+}
+
+

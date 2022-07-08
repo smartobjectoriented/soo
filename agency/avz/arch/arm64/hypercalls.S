@@ -33,53 +33,28 @@ ENTRY(ret_from_hypercall)
 	/* Store the x0 value in the stack frame of G-stack */
 	curdom	x8, x11
 	ldr		x9, [x8, #OFFSET_G_SP]
-	str		x0, [x9, #S_X0]
+	str		x0, [x9, #OFFSET_X0]
 
 	bl		do_softirq
 
 	curdom	x10, x11
-	ldr		x11, [x10, #OFFSET_SHARED_INFO]
+	ldr		x11, [x10, #OFFSET_AVZ_SHARED]
 
 	// If the softirq handling leads to trigger an interrupt in the guest,
 	// it will be processed by do_evtchn_do_upcall. The way how to
 	// process an interrupt with potentially IRQs off is under the
 	// responsibility of the guest
 
+	mov		x8, #0
+
 	// are some IRQs pending?
 	ldrb	w12, [x11, #OFFSET_EVTCHN_UPCALL_PENDING]
 	tst		w12, #0xff
 
-	b.eq		restore
+	b.eq	restore
 
-do_upcall:
-
-	disable_irq
-
-	current_cpu x11
-
-	curdom  x10, x12
-
-	ldr		lr, [x10, #OFFSET_HYPERVISOR_CALLBACK]
-	cmp		lr, #0
-	beq		restore
-
-	ldr		x0, .LChypervisor_stack   	// running L1 hypervisor stack
-	mov		x12, sp
-	str		x12, [x0, x11, lsl #3]
-
-	// Get guest stack
-	ldr		x12, [x10, #OFFSET_G_SP]
-	mov		sp, x12
-
-	// setting pseudo_usr_mode / x0, x1 re-assigned right after
-	ldr 	x0, .LCpseudo_usr_mode
-	mov		x1, #1
-	str		x1, [x0, x11, lsl #3]
-
-	// r0 contains a reference to the stack pointer
-	mov		x0, sp
-
-	ret
+	// Will go ahead with evtchn_do_upcall in the domain
+	mov		x8, #1
 
 restore:
 	disable_irq
@@ -103,31 +78,46 @@ restore:
 	ldr		x11, [x10, #OFFSET_G_SP]
 	mov		sp, x11
 
-	ldr		lr, [sp, #S_PC]
+	// Store the evtchn pending state to give
+	// the domain the possiblity to call evtchn_do_upcall()
+	str 	x8, [sp, #OFFSET_X8]
+
+	ldr		lr, [sp, #OFFSET_PC]
 
 	// PSTATE contains the daif state at the entry in
 	// the hypervisor.
 
-	ldr		x8, [sp, #(8 * 33)]  // Get PSTATE
+	ldr		x9, [sp, #OFFSET_PSTATE]  // Get PSTATE
+
+	cmp		x8, #0
+	b.ne	save_pstate
+
+restore_pstate:
 
 	// Restore the IRQ status before the hypercall
-	msr		daif, x8
+	msr		daif, x9
+	b		cont
 
-	ldp		x0, x1, [sp, #S_X0]
-	ldp		x2, x3, [sp, #S_X2]
-	ldp		x4, x5, [sp, #S_X4]
-	ldp		x6, x7, [sp, #S_X6]
-	ldp		x8, x9, [sp, #S_X8]
-	ldp		x10, x11, [sp, #S_X10]
-	ldp		x12, x13, [sp, #S_X12]
-	ldp		x14, x15, [sp, #S_X14]
-	ldp		x16, x17, [sp, #S_X16]
-	ldp		x18, x19, [sp, #S_X18]
-	ldp		x20, x21, [sp, #S_X20]
-	ldp		x22, x23, [sp, #S_X22]
-	ldp		x24, x25, [sp, #S_X24]
-	ldp		x26, x27, [sp, #S_X26]
-	ldp		x28, x29, [sp, #S_X28]
+save_pstate:
+	str		x9, [sp, #OFFSET_X9]
+
+cont:
+
+	ldp		x0, x1, [sp, #OFFSET_X0]
+	ldp		x2, x3, [sp, #OFFSET_X2]
+	ldp		x4, x5, [sp, #OFFSET_X4]
+	ldp		x6, x7, [sp, #OFFSET_X6]
+	ldp		x8, x9, [sp, #OFFSET_X8]
+	ldp		x10, x11, [sp, #OFFSET_X10]
+	ldp		x12, x13, [sp, #OFFSET_X12]
+	ldp		x14, x15, [sp, #OFFSET_X14]
+	ldp		x16, x17, [sp, #OFFSET_X16]
+	ldp		x18, x19, [sp, #OFFSET_X18]
+	ldp		x20, x21, [sp, #OFFSET_X20]
+	ldp		x22, x23, [sp, #OFFSET_X22]
+	ldp		x24, x25, [sp, #OFFSET_X24]
+	ldp		x26, x27, [sp, #OFFSET_X26]
+	ldp		x28, x29, [sp, #OFFSET_X28]
 
 	add		sp, sp, #S_FRAME_SIZE
 
@@ -140,7 +130,7 @@ restore:
 // Hence, we preserve the daif state at the entry in order
 // to reconfigure correctly at the hypercall exit.
 
-ENTRY(hypercall_start)
+ENTRY(hypercall_entry)
 
 	// According to AArch64 ABI, x8 is preserved by the caller if used.
 	mrs		x8, daif
@@ -149,28 +139,28 @@ ENTRY(hypercall_start)
 
 	sub		sp, sp, #S_FRAME_SIZE
 
-	str		x8, [sp, #S_PSTATE]
+	str		x8, [sp, #OFFSET_PSTATE]
 
-	stp		x0, x1, [sp, #S_X0]
-	stp		x2, x3, [sp, #S_X2]
-	stp		x4, x5, [sp, #S_X4]
-	stp		x6, x7, [sp, #S_X6]
-	stp		x8, x9, [sp, #S_X8]
-	stp		x10, x11, [sp, #S_X10]
-	stp		x12, x13, [sp, #S_X12]
-	stp		x14, x15, [sp, #S_X14]
-	stp		x16, x17, [sp, #S_X16]
-	stp		x18, x19, [sp, #S_X18]
-	stp		x20, x21, [sp, #S_X20]
-	stp		x22, x23, [sp, #S_X22]
-	stp		x24, x25, [sp, #S_X24]
-	stp		x26, x27, [sp, #S_X26]
-	stp		x28, x29, [sp, #S_X28]
+	stp		x0, x1, [sp, #OFFSET_X0]
+	stp		x2, x3, [sp, #OFFSET_X2]
+	stp		x4, x5, [sp, #OFFSET_X4]
+	stp		x6, x7, [sp, #OFFSET_X6]
+	stp		x8, x9, [sp, #OFFSET_X8]
+	stp		x10, x11, [sp, #OFFSET_X10]
+	stp		x12, x13, [sp, #OFFSET_X12]
+	stp		x14, x15, [sp, #OFFSET_X14]
+	stp		x16, x17, [sp, #OFFSET_X16]
+	stp		x18, x19, [sp, #OFFSET_X18]
+	stp		x20, x21, [sp, #OFFSET_X20]
+	stp		x22, x23, [sp, #OFFSET_X22]
+	stp		x24, x25, [sp, #OFFSET_X24]
+	stp		x26, x27, [sp, #OFFSET_X26]
+	stp		x28, x29, [sp, #OFFSET_X28]
 
 	mov		x22, lr
 
-	str		lr, [sp, #S_LR]
-	str		x22, [sp, #S_PC]
+	str		lr, [sp, #OFFSET_LR]
+	str		x22, [sp, #OFFSET_PC]
 
 	current_cpu x10
 
@@ -184,9 +174,9 @@ ENTRY(hypercall_start)
 	// readjust stack for future restore
 	add		x8, sp, #S_FRAME_SIZE
 
-	str		x8, [sp, #S_SP]
+	str		x8, [sp, #OFFSET_SP]
 
-	str		lr, [sp, #S_LR]
+	str		lr, [sp, #OFFSET_LR]
 
 	ldr		x8, .LCpseudo_usr_mode
 	mov		x9, #0
@@ -229,23 +219,23 @@ __do_hypercall_from_avz:
 // Fast return path to the caller (in avz)
 __end_hypercall_from_avz:
 
-	ldr		lr, [sp, #S_PC]
+	ldr		lr, [sp, #OFFSET_PC]
 
-	ldr		x1, [sp, #S_X1]
-	ldp		x2, x3, [sp, #S_X2]
-	ldp		x4, x5, [sp, #S_X4]
-	ldp		x6, x7, [sp, #S_X6]
-	ldp		x8, x9, [sp, #S_X8]
-	ldp		x10, x11, [sp, #S_X10]
-	ldp		x12, x13, [sp, #S_X12]
-	ldp		x14, x15, [sp, #S_X14]
-	ldp		x16, x17, [sp, #S_X16]
-	ldp		x18, x19, [sp, #S_X18]
-	ldp		x20, x21, [sp, #S_X20]
-	ldp		x22, x23, [sp, #S_X22]
-	ldp		x24, x25, [sp, #S_X24]
-	ldp		x26, x27, [sp, #S_X26]
-	ldp		x28, x29, [sp, #S_X28]
+	ldr		x1, [sp, #OFFSET_X1]
+	ldp		x2, x3, [sp, #OFFSET_X2]
+	ldp		x4, x5, [sp, #OFFSET_X4]
+	ldp		x6, x7, [sp, #OFFSET_X6]
+	ldp		x8, x9, [sp, #OFFSET_X8]
+	ldp		x10, x11, [sp, #OFFSET_X10]
+	ldp		x12, x13, [sp, #OFFSET_X12]
+	ldp		x14, x15, [sp, #OFFSET_X14]
+	ldp		x16, x17, [sp, #OFFSET_X16]
+	ldp		x18, x19, [sp, #OFFSET_X18]
+	ldp		x20, x21, [sp, #OFFSET_X20]
+	ldp		x22, x23, [sp, #OFFSET_X22]
+	ldp		x24, x25, [sp, #OFFSET_X24]
+	ldp		x26, x27, [sp, #OFFSET_X26]
+	ldp		x28, x29, [sp, #OFFSET_X28]
 
 	add		sp, sp, #S_FRAME_SIZE
 
@@ -257,8 +247,7 @@ __end_hypercall_from_avz:
 .type hypercall_table, #object
 ENTRY(hypercall_table)
 
-__hypercall_start:
-	.quad do_set_callbacks
+__hypercall_entry:
 	.quad do_event_channel_op
 	.quad do_console_io
 	.quad do_physdev_op

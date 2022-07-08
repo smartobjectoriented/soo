@@ -29,7 +29,7 @@
 #define AVZ_SCHEDULER_RT	  		1
 
 struct domctl_unpause_ME {
-	uint32_t		store_mfn;
+	addr_t vbstore_pfn;
 };
 
 struct domctl {
@@ -40,7 +40,7 @@ struct domctl {
 
     domid_t  domain;
     union {
-       struct domctl_unpause_ME		unpause_ME;
+       struct domctl_unpause_ME	unpause_ME;
     } u;
 };
 typedef struct domctl domctl_t;

@@ -387,7 +387,7 @@ avz-all		:= $(avz-objs) $(avz-libs)
 LIBGCC_PATH := $(shell dirname `$(CC) -print-libgcc-file-name`)
 
 quiet_cmd_avz = LD      $@
-     cmd_avz = $(LD) --defsym=ENTRY_ADDR=$(CONFIG_HYPERVISOR_VIRT_ADDR) -T arch/$(SRCARCH)/avz.lds -o $@ $(avz-all) -L $(LIBGCC_PATH) -lgcc
+     cmd_avz = $(LD) --defsym=ENTRY_ADDR=$(CONFIG_HYPERVISOR_VADDR) -T arch/$(SRCARCH)/avz.lds -o $@ $(avz-all) -L $(LIBGCC_PATH) -lgcc
 
 
 KBUILD_CFLAGS_KERNEL += -Iarch/$(SRCARCH)/include/ -Iarch/$(SRCARCH)/$(TARGET)/include/

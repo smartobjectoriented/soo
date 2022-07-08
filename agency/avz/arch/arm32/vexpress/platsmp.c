@@ -69,8 +69,6 @@ void smp_boot_secondary(unsigned int cpu) {
 		udelay(1000);
 	} while (1);
 
-	gic_secondary_init(0);
-
 	/*
 	 * now the secondary core is starting up let it run its
 	 * calibrations, then wait for it to finish

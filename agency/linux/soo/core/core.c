@@ -107,7 +107,8 @@ static struct device soo_dev;
  */
 static void force_terminate(unsigned int ME_slotID) {
 
-	if (get_ME_state(ME_slotID) == ME_state_living)
+	/* The ME may be ME_state_terminated after a cooperate callback */
+	if ((get_ME_state(ME_slotID) == ME_state_living) || (get_ME_state(ME_slotID) == ME_state_terminated))
 		do_sync_dom(ME_slotID, DC_FORCE_TERMINATE);
 
 	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated))
@@ -116,6 +117,7 @@ static void force_terminate(unsigned int ME_slotID) {
 
 /**
  * Walk through all MEs to see if some have to be terminated.
+ * Called after final migration.
  */
 void check_terminated_ME(void) {
 	int slotID;
@@ -276,6 +278,10 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	
 	case AGENCY_IOCTL_GET_ME_ID_ARRAY:
 		get_ME_id_array((ME_id_t *) args.buffer);
+		break;
+		
+	case AGENCY_IOCTL_BLACKLIST_SOO:
+		discovery_blacklist_neighbour((char *) args.buffer);
 		break;
 
 	default:

@@ -223,6 +223,7 @@ irqreturn_t vuihandler_tx_interrupt(int irq, void *dev_id) {
 	int32_t slotID = -1;
 
 	while ((ring_req = vuihandler_tx_get_ring_request(&vuihandler->tx_rings.ring)) != NULL) {
+
 		DBG(VUIHANDLER_PREFIX "%d, %d\n", ring_req->id, ring_req->size);
 	
 		slotID = vuihandler->otherend_id;		
@@ -287,7 +288,7 @@ static void rx_push_response(domid_t domid, vuihandler_pkt_t *vuihandler_pkt, si
 	ring_rsp->size = size;
 	ring_rsp->type = vuihandler_pkt->type;
 
-	DBG(VUIHANDLER_PREFIX "id: %d\n", ring_rsp->id);
+	DBG(VUIHANDLER_PREFIX "id: %d, type %d, size %d\n", ring_rsp->id, ring_rsp->type, ring_rsp->size);
 
 	memset(ring_rsp->buf, '\0', RING_BUF_SIZE);
 	if (size != 0)

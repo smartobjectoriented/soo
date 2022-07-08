@@ -169,7 +169,7 @@ void vuart_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	vuart_priv->vuart.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuart_priv->vuart.ring.sring)));
+	vuart_priv->vuart.ring_ref = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vuart_priv->vuart.ring.sring)));
 
 	vbus_transaction_start(&vbt);
 
@@ -199,11 +199,11 @@ void vuart_reconfiguring(struct vbus_device *vdev) {
 	vuart_priv->vuart.ring_ref = GRANT_INVALID_REF;
 
 	SHARED_RING_INIT(vuart_priv->vuart.ring.sring);
-	FRONT_RING_INIT(&vuart_priv->vuart.ring, (&vuart_priv->vuart.ring)->sring, PAGE_SIZE);
+	FRONT_RING_INIT(&vuart_priv->vuart.ring, vuart_priv->vuart.ring.sring, PAGE_SIZE);
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vuart_priv->vuart.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vuart_priv->vuart.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -234,7 +234,7 @@ void vuart_closed(struct vbus_device *vdev) {
 	/* Free resources associated with old device channel. */
 	if (vuart_priv->vuart.ring_ref != GRANT_INVALID_REF) {
 		gnttab_end_foreign_access(vuart_priv->vuart.ring_ref);
-		free_vpage((uint32_t) vuart_priv->vuart.ring.sring);
+		free_vpage((addr_t) vuart_priv->vuart.ring.sring);
 
 		vuart_priv->vuart.ring_ref = GRANT_INVALID_REF;
 		vuart_priv->vuart.ring.sring = NULL;
@@ -272,7 +272,7 @@ vdrvfront_t vuartdrv = {
 	.connected = vuart_connected
 };
 
-static int vuart_init(dev_t *dev) {
+static int vuart_init(dev_t *dev, int fdt_offset) {
 	vuart_priv_t *vuart_priv;
 
 	vuart_priv = malloc(sizeof(vuart_priv_t));

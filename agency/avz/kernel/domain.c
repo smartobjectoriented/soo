@@ -33,8 +33,7 @@
 #include <sched-if.h>
 #include <memory.h>
 #include <heap.h>
-
-#include <soo/soo.h>
+#include <soo.h>
 
 #include <asm/processor.h>
 #include <asm/vfp.h>
@@ -53,11 +52,6 @@ struct domain *domains[MAX_DOMAINS];
 
 struct domain *agency;
 
-int current_domain_id(void)
-{
-	return current->domain_id;
-}
-
 /*
  * Creation of new domain context associated to the agency or a Mobile Entity.
  *
@@ -68,12 +62,17 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 {
 	struct domain *d;
 
-	d = malloc(sizeof(struct domain));
+	d = memalign(sizeof(struct domain), 8);
 	BUG_ON(!d);
 
 	memset(d, 0, sizeof(struct domain));
 
-	d->domain_id = domid;
+	d->avz_shared = memalign(PAGE_SIZE, PAGE_SIZE);
+	BUG_ON(!d);
+
+	memset(d->avz_shared, 0, PAGE_SIZE);
+
+	d->avz_shared->domID = domid;
 
 	if (!is_idle_domain(d)) {
 		d->is_paused_by_controller = 1;
@@ -82,20 +81,11 @@ struct domain *domain_create(domid_t domid, int cpu_id)
 		evtchn_init(d);
 	}
 
-	d->shared_info = memalign(PAGE_SIZE, PAGE_SIZE);
-	BUG_ON(!d);
-
-	clear_page(d->shared_info);
-
 	/* Create a logbool hashtable associated to this domain */
-	d->shared_info->logbool_ht = ht_create(LOGBOOL_HT_SIZE);
-	if (d->shared_info->logbool_ht == NULL)
-		BUG();
+	d->avz_shared->logbool_ht = ht_create(LOGBOOL_HT_SIZE);
+	BUG_ON(!d->avz_shared->logbool_ht);
 
 	arch_domain_create(d, cpu_id);
-
-	d->event_callback = 0;
-	d->domcall = 0;
 
 	d->processor = cpu_id;
 
@@ -146,12 +136,11 @@ static void complete_domain_destroy(struct domain *d)
 	sched_destroy_domain(d);
 
 	/* Free the logbool hashtable associated to this domain */
-	ht_destroy((logbool_hashtable_t *) d->shared_info->logbool_ht);
+	ht_destroy((logbool_hashtable_t *) d->avz_shared->logbool_ht);
 
-	/* Free start_info structure */
+	/* Restore allocated memory for this domain */
 
-	free((void *) d->vstartinfo_start);
-	free((void *) d->shared_info);
+	free((void *) d->avz_shared);
 	free((void *) d->domain_stack);
 
 	free(d);
@@ -237,8 +226,7 @@ void context_switch(struct domain *prev, struct domain *next)
 #endif
 	}
 
-	get_current_addrspace(&prev->addrspace);
-	switch_mm(next, &next->addrspace);
+	switch_mm(next);
 
 	/* Clear running flag /after/ writing context to memory. */
 	smp_mb();
@@ -259,7 +247,7 @@ void context_switch(struct domain *prev, struct domain *next)
  * This is the H-stack and contains a reference to the domain as the bottom (base) of the stack.
  */
 void *setup_dom_stack(struct domain *d) {
-	addr_t *domain_stack;
+	void *domain_stack;
 
 	/* The stack must be aligned at STACK_SIZE bytes so that it is
 	 * possible to retrieve the cpu_info structure at the bottom
@@ -271,10 +259,10 @@ void *setup_dom_stack(struct domain *d) {
 	d->domain_stack = (unsigned long) domain_stack;
 
 	/* Put the address of the domain descriptor at the base of this stack */
-	*domain_stack = (addr_t) d;
+	*((addr_t *) domain_stack) = (addr_t) d;
 
 	/* Reserve the frame which will be restored later */
-	domain_stack += (STACK_SIZE - sizeof(cpu_regs_t))/sizeof(addr_t);
+	domain_stack += STACK_SIZE - sizeof(cpu_regs_t);
 
 	/* Returns the reference to the H-stack frame of this domain */
 
@@ -284,7 +272,7 @@ void *setup_dom_stack(struct domain *d) {
 /*
  * Set up the first thread of a domain.
  */
-void new_thread(struct domain *d, addr_t start_pc, addr_t fdt_addr, addr_t start_stack, addr_t start_info)
+void new_thread(struct domain *d, addr_t start_pc, addr_t fdt_addr, addr_t start_stack)
 {
 	cpu_regs_t *domain_frame;
 
@@ -293,7 +281,7 @@ void new_thread(struct domain *d, addr_t start_pc, addr_t fdt_addr, addr_t start
 	if (domain_frame == NULL)
 	  panic("Could not set up a new domain stack.n");
 
-	arch_setup_domain_frame(d, domain_frame, fdt_addr, start_info, start_stack, start_pc);
+	arch_setup_domain_frame(d, domain_frame, fdt_addr, start_stack, start_pc);
 }
 
 static void continue_cpu_idle_loop(void)
@@ -346,25 +334,30 @@ void machine_restart(unsigned int delay_millisecs)
 void domain_call(struct domain *target_dom, int cmd, void *arg)
 {
 	struct domain *__current;
-	addrspace_t prev_addrspace;
+	addr_t prev;
 
+	/* IRQs are always disabled during a domcall */
 	BUG_ON(local_irq_is_enabled());
 
-	/* Switch the current domain to the target so that preserving ttbr0 during
+	/* Switch the current domain to the target so that preserving the page table during
 	 * subsequent memory context switch will not affect the original one.
 	 */
 
 	__current = current;
 
-	get_current_addrspace(&prev_addrspace);
-	switch_mm(target_dom, &target_dom->addrspace);
+	get_current_pgtable(&prev);
 
-	/* Make the call with IRQs disabled */
+	switch_mm(target_dom);
 
-	((domcall_t) target_dom->domcall)(cmd, arg);
+	BUG_ON(!target_dom->avz_shared->domcall_vaddr);
+
+	/* Perform the domcall execution */
+	((domcall_t) target_dom->avz_shared->domcall_vaddr)(cmd, arg);
+
+	set_current(__current);
 
 	/* Switch back to our domain address space. */
-	switch_mm(__current, &prev_addrspace);
+	mmu_switch((void *) prev);
 }
 
 
