@@ -558,7 +558,7 @@
 			};
 		};
 #endif
-                genet: genet@7d580000 {
+        genet: genet@7d580000 {
 			compatible = "brcm,genet-v5";
 			reg = <0x0 0x7d580000  0x0 0x10000>;
 			#address-cells = <0x1>;

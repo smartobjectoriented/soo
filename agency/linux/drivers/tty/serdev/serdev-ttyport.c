@@ -10,6 +10,8 @@
 
 #define SERPORT_ACTIVE		1
 
+/** SOO.tech **/
+#if 0
 struct serport {
 	struct tty_port *port;
 	struct tty_struct *tty;
@@ -17,6 +19,7 @@ struct serport {
 	int tty_idx;
 	unsigned long flags;
 };
+#endif
 
 /*
  * Callback functions from the tty port.

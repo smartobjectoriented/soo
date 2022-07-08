@@ -519,6 +519,7 @@ err_free:
 }
 EXPORT_SYMBOL_GPL(serdev_controller_alloc);
 
+#if 1
 static int of_serdev_register_devices(struct serdev_controller *ctrl)
 {
 	struct device_node *node;
@@ -552,6 +553,68 @@ static int of_serdev_register_devices(struct serdev_controller *ctrl)
 
 	return 0;
 }
+#else
+/** SOO.tech **/
+static int read_serdev_node(struct device_node *node, struct serdev_controller *ctrl)
+{
+	struct serdev_device *serdev = NULL;
+	int err;
+	// bool found = false;
+
+	if (!of_get_property(node, "compatible", NULL))
+		return -1;
+
+	dev_dbg(&ctrl->dev, "adding child %pOF\n", node);
+
+	serdev = serdev_device_alloc(ctrl);
+	if (!serdev)
+		return -1;
+
+	serdev->dev.of_node = node;
+
+	err = serdev_device_add(serdev);
+	if (err) {
+		dev_err(&serdev->dev, "failure adding device. status %pe\n", ERR_PTR(err));
+		serdev_device_put(serdev);
+		return -1;
+	} else
+		return 0;
+}
+
+static int of_serdev_register_devices(struct serdev_controller *ctrl)
+{
+    struct device_node *port, *node;
+    // struct serdev_device *serdev = NULL;
+    struct serport *serport = serdev_controller_get_drvdata(ctrl);
+    // int err;
+    unsigned reg;
+    bool found = false;
+
+	// dev_info(&ctrl->dev, "Node name: %s", ctrl->dev.of_node->);
+	
+    for_each_available_child_of_node(ctrl->dev.of_node, port) {
+		dev_info(&ctrl->dev, "Port name: %s", port->name);
+        of_property_read_u32(port, "reg", &reg);
+
+        if (serport->tty_idx != reg) {
+			if (read_serdev_node(port, ctrl) < 0)
+				found = false;
+			else
+				found = true;
+		} else {
+        	for_each_available_child_of_node(port, node)
+				if (read_serdev_node(node, ctrl) < 0)
+					found = false;
+				else
+					found = true;
+		}
+    }
+    if (!found)
+        return -ENODEV;
+
+    return 0;
+}
+#endif
 
 #ifdef CONFIG_ACPI
 

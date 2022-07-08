@@ -17,6 +17,15 @@ struct serdev_device;
  * serdev device structures
  */
 
+/** SOO tech **/
+struct serport {
+	struct tty_port *port;
+	struct tty_struct *tty;
+	struct tty_driver *tty_drv;
+	int tty_idx;
+	unsigned long flags;
+};
+
 /**
  * struct serdev_device_ops - Callback operations for a serdev device
  * @receive_buf:	Function called with data received from device;

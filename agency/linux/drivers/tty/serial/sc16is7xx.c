@@ -294,6 +294,12 @@
 #define SC16IS7XX_FIFO_SIZE		(64)
 #define SC16IS7XX_REG_SHIFT		2
 
+/** SOO **/
+/** Power-On reset default values **/
+#define SC16IS762_LSR_POR		0x65
+#define SC16IS762_LCR_POR		0x1D
+#define SC16IS762_TFL_POR		0x40	
+
 struct sc16is7xx_devtype {
 	char	name[10];
 	int	nr_gpio;
@@ -559,6 +565,7 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 	struct sc16is7xx_port *s = dev_get_drvdata(port->dev);
 	unsigned int lsr = 0, ch, flag, bytes_read, i;
 	bool read_lsr = (iir == SC16IS7XX_IIR_RLSE_SRC) ? true : false;
+	printk("%s:%d\n", __func__, __LINE__);
 
 	if (unlikely(rxlen >= sizeof(s->buf))) {
 		dev_warn_ratelimited(port->dev,
@@ -567,6 +574,11 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 		port->icount.buf_overrun++;
 		/* Ensure sanity of RX level */
 		rxlen = sizeof(s->buf);
+	}
+
+	dev_info(port->dev, "Buffer RX: %d", rxlen);
+	for (i = 0; i < rxlen; i++){
+		dev_info(port->dev, "0x%02X", s->buf[i]);
 	}
 
 	while (rxlen) {
@@ -646,15 +658,23 @@ static void sc16is7xx_handle_tx(struct uart_port *port)
 
 	if (uart_circ_empty(xmit) || uart_tx_stopped(port))
 		return;
-
+	
 	/* Get length of data pending in circular buffer */
 	to_send = uart_circ_chars_pending(xmit);
+
+	dev_info(port->dev, "Buffer: %d", to_send);
+	// for (i = 0; i < to_send; i++){
+	// 	dev_info(port->dev, "0x%02X", xmit->buf[xmit->tail]);
+	// 	xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
+	// }
+
+
 	if (likely(to_send)) {
 		/* Limit to size of TX FIFO */
 		txlen = sc16is7xx_port_read(port, SC16IS7XX_TXLVL_REG);
 		if (txlen > SC16IS7XX_FIFO_SIZE) {
 			dev_err_ratelimited(port->dev,
-				"chip reports %d free bytes in TX fifo, but it only has %d",
+				"chip reports 0x%02X free bytes in TX fifo, but it only has 0x%02X",
 				txlen, SC16IS7XX_FIFO_SIZE);
 			txlen = 0;
 		}
@@ -679,7 +699,7 @@ static void sc16is7xx_handle_tx(struct uart_port *port)
 static bool sc16is7xx_port_irq(struct sc16is7xx_port *s, int portno)
 {
 	struct uart_port *port = &s->p[portno].port;
-
+	printk("%s:%d\n", __func__, __LINE__);
 	do {
 		unsigned int iir, rxlen;
 
@@ -694,7 +714,9 @@ static bool sc16is7xx_port_irq(struct sc16is7xx_port *s, int portno)
 		case SC16IS7XX_IIR_RLSE_SRC:
 		case SC16IS7XX_IIR_RTOI_SRC:
 		case SC16IS7XX_IIR_XOFFI_SRC:
+			printk("%s:%d\n", __func__, __LINE__);
 			rxlen = sc16is7xx_port_read(port, SC16IS7XX_RXLVL_REG);
+			dev_info(port->dev, "RX len: %d", rxlen);
 			if (rxlen)
 				sc16is7xx_handle_rx(port, rxlen, iir);
 			else
@@ -742,6 +764,7 @@ static void sc16is7xx_tx_proc(struct kthread_work *ws)
 	    (port->rs485.delay_rts_before_send > 0))
 		msleep(port->rs485.delay_rts_before_send);
 
+	dev_info(port->dev, "%s", __func__);
 	sc16is7xx_handle_tx(port);
 }
 
@@ -1005,6 +1028,8 @@ static int sc16is7xx_startup(struct uart_port *port)
 	val = SC16IS7XX_FCR_RXRESET_BIT | SC16IS7XX_FCR_TXRESET_BIT;
 	sc16is7xx_port_write(port, SC16IS7XX_FCR_REG, val);
 	udelay(5);
+
+	/** Enable FIFOs **/
 	sc16is7xx_port_write(port, SC16IS7XX_FCR_REG,
 			     SC16IS7XX_FCR_FIFO_BIT);
 
@@ -1022,6 +1047,8 @@ static int sc16is7xx_startup(struct uart_port *port)
 	sc16is7xx_port_update(port, SC16IS7XX_MCR_REG,
 			      SC16IS7XX_MCR_TCRTLR_BIT,
 			      SC16IS7XX_MCR_TCRTLR_BIT);
+
+	// sc16is7xx_port_write(port, SC16IS7XX_TLR_REG, 0x40);
 
 	/* Configure flow control levels */
 	/* Flow control halt level 48, resume level 24 */
@@ -1203,6 +1230,35 @@ static int sc16is7xx_probe(struct device *dev,
 	 */
 	ret = regmap_read(regmap,
 			  SC16IS7XX_LSR_REG << SC16IS7XX_REG_SHIFT, &val);
+
+	/** SOO **/
+	if (val != SC16IS762_LSR_POR) {
+		dev_err(dev, "Value LSR: 0x%08X is wrong. Expected value is 0x%08X", val, SC16IS762_LSR_POR);
+		ret = -1;
+	}
+
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(regmap,
+			  SC16IS7XX_LCR_REG << SC16IS7XX_REG_SHIFT, &val);
+
+	if (val != SC16IS762_LCR_POR) {
+		dev_err(dev, "Value LCR: 0x%08X is wrong. Expected value is 0x%08X", val, SC16IS762_LCR_POR);
+		ret = -1;
+	}
+
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(regmap,
+			  SC16IS7XX_TXLVL_REG << SC16IS7XX_REG_SHIFT, &val);
+
+	if (val != SC16IS762_TFL_POR) {
+		dev_err(dev, "Value LCR: 0x%08X is wrong. Expected value is 0x%08X", val, SC16IS762_TFL_POR);
+		ret = -1;
+	}
+
 	if (ret < 0)
 		return ret;
 
