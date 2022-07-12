@@ -20,15 +20,39 @@
 #ifndef HEAT_H
 #define HEAT_H
 
+#include <me/common.h>
 #include <completion.h>
 
+#include <me/outdoor.h>
+
+#define MEHEAT_NAME		"ME heat"
+#define MEHEAT_PREFIX	    "[ " MEHEAT_NAME " ] "
+
 typedef struct {
-    int temp;
-    int temp_dev_id;
-	struct completion wait_me_indoor;
-} heat_data;
+	uint32_t    id;
+    bool 		event;
+    char 		temperature;
+} heat_t;
 
+typedef struct {
+    heat_t 		heat;
+	bool 		heat_event;
+	bool 		need_propagate;
+	bool 		delivered;
+	uint64_t	timestamp;
+    uint64_t 	originUID;
+	/*
+	 * MUST BE the last field, since it contains a field at the end which is used
+	 * as "payload" for a concatened list of hosts.
+	 */
+	me_common_t me_common;
+} sh_heat_t;
 
-extern heat_data *g_heat_data;
+/* Export the reference to the shared content structure */
+extern sh_heat_t *sh_heat;
+
+extern struct completion send_data_lock;
+
+extern atomic_t shutdown;
 
 #endif /* HEAT_H */

@@ -26,11 +26,10 @@
 #define TEMP_REDUC          (char) 40 // °C
 #define WIND_SPEED_MAX      (uint8_t) 70 // m/s
 #define ID_MASK             0xF0
-#define LRNB_MASK           0x4
-#define DAY_NIGHT_MASK      0x2
-#define RAIN_MASK           0x1
-
-#define TYPE_MSG            
+#define LRNB_MASK           0x8
+#define DAY_NIGHT_MASK      0x4
+#define RAIN_MASK           0x2
+        
 
 /**
  * @brief 
@@ -38,14 +37,14 @@
  */
 typedef struct {
     uint32_t    id;
-    uint16_t    lightSensor;    // 8 bits
-    char        outdoorTemp;   // 8 bits
-    uint8_t     windSpeed;     // 8 bits
-    uint8_t     identifier;    // 4 bits
-    bool LRNBit;
-    bool day0_night1;
-    bool rain;
-    bool event;
+    uint16_t    lightSensor;    // 0..999 lux
+    char        outdoorTemp;    // -40..80 °C
+    uint8_t     windSpeed;      // 0..70 m/s
+    uint8_t     identifier;     // 0x1
+    bool        LRNBit;         // 0: teach_telegram, 1:Data telegram
+    bool        day0_night1;    // 0: day, 1: night
+    bool        rain;           // 0: No rain, 1: rain
+    bool        event;
 } p04_t;
 
 /**

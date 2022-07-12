@@ -32,7 +32,10 @@
 #include <soo/console.h>
 #include <soo/debug.h>
 
+#include <me/heat.h>
 #include <me/outdoor.h>
+
+#define SOO_HEAT_SPID	0x002000000000000a
 
 
 static LIST_HEAD(visits);
@@ -157,7 +160,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	case COOPERATE_INITIATOR:
 
 		/** 
-		 * If we are alone or we encounter another SOO.switch, we go dormant and continue 
+		 * If we are alone or we encounter another SOO.outdoor, we go dormant and continue 
 		 * our migration 
 		 */
 		if (cooperate_args->alone) {
@@ -172,11 +175,11 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			return 0;
 		}
 
-		/** Check if we encountered another SOO.switch **/
+		/** Check if we encountered another SOO.outdoor **/
 		if(get_spid() == cooperate_args->u.target_coop.spid) {
-			DBG(MEWEATHERSTATION_PREFIX "Found ME switch\n");
+			DBG(MEWEATHERSTATION_PREFIX "Found ME outdoor\n");
 			/**
-			 * Get the other SOO.switch shared data 
+			 * Get the other SOO.outdoor shared data 
 			 */
 			target_sh = (sh_weatherstation_t*)io_map(pfn_to_phys(cooperate_args->u.target_coop.pfn), PAGE_SIZE);
 			
@@ -226,48 +229,28 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			}
 			io_unmap((addr_t) target_sh);
 		
-		// } else if (cooperate_args->u.target_coop.spid == SOO_BLIND_SPID && sh_weatherstation->type == PT210) {
-		// 	/** Check if target is a SOO.Blind or **/
-		// 	DBG(MEWEATHERSTATION_PREFIX "Cooperate with SOO.blind\n");
+		} else if (cooperate_args->u.target_coop.spid == SOO_HEAT_SPID && sh_weatherstation->type == P04) {
+			/** Check if target is a SOO.outdoor or **/
+			DBG(MEWEATHERSTATION_PREFIX "Cooperate with SOO.outdoor\n");
 
-		// 	agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_weatherstation));
-		// 	agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
+			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_weatherstation));
+			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
-		// 	/* This pattern enables the cooperation with the target ME */
-		// 	agency_ctl_args.cmd = AG_COOPERATE;
-		// 	agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
+			/* This pattern enables the cooperation with the target ME */
+			agency_ctl_args.cmd = AG_COOPERATE;
+			agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
 			
-		// 	/* Perform the cooperate in the target ME */
-		// 	args->__agency_ctl(&agency_ctl_args);
+			/* Perform the cooperate in the target ME */
+			args->__agency_ctl(&agency_ctl_args);
 
 
-		// 	set_ME_state(ME_state_dormant);
-		// 	spin_lock(&propagate_lock);
-		// 	sh_weatherstation->need_propagate = false;
-		// 	spin_unlock(&propagate_lock);
+			set_ME_state(ME_state_dormant);
+			spin_lock(&propagate_lock);
+			sh_weatherstation->need_propagate = false;
+			spin_unlock(&propagate_lock);
 
-		// 	return 0;
+			return 0;
 
-		// } else if (cooperate_args->u.target_coop.spid == SOO_WAGOLED_SPID && sh_weatherstation->type == GTL2TW) {
-		// 	DBG(MEWEATHERSTATION_PREFIX "Cooperate with SOO.wagoled\n");
-
-		// 	agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_weatherstation));
-		// 	agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
-
-		// 	/* This pattern enables the cooperation with the target ME */
-		// 	agency_ctl_args.cmd = AG_COOPERATE;
-		// 	agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
-			
-		// 	/* Perform the cooperate in the target ME */
-		// 	args->__agency_ctl(&agency_ctl_args);
-
-
-		// 	set_ME_state(ME_state_dormant);
-		// 	spin_lock(&propagate_lock);
-		// 	sh_weatherstation->need_propagate = false;
-		// 	spin_unlock(&propagate_lock);
-
-		// 	return 0;
 		} else {
 			DBG("We cannot cooperate with this ME: 0x%16X! Continue migration\n", cooperate_args->u.target_coop.spid);
 			

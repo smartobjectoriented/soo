@@ -58,6 +58,11 @@
 				compatible = "vknx,backend";
 				status = "disabled";
 			};
+
+			vvalve {
+				compatible = "vvalve,backend";
+				status = "disabled";
+			};
 		};
 	};
 	

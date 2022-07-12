@@ -18,7 +18,7 @@
  */
 
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -42,36 +42,51 @@
 
 #include <me/outdoor.h>
 
-#define ENOCEAN_OUTDOOR_ID 0x018C8B75
-// #define ENOCEAN_OUTDOOR_ID 0x758B8C01
 
+/**
+ * @brief Generic weatherstation init
+ * 
+ * @param ws Weatherstation to init
+ */
 void weatherstation_init(weatherstation_t *ws){
 	p04_init(&ws->ws, ENOCEAN_OUTDOOR_ID);
 }
 
+/**
+ * @brief Generic weatherstation get data. Wait for an event.
+ * 
+ * @param ws weatherstation to get data from
+ */
 void weatherstation_get_data(weatherstation_t *ws){
 	p04_wait_event(&ws->ws);
 
-	// printk("[ Ligth sensor ] : %d\n", ws->ws.lightSensor);
-	// printk("[ Outdoor temp ] : %d\n", ws->ws.outdoorTemp);
-	// printk("[ Wind speed ]   : %d\n", ws->ws.windSpeed);
-	// printk("[ Identifier ]   : %d\n", ws->ws.identifier);
-	// printk("[ LRNBit ]       : %d\n", ws->ws.LRNBit);
-	// printk("[ Day0_Night ]   : %d\n", ws->ws.day0_night1);
-	// printk("[ Rain ]         : %d\n", ws->ws.rain);
-
-	sh_weatherstation->lightSensor = ws->ws.lightSensor;
-	sh_weatherstation->outdoorTemp = ws->ws.outdoorTemp;
-	sh_weatherstation->windSpeed = ws->ws.windSpeed;
-	sh_weatherstation->identifier = ws->ws.identifier;
-	sh_weatherstation->LRNBit = ws->ws.LRNBit;
-	sh_weatherstation->day0_night1 = ws->ws.day0_night1;
-	sh_weatherstation->rain = ws->ws.rain;
-	sh_weatherstation->event = ws->ws.event;
+	if(ws->ws.event){
+		sh_weatherstation->ws.ws.lightSensor	= ws->ws.lightSensor;
+		sh_weatherstation->ws.ws.outdoorTemp 	= ws->ws.outdoorTemp;
+		sh_weatherstation->ws.ws.windSpeed 		= ws->ws.windSpeed;
+		sh_weatherstation->ws.ws.identifier 	= ws->ws.identifier;
+		sh_weatherstation->ws.ws.LRNBit 		= ws->ws.LRNBit;
+		sh_weatherstation->ws.ws.day0_night1 	= ws->ws.day0_night1;
+		sh_weatherstation->ws.ws.rain 			= ws->ws.rain;
+		sh_weatherstation->weatherstation_event = true;
+	}
+	DBG("[ Ligth sensor ] : %d\n", sh_weatherstation->ws.ws.lightSensor);
+	DBG("[ Outdoor temp ] : %d\n", sh_weatherstation->ws.ws.outdoorTemp);
+	DBG("[ Wind speed   ] : %d\n", sh_weatherstation->ws.ws.windSpeed);
+	DBG("[ Identifier   ] : %d\n", sh_weatherstation->ws.ws.identifier);
+	DBG("[ LRNBit       ] : %d\n", sh_weatherstation->ws.ws.LRNBit);
+	DBG("[ Day0_Night1  ] : %d\n", sh_weatherstation->ws.ws.day0_night1);
+	DBG("[ Rain         ] : %d\n", sh_weatherstation->ws.ws.rain);
 
 	p04_reset(&ws->ws);
 }
 
+/**
+ * @brief Thread to acquire weatherstation events
+ * 
+ * @param args (weatherstation_t *) generic struct weatherstation
+ * @return int 0
+ */
 void *weatherstation_wait_data_th(void *args){
 	weatherstation_t *ws = (weatherstation_t*)args;
 	weatherstation_init(ws);
@@ -87,7 +102,7 @@ void *weatherstation_wait_data_th(void *args){
 			sh_weatherstation->need_propagate = true;
 			spin_unlock(&propagate_lock);
 
-			DBG(MEWEATHERSTATION_PREFIX "New weatherstation event.");
+			DBG(MEWEATHERSTATION_PREFIX "New weatherstation event.\n");
 			sh_weatherstation->weatherstation_event = false;
 		}else{
 			DBG(MEWEATHERSTATION_PREFIX "No weatherstation event\n");
@@ -112,13 +127,15 @@ void *app_thread_main(void *args){
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
 
-	printk(MEWEATHERSTATION_PREFIX "Welcome\n");
+	DBG(MEWEATHERSTATION_PREFIX "Welcome\n");
 
 	weatherstation_th = kernel_thread(weatherstation_wait_data_th, "weatherstation_wait_data_th", ws, THREAD_PRIO_DEFAULT);
 	if (!weatherstation_th) {
 		DBG(MEWEATHERSTATION_PREFIX "Failed to start weatherstation thread\n");
 		kernel_panic();
 	}
+
+	DBG("SOO.outdoor Mobile Entity -- Copyright (c) 2016-2021 REDS Institute (HEIG-VD)\n\n");
 
 	return NULL;
 }

@@ -10,3 +10,4 @@ obj-$(CONFIG_VSENSEJ_FRONTEND) += vsensejfront/
 obj-$(CONFIG_VENOCEAN_FRONTEND) += venoceanfront/
 obj-$(CONFIG_VWAGOLED_FRONTEND) += vwagoledfront/
 obj-$(CONFIG_VKNX_FRONTEND) += vknxfront/
+obj-$(CONFIG_VVALVE_FRONTEND) += vvalvefront/

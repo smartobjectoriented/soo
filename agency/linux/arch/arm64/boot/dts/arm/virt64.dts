@@ -417,6 +417,10 @@
 		vsenseled {
 			status = "ok";
 		};
+
+		venocean {
+			status = "ok";
+		};
 		
 	};
 

@@ -120,6 +120,9 @@
 			status = "ok";
 		};
 
+		vvalve {
+			status = "ok";
+		};
 	};
 
 };
@@ -395,7 +398,7 @@
 	status = "okay";
 };
 
-/* UART5 used for LoRa communication on soo.mp V1 */
+/* UART3 used for LoRa communication on soo.mp V1 */
 &uart3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_gpio4>;
@@ -406,6 +409,8 @@
 		current-speed = <57600>;
 	};
 };
+
+
 
 /* UART5 used for enOcean communication on soo.mp V1 */
 &uart5 {

@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -147,8 +147,10 @@ int vvalve_get_id() {
 	vvalve_priv_t *vvalve_priv;
 	vvalve_request_t *ring_req;
 
-	if (!vvalve_dev)
+	if (!vvalve_dev){
+		DBG(VVALVE_PREFIX "not vvalve_dev\n");
 		return -1;
+	}
 
 	vvalve_priv = (vvalve_priv_t *) dev_get_drvdata(vvalve_dev->dev);
 
@@ -159,6 +161,7 @@ int vvalve_get_id() {
 	 * Try to generate a new request to the backend
 	 */
 	if (!RING_REQ_FULL(&vvalve_priv->vvalve.ring)) {
+		DBG(VVALVE_PREFIX "New ring request\n");
 		ring_req = vvalve_new_ring_request(&vvalve_priv->vvalve.ring);
 
 		ring_req->action = VALVE_ACTION_ASK_ID;
@@ -173,7 +176,8 @@ int vvalve_get_id() {
 	wait_for_completion(&vvalve_priv->wait_dev_id);
 
 	// WTF valeur reçue ??
-	lprintk(VVALVE_PREFIX "FRONT get id from BE : %d\n", vvalve_priv->dev_id);
+	// lprintk(VVALVE_PREFIX "FRONT get id from BE : %d\n", vvalve_priv->dev_id);
+	DBG(VVALVE_PREFIX "FRONT get id from BE : %d\n", vvalve_priv->dev_id);
 
 	return vvalve_priv->dev_id;
 }
@@ -185,7 +189,9 @@ static void vvalve_probe(struct vbus_device *vdev) {
 	struct vbus_transaction vbt;
 	vvalve_priv_t *vvalve_priv;
 
-	lprintk("[ %s ] FRONTEND PROBE CALLED \n", VVALVE_NAME);
+	//dev_info(dev,"Probe started\n");
+	DBG("[ %s ] FRONTEND PROBE CALLED !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", VVALVE_NAME);
+	lprintk("[ %s ] FRONTEND PROBE CALLED !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", VVALVE_NAME);
 
 	DBG0("[" VVALVE_NAME "] Frontend probe\n");
 
@@ -203,8 +209,7 @@ static void vvalve_probe(struct vbus_device *vdev) {
 	vvalve_priv->vvalve.ring_ref = GRANT_INVALID_REF;
 
 	/* Allocate an event channel associated to the ring */
-	res = vbus_alloc_evtchn(vdev, &evtchn);
-	BUG_ON(res);
+	vbus_alloc_evtchn(vdev, &evtchn);
 
 	res = bind_evtchn_to_irq_handler(evtchn, vvalve_interrupt, NULL, vdev);
 	if (res <= 0) {
@@ -242,6 +247,8 @@ static void vvalve_probe(struct vbus_device *vdev) {
 
 	vbus_transaction_end(vbt);
 
+	//dev_info(dev,"Probe ended\n");
+	DBG("End of valve probe\n");
 }
 
 /* At this point, the FE is not connected. */
@@ -363,9 +370,11 @@ vdrvfront_t vvalvedrv = {
 	.connected = vvalve_connected
 };
 
-static int vvalve_init(dev_t *dev) {
+static int vvalve_init(dev_t *dev, int fdt_offset) {
 	vvalve_priv_t *vvalve_priv;
 
+	//dev_info(dev,"Init started\n");
+	DBG(VVALVE_PREFIX "frontend init !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	vvalve_priv = malloc(sizeof(vvalve_priv_t));
 	BUG_ON(!vvalve_priv);
 
@@ -373,10 +382,11 @@ static int vvalve_init(dev_t *dev) {
 
 	dev_set_drvdata(dev, vvalve_priv);
 
-	lprintk("[ %s ] FRONTEND INIT CALLED \n", VVALVE_NAME);
+	// lprintk("[ %s ] FRONTEND INIT CALLED \n", VVALVE_NAME);
 
 	vdevfront_init(VVALVE_NAME, &vvalvedrv);
 
+	//dev_info(dev,"Init ended\n");
 	return 0;
 }
 

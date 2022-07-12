@@ -49,38 +49,30 @@ void p04_wait_event(p04_t *ws){
     DBG(NAME_P04 "RORG : %d\n", tel->rorg);
 
     if (tel->rorg != BS_4){
+        ws->event = false;
         return;
     }
 
-    printk("[ ID ws        ] : 0x%x\n", ws->id);
-    printk("[ ID tel       ] : 0x%x\n", tel->sender_id.val);
-    printk("[ Ligth sensor ] : 0x%02x\n", tel->data[0]);// correct
-	printk("[ Outdoor temp ] : 0x%02x\n", tel->data[1]);// correct
-	printk("[ Wind speed   ] : 0x%02x\n", tel->data[2]);// correct
-	printk("[ Identifier   ] : 0x%x\n", ws->identifier);
-	printk("[ LRNBit       ] : 0x%x\n", ws->LRNBit);
-	printk("[ Day0_Night   ] : 0x%x\n", ws->day0_night1);
-	printk("[ Rain         ] : 0x%x\n", ws->rain);
     if(tel->sender_id.val == ws->id){
         DBG(NAME_P04 "Good id\n");
-        ws->lightSensor = (uint16_t)(((float)tel->data[0] / (float)255) * LIGHT_SENSOR_MAX); //Modifier le calcul pour pas avoir des valeurs par exemple 0.3 vu que c'est des int
-        ws->outdoorTemp = (tel->data[1] / (char)255) * TEMP_DIFF - TEMP_REDUC;
-        ws->windSpeed = (tel->data[2] / (char)255) * WIND_SPEED_MAX;
-        ws->identifier = (tel->data[3] & ID_MASK) >> 4;
-        ws->LRNBit = (bool)((tel->data[3] & LRNB_MASK) >> 5);
-        ws->day0_night1 = (bool)((tel->data[3] & DAY_NIGHT_MASK) >> 6);
-        ws->rain = (bool)((tel->data[3] & RAIN_MASK) >> 7);
-        ws->event = true;
+        ws->lightSensor = (uint16_t)(((float)tel->data[0] / 255.0) * (float)LIGHT_SENSOR_MAX);
+        ws->outdoorTemp = (char)(((float)tel->data[1] / 255.0) * TEMP_DIFF - TEMP_REDUC);
+        ws->windSpeed   = (uint8_t)(((float)tel->data[2] / 255.0) * WIND_SPEED_MAX);
+        ws->identifier  = (uint8_t)((tel->data[3] & ID_MASK) >> 4);
+        ws->LRNBit      = (bool)((tel->data[3] & LRNB_MASK) >> 3);
+        ws->day0_night1 = (bool)((tel->data[3] & DAY_NIGHT_MASK) >> 2);
+        ws->rain        = (bool)((tel->data[3] & RAIN_MASK) >> 1);
+        ws->event       = true;
     }else{
         DBG(NAME_P04 "Not good id\n");
     }
 }
 
 void p04_reset(p04_t *ws){
-    ws->lightSensor = 0;   // 8 bits
-    ws->outdoorTemp = 0;   // 8 bits
-    ws->windSpeed = 0;     // 8 bits
-    ws->identifier = 0;    // 4 bits
+    ws->lightSensor = 0;
+    ws->outdoorTemp = 0;
+    ws->windSpeed = 0;  
+    ws->identifier = 0; 
     ws->LRNBit = false;
     ws->day0_night1 = false;
     ws->rain = false;

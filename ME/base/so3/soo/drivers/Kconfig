@@ -45,5 +45,8 @@ config VWAGOLED_FRONTEND
 config VKNX_FRONTEND
     bool "KNX frontend"
 
+config VVALVE_FRONTEND
+    bool "vvalve frontend"
+
 endmenu
 

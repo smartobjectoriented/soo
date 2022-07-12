@@ -32,6 +32,9 @@
 #define MEWEATHERSTATION_NAME		"ME outdoor"
 #define MEWEATHERSTATION_PREFIX	    "[ " MEWEATHERSTATION_NAME " ] "
 
+#define ENOCEAN_OUTDOOR_ID 0x018C8B75
+
+
 typedef struct {
 	p04_t ws;
 } weatherstation_t;
@@ -41,15 +44,8 @@ typedef enum {
 } weatherstation_type;
 
 typedef struct {
+	weatherstation_t ws;
 	bool weatherstation_event;
-	uint16_t lightSensor;    // 8 bits
-    char outdoorTemp;   // 8 bits
-    uint8_t windSpeed;     // 8 bits
-    uint8_t identifier;    // 4 bits
-	bool LRNBit;
-    bool day0_night1;
-    bool rain;
-    bool event;
 	bool need_propagate;
 	bool delivered;
 	uint64_t timestamp;
