@@ -122,6 +122,8 @@
 
 		vvalve {
 			status = "ok";
+
+			valve-gpios = <&gpio 11 GPIO_ACTIVE_HIGH>;
 		};
 	};
 

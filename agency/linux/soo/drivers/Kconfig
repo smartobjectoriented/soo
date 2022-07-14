@@ -110,8 +110,15 @@ config VKNX_BACKEND
 	depends on KBERRY838=y
 	default n
 	help
-	  This driver enabled to deal with a virtualized interface for the KNX bus.
-	  
+	  This driver enabled to deal with a virtualized interface for the KNX bus.  
+
+config VVALVE_BACKEND
+        bool "vValve backend"
+		depends on TTY
+		default n
+		help
+		  Support for SOO.Valve LoRa module.
+
 source "soo/drivers/vnetback/Kconfig"
 
 endmenu

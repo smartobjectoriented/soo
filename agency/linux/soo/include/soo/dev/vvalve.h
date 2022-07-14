@@ -21,12 +21,19 @@
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
-#include <soo/vdevfront.h>
+#include <soo/vdevback.h>
 
-#define CMD_VALVE_SIZE 1
+#define VVALVE_PACKET_SIZE	8
 
 #define VVALVE_NAME		"vvalve"
 #define VVALVE_PREFIX		"[" VVALVE_NAME "] "
+
+#define VVALVE_UART1_DEV "ttyS0"
+
+#define CMD_VALVE_SIZE 1
+
+#define DEV_ID_BLOCK_SIZE 4
+#define DEV_TYPE_BLOCK_SIZE 1
 
 #define VALVE_ACTION_ASK_ID		1
 #define VALVE_ACTION_CMD_VALVE	0
@@ -36,6 +43,10 @@
 
 
 
+typedef struct {
+	uint8_t cmd_valve;
+	uint32_t dev_id;
+} vvalve_desc_t;
 /**
  * cmd:
  * 	1 -> open valve
@@ -58,30 +69,27 @@ typedef struct  {
  */
 DEFINE_RING_TYPES(vvalve, vvalve_request_t, vvalve_response_t);
 
+typedef struct {
+    struct list_head list;
+    int32_t id;
+} domid_priv_t;
+
 /*
  * General structure for this virtual device (backend side)
  */
 
 typedef struct {
+
 	/* Must be the first field */
-	vdevfront_t vdevfront;
+	vdevback_t vdevback;
 
-	vvalve_front_ring_t ring;
+	vvalve_back_ring_t ring;
 	unsigned int irq;
-
-	grant_ref_t ring_ref;
-	grant_handle_t handle;
-	uint32_t evtchn;
 
 } vvalve_t;
 
-// static inline vvalve_t *to_vvalve(struct vbus_device *vdev) {
-// 	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
-// 	return container_of(vdevback, vvalve_t, vdevfront);
-// }
+void vanalog_valve_open(void *arg);
+void vanalog_valve_close(void *arg);
 
-void vvalve_generate_request(char *buffer);
-int vvalve_get_id(void);
-void vvalve_send_cmd(uint8_t cmd);
 
 #endif /* VVALVE_H */

@@ -17,7 +17,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -40,77 +40,29 @@
 #include <soo/dev/vvalve.h>
 
 typedef struct {
-
 	/* Must be the first field */
 	vvalve_t vvalve;
-
 	uint32_t dev_id;
-
 	struct completion wait_dev_id;
-
-
 } vvalve_priv_t;
 
-
-
-
 static struct vbus_device *vvalve_dev = NULL;
-
-static bool thread_created = false;
 
 /**
  * Only used to get DEV ID from backend
  **/
 irq_return_t vvalve_interrupt(int irq, void *dev_id) {
-
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vvalve_priv_t *vvalve_priv = dev_get_drvdata(vdev->dev);
 	vvalve_response_t *ring_rsp;
 
-
 	while ((ring_rsp = vvalve_get_ring_response(&vvalve_priv->vvalve.ring)) != NULL) {
-
-		vvalve_priv->dev_id = ring_rsp->dev_id;
-		
+		vvalve_priv->dev_id = ring_rsp->dev_id;		
 		complete(&vvalve_priv->wait_dev_id);
 	}
 
 	return IRQ_COMPLETED;
 }
-
-#if 0
-/*
- * The following function is given as an example.
- *
- */
-
-void vvalve_generate_request(char *buffer) {
-	vvalve_request_t *ring_req;
-	vvalve_priv_t *vvalve_priv;
-
-	if (!vvalve_dev)
-		return ;
-
-	vvalve_priv = (vvalve_priv_t *) dev_get_drvdata(vvalve_dev->dev);
-
-	vdevfront_processing_begin(vvalve_dev);
-
-	/*
-	 * Try to generate a new request to the backend
-	 */
-	if (!RING_REQ_FULL(&vvalve_priv->vvalve.ring)) {
-		ring_req = vvalve_new_ring_request(&vvalve_priv->vvalve.ring);
-
-		memcpy(ring_req->buffer, buffer, CMD_DATA_SIZE);
-
-		vvalve_ring_request_ready(&vvalve_priv->vvalve.ring);
-
-		notify_remote_via_virq(vvalve_priv->vvalve.irq);
-	}
-
-	vdevfront_processing_end(vvalve_dev);
-}
-#endif
 
 
 void vvalve_send_cmd(uint8_t cmd) {
@@ -121,7 +73,6 @@ void vvalve_send_cmd(uint8_t cmd) {
 		return;
 
 	vvalve_priv = (vvalve_priv_t *) dev_get_drvdata(vvalve_dev->dev);
-
 
 	vdevfront_processing_begin(vvalve_dev);
 
@@ -190,22 +141,20 @@ static void vvalve_probe(struct vbus_device *vdev) {
 	vvalve_priv_t *vvalve_priv;
 
 	//dev_info(dev,"Probe started\n");
-	DBG("[ %s ] FRONTEND PROBE CALLED !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", VVALVE_NAME);
-	lprintk("[ %s ] FRONTEND PROBE CALLED !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", VVALVE_NAME);
 
-	DBG0("[" VVALVE_NAME "] Frontend probe\n");
+	DBG("[" VVALVE_NAME "] Frontend probe\n");
 
 	if (vdev->state == VbusStateConnected)
 		return ;
 
 	vvalve_priv = dev_get_drvdata(vdev->dev);
-
 	vvalve_dev = vdev;
 
 	DBG("Frontend: Setup ring\n");
 
-	/* Prepare to set up the ring. */
+	init_completion(&vvalve_priv->wait_dev_id);
 
+	/* Prepare to set up the ring. */
 	vvalve_priv->vvalve.ring_ref = GRANT_INVALID_REF;
 
 	/* Allocate an event channel associated to the ring */
@@ -220,8 +169,6 @@ static void vvalve_probe(struct vbus_device *vdev) {
 	vvalve_priv->vvalve.evtchn = evtchn;
 	vvalve_priv->vvalve.irq = res;
 
-	init_completion(&vvalve_priv->wait_dev_id);
-
 	/* Allocate a shared page for the ring */
 	sring = (vvalve_sring_t *) get_free_vpage();
 	if (!sring) {
@@ -234,7 +181,7 @@ static void vvalve_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vvalve_priv->vvalve.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vvalve_priv->vvalve.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -274,7 +221,7 @@ static void vvalve_reconfiguring(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vvalve_priv->vvalve.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vvalve_priv->vvalve.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -305,7 +252,7 @@ static void vvalve_closed(struct vbus_device *vdev) {
 	/* Free resources associated with old device channel. */
 	if (vvalve_priv->vvalve.ring_ref != GRANT_INVALID_REF) {
 		gnttab_end_foreign_access(vvalve_priv->vvalve.ring_ref);
-		free_vpage((uint32_t) vvalve_priv->vvalve.ring.sring);
+		free_vpage((addr_t) vvalve_priv->vvalve.ring.sring);
 
 		vvalve_priv->vvalve.ring_ref = GRANT_INVALID_REF;
 		vvalve_priv->vvalve.ring.sring = NULL;
@@ -317,31 +264,18 @@ static void vvalve_closed(struct vbus_device *vdev) {
 	vvalve_priv->vvalve.irq = 0;
 }
 
+
 static void vvalve_suspend(struct vbus_device *vdev) {
 
 	DBG0("[" VVALVE_NAME "] Frontend suspend\n");
 }
+
 
 static void vvalve_resume(struct vbus_device *vdev) {
 
 	DBG0("[" VVALVE_NAME "] Frontend resume\n");
 }
 
-#if 0
-int notify_fn(void *arg) {
-	char buffer[VVALVE_PACKET_SIZE];
-
-	while (1) {
-		msleep(50);
-
-		sprintf(buffer, "Hello %d\n", *((int *) arg));
-
-		vvalve_generate_request(buffer);
-	}
-
-	return 0;
-}
-#endif
 
 static void vvalve_connected(struct vbus_device *vdev) {
 	vvalve_priv_t *vvalve_priv = dev_get_drvdata(vdev->dev);
@@ -351,13 +285,13 @@ static void vvalve_connected(struct vbus_device *vdev) {
 	/* Force the processing of pending requests, if any */
 	notify_remote_via_virq(vvalve_priv->vvalve.irq);
 
-	if (!thread_created) {
-		thread_created = true;
-#if 0
-		kernel_thread(notify_fn, "notify_th", &i1, 0);
-		//kernel_thread(notify_fn, "notify_th2", &i2, 0);
-#endif
-	}
+	// if (!thread_created) {
+	// 	thread_created = true;
+// #if 0
+// 		kernel_thread(notify_fn, "notify_th", &i1, 0);
+// 		//kernel_thread(notify_fn, "notify_th2", &i2, 0);
+// #endif
+// 	}
 }
 
 vdrvfront_t vvalvedrv = {
@@ -374,7 +308,6 @@ static int vvalve_init(dev_t *dev, int fdt_offset) {
 	vvalve_priv_t *vvalve_priv;
 
 	//dev_info(dev,"Init started\n");
-	DBG(VVALVE_PREFIX "frontend init !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	vvalve_priv = malloc(sizeof(vvalve_priv_t));
 	BUG_ON(!vvalve_priv);
 
@@ -385,6 +318,8 @@ static int vvalve_init(dev_t *dev, int fdt_offset) {
 	// lprintk("[ %s ] FRONTEND INIT CALLED \n", VVALVE_NAME);
 
 	vdevfront_init(VVALVE_NAME, &vvalvedrv);
+
+	DBG(VVALVE_PREFIX " Initialized successfully\n");
 
 	//dev_info(dev,"Init ended\n");
 	return 0;

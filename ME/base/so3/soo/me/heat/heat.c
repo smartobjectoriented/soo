@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -83,6 +83,7 @@ void *soo_heat_command_valve(void *args)
 
 		/* Get ID of the valve connected on the current Smart Object*/
 		valve_id = vvalve_get_id();
+		// valve_id = 0;
 		DBG(MEHEAT_PREFIX "Valve ID : %d\n", valve_id);
 		DBG(MEHEAT_PREFIX "Heat ID : %d\n", sh_heat->heat.id);
 		/* Compare the temperature Sensor ID from SOO.indoor with the valve ID */

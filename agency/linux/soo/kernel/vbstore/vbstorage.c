@@ -500,4 +500,9 @@ void vbstorage_agency_init(void) {
 	np = of_find_compatible_node(NULL, NULL, "venocean,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/venocean");
+
+	/* Agency backend side of virtual valve device */
+	np = of_find_compatible_node(NULL, NULL, "vvalve,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vvalve");
 }
