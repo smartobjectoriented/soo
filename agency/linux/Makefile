@@ -11,12 +11,6 @@ NAME = Kleptomaniac Octopus
 # Comments in this file are targeted only to the developer, do not
 # expect to learn how to build the kernel reading this file.
 
-#
-#
-# -- OpenCN Project  --
-# Copyright (c) 2018-2021 MecatronYx
-#
-
 $(if $(filter __%, $(MAKECMDGOALS)), \
 	$(error targets prefixed with '__' are only for internal use))
 
