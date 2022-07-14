@@ -98,17 +98,6 @@
 			status = "ok";
 		};
 
-                vdoga {
-			status = "ok";
-
-			up_end-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
-			down_end-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
-
-			sleep-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
-			mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
-			in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
-		};
-
 		vwagoled {
 			status = "ok";
 		};
