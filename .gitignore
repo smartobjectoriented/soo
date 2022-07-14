@@ -8,6 +8,9 @@
 *.builtin
 *.dtb
 *.su
+*.itb
+*.bin
+*.fat
 
 **/doxy/**
 **/generated/**
@@ -47,3 +50,6 @@ optee_ta/**
 !agency/rootfs/package/**
 !agency/rootfs/board/**/*.d
 
+
+ME/base/so3/scripts/basic/fixdep
+ME/base/so3/so3
