@@ -201,7 +201,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 					DBG(MEWEATHERSTATION_PREFIX "Continuing migration\n");
 				}
 			} else {
-
+				DBG(MEWEATHERSTATION_PREFIX "We are the same\n");
 				/** Check if we encountered ourself **/
 				if (sh_weatherstation->originUID == target_sh->originUID) {
 				/** Check if we are newer **/

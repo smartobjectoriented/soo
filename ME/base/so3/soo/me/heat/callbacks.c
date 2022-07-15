@@ -59,7 +59,6 @@ static LIST_HEAD(known_soo_list);
 // /* SPID of the SOO.indoor ME needed to cooperate with */
 // uint8_t SOO_indoor_spid[SPID_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x61, 0xd0, 0x0a };
 
-
 struct completion send_data_lock;
 atomic_t shutdown;
 sh_heat_t *sh_heat;
@@ -73,7 +72,7 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	agency_ctl_args_t agency_ctl_args;
 	agency_ctl_args.cmd = AG_AGENCY_UID;
 
-	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
+	// DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
 	
 	/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
 	args->__agency_ctl(&agency_ctl_args);
@@ -152,7 +151,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
-
+		DBG("Cooperate: Initiator %d\n", ME_domID());
 		if (cooperate_args->alone)
 			return 0;
 
@@ -164,6 +163,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		pfn = cooperate_args->u.initiator_coop.pfn;
 		incoming_sh_weatherstation = (sh_weatherstation_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
+		DBG("wwwwwwwwwwwwwww 1 wwwwwwwwwwwwwww\n");
 		if(incoming_sh_weatherstation->timestamp > weatherstation_timestamp){
 			weatherstation_timestamp = incoming_sh_weatherstation->timestamp;
 			sh_heat->heat.temperature = incoming_sh_weatherstation->ws.ws.outdoorTemp;
@@ -172,10 +172,12 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		}
 
 		io_unmap((addr_t) incoming_sh_weatherstation);
-
+		DBG("wwwwwwwwwwwwwww 2 wwwwwwwwwwwwwww\n");
 		if(sh_heat->heat_event){
+			DBG("wwwwwwwwwwwwwww 3 wwwwwwwwwwwwwww\n");
 			sh_heat->heat_event = false;
 			complete(&send_data_lock);
+			DBG("wwwwwwwwwwwwwww 4 wwwwwwwwwwwwwww\n");
 		}
 		break;
 

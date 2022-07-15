@@ -62,7 +62,15 @@ void weatherstation_get_data(weatherstation_t *ws){
 
 	if(ws->ws.event){
 		sh_weatherstation->ws.ws.lightSensor	= ws->ws.lightSensor;
+#if 1 // test
+	if(sh_weatherstation->ws.ws.outdoorTemp == 15){
+		sh_weatherstation->ws.ws.outdoorTemp 	= 30;
+	}else{
+		sh_weatherstation->ws.ws.outdoorTemp 	= 15;
+	}
+#else
 		sh_weatherstation->ws.ws.outdoorTemp 	= ws->ws.outdoorTemp;
+#endif
 		sh_weatherstation->ws.ws.windSpeed 		= ws->ws.windSpeed;
 		sh_weatherstation->ws.ws.identifier 	= ws->ws.identifier;
 		sh_weatherstation->ws.ws.LRNBit 		= ws->ws.LRNBit;

@@ -72,14 +72,13 @@ extern void *localinfo_data;
  **/
 void *soo_heat_command_valve(void *args)
 {
-
 	int valve_id;
 
 	while (atomic_read(&shutdown)) { 
 
-		DBG("ME SOO.heat is waiting\n");
+		DBG(MEHEAT_PREFIX "is waiting\n");
 		wait_for_completion(&send_data_lock);
-		DBG("ME SOO.heat going to send valve cmd !!!\n");
+		DBG(MEHEAT_PREFIX "going to send valve cmd !!!\n");
 
 		/* Get ID of the valve connected on the current Smart Object*/
 		valve_id = vvalve_get_id();
