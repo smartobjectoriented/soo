@@ -157,14 +157,14 @@ static int send_id_task_fn(void *arg) {
 static int cmd_valve_task_fn(void *arg) {
 
 	vvalve_priv_t *vvalve_priv = (vvalve_priv_t *) arg;
-
+#if 0
 	while(1){
 		vanalog_valve_open(vvalve_priv);
 		msleep(2000);
 		vanalog_valve_close(vvalve_priv);
 		msleep(2000);
 	}
-
+#endif
 	while(1) {
 		// wait_for_completion(&vvalve_priv->wait_cmd);
 		wait_for_completion(&wait_cmd);
@@ -351,7 +351,7 @@ int vvalve_init(void) {
 
 	DBG(VVALVE_PREFIX " start initialization\n");
 
-	printk("[ %s ] BACKEND INIT CALLED", VVALVE_NAME);
+	DBG("[ %s ] BACKEND INIT CALLED", VVALVE_NAME);
 
 	np = of_find_compatible_node(NULL, NULL, "vvalve,backend");
 
