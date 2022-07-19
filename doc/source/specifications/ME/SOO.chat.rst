@@ -130,10 +130,10 @@ cooperate
 Most of the job is done in the ``cooperate``. It is described in the migration flowchart.
 The cooperation is always the initiator (migrating ME) cooperating with an already present target ME (it can be a local or a migrating one).
 In our case, four scenarios are possible:
- - No ME is present in the SO. So it means the migrating one is alone. We continue our propagation.
- - An ME is present, but it is not a SOO.chat. We continue our propagation.
- - A migrating SOO.chat is present. If we have the same message, merge the histories and kill the initiator, otherwise, don't do anything and continue our propagation.
- - A local SOO.chat is present. The local SOO.chat checks if it already has the new message, and adds it to its history if needed. 
+- No ME is present in the SO. So it means the migrating one is alone. We continue our propagation.
+- An ME is present, but it is not a SOO.chat. We continue our propagation.
+- A migrating SOO.chat is present. If we have the same message, merge the histories and kill the initiator, otherwise, don't do anything and continue our propagation.
+- A local SOO.chat is present. The local SOO.chat checks if it already has the new message, and adds it to its history if needed. 
 
 
 pre_propagate
