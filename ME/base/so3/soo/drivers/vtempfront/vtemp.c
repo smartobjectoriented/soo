@@ -51,19 +51,55 @@ typedef struct {
 
 } vtemp_priv_t;
 
-
-
-
 static struct vbus_device *vtemp_dev = NULL;
 
-static bool thread_created = false;
+
+/**
+ * Get temperature data from temperature LoRa module (SOO.heat temp)
+ * @return 0 if success, -1 if not ready yet
+ */
+int vtemp_get_temp_data(char *buf) {
+	vtemp_priv_t *vtemp_priv;
+	vtemp_response_t *ring_rsp;
+	int len = 0;
+
+	BUG_ON(!vtemp_dev);
+
+	vtemp_priv = (vtemp_priv_t *) dev_get_drvdata(vtemp_dev->dev);
+
+	// /* Ask temperature to BE */
+	// notify_remote_via_virq(vtemp_priv->vtemp.irq);
+
+	/* wait response from BE*/
+	wait_for_completion(&vtemp_priv->wait_temp);
+
+	// while ((ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring)) != NULL) {
+
+	// 	temp_data->temp = ring_rsp->temp;
+	// 	temp_data->dev_id = ring_rsp->dev_id;
+	// }
+	ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring);
+	BUG_ON(!ring_rsp);
+
+	len = ring_rsp->len;
+	BUG_ON(len < 1);
+
+	BUG_ON(!buf);
+
+	memcpy(buf, ring_rsp->buffer, len);
+	DBG("venocean get data %d\n", len);
+
+	return len;
+}
+
 
 irq_return_t vtemp_interrupt(int irq, void *dev_id) {
-
+	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vtemp_priv_t *vtemp_priv = (vtemp_priv_t *) dev_get_drvdata(vtemp_dev->dev);
 	
 	/* data receive from BE*/
 	complete(&vtemp_priv->wait_temp);
+	DBG(VENOCEAN_PREFIX " irq handled\n");
 
 	return IRQ_COMPLETED;
 }
@@ -103,36 +139,6 @@ void vtemp_generate_request(char *buffer) {
 #endif
 
 
-/**
- * Get temperature data from temperature LoRa module (SOO.heat temp)
- * @return 0 if success, -1 if not ready yet
- */
-int vtemp_get_temp_data(vtemp_data_t *temp_data) {
-
-	vtemp_priv_t *vtemp_priv;
-	vtemp_response_t *ring_rsp;
-
-	if(!vtemp_dev) {
-		return -1;
-	}
-
-	vtemp_priv = dev_get_drvdata(vtemp_dev->dev);
-
-	/* Ask temperature to BE */
-	notify_remote_via_virq(vtemp_priv->vtemp.irq);
-
-	/* wait response from BE*/
-	wait_for_completion(&vtemp_priv->wait_temp);
-
-	while ((ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring)) != NULL) {
-
-		temp_data->temp = ring_rsp->temp;
-		temp_data->dev_id = ring_rsp->dev_id;
-	}
-
-	return sizeof(vtemp_data_t);
-}
-
 static void vtemp_probe(struct vbus_device *vdev) {
 	int res;
 	unsigned int evtchn;
@@ -140,28 +146,24 @@ static void vtemp_probe(struct vbus_device *vdev) {
 	struct vbus_transaction vbt;
 	vtemp_priv_t *vtemp_priv;
 
-	lprintk("[ %s ] FRONTEND PROBE CALLED \n", VTEMP_NAME);
-
-	DBG0("[" VTEMP_NAME "] Frontend probe\n");
+	DBG(VTEMP_PREFIX " Probe\n");
 
 	if (vdev->state == VbusStateConnected)
 		return ;
 
 	vtemp_priv = dev_get_drvdata(vdev->dev);
-
 	vtemp_dev = vdev;
 
 	init_completion(&vtemp_priv->wait_temp);
 
-	DBG("Frontend: Setup ring\n");
+	DBG(VTEMP_PREFIX " Setup ring\n");
 
 	/* Prepare to set up the ring. */
 
 	vtemp_priv->vtemp.ring_ref = GRANT_INVALID_REF;
 
 	/* Allocate an event channel associated to the ring */
-	res = vbus_alloc_evtchn(vdev, &evtchn);
-	BUG_ON(res);
+	vbus_alloc_evtchn(vdev, &evtchn);
 
 	res = bind_evtchn_to_irq_handler(evtchn, vtemp_interrupt, NULL, vdev);
 	if (res <= 0) {
@@ -197,7 +199,9 @@ static void vtemp_probe(struct vbus_device *vdev) {
 
 	vbus_transaction_end(vbt);
 
+	DBG(VTEMP_PREFIX "  Probed successfully\n");
 }
+
 
 /* At this point, the FE is not connected. */
 static void vtemp_reconfiguring(struct vbus_device *vdev) {
@@ -205,13 +209,13 @@ static void vtemp_reconfiguring(struct vbus_device *vdev) {
 	struct vbus_transaction vbt;
 	vtemp_priv_t *vtemp_priv = dev_get_drvdata(vdev->dev);
 
-	DBG0("[" VTEMP_NAME "] Frontend reconfiguring\n");
+	DBG(VTEMP_PREFIX  " Reconfiguring\n");
 	/* The shared page already exists */
 	/* Re-init */
 
 	gnttab_end_foreign_access_ref(vtemp_priv->vtemp.ring_ref);
 
-	DBG("Frontend: Setup ring\n");
+	DBG(VTEMP_PREFIX " Setup ring\n");
 
 	/* Prepare to set up the ring. */
 
@@ -236,15 +240,17 @@ static void vtemp_reconfiguring(struct vbus_device *vdev) {
 	vbus_transaction_end(vbt);
 }
 
+
 static void vtemp_shutdown(struct vbus_device *vdev) {
 
 	DBG0("[" VTEMP_NAME "] Frontend shutdown\n");
 }
 
+
 static void vtemp_closed(struct vbus_device *vdev) {
 	vtemp_priv_t *vtemp_priv = dev_get_drvdata(vdev->dev);
 
-	DBG0("[" VTEMP_NAME "] Frontend close\n");
+	DBG(VTEMP_PREFIX " Close\n");
 
 	/**
 	 * Free the ring and deallocate the proper data.
@@ -265,48 +271,28 @@ static void vtemp_closed(struct vbus_device *vdev) {
 	vtemp_priv->vtemp.irq = 0;
 }
 
+
 static void vtemp_suspend(struct vbus_device *vdev) {
 
-	DBG0("[" VTEMP_NAME "] Frontend suspend\n");
+	DBG(VTEMP_PREFIX " Suspend\n");
 }
+
 
 static void vtemp_resume(struct vbus_device *vdev) {
 
-	DBG0("[" VTEMP_NAME "] Frontend resume\n");
+	DBG(VTEMP_PREFIX " Resume\n");
 }
 
-#if 0
-int notify_fn(void *arg) {
-	char buffer[VTEMP_PACKET_SIZE];
-
-	while (1) {
-		msleep(50);
-
-		sprintf(buffer, "Hello %d\n", *((int *) arg));
-
-		vtemp_generate_request(buffer);
-	}
-
-	return 0;
-}
-#endif
 
 static void vtemp_connected(struct vbus_device *vdev) {
 	vtemp_priv_t *vtemp_priv = dev_get_drvdata(vdev->dev);
 
-	DBG0("[" VTEMP_NAME "] Frontend connected\n");
+	DBG(VTEMP_PREFIX " Connected\n");
 
 	/* Force the processing of pending requests, if any */
 	notify_remote_via_virq(vtemp_priv->vtemp.irq);
-
-	if (!thread_created) {
-		thread_created = true;
-#if 0
-		kernel_thread(notify_fn, "notify_th", &i1, 0);
-		//kernel_thread(notify_fn, "notify_th2", &i2, 0);
-#endif
-	}
 }
+
 
 vdrvfront_t vtempdrv = {
 	.probe = vtemp_probe,
@@ -318,6 +304,7 @@ vdrvfront_t vtempdrv = {
 	.connected = vtemp_connected
 };
 
+
 static int vtemp_init(dev_t *dev) {
 	vtemp_priv_t *vtemp_priv;
 
@@ -328,11 +315,14 @@ static int vtemp_init(dev_t *dev) {
 
 	dev_set_drvdata(dev, vtemp_priv);
 
-	lprintk("[ %s ] FRONTEND INIT CALLED \n", VTEMP_NAME);
+	// lprintk("[ %s ] FRONTEND INIT CALLED \n", VTEMP_NAME);
 
 	vdevfront_init(VTEMP_NAME, &vtempdrv);
+	
+	DBG(VTEMP_PREFIX " Initialized successfully\n");
 
 	return 0;
 }
+
 
 REGISTER_DRIVER_POSTCORE("vtemp,frontend", vtemp_init);

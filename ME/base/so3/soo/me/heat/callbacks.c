@@ -163,7 +163,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		pfn = cooperate_args->u.initiator_coop.pfn;
 		incoming_sh_weatherstation = (sh_weatherstation_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
-		DBG("wwwwwwwwwwwwwww 1 wwwwwwwwwwwwwww\n");
 		if(incoming_sh_weatherstation->timestamp > weatherstation_timestamp){
 			weatherstation_timestamp = incoming_sh_weatherstation->timestamp;
 			sh_heat->heat.temperature = incoming_sh_weatherstation->ws.ws.outdoorTemp;
@@ -172,12 +171,9 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		}
 
 		io_unmap((addr_t) incoming_sh_weatherstation);
-		DBG("wwwwwwwwwwwwwww 2 wwwwwwwwwwwwwww\n");
 		if(sh_heat->heat_event){
-			DBG("wwwwwwwwwwwwwww 3 wwwwwwwwwwwwwww\n");
 			sh_heat->heat_event = false;
 			complete(&send_data_lock);
-			DBG("wwwwwwwwwwwwwww 4 wwwwwwwwwwwwwww\n");
 		}
 		break;
 

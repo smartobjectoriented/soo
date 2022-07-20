@@ -105,26 +105,26 @@ void *soo_heat_command_valve(void *args)
 	return NULL;
 }
 
-void dumpPage(unsigned int phys_addr, unsigned int size) {
-	int i, j;
+// void dumpPage(unsigned int phys_addr, unsigned int size) {
+// 	int i, j;
 
-	DBG("%s: phys_addr: %lx\n\n", __func__,  phys_addr);
+// 	DBG("%s: phys_addr: %lx\n\n", __func__,  phys_addr);
 
-	for (i = 0; i < size; i += 16) {
-		DBG(" [%lx]: ", i);
-		for (j = 0; j < 16; j++) {
-			DBG("%02x ", *((unsigned char *) __va(phys_addr)));
-			phys_addr++;
-		}
-		DBG("\n");
-	}
-}
+// 	for (i = 0; i < size; i += 16) {
+// 		DBG(" [%lx]: ", i);
+// 		for (j = 0; j < 16; j++) {
+// 			DBG("%02x ", *((unsigned char *) __va(phys_addr)));
+// 			phys_addr++;
+// 		}
+// 		DBG("\n");
+// 	}
+// }
 
-timer_t timer;
+// timer_t timer;
 
-void timer_fn(void *dummy) {
-	DBG("### TIMER FIRED\n");
-}
+// void timer_fn(void *dummy) {
+// 	DBG("### TIMER FIRED\n");
+// }
 
 
 irq_return_t evt_interrupt(int irq, void *dev_id) {

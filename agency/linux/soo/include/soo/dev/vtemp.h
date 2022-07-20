@@ -21,26 +21,26 @@
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
-#include <soo/vdevfront.h>
+#include <soo/vdevback.h>
 
 #define VTEMP_PACKET_SIZE	32
 
 #define VTEMP_NAME		"vtemp"
 #define VTEMP_PREFIX		"[" VTEMP_NAME "] "
 
+#define TEMP_DATA_SIZE 8
+
+#define TEMP_DEV_ID	1
+
 #define VTEMP_BUFFER_SIZE 256
 
-typedef struct {
-	int temp;
-	uint32_t dev_id;
-} vtemp_data_t;
 
 typedef struct {
 	unsigned char buffer[VTEMP_BUFFER_SIZE];
 	int len;
 } vtemp_request_t;
 
-typedef struct  {
+typedef struct {
 	unsigned char buffer[VTEMP_BUFFER_SIZE];
 	int len;
 } vtemp_response_t;
@@ -55,18 +55,18 @@ DEFINE_RING_TYPES(vtemp, vtemp_request_t, vtemp_response_t);
  */
 
 typedef struct {
+
 	/* Must be the first field */
-	vdevfront_t vdevfront;
+	vdevback_t vdevback;
 
-	vtemp_front_ring_t ring;
+	vtemp_back_ring_t ring;
 	unsigned int irq;
-
-	grant_ref_t ring_ref;
-	grant_handle_t handle;
-	uint32_t evtchn;
 
 } vtemp_t;
 
-int vtemp_get_temp_data(char *buf);
 
+typedef struct {
+    struct list_head list;
+    int32_t id;
+} domid_priv_t;
 #endif /* VTEMP_H */
