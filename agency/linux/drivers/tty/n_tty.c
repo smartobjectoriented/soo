@@ -379,6 +379,10 @@ static void n_tty_flush_buffer(struct tty_struct *tty)
 	up_write(&tty->termios_rwsem);
 }
 
+void n_tty_do_flush_buffer(struct tty_struct *tty) {
+	n_tty_flush_buffer(tty);
+}
+
 /**
  *	is_utf8_continuation	-	utf8 multibyte check
  *	@c: byte to check

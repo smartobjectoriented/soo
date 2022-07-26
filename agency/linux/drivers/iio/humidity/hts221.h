@@ -46,6 +46,7 @@ struct hts221_hw {
 
 extern const struct dev_pm_ops hts221_pm_ops;
 
+int hts221_get_temperature(void);
 int hts221_probe(struct device *dev, int irq, const char *name,
 		 struct regmap *regmap);
 int hts221_set_enable(struct hts221_hw *hw, bool enable);

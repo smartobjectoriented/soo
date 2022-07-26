@@ -1786,6 +1786,12 @@ int uart_do_open(struct tty_struct *tty) {
 	return uart_open(tty, NULL);
 }
 
+/* SOO.tech */
+int uart_do_write(struct tty_struct *tty, const unsigned char *buf, int count) {
+	
+	return uart_write(tty, buf, count);
+}
+
 
 static int uart_port_activate(struct tty_port *port, struct tty_struct *tty)
 {
