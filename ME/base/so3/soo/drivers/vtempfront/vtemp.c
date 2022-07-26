@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -99,7 +99,7 @@ irq_return_t vtemp_interrupt(int irq, void *dev_id) {
 	
 	/* data receive from BE*/
 	complete(&vtemp_priv->wait_temp);
-	DBG(VENOCEAN_PREFIX " irq handled\n");
+	DBG(VTEMP_PREFIX " irq handled\n");
 
 	return IRQ_COMPLETED;
 }
@@ -147,6 +147,7 @@ static void vtemp_probe(struct vbus_device *vdev) {
 	vtemp_priv_t *vtemp_priv;
 
 	DBG(VTEMP_PREFIX " Probe\n");
+	printk("%s Start probe FE !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",VTEMP_PREFIX);
 
 	if (vdev->state == VbusStateConnected)
 		return ;
@@ -186,7 +187,7 @@ static void vtemp_probe(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vtemp_priv->vtemp.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vtemp_priv->vtemp.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -226,7 +227,7 @@ static void vtemp_reconfiguring(struct vbus_device *vdev) {
 
 	/* Prepare the shared to page to be visible on the other end */
 
-	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((uint32_t) vtemp_priv->vtemp.ring.sring)));
+	res = vbus_grant_ring(vdev, phys_to_pfn(virt_to_phys_pt((addr_t) vtemp_priv->vtemp.ring.sring)));
 	if (res < 0)
 		BUG();
 
@@ -259,7 +260,7 @@ static void vtemp_closed(struct vbus_device *vdev) {
 	/* Free resources associated with old device channel. */
 	if (vtemp_priv->vtemp.ring_ref != GRANT_INVALID_REF) {
 		gnttab_end_foreign_access(vtemp_priv->vtemp.ring_ref);
-		free_vpage((uint32_t) vtemp_priv->vtemp.ring.sring);
+		free_vpage((addr_t) vtemp_priv->vtemp.ring.sring);
 
 		vtemp_priv->vtemp.ring_ref = GRANT_INVALID_REF;
 		vtemp_priv->vtemp.ring.sring = NULL;
@@ -305,7 +306,7 @@ vdrvfront_t vtempdrv = {
 };
 
 
-static int vtemp_init(dev_t *dev) {
+static int vtemp_init(dev_t *dev, int fdt_offset) {
 	vtemp_priv_t *vtemp_priv;
 
 	vtemp_priv = malloc(sizeof(vtemp_priv_t));

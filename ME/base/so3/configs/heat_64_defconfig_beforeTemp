@@ -104,7 +104,6 @@ CONFIG_VUIHANDLER_FRONTEND=y
 # CONFIG_VWAGOLED_FRONTEND is not set
 # CONFIG_VKNX_FRONTEND is not set
 CONFIG_VVALVE_FRONTEND=y
-CONFIG_VTEMP_FRONTEND=y
 # end of SOO Mobile Entity frontend drivers
 # end of SOO Mobile Entity - Smart Object Oriented subsystem
 

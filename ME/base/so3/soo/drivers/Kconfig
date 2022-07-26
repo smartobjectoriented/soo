@@ -48,5 +48,8 @@ config VKNX_FRONTEND
 config VVALVE_FRONTEND
     bool "vvalve frontend"
 
+config VTEMP_FRONTEND
+    bool "vtemp frontend"    
+
 endmenu
 
