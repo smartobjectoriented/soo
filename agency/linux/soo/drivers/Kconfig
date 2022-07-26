@@ -117,7 +117,14 @@ config VVALVE_BACKEND
 		depends on TTY
 		default n
 		help
-		  Support for SOO.Valve LoRa module.
+		  Support for SOO.Valve.
+
+config VTEMP_BACKEND
+        bool "vTemp backend"
+		depends on TTY
+		default n
+		help
+		  Support for SOO.temp.
 
 source "soo/drivers/vnetback/Kconfig"
 

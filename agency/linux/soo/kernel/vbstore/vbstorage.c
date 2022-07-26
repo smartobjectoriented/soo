@@ -505,4 +505,9 @@ void vbstorage_agency_init(void) {
 	np = of_find_compatible_node(NULL, NULL, "vvalve,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vvalve");
+
+	/* Agency backend side of virtual temp device */
+	np = of_find_compatible_node(NULL, NULL, "vtemp,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/vtemp");
 }

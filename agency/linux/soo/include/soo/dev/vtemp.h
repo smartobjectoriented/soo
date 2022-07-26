@@ -28,12 +28,15 @@
 #define VTEMP_NAME		"vtemp"
 #define VTEMP_PREFIX		"[" VTEMP_NAME "] "
 
+#define VTEMP_UART1_DEV "ttyS0"
+
 #define TEMP_DATA_SIZE 8
 
 #define TEMP_DEV_ID	1
 
 #define VTEMP_BUFFER_SIZE 256
 
+typedef unsigned char byte;
 
 typedef struct {
 	unsigned char buffer[VTEMP_BUFFER_SIZE];
@@ -69,4 +72,5 @@ typedef struct {
     struct list_head list;
     int32_t id;
 } domid_priv_t;
+
 #endif /* VTEMP_H */

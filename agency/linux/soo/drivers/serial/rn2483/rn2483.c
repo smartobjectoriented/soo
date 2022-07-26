@@ -15,6 +15,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#if 1
+#define DEBUG
+#endif
+
+#if 0
+#define DEBUG_THREAD
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -26,13 +35,6 @@
 #include <linux/string.h>
 #include <linux/kthread.h>
 
-#if 0
-#define DEBUG
-#endif
-
-#if 0
-#define DEBUG_THREAD
-#endif
 
 /* Access to serdev */
 static struct rn2483_uart *rn2483;
@@ -408,10 +410,14 @@ static int rn2483_serdev_receive_buf(struct serdev_device *serdev, const byte *b
     bool timeout = false, msg_end;
     static byte *msg = NULL;
 
+    printk("Data buf LoRa : [0x%x]", *buf);
+
 #ifdef DEBUG
     dev_info(rn2483->dev, "New data received: %s", buf);
 #endif
     msg = process_received_buffer(buf, len, msg, &msg_len, &msg_end);
+
+    printk("Data msg LoRa : [0x%x]", *msg);
 
     if (msg_end) {
 #ifdef DEBUG

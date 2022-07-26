@@ -22,3 +22,4 @@ obj-$(CONFIG_RN2483) += serial/rn2483/
 obj-$(CONFIG_KBERRY838) += serial/kberry838/
 obj-$(CONFIG_VKNX_BACKEND) += vknxback/
 obj-$(CONFIG_VVALVE_BACKEND) += vvalveback/
+obj-$(CONFIG_VTEMP_BACKEND) += vtempback/
