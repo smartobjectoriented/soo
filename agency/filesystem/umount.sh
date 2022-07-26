@@ -10,7 +10,7 @@ if [ "$PLATFORM" == "" ]; then
     PLATFORM=$1
 fi
 
-sleep 2
+sleep 3
 
 sudo umount fs
 

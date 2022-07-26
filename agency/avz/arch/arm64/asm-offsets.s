@@ -5,7 +5,7 @@
 
 // GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
 // options passed:  -nostdinc -I include -I . -I include -I .
-// -I ./lib/libfdt -I arch/arm64/include/ -I arch/arm64/virt64/include/
+// -I ./lib/libfdt -I arch/arm64/include/ -I arch/arm64/rpi4_64/include/
 // -iprefix /opt/toolchains/aarch64-none-linux-gnu_10.2/bin/../lib/gcc/aarch64-none-linux-gnu/10.2.1/
 // -isysroot /opt/toolchains/aarch64-none-linux-gnu_10.2/bin/../aarch64-none-linux-gnu/libc
 // -D __KERNEL__ -D __AVZ__ -D BITS_PER_LONG=64 -D KBUILD_STR(s)=#s

@@ -53,7 +53,6 @@ void show_invalid_entry_message(u32 type, u64 esr, u64 address)
     printk("%lx", esr);
     printk(", Address: ");
     printk("%lx\n", address);
-
 }
 
 void trap_handle_error(addr_t lr) {

@@ -7,6 +7,7 @@
 PYTHON_SENSE_HAT_VERSION =
 PYTHON_SENSE_HAT_SOURCE = master.zip
 PYTHON_SENSE_HAT_SITE = https://github.com/astro-pi/python-sense-hat/archive
+#PYTHON_SENSE_HAT_SITE = https://github.com/astro-pi/python-sense-hat
 PYTHON_SENSE_HAT_SETUP_TYPE = setuptools
 #SENSE_HAT_TARGET_DIR = $(TARGET_DIR)/usr/lib/python3.8/site-packages
 PYTHON_SENSE_HAT_LICENSE = Raspberry Pi Foundation
