@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -53,6 +53,7 @@ static void (*subscribers[MAX_SUBSCRIBERS])(byte *data);
  * @param rsp Response received from the RN2483
  */
 static void rn2483_process_cmd_response(byte *rsp) {
+    printk("%s : %s : cmd %d  ()()()()()()()()()()()())()()()())",RN2483_SERDEV_PREFIX, rsp, rn2483->current_cmd);
     switch (rn2483->current_cmd)
     {
     case RESET:
@@ -115,6 +116,7 @@ static void rn2483_process_cmd_response(byte *rsp) {
 static void process_send_msg_response(byte *rsp) {
     static bool transmit_pending = false;
 
+printk("()()()()()()process_send_msg_response()()()()()\n");
     /** 
      * The rn2483 sends a RN2483_OK when it has received the serial data and 
      * a RN2483_RADIO_TX_OK when data has been effectively sent through LoRa.
@@ -150,6 +152,7 @@ static void rn2483_process_listen(byte *data, bool *timeout) {
     int msg_len, valid_msg = 0, i, error = 0;
     long tmp_val;
 
+printk("()()()()()()rn2483_process_listen()()()()()\n");
 #ifdef DEBUG
     dev_info(rn2483->dev, "New radio data received: %s", data);
 #endif
@@ -227,6 +230,7 @@ int rn2483_write_buf(const byte *buffer, size_t len) {
     int byte_written = 0;
 
     BUG_ON(!rn2483->is_open);
+    printk("()()()()()()rn2483_write_buf()()()()()\n");
 
     if (serdev_device_write_room(rn2483->serdev) < len) {
         dev_err(rn2483->dev, "Not enough room\n");
@@ -264,6 +268,7 @@ void rn2483_send_cmd(rn2483_cmd_t cmd, char *args) {
     rn2483->status = SEND_CMD;
     rn2483->current_cmd = cmd;
 
+    printk("()()()()()()rn2483_send_cmd()()()()()\n");
     if (args) {
         cmd_str = kzalloc((strlen(cmd_list[cmd]) + strlen(args)) * sizeof(byte), GFP_KERNEL);
         BUG_ON(!cmd_str);
@@ -292,6 +297,7 @@ void rn2483_send_cmd(rn2483_cmd_t cmd, char *args) {
  */
 static int rn2483_start_listening(void *args) {
     bool timeout = false;
+    printk("()()()()()()rn2483_start_listening()()()()()\n");
 
     if (args) {
         timeout = *(bool*)(args);
@@ -309,6 +315,7 @@ void rn2483_send_data(char *data, int len) {
     byte *msg; 
     char raw_bytes[3];
     int msg_len, i;
+    printk("()()()()()()rn2483_send_data()()()()()\n");
     rn2483_send_cmd(STOP_RX, NULL);
 
     rn2483->status = SEND_MSG;
@@ -353,6 +360,7 @@ static byte *process_received_buffer(const byte *buf, size_t len, byte *prev_dat
     byte *data;
     int i;
 
+printk("%s : %s  ()()()()()()()()()process_received_buffer()()())()()()())",RN2483_SERDEV_PREFIX, buf);
     *data_end = 0;
 
     /** Reset **/
@@ -409,7 +417,7 @@ static int rn2483_serdev_receive_buf(struct serdev_device *serdev, const byte *b
     int msg_len;
     bool timeout = false, msg_end;
     static byte *msg = NULL;
-
+    printk("%s : %s : cmd %d  ()()()()()()()()()rn2483_serdev_receive_buf()()())()()()())",RN2483_SERDEV_PREFIX, buf, rn2483->status);
     printk("Data buf LoRa : [0x%x]", *buf);
 
 #ifdef DEBUG
@@ -512,20 +520,19 @@ static int rn2483_serdev_probe(struct serdev_device *serdev) {
         baud = RN2483_SERDEV_DEFAULT_BAUDRATE;
     }
     serdev_device_set_client_ops(serdev, &uart_serdev_device_ops);
-
     dev_info(dev, "compatible %s, baud: %d", dev->driver->of_match_table->compatible, baud);
 
     rn2483->serdev = serdev;
     rn2483->dev = dev;
     rn2483->baud = baud;
     init_completion(&rn2483->wait_rsp);
-
     ret = serdev_device_open(serdev);
     if (ret < 0) {
         dev_err(dev, "Failed to open serial port\n");
         BUG();
     }
     rn2483->is_open = 1;
+
 
     ret = serdev_device_set_baudrate(serdev, baud);
     if (ret != baud) {

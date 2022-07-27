@@ -103,35 +103,8 @@ static struct list_head *vdev_list;
 /** List of all the domids of the connected vbus devices **/
 static struct list_head *domid_list;
 
-// static struct vbus_device *vtemp_dev = NULL;
-
-// void rn2483_callback((byte *data)){
-// 	DBG(VTEMP_PREFIX "New data form rn2483\n");
-// 	if(!data){
-// 		DBG(VTEMP_PREFIX "Data is empty\n");
-// 		return;
-// 	}
-
-// 	if(last_data){
-// 		kfree(last_data);
-// 		last_data = NULL;
-// 	}
-
-// 	last_data = kzalloc(sizeof(byte), GFP_KERNEL);
-// 	memcpy(last_data, data, sizeof(byte));
-
-// 	DBG(VTEMP_PREFIX "New data received\n");
-// 	complete(&wait_send_data_completion);
-
-// 	wait_for_completion(&wait_data_sent_completion);
-// }
-
-
 int read_temperature(void) {
-	int test = 0;
-	test = hts221_get_temperature();
-	printk("%s temp hts221 : %d", VTEMP_PREFIX, test);
-	return test;
+	return hts221_get_temperature();
 }
 
 
@@ -144,12 +117,9 @@ static int send_temp_to_front(void *args){
 
 	printk(VTEMP_PREFIX "send temperature to FE\n");
 
-	while(1){
-		printk("%s temp hts221 : %d", VTEMP_PREFIX, read_temperature());
-		msleep(2000);
-	}
 	while(1) {
 		
+		DBG(VTEMP_PREFIX "wait for completion BE temp\n");
 		/* wait notification from FE before sending temperature */
 		wait_for_completion(&wait_send_data_completion);
 
@@ -171,14 +141,6 @@ static int send_temp_to_front(void *args){
 			}
 			vdevback_processing_end(vdev);
 		}
-
-		// /* Read temperature using hts221_core driver */
-		// vtemp_priv->last_temp = read_temperature();
-
-		// printk(VTEMP_PREFIX "TEMP FROM SENSE HAT = %d\n", vtemp_priv->last_temp);
-
-		// ring_rsp->temp = vtemp_priv->last_temp;
-		// ring_rsp->dev_id = TEMP_DEV_ID;	
 
 		kfree(last_data);
 		last_data = NULL;

@@ -7,6 +7,10 @@
  * Lorenzo Bianconi <lorenzo.bianconi@st.com>
  */
 
+#if 1
+#define DEBUG
+#endif
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
@@ -565,7 +569,10 @@ static const unsigned long hts221_scan_masks[] = {0x3, 0x0};
  * from HTS221 sensors
  **/
 int hts221_get_temperature(void) {
-	
+
+	printk("%s start get temp\n", HTS221_PREFIX);
+	DEBUG(HTS221_PREFIX "Start get temp\n");
+#if 1
 	int err;
 	int tmp, temp, T0_degC_x8, T1_degC_x8, T0_degC, T1_degC,
 		T_degC_H;
@@ -633,7 +640,14 @@ int hts221_get_temperature(void) {
 	tmp = (T_OUT - T0_OUT) * (T1_degC - T0_degC);
 	temp = ((tmp / (T1_OUT - T0_OUT)) + T0_degC) / 10;
 
+	DEBUG(HTS221_PREFIX "End of get temp\n");
+	printk("%s End of get temp\n", HTS221_PREFIX);
+
 	return temp;
+#else
+	return 0;
+#endif
+	
 }
 EXPORT_SYMBOL(hts221_get_temperature);
 
@@ -645,6 +659,9 @@ int hts221_probe(struct device *dev, int irq, const char *name,
 	struct hts221_hw *hw;
 	int err;
 	u8 data;
+
+	printk("%s start probe temp\n", HTS221_PREFIX);
+	DEBUG(HTS221_PREFIX "start probe temp\n");
 
 	iio_dev = devm_iio_device_alloc(dev, sizeof(*hw));
 	if (!iio_dev)
@@ -724,6 +741,9 @@ int hts221_probe(struct device *dev, int irq, const char *name,
 	}
 
 	hw_g = hw;
+
+	printk("%s end of probe temp\n", HTS221_PREFIX);
+	DEBUG(HTS221_PREFIX "End of probe temp\n");
 
 	return devm_iio_device_register(hw->dev, iio_dev);
 }

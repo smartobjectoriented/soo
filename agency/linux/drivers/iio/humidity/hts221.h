@@ -11,6 +11,7 @@
 #define HTS221_H
 
 #define HTS221_DEV_NAME		"hts221"
+#define HTS221_PREFIX "[" HTS221_DEV_NAME "] "
 
 #include <linux/iio/iio.h>
 
