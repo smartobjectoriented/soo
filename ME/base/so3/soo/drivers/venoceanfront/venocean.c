@@ -17,7 +17,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -113,7 +113,8 @@ void venocean_probe(struct vbus_device *vdev) {
 		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
 		BUG();
 	}
-
+	DBG(VENOCEAN_PREFIX "%d evtchn FE\n", evtchn);
+	DBG(VENOCEAN_PREFIX "%d res FE\n", res);
 	venocean_priv->venocean.evtchn = evtchn;
 	venocean_priv->venocean.irq = res;
 

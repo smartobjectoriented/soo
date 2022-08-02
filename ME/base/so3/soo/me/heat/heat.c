@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -37,6 +37,7 @@
 #include <soo/debug/logbool.h>
 #include <soo/evtchn.h>
 #include <soo/dev/vvalve.h>
+#include <soo/dev/vtemp.h>
 #include <me/heat.h>
 
 #include <completion.h>
@@ -73,6 +74,7 @@ extern void *localinfo_data;
 void *soo_heat_command_valve(void *args)
 {
 	int valve_id;
+	char averageTemp;
 
 	while (atomic_read(&shutdown)) { 
 
@@ -82,11 +84,12 @@ void *soo_heat_command_valve(void *args)
 
 		/* Get ID of the valve connected on the current Smart Object*/
 		valve_id = vvalve_get_id();
-		// valve_id = 0;
+	
 		DBG(MEHEAT_PREFIX "Valve ID : %d\n", valve_id);
 		DBG(MEHEAT_PREFIX "Heat ID : %d\n", sh_heat->heat.id);
 		/* Compare the temperature Sensor ID from SOO.indoor with the valve ID */
-		if(sh_heat->heat.id == valve_id) {
+		averageTemp = sh_heat->heat.id + sh_heat->heat.temperatureIndoor / 2;
+		if(averageTemp == valve_id) {
 			DBG(MEHEAT_PREFIX "Check temperatur for the valve\n");
 			if(sh_heat->heat.temperature > TMP_WANTED) {
 				DBG(MEHEAT_PREFIX "Valve is going to close\n");
@@ -105,26 +108,17 @@ void *soo_heat_command_valve(void *args)
 	return NULL;
 }
 
-// void dumpPage(unsigned int phys_addr, unsigned int size) {
-// 	int i, j;
 
-// 	DBG("%s: phys_addr: %lx\n\n", __func__,  phys_addr);
-
-// 	for (i = 0; i < size; i += 16) {
-// 		DBG(" [%lx]: ", i);
-// 		for (j = 0; j < 16; j++) {
-// 			DBG("%02x ", *((unsigned char *) __va(phys_addr)));
-// 			phys_addr++;
-// 		}
-// 		DBG("\n");
-// 	}
-// }
-
-// timer_t timer;
-
-// void timer_fn(void *dummy) {
-// 	DBG("### TIMER FIRED\n");
-// }
+void *soo_heat_get_sensor_temp(void *args){
+	char *buf;
+	while(1){
+		msleep(3000);
+		buf = malloc(sizeof(char));
+		DBG(MEHEAT_PREFIX "get temp data ME\n");
+		vtemp_get_temp_data(buf);
+		DBG(MEHEAT_PREFIX "sensor temp %s ME\n", buf);
+	}
+}
 
 
 irq_return_t evt_interrupt(int irq, void *dev_id) {
@@ -141,6 +135,7 @@ irq_return_t evt_interrupt(int irq, void *dev_id) {
  */
 void *app_thread_main(void *args) {
 	tcb_t *heat_th;
+	tcb_t *sensorTemp_th;
 	heat_t *heat;
 
 	heat = (heat_t *)malloc(sizeof(heat_t));
@@ -149,6 +144,7 @@ void *app_thread_main(void *args) {
 
 	DBG(MEWEATHERSTATION_PREFIX "Welcome\n");
 	heat_th = kernel_thread(soo_heat_command_valve, "soo_heat_command_valve", heat, THREAD_PRIO_DEFAULT);
+	sensorTemp_th = kernel_thread(soo_heat_get_sensor_temp, "soo_heat_get_sensor_temp", heat, THREAD_PRIO_DEFAULT);
 
 	if(!heat_th){
 		DBG(MEHEAT_PREFIX "Failed to start heat thread\n");

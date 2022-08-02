@@ -18,7 +18,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -304,6 +304,7 @@ void venocean_reconfigured(struct vbus_device *vdev) {
 
 	BUG_ON(res < 0);
 
+	DBG(VENOCEAN_PREFIX "%d res BE\n", res);
 	venocean_priv->venocean.irq = res;
 }
 

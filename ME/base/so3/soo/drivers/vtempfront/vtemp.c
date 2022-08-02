@@ -42,10 +42,6 @@ typedef struct {
 
 	/* Must be the first field */
 	vtemp_t vtemp;
-
-	/* contains data receives from backend */
-	vtemp_data_t vtemp_data;
-
 	/* wait data from backend */
 	struct completion wait_temp;
 
@@ -63,21 +59,25 @@ int vtemp_get_temp_data(char *buf) {
 	vtemp_response_t *ring_rsp;
 	int len = 0;
 
-	BUG_ON(!vtemp_dev);
-
 	vtemp_priv = (vtemp_priv_t *) dev_get_drvdata(vtemp_dev->dev);
 
-	// /* Ask temperature to BE */
-	// notify_remote_via_virq(vtemp_priv->vtemp.irq);
+	/* Ask temperature to BE */
+	DBG(VTEMP_PREFIX "Notify irq FE\n");
+	DBG(VTEMP_PREFIX "%d vtemp.irq FE\n", vtemp_priv->vtemp.irq);
+	notify_remote_via_virq(vtemp_priv->vtemp.irq);
+	DBG(VTEMP_PREFIX "%d vtemp.irq FE\n", vtemp_priv->vtemp.irq);
 
 	/* wait response from BE*/
+	DBG(VTEMP_PREFIX "wait for completion get temp FE\n");
 	wait_for_completion(&vtemp_priv->wait_temp);
+	// wait_for_completion(&wait_data_sent_completion);
 
 	// while ((ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring)) != NULL) {
 
 	// 	temp_data->temp = ring_rsp->temp;
 	// 	temp_data->dev_id = ring_rsp->dev_id;
 	// }
+
 	ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring);
 	BUG_ON(!ring_rsp);
 
@@ -87,7 +87,7 @@ int vtemp_get_temp_data(char *buf) {
 	BUG_ON(!buf);
 
 	memcpy(buf, ring_rsp->buffer, len);
-	DBG("venocean get data %d\n", len);
+	DBG("venocean get data %d FE\n", len);
 
 	return len;
 }
@@ -99,44 +99,10 @@ irq_return_t vtemp_interrupt(int irq, void *dev_id) {
 	
 	/* data receive from BE*/
 	complete(&vtemp_priv->wait_temp);
-	DBG(VTEMP_PREFIX " irq handled\n");
-
+	DBG(VTEMP_PREFIX " irq handled FE\n");
+	DBG(VTEMP_PREFIX "%d vtemp.irq FE\n", vtemp_priv->vtemp.irq);
 	return IRQ_COMPLETED;
 }
-
-#if 0
-/*
- * The following function is given as an example.
- *
- */
-
-void vtemp_generate_request(char *buffer) {
-	vtemp_request_t *ring_req;
-	vtemp_priv_t *vtemp_priv;
-
-	if (!vtemp_dev)
-		return ;
-
-	vtemp_priv = (vtemp_priv_t *) dev_get_drvdata(vtemp_dev->dev);
-
-	vdevfront_processing_begin(vtemp_dev);
-
-	/*
-	 * Try to generate a new request to the backend
-	 */
-	if (!RING_REQ_FULL(&vtemp_priv->vtemp.ring)) {
-		ring_req = vtemp_new_ring_request(&vtemp_priv->vtemp.ring);
-
-		memcpy(ring_req->buffer, buffer, VTEMP_PACKET_SIZE);
-
-		vtemp_ring_request_ready(&vtemp_priv->vtemp.ring);
-
-		notify_remote_via_virq(vtemp_priv->vtemp.irq);
-	}
-
-	vdevfront_processing_end(vtemp_dev);
-}
-#endif
 
 
 static void vtemp_probe(struct vbus_device *vdev) {
@@ -146,8 +112,7 @@ static void vtemp_probe(struct vbus_device *vdev) {
 	struct vbus_transaction vbt;
 	vtemp_priv_t *vtemp_priv;
 
-	DBG(VTEMP_PREFIX " Probe\n");
-	printk("%s Start probe FE !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",VTEMP_PREFIX);
+	DBG(VTEMP_PREFIX " Probe FE\n");
 
 	if (vdev->state == VbusStateConnected)
 		return ;
@@ -155,9 +120,7 @@ static void vtemp_probe(struct vbus_device *vdev) {
 	vtemp_priv = dev_get_drvdata(vdev->dev);
 	vtemp_dev = vdev;
 
-	init_completion(&vtemp_priv->wait_temp);
-
-	DBG(VTEMP_PREFIX " Setup ring\n");
+	DBG(VTEMP_PREFIX " Setup ring FE\n");
 
 	/* Prepare to set up the ring. */
 
@@ -166,12 +129,15 @@ static void vtemp_probe(struct vbus_device *vdev) {
 	/* Allocate an event channel associated to the ring */
 	vbus_alloc_evtchn(vdev, &evtchn);
 
+	DBG(VTEMP_PREFIX "%d evtchn FE\n", evtchn);
 	res = bind_evtchn_to_irq_handler(evtchn, vtemp_interrupt, NULL, vdev);
 	if (res <= 0) {
 		lprintk("%s - line %d: Binding event channel failed for device %s\n", __func__, __LINE__, vdev->nodename);
 		BUG();
 	}
 
+	DBG(VTEMP_PREFIX "%d evtchn FE\n", evtchn);
+	DBG(VTEMP_PREFIX "%d res FE\n", res);
 	vtemp_priv->vtemp.evtchn = evtchn;
 	vtemp_priv->vtemp.irq = res;
 
@@ -200,7 +166,7 @@ static void vtemp_probe(struct vbus_device *vdev) {
 
 	vbus_transaction_end(vbt);
 
-	DBG(VTEMP_PREFIX "  Probed successfully\n");
+	DBG(VTEMP_PREFIX "  Probed successfully FE\n");
 }
 
 
@@ -210,13 +176,13 @@ static void vtemp_reconfiguring(struct vbus_device *vdev) {
 	struct vbus_transaction vbt;
 	vtemp_priv_t *vtemp_priv = dev_get_drvdata(vdev->dev);
 
-	DBG(VTEMP_PREFIX  " Reconfiguring\n");
+	DBG(VTEMP_PREFIX  " Reconfiguring FE\n");
 	/* The shared page already exists */
 	/* Re-init */
 
 	gnttab_end_foreign_access_ref(vtemp_priv->vtemp.ring_ref);
 
-	DBG(VTEMP_PREFIX " Setup ring\n");
+	DBG(VTEMP_PREFIX " Setup ring FE\n");
 
 	/* Prepare to set up the ring. */
 
@@ -251,7 +217,7 @@ static void vtemp_shutdown(struct vbus_device *vdev) {
 static void vtemp_closed(struct vbus_device *vdev) {
 	vtemp_priv_t *vtemp_priv = dev_get_drvdata(vdev->dev);
 
-	DBG(VTEMP_PREFIX " Close\n");
+	DBG(VTEMP_PREFIX " Close FE\n");
 
 	/**
 	 * Free the ring and deallocate the proper data.
@@ -275,23 +241,23 @@ static void vtemp_closed(struct vbus_device *vdev) {
 
 static void vtemp_suspend(struct vbus_device *vdev) {
 
-	DBG(VTEMP_PREFIX " Suspend\n");
+	DBG(VTEMP_PREFIX " Suspend FE\n");
 }
 
 
 static void vtemp_resume(struct vbus_device *vdev) {
 
-	DBG(VTEMP_PREFIX " Resume\n");
+	DBG(VTEMP_PREFIX " Resume FE\n");
 }
 
 
 static void vtemp_connected(struct vbus_device *vdev) {
 	vtemp_priv_t *vtemp_priv = dev_get_drvdata(vdev->dev);
 
-	DBG(VTEMP_PREFIX " Connected\n");
+	DBG(VTEMP_PREFIX " Connected FE\n");
 
 	/* Force the processing of pending requests, if any */
-	notify_remote_via_virq(vtemp_priv->vtemp.irq);
+	// notify_remote_via_virq(vtemp_priv->vtemp.irq);
 }
 
 
@@ -320,7 +286,7 @@ static int vtemp_init(dev_t *dev, int fdt_offset) {
 
 	vdevfront_init(VTEMP_NAME, &vtempdrv);
 	
-	DBG(VTEMP_PREFIX " Initialized successfully\n");
+	DBG(VTEMP_PREFIX " Initialized successfully FE\n");
 
 	return 0;
 }

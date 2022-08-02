@@ -32,6 +32,7 @@ typedef struct {
 	uint32_t    id;
     bool 		event;
     char 		temperature;
+	char		temperatureIndoor;
 } heat_t;
 
 typedef struct {

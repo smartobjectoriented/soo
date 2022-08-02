@@ -126,7 +126,6 @@ int vvalve_get_id() {
 
 	wait_for_completion(&vvalve_priv->wait_dev_id);
 
-	// WTF valeur reçue ??
 	// lprintk(VVALVE_PREFIX "FRONT get id from BE : %d\n", vvalve_priv->dev_id);
 	DBG(VVALVE_PREFIX "FRONT get id from BE : %d\n", vvalve_priv->dev_id);
 

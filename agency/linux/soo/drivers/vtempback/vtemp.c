@@ -84,17 +84,13 @@
 
 extern int hts221_get_temperature(void);
 
-byte *last_data = NULL;
 
 /* Completions used for synchronization beetween callback and send thread */
-DECLARE_COMPLETION(wait_send_data_completion);
-DECLARE_COMPLETION(wait_data_sent_completion);
+DECLARE_COMPLETION(wait_read_data_temp_completion);
 
 typedef struct {
 	/* Must be the first field */
 	vtemp_t vtemp;
-	/* contains data receives from LoRa */
-	int last_temp;
 } vtemp_priv_t;
 
 /** List of all the connected vbus devices **/
@@ -110,18 +106,20 @@ int read_temperature(void) {
 
 static int send_temp_to_front(void *args){
 
-	vtemp_priv_t *vtemp_priv = (vtemp_priv_t *)args;
+	vtemp_priv_t *vtemp_priv;
 	vtemp_response_t *ring_rsp;
 	struct vbus_device *vdev;
     domid_priv_t *domid_priv;
-
-	printk(VTEMP_PREFIX "send temperature to FE\n");
+	int temp;
+	int test = 0;
 
 	while(1) {
 		
 		DBG(VTEMP_PREFIX "wait for completion BE temp\n");
 		/* wait notification from FE before sending temperature */
-		wait_for_completion(&wait_send_data_completion);
+		wait_for_completion(&wait_read_data_temp_completion);
+		temp = read_temperature();
+		DBG(VTEMP_PREFIX "%d tempSensor BE\n", read_temperature());
 
 		list_for_each_entry(domid_priv, domid_list, list) {
 			vdev = vdevback_get_entry(domid_priv->id, vdev_list);
@@ -129,38 +127,43 @@ static int send_temp_to_front(void *args){
 			vtemp_priv = dev_get_drvdata(&vdev->dev);
 
 			if (vdev->state == VbusStateConnected){
-				DBG(VTEMP_PREFIX "create new ring\n");
+				DBG(VTEMP_PREFIX "create new ring BE\n");
 				ring_rsp = vtemp_new_ring_response(&vtemp_priv->vtemp.ring);
-				memcpy(ring_rsp->buffer, *last_data, sizeof(byte));
+				memcpy(ring_rsp->buffer, &temp, sizeof(byte));
 				ring_rsp->len = sizeof(byte);
 
 				vtemp_ring_response_ready(&vtemp_priv->vtemp.ring);
+				DBG(VTEMP_PREFIX "Notify irq BE\n");
+				DBG(VTEMP_PREFIX "%d vtemp.irq BE\n", vtemp_priv->vtemp.irq);
 				notify_remote_via_virq(vtemp_priv->vtemp.irq);
 			}else{
-				DBG(VTEMP_PREFIX "frontend not found. Nothing will be sent\n");
+				DBG(VTEMP_PREFIX "frontend not found. Nothing will be sent BE\n");
 			}
 			vdevback_processing_end(vdev);
 		}
-
-		kfree(last_data);
-		last_data = NULL;
-
-		complete(&wait_data_sent_completion);
-		DBG(VTEMP_PREFIX "ring response sent\n");	
+		DBG(VTEMP_PREFIX "ring response sent BE\n");	
 	}
 
 	return 0;
 }
 
-
-irqreturn_t vtemp_interrupt(int irq, void *dev_id)
+irqreturn_t vtemp_interrupt_bh(int irq, void *dev_id)
 {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	vtemp_priv_t *vtemp_priv = dev_get_drvdata(&vdev->dev);
 	
-	// complete(&vtemp_priv->wait_send_temp);
+	vdevback_processing_begin(vdev);
+	complete(&wait_read_data_temp_completion);
 
+	DBG(VTEMP_PREFIX "irq handler BE\n");
+	DBG(VTEMP_PREFIX "%d vtemp.irq BE\n", vtemp_priv->vtemp.irq);
+	vdevback_processing_end(vdev);
 	return IRQ_HANDLED;
+}
+
+irqreturn_t vtemp_interrupt(int irq, void *dev_id)
+{
+	return IRQ_WAKE_THREAD;
 }
 
 
@@ -170,8 +173,7 @@ void vtemp_probe(struct vbus_device *vdev) {
 	vtemp_priv_t *vtemp_priv;
 	domid_priv_t *domid_priv;
 
-	pr_info(VTEMP_PREFIX " Starting Probe\n");
-	printk("%s Start probe BE !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",VTEMP_PREFIX);
+	pr_info(VTEMP_PREFIX " Starting Probe BE\n");
 
 	domid_priv = kzalloc(sizeof(domid_t), GFP_KERNEL);
 	BUG_ON(!domid_priv);
@@ -185,12 +187,8 @@ void vtemp_probe(struct vbus_device *vdev) {
 	dev_set_drvdata(&vdev->dev, vtemp_priv);
 	vdevback_add_entry(vdev, vdev_list);
 
-#if 1
-	kthread_run(send_temp_to_front, (void *)vtemp_priv, "lora_monitor");
-#endif
-
-	DBG(VTEMP_PREFIX "Backend probe: %d\n", vdev->otherend_id);
-	pr_info(VTEMP_PREFIX " Initialized successfully\n");
+	DBG(VTEMP_PREFIX "Backend probe: %d BE\n", vdev->otherend_id);
+	pr_info(VTEMP_PREFIX " Initialized probe successfully BE\n");
 }
 
 
@@ -198,7 +196,7 @@ void vtemp_remove(struct vbus_device *vdev) {
 	vtemp_priv_t *vtemp_priv = dev_get_drvdata(&vdev->dev);
 	domid_priv_t *domid_priv;
 
-	DBG("%s: freeing the vtemp structure for %s\n", __func__,vdev->nodename);
+	DBG("%s: freeing the vtemp structure for %s BE\n", __func__,vdev->nodename);
 	/** Remove entry when frontend is leaving **/
 	// list_for_each_entry(domid_priv, domid_list, list) {
 	// 	if (domid_priv->id == vdev->otherend_id) {
@@ -206,18 +204,18 @@ void vtemp_remove(struct vbus_device *vdev) {
 	// 			kfree(domid_priv);
 	// 			break;
 	// 	}
-	DBG("%s: freeing the vtemp structure for %s\n", __func__,vdev->nodename);
+	DBG("%s: freeing the vtemp structure for %s BE\n", __func__,vdev->nodename);
 	vdevback_del_entry(vdev, vdev_list);
 	kfree(vtemp_priv);
 
-	DBG(VTEMP_PREFIX "Removed: %d\n", vdev->otherend_id);
+	DBG(VTEMP_PREFIX "Removed: %d BE\n", vdev->otherend_id);
 }
 
 
 void vtemp_close(struct vbus_device *vdev) {
 	vtemp_priv_t *vtemp_priv = dev_get_drvdata(&vdev->dev);
 
-	DBG(VTEMP_PREFIX "Backend close: %d\n", vdev->otherend_id);
+	DBG(VTEMP_PREFIX "Backend close: %d BE\n", vdev->otherend_id);
 
 	/*
 	 * Free the ring and unbind evtchn.
@@ -249,7 +247,7 @@ void vtemp_reconfigured(struct vbus_device *vdev) {
 	vtemp_sring_t *sring;
 	vtemp_priv_t *vtemp_priv = dev_get_drvdata(&vdev->dev);
 
-	DBG(VTEMP_PREFIX "Backend reconfigured: %d\n", vdev->otherend_id);
+	DBG(VTEMP_PREFIX "Backend reconfigured: %d BE\n", vdev->otherend_id);
 
 	/*
 	 * Set up a ring (shared page & event channel) between the agency and the ME.
@@ -257,23 +255,23 @@ void vtemp_reconfigured(struct vbus_device *vdev) {
 
 	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
-	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
+	DBG(VTEMP_PREFIX "BE: ring-ref=%u, event-channel=%u BE\n", ring_ref, evtchn);
 
 	vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
 
 	BACK_RING_INIT(&vtemp_priv->vtemp.ring, sring, PAGE_SIZE);
 
-	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vtemp_interrupt, NULL, 0, VTEMP_NAME "-backend", vdev);
+	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vtemp_interrupt, vtemp_interrupt_bh, 0, VTEMP_NAME "-backend", vdev);
 
 	BUG_ON(res < 0);
-
+	DBG(VTEMP_PREFIX "%d res BE\n");
 	vtemp_priv->vtemp.irq = res;
 }
 
 
 void vtemp_connected(struct vbus_device *vdev) {
 
-	DBG(VTEMP_PREFIX "Backend connected: %d\n",vdev->otherend_id);
+	DBG(VTEMP_PREFIX "Backend connected: %d BE\n",vdev->otherend_id);
 }
 
 
@@ -291,14 +289,14 @@ vdrvback_t vtempdrv = {
 int vtemp_init(void) {
 	struct device_node *np;
 
-	DBG(VTEMP_PREFIX " start initialization\n");
-	printk("%s start initialization\n", VTEMP_PREFIX);
+	DBG(VTEMP_PREFIX " start initialization BE\n");
+	printk("%s start initialization BE\n", VTEMP_PREFIX);
 
 	np = of_find_compatible_node(NULL, NULL, "vtemp,backend");
 
 	/* Check if DTS has vuihandler enabled */
 	if (!of_device_is_available(np)){
-		DBG(VTEMP_PREFIX " is disabled");
+		DBG(VTEMP_PREFIX " is disabled BE");
 		return 0;
 	}
 
@@ -313,11 +311,6 @@ int vtemp_init(void) {
 	INIT_LIST_HEAD(domid_list);
 
 	vdevback_init(VTEMP_NAME, &vtempdrv);
-
-	// if(rn2483_subscribe(rn2483_callback) < 0){
-	// 	DBG(VTEMP_PREFIX " failed to subscribe to rn2483\n");
-	// 	BUG();
-	// }
 
 	kthread_run(send_temp_to_front, NULL, "send_data_fn");
 

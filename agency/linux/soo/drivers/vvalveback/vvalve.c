@@ -55,9 +55,6 @@ typedef struct {
 	/* Must be the first field */
 	vvalve_t vvalve;
 
-	// struct completion wait_cmd;
-	// struct completion wait_send_id;
-
 	vvalve_desc_t vvalve_desc;
 
 	struct gpio_desc *heat_gpio;
@@ -322,7 +319,7 @@ void vvalve_reconfigured(struct vbus_device *vdev) {
 
 	/* No handler required, however used to notify the remote domain */
 	res = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vvalve_interrupt, NULL, 0, VVALVE_NAME "-backend", vdev);
-
+	DBG(VVALVE_PREFIX "%d res BE\n");
 	BUG_ON(res < 0);
 
 	vvalve_priv->vvalve.irq = res;
