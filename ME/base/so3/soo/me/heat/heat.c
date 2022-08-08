@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -39,6 +39,8 @@
 #include <soo/dev/vvalve.h>
 #include <soo/dev/vtemp.h>
 #include <me/heat.h>
+#include <soo/xmlui.h>
+#include <soo/dev/vuihandler.h>
 
 #include <completion.h>
 #include <device/irq.h>
@@ -61,6 +63,7 @@ bool remote_app_connected = false;
 /* Detection of a ME that has migrated on another new Smart Object */
 bool has_migrated = false;
 
+char cur_text[MAX_MSG_LENGTH];
 
 
 /* Bool telling that at least 1 post-activate has been performed */
@@ -68,35 +71,86 @@ bool post_activate_done = false;
 
 extern void *localinfo_data;
 
+struct completion new_temp;
+
+
+void heat_send_model(void) {
+	printk("SENDINGGGG MODELLLLLLLLL\n");
+	vuihandler_send(HEAT_MODEL, strlen(HEAT_MODEL)+1, VUIHANDLER_SELECT);
+}
+
+void heat_process_events(char *data, size_t size) {
+	char id[ID_MAX_LENGTH];
+	char action[ACTION_MAX_LENGTH];
+	char content[MAX_MSG_LENGTH];
+
+	memset(id, 0, ID_MAX_LENGTH);
+	memset(action, 0, ACTION_MAX_LENGTH);
+
+	xml_parse_event(data, id, action);
+
+	if (!strcmp(action, "clickDown")) {
+
+		if (!strcmp(id, BTN_SEND_ID)) {
+			if (!strcmp(id, TEXTEDIT_ID)) {
+			xml_get_event_content(data, content);
+			strcpy(cur_text, content);
+			}
+		}
+
+		complete(&send_data_lock);
+	}
+}
+
+
+
+void *soo_heat_get_outdoor_temp(void *args)
+{
+	while(atomic_read(&shutdown)){
+		wait_for_completion(&send_data_lock);
+		sh_heat->isNewOutdoorTemp = true;
+		sh_heat->checkNoOutdoorTemp = 0;
+	}
+}
+
+
 /**
  * @brief Main thread sending command to the valve when SOO.indoor cooperate
  **/
 void *soo_heat_command_valve(void *args)
 {
 	int valve_id;
-	char averageTemp;
+	char actualTemp;
 
 	while (atomic_read(&shutdown)) { 
 
-		DBG(MEHEAT_PREFIX "is waiting\n");
-		wait_for_completion(&send_data_lock);
+		// DBG(MEHEAT_PREFIX "is waiting\n");
+		wait_for_completion(&new_temp);
 		DBG(MEHEAT_PREFIX "going to send valve cmd !!!\n");
 
 		/* Get ID of the valve connected on the current Smart Object*/
 		valve_id = vvalve_get_id();
 	
-		DBG(MEHEAT_PREFIX "Valve ID : %d\n", valve_id);
-		DBG(MEHEAT_PREFIX "Heat ID : %d\n", sh_heat->heat.id);
-		/* Compare the temperature Sensor ID from SOO.indoor with the valve ID */
-		averageTemp = sh_heat->heat.id + sh_heat->heat.temperatureIndoor / 2;
-		if(averageTemp == valve_id) {
-			DBG(MEHEAT_PREFIX "Check temperatur for the valve\n");
-			if(sh_heat->heat.temperature > TMP_WANTED) {
-				DBG(MEHEAT_PREFIX "Valve is going to close\n");
+		/* Compare the temperature Sensor and SOO.outdoor */
+		if(sh_heat->isNewOutdoorTemp){
+			DBG(MEHEAT_PREFIX "Temp outdoor : %d\n", sh_heat->heat.temperatureOutdoor);
+			actualTemp = (sh_heat->heat.temperatureOutdoor + sh_heat->heat.temperatureIndoor) / 2;
+		}else{
+			actualTemp = sh_heat->heat.temperatureIndoor;
+		}
+		
+		DBG(MEHEAT_PREFIX "Temp indoor  : %d\n", sh_heat->heat.temperatureIndoor);
+		DBG(MEHEAT_PREFIX "Temp actual  : %d\n", actualTemp);
+		DBG(MEHEAT_PREFIX "Temp target  : %d\n", TMP_WANTED);
+
+		if(sh_heat->heat.id == valve_id) {
+			DBG(MEHEAT_PREFIX "Same ID\n");
+			if(actualTemp >= TMP_WANTED) {
+				DBG(MEHEAT_PREFIX "Valve closed\n");
 				vvalve_send_cmd(VALVE_CMD_CLOSE);
 
 			} else {
-				DBG(MEHEAT_PREFIX "Valve is going to open\n");
+				DBG(MEHEAT_PREFIX "Valve opened\n");
 				vvalve_send_cmd(VALVE_CMD_OPEN);
 			}
 		} else {
@@ -111,12 +165,21 @@ void *soo_heat_command_valve(void *args)
 
 void *soo_heat_get_sensor_temp(void *args){
 	char *buf;
-	while(1){
-		msleep(3000);
+
+	while(atomic_read(&shutdown)){
 		buf = malloc(sizeof(char));
-		DBG(MEHEAT_PREFIX "get temp data ME\n");
+		// DBG(MEHEAT_PREFIX "get temp data ME\n");
 		vtemp_get_temp_data(buf);
-		DBG(MEHEAT_PREFIX "sensor temp %s ME\n", buf);
+		// DBG(MEHEAT_PREFIX "sensor temp %d ME\n", *buf);
+		sh_heat->heat.temperatureIndoor = (char)*buf;
+
+		if(sh_heat->checkNoOutdoorTemp >= VAL_STOP_GET_OUTDOOR_TEMP){
+			sh_heat->isNewOutdoorTemp = false;
+		}else{
+			sh_heat->checkNoOutdoorTemp++;
+		}
+		complete(&new_temp);
+		msleep(GET_TEMP_MS);
 	}
 }
 
@@ -134,20 +197,32 @@ irq_return_t evt_interrupt(int irq, void *dev_id) {
  * by external events based on frontend activities.
  */
 void *app_thread_main(void *args) {
-	tcb_t *heat_th;
+	tcb_t *heat_cmd_valve_th;
 	tcb_t *sensorTemp_th;
+	tcb_t *outdoorTemp_th;
 	heat_t *heat;
 
 	heat = (heat_t *)malloc(sizeof(heat_t));
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
 
-	DBG(MEWEATHERSTATION_PREFIX "Welcome\n");
-	heat_th = kernel_thread(soo_heat_command_valve, "soo_heat_command_valve", heat, THREAD_PRIO_DEFAULT);
-	sensorTemp_th = kernel_thread(soo_heat_get_sensor_temp, "soo_heat_get_sensor_temp", heat, THREAD_PRIO_DEFAULT);
+	init_completion(&new_temp);
 
-	if(!heat_th){
-		DBG(MEHEAT_PREFIX "Failed to start heat thread\n");
+	vuihandler_register_callbacks(heat_send_model, heat_process_events);
+
+	DBG(MEWEATHERSTATION_PREFIX "Welcome\n");
+	heat_cmd_valve_th = kernel_thread(soo_heat_command_valve, "soo_heat_command_valve", heat, THREAD_PRIO_DEFAULT);
+	sensorTemp_th = kernel_thread(soo_heat_get_sensor_temp, "soo_heat_get_sensor_temp", heat, THREAD_PRIO_DEFAULT);
+	outdoorTemp_th = kernel_thread(soo_heat_get_outdoor_temp, "soo_heat_get_outdoor_temp", heat, THREAD_PRIO_DEFAULT);
+
+	if(!heat_cmd_valve_th){
+		DBG(MEHEAT_PREFIX "Failed to start heat_cmd_valve thread\n");
+		kernel_panic();
+	}else if(!sensorTemp_th){
+		DBG(MEHEAT_PREFIX "Failed to start sensorTemp thread\n");
+		kernel_panic();
+	}else if(!outdoorTemp_th){
+		DBG(MEHEAT_PREFIX "Failed to start otudoorTemp thread\n");
 		kernel_panic();
 	}
 	//init_timer(&timer, timer_fn, NULL);

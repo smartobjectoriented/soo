@@ -17,7 +17,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -71,8 +71,10 @@ int vtemp_get_temp_data(char *buf) {
 	DBG(VTEMP_PREFIX "wait for completion get temp FE\n");
 	wait_for_completion(&vtemp_priv->wait_temp);
 	// wait_for_completion(&wait_data_sent_completion);
+	DBG(VTEMP_PREFIX "After completion get temp FE\n");
 
-	// while ((ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring)) != NULL) {
+	// while ((ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring)) != NULL) //{
+	// 	DBG(VTEMP_PREFIX "After while(1) get temp FE\n");
 
 	// 	temp_data->temp = ring_rsp->temp;
 	// 	temp_data->dev_id = ring_rsp->dev_id;
@@ -80,6 +82,7 @@ int vtemp_get_temp_data(char *buf) {
 
 	ring_rsp = vtemp_get_ring_response(&vtemp_priv->vtemp.ring);
 	BUG_ON(!ring_rsp);
+	DBG(VTEMP_PREFIX "After while(1) get temp FE\n");
 
 	len = ring_rsp->len;
 	BUG_ON(len < 1);
@@ -158,6 +161,8 @@ static void vtemp_probe(struct vbus_device *vdev) {
 		BUG();
 
 	vtemp_priv->vtemp.ring_ref = res;
+
+	init_completion(&vtemp_priv->wait_temp);
 
 	vbus_transaction_start(&vbt);
 

@@ -90,8 +90,8 @@ typedef struct {
 
 typedef struct {
 	uint32_t		id;
-	uint8_t 		type;
-	size_t			size;
+	uint32_t 		type;
+	uint32_t			size;
 	uint8_t 		buf[RING_BUF_SIZE];
 } vuihandler_tx_request_t;
 
@@ -109,8 +109,8 @@ typedef struct {
 
 typedef struct {
 	uint32_t		id;
-	size_t			size;
-	uint8_t			type;
+	uint32_t			size;
+	uint32_t			type;
 	uint8_t 		buf[RING_BUF_SIZE];
 } vuihandler_rx_response_t;
 

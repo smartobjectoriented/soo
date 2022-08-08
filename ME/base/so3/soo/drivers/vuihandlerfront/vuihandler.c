@@ -18,7 +18,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -73,11 +73,9 @@ static int tx_buffer_put(uint8_t *data, uint32_t size, uint8_t type) {
 	vuihandler_priv = (vuihandler_priv_t *) dev_get_drvdata(vuihandler_dev->dev);
 	tx_circ_buf = vuihandler_priv->tx_circ_buf;
 
-	mutex_lock(&tx_circ_buf->tx_circ_buf_mutex);
 
 	/* abort if there are no place left on the circular buffer */
 	if (tx_circ_buf->cur_size == VUIHANDLER_MAX_TX_BUF_ENTRIES) {
-		mutex_unlock(&tx_circ_buf->tx_circ_buf_mutex);
 		BUG();
 	}
 
@@ -90,7 +88,6 @@ static int tx_buffer_put(uint8_t *data, uint32_t size, uint8_t type) {
 	tx_circ_buf->cur_prod_idx = (tx_circ_buf->cur_prod_idx + 1) % VUIHANDLER_MAX_TX_BUF_ENTRIES;
 	tx_circ_buf->cur_size++;
 
-	mutex_unlock(&tx_circ_buf->tx_circ_buf_mutex);
 
 	return 0;
 }
@@ -109,12 +106,9 @@ static tx_buf_entry_t *tx_buffer_get(void) {
 
 	tx_circ_buf = vuihandler_priv->tx_circ_buf;
 
-	mutex_lock(&tx_circ_buf->tx_circ_buf_mutex);
-
 	/* We should never have no packet when trying to get one, if it happens,
 	it means something went off in the circular buffer */
 	if (tx_circ_buf->cur_size == 0) {
-		mutex_unlock(&tx_circ_buf->tx_circ_buf_mutex);
 		lprintk("[vuihandler-FE]: There was no packet in the TX circular buffer, aborting...\n");
 		BUG();
 	}
@@ -123,8 +117,6 @@ static tx_buf_entry_t *tx_buffer_get(void) {
 
 	tx_circ_buf->cur_cons_idx = (tx_circ_buf->cur_cons_idx + 1) % VUIHANDLER_MAX_TX_BUF_ENTRIES;
 	tx_circ_buf->cur_size--;
-
-	mutex_unlock(&tx_circ_buf->tx_circ_buf_mutex);
 
 	return entry;
 }
@@ -162,7 +154,7 @@ static void process_pending_rx_rsp(struct vbus_device *vdev) {
 	vuihandler_t *vuihandler = &vuihandler_priv->vuihandler;
 
 	while ((ring_rsp = vuihandler_rx_get_ring_response(&vuihandler->rx_ring)) != NULL) {
-		DBG("rsp->id = %d, rsp->size = %d\n", ring_rsp->id, ring_rsp->size);
+		printk("rsp->id = %d, rsp->size = %d, type = %d\n", ring_rsp->id, ring_rsp->size, ring_rsp->type);
 		DBG("Packet as string is: %s\n", ring_rsp->buf);
 		switch (ring_rsp->type) {
 
@@ -175,6 +167,7 @@ static void process_pending_rx_rsp(struct vbus_device *vdev) {
 
 		/* Model aksing */
 		case VUIHANDLER_SELECT:
+			printk("THE BE ASK FOR THE MODEL\n");
 			if (__ui_send_model != NULL)
 				__ui_send_model();
 			break;

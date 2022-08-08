@@ -32,7 +32,7 @@
         
 
 /**
- * @brief 
+ * @brief Struct of weatherstation like datasheet of P04 model
  * 
  */
 typedef struct {
@@ -47,26 +47,9 @@ typedef struct {
     bool        event;
 } p04_t;
 
-/**
- * @brief 
- * 
- * @param sw 
- * @param switch_id 
- */
+
 void p04_init(p04_t *ws, uint32_t weatherstation_id);
-
-/**
- * @brief 
- * 
- * @param ws 
- */
 void p04_wait_event(p04_t *ws);
-
-/**
- * @brief 
- * 
- * @param ws 
- */
 void p04_reset(p04_t *ws);
 
 #endif //_P04_H_

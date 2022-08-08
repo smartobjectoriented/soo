@@ -165,7 +165,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 		if(incoming_sh_weatherstation->timestamp > weatherstation_timestamp){
 			weatherstation_timestamp = incoming_sh_weatherstation->timestamp;
-			sh_heat->heat.temperature = incoming_sh_weatherstation->ws.ws.outdoorTemp;
+			sh_heat->heat.temperatureOutdoor = incoming_sh_weatherstation->ws.ws.outdoorTemp;
 			sh_heat->heat_event = true;
 			incoming_sh_weatherstation->delivered = true;
 		}
@@ -261,7 +261,8 @@ void callbacks_init(void) {
 	memset(sh_heat, 0, PAGE_SIZE);
 
 	sh_heat->heat_event = false;
-	sh_heat->heat.temperature = 0;
+	sh_heat->heat.temperatureOutdoor = 0;
+	sh_heat->isNewOutdoorTemp = false;
 
 	/* Set the SPAD capabilities */
 	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));

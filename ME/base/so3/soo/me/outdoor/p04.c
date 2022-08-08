@@ -27,12 +27,23 @@
 
 #define NAME_P04    "[ p04 ] "
 
-
+/**
+ * @brief Init weatherstation model P04
+ * 
+ * @param ws p04_t
+ * @param weatherstation_id uint32_t
+ */
 void p04_init(p04_t *ws, uint32_t weatherstation_id){
     ws->id = weatherstation_id;
     p04_reset(ws);
 }
 
+
+/**
+ * @brief Wait event from backend to get EnOcean data
+ * 
+ * @param ws p04_t
+ */
 void p04_wait_event(p04_t *ws){
     enocean_telegram_t *tel;
 
@@ -54,6 +65,7 @@ void p04_wait_event(p04_t *ws){
     }
 
     if(tel->sender_id.val == ws->id){
+        //Convert binary data of range 0 to 255, in metrics unity
         DBG(NAME_P04 "Good id\n");
         ws->lightSensor = (uint16_t)(((float)tel->data[0] / 255.0) * (float)LIGHT_SENSOR_MAX);
         ws->outdoorTemp = (char)(((float)tel->data[1] / 255.0) * TEMP_DIFF - TEMP_REDUC);
@@ -68,6 +80,12 @@ void p04_wait_event(p04_t *ws){
     }
 }
 
+
+/**
+ * @brief Reset weatherstation P04
+ * 
+ * @param ws p04_t
+ */
 void p04_reset(p04_t *ws){
     ws->lightSensor = 0;
     ws->outdoorTemp = 0;

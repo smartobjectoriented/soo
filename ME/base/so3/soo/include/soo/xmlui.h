@@ -26,6 +26,10 @@
 #define SCROLL_ID		"msg-history"
 #define BTN_SEND_ID		"button-send"
 
+/* SOO.heat widgets id */
+#define SETPOINT_TEMP_ID    "setpoint-temp"
+#define BTN_SAVE_ID         "button-save"
+
 
 /*
  * Prepare a XML message.

@@ -17,43 +17,9 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
-
-// #include <linux/types.h>
-// #include <linux/init.h>
-// #include <linux/kernel.h>
-// #include <linux/module.h>
-// #include <linux/slab.h>
-// #include <linux/delay.h>
-// #include <linux/of.h>
-// #include <linux/of_device.h>
-
-// #include <linux/gpio/driver.h>
-// #include <linux/gpio/consumer.h> 
-
-// #include <linux/completion.h>
-
-// #include <soo/evtchn.h>
-// #include <soo/gnttab.h>
-// #include <soo/hypervisor.h>
-// #include <soo/vbus.h>
-// #include <soo/uapi/console.h>
-
-// #include <stdarg.h>
-// #include <linux/kthread.h>
-
-// #include <soo/vdevback.h>
-
-// #include <linux/delay.h>
-// #include <linux/string.h>
-// #include <soo/dev/vtemp.h>
-
-// #include <linux/string.h>
-// #include <asm/termios.h>
-// #include <linux/serial_core.h>
-// #include <linux/tty.h>
 
 
 #include <linux/types.h>

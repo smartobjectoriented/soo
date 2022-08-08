@@ -28,15 +28,40 @@
 #define MEHEAT_NAME		"ME heat"
 #define MEHEAT_PREFIX	    "[ " MEHEAT_NAME " ] "
 
+#define GET_TEMP_MS		3000
+#define VAL_STOP_GET_OUTDOOR_TEMP 10
+
+#define MAX_MSG_LENGTH 		200 
+#define ID_MAX_LENGTH		20
+#define ACTION_MAX_LENGTH	20
+
+#define HEAT_MODEL "<model spid=\"002000000000000a\">\
+        <name>SOO.heat</name>\
+        <description>\"SOO.heat permet de gérer l'électrovanne en fonction de la température intérieur et extérieur.\"</description>\
+        <layout>\
+            <row>\
+                <col span=\"3\">\
+                    <input id=\"setpoint-temp\" ></input>\
+                </col>\
+                <col span=\"2\">\
+                    <button id=\"button-save\" lockable=\"false\">\"Save\"</button>\
+                </col>\
+            </row>\
+        </layout>\
+    </model>"
+
+
 typedef struct {
 	uint32_t    id;
     bool 		event;
-    char 		temperature;
+    char 		temperatureOutdoor;
 	char		temperatureIndoor;
 } heat_t;
 
 typedef struct {
     heat_t 		heat;
+	int 		checkNoOutdoorTemp;
+	bool 		isNewOutdoorTemp;
 	bool 		heat_event;
 	bool 		need_propagate;
 	bool 		delivered;

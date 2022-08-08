@@ -374,6 +374,8 @@ void vuihandler_recv(vuihandler_pkt_t *vuihandler_pkt, size_t vuihandler_pkt_siz
 	int32_t me_id;
 
 	DBG("Receieved a packet of type %d for slotID %d\n", vuihandler_pkt->type, vuihandler_pkt->slotID);
+	printk("Receieved a packet of type %d for slotID %d\n", vuihandler_pkt->type, vuihandler_pkt->slotID);
+
 
 	/* Check for packet destinated to to agency, mainly ME injection related */
 	if (vuihandler_pkt->type == VUIHANDLER_ME_SIZE || vuihandler_pkt->type == VUIHANDLER_ME_INJECT) {
@@ -451,6 +453,7 @@ static int tx_task_fn(void *arg) {
 
 		if (rfcomm_pid) {
 			DBG("(B>%d)", pkt_size);
+			printk("(B>%d)", pkt_size);
 			sl_send(vdrv_priv->vuihandler_bt_sl_desc, vuihandler_pkt, pkt_size, 0, 0);
 		}
 	}

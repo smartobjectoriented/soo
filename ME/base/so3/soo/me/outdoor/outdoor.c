@@ -52,6 +52,7 @@ void weatherstation_init(weatherstation_t *ws){
 	p04_init(&ws->ws, ENOCEAN_OUTDOOR_ID);
 }
 
+
 /**
  * @brief Generic weatherstation get data. Wait for an event.
  * 
@@ -89,6 +90,7 @@ void weatherstation_get_data(weatherstation_t *ws){
 	p04_reset(&ws->ws);
 }
 
+
 /**
  * @brief Thread to acquire weatherstation events
  * 
@@ -122,6 +124,13 @@ void *weatherstation_wait_data_th(void *args){
 		return NULL;
 }
 
+
+/**
+ * @brief Main thread for ME. It have to be like this
+ * 
+ * @param args 
+ * @return void* 
+ */
 void *app_thread_main(void *args){
 	tcb_t *weatherstation_th;
 	weatherstation_t *ws;

@@ -30,10 +30,10 @@
 #define NAME_ENOCEAN    "[ Enocean ] "
 
 /**
- * @brief 
+ * @brief Convert buffer data from frontend to EnOcean telegram
  * 
- * @param buf 
- * @param len 
+ * @param buf byte
+ * @param len int
  * @return enocean_telegram_t* 
  */
 enocean_telegram_t * enocean_buffer_to_telegram(byte *buf, int len) {
@@ -78,6 +78,12 @@ enocean_telegram_t * enocean_buffer_to_telegram(byte *buf, int len) {
     return tel;
 }
 
+
+/**
+ * @brief Get data from EnOcean telegram
+ * 
+ * @return enocean_telegram_t* 
+ */
 enocean_telegram_t *enocean_get_data(void) {
     char data[ENOCEAN_TELEGRAM_BUF_SIZE];
     int data_len;
@@ -89,6 +95,12 @@ enocean_telegram_t *enocean_get_data(void) {
     return enocean_buffer_to_telegram(data, data_len);
 }
 
+
+/**
+ * @brief Print EnOcean telegram
+ * 
+ * @param tel enocean_telegram_t
+ */
 void enocean_print_telegram(enocean_telegram_t *tel) {
     int i;
 
