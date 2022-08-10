@@ -19,6 +19,7 @@
 #include <soo/xmlui.h>
 #include <roxml.h>
 #include <string.h>
+#include <soo/console.h>
 
 /**
  * Prepare a XML message for sending to the UI app
@@ -34,21 +35,14 @@ void xml_prepare_message(char *buffer, char *id, char *value) {
 
 	/* Adding the messages node */
 	messages = roxml_add_node(NULL, 0, ROXML_ELM_NODE, "messages", NULL);
-
 	/* Adding the message itself */
 	msg = roxml_add_node(messages, 0, ROXML_ELM_NODE, "message", NULL);
-
 	roxml_add_node(msg, 0, ROXML_ATTR_NODE, "to", id);
-
 	roxml_add_node(msg, 0, ROXML_TXT_NODE, NULL, value);
-
 	roxml_commit_changes(messages, NULL, &__buffer, 1);
-
 	strcpy(buffer, __buffer);
-
-	roxml_release(RELEASE_LAST);
+	
 	roxml_close(messages);
-
 }
 
 /**

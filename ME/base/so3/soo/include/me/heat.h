@@ -28,27 +28,39 @@
 #define MEHEAT_NAME		"ME heat"
 #define MEHEAT_PREFIX	    "[ " MEHEAT_NAME " ] "
 
-#define GET_TEMP_MS		3000
-#define VAL_STOP_GET_OUTDOOR_TEMP 10
+#define GET_TEMP_MS		            3000
+#define VAL_STOP_GET_OUTDOOR_TEMP   10
+#define TARGET_TEMP_DEFAULT         20
 
-#define MAX_MSG_LENGTH 		200 
+#define MAX_MSG_LENGTH 		100
 #define ID_MAX_LENGTH		20
 #define ACTION_MAX_LENGTH	20
 
 #define HEAT_MODEL "<model spid=\"002000000000000a\">\
-        <name>SOO.heat</name>\
-        <description>\"SOO.heat permet de gérer l'électrovanne en fonction de la température intérieur et extérieur.\"</description>\
-        <layout>\
-            <row>\
-                <col span=\"3\">\
-                    <input id=\"setpoint-temp\" ></input>\
-                </col>\
-                <col span=\"2\">\
-                    <button id=\"button-save\" lockable=\"false\">\"Save\"</button>\
-                </col>\
-            </row>\
-        </layout>\
-    </model>"
+<name>SOO.heat</name>\
+<description>\"Gestion électrovanne.\"</description>\
+<layout>\
+    <row>\
+        <col span=\"3\"><text>Consigne chauffage C°</text></col>\
+    </row>\
+    <row>\
+        <col span=\"2\"><input id=\"setpoint-temp\" ></input></col>\
+        <col span=\"2\"><button id=\"button-save\" lockable=\"false\">\"Save\"</button></col>\
+    </row>\
+    <row>\
+        <col span=\"2\"><text>Consigne</text></col>\
+        <col span=\"2\"><text>C° intérieure</text></col>\
+        <col span=\"2\"><text>C° extérieure</text></col>\
+        <col span=\"2\"><text>Etat valve</text></col>\
+    </row>\
+    <row>\
+        <col span=\"2\"><text id=\"target-temp\" ></text></col>\
+        <col span=\"2\"><text id=\"indoor-temp\" ></text></col>\
+        <col span=\"2\"><text id=\"outdoor-temp\" ></text></col>\
+        <col span=\"2\"><text id=\"status-valve\" ></text></col>\
+    </row>\
+</layout>\
+</model>"
 
 
 typedef struct {
@@ -56,6 +68,7 @@ typedef struct {
     bool 		event;
     char 		temperatureOutdoor;
 	char		temperatureIndoor;
+    char        targetTemp;
 } heat_t;
 
 typedef struct {
@@ -80,5 +93,7 @@ extern sh_heat_t *sh_heat;
 extern struct completion send_data_lock;
 
 extern atomic_t shutdown;
+
+void send_temp_to_tablet(char *temp, char *id);
 
 #endif /* HEAT_H */

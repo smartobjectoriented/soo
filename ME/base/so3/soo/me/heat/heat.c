@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -75,7 +75,6 @@ struct completion new_temp;
 
 
 void heat_send_model(void) {
-	printk("SENDINGGGG MODELLLLLLLLL\n");
 	vuihandler_send(HEAT_MODEL, strlen(HEAT_MODEL)+1, VUIHANDLER_SELECT);
 }
 
@@ -83,34 +82,43 @@ void heat_process_events(char *data, size_t size) {
 	char id[ID_MAX_LENGTH];
 	char action[ACTION_MAX_LENGTH];
 	char content[MAX_MSG_LENGTH];
+	char buf[MAX_MSG_LENGTH];
+	// char msg[MAX_MSG_LENGTH];
 
 	memset(id, 0, ID_MAX_LENGTH);
 	memset(action, 0, ACTION_MAX_LENGTH);
+	memset(content, 0, MAX_MSG_LENGTH);
+	
 
 	xml_parse_event(data, id, action);
 
-	if (!strcmp(action, "clickDown")) {
-
-		if (!strcmp(id, BTN_SEND_ID)) {
-			if (!strcmp(id, TEXTEDIT_ID)) {
-			xml_get_event_content(data, content);
-			strcpy(cur_text, content);
-			}
+	if (!strcmp(action, "clickUp")) {
+		if (!strcmp(id, BTN_SAVE_ID)) {
+			sh_heat->heat.targetTemp = ((cur_text[0]-48)*10) + (cur_text[1]-48);
+			DBG(MEHEAT_PREFIX "sh_heat->heat.targetTemp = %s\n", cur_text);
 		}
-
-		complete(&send_data_lock);
+	}else if (!strcmp(id, SETPOINT_TEMP_ID)) {
+		xml_get_event_content(data, content);
+		strcpy(cur_text, content);
 	}
+
+	memset(buf, 0, MAX_MSG_LENGTH);
+	sprintf(buf, "%d", sh_heat->heat.targetTemp);
+	send_temp_to_tablet(buf, TARGET_TEMP);
 }
 
 
 
 void *soo_heat_get_outdoor_temp(void *args)
-{
+{	
+	// char buf[MAX_MSG_LENGTH];
+
 	while(atomic_read(&shutdown)){
 		wait_for_completion(&send_data_lock);
 		sh_heat->isNewOutdoorTemp = true;
 		sh_heat->checkNoOutdoorTemp = 0;
 	}
+	return NULL;
 }
 
 
@@ -121,12 +129,11 @@ void *soo_heat_command_valve(void *args)
 {
 	int valve_id;
 	char actualTemp;
+	char buf[MAX_MSG_LENGTH];
 
 	while (atomic_read(&shutdown)) { 
 
-		// DBG(MEHEAT_PREFIX "is waiting\n");
 		wait_for_completion(&new_temp);
-		DBG(MEHEAT_PREFIX "going to send valve cmd !!!\n");
 
 		/* Get ID of the valve connected on the current Smart Object*/
 		valve_id = vvalve_get_id();
@@ -135,23 +142,32 @@ void *soo_heat_command_valve(void *args)
 		if(sh_heat->isNewOutdoorTemp){
 			DBG(MEHEAT_PREFIX "Temp outdoor : %d\n", sh_heat->heat.temperatureOutdoor);
 			actualTemp = (sh_heat->heat.temperatureOutdoor + sh_heat->heat.temperatureIndoor) / 2;
+			memset(buf, 0, MAX_MSG_LENGTH);
+			sprintf(buf, "%d", sh_heat->heat.temperatureOutdoor);
+			send_temp_to_tablet(buf, OUTDOOR_TEMP);
 		}else{
 			actualTemp = sh_heat->heat.temperatureIndoor;
+			send_temp_to_tablet("-", OUTDOOR_TEMP);
 		}
+
+		memset(buf, 0, MAX_MSG_LENGTH);
+		sprintf(buf, "%d", sh_heat->heat.temperatureIndoor);
+		send_temp_to_tablet(buf, INDOOR_TEMP);
 		
 		DBG(MEHEAT_PREFIX "Temp indoor  : %d\n", sh_heat->heat.temperatureIndoor);
 		DBG(MEHEAT_PREFIX "Temp actual  : %d\n", actualTemp);
-		DBG(MEHEAT_PREFIX "Temp target  : %d\n", TMP_WANTED);
+		DBG(MEHEAT_PREFIX "Temp target  : %d\n", sh_heat->heat.targetTemp);
 
 		if(sh_heat->heat.id == valve_id) {
-			DBG(MEHEAT_PREFIX "Same ID\n");
-			if(actualTemp >= TMP_WANTED) {
+			// DBG(MEHEAT_PREFIX "Same ID\n");
+			if(actualTemp >= sh_heat->heat.targetTemp) {
 				DBG(MEHEAT_PREFIX "Valve closed\n");
 				vvalve_send_cmd(VALVE_CMD_CLOSE);
-
+				send_temp_to_tablet("Fermée", STATUS_VALVE);
 			} else {
 				DBG(MEHEAT_PREFIX "Valve opened\n");
 				vvalve_send_cmd(VALVE_CMD_OPEN);
+				send_temp_to_tablet("Ouverte", STATUS_VALVE);
 			}
 		} else {
 			DBG(MEHEAT_PREFIX "Not the same ID\n");
@@ -163,12 +179,19 @@ void *soo_heat_command_valve(void *args)
 }
 
 
+/**
+ * @brief 
+ * 
+ * @param args 
+ * @return void* 
+ */
 void *soo_heat_get_sensor_temp(void *args){
 	char *buf;
+	// char msg[MAX_MSG_LENGTH];
+
 
 	while(atomic_read(&shutdown)){
 		buf = malloc(sizeof(char));
-		// DBG(MEHEAT_PREFIX "get temp data ME\n");
 		vtemp_get_temp_data(buf);
 		// DBG(MEHEAT_PREFIX "sensor temp %d ME\n", *buf);
 		sh_heat->heat.temperatureIndoor = (char)*buf;
@@ -181,6 +204,23 @@ void *soo_heat_get_sensor_temp(void *args){
 		complete(&new_temp);
 		msleep(GET_TEMP_MS);
 	}
+
+	return NULL;
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void send_temp_to_tablet(/*uint64_t senderUID, */char *temp, char *id) {
+	char msg[MAX_MSG_LENGTH];
+
+	memset(msg, 0, MAX_MSG_LENGTH);
+	DBG("BUFFER send to tablet %s\n", temp);
+	xml_prepare_message(msg, id, temp);
+
+	vuihandler_send(msg, strlen(msg)+1, VUIHANDLER_POST);
 }
 
 
@@ -209,6 +249,8 @@ void *app_thread_main(void *args) {
 	init_completion(&new_temp);
 
 	vuihandler_register_callbacks(heat_send_model, heat_process_events);
+
+	sh_heat->heat.targetTemp = TARGET_TEMP_DEFAULT;
 
 	DBG(MEWEATHERSTATION_PREFIX "Welcome\n");
 	heat_cmd_valve_th = kernel_thread(soo_heat_command_valve, "soo_heat_command_valve", heat, THREAD_PRIO_DEFAULT);

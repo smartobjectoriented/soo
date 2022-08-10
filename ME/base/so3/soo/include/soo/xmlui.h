@@ -29,6 +29,10 @@
 /* SOO.heat widgets id */
 #define SETPOINT_TEMP_ID    "setpoint-temp"
 #define BTN_SAVE_ID         "button-save"
+#define INDOOR_TEMP         "indoor-temp"
+#define OUTDOOR_TEMP        "outdoor-temp"
+#define STATUS_VALVE        "status-valve"
+#define TARGET_TEMP         "target-temp"
 
 
 /*

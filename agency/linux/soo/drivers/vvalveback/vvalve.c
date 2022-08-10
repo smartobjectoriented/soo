@@ -167,12 +167,16 @@ static int cmd_valve_task_fn(void *arg) {
 		wait_for_completion(&wait_cmd);
 		switch (vvalve_priv->vvalve_desc.cmd_valve)	{
 		case VALVE_CMD_OPEN:
+#if DEBUG
 			printk("%s Call valve open\n", VVALVE_PREFIX);
+#endif
 			vanalog_valve_open(vvalve_priv);
 			break;
 
 		case VALVE_CMD_CLOSE:
+#if DEBUG
 			printk("%s Call valve close\n", VVALVE_PREFIX);
+#endif
 			vanalog_valve_close(vvalve_priv);
 			break;
 		

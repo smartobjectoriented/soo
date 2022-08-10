@@ -18,7 +18,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -154,7 +154,7 @@ static void process_pending_rx_rsp(struct vbus_device *vdev) {
 	vuihandler_t *vuihandler = &vuihandler_priv->vuihandler;
 
 	while ((ring_rsp = vuihandler_rx_get_ring_response(&vuihandler->rx_ring)) != NULL) {
-		printk("rsp->id = %d, rsp->size = %d, type = %d\n", ring_rsp->id, ring_rsp->size, ring_rsp->type);
+		// printk("rsp->id = %d, rsp->size = %d, type = %d\n", ring_rsp->id, ring_rsp->size, ring_rsp->type);
 		DBG("Packet as string is: %s\n", ring_rsp->buf);
 		switch (ring_rsp->type) {
 
@@ -167,7 +167,7 @@ static void process_pending_rx_rsp(struct vbus_device *vdev) {
 
 		/* Model aksing */
 		case VUIHANDLER_SELECT:
-			printk("THE BE ASK FOR THE MODEL\n");
+			// printk("THE BE ASK FOR THE MODEL\n");
 			if (__ui_send_model != NULL)
 				__ui_send_model();
 			break;

@@ -63,7 +63,7 @@ void weatherstation_get_data(weatherstation_t *ws){
 
 	if(ws->ws.event){
 		sh_weatherstation->ws.ws.lightSensor	= ws->ws.lightSensor;
-#if 1 // test
+#if 0 // test
 	if(sh_weatherstation->ws.ws.outdoorTemp == 15){
 		sh_weatherstation->ws.ws.outdoorTemp 	= 30;
 	}else{
