@@ -74,27 +74,46 @@ extern void *localinfo_data;
 struct completion new_temp;
 
 
-void heat_send_model(void) {
+/**
+ * @brief XML model sending
+ * 
+ */
+void heat_send_model(void)
+{
 	vuihandler_send(HEAT_MODEL, strlen(HEAT_MODEL)+1, VUIHANDLER_SELECT);
 }
 
-void heat_process_events(char *data, size_t size) {
+
+/**
+ * @brief Callback events from GUI
+ * 
+ * @param data char*
+ * @param size size_t
+ */
+void heat_process_events(char *data, size_t size)
+{
 	char id[ID_MAX_LENGTH];
 	char action[ACTION_MAX_LENGTH];
 	char content[MAX_MSG_LENGTH];
-	char buf[MAX_MSG_LENGTH];
-	// char msg[MAX_MSG_LENGTH];
 
 	memset(id, 0, ID_MAX_LENGTH);
 	memset(action, 0, ACTION_MAX_LENGTH);
 	memset(content, 0, MAX_MSG_LENGTH);
-	
 
 	xml_parse_event(data, id, action);
 
 	if (!strcmp(action, "clickUp")) {
 		if (!strcmp(id, BTN_SAVE_ID)) {
-			sh_heat->heat.targetTemp = ((cur_text[0]-48)*10) + (cur_text[1]-48);
+			DBG(MEHEAT_PREFIX "[0] %d     [1] %d", cur_text[0], cur_text[1]);
+
+			// Check if the user input is in range 0 to 9
+			if(cur_text[0] >= ASCII_0 && cur_text[0] <= ASCII_9 && cur_text[1] >= ASCII_0 && cur_text[1] <= ASCII_9){
+				sh_heat->heat.targetTemp = ((cur_text[0] - ASCII_0)*10) + (cur_text[1] - ASCII_0);
+
+			}else if(cur_text[0] >= ASCII_0 && cur_text[0] <= ASCII_9){
+				sh_heat->heat.targetTemp = (cur_text[0] - ASCII_0);
+			}	
+
 			DBG(MEHEAT_PREFIX "sh_heat->heat.targetTemp = %s\n", cur_text);
 		}
 	}else if (!strcmp(id, SETPOINT_TEMP_ID)) {
@@ -102,17 +121,18 @@ void heat_process_events(char *data, size_t size) {
 		strcpy(cur_text, content);
 	}
 
-	memset(buf, 0, MAX_MSG_LENGTH);
-	sprintf(buf, "%d", sh_heat->heat.targetTemp);
-	send_temp_to_tablet(buf, TARGET_TEMP);
+	prepar_temp_to_send(sh_heat->heat.targetTemp, TARGET_TEMP);
 }
 
 
-
+/**
+ * @brief Getter outdoor temperatur. Wait for a event
+ * 
+ * @param args void*
+ * @return void* 
+ */
 void *soo_heat_get_outdoor_temp(void *args)
 {	
-	// char buf[MAX_MSG_LENGTH];
-
 	while(atomic_read(&shutdown)){
 		wait_for_completion(&send_data_lock);
 		sh_heat->isNewOutdoorTemp = true;
@@ -123,13 +143,12 @@ void *soo_heat_get_outdoor_temp(void *args)
 
 
 /**
- * @brief Main thread sending command to the valve when SOO.indoor cooperate
+ * @brief Main thread sending command to the valve when there is new indoor temp. Wait for a event
  **/
 void *soo_heat_command_valve(void *args)
 {
 	int valve_id;
 	char actualTemp;
-	char buf[MAX_MSG_LENGTH];
 
 	while (atomic_read(&shutdown)) { 
 
@@ -138,21 +157,17 @@ void *soo_heat_command_valve(void *args)
 		/* Get ID of the valve connected on the current Smart Object*/
 		valve_id = vvalve_get_id();
 	
-		/* Compare the temperature Sensor and SOO.outdoor */
+		// Compare the temperature Sensor and SOO.outdoor if there is outdoor temperatur
 		if(sh_heat->isNewOutdoorTemp){
 			DBG(MEHEAT_PREFIX "Temp outdoor : %d\n", sh_heat->heat.temperatureOutdoor);
 			actualTemp = (sh_heat->heat.temperatureOutdoor + sh_heat->heat.temperatureIndoor) / 2;
-			memset(buf, 0, MAX_MSG_LENGTH);
-			sprintf(buf, "%d", sh_heat->heat.temperatureOutdoor);
-			send_temp_to_tablet(buf, OUTDOOR_TEMP);
+			prepar_temp_to_send(sh_heat->heat.temperatureOutdoor, OUTDOOR_TEMP);
 		}else{
 			actualTemp = sh_heat->heat.temperatureIndoor;
 			send_temp_to_tablet("-", OUTDOOR_TEMP);
 		}
 
-		memset(buf, 0, MAX_MSG_LENGTH);
-		sprintf(buf, "%d", sh_heat->heat.temperatureIndoor);
-		send_temp_to_tablet(buf, INDOOR_TEMP);
+		prepar_temp_to_send(sh_heat->heat.temperatureIndoor, INDOOR_TEMP);
 		
 		DBG(MEHEAT_PREFIX "Temp indoor  : %d\n", sh_heat->heat.temperatureIndoor);
 		DBG(MEHEAT_PREFIX "Temp actual  : %d\n", actualTemp);
@@ -180,22 +195,37 @@ void *soo_heat_command_valve(void *args)
 
 
 /**
- * @brief 
+ * @brief Func to prepar char temperatur to char*
+ * 
+ * @param temp char
+ * @param id char*
+ */
+void prepar_temp_to_send(char temp, char *id)
+{
+	char buf[MAX_MSG_LENGTH];
+
+	memset(buf, 0, MAX_MSG_LENGTH);
+	sprintf(buf, "%d", temp);
+	send_temp_to_tablet(buf, id);
+}
+
+
+/**
+ * @brief Func to get indoor temperatur from Sense Hat sensor
  * 
  * @param args 
  * @return void* 
  */
-void *soo_heat_get_sensor_temp(void *args){
+void *soo_heat_get_sensor_temp(void *args)
+{
 	char *buf;
-	// char msg[MAX_MSG_LENGTH];
-
 
 	while(atomic_read(&shutdown)){
 		buf = malloc(sizeof(char));
 		vtemp_get_temp_data(buf);
-		// DBG(MEHEAT_PREFIX "sensor temp %d ME\n", *buf);
 		sh_heat->heat.temperatureIndoor = (char)*buf;
 
+		//Check if there is still outdoor temperatur comming
 		if(sh_heat->checkNoOutdoorTemp >= VAL_STOP_GET_OUTDOOR_TEMP){
 			sh_heat->isNewOutdoorTemp = false;
 		}else{
@@ -204,16 +234,16 @@ void *soo_heat_get_sensor_temp(void *args){
 		complete(&new_temp);
 		msleep(GET_TEMP_MS);
 	}
-
 	return NULL;
 }
 
 
 /**
- * @brief 
+ * @brief Func to send temperatur to app
  * 
  */
-void send_temp_to_tablet(/*uint64_t senderUID, */char *temp, char *id) {
+void send_temp_to_tablet(char *temp, char *id)
+{
 	char msg[MAX_MSG_LENGTH];
 
 	memset(msg, 0, MAX_MSG_LENGTH);

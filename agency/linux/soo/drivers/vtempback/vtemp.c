@@ -280,8 +280,6 @@ int vtemp_init(void) {
 
 	kthread_run(send_temp_to_front, NULL, "send_data_fn");
 
-	printk("[ %s ] BACKEND INIT CALLED !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", VTEMP_NAME);
-
 	pr_info(VTEMP_PREFIX " Initialized successfully\n");
 
 	return 0;

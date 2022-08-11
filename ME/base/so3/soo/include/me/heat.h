@@ -36,6 +36,9 @@
 #define ID_MAX_LENGTH		20
 #define ACTION_MAX_LENGTH	20
 
+#define ASCII_0 48
+#define ASCII_9 57
+
 #define HEAT_MODEL "<model spid=\"002000000000000a\">\
 <name>SOO.heat</name>\
 <description>\"Gestion électrovanne.\"</description>\
@@ -95,5 +98,6 @@ extern struct completion send_data_lock;
 extern atomic_t shutdown;
 
 void send_temp_to_tablet(char *temp, char *id);
+void prepar_temp_to_send(char temp, char *id);
 
 #endif /* HEAT_H */

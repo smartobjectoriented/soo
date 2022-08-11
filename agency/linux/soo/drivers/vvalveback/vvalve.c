@@ -88,11 +88,9 @@ irqreturn_t vvalve_interrupt(int irq, void *dev_id)
 		switch (ring_req->action) {
 		case VALVE_ACTION_CMD_VALVE:
 			vvalve_priv->vvalve_desc.cmd_valve = ring_req->cmd_valve;
-			// complete(&vvalve_priv->wait_cmd);
 			complete(&wait_cmd);
 			break;
 		case VALVE_ACTION_ASK_ID:
-			// complete(&vvalve_priv->wait_send_id);
 			complete(&wait_send_id);
 			break;
 		default:
@@ -154,29 +152,15 @@ static int send_id_task_fn(void *arg) {
 static int cmd_valve_task_fn(void *arg) {
 
 	vvalve_priv_t *vvalve_priv = (vvalve_priv_t *) arg;
-#if 0
-	while(1){
-		vanalog_valve_open(vvalve_priv);
-		msleep(2000);
-		vanalog_valve_close(vvalve_priv);
-		msleep(2000);
-	}
-#endif
+
 	while(1) {
-		// wait_for_completion(&vvalve_priv->wait_cmd);
 		wait_for_completion(&wait_cmd);
 		switch (vvalve_priv->vvalve_desc.cmd_valve)	{
 		case VALVE_CMD_OPEN:
-#if DEBUG
-			printk("%s Call valve open\n", VVALVE_PREFIX);
-#endif
 			vanalog_valve_open(vvalve_priv);
 			break;
 
-		case VALVE_CMD_CLOSE:
-#if DEBUG
-			printk("%s Call valve close\n", VVALVE_PREFIX);
-#endif
+		case VALVE_CMD_CLOSE:		
 			vanalog_valve_close(vvalve_priv);
 			break;
 		
