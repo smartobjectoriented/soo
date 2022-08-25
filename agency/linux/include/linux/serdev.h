@@ -10,6 +10,8 @@
 #include <linux/termios.h>
 #include <linux/delay.h>
 
+
+
 struct serdev_controller;
 struct serdev_device;
 

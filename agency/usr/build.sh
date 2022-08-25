@@ -93,6 +93,7 @@ install_file_root build/apps/blacklist_soo
 
 # Wago app
 install_file_root build/wago_client/wago-client
+install_file_root build/serial/lr4_test
 
 # And modules if any
 cp module/*.ko build/deploy 2>/dev/null

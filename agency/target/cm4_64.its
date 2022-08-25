@@ -56,7 +56,7 @@
 	
         initrd {
         	description = "Agency initial rootfs (initrd)";
-            data = /incbin/("../rootfs/board/rpi4_64/initrd.cpio");
+            data = /incbin/("../rootfs/board/cm4_64/initrd.cpio");
             type = "ramdisk";
             arch = "arm64";
             os = "linux";

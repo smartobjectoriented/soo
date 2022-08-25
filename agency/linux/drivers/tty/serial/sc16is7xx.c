@@ -6,6 +6,10 @@
  *  Based on max310x.c, by Alexander Shiyan <shc_work@mail.ru>
  */
 
+#if 1
+#define DEBUG
+#endif
+
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/bitops.h>
@@ -296,9 +300,11 @@
 
 /** SOO **/
 /** Power-On reset default values **/
-#define SC16IS762_LSR_POR		0x65
+#define SC16IS752_LSR_POR		0x65
+#define SC16IS762_LSR_POR		0x79
 #define SC16IS762_LCR_POR		0x1D
-#define SC16IS762_TFL_POR		0x40	
+#define SC16IS762_TFL_POR		0x40
+/** end SOO **/
 
 struct sc16is7xx_devtype {
 	char	name[10];
@@ -501,6 +507,10 @@ static int sc16is7xx_set_baud(struct uart_port *port, int baud)
 	u8 prescaler = 0;
 	unsigned long clk = port->uartclk, div = clk / 16 / baud;
 
+#ifdef DEBUG
+	printk(SC16IS7XX_NAME ": %s %d\n", __func__, s->devtype->nr_uart);
+#endif
+
 	if (div > 0xffff) {
 		prescaler = SC16IS7XX_MCR_CLKSEL_BIT;
 		div /= 4;
@@ -565,7 +575,10 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 	struct sc16is7xx_port *s = dev_get_drvdata(port->dev);
 	unsigned int lsr = 0, ch, flag, bytes_read, i;
 	bool read_lsr = (iir == SC16IS7XX_IIR_RLSE_SRC) ? true : false;
-	printk("%s:%d\n", __func__, __LINE__);
+
+#ifdef DEBUG
+	printk(SC16IS7XX_NAME ": %s\n", __func__);
+#endif
 
 	if (unlikely(rxlen >= sizeof(s->buf))) {
 		dev_warn_ratelimited(port->dev,
@@ -576,10 +589,12 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 		rxlen = sizeof(s->buf);
 	}
 
+#ifdef DEBUG
 	dev_info(port->dev, "Buffer RX: %d", rxlen);
 	for (i = 0; i < rxlen; i++){
 		dev_info(port->dev, "0x%02X", s->buf[i]);
 	}
+#endif
 
 	while (rxlen) {
 		/* Only read lsr if there are possible errors in FIFO */
@@ -649,6 +664,10 @@ static void sc16is7xx_handle_tx(struct uart_port *port)
 	struct circ_buf *xmit = &port->state->xmit;
 	unsigned int txlen, to_send, i;
 
+#ifdef DEBUG
+	printk(SC16IS7XX_NAME ": %s %d\n", __func__, s->devtype->nr_uart);
+#endif
+
 	if (unlikely(port->x_char)) {
 		sc16is7xx_port_write(port, SC16IS7XX_THR_REG, port->x_char);
 		port->icount.tx++;
@@ -661,13 +680,6 @@ static void sc16is7xx_handle_tx(struct uart_port *port)
 	
 	/* Get length of data pending in circular buffer */
 	to_send = uart_circ_chars_pending(xmit);
-
-	dev_info(port->dev, "Buffer: %d", to_send);
-	// for (i = 0; i < to_send; i++){
-	// 	dev_info(port->dev, "0x%02X", xmit->buf[xmit->tail]);
-	// 	xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
-	// }
-
 
 	if (likely(to_send)) {
 		/* Limit to size of TX FIFO */
@@ -689,6 +701,13 @@ static void sc16is7xx_handle_tx(struct uart_port *port)
 			xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		}
 
+#ifdef DEBUG
+		printk(SC16IS7XX_NAME " TX data (%d):\n", to_send);
+		for (i = 0; i  < to_send; i++) {
+			printk(SC16IS7XX_NAME " [%d]: 0x%02X\n", i, s->buf[i]);
+		}
+#endif
+
 		sc16is7xx_fifo_write(port, to_send);
 	}
 
@@ -699,10 +718,11 @@ static void sc16is7xx_handle_tx(struct uart_port *port)
 static bool sc16is7xx_port_irq(struct sc16is7xx_port *s, int portno)
 {
 	struct uart_port *port = &s->p[portno].port;
-	printk("%s:%d\n", __func__, __LINE__);
 	do {
 		unsigned int iir, rxlen;
-
+#ifdef DEBUG
+	printk(SC16IS7XX_NAME ": %s %d\n", __func__, s->devtype->nr_uart);
+#endif
 		iir = sc16is7xx_port_read(port, SC16IS7XX_IIR_REG);
 		if (iir & SC16IS7XX_IIR_NO_INT_BIT)
 			return false;
@@ -714,9 +734,7 @@ static bool sc16is7xx_port_irq(struct sc16is7xx_port *s, int portno)
 		case SC16IS7XX_IIR_RLSE_SRC:
 		case SC16IS7XX_IIR_RTOI_SRC:
 		case SC16IS7XX_IIR_XOFFI_SRC:
-			printk("%s:%d\n", __func__, __LINE__);
 			rxlen = sc16is7xx_port_read(port, SC16IS7XX_RXLVL_REG);
-			dev_info(port->dev, "RX len: %d", rxlen);
 			if (rxlen)
 				sc16is7xx_handle_rx(port, rxlen, iir);
 			else
@@ -764,7 +782,6 @@ static void sc16is7xx_tx_proc(struct kthread_work *ws)
 	    (port->rs485.delay_rts_before_send > 0))
 		msleep(port->rs485.delay_rts_before_send);
 
-	dev_info(port->dev, "%s", __func__);
 	sc16is7xx_handle_tx(port);
 }
 
@@ -890,6 +907,9 @@ static void sc16is7xx_set_termios(struct uart_port *port,
 	unsigned int lcr, flow = 0;
 	int baud;
 
+#ifdef DEBUG
+	printk(SC16IS7XX_NAME ": %s %d\n", __func__, s->devtype->nr_uart);
+#endif
 	/* Mask termios capabilities we don't support */
 	termios->c_cflag &= ~CMSPAR;
 
@@ -1215,7 +1235,7 @@ static int sc16is7xx_probe(struct device *dev,
 			   struct regmap *regmap, int irq)
 {
 	unsigned long freq = 0, *pfreq = dev_get_platdata(dev);
-	unsigned int val;
+	unsigned int val, dev_lsr;
 	u32 uartclk = 0;
 	int i, ret;
 	struct sc16is7xx_port *s;
@@ -1231,36 +1251,39 @@ static int sc16is7xx_probe(struct device *dev,
 	ret = regmap_read(regmap,
 			  SC16IS7XX_LSR_REG << SC16IS7XX_REG_SHIFT, &val);
 
+
 	/** SOO **/
-	if (val != SC16IS762_LSR_POR) {
-		dev_err(dev, "Value LSR: 0x%08X is wrong. Expected value is 0x%08X", val, SC16IS762_LSR_POR);
-		ret = -1;
+#if 0
+	if (strcmp(devtype->name, sc16is752_devtype.name) == 0) {
+		dev_lsr = SC16IS752_LSR_POR;
+	} else if (strcmp(devtype->name, sc16is762_devtype.name) == 0) { 
+		dev_lsr = SC16IS762_LSR_POR;
+	} else {
+		dev_err(dev, "Unsupported device: %s", devtype->name);
+		return -ENODEV;
 	}
 
-	if (ret < 0)
-		return ret;
-
+	if (val != dev_lsr) {
+		dev_err(dev, "Value LSR: 0x%08X is wrong. Expected value is 0x%08X", val, dev_lsr);
+		return -ENODEV;
+	}
+#endif
 	ret = regmap_read(regmap,
 			  SC16IS7XX_LCR_REG << SC16IS7XX_REG_SHIFT, &val);
 
 	if (val != SC16IS762_LCR_POR) {
 		dev_err(dev, "Value LCR: 0x%08X is wrong. Expected value is 0x%08X", val, SC16IS762_LCR_POR);
-		ret = -1;
+		return -ENODEV;
 	}
-
-	if (ret < 0)
-		return ret;
 
 	ret = regmap_read(regmap,
 			  SC16IS7XX_TXLVL_REG << SC16IS7XX_REG_SHIFT, &val);
 
 	if (val != SC16IS762_TFL_POR) {
 		dev_err(dev, "Value LCR: 0x%08X is wrong. Expected value is 0x%08X", val, SC16IS762_TFL_POR);
-		ret = -1;
+		return -ENODEV;
 	}
-
-	if (ret < 0)
-		return ret;
+	/** end SOO **/
 
 	/* Alloc port structure */
 	s = devm_kzalloc(dev, struct_size(s, p, devtype->nr_uart), GFP_KERNEL);

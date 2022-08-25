@@ -19,6 +19,7 @@
 #include <linux/serdev.h>
 #include <linux/slab.h>
 #include <linux/platform_data/x86/apple.h>
+#include <dt-bindings/soo/soo-mp-v2.h>
 
 static bool is_registered;
 static DEFINE_IDA(ctrl_ida);
@@ -519,7 +520,7 @@ err_free:
 }
 EXPORT_SYMBOL_GPL(serdev_controller_alloc);
 
-#if 1
+#if 0
 static int of_serdev_register_devices(struct serdev_controller *ctrl)
 {
 	struct device_node *node;
@@ -559,10 +560,10 @@ static int read_serdev_node(struct device_node *node, struct serdev_controller *
 {
 	struct serdev_device *serdev = NULL;
 	int err;
-	// bool found = false;
 
 	if (!of_get_property(node, "compatible", NULL))
 		return -1;
+
 
 	dev_dbg(&ctrl->dev, "adding child %pOF\n", node);
 
@@ -584,31 +585,42 @@ static int read_serdev_node(struct device_node *node, struct serdev_controller *
 static int of_serdev_register_devices(struct serdev_controller *ctrl)
 {
     struct device_node *port, *node;
-    // struct serdev_device *serdev = NULL;
     struct serport *serport = serdev_controller_get_drvdata(ctrl);
-    // int err;
-    unsigned reg;
+    unsigned int type, port_nr;
     bool found = false;
 
-	// dev_info(&ctrl->dev, "Node name: %s", ctrl->dev.of_node->);
 	
     for_each_available_child_of_node(ctrl->dev.of_node, port) {
-		dev_info(&ctrl->dev, "Port name: %s", port->name);
-        of_property_read_u32(port, "reg", &reg);
-
-        if (serport->tty_idx != reg) {
-			if (read_serdev_node(port, ctrl) < 0)
+        if (of_property_read_u32(port, "type", &type) < 0) {
+			dev_info(&ctrl->dev, "No type property for device %s", port->name);
+			if (read_serdev_node(port, ctrl) < 0) 
 				found = false;
-			else
+			else 
 				found = true;
 		} else {
-        	for_each_available_child_of_node(port, node)
-				if (read_serdev_node(node, ctrl) < 0)
+			if (of_property_read_u32(port, "port", &port_nr) < 0 ) {
+				dev_info(&ctrl->dev, "Missing port property");
+				if (read_serdev_node(port, ctrl) < 0)
 					found = false;
 				else
 					found = true;
+			} else {
+#ifdef DEBUG
+				dev_info(&ctrl->dev, "Port name: %s, ttyidx: %d, type: %d, port nr: %u", port->name, 
+						serport->tty_idx, type, port_nr);
+#endif
+				for_each_available_child_of_node(port, node) {
+					if (port_nr == serport->tty_idx) {
+						if (read_serdev_node(node, ctrl) < 0)
+							found = false;
+						else
+							found = true;
+					}
+				}
+				
+			}
 		}
-    }
+	}
     if (!found)
         return -ENODEV;
 

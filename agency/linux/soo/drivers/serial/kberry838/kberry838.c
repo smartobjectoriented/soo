@@ -26,7 +26,7 @@
 #include <linux/kthread.h>
 #include <soo/device/baos_client.h> 
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
