@@ -50,23 +50,29 @@ static mipot_msg_t get_fw_vers = {GET_FW_VERSION, 0, NULL};
  * @return int byte written
  */
 int mipot320_write_buf(const byte *buffer, size_t len) {
-    int tx_bytes = 0;
-    int byte_written = 0;
+    int tx_bytes = 0, byte_written = 0;
+    size_t i;
 
     BUG_ON(!mipot320->is_open);
 
     if (serdev_device_write_room(mipot320->serdev) < len) {
         dev_err(mipot320->dev, "Not enough room\n");
-        BUG();
+        return -1;
     }
 
     /** Write the entire buffer. If the operation can't be done in 
      *  all at once, repeat the write operation until all bytes have
      *  been written.
      */
-    while(tx_bytes < len) {
-        tx_bytes = serdev_device_write(mipot320->serdev, &buffer[byte_written], len - byte_written, 0);
-        BUG_ON(tx_bytes < 1);
+    // while(tx_bytes < len) {
+    //     tx_bytes = serdev_device_write(mipot320->serdev, &buffer[byte_written], len - byte_written, 0);
+    //     BUG_ON(tx_bytes < 1);
+    //     byte_written += tx_bytes;
+    // }
+    for (i = 0; i < len; i++) {
+        tx_bytes = serdev_device_write(mipot320->serdev, &buffer[i], sizeof(byte), msecs_to_jiffies(10));
+        if (tx_bytes < 0)
+            return -1;
         byte_written += tx_bytes;
     }
 

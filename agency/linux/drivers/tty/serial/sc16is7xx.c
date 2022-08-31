@@ -402,11 +402,17 @@ static void sc16is7xx_fifo_write(struct uart_port *port, u8 to_send)
 	 * Don't send zero-length data, at least on SPI it confuses the chip
 	 * delivering wrong TXLVL data.
 	 */
-	if (unlikely(!to_send))
+	if (unlikely(!to_send)) {
+#ifdef DEBUG
+		printk(SC16IS7XX_NAME " unlikely to send\n");
+#endif
 		return;
+	}
 
 	regcache_cache_bypass(s->regmap, true);
-	regmap_raw_write(s->regmap, addr, s->buf, to_send);
+	if (regmap_raw_write(s->regmap, addr, s->buf, to_send) < 0) {
+		dev_err_ratelimited(port->dev, "regmap_raw_write() failed");
+	}
 	regcache_cache_bypass(s->regmap, false);
 }
 
@@ -589,13 +595,6 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 		rxlen = sizeof(s->buf);
 	}
 
-#ifdef DEBUG
-	dev_info(port->dev, "Buffer RX: %d", rxlen);
-	for (i = 0; i < rxlen; i++){
-		dev_info(port->dev, "0x%02X", s->buf[i]);
-	}
-#endif
-
 	while (rxlen) {
 		/* Only read lsr if there are possible errors in FIFO */
 		if (read_lsr) {
@@ -641,6 +640,10 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 				flag = TTY_OVERRUN;
 		}
 
+#ifdef DEBUG
+	dev_info(port->dev, "Buffer RX: %d", rxlen);
+#endif
+
 		for (i = 0; i < bytes_read; ++i) {
 			ch = s->buf[i];
 			if (uart_handle_sysrq_char(port, ch))
@@ -648,7 +651,9 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 
 			if (lsr & port->ignore_status_mask)
 				continue;
-
+#ifdef DEBUG			
+			dev_info(port->dev, "0x%02X", ch);
+#endif
 			uart_insert_char(port, lsr, SC16IS7XX_LSR_OE_BIT, ch,
 					 flag);
 		}
