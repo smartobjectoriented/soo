@@ -240,15 +240,48 @@ int mipot320_subscribe(void (*callback)(byte *data)) {
 
 static int test_thread(void *data) {
     /** Wait for boot to complete **/
+    int ret = 0;
+
     msleep(10000);
+
+    ret = serdev_device_open(mipot320->serdev);
+    if (ret < 0) {
+        dev_err(mipot320->dev, "Failed to open serial port\n");
+        return ret;
+    }
+    mipot320->is_open = 1;
+
+    ret = serdev_device_set_baudrate(mipot320->serdev, 115200);
+    if (ret != 115200) {
+        dev_err(mipot320->dev, "Failed to set baudrate\n");
+        return -1;
+    }
+
+    ret = serdev_device_set_parity(mipot320->serdev, SERDEV_PARITY_NONE);
+    if (ret < 0) {
+        dev_err(mipot320->dev, "Failed to set parity\n");
+        return ret;
+    }
+
+    ret = serdev_device_set_rts(mipot320->serdev, false);
+    if (ret < 0) {
+        dev_err(mipot320->dev, "Failed to set rts/cts\n");
+        return ret;
+    }
+
+    serdev_device_set_flow_control(mipot320->serdev, false);
 
     if (mipot320_send_msg(reset) < 0) {
         dev_info(mipot320->dev, "Failed to reset");
     }
 
+    msleep(1000);
+
     if (mipot320_send_msg(get_fw_vers) < 0) {
         dev_info(mipot320->dev, "Failed to get fw version");
     }
+
+    serdev_device_close(mipot320->serdev);
 
     return 0;
 }
@@ -279,32 +312,32 @@ static int mipot320_serdev_probe(struct serdev_device *serdev) {
     mipot320->baud = baud;
     init_completion(&mipot320->wait_rsp);
 
-    ret = serdev_device_open(serdev);
-    if (ret < 0) {
-        dev_err(dev, "Failed to open serial port\n");
-        return ret;
-    }
-    mipot320->is_open = 1;
+    // ret = serdev_device_open(serdev);
+    // if (ret < 0) {
+    //     dev_err(dev, "Failed to open serial port\n");
+    //     return ret;
+    // }
+    // mipot320->is_open = 1;
 
-    ret = serdev_device_set_baudrate(serdev, baud);
-    if (ret != baud) {
-        dev_err(dev, "Failed to set baudrate\n");
-        return -1;
-    }
+    // ret = serdev_device_set_baudrate(serdev, baud);
+    // if (ret != baud) {
+    //     dev_err(dev, "Failed to set baudrate\n");
+    //     return -1;
+    // }
 
-    ret = serdev_device_set_parity(serdev, SERDEV_PARITY_NONE);
-    if (ret < 0) {
-        dev_err(dev, "Failed to set parity\n");
-        return ret;
-    }
+    // ret = serdev_device_set_parity(serdev, SERDEV_PARITY_NONE);
+    // if (ret < 0) {
+    //     dev_err(dev, "Failed to set parity\n");
+    //     return ret;
+    // }
 
-    ret = serdev_device_set_rts(serdev, false);
-    if (ret < 0) {
-        dev_err(dev, "Failed to set rts/cts\n");
-        return ret;
-    }
+    // ret = serdev_device_set_rts(serdev, false);
+    // if (ret < 0) {
+    //     dev_err(dev, "Failed to set rts/cts\n");
+    //     return ret;
+    // }
 
-    serdev_device_set_flow_control(serdev, false);
+    // serdev_device_set_flow_control(serdev, false);
 
     kthread_run(test_thread, NULL, "test-th");
 
