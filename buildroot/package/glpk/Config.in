@@ -1,8 +1,0 @@
-config BR2_PACKAGE_GLPK
-	bool "glpk"
-	depends on BR2_PACKAGE_HOST_PKGCONF
-	help
-	  The GLPK (GNU Linear Programming Kit) package is intended for solving large-scale linear programming (LP),
-	  mixed integer programming (MIP), and other related problems.
-
-	  https://www.gnu.org/software/glpk/

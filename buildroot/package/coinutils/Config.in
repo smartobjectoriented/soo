@@ -1,6 +1,0 @@
-config BR2_PACKAGE_COINUTILS
-	bool "CoinUtils"
-	help
-	  CoinUtils (Coin-OR Utilities) is an open-source collection of classes and functions that are generally useful to more than one COIN-OR project.
-
-	  https://github.com/coin-or/CoinUtils
