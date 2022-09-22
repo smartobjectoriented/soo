@@ -1,0 +1,12 @@
+config BR2_PACKAGE_PYTHON_SENSE_EMU
+	bool "python-sense-emu"
+	depends on BR2_PACKAGE_PYTHON3
+	select BR2_PACKAGE_PYTHON_RTIMULIB
+	select BR2_PACKAGE_PYTHON_NUMPY
+	help
+	  This is the Sense Hat emulation support for Raspberry Pi 4.
+	  
+	  https://github.com/astro-pi/python-sense-emu
+
+	  
+	  
