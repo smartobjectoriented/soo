@@ -4,9 +4,9 @@
 #
 ################################################################################
 
-PYTHON_SENSE_HAT_VERSION =
-PYTHON_SENSE_HAT_SOURCE = master.zip
-PYTHON_SENSE_HAT_SITE = https://github.com/astro-pi/python-sense-hat/archive
+PYTHON_SENSE_HAT_VERSION = 2.4.0
+PYTHON_SENSE_HAT_SOURCE = v$(PYTHON_SENSE_HAT_VERSION).zip
+PYTHON_SENSE_HAT_SITE = https://github.com/astro-pi/python-sense-hat/archive/refs/tags
 PYTHON_SENSE_HAT_SETUP_TYPE = setuptools
 #SENSE_HAT_TARGET_DIR = $(TARGET_DIR)/usr/lib/python3.8/site-packages
 PYTHON_SENSE_HAT_LICENSE = Raspberry Pi Foundation
@@ -17,8 +17,8 @@ PYTHON_SENSE_HAT_LICENSE_FILES = LICENSE.txt
 
 define PYTHON_SENSE_HAT_EXTRACT_CMDS
 	$(UNZIP) -d $(@D) $(PYTHON_SENSE_HAT_DL_DIR)/$(PYTHON_SENSE_HAT_SOURCE)
-	mv $(@D)/python-sense-hat-master/* $(@D)
-	$(RM) -r $(@D)/python-sense-hat-master
+	mv $(@D)/python-sense-hat-$(PYTHON_SENSE_HAT_VERSION)/* $(@D)
+	$(RM) -r $(@D)/python-sense-hat-$(PYTHON_SENSE_HAT_VERSION)
 endef
  
 #define SENSE_HAT_RENAME
