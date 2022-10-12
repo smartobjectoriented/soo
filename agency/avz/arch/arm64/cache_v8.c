@@ -31,6 +31,7 @@
  *    Lv3:       1FF000       4K
  *    off:          FFF
  */
+extern void __mmu_setup(void *pgtable);
 
 /**
  * Activate the MMU and setup the CPU with the right attributes.
@@ -58,25 +59,25 @@ void mmu_setup(void *pgtable)
 	/* We need ttbr0 for mapping the devices which physical addresses
 	 * are in the user space range.
 	 */
-	asm volatile("msr ttbr0_el1, %0" : : "r" (pgtable) : "memory");
+	//asm volatile("msr ttbr0_el2, %0" : : "r" (pgtable) : "memory");
 
 	/* For kernel mapping */
-	asm volatile("msr ttbr1_el1, %0" : : "r" (pgtable) : "memory");
+	//asm volatile("msr ttbr1_el2, %0" : : "r" (pgtable) : "memory");
 
-	asm volatile("msr tcr_el1, %0" : : "r" (tcr) : "memory");
+	asm volatile("msr tcr_el2, %0" : : "r" (tcr) : "memory");
 
-	asm volatile("msr mair_el1, %0" : : "r" (attr) : "memory");
+	asm volatile("msr mair_el2, %0" : : "r" (attr) : "memory");
 
 	asm volatile("isb");
 
 	/* Enable the mmu and set the sctlr register correctly. */
+__mmu_setup(pgtable);
+//	set_sctlr(SCTLR_EL1_SET);
 
-	set_sctlr(SCTLR_EL1_SET);
+//	asm volatile("isb");
 
-	asm volatile("isb");
-
-	invalidate_dcache_all();
-	__asm_invalidate_tlb_all();
+//	invalidate_dcache_all();
+//	__asm_invalidate_tlb_all();
 
 }
 

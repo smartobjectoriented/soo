@@ -28,6 +28,7 @@
 
 .global __start
 .global __fdt_addr
+.global __mmu_setup
 
 .extern clear_bss
 .extern mmu_configure
@@ -56,8 +57,9 @@ __start:
 	// Preserve the fdt addr (device tree) which is stored in x0 by U-boot
 	mov		x9, x0
 
-	// Mostly for future usage...
-	bl		el2_setup			// Drop to EL1, w0=cpu_boot_mode
+	// We assume that U-boot started us in EL2 hyp mode
+
+	bl		el2_setup
 
 	/* Clear the BSS */
 
@@ -71,16 +73,16 @@ __start:
 
 	// Initialize the vector table
 	ldr	x0, =__vectors
-	msr vbar_el1, x0
+	msr vbar_el2, x0
 
 	// Enable FP/ASIMD
-	mov	x0, #3 << 20
-	msr	cpacr_el1, x0
+	//mov	x0, #3 << 20
+	//msr	cpacr_el2, x0
 
     // Up to here, a stack should be initialized
 
 	// Some CPU setup
-	msr pmuserenr_el0, xzr
+	//msr pmuserenr_el0, xzr
 
 	// Set up the MMU
     b		mmu_setup
@@ -94,6 +96,30 @@ __kernel_main:
 
 
 .align 2
+
+__mmu_setup:
+
+ 	/*
+     * The state of the TLBs is unknown before turning on the MMU.
+     * Flush them to avoid stale one.
+     */
+     tlbi  alle2                  /* Flush hypervisor TLBs */
+     dsb   nsh
+
+     msr   TTBR0_EL2, x0
+     isb
+
+     mrs   x0, SCTLR_EL2
+
+     orr   x0, x0, #SCTLR_ELx_M
+     orr   x0, x0, #SCTLR_ELx_C   /* Enable MMU and enable D-cache */
+
+     dsb   sy                     /* Flush PTE writes and finish reads */
+     msr   sctlr_el2, x0          /* now paging is enabled */
+     isb                          /* Now, flush the icache */
+
+     ret
+
 
 mmu_setup:
 
@@ -117,6 +143,25 @@ mmu_setup:
 
   blr	x0
 
+
+el2_setup:
+
+	/* Hyp configuration. */
+	ldr x0, =HCR_HOST_NVHE_FLAGS
+
+	msr	hcr_el2, x0
+	isb
+
+        /*
+        * Ensure that any exceptions encountered at EL2
+         * are handled using the EL2 stack pointer, rather
+         * than SP_EL0.
+         */
+        msr spsel, #1
+
+	ret
+
+#if 0
 /*
  * If we're fortunate enough to boot at EL2, ensure that the world is
  * sane before dropping to EL1.
@@ -125,36 +170,15 @@ mmu_setup:
  * booted in EL1 or EL2 respectively.
  */
 el2_setup:
-	msr	SPsel, #1			// We want to use SP_EL{1,2}
-	mrs	x0, CurrentEL
-	cmp	x0, #CurrentEL_EL2
-	b.eq	1f
-	ldr x0, =(SCTLR_EL1_RES1 | ENDIAN_SET_EL1)
 
-	msr	sctlr_el1, x0
-	mov	w0, #BOOT_CPU_MODE_EL1		// This cpu booted in EL1
-	isb
-	ret
-
-1:	ldr x0, =(SCTLR_EL2_RES1 | ENDIAN_SET_EL2)
-	msr	sctlr_el2, x0
-
-	/*
-	 * Check for VHE being present. For the rest of the EL2 setup,
-	 * x2 being non-zero indicates that we do have VHE, and that the
-	 * kernel is intended to run at EL2.
-	 */
-	mrs	x2, id_aa64mmfr1_el1
-	ubfx	x2, x2, #ID_AA64MMFR1_VHE_SHIFT, #4
-
+1:
 	/* Hyp configuration. */
-	ldr x0, =HCR_HOST_NVHE_FLAGS
-	cbz	x2, set_hcr
 	ldr x0, =HCR_HOST_VHE_FLAGS
 
-set_hcr:
 	msr	hcr_el2, x0
 	isb
+
+	ret
 
 	/*
 	 * Allow Non-secure EL1 and EL0 to access physical timer and counter.
@@ -279,6 +303,7 @@ install_el2_stub:
 	mov	w0, #BOOT_CPU_MODE_EL2		// This CPU booted in EL2
 
 	eret
+#endif
 
 
 ENTRY(secondary_startup)

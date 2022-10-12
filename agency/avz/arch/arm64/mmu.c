@@ -470,7 +470,7 @@ void replace_current_pgtable_with(void *pgtable) {
 	mmu_switch((void *) __pa(__sys_root_pgtable));
 }
 
-
+extern void __mmu_setup(void *pgtable);
 /*
  * Initial configuration of system page table
  */
@@ -541,6 +541,9 @@ void mmu_configure(addr_t fdt_addr) {
 
 		/* The device tree is visible in the L_PAGE_OFFSET area */
 		fdt_vaddr = (addr_t *) __lva(fdt_addr);
+	} else {
+
+
 	}
 }
 

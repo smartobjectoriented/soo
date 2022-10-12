@@ -22,10 +22,10 @@ launch_qemu() {
 
     if [ "$PLATFORM" == "virt64" ]; then
 
-    sudo qemu/build/qemu-system-aarch64 $@ ${USR_OPTION} \
+    sudo qemu-system-aarch64 $@ ${USR_OPTION} \
   	-smp 4 \
 	-serial mon:stdio  \
-	-M virt,gic-version=2 -cpu cortex-a72  \
+	-M virt,virtualization=on -cpu cortex-a72  \
 	-device virtio-blk-device,drive=hd0 \
 	-drive if=none,file=agency/filesystem/sdcard.img.virt64,id=hd0,format=raw,file.locking=off \
 	-m 1024 \
@@ -37,7 +37,7 @@ launch_qemu() {
 
     else    
 
-    sudo qemu/build/arm-softmmu/qemu-system-arm $@ ${USR_OPTION} \
+    sudo qemu-system-arm $@ ${USR_OPTION} \
   	-smp 4 \
 	-serial mon:stdio  \
 	-M vexpress-a15,secure=on -cpu cortex-a15 \

@@ -253,35 +253,33 @@ config: scripts_basic outputmakefile FORCE
 
 else
 
-# Read in dependencies to all Kconfig* files, make sure to run syncconfig if
-# changes are detected. This should be included after arch/$(SRCARCH)/Makefile
-# because some architectures define CROSS_COMPILE there.
-include include/config/auto.conf.cmd
 
-$(KCONFIG_CONFIG):
-	@echo >&2 '***'
-	@echo >&2 '*** Configuration file "$@" not found!'
-	@echo >&2 '***'
-	@echo >&2 '*** Please run some configurator (e.g. "make oldconfig" or'
-	@echo >&2 '*** "make menuconfig" or "make xconfig").'
-	@echo >&2 '***'
-	@/bin/false
-
-# The actual configuration files used during the build are stored in
-# include/generated/ and include/config/. Update them if .config is newer than
-# include/config/auto.conf (which mirrors .config).
-#
-# This exploits the 'multi-target pattern rule' trick.
-# The syncconfig should be executed only once to make all the targets.
-%/auto.conf %/auto.conf.cmd %/tristate.conf: $(KCONFIG_CONFIG)
-	$(Q)$(MAKE) -f $(srctree)/Makefile syncconfig
-
-include include/config/auto.conf
-
-# From here, we can rely CONFIG_* variables stored in .config
-CROSS_COMPILE = $(CONFIG_CROSS_COMPILE)
+ifeq ($(dot-config),1)
+# Read in config
+-include include/config/auto.conf
 
 
+# Read in dependencies to all Kconfig* files, make sure to run
+# oldconfig if changes are detected.
+-include include/config/auto.conf.cmd
+
+# To avoid any implicit rule to kick in, define an empty command
+$(KCONFIG_CONFIG) include/config/auto.conf.cmd: ;
+
+# If .config is newer than include/config/auto.conf, someone tinkered
+# with it and forgot to run make oldconfig.
+# if auto.conf.cmd is missing then we are probably in a cleaned tree so
+# we execute the config step to be sure to catch updated Kconfig files
+include/config/%.conf: $(KCONFIG_CONFIG) include/config/auto.conf.cmd
+	$(Q)$(MAKE) -f $(srctree)/Makefile silentoldconfig
+ 
+
+else
+# Dummy target needed, because used as prerequisite
+include/config/auto.conf: ;
+endif # $(dot-config)
+
+CROSS_COMPILE := $(patsubst "%",%,$(CONFIG_CROSS_COMPILE))
 # Make variables (CC, etc...)
 
 AS		= $(CROSS_COMPILE)as
