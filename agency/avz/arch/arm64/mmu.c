@@ -541,9 +541,6 @@ void mmu_configure(addr_t fdt_addr) {
 
 		/* The device tree is visible in the L_PAGE_OFFSET area */
 		fdt_vaddr = (addr_t *) __lva(fdt_addr);
-	} else {
-
-
 	}
 }
 

@@ -169,8 +169,6 @@ struct clock_event_device {
 	const char *name;
 	unsigned int features;
 
-	void *base; /* virt address to access the timer */
-
 	u32 timer_nr;	/* If multiple timer can be accessed from the same base address */
 	unsigned int rate;
 	unsigned int prescale;
@@ -184,11 +182,10 @@ struct clock_event_device {
 	unsigned long min_delta_ticks;
 	unsigned long max_delta_ticks;
 
-	irqaction_t __irqaction;
-
 	int (*set_next_event)(unsigned long evt, struct clock_event_device *);
 	void (*set_mode)(enum clock_event_mode mode, struct clock_event_device *);
-	void (*event_handler)(struct clock_event_device *);
+
+	irq_handler_t handler;
 
 	enum clock_event_mode mode;
 };

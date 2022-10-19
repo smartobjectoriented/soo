@@ -25,6 +25,8 @@
 #define GIC_CPU_PHYS 	0x08010000
 #define GIC_CPU_SIZE	0x10000
 
+#define GIC_HYP_PHYS	0x08030000
+#define GIC_HYP_SIZE	0x10000
 
 #endif /* MACH_GIC_H */
 

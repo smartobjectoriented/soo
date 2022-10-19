@@ -33,6 +33,4 @@ uint32_t origin_cpu;
  */
 void setup_arch(void) {
 
-	memset(&pseudo_usr_mode, 0, NR_CPUS * sizeof(unsigned int));
-
 }

@@ -58,7 +58,6 @@ load_ctx:
 	ldr		x9, [x8]
 	mov		sp, x9
 
-
 	ret
 
 
@@ -72,8 +71,8 @@ ENTRY(__mmu_switch)
 	// Ensure synchronization with previous code changes
     isb
 
-	msr    ttbr1_el1, x0
-
+	/* We are in the hypervisor, so at EL2 */
+	msr   ttbr0_el2, x0
     isb
 
 	ret

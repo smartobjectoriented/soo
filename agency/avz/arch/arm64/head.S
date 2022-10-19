@@ -75,15 +75,6 @@ __start:
 	ldr	x0, =__vectors
 	msr vbar_el2, x0
 
-	// Enable FP/ASIMD
-	//mov	x0, #3 << 20
-	//msr	cpacr_el2, x0
-
-    // Up to here, a stack should be initialized
-
-	// Some CPU setup
-	//msr pmuserenr_el0, xzr
-
 	// Set up the MMU
     b		mmu_setup
 
@@ -99,49 +90,49 @@ __kernel_main:
 
 __mmu_setup:
 
- 	/*
-     * The state of the TLBs is unknown before turning on the MMU.
-     * Flush them to avoid stale one.
-     */
-     tlbi  alle2                  /* Flush hypervisor TLBs */
-     dsb   nsh
+		/*
+		 * The state of the TLBs is unknown before turning on the MMU.
+		 * Flush them to avoid stale one.
+		 */
+		tlbi  alle2                  /* Flush hypervisor TLBs */
+		dsb   nsh
 
-     msr   TTBR0_EL2, x0
-     isb
+		msr   TTBR0_EL2, x0
+		isb
 
-     mrs   x0, SCTLR_EL2
+		mrs   x0, SCTLR_EL2
 
-     orr   x0, x0, #SCTLR_ELx_M
-     orr   x0, x0, #SCTLR_ELx_C   /* Enable MMU and enable D-cache */
+		orr   x0, x0, #SCTLR_ELx_M
+		orr   x0, x0, #SCTLR_ELx_C   /* Enable MMU and enable D-cache */
 
-     dsb   sy                     /* Flush PTE writes and finish reads */
-     msr   sctlr_el2, x0          /* now paging is enabled */
-     isb                          /* Now, flush the icache */
+		dsb   sy                     /* Flush PTE writes and finish reads */
+		msr   sctlr_el2, x0          /* now paging is enabled */
+		isb                          /* Now, flush the icache */
 
-     ret
+		ret
 
 
 mmu_setup:
 
- // Use a temporary stack
-  adrp	x0, temp_stack
-  mov	sp, x0
+		// Use a temporary stack
+		adrp	x0, temp_stack
+		mov	sp, x0
 
-  mov	x0, x9 // fdt addr
+		mov	x0, x9 // fdt addr
 
-  bl 	mmu_configure
+		bl 	mmu_configure
 
-  // Readjust the stack
-  ldr	x0, =__cpu0_stack
-  mov	sp, x0
+		// Readjust the stack
+		ldr	x0, =__cpu0_stack
+		mov	sp, x0
 
-  // Keep executing in the kernel space
+		// Keep executing in the kernel space
 
-  // Store the virtual address which will be used to continue
-  // the execution after the MMU enabled.
-  ldr	x0, .LCvirt_entry
+		// Store the virtual address which will be used to continue
+		// the execution after the MMU enabled.
+		ldr	x0, .LCvirt_entry
 
-  blr	x0
+		blr	x0
 
 
 el2_setup:
@@ -149,53 +140,28 @@ el2_setup:
 	/* Hyp configuration. */
 	ldr x0, =HCR_HOST_NVHE_FLAGS
 
+	// Interupts forwarded to EL2 mode
+	orr x0, x0, #HCR_IMO
+	orr x0, x0, #HCR_AMO
+	orr x0, x0, #HCR_FMO
+
 	msr	hcr_el2, x0
 	isb
 
-        /*
-        * Ensure that any exceptions encountered at EL2
-         * are handled using the EL2 stack pointer, rather
-         * than SP_EL0.
-         */
-        msr spsel, #1
+	msr	cntvoff_el2, xzr		// Clear virtual offset
+
+    /*
+     * Ensure that any exceptions encountered at EL2
+     * are handled using the EL2 stack pointer, rather
+     * than SP_EL0.
+    */
+    msr spsel, #1
 
 	ret
 
 #if 0
-/*
- * If we're fortunate enough to boot at EL2, ensure that the world is
- * sane before dropping to EL1.
- *
- * Returns either BOOT_CPU_MODE_EL1 or BOOT_CPU_MODE_EL2 in w0 if
- * booted in EL1 or EL2 respectively.
- */
-el2_setup:
 
-1:
-	/* Hyp configuration. */
-	ldr x0, =HCR_HOST_VHE_FLAGS
-
-	msr	hcr_el2, x0
-	isb
-
-	ret
-
-	/*
-	 * Allow Non-secure EL1 and EL0 to access physical timer and counter.
-	 * This is not necessary for VHE, since the host kernel runs in EL2,
-	 * and EL0 accesses are configured in the later stage of boot process.
-	 * Note that when HCR_EL2.E2H == 1, CNTHCTL_EL2 has the same bit layout
-	 * as CNTKCTL_EL1, and CNTKCTL_EL1 accessing instructions are redefined
-	 * to access CNTHCTL_EL2. This allows the kernel designed to run at EL1
-	 * to transparently mess with the EL0 bits via CNTKCTL_EL1 access in
-	 * EL2.
-	 */
-	cbnz	x2, 1f
-	mrs	x0, cnthctl_el2
-	orr	x0, x0, #3			// Enable EL1 physical timers
-	msr	cnthctl_el2, x0
-1:
-	msr	cntvoff_el2, xzr		// Clear virtual offset
+	 /* Still here to take some inspiration...*/
 
 	/* GICv3 system register access */
 	mrs	x0, id_aa64pfr0_el1
@@ -316,18 +282,11 @@ ENTRY(secondary_startup)
      */
 
 	// Mostly for future usage...
-	bl		el2_setup			// Drop to EL1, w0=cpu_boot_mode
+	bl		el2_setup
 
 	// Initialize the vector table
 	ldr		x0, =__vectors
-	msr 	vbar_el1, x0
-
-	// Enable FP/ASIMD
-	mov		x0, #3 << 20
-	msr		cpacr_el1, x0
-
-	// Some CPU setup
-	msr 	pmuserenr_el0, xzr
+	msr 	vbar_el2, x0
 
     adr 	x4, __secondary_data
 

@@ -51,16 +51,16 @@ static unsigned long clkevt_reload;
 struct clocksource *system_timer_clocksource;
 struct clock_event_device *system_timer_clockevent;
 
-static irqreturn_t timer_handler(int irq, void *dev_id)
+static void timer_handler(unsigned int irq, struct irqdesc *irqdesc)
 {
 	unsigned long ctrl;
 
-	ctrl = arch_timer_reg_read_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL);
+	ctrl = arch_timer_reg_read(ARCH_TIMER_REG_CTRL);
 
 	if (ctrl & ARCH_TIMER_CTRL_IT_STAT) {
 
 		ctrl |= ARCH_TIMER_CTRL_IT_MASK;
-		arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, ctrl);
+		arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
 
 		if (smp_processor_id() == ME_CPU) {
 
@@ -71,8 +71,6 @@ static irqreturn_t timer_handler(int irq, void *dev_id)
 		} else
 			timer_interrupt(false);
 	}
-
-	return IRQ_HANDLED;
 }
 
 static inline void timer_set_mode(int mode, struct clock_event_device *clk)
@@ -83,9 +81,9 @@ static inline void timer_set_mode(int mode, struct clock_event_device *clk)
 
 	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_SHUTDOWN:
-		ctrl = arch_timer_reg_read_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL);
+		ctrl = arch_timer_reg_read(ARCH_TIMER_REG_CTRL);
 		ctrl &= ~ARCH_TIMER_CTRL_ENABLE;
-		arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, ctrl);
+		arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
 		break;
 	default:
 		break;
@@ -101,12 +99,12 @@ static inline void set_next_event(unsigned long evt, struct clock_event_device *
 {
 	unsigned long ctrl;
 
-	ctrl = arch_timer_reg_read_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL);
+	ctrl = arch_timer_reg_read(ARCH_TIMER_REG_CTRL);
 	ctrl |= ARCH_TIMER_CTRL_ENABLE;
 	ctrl &= ~ARCH_TIMER_CTRL_IT_MASK;
 
-	arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_TVAL, evt);
-	arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, ctrl);
+	arch_timer_reg_write(ARCH_TIMER_REG_TVAL, evt);
+	arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
 }
 
 static int arch_timer_set_next_event_virt(unsigned long evt, struct clock_event_device *clk)
@@ -122,11 +120,7 @@ static struct clock_event_device arm_timer_clockevent = {
 		.features       = CLOCK_EVT_FEAT_ONESHOT,
 		.set_mode	= arch_timer_set_mode_virt,
 		.set_next_event	= arch_timer_set_next_event_virt,
-		.__irqaction = {
-				.name = "arm_timer",
-				.dev_id = &arm_timer_clockevent,
-				.handler = timer_handler,
-		}
+		.handler = timer_handler,
 };
 
 
@@ -149,7 +143,7 @@ void init_timer(int cpu)
 	BUG_ON((cpu == AGENCY_CPU) || (cpu == AGENCY_RT_CPU));
 
 	/* Low-leve init, disabled, interrupt off */
-	arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, 0);
+	arch_timer_reg_write(ARCH_TIMER_REG_CTRL, 0);
 
 	/* System clocksource */
 	system_timer_clocksource = &arm_clocksource;
@@ -166,14 +160,12 @@ void init_timer(int cpu)
 	 */
 	system_timer_clockevent = &arm_timer_clockevent;
 
-	system_timer_clockevent->__irqaction.irq = IRQ_ARCH_ARM_TIMER;
-
 	system_timer_clockevent->rate = system_timer_clocksource->rate;
 	system_timer_clockevent->prescale = 0;
 
 	clkevt_reload = DIV_ROUND_CLOSEST(system_timer_clockevent->rate, CONFIG_HZ);
 
-	setup_irq(system_timer_clockevent->__irqaction.irq, &system_timer_clockevent->__irqaction);
+	setup_irq(IRQ_ARCH_ARM_TIMER_EL2, system_timer_clockevent->handler);
 
 	/* Compute the various parameters for this clockevent */
 	clockevents_config(system_timer_clockevent, system_timer_clockevent->rate, 0xf, 0x7fffffff);
@@ -182,6 +174,7 @@ void init_timer(int cpu)
 	clockevents_set_mode(system_timer_clockevent, CLOCK_EVT_MODE_ONESHOT);
 
 	/* First event */
+
 	system_timer_clockevent->set_next_event(clkevt_reload, system_timer_clockevent);
 }
 

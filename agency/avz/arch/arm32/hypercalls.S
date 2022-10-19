@@ -64,10 +64,11 @@ ENTRY(hypercall_start)
 	@ Switch from G-stack to H-stack
 	current_cpu r10
 
+#if 0
 	ldr		r8, .LCpseudo_usr_mode
 	mov		r9, #0
 	str		r9, [r8, r10, lsl #2]
-
+#endif
 	mov		r8, sp
 	ldr 	r9, .LChypervisor_stack   @ Get the running hypervisor SVC stack
 	ldr		sp, [r9, r10, lsl #2]
@@ -127,9 +128,6 @@ __hypercall_start:
 	.long do_soo_hypercall
 
 __hypercall_end:
-
-.LCpseudo_usr_mode:
-	.word	pseudo_usr_mode
 
 .LChypervisor_stack:
 	.word	hypervisor_stack

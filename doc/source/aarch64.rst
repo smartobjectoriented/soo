@@ -151,7 +151,7 @@ Realtime Agency
 
 - The ``idmap`` page tables have to be built up during the bootstrap of CPU #1 to enable the MMU since these page tables are not configured by CPU #0 (AVZ already enabled the MMU).
 - A RT task creation must have a stack aligned on 64-byte
-- tpidr_el1 has a reference to the current task_sruct and is used to retrieved the IRQ stack initialized during ``irq_init()``
+- tpidr_el1 has a reference to the current task_struct and is used to retrieved the IRQ stack initialized during ``irq_init()``
  
  
 ARM-VT hyp mode
@@ -162,7 +162,7 @@ must run in EL2.
 
 - U-boot must be started in EL2 mode. It means QEMU must set the option -M virt,virtualization=on
 - The hypervisor is now located at 0x0000100000000000 thus avoiding all conflicts with potential low-level I/O addresses.
-  This is also necessary since EL2 mode does not support VA belonging to the second high zone (0xffff....); there is
+  This is also necessary since EL2 mode does not support VA belonging to the second high zone (0xffff....), i.e. there is
   no ttbr1_el2 register.
 
 

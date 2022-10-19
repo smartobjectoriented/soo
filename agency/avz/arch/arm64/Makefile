@@ -1,5 +1,5 @@
 
-obj-y += head.o hyp-stub.o
+obj-y += head.o 
 
 obj-y += fault.o backtrace.o traps.o
 obj-y += backtrace.o backtrace_asm.o

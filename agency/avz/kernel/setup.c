@@ -30,6 +30,8 @@
 
 #include <device/device.h>
 
+#include <device/arch/arm_timer.h>
+
 #include <asm/processor.h>
 #include <asm/percpu.h>
 #include <asm/io.h>
@@ -63,6 +65,7 @@ void init_idle_domain(void)
 
 }
 
+extern void check_irq(void);
 void kernel_start(void)
 {
 	int i;
@@ -153,7 +156,7 @@ void kernel_start(void)
 	/* Enabling VFP module on this CPU */
 	vfp_enable();
 #endif
-	
+
 	domain_unpause_by_systemcontroller(agency);
 
 	set_current(idle_domain[smp_processor_id()]);

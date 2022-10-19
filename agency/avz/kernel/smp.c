@@ -126,15 +126,9 @@ void secondary_start_kernel(void)
 	cpu_init();
 #endif
 
+	gicc_init();
+
 	printk("CPU%u: Booted secondary processor\n", cpu);
-
-	/*
-	 * Give the platform a chance to do its own initialisation.
-	 */
-
-#ifndef CONFIG_ARM_TRUSTZONE
-	smp_secondary_init(cpu);
-#endif
 
 	init_timer(cpu);
 
@@ -159,8 +153,6 @@ void secondary_start_kernel(void)
 	/* Never returned at this point ... */
 
 }
-
-extern void vcpu_periodic_timer_start(struct vcpu *v);
 
 void cpu_up(unsigned int cpu)
 {
@@ -199,15 +191,6 @@ void cpu_up(unsigned int cpu)
 	psci_smp_boot_secondary(cpu);
 #else
 	smp_boot_secondary(cpu);
-#endif
-
-	/*
-	 * CPU was successfully started, wait for it
-	 * to come online or time out.
-	 */
-#warning not sure if still necessary...
-#ifdef CONFIG_ARCH_ARM32
-	smp_trigger_event(cpu);
 #endif
 
 	printk("Now waiting CPU %d to be up and running ...\n", cpu);

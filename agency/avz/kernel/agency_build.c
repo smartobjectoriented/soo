@@ -42,7 +42,6 @@ int construct_agency(struct domain *d) {
 	unsigned long domain_stack;
 	extern addr_t *hypervisor_stack;
 	static addr_t *__hyp_stack = (unsigned long *) &hypervisor_stack;
-	static addr_t *__pseudo_usr_mode = (unsigned long *) &pseudo_usr_mode;
 
 	printk("***************************** Loading SOO Agency Domain *****************************\n");
 
@@ -99,9 +98,6 @@ int construct_agency(struct domain *d) {
 
 	/* Store the stack address for further needs in hypercalls/interrupt context */
 	__hyp_stack[AGENCY_RT_CPU] = domain_stack;
-
-	/* We set the realtime domain in pseudo-usr mode since the primary domain will start it, not us. */
-	__pseudo_usr_mode[AGENCY_RT_CPU] = 1;
 
 	/*
 	 * Keep a reference in the primary agency domain to its subdomain. Indeed, there is only one shared info page mapped

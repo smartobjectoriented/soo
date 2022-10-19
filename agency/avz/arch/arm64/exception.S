@@ -25,7 +25,6 @@
 
 .global __vectors
 
-.globl  pseudo_usr_mode
 .globl	hypervisor_stack
 .global upcall_path
 
@@ -241,9 +240,11 @@ el01_irq_handler:
 
 	current_cpu	x10
 
+#if 0
 	ldr		x0, .LCpseudo_usr_mode
 	ldr		x1, [x0, x10, lsl #3]
 	cmp		x1, #0  				// svc ?
+#endif
 
 	b.eq	svc_path
 
@@ -299,10 +300,12 @@ upcall_path:
 	ldr		x12, [x10, #OFFSET_G_SP]
 	mov		sp, x12
 
+#if 0
 	// setting pseudo_usr_mode / x0, x1 re-assigned right after
 	ldr 	x0, .LCpseudo_usr_mode
 	mov		x1, #1
 	str		x1, [x0, x11, lsl #3]
+#endif
 
 	// x0 contains a reference to the stack pointer
 	mov		x0, sp
@@ -314,11 +317,12 @@ restore:
 
 	current_cpu x11
 
+#if 0
 	// Setting pseudo_usr_mode / x0, x1 re-assigned right after
 	ldr 	x0, .LCpseudo_usr_mode
 	mov		x1, #1
 	str		x1, [x0, x11, lsl #3]
-
+#endif
 	// Restore saved registers
 
 	ldr		x0, .LChypervisor_stack   	// running SVC hypervisor stack
@@ -362,22 +366,27 @@ ENTRY(pre_ret_to_user)
 
 	current_cpu 	x11
 
-	// Switch to the guest stack
-	ldr 	x0, .LChypervisor_stack
-	mov		x12, sp
-	str		x12, [x0, x11, lsl #3]
-
-	// Setting pseudo_usr_mode
-	ldr 	x0, .LCpseudo_usr_mode
-	mov		x1, #1
-	str		x1, [x0, x11, lsl #3]
-
 	ldr		x2, [sp, #OFFSET_PC]  // Entry point of the guest
+
+	msr		elr_el2, x2
+
 	ldr		x21, [sp, #OFFSET_X21] // Device tree (fdt_addr)
 	ldr		x22, [sp, #OFFSET_X22] // Address of start_info
 
 	// Ready to jump into the Linux domain...
-	blr		x2
+
+	eret
+	/*
+	 * Mitigate Straight-line Speculation.
+	 * Guard against Speculating past an ERET instruction and
+	 * potentially perform speculative accesses to memory before
+	 * processing the exception return
+	 */
+	dsb nsh
+	isb
+
+__crash:
+	b __crash
 
 /*
  * The following function is used to restore the migrated domain.
@@ -392,10 +401,6 @@ ENTRY(pre_ret_to_user)
 ENTRY(after_migrate_to_user)
 
 	b upcall_path
-
-
-pseudo_usr_mode:
-	.space NR_CPUS * 8
 
 // Hypervisor stack is used for the *current* (running) vcpu svc stack address
 svc_path:
@@ -413,10 +418,6 @@ svc_path:
 
 hypervisor_stack:
 	.space NR_CPUS * 8
-
-
-.LCpseudo_usr_mode:
-	.quad	pseudo_usr_mode
 
 .LChypervisor_stack:
 	.quad	hypervisor_stack
