@@ -450,6 +450,7 @@
 	cs-gpios = <&gpio 0 GPIO_ACTIVE_LOW>, <&gpio 24 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
+#if 1
 	sc16is762_0: sc16is762@0 {
 		compatible = "nxp,sc16is762";
 		reg = <0>; /* CE0 */
@@ -463,7 +464,7 @@
 		#address-cells = <1>;
    		#size-cells = <0>;
 		status = "okay";
-		
+#if 0 // both children		
 		/** These are place holder **/
 		wmbus@0 {
 			reg = <0>;
@@ -478,6 +479,7 @@
 #endif
 		};
 
+#if 0
 		/** These are place holder **/
 		modbus@1 {
 			reg = <1>;
@@ -491,7 +493,10 @@
 			};
 #endif
 		};
+#endif // modbus        
+#endif // both children        
 	};
+#endif //sc16is762_0     
 
 	sc16is762_1: sc16is762@1 {
 		compatible = "nxp,sc16is762";
@@ -501,25 +506,28 @@
 		interrupts = <26 IRQ_TYPE_EDGE_FALLING>; /* IRQ_TYPE_EDGE_FALLING */
 		gpio-controller;
 		#gpio-cells = <2>;
-		spi-max-frequency = <15000000>;
+		// spi-max-frequency = <15000000>;
 
 		#address-cells = <1>;
    		#size-cells = <0>;
 		status = "okay";
 		
 		/** These are place holder **/
-		knx@0 {
-			reg = <0>;
+		knx@2 {
+			reg = <2>;
 			type = <SPI_UART>;
+#if 1           
 			port = <KNX_UART_PORT>;
 			knx {
 				compatible ="knx,kberry838";
 				current-speed = <19200>;
 			};
+#endif            
 		};
 
-		mbus@1 {
-			reg = <1>;
+#if 0
+		mbus@3 {
+			reg = <3>;
 			type = <SPI_UART>;
 #if 0			
 			/** TODO: implement mbus serdev **/
@@ -530,6 +538,7 @@
 			};
 #endif
 		};
+#endif        
 	};
 };
 
@@ -545,6 +554,7 @@
 	};
 };
 
+#if 1
 &spi4 {
 	status = "okay";
 	#address-cells = <1>;
@@ -566,7 +576,7 @@
 		#address-cells = <1>;
    		#size-cells = <0>;
 		status = "okay";
-		
+#if 0		
 		zigbee@0 {
       		reg = <0>;
 			type = <SPI_UART>;
@@ -579,6 +589,7 @@
       		};
 #endif
    		};
+#endif        
 
    		lora@1 {
       		reg = <1>;
@@ -593,6 +604,7 @@
    		};
 	};
 };
+#endif
 
 &vchiq {
 	interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
