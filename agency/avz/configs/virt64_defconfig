@@ -1,5 +1,5 @@
 #
-# Automatically generated file; DO NOT EDIT.
+# Automatically generated make config: don't edit
 # AVZ Hypervisor configuration
 #
 # CONFIG_ARCH_ARM32 is not set
@@ -17,7 +17,6 @@ CONFIG_VIRT64=y
 # CONFIG_RPI4_64 is not set
 # CONFIG_VA_BITS_39 is not set
 CONFIG_VA_BITS_48=y
-# end of Platform
 
 #
 # Kernel & CPU features
@@ -25,9 +24,7 @@ CONFIG_VA_BITS_48=y
 CONFIG_PSCI=y
 CONFIG_HZ=100
 CONFIG_SCHED_FLIP_SCHEDFREQ=30
-# end of Kernel & CPU features
-
-CONFIG_HYPERVISOR_VADDR=0xffff700000000000
+CONFIG_HYPERVISOR_VADDR=0x100000000000
 CONFIG_HYPERVISOR_SIZE=0xc0000000
 
 #
@@ -36,4 +33,3 @@ CONFIG_HYPERVISOR_SIZE=0xc0000000
 # CONFIG_UART is not set
 CONFIG_PL011_UART=y
 CONFIG_GIC=y
-# end of Drivers

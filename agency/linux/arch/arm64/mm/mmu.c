@@ -37,9 +37,6 @@
 #include <asm/tlbflush.h>
 #include <asm/pgalloc.h>
 
-/* SOO.tech */
-#include <soo/avz.h>
-
 #define NO_BLOCK_MAPPINGS	BIT(0)
 #define NO_CONT_MAPPINGS	BIT(1)
 
@@ -678,10 +675,6 @@ static void __init map_kernel(pgd_t *pgdp)
 			   &vmlinux_initdata, 0, VM_NO_GUARD);
 	map_kernel_segment(pgdp, _data, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
 
-	/* SOO.tech */
-	/* Map the AVZ hypervisor */
- 	set_pgd(pgd_offset_pgd(pgdp, AVZ_shared->hypervisor_vaddr), *pgd_offset_k(AVZ_shared->hypervisor_vaddr));
-
 	if (!READ_ONCE(pgd_val(*pgd_offset_pgd(pgdp, FIXADDR_START)))) {
 		/*
 		 * The fixmap falls in a separate pgd to the kernel, and doesn't
@@ -713,9 +706,6 @@ static void __init map_kernel(pgd_t *pgdp)
 	kasan_copy_shadow(pgdp);
 }
 
-/* SOO.tech */
-extern void idmap_cpu_replace_ttbr1(phys_addr_t pgd);
-
 void __init paging_init(void)
 {
 	pgd_t *pgdp = pgd_set_fixmap(__pa_symbol(swapper_pg_dir));
@@ -725,22 +715,7 @@ void __init paging_init(void)
 
 	pgd_clear_fixmap();
 
-#if 0 /* SOO.tech */
 	cpu_replace_ttbr1(lm_alias(swapper_pg_dir));
-#endif
-
-	local_flush_tlb_all();
-
-	/* (SOO.tech) The following function has been patched accordingly. */
-	idmap_cpu_replace_ttbr1(virt_to_phys(swapper_pg_dir));
-
-	/* (SOO.tech) ...and update the PT paddr */
-	AVZ_shared->pagetable_vaddr = (addr_t) swapper_pg_dir;
-	AVZ_shared->pagetable_paddr = (addr_t) virt_to_phys(swapper_pg_dir);
-	AVZ_shared->subdomain_shared->pagetable_paddr = AVZ_shared->pagetable_paddr;
-
-	local_flush_tlb_all();
-
 	init_mm.pgd = swapper_pg_dir;
 
 	memblock_free(__pa_symbol(init_pg_dir),

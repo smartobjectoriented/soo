@@ -119,10 +119,6 @@ SECTIONS
 
 	.head.text : {
 		_text = .;
-
-		/* SOO.tech */
-		*(.init.fromavz_start)
-
 		HEAD_TEXT
 	}
 	.text : {			/* Real text segment		*/

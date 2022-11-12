@@ -55,12 +55,12 @@ int do_physdev_op(int cmd, void *args)
 		__current = current;
 		get_current_pgtable(&current_pgtable_paddr);
 
-		switch_mm(idle_domain[smp_processor_id()]);
+		//switch_mm(idle_domain[smp_processor_id()]);
 
 		dump_page(val);
 
 		set_current(__current);
-		mmu_switch((void *) current_pgtable_paddr);
+		//mmu_switch((void *) current_pgtable_paddr);
 
 		break;
 	}

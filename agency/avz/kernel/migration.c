@@ -370,7 +370,7 @@ void restore_migrated_domain(unsigned int ME_slotID) {
 	me->cpu_regs.sp = (unsigned long) setup_dom_stack(me);
 
 	/* Setting the (future) value of PC in r14 (LR). See code switch_to in entry-armv.S */
-	me->cpu_regs.lr = (unsigned long) (void *) after_migrate_to_user;
+	//me->cpu_regs.lr = (unsigned long) (void *) after_migrate_to_user;
 
 	/* Issue a timer interrupt (first timer IRQ) avoiding some problems during the forced upcall in after_migrate_to_user */
 	send_timer_event(me);
@@ -423,7 +423,7 @@ void restore_migrated_domain(unsigned int ME_slotID) {
 	if (get_ME_state(ME_slotID) == ME_state_dead) {
 
 		set_current(agency);
-		mmu_switch((void *) current_pgtable_paddr);
+		//mmu_switch((void *) current_pgtable_paddr);
 
 		return ;
 	}
@@ -444,7 +444,7 @@ void restore_migrated_domain(unsigned int ME_slotID) {
 	if ((domains[ME_slotID] == NULL) || (get_ME_state(ME_slotID) == ME_state_dead) || (get_ME_state(ME_slotID) == ME_state_dormant)) {
 
 		set_current(agency);
-		mmu_switch((void *) current_pgtable_paddr);
+		//mmu_switch((void *) current_pgtable_paddr);
 
 		return ;
 	}
@@ -460,7 +460,7 @@ void restore_migrated_domain(unsigned int ME_slotID) {
 	domain_unpause_by_systemcontroller(me);
 
 	set_current(agency);
-	mmu_switch((void *) current_pgtable_paddr);
+	//mmu_switch((void *) current_pgtable_paddr);
 
 }
 

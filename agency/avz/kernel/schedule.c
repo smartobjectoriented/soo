@@ -242,7 +242,7 @@ struct scheduler sched_agency = {
 
 
 /* Initialise the data structures. */
-void  scheduler_init(void)
+void scheduler_init(void)
 {
 	per_cpu(current_domain, AGENCY_CPU) = NULL;
 	per_cpu(current_domain, ME_CPU) = NULL;

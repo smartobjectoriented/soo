@@ -100,18 +100,17 @@ void handle_IPI(int ipinr)
 		break;
 
 	case IPI_EVENT_CHECK:
-
 		/* Nothing to do, will check for events on return path */
 		break;
 
 	default:
 		/* Forward the IPI to the guest */
-
-		asm_do_IRQ(ipinr);
-		break;
+		BUG();
 	}
 
 }
+
+extern void pre_ret_to_el1(void);
 
 /*
  * This is the secondary CPU boot entry.  We're using this CPUs
@@ -119,7 +118,6 @@ void handle_IPI(int ipinr)
  */
 void secondary_start_kernel(void)
 {
-
 	unsigned int cpu = smp_processor_id();
 
 #ifdef CONFIG_ARCH_ARM32
@@ -129,6 +127,14 @@ void secondary_start_kernel(void)
 	gicc_init();
 
 	printk("CPU%u: Booted secondary processor\n", cpu);
+
+	if (cpu == AGENCY_RT_CPU) {
+
+		mmu_switch((void *) current->avz_shared->pagetable_paddr, true);
+
+		booted[cpu] = 1;
+		pre_ret_to_el1();
+	}
 
 	init_timer(cpu);
 
@@ -161,14 +167,16 @@ void cpu_up(unsigned int cpu)
 	 * to bootstrap correctly on other CPUs.
 	 * The size must be enough to reach the stack.
 	 */
-	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_32M, false);
+	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_32M, false, S1);
 
 	/*
 	 * We need to tell the secondary core where to find
 	 * its stack and the page tables.
 	 */
-
 	switch (cpu) {
+	case AGENCY_RT_CPU:
+		secondary_data.stack = (void *) __cpu1_stack;
+		break;
 
 	case ME_CPU:
 		secondary_data.stack = (void *) __cpu3_stack;
@@ -221,6 +229,7 @@ void smp_init(void)
 	smp_prepare_cpus(NR_CPUS);
 #endif
 
+	cpu_up(AGENCY_RT_CPU);
 	cpu_up(ME_CPU);
 
 	printk("Brought secondary CPUs for AVZ (CPU #2 and CPU #3)\n");

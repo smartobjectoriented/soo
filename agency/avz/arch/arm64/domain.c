@@ -25,6 +25,7 @@
 #include <asm/processor.h>
 
 #include <mach/uart.h>
+#include <mach/gic.h>
 
 void arch_setup_domain_frame(struct domain *d, struct cpu_regs *domain_frame, addr_t fdt_addr, addr_t start_stack, addr_t start_pc) {
 
@@ -41,7 +42,15 @@ void arch_setup_domain_frame(struct domain *d, struct cpu_regs *domain_frame, ad
 /*
  * Setup of domain consists in setting up the 1st-level and 2nd-level page tables within the domain.
  */
-void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_size, addr_t p_start) {
+/**
+ * Setup the stage 2 translation page table to translate Intermediate Physical address (IPA) to to PA addresses.
+ *
+ * @param d
+ * @param v_start
+ * @param map_size
+ * @param p_start
+ */
+void __setup_dom_pgtable(struct domain *d, addr_t ipa_start, unsigned long map_size) {
 	u64 *new_pt;
 
 	ASSERT(d);
@@ -49,28 +58,29 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 	/* Make sure that the size is 2 MB block aligned */
 	map_size = ALIGN_UP(map_size, SZ_2M);
 
-	printk("*** Setup page tables of the domain: ***\n");
-	printk("   v_start          : 0x%lx\n", v_start);
-	printk("   map size (bytes) : 0x%lx\n", map_size);
-	printk("   phys address     : 0x%lx\n", p_start);
-
 	/* Initial L0 page table for the domain */
 	new_pt = new_root_pgtable();
+
+	printk("*** Setup page tables of the domain: ***\n");
+
+	printk("   intermediate phys address    : 0x%lx\n", ipa_start);
+	printk("   map size (bytes) 		: 0x%lx\n", map_size);
+	printk("   stage-2 vttbr 		: (va) 0x%lx - (pa) 0x%lx\n", new_pt, __pa(new_pt));
 
 	d->avz_shared->pagetable_vaddr = (addr_t) new_pt;
 	d->avz_shared->pagetable_paddr = __pa(new_pt);
 
-	/* Copy the hypervisor area */
-#ifdef CONFIG_VA_BITS_48
-	*l0pte_offset(new_pt, CONFIG_HYPERVISOR_VADDR) = *l0pte_offset(__sys_root_pgtable, CONFIG_HYPERVISOR_VADDR);
-#elif CONFIG_VA_BITS_39
-	*(new_pt + l1pte_index(CONFIG_HYPERVISOR_VADDR)) = *(__sys_root_pgtable + l1pte_index(CONFIG_HYPERVISOR_VADDR));
-#else
-#error "Wrong VA_BITS configuration."
-#endif
+	/* Prepare the IPA -> PA translation for this domain */
+	create_mapping(new_pt, ipa_start, ipa_start, map_size, false, S2);
 
-	/* Do the mapping of new domain at its virtual address location */
-	create_mapping(new_pt, v_start, p_start, map_size, false);
+	/* Map the GIC CPU and Distributor */
+	create_mapping(new_pt, GIC_DIST_PHYS, GIC_DIST_PHYS, GIC_DIST_SIZE, true, S2);
+	create_mapping(new_pt, GIC_CPU_PHYS, GIC_CPU_PHYS, GIC_CPU_SIZE, true, S2);
+
+	/* Map the shared page */
+	create_mapping(new_pt, virt_to_phys(d->avz_shared), virt_to_phys(d->avz_shared), PAGE_SIZE, true, S2);
+	if (d->avz_shared->subdomain_shared)
+		create_mapping(new_pt, d->avz_shared->subdomain_shared_paddr, d->avz_shared->subdomain_shared_paddr, PAGE_SIZE, true, S2);
 }
 
 void arch_domain_create(struct domain *d, int cpu_id) {

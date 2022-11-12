@@ -119,7 +119,7 @@ void arch_setup_domain_frame(struct domain *d, cpu_regs_t *domain_frame, addr_t 
 /*
  * setup_page_table_guestOS() is setting up the 1st-level and 2nd-level page tables within the domain.
  */
-void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_size, addr_t p_start);
+void __setup_dom_pgtable(struct domain *d, addr_t ipa_start, unsigned long map_size);
 
 void vcpu_reset(struct vcpu *v);
 

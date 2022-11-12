@@ -593,6 +593,31 @@
 #define SYS_CNTV_CTL_EL02		sys_reg(3, 5, 14, 3, 1)
 #define SYS_CNTV_CVAL_EL02		sys_reg(3, 5, 14, 3, 2)
 
+#define SCTLR_M_BIT	(1 << 0)
+#define SCTLR_A_BIT	(1 << 1)
+#define SCTLR_C_BIT	(1 << 2)
+#define SCTLR_SA_BIT	(1 << 3)
+#define SCTLR_SA0_BIT	(1 << 4)
+#define SCTLR_CP15B_BIT (1 << 5)
+#define SCTLR_ITD_BIT	(1 << 7)
+#define SCTLR_SED_BIT	(1 << 8)
+#define SCTLR_UMA_BIT	(1 << 9)
+
+#define SCTLR_EOS_BIT   (1 << 11)
+#define SCTLR_I_BIT	(1 << 12)
+#define SCTLR_DZE_BIT	(1 << 14)
+#define SCTLR_UCT_BIT	(1 << 15)
+#define SCTLR_nTWI	(1 << 16)
+#define SCTLR_nTWE	(1 << 18)
+#define SCTLR_WXN_BIT	(1 << 19)
+#define SCTLR_TSCXT_BIT	(1 << 20)
+#define SCTLR_EIS_BIT	(1 << 22)
+#define SCTLR_E0E_BIT	(1 << 24)
+#define SCTLR_EE_BIT	(1 << 25)
+#define SCTLR_UCI_BIT	(1 << 26)
+#define SCTLR_nTLSMD_BIT (1 << 28)
+#define SCLTR_LSMAOE_BIT (1 << 29)
+
 /* Common SCTLR_ELx flags. */
 #define SCTLR_ELx_DSSBS	(BIT(44))
 #define SCTLR_ELx_ENIA	(BIT(31))
@@ -608,43 +633,22 @@
 #define SCTLR_ELx_A	(BIT(1))
 #define SCTLR_ELx_M	(BIT(0))
 
-#define SCTLR_ELx_FLAGS	(SCTLR_ELx_M  | SCTLR_ELx_A | SCTLR_ELx_C | \
-			 SCTLR_ELx_SA | SCTLR_ELx_I | SCTLR_ELx_IESB)
+#define SCTLR_EL2_RES1  (SCTLR_UCI_BIT | SCTLR_nTWE | SCTLR_nTWI \
+		        | SCTLR_UCT_BIT | SCTLR_DZE_BIT)
 
-/* SCTLR_EL2 specific flags. */
-#define SCTLR_EL2_RES1	((BIT(4))  | (BIT(5))  | (BIT(11)) | (BIT(16)) | \
-			 (BIT(18)) | (BIT(22)) | (BIT(23)) | (BIT(28)) | \
-			 (BIT(29)))
-
-#ifdef CONFIG_CPU_BIG_ENDIAN
-#define ENDIAN_SET_EL2		SCTLR_ELx_EE
-#else
-#define ENDIAN_SET_EL2		0
-#endif
-
-/* SCTLR_EL1 specific flags. */
-#define SCTLR_EL1_UCI		(BIT(26))
-#define SCTLR_EL1_E0E		(BIT(24))
-#define SCTLR_EL1_SPAN		(BIT(23))
-#define SCTLR_EL1_NTWE		(BIT(18))
-#define SCTLR_EL1_NTWI		(BIT(16))
-#define SCTLR_EL1_UCT		(BIT(15))
-#define SCTLR_EL1_DZE		(BIT(14))
-#define SCTLR_EL1_UMA		(BIT(9))
-#define SCTLR_EL1_SED		(BIT(8))
-#define SCTLR_EL1_ITD		(BIT(7))
-#define SCTLR_EL1_CP15BEN	(BIT(5))
-#define SCTLR_EL1_SA0		(BIT(4))
 
 #define SCTLR_EL1_RES1	((BIT(11)) | (BIT(20)) | (BIT(22)) | (BIT(28)) | (BIT(29)))
 
 #define ENDIAN_SET_EL1		0
 
-#define SCTLR_EL1_SET	(SCTLR_ELx_M    | SCTLR_ELx_C    | SCTLR_ELx_SA   |\
-			 SCTLR_EL1_SA0  | SCTLR_EL1_SED  | SCTLR_ELx_I    |\
-			 SCTLR_EL1_DZE  | SCTLR_EL1_UCT                   |\
-			 SCTLR_EL1_NTWE | SCTLR_ELx_IESB | SCTLR_EL1_SPAN |\
-			 ENDIAN_SET_EL1 | SCTLR_EL1_UCI  | SCTLR_EL1_RES1)
+#if 0
+#define SCTLR_EL2_RES1	((3 << 4) | (1 << 11) | (1 << 16) | (1 << 18)	\
+			| (3 << 22) | (3 << 28))
+#endif
+
+
+#define ENDIAN_SET_EL2		0
+#define ENDIAN_SET_EL1		0
 
 /* id_aa64isar0 */
 #define ID_AA64ISAR0_TS_SHIFT		52
@@ -1176,7 +1180,7 @@ void __switch_to(struct domain *prev, struct domain *next);
 void ret_to_user(void);
 void pre_ret_to_user(void);
 
-void trap_handle(cpu_regs_t *regs);
+long trap_handle(cpu_regs_t *regs);
 
 void cpu_do_idle(void);
 

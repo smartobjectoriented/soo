@@ -10,5 +10,3 @@ obj-y += migration.o
 
 obj-y += lib/
 
-obj-y += $(TARGET)/
-

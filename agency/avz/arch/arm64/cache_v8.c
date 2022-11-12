@@ -52,33 +52,31 @@ void mmu_setup(void *pgtable)
 #error "Wrong VA_BITS configuration."
 #endif
 
-	attr = MAIR_EL1_SET;
-
-	asm volatile("dsb sy");
-
-	/* We need ttbr0 for mapping the devices which physical addresses
-	 * are in the user space range.
-	 */
-	//asm volatile("msr ttbr0_el2, %0" : : "r" (pgtable) : "memory");
-
-	/* For kernel mapping */
-	//asm volatile("msr ttbr1_el2, %0" : : "r" (pgtable) : "memory");
 
 	asm volatile("msr tcr_el2, %0" : : "r" (tcr) : "memory");
+
+	/* Prepare the stage-2 configuration */
+	tcr =  VTCR_T0SZ_VAL(48) |
+		VTCR_SL0_L0 |
+		TCR_PS_BITS_256TB |
+		(TCR_ORGN0_WBWA << TCR_IRGN0_SHIFT) |
+		(TCR_ORGN0_WBWA << TCR_ORGN0_SHIFT) |
+		TCR_SH0_INNER |
+		VTCR_RES1;
+
+	asm volatile("msr vtcr_el2, %0" : : "r" (tcr) : "memory");
+	asm volatile("isb");
+
+	attr = MAIR_EL2_SET;
+
+	asm volatile("dsb sy");
 
 	asm volatile("msr mair_el2, %0" : : "r" (attr) : "memory");
 
 	asm volatile("isb");
 
-	/* Enable the mmu and set the sctlr register correctly. */
-__mmu_setup(pgtable);
-//	set_sctlr(SCTLR_EL1_SET);
-
-//	asm volatile("isb");
-
-//	invalidate_dcache_all();
-//	__asm_invalidate_tlb_all();
-
+	/* Enable the mmu and set the sctlr & ttbr register correctly. */
+	__mmu_setup(pgtable);
 }
 
 /*

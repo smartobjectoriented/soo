@@ -18,28 +18,31 @@
 
 #include <common.h>
 #include <sched.h>
+#include <psci.h>
+#include <errno.h>
 
-#include <asm/processor.h>
+#include <soo/uapi/domctl.h>
+
 #include <asm/syscall.h>
 
 const char entry_error_messages[19][32] =
 {
-    "SYNC_INVALID_EL1t",
-    "IRQ_INVALID_EL1t",
-    "FIQ_INVALID_EL1t",
-    "SERROR_INVALID_EL1t",
-    "SYNC_INVALID_EL1h",
-    "IRQ_INVALID_EL1h",
-    "FIQ_INVALID_EL1h",
-    "SERROR_INVALID_EL1h",
-    "SYNC_INVALID_EL0_64",
-    "IRQ_INVALID_EL0_64",
-    "FIQ_INVALID_EL0_64",
-    "SERROR_INVALID_EL0_64",
-    "SYNC_INVALID_EL0_32",
-    "IRQ_INVALID_EL0_32",
-    "FIQ_INVALID_EL0_32",
-    "SERROR_INVALID_EL0_32",
+    "SYNC_INVALID_EL2t",
+    "IRQ_INVALID_EL2t",
+    "FIQ_INVALID_EL2t",
+    "SERROR_INVALID_EL2t",
+    "SYNC_INVALID_EL2h",
+    "IRQ_INVALID_EL2h",
+    "FIQ_INVALID_EL2h",
+    "SERROR_INVALID_EL2h",
+    "SYNC_INVALID_EL1_64",
+    "IRQ_INVALID_EL1_64",
+    "FIQ_INVALID_EL1_64",
+    "SERROR_INVALID_EL1_64",
+    "SYNC_INVALID_EL1_32",
+    "IRQ_INVALID_EL1_32",
+    "FIQ_INVALID_EL1_32",
+    "SERROR_INVALID_EL1_32",
     "SYNC_ERROR",
     "SYSCALL_ERROR",
     "DATA_ABORT_ERROR"
@@ -57,18 +60,22 @@ void show_invalid_entry_message(u32 type, u64 esr, u64 address)
 }
 
 void trap_handle_error(addr_t lr) {
-	unsigned long esr = read_sysreg(esr_el1);
+	unsigned long esr = read_sysreg(esr_el2);
 
 	show_invalid_entry_message(ESR_ELx_EC(esr), esr, lr);
 }
+
+extern addr_t cpu_entrypoint;
+long do_domctl(long a1, long a2, long a3);
 
 /**
  * This is the entry point for all exceptions currently managed by SO3.
  *
  * @param regs	Pointer to the stack frame
  */
-void trap_handle(cpu_regs_t *regs) {
-	unsigned long esr = read_sysreg(esr_el1);
+long trap_handle(cpu_regs_t *regs) {
+	unsigned long esr = read_sysreg(esr_el2);
+	unsigned long hvc_code;
 
 	switch (ESR_ELx_EC(esr)) {
 
@@ -76,6 +83,36 @@ void trap_handle(cpu_regs_t *regs) {
 	case ESR_ELx_EC_SVC64:
 		break;
 
+	case ESR_ELx_EC_HVC64:
+		hvc_code = regs->x0;
+
+		switch (hvc_code) {
+
+		/* PSCI hypercalls */
+		case PSCI_0_2_FN_PSCI_VERSION:
+			return PSCI_VERSION(1, 1);
+
+		case PSCI_0_2_FN64_CPU_ON:
+			printk("Power on CPU #%d...\n", regs->x1 & 3);
+
+			cpu_entrypoint = regs->x2;
+			smp_trigger_event(regs->x1 & 3);
+
+			return PSCI_RET_SUCCESS;
+
+		/* AVZ Hypercalls */
+		case __HYPERVISOR_console_io:
+			printk("%c", regs->x1);
+			return ESUCCESS;
+
+		case __HYPERVISOR_domctl:
+
+			return do_domctl(regs->x1, regs->x2, regs->x3);
+
+		default:
+			return ESUCCESS;
+		}
+		break;
 #if 0
 	case ESR_ELx_EC_DABT_LOW:
 		break;
@@ -117,9 +154,11 @@ void trap_handle(cpu_regs_t *regs) {
 #endif
 
 	default:
-		lprintk("### ESR_Elx_EC(esr): 0x%lx\n", ESR_ELx_EC(esr));
+		lprintk("### On CPU %d: ESR_Elx_EC(esr): 0x%lx\n", smp_processor_id(), ESR_ELx_EC(esr));
 		trap_handle_error(regs->lr);
-		kernel_panic();
+		while (1);
 	}
+
+	return -1;
 
 }

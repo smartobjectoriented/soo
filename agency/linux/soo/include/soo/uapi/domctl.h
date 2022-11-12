@@ -35,8 +35,9 @@ struct domctl_unpause_ME {
 struct domctl {
     uint32_t cmd;
 
-#define DOMCTL_pauseME       1
-#define DOMCTL_unpauseME     2
+#define DOMCTL_pauseME       	1
+#define DOMCTL_unpauseME     	2
+#define DOMCTL_get_AVZ_shared	3
 
     domid_t  domain;
     union {

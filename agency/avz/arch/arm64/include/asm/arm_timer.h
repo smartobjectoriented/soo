@@ -52,7 +52,7 @@
  * nicely work out which register we want, and chuck away the rest of
  * the code. At least it does so with a recent GCC (4.6.3).
  */
-static inline void arch_timer_reg_write(enum arch_timer_reg reg, u32 val)
+static inline void arch_timer_reg_write_el2(enum arch_timer_reg reg, u32 val)
 {
 	switch (reg) {
 	case ARCH_TIMER_REG_CTRL:
@@ -66,7 +66,7 @@ static inline void arch_timer_reg_write(enum arch_timer_reg reg, u32 val)
 	isb();
 }
 
-static inline u32 arch_timer_reg_read(enum arch_timer_reg reg)
+static inline u32 arch_timer_reg_read_el2(enum arch_timer_reg reg)
 {
 	switch (reg) {
 	case ARCH_TIMER_REG_CTRL:
@@ -80,6 +80,33 @@ static inline u32 arch_timer_reg_read(enum arch_timer_reg reg)
 	return 0;
 }
 
+static inline void arch_timer_reg_write_el0(enum arch_timer_reg reg, u32 val)
+{
+	switch (reg) {
+	case ARCH_TIMER_REG_CTRL:
+		write_sysreg(val, cntp_ctl_el0);
+		break;
+	case ARCH_TIMER_REG_TVAL:
+		write_sysreg(val, cntp_tval_el0);
+		break;
+	}
+
+	isb();
+}
+
+static inline u32 arch_timer_reg_read_el0(enum arch_timer_reg reg)
+{
+	switch (reg) {
+	case ARCH_TIMER_REG_CTRL:
+		return read_sysreg(cntp_ctl_el0);
+	case ARCH_TIMER_REG_TVAL:
+		return read_sysreg(cntp_tval_el0);
+	}
+
+	BUG();
+
+	return 0;
+}
 /**
  * Get the timer frequency
  *

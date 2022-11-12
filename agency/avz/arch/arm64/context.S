@@ -60,20 +60,34 @@ load_ctx:
 
 	ret
 
-
 // Switch the MMU to a L0 page table
 // x0 contains the TTBR related to this CPU for the L0 page table
 
-ENTRY(__mmu_switch)
+ENTRY(__mmu_switch_ttbr)
  	// Ensure the flushes happen before continuing
 	dsb   sy
 
 	// Ensure synchronization with previous code changes
     isb
 
-	/* We are in the hypervisor, so at EL2 */
 	msr   ttbr0_el2, x0
     isb
+
+	ret
+
+ENTRY(__mmu_switch_vttbr)
+ 	// Ensure the flushes happen before continuing
+	dsb   	sy
+
+	// Ensure synchronization with previous code changes
+    isb
+
+	/* Switch the vttbr to map the correct guest */
+	msr   	vttbr_el2, x0
+    isb
+
+	tlbi 	alle2
+	dsb		nsh
 
 	ret
 

@@ -32,6 +32,7 @@ void avz_dump_logbool(void);
 
 void avz_ME_unpause(domid_t domID, addr_t vbstore_pfn);
 void avz_ME_pause(domid_t domID);
+void avz_get_shared(void);
 
 void domcall(int cmd, void *arg);
 void avz_linux_callback(void);

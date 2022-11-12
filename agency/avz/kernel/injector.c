@@ -114,7 +114,7 @@ void inject_me(soo_hyp_t *op)
 
 	/* Switch back to the agency address space */
 	set_current(__current);
-	mmu_switch((void *) current_pgtable_paddr);
+	//mmu_switch((void *) current_pgtable_paddr);
 
 out:
 	/* Prepare to return the slotID to the caller. */

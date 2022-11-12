@@ -865,12 +865,7 @@ void gic_ipi_send_mask(struct irq_data *d, const struct cpumask *mask)
 
 	/* this always happens on GIC0 */
 	
-	/* SOO.tech */
-
-	avz_send_IPI(d->hwirq, map);
-#if 0
 	writel_relaxed(map << 16 | d->hwirq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
-#endif
 
 	gic_unlock_irqrestore(flags);
 }

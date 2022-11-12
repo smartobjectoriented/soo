@@ -1136,6 +1136,12 @@ NOKPROBE(__sdei_asm_handler)
 /* SOO.tech */
 
 .align 5
+
+SYM_CODE_START(avz_hypercall)
+
+	hvc #0
+	ret
+
     /*
      * Hypercall trampoline has the following arguments:
      * - x0: hypercall number

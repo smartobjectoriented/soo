@@ -408,21 +408,6 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	ret	x28
 SYM_FUNC_END(__create_page_tables)
 
-/* SOO.tech
- * We arrive from avz hypervisor.
- * MMU is already enabled and the page table will
- * be updated in swapper_pg_dir by the Linux kernel.
- */
-
-.global _start
-.extern avz_start_info
-
-.type   _start, %function
-.section ".init.fromavz_start", "ax"
-_start:
-
-	bl	__cpu_setup
-
 /*
  * The following fragment of code is executed with the MMU enabled.
  *
@@ -449,40 +434,12 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	adr_l	scs_sp, init_shadow_call_stack	// Set shadow call stack
 #endif
 
-	// SOO.tech
-	// Clear the BSS here before using global variables
-	// like those defined in avz_setup
-
-	adr_l	x0, __bss_start
-	mov	x1, xzr
-	adr_l	x2, __bss_stop
-	sub	x2, x2, x0
-	bl	__pi_memset
-	dsb	ishst				// Make zero page visible to PTW
-
 	str_l	x21, __fdt_pointer, x5		// Save FDT pointer
 
-	// SOO.tech
-	adr_l	x4, avz_shared
-	str 	x22, [x4]
+	ldr_l	x4, kimage_vaddr		// Save the offset between
+	sub	x4, x4, x0			// the kernel virtual and
+	str_l	x4, kimage_voffset, x5		// physical mappings
 
-	// Update vabits_actual used along __pa() macro
-	mov	x5, #VA_BITS_MIN
-1:
-	adr_l	x6, vabits_actual
-	str	x5, [x6]
-
-	// AVZ setup
-	bl	avz_setup
-
-	// Set new PHYS_OFFSET in x0
-	ldr		x0, [x22, AVZ_DOM_PHYS_OFFSET]
-
-	ldr_l	x4, kimage_vaddr	// Save the offset between the kernel virtual and physical mappings
-	sub		x4, x4, x0
-	str_l	x4, kimage_voffset, x5
-
-#if 0 /* SOO.tech */
 	// Clear BSS
 	adr_l	x0, __bss_start
 	mov	x1, xzr
@@ -490,44 +447,6 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	sub	x2, x2, x0
 	bl	__pi_memset
 	dsb	ishst				// Make zero page visible to PTW
-#endif /* 0 */
-
-	// Linux is working with init_pg_dir which is assigned to init_mm.pgd
-	// We prepare this page table which will be used from this point
-
-	adr_l 	x0, init_pg_dir
-
-	// Get the virtual address of page table
-	ldr 	x1, [x22, #AVZ_PAGETABLE_VADDR]
-
-	add		x4, x0, #PAGE_SIZE
-1:
-	ldp		x2, x3, [x1], #16
-	stp		x2,	x3, [x0], #16
-
-	cmp		x0, x4
-	bne		1b
-
-	// Flush the new entries in the init_pg_dir page table.
-	adr_l 	x0, init_pg_dir
-	ldr		x1, =PAGE_SIZE
-
-	adr_l 	x0, init_pg_dir
-	ldr_l	x1, kimage_voffset
-	sub		x0, x0, x1
-
-	/* Now switch to this page table */
-	msr		ttbr1_el1, x0			// load TTBR1
-	isb
-
-	/*
-	 * Invalidate the local I-cache so that any instructions fetched
-	 * speculatively from the PoC are discarded, since they may have
-	 * been dynamically patched at the PoU.
-	 */
-	ic	iallu
-	dsb	nsh
-	isb
 
 #ifdef CONFIG_KASAN
 	bl	kasan_early_init
@@ -807,12 +726,6 @@ SYM_FUNC_START_LOCAL(secondary_startup)
 	/*
 	 * Common entry point for secondary CPUs.
 	 */
-
-	// SOO.tech
-	// Need to create the identity mapping in order to be ready
-	// when the MMU gets activated.
-	bl	__create_page_tables
-
 	bl	__cpu_secondary_check52bitva
 	bl	__cpu_setup			// initialise processor
 	adrp	x1, swapper_pg_dir

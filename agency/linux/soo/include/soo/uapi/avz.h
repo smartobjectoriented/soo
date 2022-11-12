@@ -135,6 +135,9 @@ struct avz_shared {
 	/* Agency or ME descriptor */
 	dom_desc_t dom_desc;
 
+	/* Keep the physical address so that the guest can map within in its address space. */
+	addr_t subdomain_shared_paddr;
+
 	struct avz_shared *subdomain_shared;
 
 	/* Reference to the logbool hashtable (one per each domain) */
@@ -185,5 +188,6 @@ struct DOMCALL_sync_domain_interactions_args {
 };
 
 void postmig_adjust_timer(void);
+void avz_printch(char c);
 
 #endif /* UAPI_AVZ */

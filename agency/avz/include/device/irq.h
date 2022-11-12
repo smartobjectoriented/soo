@@ -43,6 +43,9 @@
 #define IRQ_TYPE_SENSE_MASK	0x0000000f	/* Mask of the above */
 #define IRQ_TYPE_PROBE		0x00000010	/* Probing in progress */
 
+/* Maintenance IRQ */
+#define IRQ_ARCH_ARM_MAINT	25
+
 /* IRQ ARM Timer is 26 in EL2, 27 in EL1 */
 #define IRQ_ARCH_ARM_TIMER_EL2	26
 

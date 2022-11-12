@@ -70,11 +70,7 @@ int construct_agency(struct domain *d) {
 
 	/* vstack is used when the guest has not initialized its own stack yet; put right after _end of the guest OS. */
 
-	__setup_dom_pgtable(d, v_start, memslot[MEMSLOT_AGENCY].size, (alloc_spfn << PAGE_SHIFT));
-
-	/* Lets switch to the page table of our new domain - required for sharing page info */
-
-	mmu_switch((void *) d->avz_shared->pagetable_paddr);
+	__setup_dom_pgtable(d, alloc_spfn << PAGE_SHIFT, memslot[MEMSLOT_AGENCY].size);
 
 	d->avz_shared->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
 
@@ -91,8 +87,6 @@ int construct_agency(struct domain *d) {
 
 	d->avz_shared->printch = printch;
 
-	mmu_switch((void *) current->avz_shared->pagetable_paddr);
-
 	/* Set up a new domain stack for the RT domain */
 	domain_stack = (unsigned long) setup_dom_stack(domains[DOMID_AGENCY_RT]);
 
@@ -104,6 +98,7 @@ int construct_agency(struct domain *d) {
 	 * in the guest.
 	 */
 	agency->avz_shared->subdomain_shared = domains[DOMID_AGENCY_RT]->avz_shared;
+	agency->avz_shared->subdomain_shared_paddr = virt_to_phys(agency->avz_shared);
 
 	/* Domain related information */
 	domains[DOMID_AGENCY_RT]->avz_shared->nr_pages = d->avz_shared->nr_pages;
@@ -123,7 +118,7 @@ int construct_agency(struct domain *d) {
 	/* We start at 0x8000 since ARM-32 Linux is configured as such with the 1st level page table placed at 0x4000 */
 	new_thread(d, v_start + L_TEXT_OFFSET, d->avz_shared->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size);
 #else
-	new_thread(d, v_start, d->avz_shared->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size);
+	new_thread(d, alloc_spfn << PAGE_SHIFT, d->avz_shared->fdt_paddr, (alloc_spfn << PAGE_SHIFT) + memslot[MEMSLOT_AGENCY].size);
 #endif
 
 	return 0;

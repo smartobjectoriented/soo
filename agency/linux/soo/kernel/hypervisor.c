@@ -24,6 +24,7 @@
 
 #include <soo/hypervisor.h>
 #include <soo/evtchn.h>
+#include <soo/paging.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/schedop.h>
@@ -43,6 +44,19 @@ void avz_ME_unpause(domid_t domain_id, addr_t vbstore_pfn)
 	op.u.unpause_ME.vbstore_pfn = vbstore_pfn;
 
 	hypercall_trampoline(__HYPERVISOR_domctl, (long) &op, 0 ,0 ,0);
+}
+
+void avz_get_shared(void) {
+	addr_t paddr;
+
+	paddr = avz_hypercall(__HYPERVISOR_domctl, DOMCTL_get_AVZ_shared, 0, 0, 0);
+
+	avz_shared = (volatile avz_shared_t *) paging_remap(paddr, PAGE_SIZE);
+	avz_shared->subdomain_shared = (avz_shared_t *) paging_remap(avz_shared->subdomain_shared_paddr, PAGE_SIZE);
+
+}
+void avz_printch(char c) {
+	avz_hypercall(__HYPERVISOR_console_io, c, 0, 0, 0);
 }
 
 void avz_ME_pause(domid_t domain_id)

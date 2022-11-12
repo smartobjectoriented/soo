@@ -89,6 +89,22 @@ __kernel_main:
 .align 2
 
 __mmu_setup:
+		// The code to configure tcr_el2
+		// is borrowed from jailhouse hypervisor
+	
+		mrs		x1, tcr_el2
+	
+		/*
+		 * set TCR.(I)PS to the highest supported ID_AA64MMFR0_EL1.PARange value
+		 */
+
+		mrs     x2, id_aa64mmfr0_el1
+
+		/* Narrow PARange to fit the PS field in TCR_ELx */
+		ubfx    x2, x2, #ID_AA64MMFR0_PARANGE_SHIFT, #3
+		bfi     x1, x2, #TCR_PS_SHIFT, #3
+
+		msr		tcr_el2, x1
 
 		/*
 		 * The state of the TLBs is unknown before turning on the MMU.
@@ -97,13 +113,10 @@ __mmu_setup:
 		tlbi  alle2                  /* Flush hypervisor TLBs */
 		dsb   nsh
 
-		msr   TTBR0_EL2, x0
+		msr   ttbr0_el2, x0
 		isb
 
-		mrs   x0, SCTLR_EL2
-
-		orr   x0, x0, #SCTLR_ELx_M
-		orr   x0, x0, #SCTLR_ELx_C   /* Enable MMU and enable D-cache */
+		ldr	x0, =(SCTLR_I_BIT | SCTLR_C_BIT | SCTLR_M_BIT | SCTLR_EL2_RES1)
 
 		dsb   sy                     /* Flush PTE writes and finish reads */
 		msr   sctlr_el2, x0          /* now paging is enabled */
@@ -111,39 +124,50 @@ __mmu_setup:
 
 		ret
 
-
 mmu_setup:
 
 		// Use a temporary stack
 		adrp	x0, temp_stack
-		mov	sp, x0
+		mov		sp, x0
 
-		mov	x0, x9 // fdt addr
+		mov		x0, x9 // fdt addr
 
-		bl 	mmu_configure
+		bl 		mmu_configure
 
 		// Readjust the stack
-		ldr	x0, =__cpu0_stack
-		mov	sp, x0
+		ldr		x0, =__cpu0_stack
+		mov		sp, x0
 
 		// Keep executing in the kernel space
 
 		// Store the virtual address which will be used to continue
 		// the execution after the MMU enabled.
-		ldr	x0, .LCvirt_entry
+		ldr		x0, .LCvirt_entry
 
-		blr	x0
-
+		blr		x0
 
 el2_setup:
 
-	/* Hyp configuration. */
-	ldr x0, =HCR_HOST_NVHE_FLAGS
+		/* Populate ID registers. */
+		mrs	x0, midr_el1
+		mrs	x1, mpidr_el1
+		msr	vpidr_el2, x0
+		msr	vmpidr_el2, x1
 
-	// Interupts forwarded to EL2 mode
-	orr x0, x0, #HCR_IMO
-	orr x0, x0, #HCR_AMO
-	orr x0, x0, #HCR_FMO
+		msr	sctlr_el1, xzr
+
+		/* Hyp configuration. */
+	    and x1, x1, #3
+
+		cmp x1, #AGENCY_RT_CPU
+		bgt ME
+
+agency:
+	ldr x0, =HCR_AGENCY_FLAGS
+	b	99f
+ME:
+	ldr x0, =HCR_ME_FLAGS
+99:
 
 	msr	hcr_el2, x0
 	isb
@@ -159,118 +183,6 @@ el2_setup:
 
 	ret
 
-#if 0
-
-	 /* Still here to take some inspiration...*/
-
-	/* GICv3 system register access */
-	mrs	x0, id_aa64pfr0_el1
-	ubfx	x0, x0, #ID_AA64PFR0_GIC_SHIFT, #4
-	cbz	x0, 3f
-
-	mrs_s	x0, SYS_ICC_SRE_EL2
-	orr	x0, x0, #ICC_SRE_EL2_SRE	// Set ICC_SRE_EL2.SRE==1
-	orr	x0, x0, #ICC_SRE_EL2_ENABLE	// Set ICC_SRE_EL2.Enable==1
-	msr_s	SYS_ICC_SRE_EL2, x0
-	isb					// Make sure SRE is now set
-	mrs_s	x0, SYS_ICC_SRE_EL2		// Read SRE back,
-	tbz	x0, #0, 3f			// and check that it sticks
-	msr_s	SYS_ICH_HCR_EL2, xzr		// Reset ICC_HCR_EL2 to defaults
-
-3:
-
-	/* Populate ID registers. */
-	mrs	x0, midr_el1
-	mrs	x1, mpidr_el1
-	msr	vpidr_el2, x0
-	msr	vmpidr_el2, x1
-
-	msr	hstr_el2, xzr			// Disable CP15 traps to EL2
-
-	/* EL2 debug */
-	mrs	x1, id_aa64dfr0_el1
-	sbfx	x0, x1, #ID_AA64DFR0_PMUVER_SHIFT, #4
-	cmp	x0, #1
-	b.lt	4f				// Skip if no PMU present
-	mrs	x0, pmcr_el0			// Disable debug access traps
-	ubfx	x0, x0, #11, #5			// to EL2 and allow access to
-4:
-	csel	x3, xzr, x0, lt			// all PMU counters from EL1
-
-	/* Statistical profiling */
-	ubfx	x0, x1, #ID_AA64DFR0_PMSVER_SHIFT, #4
-	cbz	x0, 7f				// Skip if SPE not present
-	cbnz	x2, 6f				// VHE?
-	mrs_s	x4, SYS_PMBIDR_EL1		// If SPE available at EL2,
-	and	x4, x4, #(1 << SYS_PMBIDR_EL1_P_SHIFT)
-	cbnz	x4, 5f				// then permit sampling of physical
-	mov	x4, #(1 << SYS_PMSCR_EL2_PCT_SHIFT | \
-		      1 << SYS_PMSCR_EL2_PA_SHIFT)
-	msr_s	SYS_PMSCR_EL2, x4		// addresses and physical counter
-5:
-	mov	x1, #(MDCR_EL2_E2PB_MASK << MDCR_EL2_E2PB_SHIFT)
-	orr	x3, x3, x1			// If we don't have VHE, then
-	b	7f				// use EL1&0 translation.
-6:						// For VHE, use EL2 translation
-	orr	x3, x3, #MDCR_EL2_TPMS		// and disable access from EL1
-7:
-	msr	mdcr_el2, x3			// Configure debug traps
-
-	/* LORegions */
-	mrs	x1, id_aa64mmfr1_el1
-	ubfx	x0, x1, #ID_AA64MMFR1_LOR_SHIFT, 4
-	cbz	x0, 1f
-	msr_s	SYS_LORC_EL1, xzr
-1:
-
-	/* Stage-2 translation */
-	msr	vttbr_el2, xzr
-
-	cbz	x2, install_el2_stub
-
-	mov	w0, #BOOT_CPU_MODE_EL2		// This CPU booted in EL2
-	isb
-	ret
-
-install_el2_stub:
-	/*
-	 * When VHE is not in use, early init of EL2 and EL1 needs to be
-	 * done here.
-	 * When VHE _is_ in use, EL1 will not be used in the host and
-	 * requires no configuration, and all non-hyp-specific EL2 setup
-	 * will be done via the _EL1 system register aliases in __cpu_setup.
-	 */
-	ldr	x0, =(SCTLR_EL1_RES1 | ENDIAN_SET_EL1)
-	msr	sctlr_el1, x0
-
-	/* Coprocessor traps. */
-	mov	x0, #0x33ff
-	msr	cptr_el2, x0			// Disable copro. traps to EL2
-
-	/* SVE register access */
-	mrs	x1, id_aa64pfr0_el1
-	ubfx	x1, x1, #ID_AA64PFR0_SVE_SHIFT, #4
-	cbz	x1, 7f
-
-	bic	x0, x0, #CPTR_EL2_TZ		// Also disable SVE traps
-	msr	cptr_el2, x0			// Disable copro. traps to EL2
-	isb
-	mov	x1, #ZCR_ELx_LEN_MASK		// SVE: Enable full vector
-	msr_s	SYS_ZCR_EL2, x1			// length for EL1.
-
-	/* Hypervisor stub */
-7:	adrp x0, __hyp_stub_vectors
-	msr	vbar_el2, x0
-
-	/* spsr */
-	mov	x0, #(PSR_F_BIT | PSR_I_BIT | PSR_A_BIT | PSR_D_BIT | PSR_MODE_EL1h)
-	msr	spsr_el2, x0
-	msr	elr_el2, lr
-	mov	w0, #BOOT_CPU_MODE_EL2		// This CPU booted in EL2
-
-	eret
-#endif
-
 
 ENTRY(secondary_startup)
 	/*
@@ -281,7 +193,6 @@ ENTRY(secondary_startup)
      * as it has already been validated by the primary processor.
      */
 
-	// Mostly for future usage...
 	bl		el2_setup
 
 	// Initialize the vector table

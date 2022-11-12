@@ -66,12 +66,8 @@ int construct_ME(struct domain *d) {
 
 	v_start = ME_PAGE_OFFSET;
 
-	__setup_dom_pgtable(d, v_start, memslot[slotID].size, (alloc_spfn << PAGE_SHIFT));
-
 	/* Lets switch to the page table of our new domain - required for sharing page info */
 	get_current_pgtable(&prev_pagetable_paddr);
-
-	mmu_switch((void *) d->avz_shared->pagetable_paddr);
 
 	d->avz_shared->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
 	d->avz_shared->hypercall_vaddr = (unsigned long) hypercall_entry;
@@ -83,8 +79,6 @@ int construct_ME(struct domain *d) {
 	printk("ME FDT device tree: 0x%lx (phys)\n", d->avz_shared->fdt_paddr);
 
 	d->avz_shared->printch = printch;
-
-	mmu_switch((void *) prev_pagetable_paddr);
 
 	/* Create the first thread associated to this domain. */
 

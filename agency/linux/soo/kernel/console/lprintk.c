@@ -78,9 +78,14 @@ void __lprintk(const char *format, va_list va) {
 	if ((*__start != 0) && (*__start < 10))
 		__start += 2;
 
-	for (i = 0; i < strlen(__start); i++)
+	for (i = 0; i < strlen(__start); i++) {
+		avz_printch(__start[i]);
+
+#if 0
 		if (likely(__printch))
 			__printch(__start[i]);
+#endif
+	}
 
 }
 

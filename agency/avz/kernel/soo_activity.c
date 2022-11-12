@@ -82,7 +82,7 @@ void shutdown_ME(unsigned int ME_slotID)
 	memset((void *) __lva(memslot[ME_slotID].base_paddr), 0, memslot[ME_slotID].size);
 
 	set_current(__current_domain);
-	mmu_switch((void *) current_pgtable_paddr);
+	//mmu_switch((void *) current_pgtable_paddr);
 
 	DBG("Destroying domain structure ...\n");
 

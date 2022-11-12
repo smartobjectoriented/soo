@@ -108,15 +108,15 @@ void memory_init(void) {
 	/* Re-setup a system page table with a better granularity */
 	__new_root_pgtable = new_root_pgtable();
 
-	create_mapping(__new_root_pgtable, CONFIG_HYPERVISOR_VADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
+	create_mapping(__new_root_pgtable, CONFIG_HYPERVISOR_VADDR, CONFIG_RAM_BASE, get_kernel_size(), false, S1);
 
 	/* Mapping uart I/O for debugging purposes */
-	create_mapping(__new_root_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true);
+	create_mapping(__new_root_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true, S1);
 
 	/* Finally, create the Linux kernel area to be ready for the Agency domain, and for being able
 	 * to read the device tree.
 	 */
-	create_mapping(__new_root_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false);
+	create_mapping(__new_root_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false, S1);
 
 	replace_current_pgtable_with(__new_root_pgtable);
 
@@ -225,7 +225,7 @@ addr_t io_map(addr_t phys, size_t size) {
 		list_add_tail(&io_map->list, &io_maplist);
 
 
-	create_mapping(NULL, io_map->vaddr, io_map->paddr, io_map->size, true);
+	create_mapping(NULL, io_map->vaddr, io_map->paddr, io_map->size, true, S1);
 
 	return io_map->vaddr + offset;
 
@@ -418,7 +418,7 @@ void switch_mm(struct domain *d) {
 
 	set_current(d);
 
-	mmu_switch((void *) d->avz_shared->pagetable_paddr);
+	mmu_switch((void *) d->avz_shared->pagetable_paddr, true);
 }
 
 void dump_page(unsigned int pfn) {

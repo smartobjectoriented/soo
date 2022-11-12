@@ -23,7 +23,6 @@
 #include <config.h>
 #include <types.h>
 #include <memory.h>
-
 #include <sched.h>
 #include <domain.h>
 #include <event.h>
@@ -38,28 +37,31 @@
 
 static DEFINE_SPINLOCK(domctl_lock);
 
-extern long arch_do_domctl(struct domctl *op, domctl_t *args);
-
-void do_domctl(domctl_t *args)
+long do_domctl(long a1, long a2, long a3)
 {
 	struct domain *d;
 
 	spin_lock(&domctl_lock);
 
-	d = domains[args->domain];
-
-	switch (args->cmd)
+	switch (a1)
 	{
 
+	case DOMCTL_get_AVZ_shared:
+		return virt_to_phys(current->avz_shared);
+
 	case DOMCTL_pauseME:
+
+		d = domains[a2];
 
 		domain_pause_by_systemcontroller(d);
 		break;
 
 	case DOMCTL_unpauseME:
 
+		d = domains[a2];
+
 		/* Retrieve info from hypercall parameter structure */
-		d->avz_shared->vbstore_pfn = args->u.unpause_ME.vbstore_pfn;
+		d->avz_shared->vbstore_pfn = a3;
 
 		DBG("%s: unpausing ME\n", __func__);
 
@@ -68,5 +70,7 @@ void do_domctl(domctl_t *args)
 	}
 
 	spin_unlock(&domctl_lock);
+
+	return 0;
 }
 

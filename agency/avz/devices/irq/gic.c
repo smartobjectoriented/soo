@@ -1,7 +1,6 @@
 /*
  *  Copyright (C) 2002 ARM Limited, All Rights Reserved.
- *  Copyright (C) 2016 Daniel Rossier <daniel.rossier@soo.tech>
- *
+ *  Copyright (C) 2016,2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -20,6 +19,9 @@
  * Note that IRQs 0-31 are special - they are local to each CPU.
  * As such, the enable set/clear, pending set/clear and active bit
  * registers are banked per-cpu for these sources.
+ *
+ * Some part of code related to GIC virtualization is borrowed fro
+ * the Jailhouse project.
  */
 
 #include <config.h>
@@ -45,6 +47,32 @@ static void *gich_base;
 
 static unsigned int gic_num_lr;
 
+#define MAX_PENDING_IRQS	256
+
+struct pending_irqs {
+	/* synchronizes parallel insertions of SGIs into the pending ring */
+	spinlock_t lock;
+
+	u16 irqs[MAX_PENDING_IRQS];
+
+	/* contains the calling CPU ID in case of a SGI */
+	unsigned int head;
+
+	/* removal from the ring happens lockless, thstatic void gic_set_active_irq(unsigned int irq)
+{
+	u32 mask = 1 << (irq % 32);
+	int cpu = smp_processor_id();
+
+	spin_lock(&per_cpu(intc_lock, cpu));
+	writei(mask, gicd_base + GIC_DIST_ACTIVE_SET + (irq / 32) * 4);
+	spin_unlock(&per_cpu(intc_lock, cpu));
+}
+	 * us tail is volatile */
+	volatile unsigned int tail;
+};
+
+struct pending_irqs pending_irqs;
+
 static u32 gic_read_lr(unsigned int n)
 {
 	return readi(gich_base + GICH_LR_BASE + n * 4);
@@ -63,7 +91,6 @@ static void gic_mask_irq(unsigned int irq)
 	spin_lock(&per_cpu(intc_lock, cpu));
 	writei(mask, gicd_base + GIC_DIST_ENABLE_CLEAR + (irq / 32) * 4);
 	spin_unlock(&per_cpu(intc_lock, cpu));
-
 }
 
 static void gic_unmask_irq(unsigned int irq)
@@ -113,85 +140,28 @@ int irq_set_affinity(unsigned int irq, int cpu)
 	return 0;
 }
 
-static void gicd_init(void)
+void gicc_init(void)
 {
-	unsigned int gic_irqs, i;
-
-	/* Disable the controller so we can configure it before it passes any
-	 * interrupts to the CPU
-	 */
-
-	writei(GICD_DISABLE, gicd_base + GIC_DIST_CTRL);
-
-	/*
-	 * Find out how many interrupts are supported.
-	 * The GIC only supports up to 1020 interrupt sources.
-	 */
-	gic_irqs = readi(gicd_base + GIC_DIST_CTR) & 0x1f;
-
-	gic_irqs = (gic_irqs + 1) * 32;
-	if (gic_irqs > 1020)
-		gic_irqs = 1020;
-
-	/*
-	 * Set all global interrupts to be level triggered, active low.
-	 */
-	for (i = 32; i < gic_irqs; i += 16)
-		writei(0, gicd_base + GIC_DIST_CONFIG + i * 4 / 16);
-
-	/*
-	 * Major IRQs are routed to CPU #0
-	 */
-	for (i = 32; i < gic_irqs; i += 4)
-		writei(0x01010101, gicd_base + GIC_DIST_TARGET + i * 4 / 4);
-
-	/*
-	 * Set priority on all global interrupts.
-	 */
-	for (i = 32; i < gic_irqs; i += 4)
-		writei(0xa0a0a0a0, gicd_base + GIC_DIST_PRI + i * 4 / 4);
-
-	/*
-	 * Disable all interrupts.  Leave the PPI and SGIs alone
-	 * as these enables are banked registers.
-	 */
-	for (i = 32; i < gic_irqs; i += 32)
-		writei(0xffffffff, gicd_base + GIC_DIST_ENABLE_CLEAR + i * 4 / 32);
-
-	writei(1, gicd_base + GIC_DIST_CTRL);
-
-	/*
-	 * By default, route all IRQs to CPU #0. Re-routing to other CPU can be performed subsequently using
-	 * irq_set_affinity()
-	 */
-	for (i = 32; i < gic_irqs; i++)
-		irq_set_affinity(i, AGENCY_CPU);
-
-	smp_mb();
-}
-
-void gic_cpu_config(void *base)
-{
+	unsigned int cpu = smp_processor_id();
+	u32 bypass = 0;
 	int i;
+
+	spin_lock_init(&per_cpu(intc_lock, cpu));
 
 	/*
 	 * Deal with the banked PPI and SGI interrupts - disable all
 	 * PPI interrupts, ensure all SGI interrupts are enabled.
 	 */
-	writei(GICD_INT_EN_CLR_PPI, base + GIC_DIST_ENABLE_CLEAR);
-	writei(GICD_INT_EN_SET_SGI, base + GIC_DIST_ENABLE_SET);
+	writei(GICD_INT_EN_CLR_PPI, gicd_base + GIC_DIST_ENABLE_CLEAR);
+	writei(GICD_INT_EN_SET_SGI, gicd_base + GIC_DIST_ENABLE_SET);
 
 	/*
 	 * Set priority on PPI and SGI interrupts
 	 */
 	for (i = 0; i < 32; i += 4)
-		writei(GICD_INT_DEF_PRI_X4, base + GIC_DIST_PRI + i * 4 / 4);
+		writei(GICD_INT_DEF_PRI_X4, gicd_base + GIC_DIST_PRI + i * 4 / 4);
 
-}
-
-static void gic_cpu_if_up(void)
-{
-	u32 bypass = 0;
+	writei(GICC_INT_PRI_THRESHOLD, gicc_base + GIC_CPU_PRIMASK);
 
 	/*
 	 * Preserve bypass disable bits to be written back later
@@ -200,23 +170,139 @@ static void gic_cpu_if_up(void)
 	bypass &= GICC_DIS_BYPASS_MASK;
 
 	writei(bypass | GICC_ENABLE | GIC_CPU_EOI, gicc_base + GIC_CPU_CTRL);
-
 }
 
-void gicc_init(void)
+static void gic_enable_maint_irq(bool enable)
 {
-	void *dist_base = gicd_base;
-	void *base = gicc_base;
-	unsigned int cpu = smp_processor_id();
+	u32 hcr;
 
-	spin_lock_init(&per_cpu(intc_lock, cpu));
+	hcr = readi(gich_base + GICH_HCR);
+	if (enable)
+		hcr |= GICH_HCR_UIE;
+	else
+		hcr &= ~GICH_HCR_UIE;
+	writei(hcr, gich_base + GICH_HCR);
+}
 
-	gic_cpu_config(dist_base);
+static int gic_inject_irq(u16 irq_id)
+{
+	unsigned int n;
+	int first_free = -1;
+	u32 lr;
+	unsigned long elsr[2];
 
-	writei(GICC_INT_PRI_THRESHOLD, base + GIC_CPU_PRIMASK);
+	elsr[0] = readi(gich_base + GICH_ELSR0);
+	elsr[1] = readi(gich_base + GICH_ELSR1);
 
-	gic_cpu_if_up();
+	for (n = 0; n < gic_num_lr; n++) {
+		if (test_bit(n, elsr)) {
+			/* Entry is available */
+			if (first_free == -1)
+				first_free = n;
+			continue;
+		}
 
+		/* Check that there is no overlapping */
+		lr = gic_read_lr(n);
+		if ((lr & GICH_LR_VIRT_ID_MASK) == irq_id)
+			return -EEXIST;
+	}
+
+	if (first_free == -1)
+		return -EBUSY;
+
+	/* Inject group 0 interrupt (seen as IRQ by the guest) */
+	lr = irq_id;
+	lr |= GICH_LR_PENDING_BIT;
+
+	lr |= GICH_LR_HW_BIT;
+	lr |= (u32)irq_id << GICH_LR_PHYS_ID_SHIFT;
+
+	gic_write_lr(first_free, lr);
+
+	return 0;
+}
+
+void gic_inject_pending(void)
+{
+	u16 irq_id;
+
+	while (pending_irqs.head != pending_irqs.tail) {
+		irq_id = pending_irqs.irqs[pending_irqs.head];
+
+		if (gic_inject_irq(irq_id) == -EBUSY) {
+			/*
+			 * The list registers are full, trigger maintenance
+			 * interrupt and leave.
+			 */
+			gic_enable_maint_irq(true);
+			return;
+		}
+
+		/*
+		 * Ensure that the entry was read before updating the head
+		 * index.
+		 */
+		dmb(ish);
+
+		pending_irqs.head = (pending_irqs.head + 1) % MAX_PENDING_IRQS;
+	}
+
+	/*
+	 * The software interrupt queue is empty - turn off the maintenance
+	 * interrupt.
+	 */
+	gic_enable_maint_irq(false);
+}
+
+void gic_set_pending(u16 irq_id)
+{
+	unsigned int new_tail;
+
+	if (gic_inject_irq(irq_id) != -EBUSY)
+		return;
+
+	spin_lock(&pending_irqs.lock);
+
+	new_tail = (pending_irqs.tail + 1) % MAX_PENDING_IRQS;
+
+	/* Queue space available? */
+	if (new_tail != pending_irqs.head) {
+		pending_irqs.irqs[pending_irqs.tail] = irq_id;
+
+		/*
+		 * Make the entry content is visible before updating the tail
+		 * index.
+		 */
+		dmb(ish);
+
+		pending_irqs.tail = new_tail;
+	}
+
+	/*
+	 * The unlock has memory barrier semantic on ARM v7 and v8. Therefore
+	 * the change to tail will be visible when sending SGI_INJECT later on.
+	 */
+	spin_unlock(&pending_irqs.lock);
+
+	/*
+	 * The list registers are full, trigger maintenance interrupt if we are
+	 * on the target CPU. In the other case, send SGI_INJECT to the target
+	 * CPU.
+	 */
+
+	gic_enable_maint_irq(true);
+}
+
+static void gic_eoi_irq(u32 irq_id, bool deactivate)
+{
+	/*
+	 * The GIC doesn't seem to care about the CPUID value written to EOIR,
+	 * which is rather convenient...
+	 */
+	writei(irq_id, gicc_base + GICC_EOIR);
+	if (deactivate)
+		writei(irq_id, gicc_base + GICC_DIR);
 }
 
 /*
@@ -239,33 +325,22 @@ void gicc_init(void)
  *
  */
 
-void check_irq(void) {
-	u32 irqstat, irqnr;
-
-	irqstat = readi(gicc_base + GIC_CPU_INTACK);
-	irqnr = irqstat & GICC_IAR_INT_ID_MASK;
-	printk("## IRQ: %d\n", irqnr);
-}
-
 static void gic_handle(cpu_regs_t *cpu_regs) {
 	u32 irqstat, irqnr;
 
 	ASSERT(local_irq_is_disabled());
 
-	do {
+	while (true) {
 		irqstat = readi(gicc_base + GIC_CPU_INTACK);
 		irqnr = irqstat & GICC_IAR_INT_ID_MASK;
 
 		smp_mb();
-#if 0
-		if ((smp_processor_id() == AGENCY_CPU) || (smp_processor_id() == AGENCY_RT_CPU)){
-			printk("## GIC failure: getting IRQ %d on CPU %d\n", irqnr, smp_processor_id());
-			BUG();
-		}
-#endif
 
-		if (irqnr == 1023)
+		if (irqnr == 1023) {
+			if (smp_processor_id() == 0)
+				printk("## OUT irq via 1023\n");
 			return ;
+		}
 
 		/* SPIs 32-irqmax */
 		if (likely((irqnr > 31) && (irqnr < 1021))) {
@@ -274,26 +349,26 @@ static void gic_handle(cpu_regs_t *cpu_regs) {
 		}
 
 		if (irqnr < 16) {
-			/* IPI are end-of-interrupt'ed like this. */
-			writei(irqstat, gicc_base + GIC_CPU_EOI);
-
+			gic_eoi_irq(irqnr, false);
 			handle_IPI(irqnr);
+		} else {
 
-		} else if (irqnr < 32) {
-
-			/* Only PPI #IRQ_ARCH_ARM_TIMER is used for architected timer on ARM dedicated to the agency */
-			/* The other PPI is not used. */
-
-			if (irqnr == IRQ_ARCH_ARM_TIMER_EL2)
+			if (irqnr == IRQ_ARCH_ARM_TIMER_EL2) {
 				asm_do_IRQ(irqnr);
-			else
-				BUG();
+				gic_eoi_irq(irqnr, false);
+			} else {
+
+				if (irqnr == IRQ_ARCH_ARM_MAINT) {
+					gic_inject_pending();
+					gic_eoi_irq(irqnr, true);
+					continue;
+				} else {
+					gic_set_pending(irqnr);
+					gic_eoi_irq(irqnr, false);
+				}
+			}
 		}
-
-		/* End-of-Interrupt */
-		writei(irqnr, gicc_base + GIC_CPU_EOI);
-
-	} while (true);
+	}
 }
 
 static void gic_clear_pending_irqs(void)
@@ -308,26 +383,14 @@ static void gic_clear_pending_irqs(void)
 	writei(0, gich_base + GICH_APR);
 }
 
-#if 0 /* Not used at the moment */
-static void gic_enable_maint_irq(bool enable)
-{
-	u32 hcr;
-
-	hcr = readi(gich_base + GICH_HCR);
-	if (enable)
-		hcr |= GICH_HCR_UIE;
-	else
-		hcr &= ~GICH_HCR_UIE;
-	writei(hcr, gich_base + GICH_HCR);
-}
-#endif
-
-void gich_init(void) {
+void gic_cpu_init(void) {
 	u32 vtr, vmcr;
 	u32 gicc_ctlr, gicc_pmr;
+	u32 gicd_isacter;
+	unsigned int n;
 
 	/* Ensure all IPIs and the maintenance PPI are enabled. */
-	writei(0x0000ffff | (1 << 25), gicd_base + GIC_DIST_ENABLE_SET);
+	writei(0x0000ffff | (1 << IRQ_ARCH_ARM_MAINT), gicd_base + GIC_DIST_ENABLE_SET);
 
 	gicc_ctlr = readi(gicc_base + GICC_CTLR);
 	gicc_pmr = readi(gicc_base + GICC_PMR);
@@ -346,7 +409,7 @@ void gich_init(void) {
 	 * - A write to GICV_CTLR.GRP0EN corresponds to the GICC_CTLR.GRP1EN bit
 	 *   Since the guest's driver thinks that it is accessing a GIC with
 	 *   security extensions, a write to GPR1EN will enable group 0
-	 *   interrups.
+	 *   interrupts.
 	 * - Group 0 interrupts are presented as virtual IRQs (FIQEn = 0)
 	 */
 	if (gicc_ctlr & GICC_CTLR_GRPEN1)
@@ -364,19 +427,47 @@ void gich_init(void) {
 	 */
 	gic_clear_pending_irqs();
 
+	/* Deactivate all active SGIs */
+	gicd_isacter = readi(gicd_base + GIC_DIST_ACTIVE_SET);
+	writei(gicd_isacter & 0xffff, gicd_base + GIC_DIST_ACTIVE_SET);
+
+	/*
+	 * Forward any pending physical SGIs to the virtual queue.
+	 * We will convert them into self-inject SGIs, ignoring the original
+	 * source. But Linux doesn't care about that anyway.
+	 */
+	for (n = 0; n < 16; n++) {
+		if (readb(gicd_base + GIC_DIST_SGI_PENDING_CLEAR + n)) {
+			writeb(0xff, gicd_base + GIC_DIST_SGI_PENDING_CLEAR + n);
+			gic_set_pending(n);
+		}
+	}
+
 }
 
 void gic_init(addr_t *dist_base, addr_t *cpu_base, addr_t *hyp_base)
 {
+	pending_irqs.head = 0;
+	pending_irqs.tail = 0;
+
 	gicd_base = dist_base;
 	gicc_base = cpu_base;
 	gich_base = hyp_base;
 
+	gic_clear_pending_irqs();
+
+	/* Ensure all IPIs and the maintenance PPI are enabled */
+	writei(0x0000ffff | (1 << IRQ_ARCH_ARM_MAINT), gicd_base + GIC_DIST_ENABLE_SET);
+
+	/* Disable PPIs, except for the maintenance interrupt. */
+	writei(0xffff0000 & ~(1 << IRQ_ARCH_ARM_MAINT), gicd_base + GIC_DIST_ENABLE_SET);
+
+	/* Deactivate all active PPIs */
+	writei(0xffff0000, gicd_base + GIC_DIST_ACTIVE_CLEAR);
+
 	writei(0, gich_base + GICH_VMCR);
 
-	gicd_init();
-	gicc_init();
-	gich_init();
+	gic_cpu_init();
 
 	irq_ops.irq_handle = gic_handle;
 	irq_ops.irq_enable = gic_unmask_irq;
@@ -405,6 +496,8 @@ void smp_cross_call(long cpu_mask, unsigned int irq)
 }
 
 void init_gic(void) {
+	spin_lock_init(&pending_irqs.lock);
+
 	gic_init((addr_t *) io_map(GIC_DIST_PHYS, GIC_DIST_SIZE),
 		 (addr_t *) io_map(GIC_CPU_PHYS, GIC_CPU_SIZE),
 		 (addr_t *) io_map(GIC_HYP_PHYS, GIC_HYP_SIZE));

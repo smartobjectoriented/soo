@@ -38,6 +38,7 @@ struct meminfo {
 
 extern struct meminfo meminfo;
 
+extern addr_t __cpu1_stack[];
 extern addr_t __cpu3_stack[];
 
 void setup_arch(void);
