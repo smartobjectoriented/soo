@@ -258,6 +258,7 @@ void mmu_setup(uint32_t *pgtable);
 void vectors_init(void);
 
 void set_current_pgtable(uint32_t *pgtable);
+void get_current_pgtable(addr_t *pgtable_paddr);
 void replace_current_pgtable_with(uint32_t *pgtable);
 
 #endif
