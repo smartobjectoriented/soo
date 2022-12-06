@@ -129,8 +129,6 @@ int construct_agency(struct domain *d) {
 #else
 	new_thread(d, v_start, d->avz_shared->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size);
 #endif
-printk("## VADDR: %lx\n", d->avz_shared->pagetable_vaddr);
-	dump_pgtable((void *) d->avz_shared->pagetable_vaddr);
 	return 0;
 }
 
