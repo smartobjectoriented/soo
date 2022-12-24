@@ -24,6 +24,7 @@ static u32 get_ccsidr(void)
 
 	/* Read current CP15 Cache Size ID Register */
 	asm volatile ("mrc p15, 1, %0, c0, c0, 0" : "=r" (ccsidr));
+
 	return ccsidr;
 }
 

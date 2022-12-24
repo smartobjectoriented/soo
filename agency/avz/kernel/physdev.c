@@ -55,12 +55,17 @@ int do_physdev_op(int cmd, void *args)
 		__current = current;
 		get_current_pgtable(&current_pgtable_paddr);
 
-		//switch_mm(idle_domain[smp_processor_id()]);
+#ifndef CONFIG_ARM64VT
+		switch_mm(idle_domain[smp_processor_id()]);
+#endif
 
 		dump_page(val);
 
 		set_current(__current);
-		//mmu_switch((void *) current_pgtable_paddr);
+
+#ifndef CONFIG_ARM64VT
+		mmu_switch((void *) current_pgtable_paddr);
+#endif
 
 		break;
 	}
@@ -82,7 +87,6 @@ int do_physdev_op(int cmd, void *args)
 
 	default:
 		BUG();
-		break;
 	}
 
 	return 0;

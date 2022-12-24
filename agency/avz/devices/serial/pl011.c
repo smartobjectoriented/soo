@@ -20,7 +20,7 @@
 
 #include <device/arch/pl011.h>
 
-#include <mach/uart.h>
+#include <mach/io.h>
 
 #include <asm/io.h>
 

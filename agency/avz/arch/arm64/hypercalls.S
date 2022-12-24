@@ -60,12 +60,14 @@ restore:
 	disable_irq
 
 	current_cpu x11
-#if 0
+
+#ifndef CONFIG_ARM64VT
 	// Setting pseudo_usr_mode / x0, x1 re-assigned right after
 	ldr 	x0, .LCpseudo_usr_mode
 	mov		x1, #1
 	str		x1, [x0, x11, lsl #3]
 #endif
+
 	// Restore saved registers
 
 	ldr		x0, .LChypervisor_stack   	// running SVC hypervisor stack
@@ -164,13 +166,15 @@ ENTRY(hypercall_entry)
 
 	current_cpu x10
 
-#if 0
+#ifndef CONFIG_ARM64VT
+
 	// Check if we are coming from avz or the guest
 	ldr		x8, .LCpseudo_usr_mode
 
 	ldr		x9, [x8, x10, lsl #3]
 	cmp		x9, #0
-	#endif
+#endif
+
 	b.eq	__do_hypercall_from_avz
 
 	// readjust stack for future restore
@@ -179,11 +183,13 @@ ENTRY(hypercall_entry)
 	str		x8, [sp, #OFFSET_SP]
 
 	str		lr, [sp, #OFFSET_LR]
-#if 0
+
+#ifndef CONFIG_ARM64VT
 	ldr		x8, .LCpseudo_usr_mode
 	mov		x9, #0
 	str		x9, [x8, x10, lsl #3]
 #endif
+
 	mov		x8, sp
 	ldr 	x9, .LChypervisor_stack   // Get the running hypervisor EL1 stack
 	ldr		x11, [x9, x10, lsl #3]
@@ -258,6 +264,11 @@ __hypercall_entry:
 	.quad do_soo_hypercall
 
 __hypercall_end:
+
+#ifndef CONFIG_ARM64VT
+.LCpseudo_usr_mode:
+	.quad	pseudo_usr_mode
+#endif
 
 .LChypervisor_stack:
 	.quad	hypervisor_stack

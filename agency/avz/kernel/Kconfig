@@ -7,9 +7,7 @@ config PSCI
 	help
 	  Enabling PSCI-based CPU power handling. 
           It enables/disables secondary CPUs within the Secure mode.
-
-          choice
-
+          
 config HZ
 	int
 	default 100

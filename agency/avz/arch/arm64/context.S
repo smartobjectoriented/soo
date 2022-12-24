@@ -75,6 +75,20 @@ ENTRY(__mmu_switch_ttbr)
 
 	ret
 
+// Switch the MMU to a L0 page table
+// x0 contains the TTBR related to this CPU for the L0 page table
+
+ENTRY(__mmu_switch)
+ 	// Ensure the flushes happen before continuing
+	dsb   sy
+
+	// Ensure synchronization with previous code changes
+    isb
+
+	msr    ttbr1_el1, x0
+
+	ret
+
 ENTRY(__mmu_switch_vttbr)
  	// Ensure the flushes happen before continuing
 	dsb   	sy

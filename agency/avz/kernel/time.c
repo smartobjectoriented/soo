@@ -33,7 +33,6 @@
 #include <limits.h>
 #include <div64.h>
 #include <bitops.h>
-#include <soo.h>
 
 #include <device/timer.h>
 

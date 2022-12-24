@@ -336,11 +336,11 @@ KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(S
 export ARCH SRCARCH CONFIG_SHELL CROSS_COMPILE AS LD CC
 export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
 export CPP AR NM STRIP OBJCOPY OBJDUMP
+export TARGET
 
 export KBUILD_CPPFLAGS NOSTDINC_FLAGS AVZINCLUDE OBJCOPYFLAGS LDFLAGS
 export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
 export KBUILD_ARFLAGS
-export TARGET CONFIG_BIN CONFIG_ELF
 
 ifeq ($(CONFIG_VEXPRESS),y)
 TARGET = vexpress
@@ -365,10 +365,10 @@ ELF	= avz
 BIN	= avz.bin
 
 include scripts/Makefile.build
+ 
+all:  $(BIN)  
 
-all:  $(BIN)
-
-objs-y		:= kernel mm arch/$(SRCARCH) devices
+objs-y		:= arch/$(SRCARCH) kernel mm devices
 libs-y		:= lib
 libs-y 		+= lib/libfdt
 
@@ -400,7 +400,7 @@ $(BIN): $(ELF)
 $(ELF): $(avz-all) arch/$(SRCARCH)/avz.lds
 	$(call if_changed,avz)
 
-# The actual objects are generated when descending,
+# The actual objects are generated when descending, 
 # make sure no implicit rule kicks in
 $(sort $(avz-all)): $(avz-dirs) ;
 

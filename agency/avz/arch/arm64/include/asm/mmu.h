@@ -36,16 +36,31 @@
 #define PAGE_SIZE       (1 << PAGE_SHIFT)
 #define PAGE_MASK       (~(PAGE_SIZE-1))
 
+#ifdef CONFIG_ARM64VT
+
 #ifdef CONFIG_VA_BITS_48
-#define L_PAGE_OFFSET	UL(0x0000110000000000)
+#define AGENCY_VOFFSET		UL(0x0000110000000000)
+#define ME_VOFFSET		UL(0xffff800000000000)
+#elif CONFIG_VA_BITS_39
+#define AGENCY_VOFFSET		UL(0xffffffc010000000)
+#define ME_VOFFSET	  	UL(0xffffffc000000000)
+#else
+#error "Wrong VA_BITS configuration."
+#endif
+
+#else /* CONFIG_ARM64VT */
+
+#ifdef CONFIG_VA_BITS_48
+#define AGENCY_VOFFSET	UL(0xffff800010000000)
 #define ME_PAGE_OFFSET	UL(0xffff800000000000)
 #elif CONFIG_VA_BITS_39
-#define L_PAGE_OFFSET	UL(0xffffffc010000000)
+#define AGENCY_VOFFSET	UL(0xffffffc010000000)
 #define ME_PAGE_OFFSET  UL(0xffffffc000000000)
 #else
 #error "Wrong VA_BITS configuration."
 #endif
 
+#endif /* !CONFIG_ARM64VT */
 
 /* Order of size which makes sense in block mapping */
 #define BLOCK_256G_OFFSET	(SZ_256G - 1)
@@ -129,7 +144,7 @@
 /* Position the attr at the correct index */
 #define MAIR_ATTRIDX(attr, idx)		((attr) << ((idx) * 8))
 
-#define MAIR_EL2_SET							\
+#define MAIR_EL1_SET							\
 	(MAIR_ATTRIDX(MAIR_ATTR_DEVICE_nGnRnE, MT_DEVICE_nGnRnE) |	\
 	 MAIR_ATTRIDX(MAIR_ATTR_DEVICE_nGnRE, MT_DEVICE_nGnRE) |	\
 	 MAIR_ATTRIDX(MAIR_ATTR_DEVICE_GRE, MT_DEVICE_GRE) |		\
@@ -138,6 +153,14 @@
 	 MAIR_ATTRIDX(MAIR_ATTR_NORMAL_WT, MT_NORMAL_WT) |		\
 	 MAIR_ATTRIDX(MAIR_ATTR_NORMAL, MT_NORMAL_TAGGED))
 
+#define MAIR_EL2_SET							\
+	(MAIR_ATTRIDX(MAIR_ATTR_DEVICE_nGnRnE, MT_DEVICE_nGnRnE) |	\
+	 MAIR_ATTRIDX(MAIR_ATTR_DEVICE_nGnRE, MT_DEVICE_nGnRE) |	\
+	 MAIR_ATTRIDX(MAIR_ATTR_DEVICE_GRE, MT_DEVICE_GRE) |		\
+	 MAIR_ATTRIDX(MAIR_ATTR_NORMAL_NC, MT_NORMAL_NC) |		\
+	 MAIR_ATTRIDX(MAIR_ATTR_NORMAL, MT_NORMAL) |			\
+	 MAIR_ATTRIDX(MAIR_ATTR_NORMAL_WT, MT_NORMAL_WT) |		\
+	 MAIR_ATTRIDX(MAIR_ATTR_NORMAL, MT_NORMAL_TAGGED))
 /*
  * Hardware page table definitions.
  *
@@ -483,6 +506,8 @@ enum dcache_option {
 					"at " stage el rw ", %0" \
 					: : "r"(va) : "memory", "cc");
 
+#ifdef CONFIG_ARM64VT
+
 static inline void set_pte_table_S1(u64 *pte, enum dcache_option option)
 {
 	u64 attrs = PTE_TABLE_NS;
@@ -544,6 +569,46 @@ static inline void set_pte_page_S2(u64 *pte, enum dcache_option option)
 		*pte |= S2_PTE_FLAG_NORMAL;
 }
 
+#else /* CONFIG_ARM64_VT */
+
+static inline void set_pte_table(u64 *pte, enum dcache_option option)
+{
+	u64 attrs = PTE_TABLE_NS;
+
+	*pte |= PTE_TYPE_TABLE;
+	*pte |= attrs;
+}
+
+static inline void set_pte_block(u64 *pte, enum dcache_option option)
+{
+	u64 attrs = PTE_BLOCK_MEMTYPE(option);
+
+	/* Permissions of R/W/Executable will be set in create_mapping() function
+	 * according to the VA. The combination of UXN/PXN/AP[2:1]/SCTLR_ELx.WXN
+	 * determines the level of access permission. It is not possible
+	 * to have R/W/Exec at EL0/EL1 at the same time.
+	 */
+
+	*pte |= PTE_TYPE_BLOCK | PTE_BLOCK_AF | PTE_BLOCK_INNER_SHARE | PTE_BLOCK_NS;
+	*pte |= attrs;
+}
+
+static inline void set_pte_page(u64 *pte, enum dcache_option option)
+{
+	u64 attrs = PTE_BLOCK_MEMTYPE(option);
+
+	/* Permissions of R/W/Executable will be set in create_mapping() function
+	 * according to the VA. The combination of UXN/PXN/AP[2:1]/SCTLR_ELx.WXN
+	 * determines the level of access permission. It is not possible
+	 * to have R/W/Exec at EL0/EL1 at the same time.
+	 */
+
+	*pte |= PTE_TYPE_PAGE | PTE_BLOCK_AF | PTE_BLOCK_INNER_SHARE | PTE_BLOCK_NS;
+	*pte |= attrs;
+}
+
+#endif /* !CONFIG_ARM64VT */
+
 static inline int pte_type(u64 *pte)
 {
 	return *pte & PTE_TYPE_MASK;
@@ -571,6 +636,8 @@ static inline bool user_space_vaddr(addr_t addr) {
 		return true;
 }
 
+#ifdef CONFIG_ARM64VT
+
 static inline unsigned int get_sctlr(void)
 {
 	unsigned int val;
@@ -586,30 +653,54 @@ static inline void set_sctlr(unsigned int val)
 	asm volatile("isb");
 }
 
-extern addr_t __sys_root_pgtable[], __sys_idmap_l1pgtable[], __sys_linearmap_l1pgtable[];
-
-void set_pte(u64 *pte, enum dcache_option option);
-
 extern void __mmu_switch_ttbr(void *root_pgtable_phys);
 extern void __mmu_switch_vttbr(void *root_pgtable_phys);
 
 void create_mapping(void *pgtable, addr_t virt_base, addr_t phys_base, size_t size, bool nocache, mmu_stage_t stage);
+
+void mmu_switch(void *pgtable, bool vttbr);
+void __mmu_setup(void *pgtable);
+
+#else
+
+static inline unsigned int get_sctlr(void)
+{
+	unsigned int val;
+
+	asm volatile("mrs %0, sctlr_el1" : "=r" (val) : : "cc");
+
+	return val;
+}
+
+static inline void set_sctlr(unsigned int val)
+{
+	asm volatile("msr sctlr_el1, %0" : : "r" (val) : "cc");
+	asm volatile("isb");
+}
+
+extern void __mmu_switch(void *root_pgtable_phys);
+void create_mapping(void *pgtable, addr_t virt_base, addr_t phys_base, size_t size, bool nocache);
+
+void mmu_switch(void *pgtable);
+
+#endif /* !CONFIG_ARM64_VT */
+
+extern addr_t __sys_root_pgtable[], __sys_idmap_l1pgtable[], __sys_linearmap_l1pgtable[];
+
+void set_pte(u64 *pte, enum dcache_option option);
+
+void mmu_setup(void *pgtable);
+
 void release_mapping(void *pgtable, addr_t virt_base, size_t size);
 
 void *new_root_pgtable(void);
 
-void mmu_switch(void *pgtable, bool vttbr);
+void get_current_pgtable(addr_t *pgtable_paddr);
 void dump_pgtable(void *pgtable);
-
 void dump_current_pgtable(void);
-
-void mmu_setup(void *pgtable);
+void replace_current_pgtable_with(void *pgtable);
 
 void vectors_init(void);
-
-void get_current_pgtable(addr_t *pgtable_paddr);
-
-void replace_current_pgtable_with(void *pgtable);
 
 #endif
 

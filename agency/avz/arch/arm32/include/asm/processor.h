@@ -426,24 +426,24 @@ static inline uint32_t local_save_flags(void)
 	return flags;
 }
 
-#define local_irq_save(x)                                   \
-          ({                                                      \
-          __asm__ __volatile__(                                   \
-          "mrs    %0, cpsr                @ local_irq_save\n"     \
-          "cpsid  i"                                              \
-          : "=r" (x) : : "memory", "cc");                         \
-          })
+static inline unsigned long local_irq_save(void)
+{
+	unsigned long flags;
 
-/*
- * restore saved IRQ & FIQ state
- */
-static inline void local_irq_restore(uint32_t flags)
+	asm volatile(
+		"mrs    %0, cpsr                @ local_irq_save\n"     \
+		 "cpsid  i"    \
+		: "=r" (flags) : : "memory", "cc");
+
+	return flags;
+}
+
+
+static inline void local_irq_restore(unsigned long flags)
 {
 	asm volatile(
 		"msr	" IRQMASK_REG_NAME_W ", %0	@ local_irq_restore"
-		:
-		: "r" (flags)
-		: "memory", "cc");
+		:: "r" (flags) : "memory", "cc");
 }
 
 #define local_irq_is_enabled() \
@@ -530,6 +530,7 @@ void ret_to_user(void);
 void pre_ret_to_user(void);
 
 void cpu_do_idle(void);
+extern char hypercall_entry[];
 
 #endif /* __ASSEMBLY__ */
 

@@ -19,6 +19,7 @@
 #include <memslot.h>
 #include <sched.h>
 #include <soo.h>
+#include <sizes.h>
 
 #include <libfdt/fdt_support.h>
 
@@ -41,9 +42,16 @@ void loadAgency(void)
 	addr_t dom_addr;
 	int nodeoffset, next_node;
 	uint8_t tmp[16];
-	u64 base, size;
+	addr_t base;
+	size_t size;
 	int len, depth, ret;
 	const char *propstring;
+
+#ifdef CONFIG_ARM64VT
+	const struct fdt_property *initrd_start, *initrd_end;
+	addr_t entry_addr;
+	int lenp;
+#endif
 
 	ret = fdt_check_header(fdt_vaddr);
 	if (ret) {
@@ -57,29 +65,42 @@ void loadAgency(void)
 
 		ret = fdt_property_read_string(fdt_vaddr, nodeoffset, "type", &propstring);
 
-		if ((ret != -1) && (!strcmp(propstring, "agency"))) {
+		if ((ret != -1) && !strcmp(propstring, "avz")) {
+
+			/* According to U-boot, the <load> and <entry> properties are both on 64-bit even for aarch32 configuration. */
 
 			ret = fdt_property_read_u64(fdt_vaddr, nodeoffset, "load", (u64 *) &dom_addr);
-
 			if (ret == -1) {
 				lprintk("!! Missing load-addr in the agency node !!\n");
 				BUG();
-			} else
-			  break;
+			}
+#ifdef CONFIG_ARM64VT
+			ret = fdt_property_read_u64(fdt_vaddr, nodeoffset, "entry", (u64 *) &entry_addr);
+			if (ret == -1) {
+				lprintk("!! Missing entry in the agency node !!\n");
+				BUG();
+			}
+#endif
+			break;
 		}
 		nodeoffset = next_node;
 	}
 
 	if (nodeoffset < 0) {
-		lprintk("!! Unable to find a node with type agency in the FIT image... !!\n");
+		lprintk("!! Unable to find a node with type avz in the FIT image... !!\n");
 		BUG();
 	}
 
-	/* Set the memslot base address to a 2 MB block boundary */
-	memslot[MEMSLOT_AGENCY].base_paddr = dom_addr & ~(SZ_2M - 1);
+	/* Set the memslot base address to a 2 MB block boundary to ease mapping with ARM64 */
+	memslot[MEMSLOT_AGENCY].base_paddr = dom_addr & ~(SZ_2M - 1);;
 	memslot[MEMSLOT_AGENCY].fdt_paddr = (addr_t) __fdt_addr;
 	memslot[MEMSLOT_AGENCY].size = fdt_getprop_u32_default(fdt_vaddr, "/agency", "domain-size", 0);
-	
+
+#ifdef CONFIG_ARM64VT
+	memslot[MEMSLOT_AGENCY].ipa_addr = entry_addr & SZ_1G;
+	lprintk("IPA Layout: device tree located at 0x%lx\n", memslot[MEMSLOT_AGENCY].fdt_paddr);
+#endif
+
 	/* Fixup the agency device tree */
 
 	/* find or create "/memory" node. */
@@ -88,13 +109,50 @@ void loadAgency(void)
 
 	fdt_setprop(fdt_vaddr, nodeoffset, "device_type", "memory", sizeof("memory"));
 
-	base = (u64) memslot[MEMSLOT_AGENCY].base_paddr;
-	size = (u64) memslot[MEMSLOT_AGENCY].size;
+	size = memslot[MEMSLOT_AGENCY].size;
 
+#ifdef CONFIG_ARM64VT
+	base = memslot[MEMSLOT_AGENCY].ipa_addr;
+#else
+	base = memslot[MEMSLOT_AGENCY].base_paddr;
+#endif
 	len = fdt_pack_reg(fdt_vaddr, tmp, &base, &size);
 
 	fdt_setprop(fdt_vaddr, nodeoffset, "reg", tmp, len);
+
+#ifdef CONFIG_ARM64VT
+	/* Fixup of initrd_start and initrd_end */
+	nodeoffset = 0;
+	depth = 0;
+	while (nodeoffset >= 0) {
+		next_node = fdt_next_node(fdt_vaddr, nodeoffset, &depth);
+
+		initrd_start = fdt_get_property(fdt_vaddr, nodeoffset, "linux,initrd-start", &lenp);
+
+		if (initrd_start) {
+			initrd_end = fdt_get_property(fdt_vaddr, nodeoffset, "linux,initrd-end", &lenp);
+			BUG_ON(!initrd_end);
+
+			base = fdt64_to_cpu(((const fdt64_t *) initrd_start->data)[0]);
+			base = phys_to_ipa(memslot[MEMSLOT_AGENCY], base);
+			lprintk("IPA Layout: initrd start at 0x%lx\n", base);
+
+			fdt_setprop_u64(fdt_vaddr, nodeoffset, "linux,initrd-start", base);
+
+			base = fdt64_to_cpu(((const fdt64_t *) initrd_end->data)[0]);
+			base = phys_to_ipa(memslot[MEMSLOT_AGENCY], base);
+			lprintk("IPA Layout: initrd end at 0x%lx\n", base);
+
+			fdt_setprop_u64(fdt_vaddr, nodeoffset, "linux,initrd-end", base);
+
+			break;
+		}
+		nodeoffset = next_node;
+	}
+#endif
+
 }
+
 
 /**
  * The ITB image will be parsed and the components placed in their target memory location.
@@ -179,7 +237,6 @@ void loadME(unsigned int slotID, void *itb) {
 		}
 		nodeoffset = next_node;
 	}
-
 	dest_ME_vaddr = (void *) __lva(memslot[slotID].base_paddr);
 
 	dest_ME_vaddr += L_TEXT_OFFSET;

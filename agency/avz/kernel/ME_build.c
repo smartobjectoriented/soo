@@ -64,7 +64,7 @@ int construct_ME(struct domain *d) {
 
 	clear_bit(_VPF_down, &d->pause_flags);
 
-	v_start = ME_PAGE_OFFSET;
+	v_start = ME_VOFFSET;
 
 	/* Lets switch to the page table of our new domain - required for sharing page info */
 	get_current_pgtable(&prev_pagetable_paddr);

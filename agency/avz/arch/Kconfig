@@ -7,7 +7,6 @@ choice
 		
 	config ARCH_ARM64
 		bool "ARM 64-bit"
-		
 endchoice
 
 config ARCH
@@ -17,7 +16,7 @@ config ARCH
 
 config CROSS_COMPILE
 	string "Cross-compiler"
-	default "arm-none-linux-gnueabihf-" if ARCH_ARM32
+	default "arm-linux-gnueabihf-" if ARCH_ARM32
 	default "aarch64-none-linux-gnu-" if ARCH_ARM64
 
 config ARM_TRUSTZONE

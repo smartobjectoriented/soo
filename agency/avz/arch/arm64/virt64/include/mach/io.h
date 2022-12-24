@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2020-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,11 +16,26 @@
  *
  */
 
-#ifndef MACH_UART_H
-#define MACH_UART_H
+#ifndef MACH_IO
+#define MACH_IO
 
+/* General I/O space */
+#define IO_SPACE_PADDR	0x8000000
+#define IO_SPACE_SIZE	0x3000000
+
+/* UART */
 #define UART_BASE 0x09000000
 
-#endif /* MACH_UART_H */
+/* GIC */
+#define GIC_DIST_PHYS 	0x08000000
+#define GIC_DIST_SIZE   0x10000
 
+#define GIC_CPU_PHYS 	0x08010000
+#define GIC_CPU_SIZE	0x10000
+
+#define GIC_HYP_PHYS	0x08030000
+#define GIC_HYP_SIZE	0x10000
+
+
+#endif /* MACH_IO */
 

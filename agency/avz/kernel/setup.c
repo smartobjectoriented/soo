@@ -65,7 +65,6 @@ void init_idle_domain(void)
 
 }
 
-extern void check_irq(void);
 void kernel_start(void)
 {
 	int i;

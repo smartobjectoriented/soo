@@ -37,7 +37,7 @@ struct meminfo {
 };
 
 extern struct meminfo meminfo;
-extern void *cpu1_stack, *cpu2_stack, *cpu3_stack;
+extern void *__cpu1_stack, *__cpu2_stack, *__cpu3_stack;
 
 void setup_arch(void);
 void cpu_init(void);

@@ -18,6 +18,9 @@
 
 #include <sched.h>
 
+#include <soo/uapi/avz.h>
+
+
 /* Use marker if you need to separate the values later */
 
 #define DEFINE(sym, val) \
@@ -28,13 +31,14 @@
 int main(void)
 {
 
-	DEFINE(OFFSET_SHARED_INFO, offsetof(struct domain, shared_info));
-	DEFINE(OFFSET_DOMAIN_ID, offsetof(struct domain, domain_id));
+	DEFINE(OFFSET_AVZ_SHARED, offsetof(struct domain, avz_shared));
 
-	DEFINE(OFFSET_EVTCHN_UPCALL_PENDING, offsetof(struct shared_info, evtchn_upcall_pending));
+	DEFINE(OFFSET_EVTCHN_UPCALL_PENDING, offsetof(struct avz_shared, evtchn_upcall_pending));
 
-	DEFINE(OFFSET_HYPERVISOR_CALLBACK,  offsetof(struct domain, event_callback));
-	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct domain, domcall));
+	DEFINE(OFFSET_HYPERVISOR_CALLBACK,  offsetof(struct avz_shared, vectors_vaddr));
+	DEFINE(OFFSET_DOMCALL_CALLBACK, offsetof(struct avz_shared, domcall_vaddr));
+	DEFINE(OFFSET_TRAPS_CALLBACK, offsetof(struct avz_shared, traps_vaddr));
+
 	DEFINE(OFFSET_G_SP,		 offsetof(struct domain, g_sp));
 
 	DEFINE(OFFSET_CPU_REGS,		offsetof(struct domain, cpu_regs));

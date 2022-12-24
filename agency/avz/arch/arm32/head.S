@@ -27,9 +27,9 @@
 .global _start
 .global __fdt_addr
 
-.global cpu1_stack
-.global cpu2_stack
-.global cpu3_stack
+.global __cpu1_stack
+.global __cpu2_stack
+.global __cpu3_stack
 
 .extern clear_bss
 .extern mmu_configure
@@ -70,8 +70,6 @@ _start:
   @ r1 = machine id
   @ r2 = dtb address
 
-  bl 	__hyp_stub_install
-
   @ Make sure we start in SVC mode
 
   safe_svcmode_maskall r9
@@ -82,7 +80,7 @@ _start:
   mov 	r9, r2
 
   @ Initialize stack pointers for current mode (normal case if no MMU is used)
-  ldr  	sp, =cpu0_stack
+  ldr  	sp, =__cpu0_stack
 
   @ Up to here, a stack should be initialized
 
@@ -114,7 +112,7 @@ __kernel_main:
 mmu_setup:
 
   @ Use a temporary stack
-  adrl	sp, cpu0_stack
+  adrl	sp, __cpu0_stack
 
   @ Refer to the 1st-level page table
   ldr	r0, =CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET
@@ -124,7 +122,7 @@ mmu_setup:
   bl 	mmu_configure
   
   @ Readjust the stack
-  ldr	sp, =cpu0_stack
+  ldr	sp, =__cpu0_stack
 
   @ Keep executing in the kernel space
 
@@ -194,24 +192,24 @@ __fdt_addr:
 @ Before MMU is enabled, we cannot refer to the normal stack as declared in the linker script
 cpu0_stack_bottom:
     .fill STACK_SIZE, 1, 0
-cpu0_stack:
+__cpu0_stack:
 
 .skip 8
 .align 13
 cpu1_stack_bottom:
     .fill STACK_SIZE, 1, 0
-cpu1_stack:
+__cpu1_stack:
 
 .skip 8
 .align 13
 cpu2_stack_bottom:
     .fill STACK_SIZE, 1, 0
-cpu2_stack:
+__cpu2_stack:
 
 .skip 8
 .align 13
 cpu3_stack_bottom:
     .fill STACK_SIZE, 1, 0
-cpu3_stack:
+__cpu3_stack:
 
 

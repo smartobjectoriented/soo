@@ -55,24 +55,23 @@ int construct_agency(struct domain *d) {
 
 	d->max_pages = ~0U;
 
-	printk("Max dom size %d\n", memslot[MEMSLOT_AGENCY].size);
-
 	ASSERT(d);
 
 	d->avz_shared->nr_pages = memslot[MEMSLOT_AGENCY].size >> PAGE_SHIFT;
 
-	printk("Domain length = %lu pages.\n", d->avz_shared->nr_pages);
-
 	alloc_spfn = memslot[MEMSLOT_AGENCY].base_paddr >> PAGE_SHIFT;
 
 	clear_bit(_VPF_down, &d->pause_flags);
-	v_start = L_PAGE_OFFSET;
+	v_start = AGENCY_VOFFSET;
 
-	/* vstack is used when the guest has not initialized its own stack yet; put right after _end of the guest OS. */
-
-	__setup_dom_pgtable(d, alloc_spfn << PAGE_SHIFT, memslot[MEMSLOT_AGENCY].size);
-
+#ifdef CONFIG_ARM64VT
+	__setup_dom_pgtable(d, memslot[MEMSLOT_AGENCY].base_paddr, memslot[MEMSLOT_AGENCY].size);
 	d->avz_shared->dom_phys_offset = alloc_spfn << PAGE_SHIFT;
+#else
+	__setup_dom_pgtable(d, v_start, memslot[MEMSLOT_AGENCY].size, (alloc_spfn << PAGE_SHIFT) - L_TEXT_OFFSET);
+	d->avz_shared->dom_phys_offset = (alloc_spfn << PAGE_SHIFT) - L_TEXT_OFFSET;
+
+#endif
 
 	/* Propagate the virtual address of the shared info page for this domain */
 
@@ -118,7 +117,16 @@ int construct_agency(struct domain *d) {
 	/* We start at 0x8000 since ARM-32 Linux is configured as such with the 1st level page table placed at 0x4000 */
 	new_thread(d, v_start + L_TEXT_OFFSET, d->avz_shared->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size);
 #else
-	new_thread(d, alloc_spfn << PAGE_SHIFT, d->avz_shared->fdt_paddr, (alloc_spfn << PAGE_SHIFT) + memslot[MEMSLOT_AGENCY].size);
+
+#ifdef CONFIG_ARM64VT
+	new_thread(d, memslot[MEMSLOT_AGENCY].ipa_addr,
+		   phys_to_ipa(memslot[MEMSLOT_AGENCY], d->avz_shared->fdt_paddr),
+		   memslot[MEMSLOT_AGENCY].ipa_addr + memslot[MEMSLOT_AGENCY].size);
+
+#else
+	new_thread(d, v_start, d->avz_shared->fdt_paddr, v_start + memslot[MEMSLOT_AGENCY].size);
+#endif
+
 #endif
 
 	return 0;

@@ -34,6 +34,7 @@
 #include <asm/setup.h>
 #include <asm/cacheflush.h>
 #include <asm/vfp.h>
+#include <asm/processor.h>
 
 static volatile int booted[NR_CPUS] = {0};
 
@@ -104,13 +105,16 @@ void handle_IPI(int ipinr)
 		break;
 
 	default:
-		/* Forward the IPI to the guest */
+#ifdef CONFIG_ARM64VT
 		BUG();
+#else
+		/* Forward the IPI to the guest */
+		asm_do_IRQ(ipinr);
+#endif
+		break;
 	}
 
 }
-
-extern void pre_ret_to_el1(void);
 
 /*
  * This is the secondary CPU boot entry.  We're using this CPUs
@@ -128,13 +132,16 @@ void secondary_start_kernel(void)
 
 	printk("CPU%u: Booted secondary processor\n", cpu);
 
+#ifdef CONFIG_ARM64VT
 	if (cpu == AGENCY_RT_CPU) {
 
 		mmu_switch((void *) current->avz_shared->pagetable_paddr, true);
 
 		booted[cpu] = 1;
+
 		pre_ret_to_el1();
 	}
+#endif
 
 	init_timer(cpu);
 
@@ -167,12 +174,17 @@ void cpu_up(unsigned int cpu)
 	 * to bootstrap correctly on other CPUs.
 	 * The size must be enough to reach the stack.
 	 */
+#ifdef CONFIG_ARM64VT
 	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_32M, false, S1);
+#else
+	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_32M, false);
+#endif
 
 	/*
 	 * We need to tell the secondary core where to find
 	 * its stack and the page tables.
 	 */
+
 	switch (cpu) {
 	case AGENCY_RT_CPU:
 		secondary_data.stack = (void *) __cpu1_stack;
@@ -199,6 +211,15 @@ void cpu_up(unsigned int cpu)
 	psci_smp_boot_secondary(cpu);
 #else
 	smp_boot_secondary(cpu);
+#endif
+
+	/*
+	 * CPU was successfully started, wait for it
+	 * to come online or time out.
+	 */
+#warning not sure if still necessary...
+#ifdef CONFIG_ARCH_ARM32
+	smp_trigger_event(cpu);
 #endif
 
 	printk("Now waiting CPU %d to be up and running ...\n", cpu);

@@ -72,7 +72,7 @@ int fdt_property_read_string(void *fdt_addr, int offset, const char *propname, c
 int fdt_property_read_u32(void *fdt_addr, int offset, const char *propname, u32 *out_value);
 int fdt_property_read_u64(void *fdt_addr, int offset, const char *propname, u64 *out_value);
 
-int fdt_pack_reg(const void *fdt, void *buf, u64 *address, u64 *size);
+int fdt_pack_reg(const void *fdt, void *buf, addr_t *address, size_t *size);
 int fdt_find_or_add_subnode(void *fdt, int parentoffset, const char *name);
 
 /*

@@ -423,6 +423,7 @@ void do_event_channel_op(int cmd, void *args) {
 		memcpy(&alloc_unbound, args, sizeof(struct evtchn_alloc_unbound));
 
 		evtchn_alloc_unbound(&alloc_unbound);
+
 		memcpy(args, &alloc_unbound, sizeof(struct evtchn_alloc_unbound));
 		break;
 	}

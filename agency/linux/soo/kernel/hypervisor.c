@@ -47,12 +47,20 @@ void avz_ME_unpause(domid_t domain_id, addr_t vbstore_pfn)
 }
 
 void avz_get_shared(void) {
-	addr_t paddr;
+	struct domctl *op;
 
-	paddr = avz_hypercall(__HYPERVISOR_domctl, DOMCTL_get_AVZ_shared, 0, 0, 0);
+	op = kmalloc(sizeof(struct domctl), GFP_KERNEL);
+	BUG_ON(!op);
 
-	avz_shared = (volatile avz_shared_t *) paging_remap(paddr, PAGE_SIZE);
+	op->cmd = DOMCTL_get_AVZ_shared;
+
+	avz_hypercall(__HYPERVISOR_domctl, virt_to_phys(op), 0, 0, 0);
+
+	avz_shared = (volatile avz_shared_t *) paging_remap(op->avz_shared_paddr, PAGE_SIZE);
+	BUG_ON(!avz_shared);
+
 	avz_shared->subdomain_shared = (avz_shared_t *) paging_remap(avz_shared->subdomain_shared_paddr, PAGE_SIZE);
+	BUG_ON(!avz_shared->subdomain_shared);
 
 }
 void avz_printch(char c) {
@@ -89,4 +97,17 @@ void avz_send_IPI(int ipinr, long cpu_mask) {
 
 	hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_send_ipi, (long) &send_ipi_args, 0, 0);
 }
+
+#if 0
+/**
+ * Get a new (unbound) event channel.
+ * @return event channel
+ */
+uint32_t avz_new_evtchn(void) {
+
+	return hypercall_trampoline(__HYPERVISOR_event_channel_op. EVTCHNOP_alloc_unbound, 0, 0, 0)
+
+}
+#endif
+
 

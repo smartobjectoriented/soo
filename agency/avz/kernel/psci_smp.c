@@ -92,7 +92,11 @@ int cpu_off(unsigned long cpuid)
 {
 	int ret;
 
+#ifdef CONFIG_ARM64VT
 	ret = __invoke_psci_fn_smc(PSCI_0_2_FN_CPU_OFF, cpuid, 0, 0);
+#else
+	ret = __invoke_psci_fn_hvc(PSCI_0_2_FN_CPU_OFF, cpuid, 0, 0);
+#endif
 
 	return psci_to_errno(ret);
 }
@@ -102,8 +106,11 @@ static int cpu_on(unsigned long cpuid, unsigned long entry_point)
 {
 	int ret;
 
+#ifdef CONFIG_ARM64VT
 	ret = __invoke_psci_fn_smc(PSCI_0_2_FN_CPU_ON, cpuid, entry_point, 0);
-
+#else
+	ret = __invoke_psci_fn_hvc(PSCI_0_2_FN_CPU_ON, cpuid, entry_point, 0);
+#endif
 	return psci_to_errno(ret);;
 }
 

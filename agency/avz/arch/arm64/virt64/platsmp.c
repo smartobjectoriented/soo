@@ -22,9 +22,8 @@
 #include <memory.h>
 #include <time.h>
 
+#include <asm/processor.h>
 #include <asm/cacheflush.h>
-
-#include <mach/vexpress.h>
 
 #include <device/arch/gic.h>
 
@@ -62,12 +61,12 @@ void smp_boot_secondary(unsigned int cpu) {
 	smp_cross_call((long) (1 << cpu), IPI_WAKEUP);
 
 	do {
-		dmb();
+		smp_mb();
 		if (pen_release == -1)
 			break;
 
-		udelay(1000);
 	} while (1);
+
 
 	/*
 	 * now the secondary core is starting up let it run its
@@ -107,21 +106,3 @@ void smp_secondary_init(unsigned int cpu)
 	spin_lock(&boot_lock);
 	spin_unlock(&boot_lock);
 }
-
-/*
- * Called from CPU #0
- */
-void smp_prepare_cpus(unsigned int max_cpus)
-{
-	unsigned int sysreg_base;
-
-	sysreg_base = (unsigned int) io_map(VEXPRESS_SYSREG_BASE, VEXPRESS_SYSREG_SIZE);
-	if (!sysreg_base) {
-		printk("!!!! BOOTUP jump vectors can't be used !!!!\n");
-		BUG();
-	}
-
-	writel(~0, sysreg_base + SYS_FLAGSCLR);
-	writel(virt_to_phys(vexpress_secondary_startup), sysreg_base + SYS_FLAGSSET);
-
-};

@@ -36,7 +36,11 @@
 #include <asm/processor.h>
 #include <asm/mmu.h>
 
-#include <mach/uart.h>
+#include <mach/io.h>
+
+#ifdef CONFIG_ARCH_ARM32
+extern unsigned long __vectors_start, __vectors_end;
+#endif
 
 #define ME_MEMCHUNK_SIZE	2 * 1024 * 1024
 #define ME_MEMCHUNK_NR		256    /* 256 chunks of 2 MB */
@@ -105,6 +109,9 @@ void memory_init(void) {
 
 	init_io_mapping();
 
+	
+#ifdef CONFIG_ARM64VT
+	
 	/* Re-setup a system page table with a better granularity */
 	__new_root_pgtable = new_root_pgtable();
 
@@ -113,10 +120,24 @@ void memory_init(void) {
 	/* Mapping uart I/O for debugging purposes */
 	create_mapping(__new_root_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true, S1);
 
+	/* Finally, create the Linux agency kernel area to be ready for the Agency domain, and for being able
+	 * to read the device tree.
+	 */
+	create_mapping(__new_root_pgtable, AGENCY_VOFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false, S1);
+
+#else
+	/* Re-setup a system page table with a better granularity */
+	__new_root_pgtable = new_root_pgtable();
+	create_mapping(__new_root_pgtable, CONFIG_HYPERVISOR_VADDR, CONFIG_RAM_BASE, get_kernel_size(), false);
+
+	/* Mapping uart I/O for debugging purposes */
+	create_mapping(__new_root_pgtable, UART_BASE, UART_BASE, PAGE_SIZE, true);
+
 	/* Finally, create the Linux kernel area to be ready for the Agency domain, and for being able
 	 * to read the device tree.
 	 */
-	create_mapping(__new_root_pgtable, L_PAGE_OFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false, S1);
+	create_mapping(__new_root_pgtable, AGENCY_VOFFSET, CONFIG_RAM_BASE, CONFIG_RAM_SIZE, false);
+#endif
 
 	replace_current_pgtable_with(__new_root_pgtable);
 
@@ -224,9 +245,11 @@ addr_t io_map(addr_t phys, size_t size) {
 	} else
 		list_add_tail(&io_map->list, &io_maplist);
 
-
+#ifdef CONFIG_ARM64VT
 	create_mapping(NULL, io_map->vaddr, io_map->paddr, io_map->size, true, S1);
-
+#else
+	create_mapping(NULL, io_map->vaddr, io_map->paddr, io_map->size, true);
+#endif
 	return io_map->vaddr + offset;
 
 }
@@ -418,7 +441,11 @@ void switch_mm(struct domain *d) {
 
 	set_current(d);
 
+#ifdef CONFIG_ARM64VT
 	mmu_switch((void *) d->avz_shared->pagetable_paddr, true);
+#else
+	mmu_switch((void *) d->avz_shared->pagetable_paddr);
+#endif
 }
 
 void dump_page(unsigned int pfn) {

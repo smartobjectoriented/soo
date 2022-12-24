@@ -38,7 +38,7 @@
 		linux {
 			description = "Linux kernel";
 			data = /incbin/("../linux/arch/arm64/boot/Image");
-			type = "agency";
+			type = "avz";
 			arch = "arm64";
 			os = "linux";
 			compression = "none";

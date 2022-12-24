@@ -36,7 +36,7 @@
 
 #include <asm/io.h>
 
-#include <mach/uart.h>
+#include <mach/io.h>
 
 #define AVZ_BANNER		"*********** SOO - Agency Virtualizer SOO.tech Technology - HEIG-VD, REDS Institute ***********\n\n\n"
 

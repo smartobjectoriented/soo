@@ -22,6 +22,7 @@
 #include <types.h>
 #include <list.h>
 #include <bitops.h>
+#include <memslot.h>
 
 #include <asm/mmu.h>
 
@@ -31,14 +32,23 @@
  * We add two functions for retrieving virt and phys address relative to
  * Linux offset according to the memory map (used to access guest mem)
  */
-#define __lpa(vaddr) ((vaddr) - L_PAGE_OFFSET + CONFIG_RAM_BASE)
-#define __lva(paddr) ((paddr) - CONFIG_RAM_BASE + L_PAGE_OFFSET)
+#define __lpa(vaddr) ((vaddr) - AGENCY_VOFFSET + CONFIG_RAM_BASE)
+#define __lva(paddr) ((paddr) - CONFIG_RAM_BASE + AGENCY_VOFFSET)
 
-#define __pa(vaddr)             (((addr_t) vaddr) - CONFIG_HYPERVISOR_VADDR + ((addr_t) CONFIG_RAM_BASE))
-#define __va(paddr)             (((addr_t) paddr) - ((addr_t) CONFIG_RAM_BASE) + CONFIG_HYPERVISOR_VADDR)
+#define __pa(vaddr)            		(((addr_t) vaddr) - CONFIG_HYPERVISOR_VADDR + ((addr_t) CONFIG_RAM_BASE))
+#define __va(paddr)             	(((addr_t) paddr) - ((addr_t) CONFIG_RAM_BASE) + CONFIG_HYPERVISOR_VADDR)
 
-#define virt_to_phys(x)     (__pa(x))
-#define phys_to_virt(x)     (__va(x))
+#define ipa_offset(memslot)		(memslot.ipa_addr - memslot.base_paddr)
+
+#define virt_to_ipa(memslot, va)	(phys_to_ipa(memslot, __pa(va)))
+#define phys_to_ipa(memslot, pa) 	(((addr_t) pa) + ipa_offset(memslot))
+
+#define ipa_to_phys(memslot, ipa)	(((addr_t) ipa) - ipa_offset(memslot))
+
+#define ipa_to_lva(memslot, ipa)	(__lva(ipa_to_phys(memslot, ipa)))
+
+#define virt_to_phys(x) (__pa(x))
+#define phys_to_virt(x) (__va(x))
 
 #define pfn_to_phys(pfn) ((pfn) << PAGE_SHIFT)
 #define phys_to_pfn(phys) (((addr_t) phys) >> PAGE_SHIFT)

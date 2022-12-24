@@ -156,8 +156,7 @@ void dump_all_execution_state(void)
 
 void vcpu_show_execution_state(struct domain *d)
 {
-    printk("*** Dumping Dom%d state: ***\n",
-           d->domain_id);
+    printk("*** Dumping Dom%d state: ***\n", d->avz_shared->domID);
 
     if (d == current)
     {

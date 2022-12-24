@@ -228,5 +228,4 @@ static inline char _tolower(const char c)
 #define test_and_set_bool(b)   xchg(&(b), 1)
 #define test_and_clear_bool(b) xchg(&(b), 0)
 
-
 #endif /* TYPES_H */

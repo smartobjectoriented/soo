@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *

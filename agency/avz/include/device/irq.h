@@ -48,6 +48,7 @@
 
 /* IRQ ARM Timer is 26 in EL2, 27 in EL1 */
 #define IRQ_ARCH_ARM_TIMER_EL2	26
+#define IRQ_ARCH_ARM_TIMER_EL1	27
 
 #define NR_IRQS			1020
 
@@ -58,7 +59,6 @@
 #define IRQF_ONESHOT        	0x00002000
 #define IRQF_NOAUTOEN   	(1 << 2)
 #define IRQF_PROBE          	(1 << 1)
-
 
 #define IRQ_NONE        (0)
 #define IRQ_HANDLED     (1)

@@ -55,13 +55,20 @@ static void timer_handler(unsigned int irq, struct irqdesc *irqdesc)
 {
 	unsigned long ctrl;
 
+#ifdef CONFIG_ARM64VT
 	ctrl = arch_timer_reg_read_el2(ARCH_TIMER_REG_CTRL);
+#else
+	ctrl = arch_timer_reg_read_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL);
+#endif
 
 	if (ctrl & ARCH_TIMER_CTRL_IT_STAT) {
 
 		ctrl |= ARCH_TIMER_CTRL_IT_MASK;
+#ifdef CONFIG_ARM64VT
 		arch_timer_reg_write_el2(ARCH_TIMER_REG_CTRL, ctrl);
-
+#else
+		arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, ctrl);
+#endif
 		if (smp_processor_id() == ME_CPU) {
 
 			/* Periodic timer */
@@ -81,9 +88,15 @@ static inline void timer_set_mode(int mode, struct clock_event_device *clk)
 
 	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_SHUTDOWN:
-		ctrl = arch_timer_reg_read_el2(ARCH_TIMER_REG_CTRL);
+#ifdef CONFIG_ARM64VT
+	ctrl = arch_timer_reg_read_el2(ARCH_TIMER_REG_CTRL);
+	ctrl &= ~ARCH_TIMER_CTRL_ENABLE;
+	arch_timer_reg_write_el2(ARCH_TIMER_REG_CTRL, ctrl);
+#else
+		ctrl = arch_timer_reg_read_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL);
 		ctrl &= ~ARCH_TIMER_CTRL_ENABLE;
-		arch_timer_reg_write_el2(ARCH_TIMER_REG_CTRL, ctrl);
+		arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, ctrl);
+#endif
 		break;
 	default:
 		break;
@@ -98,13 +111,21 @@ static void arch_timer_set_mode_virt(enum clock_event_mode mode, struct clock_ev
 static inline void set_next_event(unsigned long evt, struct clock_event_device *clk)
 {
 	unsigned long ctrl;
-
+#ifdef CONFIG_ARM64VT
 	ctrl = arch_timer_reg_read_el2(ARCH_TIMER_REG_CTRL);
+#else
+	ctrl = arch_timer_reg_read_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL);
+#endif
 	ctrl |= ARCH_TIMER_CTRL_ENABLE;
 	ctrl &= ~ARCH_TIMER_CTRL_IT_MASK;
 
+#ifdef CONFIG_ARM64VT
 	arch_timer_reg_write_el2(ARCH_TIMER_REG_TVAL, evt);
 	arch_timer_reg_write_el2(ARCH_TIMER_REG_CTRL, ctrl);
+#else
+	arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_TVAL, evt);
+	arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, ctrl);
+#endif
 }
 
 static int arch_timer_set_next_event_virt(unsigned long evt, struct clock_event_device *clk)
@@ -143,7 +164,11 @@ void init_timer(int cpu)
 	BUG_ON((cpu == AGENCY_CPU) || (cpu == AGENCY_RT_CPU));
 
 	/* Low-leve init, disabled, interrupt off */
+#ifdef CONFIG_ARM64VT
 	arch_timer_reg_write_el2(ARCH_TIMER_REG_CTRL, 0);
+#else
+	arch_timer_reg_write_cp15(ARCH_TIMER_VIRT_ACCESS, ARCH_TIMER_REG_CTRL, 0);
+#endif
 
 	/* System clocksource */
 	system_timer_clocksource = &arm_clocksource;
@@ -165,7 +190,11 @@ void init_timer(int cpu)
 
 	clkevt_reload = DIV_ROUND_CLOSEST(system_timer_clockevent->rate, CONFIG_HZ);
 
+#ifdef CONFIG_ARM64VT
 	setup_irq(IRQ_ARCH_ARM_TIMER_EL2, system_timer_clockevent->handler);
+#else
+	setup_irq(IRQ_ARCH_ARM_TIMER_EL1, system_timer_clockevent->handler);
+#endif
 
 	/* Compute the various parameters for this clockevent */
 	clockevents_config(system_timer_clockevent, system_timer_clockevent->rate, 0xf, 0x7fffffff);
@@ -174,7 +203,6 @@ void init_timer(int cpu)
 	clockevents_set_mode(system_timer_clockevent, CLOCK_EVT_MODE_ONESHOT);
 
 	/* First event */
-
 	system_timer_clockevent->set_next_event(clkevt_reload, system_timer_clockevent);
 }
 

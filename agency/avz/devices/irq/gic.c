@@ -35,7 +35,7 @@
 
 #include <device/arch/gic.h>
 
-#include <mach/gic.h>
+#include <mach/io.h>
 
 #include <asm-generic/errno.h>
 
@@ -43,9 +43,14 @@ DEFINE_PER_CPU(spinlock_t, intc_lock);
 
 static void *gicd_base;
 static void *gicc_base;
+
+#ifdef CONFIG_ARM64VT
+
 static void *gich_base;
 
 static unsigned int gic_num_lr;
+
+#endif
 
 #define MAX_PENDING_IRQS	256
 
@@ -58,20 +63,13 @@ struct pending_irqs {
 	/* contains the calling CPU ID in case of a SGI */
 	unsigned int head;
 
-	/* removal from the ring happens lockless, thstatic void gic_set_active_irq(unsigned int irq)
-{
-	u32 mask = 1 << (irq % 32);
-	int cpu = smp_processor_id();
-
-	spin_lock(&per_cpu(intc_lock, cpu));
-	writei(mask, gicd_base + GIC_DIST_ACTIVE_SET + (irq / 32) * 4);
-	spin_unlock(&per_cpu(intc_lock, cpu));
-}
-	 * us tail is volatile */
+	/* removal from the ring happens lockless, thus tail is volatile */
 	volatile unsigned int tail;
 };
 
 struct pending_irqs pending_irqs;
+
+#ifdef CONFIG_ARM64VT
 
 static u32 gic_read_lr(unsigned int n)
 {
@@ -82,6 +80,7 @@ static void gic_write_lr(unsigned int n, u32 value)
 {
 	writei(value, gich_base + GICH_LR_BASE + n * 4);
 }
+#endif
 
 static void gic_mask_irq(unsigned int irq)
 {
@@ -171,6 +170,8 @@ void gicc_init(void)
 
 	writei(bypass | GICC_ENABLE | GIC_CPU_EOI, gicc_base + GIC_CPU_CTRL);
 }
+
+#ifdef CONFIG_ARM64VT
 
 static void gic_enable_maint_irq(bool enable)
 {
@@ -294,6 +295,8 @@ void gic_set_pending(u16 irq_id)
 	gic_enable_maint_irq(true);
 }
 
+#endif
+
 static void gic_eoi_irq(u32 irq_id, bool deactivate)
 {
 	/*
@@ -353,6 +356,7 @@ static void gic_handle(cpu_regs_t *cpu_regs) {
 			handle_IPI(irqnr);
 		} else {
 
+#ifdef CONFIG_ARM64VT
 			if (irqnr == IRQ_ARCH_ARM_TIMER_EL2) {
 				asm_do_IRQ(irqnr);
 				gic_eoi_irq(irqnr, false);
@@ -367,9 +371,25 @@ static void gic_handle(cpu_regs_t *cpu_regs) {
 					gic_eoi_irq(irqnr, false);
 				}
 			}
+#else
+
+			 if (irqnr < 32) {
+
+				 /* Only PPI #IRQ_ARCH_ARM_TIMER is used for architected timer on ARM dedicated to the agency */
+				/* The other PPI is not used. */
+
+				if (irqnr == IRQ_ARCH_ARM_TIMER_EL1)
+					asm_do_IRQ(irqnr);
+				else
+					BUG();
+			 }
+
+#endif
 		}
 	}
 }
+
+#ifdef CONFIG_ARM64VT
 
 static void gic_clear_pending_irqs(void)
 {
@@ -383,17 +403,27 @@ static void gic_clear_pending_irqs(void)
 	writei(0, gich_base + GICH_APR);
 }
 
+#endif
+
 void gic_cpu_init(void) {
+
+#ifdef CONFIG_ARM64VT
+	unsigned int n;
 	u32 vtr, vmcr;
+#endif
+
 	u32 gicc_ctlr, gicc_pmr;
 	u32 gicd_isacter;
-	unsigned int n;
 
+#ifdef CONFIG_ARM64VT
 	/* Ensure all IPIs and the maintenance PPI are enabled. */
 	writei(0x0000ffff | (1 << IRQ_ARCH_ARM_MAINT), gicd_base + GIC_DIST_ENABLE_SET);
+#endif
 
 	gicc_ctlr = readi(gicc_base + GICC_CTLR);
 	gicc_pmr = readi(gicc_base + GICC_PMR);
+
+#ifdef CONFIG_ARM64VT
 
 	vtr = readi(gich_base + GICH_VTR);
 	gic_num_lr = (vtr & 0x3f) + 1;
@@ -427,10 +457,13 @@ void gic_cpu_init(void) {
 	 */
 	gic_clear_pending_irqs();
 
+#endif
+
 	/* Deactivate all active SGIs */
 	gicd_isacter = readi(gicd_base + GIC_DIST_ACTIVE_SET);
 	writei(gicd_isacter & 0xffff, gicd_base + GIC_DIST_ACTIVE_SET);
 
+#ifdef CONFIG_ARM64VT
 	/*
 	 * Forward any pending physical SGIs to the virtual queue.
 	 * We will convert them into self-inject SGIs, ignoring the original
@@ -442,16 +475,21 @@ void gic_cpu_init(void) {
 			gic_set_pending(n);
 		}
 	}
+#endif
 
 }
 
 void gic_init(addr_t *dist_base, addr_t *cpu_base, addr_t *hyp_base)
 {
-	pending_irqs.head = 0;
-	pending_irqs.tail = 0;
 
 	gicd_base = dist_base;
 	gicc_base = cpu_base;
+
+#ifdef CONFIG_ARM64VT
+
+	pending_irqs.head = 0;
+	pending_irqs.tail = 0;
+
 	gich_base = hyp_base;
 
 	gic_clear_pending_irqs();
@@ -466,6 +504,7 @@ void gic_init(addr_t *dist_base, addr_t *cpu_base, addr_t *hyp_base)
 	writei(0xffff0000, gicd_base + GIC_DIST_ACTIVE_CLEAR);
 
 	writei(0, gich_base + GICH_VMCR);
+#endif
 
 	gic_cpu_init();
 
@@ -498,8 +537,14 @@ void smp_cross_call(long cpu_mask, unsigned int irq)
 void init_gic(void) {
 	spin_lock_init(&pending_irqs.lock);
 
+#ifdef CONFIG_ARM64VT
 	gic_init((addr_t *) io_map(GIC_DIST_PHYS, GIC_DIST_SIZE),
 		 (addr_t *) io_map(GIC_CPU_PHYS, GIC_CPU_SIZE),
 		 (addr_t *) io_map(GIC_HYP_PHYS, GIC_HYP_SIZE));
+#else
+	gic_init((addr_t *) io_map(GIC_DIST_PHYS, GIC_DIST_SIZE),
+		 (addr_t *) io_map(GIC_CPU_PHYS, GIC_CPU_SIZE),
+		 NULL);
+#endif
 
 }

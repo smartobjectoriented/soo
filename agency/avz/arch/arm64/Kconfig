@@ -2,7 +2,11 @@
 if ARCH_ARM64
 
 menu "Platform"
-
+	config ARM64VT
+		bool "Virtualization support (ARM64 VT)"
+		help
+	  	  Enabling support of CPU virtualization extensions.
+  
 	choice
   		prompt "Target"
 	

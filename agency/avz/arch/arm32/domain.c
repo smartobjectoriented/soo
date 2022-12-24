@@ -25,10 +25,12 @@
 #include <asm/mmu.h>
 #include <asm/cacheflush.h>
 
-void arch_setup_domain_frame(struct domain *d, cpu_regs_t *domain_frame, addr_t fdt_addr, addr_t start_info, addr_t start_stack, addr_t start_pc) {
+#include <mach/uart.h>
+
+void arch_setup_domain_frame(struct domain *d, struct cpu_regs *domain_frame, addr_t fdt_addr, addr_t start_stack, addr_t start_pc) {
 
 	domain_frame->r2 = fdt_addr;
-	domain_frame->ip = start_info;
+	domain_frame->ip = (unsigned long) d->avz_shared;
 
 	domain_frame->sp = start_stack;
 	domain_frame->pc = start_pc;
@@ -43,8 +45,8 @@ void arch_setup_domain_frame(struct domain *d, cpu_regs_t *domain_frame, addr_t 
  * Setup of domain consists in setting up the 1st-level and 2nd-level page tables within the domain.
  */
 void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_size, addr_t p_start) {
-	uint32_t vaddr, *new_pt;
-	addr_t vpt_start = v_start + TTB_L1_SYS_OFFSET;
+	u32 *new_pt;
+	addr_t vaddr;
 
 	ASSERT(d);
 
@@ -55,53 +57,27 @@ void __setup_dom_pgtable(struct domain *d, addr_t v_start, unsigned long map_siz
 	printk("   v_start          : 0x%lx\n", v_start);
 	printk("   map size (bytes) : 0x%lx\n", map_size);
 	printk("   phys address     : 0x%lx\n", p_start);
-	printk("   vpt_start        : 0x%lx\n", vpt_start);
 
-	/* guest page table address (phys addr) */
-	d->addrspace.pgtable_paddr = (vpt_start - v_start + p_start);
-	d->addrspace.pgtable_vaddr = vpt_start;
+	/* Initial L0 page table for the domain for aarch32 */
+	new_pt = (u32 *) __lva(p_start + TTB_L1_SYS_OFFSET);
 
-	d->addrspace.ttbr0[d->processor] = cpu_get_ttbr0() & ~TTBR0_BASE_ADDR_MASK;
-	d->addrspace.ttbr0[d->processor] |= d->addrspace.pgtable_paddr;
-
-	/* Keep a reference to the page table on Agency CPU for MEs
-	 * because we will switch to it after the setup of page tables.
-	 */
-	if (d->processor != AGENCY_CPU)
-		d->addrspace.ttbr0[AGENCY_CPU] = __pa(new_pt);
-
-	/* Manage the new system page table dedicated to the domain. */
-	new_pt = (uint32_t *) __lva(vpt_start - v_start + p_start);
+	d->avz_shared->pagetable_vaddr = (addr_t) new_pt;
+	d->avz_shared->pagetable_paddr = p_start + TTB_L1_SYS_OFFSET;
 
 	/* copy page table of idle domain to guest domain */
-	memcpy(new_pt, __sys_l1pgtable, TTB_L1_SIZE);
+	memcpy(new_pt, __sys_root_pgtable, TTB_L1_SIZE);
 
 	/* Clear the area below the I/Os, but preserve of course the page table itself which is located within the first MB */
-	for (vaddr = 0; vaddr < CONFIG_HYPERVISOR_VIRT_ADDR; vaddr += TTB_SECT_SIZE)
+	for (vaddr = 0; vaddr < CONFIG_HYPERVISOR_VADDR; vaddr += TTB_SECT_SIZE)
 		*((uint32_t *) l1pte_offset(new_pt, vaddr)) = 0;
 
 	/* Do the mapping of new domain at its virtual address location */
-	create_mapping(new_pt,  v_start, p_start, map_size, false);
-
-	/* We have to change the ptes of the page table in our new page table :-) (currently pointing the hypervisor page table. */
-	vaddr = (uint32_t) l1pte_offset(new_pt, vpt_start);
-
-	*((uint32_t *) vaddr) &= ~TTB_L1_SECT_ADDR_MASK; /* Reset the pfn */
-	*((uint32_t *) vaddr) |= ((uint32_t ) d->addrspace.pgtable_paddr) & TTB_L1_SECT_ADDR_MASK;
-
-	mmu_page_table_flush((uint32_t) new_pt, ((uint32_t) new_pt) + TTB_L1_SIZE);
+	create_mapping(new_pt, v_start, p_start, map_size, false);
 }
 
 void arch_domain_create(struct domain *d, int cpu_id) {
-                
-	/* Will be used during the context_switch (cf kernel/entry-armv.S */
 
-	if (is_idle_domain(d)) {
-		d->addrspace.pgtable_paddr = (CONFIG_RAM_BASE + TTB_L1_SYS_OFFSET);
-		d->addrspace.pgtable_vaddr = (CONFIG_HYPERVISOR_VIRT_ADDR + TTB_L1_SYS_OFFSET);
-
-		d->addrspace.ttbr0[cpu_id] = cpu_get_ttbr0() & ~TTBR0_BASE_ADDR_MASK;
-		d->addrspace.ttbr0[cpu_id] |= d->addrspace.pgtable_paddr;
-	}
+	if (is_idle_domain(d))
+		d->avz_shared->pagetable_paddr = __pa(__sys_root_pgtable);
 }
 

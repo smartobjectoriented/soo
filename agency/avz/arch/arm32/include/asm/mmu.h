@@ -38,8 +38,8 @@
 
 #define PAGE_OFFSET	((u32) CONFIG_HYPERVISOR_VIRT_ADDR)
 
-#define L_PAGE_OFFSET	UL(0xc0000000)
-#define ME_PAGE_OFFSET	UL(0xc0000000)
+#define AGENCY_VOFFSET	UL(0xc0000000)
+#define ME_VOFFSET	UL(0xc0000000)
 
 #define TTB_L1_SYS_OFFSET	0x4000
 
@@ -80,7 +80,7 @@
 
 #define pte_index_to_vaddr(i1, i2) ((i1 << TTB_I1_SHIFT) | (i2 << TTB_I2_SHIFT))
 
-#define l1pte_offset(pgtable, addr)     (pgtable + l1pte_index(addr))
+#define l1pte_offset(pgtable, addr)     ((uint32_t *) pgtable + l1pte_index(addr))
 #define l2pte_offset(l1pte, addr) 	((uint32_t *) __va(*l1pte & TTB_L1_PAGE_ADDR_MASK) + l2pte_index(addr))
 #define l2pte_first(l1pte)		((uint32_t *) __va(*l1pte & TTB_L1_PAGE_ADDR_MASK))
 
@@ -149,26 +149,9 @@
 #define PFN_DOWN(x)   ((x) >> PAGE_SHIFT)
 #define PFN_UP(x)     (((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
 
-
-/*
- * We add two functions for retrieving virt and phys address relative to
- * Linux offset according to the memory map (used to access guest mem)
- */
-#define __lpa(vaddr) ((vaddr) - L_PAGE_OFFSET + CONFIG_RAM_BASE)
-#define __lva(paddr) ((paddr) - CONFIG_RAM_BASE + L_PAGE_OFFSET)
-
-#define __pa(vaddr)             (((uint32_t) vaddr) - PAGE_OFFSET + ((uint32_t) CONFIG_RAM_BASE))
-#define __va(paddr)             (((uint32_t) paddr) - ((uint32_t) CONFIG_RAM_BASE) + PAGE_OFFSET)
-
-#define virt_to_phys(x)     (__pa(x))
-#define phys_to_virt(x)     (__va(x))
-
-#define pfn_to_phys(pfn) ((pfn) << PAGE_SHIFT)
-#define phys_to_pfn(phys) (((uint32_t) phys) >> PAGE_SHIFT)
-#define virt_to_pfn(virt) (phys_to_pfn(__va((uint32_t) virt)))
-#define pfn_to_virt(pfn) (phys_to_virt(pfn_to_phys(pfn)))
-
 #ifndef __ASSEMBLY__
+
+extern void *__sys_root_pgtable;
 
 static inline bool l1pte_is_sect(uint32_t l1pte) {
 
@@ -176,6 +159,11 @@ static inline bool l1pte_is_sect(uint32_t l1pte) {
 	return (l1pte & TTB_L1_SECT);
 }
 
+static inline bool l1pte_is_pt(uint32_t l1pte) {
+
+	/* Check if the L1 pte is for mapping of section or not */
+	return ((l1pte & TTB_L1_L2) && !(l1pte & TTB_L1_SECT));
+}
 
 /* Options available for data cache related to section */
 enum ttb_l1_sect_dcache_option {
@@ -226,39 +214,38 @@ typedef struct {
 	ttbr;					\
 })
 
-extern uint32_t *__sys_l1pgtable;
 extern uint32_t *l2pt_current_base;
 extern unsigned long l2pt_phys_start;
 
-extern void __mmu_switch(uint32_t l1pgtable_phys);
+extern void __mmu_switch(void *root_pgtable_phys);
+
+void *current_pgtable(void);
+void *new_root_pgtable(void);
 
 void pgtable_copy_kernel_area(uint32_t *l1pgtable);
 
-void create_mapping(uint32_t *l1pgtable, uint32_t virt_base, uint32_t phys_base, size_t size, bool nocache);
-void release_mapping(uint32_t *pgtable, addr_t virt_base, size_t size);
+void create_mapping(void *l1pgtable, addr_t virt_base, addr_t phys_base, uint32_t size, bool nocache);
+void release_mapping(void *pgtable, addr_t virt_base, uint32_t size);
 
-uint32_t *new_l1pgtable(void);
-void reset_l1pgtable(uint32_t *l1pgtable, bool remove);
+void reset_root_pgtable(void *pgtable, bool remove);
+void clear_l1pte(void *l1pgtable, addr_t vaddr);
 
-void clear_l1pte(uint32_t *l1pgtable, uint32_t vaddr);
-
-void mmu_switch(addrspace_t *addrspace);
+void mmu_switch(void *l1pgtable);
 void dump_pgtable(uint32_t *l1pgtable);
 
 void dump_current_pgtable(void);
-
-uint32_t *new_sys_pgtable(void);
 
 void set_l1_pte_sect_dcache(uint32_t *l1pte, enum ttb_l1_sect_dcache_option option);
 void set_l1_pte_page_dcache(uint32_t *l1pte, enum ttb_l1_page_dcache_option option);
 void set_l2_pte_dcache(uint32_t *l2pte, enum ttb_l2_dcache_option option);
 
-void mmu_setup(uint32_t *pgtable);
+void mmu_setup(void *pgtable);
 
 void vectors_init(void);
 
 void set_current_pgtable(uint32_t *pgtable);
-void replace_current_pgtable_with(uint32_t *pgtable);
+void get_current_pgtable(addr_t *pgtable_paddr);
+void replace_current_pgtable_with(void *pgtable);
 
 #endif
 

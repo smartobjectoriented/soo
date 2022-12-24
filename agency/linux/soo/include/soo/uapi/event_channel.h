@@ -41,11 +41,12 @@
  */
 #define EVTCHNOP_alloc_unbound    6
 struct evtchn_alloc_unbound {
-    /* IN parameters */
+
+	/* IN parameters */
     domid_t dom, remote_dom;
+
     /* OUT parameters */
     uint32_t evtchn;
-    uint32_t use;
 };
 typedef struct evtchn_alloc_unbound evtchn_alloc_unbound_t;
 

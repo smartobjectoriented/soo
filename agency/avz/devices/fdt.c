@@ -113,7 +113,7 @@ int fdt_find_compatible_node(void *fdt_addr, char *compat) {
 /*
  * fdt_pack_reg - pack address and size array into the "reg"-suitable stream
  */
-int fdt_pack_reg(const void *fdt, void *buf, u64 *address, u64 *size)
+int fdt_pack_reg(const void *fdt, void *buf, addr_t *address, size_t *size)
 {
 	int address_cells = fdt_address_cells(fdt, 0);
 	int size_cells = fdt_size_cells(fdt, 0);

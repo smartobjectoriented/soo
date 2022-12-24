@@ -46,7 +46,7 @@ struct stack {
 	u32 abt[3];
 	u32 und[3];
 	u32 fiq[3];
-};
+} ____cacheline_aligned;
 
 struct stack stacks[NR_CPUS];
 
@@ -98,6 +98,7 @@ void arm_init_domains(void)
 }
 
 void cpu_init(void) {
+
 	/* Original boot CPU identification to prevent undesired activities on another CPU . */
 	origin_cpu = smp_processor_id();
 

@@ -19,6 +19,7 @@
 #ifndef __ARM_PERCPU
 #define __ARM_PERCPU
 
+#include <config.h>
 
 #define PERCPU_SHIFT 13
 #define PERCPU_SIZE  (1UL << PERCPU_SHIFT)

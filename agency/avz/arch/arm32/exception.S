@@ -296,7 +296,7 @@ ENTRY(ret_to_user)
 	disable_irq 					@ ensure IRQs are disabled
 
 	curdom	r10
-	ldr		r11, [r10, #OFFSET_SHARED_INFO]
+	ldr		r11, [r10, #OFFSET_AVZ_SHARED]
 
 	@ If the softirq handling leads to trigger an interrupt in the guest,
 	@ it will be processed by do_evtchn_do_upcall. The way how to

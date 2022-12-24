@@ -32,5 +32,7 @@ uint32_t origin_cpu;
 /* Low-level initialization before the main boostrap process.
  */
 void setup_arch(void) {
-
+#ifndef CONFIG_ARM64VT
+	memset(&pseudo_usr_mode, 0, NR_CPUS * sizeof(unsigned int));
+#endif
 }

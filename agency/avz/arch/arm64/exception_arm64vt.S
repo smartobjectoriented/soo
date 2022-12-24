@@ -21,11 +21,10 @@
 
 #include <asm/processor.h>
 
-.extern do_upcall
+.global cpu_entrypoint
 
 .global __vectors
 
-.globl  pseudo_usr_mode
 .globl	hypervisor_stack
 .global upcall_path
 
@@ -82,41 +81,41 @@ ENTRY(__vectors)
 	.align 7
 
 	mov	x0, lr
-	b trap_handle_error
+	b 	trap_handle_error
 
 	// Current EL with SP0 / IRQ
 	.align 7
 
 	mov	x0, lr
-	b trap_handle_error
+	b 	trap_handle_error
 
 	// Current EL with SP0 / FIQ
 	.align 7
 
 	mov	x0, lr
-	b trap_handle_error
+	b 	trap_handle_error
 
 	// Current EL with SP0 / SError
 	.align 7
 
 	mov	x0, lr
-	b trap_handle_error
+	b 	trap_handle_error
 
 	// Current EL with SPx / Synchronous
 	.align 7
 
-	b	el0_sync_handler
+	b	trap_handle_error
 
 	// Current EL with SPx / IRQ
 	.align 7
 
-	b 	el01_irq_handler
+	b 	el12_irq_handler
 
 	// Current EL with SPx / FIQ
 	.align 7
 
 	mov	x0, lr
-	b trap_handle_error
+	b 	trap_handle_error
 
 	// Current EL with SPx / SError
 	.align 7
@@ -129,12 +128,12 @@ ENTRY(__vectors)
 	// Lower EL using AArch64 / Synchronous
 	.align 7
 
-	b	el0_sync_handler
+	b el2_sync_handler
 
 	// Lower EL using AArch64 / IRQ
 	.align 7
 
-	b 	el01_irq_handler
+	b 	el12_irq_handler
 
 	// Lower EL using AArch64 / FIQ
 	.align 7
@@ -172,7 +171,40 @@ ENTRY(__vectors)
 	mov	x0, lr
 	b trap_handle_error
 
-el0_sync_handler:
+
+el2_sync_handler:
+
+	kernel_entry
+
+	mrs		x0, spsr_el2
+	str		x0, [sp, #OFFSET_PSTATE]
+
+	mrs		x0, sp_el1
+	str		x0, [sp, #OFFSET_SP]
+
+	mrs		x0, elr_el2
+	str		x0, [sp, #OFFSET_PC]
+
+ 	mov 	x0, sp
+	bl		trap_handle
+
+	str		x0, [sp, #OFFSET_X0]
+
+	ldr		x0, [sp, #OFFSET_PSTATE]
+	msr		spsr_el2, x0
+
+	ldr		x0, [sp, #OFFSET_SP]
+	msr		sp_el1, x0
+
+	ldr		x0, [sp, #OFFSET_PC]
+	msr		elr_el2, x0
+
+	kernel_exit
+
+	eret
+
+
+el1_sync_handler:
 
 	kernel_entry
 
@@ -223,41 +255,18 @@ out_sync:
 	eret
 
 .align  5
-el01_irq_handler:
+el12_irq_handler:
 
 	kernel_entry
 
-	mrs		x0, spsr_el1
+	mrs		x0, spsr_el2
 	str		x0, [sp, #OFFSET_PSTATE]
 
-	mrs		x0, sp_el0
+	mrs		x0, sp_el1
 	str		x0, [sp, #OFFSET_SP]
 
-	mrs		x0, elr_el1
+	mrs		x0, elr_el2
 	str		x0, [sp, #OFFSET_PC]
-
-	// Now process the IRQ differentiating execution according to the source (dom/hyp)
-	// for managing the stack correctly
-
-	current_cpu	x10
-
-	ldr		x0, .LCpseudo_usr_mode
-	ldr		x1, [x0, x10, lsl #3]
-	cmp		x1, #0  				// svc ?
-
-	b.eq	svc_path
-
-	mov		x1, #0 					// setting svc
-	str		x1, [x0, x10, lsl #3]
-
-	mov		x1, sp
-	ldr 	x0, .LChypervisor_stack // Get the running hypervisor SVC stack
-	ldr		x0, [x0, x10, lsl #3]
-
-	mov		sp, x0
-
-	curdom	x0, x2
-	str		x1, [x0, #OFFSET_G_SP]
 
 	// Make sure r0 refers to the base of the stack frame
 	mov		x0, sp
@@ -266,85 +275,90 @@ el01_irq_handler:
     bl 		irq_handle
 	ldr		lr, [sp], #16
 
-	curdom	x10, x11
-	ldr		x11, [x10, #OFFSET_AVZ_SHARED]
-
-	// If the softirq handling leads to trigger an interrupt in the guest,
-	// it will be processed by do_evtchn_do_upcall. The way how to
-	// process an interrupt with potentially IRQs off is under the
-	// responsibility of the guest
-
-	// are some IRQs pending?
-	ldrb	w12, [x11, #OFFSET_EVTCHN_UPCALL_PENDING]
-	tst		w12, #0xff
-
-	b.eq	restore
-
-upcall_path:
-
-	current_cpu x11
-
-	curdom  x10, x12
-	ldr		x12, [x10, #OFFSET_AVZ_SHARED]
-	ldr		lr, [x12, #OFFSET_HYPERVISOR_CALLBACK]
-
-	cmp		lr, #0
-	beq		restore
-
-	ldr		x0, .LChypervisor_stack   	// running L1 hypervisor stack
-	mov		x12, sp
-	str		x12, [x0, x11, lsl #3]
-
-	// Get guest stack
-	ldr		x12, [x10, #OFFSET_G_SP]
-	mov		sp, x12
-
-	// setting pseudo_usr_mode / x0, x1 re-assigned right after
-	ldr 	x0, .LCpseudo_usr_mode
-	mov		x1, #1
-	str		x1, [x0, x11, lsl #3]
-
-	// x0 contains a reference to the stack pointer
-	mov		x0, sp
-
-	// Go up to the guest for evtchn processing
-	br		lr
-
-restore:
-
-	current_cpu x11
-
-	// Setting pseudo_usr_mode / x0, x1 re-assigned right after
-	ldr 	x0, .LCpseudo_usr_mode
-	mov		x1, #1
-	str		x1, [x0, x11, lsl #3]
-
-	// Restore saved registers
-
-	ldr		x0, .LChypervisor_stack   	// running SVC hypervisor stack
-	mov		x10, sp
-	str		x10, [x0, x11, lsl #3]
-
-	curdom	x10, x11
-
-	// Get guest stack
-	ldr		x11, [x10, #OFFSET_G_SP]
-	mov		sp, x11
-
 out_irq:
 
 	ldr		x0, [sp, #OFFSET_PSTATE]
-	msr		spsr_el1, x0
+	msr		spsr_el2, x0
 
 	ldr		x0, [sp, #OFFSET_SP]
-	msr		sp_el0, x0
+	msr		sp_el1, x0
 
 	ldr		x0, [sp, #OFFSET_PC]
-	msr		elr_el1, x0
+	msr		elr_el2, x0
 
   	kernel_exit
 
 	eret
+
+ENTRY(pre_ret_to_el1)
+
+	b entry_el1
+
+	// Prepare to move towards EL1
+	adr		x2, entry_el1
+	msr		elr_el2, x2
+
+	// Set the CPU in EL1 mode to proceed with
+	// the bootstrap of the domain
+
+	mov		x2, #PSR_MODE_EL1t
+	msr		spsr_el2, x2
+
+	// Ready to jump into the Linux domain...
+	eret
+
+	/*
+	 * Mitigate Straight-line Speculation.
+	 * Guard against Speculating past an ERET instruction and
+	 * potentially perform speculative accesses to memory before
+	 * processing the exception return
+	 */
+	dsb nsh
+	isb
+
+entry_el1:
+
+	wfi
+
+	ldr 	x0, cpu_entrypoint
+	msr		elr_el2, x0
+
+	// Set the CPU in EL1 mode to proceed with
+	// the bootstrap of the domain
+
+	mov		x2, #PSR_MODE_EL1t
+
+	// Make sure no interrupt coming from CPU #0 is
+	// interferring with other CPU bootstrap
+	orr		x2, x2, #PSR_I_BIT
+
+	msr		spsr_el2, x2
+
+	// According to boot protocol
+	mov		x1, #0
+	mov		x1, #0
+	mov		x2, #0
+	mov		x3, #0
+
+	// Ready to jump into the Linux domain...
+
+	eret
+
+	/*
+	 * Mitigate Straight-line Speculation.
+	 * Guard against Speculating past an ERET instruction and
+	 * potentially perform speculative accesses to memory before
+	 * processing the exception return
+	 */
+	dsb nsh
+	isb
+
+	nop
+	nop
+	nop
+
+cpu_entrypoint:
+	.quad 0x0
 
 /*
  * This function is called at bootstrap and
@@ -357,28 +371,40 @@ ENTRY(pre_ret_to_user)
 
 	// Get a reference to our domain descriptor
 	curdom	x10, x11
-	ldr		x11, [x10, #OFFSET_AVZ_SHARED]
-	str		xzr, [x11, #OFFSET_HYPERVISOR_CALLBACK]
-
-	current_cpu 	x11
-
-	// Switch to the guest stack
-	ldr 	x0, .LChypervisor_stack
-	mov		x12, sp
-	str		x12, [x0, x11, lsl #3]
-
-	// Setting pseudo_usr_mode
-	ldr 	x0, .LCpseudo_usr_mode
-	mov		x1, #1
-	str		x1, [x0, x11, lsl #3]
 
 	ldr		x2, [sp, #OFFSET_PC]  // Entry point of the guest
-	ldr		x21, [sp, #OFFSET_X21] // Device tree (fdt_addr)
-	ldr		x22, [sp, #OFFSET_X22] // Address of start_info
+	msr		elr_el2, x2
+
+	// Set the CPU in EL1 mode to proceed with
+	// the bootstrap of the domain
+
+	mov		x2, #PSR_MODE_EL1t
+	msr		spsr_el2, x2
+
+	ldr		x0, [sp, #OFFSET_X21] // Device tree (fdt_addr)
+
+	// According to boot protocol
+	mov		x1, #0
+	mov		x2, #0
+	mov		x3, #0
 
 	// Ready to jump into the Linux domain...
-	blr		x2
 
+	eret
+
+	/*
+	 * Mitigate Straight-line Speculation.
+	 * Guard against Speculating past an ERET instruction and
+	 * potentially perform speculative accesses to memory before
+	 * processing the exception return
+	 */
+	dsb nsh
+	isb
+
+__crash:
+	b __crash
+
+#if 0
 /*
  * The following function is used to restore the migrated domain.
  * Indeed, the receiver environment has not saved anything on its stack regarding
@@ -393,10 +419,6 @@ ENTRY(after_migrate_to_user)
 
 	b upcall_path
 
-
-pseudo_usr_mode:
-	.space NR_CPUS * 8
-
 // Hypervisor stack is used for the *current* (running) vcpu svc stack address
 svc_path:
 
@@ -410,13 +432,10 @@ svc_path:
 	ldr		lr, [sp], #16
 
     b 		out_irq
+#endif
 
 hypervisor_stack:
 	.space NR_CPUS * 8
-
-
-.LCpseudo_usr_mode:
-	.quad	pseudo_usr_mode
 
 .LChypervisor_stack:
 	.quad	hypervisor_stack

@@ -37,31 +37,32 @@
 
 static DEFINE_SPINLOCK(domctl_lock);
 
-long do_domctl(long a1, long a2, long a3)
+void do_domctl(domctl_t *args)
 {
 	struct domain *d;
 
 	spin_lock(&domctl_lock);
 
-	switch (a1)
+	switch (args->cmd)
 	{
 
 	case DOMCTL_get_AVZ_shared:
-		return virt_to_phys(current->avz_shared);
+		args->avz_shared_paddr =
+			memslot[(current->avz_shared->domID == DOMID_AGENCY) ? 1 : current->avz_shared->domID].ipa_addr + memslot[MEMSLOT_AGENCY].size;
+		break;
 
 	case DOMCTL_pauseME:
-
-		d = domains[a2];
+		d = domains[args->domain];
 
 		domain_pause_by_systemcontroller(d);
 		break;
 
 	case DOMCTL_unpauseME:
 
-		d = domains[a2];
+		d = domains[args->domain];
 
 		/* Retrieve info from hypercall parameter structure */
-		d->avz_shared->vbstore_pfn = a3;
+		d->avz_shared->vbstore_pfn = args->u.unpause_ME.vbstore_pfn;
 
 		DBG("%s: unpausing ME\n", __func__);
 
@@ -70,7 +71,5 @@ long do_domctl(long a1, long a2, long a3)
 	}
 
 	spin_unlock(&domctl_lock);
-
-	return 0;
 }
 

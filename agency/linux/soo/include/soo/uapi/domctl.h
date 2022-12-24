@@ -37,12 +37,14 @@ struct domctl {
 
 #define DOMCTL_pauseME       	1
 #define DOMCTL_unpauseME     	2
-#define DOMCTL_get_AVZ_shared	3
 
     domid_t  domain;
     union {
        struct domctl_unpause_ME	unpause_ME;
     } u;
+
+#define DOMCTL_get_AVZ_shared	3
+    addr_t avz_shared_paddr;
 };
 typedef struct domctl domctl_t;
 

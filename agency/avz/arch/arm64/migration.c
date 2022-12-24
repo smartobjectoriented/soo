@@ -59,7 +59,7 @@ void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 	pgtable_ME = (uint64_t *) __lva(me->avz_shared->pagetable_paddr);
 
 	/* Walk through L0 page table */
-	for (l0 = l0pte_index(ME_PAGE_OFFSET); l0 < TTB_L0_ENTRIES; l0++) {
+	for (l0 = l0pte_index(ME_VOFFSET); l0 < TTB_L0_ENTRIES; l0++) {
 
 		l0pte = pgtable_ME + l0;
 		if (!*l0pte)
