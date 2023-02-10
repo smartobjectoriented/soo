@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-2024 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
+ * Copyright (C) 2023 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -46,7 +46,8 @@ static void forward_data(iuoc_data_t iuoc_data);
 /**
  * @brief This function is called, when the device file is opened
  */
-static int driver_open(struct inode *device_file, struct file *instance) {
+static int driver_open(struct inode *device_file, struct file *instance) 
+{
 	printk("ioctl_example - open was called!\n");
 	return 0;
 }
@@ -54,16 +55,18 @@ static int driver_open(struct inode *device_file, struct file *instance) {
 /**
  * @brief This function is called, when the device file is opened
  */
-static int driver_close(struct inode *device_file, struct file *instance) {
+static int driver_close(struct inode *device_file, struct file *instance) 
+{
 	printk("ioctl_example - close was called!\n");
 	return 0;
 }
 
 /* Global Variable for reading and writing */
-static long int my_ioctl(struct file *file, unsigned cmd, unsigned long arg) { 
+static long int my_ioctl(struct file *file, unsigned cmd, unsigned long arg) 
+{ 
 
 	iuoc_data_t iuoc_data;
-	soo_blind_data_t blind_data;
+	field_data_t field_data;
 
 	switch(cmd) {
 	case UIOC_IOCTL_SEND_DATA:
@@ -76,8 +79,11 @@ static long int my_ioctl(struct file *file, unsigned cmd, unsigned long arg) {
 	case UIOC_IOCTL_RECV_DATA:
 		iuoc_data.me_type = IUOC_ME_BLIND;
 		iuoc_data.timestamp = 654321;
-		blind_data.action = STORE_DOWN_STEP;
-		iuoc_data.data.blind_data = blind_data;
+		strcpy(field_data.name, "action");  
+		strcpy(field_data.type, "int");  
+		field_data.value = 3;
+		iuoc_data.data_array[0] = field_data;
+		iuoc_data.data_array_size = 1;
 		if(copy_to_user((iuoc_data_t *) arg, &iuoc_data, sizeof(iuoc_data))) 
 			printk("ioctl_example - Error copying data to user!\n");
 		else
@@ -104,7 +110,8 @@ struct file_operations iuoc_fops = {
 /**
  * @brief This function is called, when the module is loaded into the kernel
  */
-static int ModuleInit(void) {
+static int ModuleInit(void) 
+{
 
     int device_created = 0;
 
@@ -141,16 +148,13 @@ static int ModuleInit(void) {
 
 void forward_data(iuoc_data_t iuoc_data) 
 {
-	switch (iuoc_data.me_type) {
-	case IUOC_ME_BLIND:
-		printk("[IUOC] Data sent IUOC_ME_BLIND -> SOO : me_type=%d, timestamp=%d, value=%d\n", 
-				iuoc_data.me_type, iuoc_data.timestamp, iuoc_data.data.blind_data.action);
-				break;
-	case IUOC_ME_SWITCH:
-		printk("[IUOC] Data sent IUOC_ME_SWITCH -> SOO : me_type=%d, timestamp=%d, value=%d\n", 
-				iuoc_data.me_type, iuoc_data.timestamp, iuoc_data.data.switch_data.action);
-				break;
-	}
+	int i;
+	printk("[IUOC] Data sent IUOC_ME_SWITCH -> SOO : me_type=%d, timestamp=%d, nb_data=%d \ndatas:", 
+			iuoc_data.me_type, iuoc_data.timestamp, iuoc_data.data_array_size);
+	for (i = 0; i < iuoc_data.data_array_size; i++) {
+		printk("data nb %d : name=%s, type=%s, value=%d\n", i, iuoc_data.data_array[i].name,
+						iuoc_data.data_array[i].type, iuoc_data.data_array[i].value);
+	}		
 }
 
 

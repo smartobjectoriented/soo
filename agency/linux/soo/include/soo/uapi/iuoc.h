@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-2024 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
+ * Copyright (C) 2023 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,30 +19,8 @@
 #ifndef IUOC_U_H
 #define IUOC_U_H
 
-/* Declaration for SOO.blind ME */ 
-typedef enum {
-	STORE_UP_FULL,
-	STORE_DOWN_FULL,
-	STORE_UP_STEP,
-	STORE_DOWN_STEP,
-	STORE_TILT
-} soo_blind_action_t;
-
-typedef struct {
-	soo_blind_action_t action;
-} soo_blind_data_t;
-
-/* Declaration for SOO.switch ME */ 
-typedef enum {
-	SWITCH_PRESSED_SHORT,
-	SWITCH_PRESSED_LONG,
-	SWITCH_RELEASED
-} soo_switch_action_t;
-
-typedef struct {
-	soo_switch_action_t action;
-} soo_switch_data_t;
-
+#define NB_DATA_MAX 15
+#define MAX_DATA_STRING_SIZE 50
 
 /* Global communication declaration for IUOC */
 typedef enum {
@@ -54,13 +32,22 @@ typedef enum {
 	IUOC_ME_END
 } me_type_t;
 
+// typedef union {
+// 	int int_val;
+// 	char char_val[MAX_DATA_STRING_SIZE];
+// } data_type_t;
+
+typedef struct {
+	char name[30];
+	char type[30];
+	int value;
+} field_data_t;
+
 typedef struct {
 	me_type_t me_type;
 	unsigned timestamp;
-	union {
-		soo_blind_data_t blind_data;
-		soo_switch_data_t switch_data;
-	} data;
+    unsigned data_array_size;
+	field_data_t data_array[NB_DATA_MAX];
 } iuoc_data_t;
 
 #define UIOC_IOCTL_SEND_DATA _IOW('a', 'a', iuoc_data_t *)

@@ -5,6 +5,7 @@ obj-y	+= kernel/
 obj-y 	+= drivers/
 obj-y	+= core/
 obj-y   += dcm/
+obj-y   += iuoc/
 
 obj-y 	+= soolink/
 obj-y	+= lib/

@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2023 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
+
 #include "mqtt_iuoc_subscriber.h"
 
 action_listener::action_listener(const std::string& name) : name_(name) {}
@@ -19,7 +37,6 @@ void action_listener::on_success(const mqtt::token& tok) {
     std::cout << std::endl;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////
 
 callback::callback(mqtt::async_client& cli, mqtt::connect_options& connOpts, 
 		std::unordered_map<std::string, int> sub_topics, unsigned qos,
@@ -82,10 +99,7 @@ void callback::connection_lost(const std::string& cause) {
 
 // Callback for when a message arrives.
 void callback::message_arrived(mqtt::const_message_ptr msg) {
-	// std::cout << "Message arrived" << std::endl;
-	// std::cout << "\ttopic: '" << msg->get_topic() << "'" << std::endl;
-	// std::cout << "\tpayload: '" << msg->to_string() << "'\n" << std::endl;
-
+ 
 	iuoc_data_t me_data;
 	auto me_type = sub_topics[msg->get_topic()];
 	me_data.me_type = (me_type_t)me_type;
@@ -103,21 +117,15 @@ void callback::message_arrived(mqtt::const_message_ptr msg) {
 		&root,  &err)) {
       std::cout << "[IUOC] error converting JSON payload to string" << std::endl;
     }
-
-	switch (me_type) {
-		case IUOC_ME_BLIND: 
-			me_data.data.blind_data.action = (soo_blind_action_t)root["data"]["value"].asInt();
-			break;
-
-		case IUOC_ME_SWITCH: 
-			me_data.data.blind_data.action = (soo_blind_action_t)root["data"]["value"].asInt();
-			break;
-		default:
-			break; 
+	me_data.data_array_size = root["data"].size();
+	for(int i = 0; i < root["data"].size(); i++) {
+		field_data_t field_data;
+		strcpy(field_data.name, root["data"][i]["name"].asString().c_str());
+		strcpy(field_data.type, root["data"][i]["type"].asString().c_str());
+		field_data.value = root["data"][i]["value"].asInt();
+		me_data.data_array[i] = field_data;
 	}
-
 	ioctl(dev, UIOC_IOCTL_SEND_DATA, &me_data);
-
 }
 
 void callback::delivery_complete(mqtt::delivery_token_ptr token) {}

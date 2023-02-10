@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2023 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
+
 #include "mqtt_iuoc_subscriber.h"
 #include <json/json.h>
 #include <iostream>
@@ -14,8 +32,6 @@
 #include <sstream> 
 #include <unordered_map>
 
-
-/////////////////////////////////////////
 #include <soo/uapi/iuoc.h>
 
 #include <stdio.h>
@@ -23,45 +39,13 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-/////////////////////////////////////////
 
-void test_ioctl() {
-	iuoc_data_t test;
-	test.me_type = IUOC_ME_SWITCH;
-	test.timestamp = 123456;
-	int dev = open("/dev/soo/iuoc", O_WRONLY);
-	if(dev == -1) {
-		printf("Opening was not possible!\n");
-		return;
-	}
-
-	ioctl(dev, UIOC_IOCTL_TEST, &test);
-	sleep(1);
-	ioctl(dev, UIOC_IOCTL_SEND_DATA, &test);
-	sleep(1);
-	ioctl(dev, UIOC_IOCTL_RECV_DATA, &test);
-	printf("USER SPACE : ME=%d\nmessage=%d\n", test.me_type, test.timestamp);
-
-	sleep(1);
-	ioctl(dev, UIOC_IOCTL_SEND_DATA, &test);
-	sleep(1);
-	ioctl(dev, UIOC_IOCTL_RECV_DATA, &test);
-	printf("USER SPACE : ME=%d\nmessage=%d\n", test.me_type, test.timestamp);
-
-	ioctl(dev, UIOC_IOCTL_TEST, &test);
-	sleep(1);
-	printf("Opening was successfull!\n");
-	close(dev);
-}
 
 std::vector<std::string> topics_publish_name(IUOC_ME_END);
 
 std::vector<std::string> pub_debug;
 
 std::string get_payload_from_data(iuoc_data_t *data);
-
-std::string get_json_blind_str(soo_blind_data_t *data);
-std::string get_json_switch_str(soo_switch_data_t *data);
 
 int main(int argc, char* argv[])
 {
@@ -176,31 +160,15 @@ std::string get_payload_from_data(iuoc_data_t *me_data)
 	std::string json_payload = "";
 	Json::Value root;
   	Json::Value json_data;
+	root["name"]       = "SOO-blind";
+	root["cluster"]    = "REDS";
+	root["location"]   = "HEIG-VD A23";
 
-	switch (me_data->me_type) {
-
-		case IUOC_ME_BLIND : 
-			root["name"]       = "SOO-blind";
-			root["cluster"]    = "REDS";
-			root["location"]   = "HEIG-VD A23";
-			json_data["name"]  = "action";
-			json_data["type"]  = "int";
-			json_data["value"] = me_data->data.blind_data.action;
-			break;
-
-		case IUOC_ME_SWITCH : 
-			root["name"]       = "SOO-switch";
-			root["cluster"]    = "REDS";
-			root["location"]   = "HEIG-VD A23";
-			json_data["name"]  = "action";
-			json_data["type"]  = "int";
-			json_data["value"] = me_data->data.switch_data.action;
-			break;
-		default:
-			break;
+	for (int i = 0; i < me_data->data_array_size; i++) {
+		root["data"][i]["name"] = me_data->data_array[i].name;
+		root["data"][i]["type"] = me_data->data_array[i].type;
+		root["data"][i]["value"] = me_data->data_array[i].value;
 	}
-
-	root["data"] = json_data;
 
 	Json::StreamWriterBuilder builder;
     json_payload = Json::writeString(builder, root);

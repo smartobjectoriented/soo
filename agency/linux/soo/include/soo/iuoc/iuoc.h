@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-2024 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
+ * Copyright (C) 2023 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
