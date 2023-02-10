@@ -6,6 +6,13 @@
 #include <json/json.h>
 #include <unordered_map>
 
+#include <soo/uapi/iuoc.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+
 class action_listener : public virtual mqtt::iaction_listener
 {
 private:  
@@ -39,7 +46,7 @@ class callback : public virtual mqtt::callback,
 	// An action listener to display the result of actions.
 	action_listener subListener_;
 
-    std::unordered_map<std::string, std::string> sub_topics;
+    std::unordered_map<std::string, int> sub_topics;
 
     unsigned qos;
     unsigned n_retry_attemps;
@@ -65,9 +72,11 @@ class callback : public virtual mqtt::callback,
 
 	void delivery_complete(mqtt::delivery_token_ptr token) override;
 
+	int dev;
+
 public:
 	callback(mqtt::async_client& cli, mqtt::connect_options& connOpts,
-             std::unordered_map<std::string, std::string> sub_topics, unsigned qos, 
+             std::unordered_map<std::string, int> sub_topics, unsigned qos, 
              unsigned n_retry_attemps);
 };
 
