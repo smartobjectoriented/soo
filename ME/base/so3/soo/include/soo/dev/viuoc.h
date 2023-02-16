@@ -16,14 +16,28 @@
  *
  */
 
-#ifndef IUOC_U_H
-#define IUOC_U_H
+#ifndef VIUOC_H
+#define VIUOC_H
 
-#define NB_DATA_MAX 15
-#define MAX_DATA_STRING_SIZE 50
+#include <soo/ring.h>
+#include <soo/grant_table.h>
+#include <soo/vdevfront.h>
+
+#define DEFAULT_DIM_VALUE		0
+#define NB_DATA_MAX 			15
+
+typedef enum {
+	SWITCH = 0,
+	BLIND,
+	CMD_NONE
+} iuoc_cmd_t;
+
+#define VIUOC_NAME		    "viuoc"
+#define VIUOC_PREFIX		"[" VIUOC_NAME " frontend] "
 
 /* Global communication declaration for IUOC */
-/* This needs to match the declaration done in the frontend and the backend */
+/* This needs to match the declaration done in the backend*/
+
 typedef enum {
 	IUOC_ME_BLIND,
 	IUOC_ME_OUTDOOR,
@@ -32,12 +46,6 @@ typedef enum {
 	IUOC_ME_SWITCH,
 	IUOC_ME_END
 } me_type_t;
-
-typedef union {
-	int int_val;
-	char char_val[MAX_DATA_STRING_SIZE];
-	//float float_value;
-} data_type_t;
 
 typedef struct {
 	char name[30];
@@ -50,12 +58,43 @@ typedef struct {
 	unsigned timestamp;
     unsigned data_array_size;
 	field_data_t data_array[NB_DATA_MAX];
-} iuoc_data_t;
+} viuoc_request_t;
 
-#define UIOC_IOCTL_SEND_DATA _IOW('a', 'a', iuoc_data_t *)
-#define UIOC_IOCTL_RECV_DATA _IOR('a', 'b', iuoc_data_t *)
-#define UIOC_IOCTL_TEST      _IOW('a', 'c', iuoc_data_t *)
+typedef struct  {
+	me_type_t me_type;
+	unsigned timestamp;
+    unsigned data_array_size;
+	field_data_t data_array[NB_DATA_MAX];
+} viuoc_response_t;
 
-void add_iuoc_element_to_queue(iuoc_data_t data);
+/*
+ * Generate ring structures and types.
+ */
+DEFINE_RING_TYPES(viuoc, viuoc_request_t, viuoc_response_t);
 
-#endif
+/*
+ * General structure for this virtual device (frontend side)
+ */
+typedef struct {
+	/* Must be the first field */
+	vdevfront_t vdevfront;
+
+	viuoc_front_ring_t ring;
+	unsigned int irq;
+
+	grant_ref_t ring_ref;
+	grant_handle_t handle;
+	uint32_t evtchn;
+
+} viuoc_t;
+
+
+/**
+ * @brief Send a command to viuoc backend
+ * 
+ * @param cmd Command to execute. See wago_cmd_t enum
+ * @return int 0 if success, -1 if error
+ */
+int viuoc_set(iuoc_cmd_t cmd);
+
+#endif /* WAGOLED_H */

@@ -10,6 +10,7 @@ usage() {
   echo "  - SOO.net"
   echo "  - SOO.agency"
   echo "  - SOO.wagoled"
+  echo "  - SOO.iuoc"
   echo ""
   echo "The <ITB_FILE> (without extension) depends on the selected .its file available in the target/ directory."
   echo ""

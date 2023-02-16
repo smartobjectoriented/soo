@@ -30,6 +30,7 @@
 #include <linux/fs.h> /* register_chrdev, unregister_chrdev */
 #include <linux/module.h>
 #include <linux/vmalloc.h>
+#include <linux/list.h>
 
 #include <soo/iuoc/iuoc.h>
 #include <soo/uapi/iuoc.h>
@@ -60,6 +61,13 @@ static int driver_close(struct inode *device_file, struct file *instance)
 	printk("ioctl_example - close was called!\n");
 	return 0;
 }
+
+
+void add_iuoc_element_to_queue(iuoc_data_t *data)
+{
+	
+}
+
 
 /* Global Variable for reading and writing */
 static long int my_ioctl(struct file *file, unsigned cmd, unsigned long arg) 

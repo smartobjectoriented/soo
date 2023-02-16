@@ -28,6 +28,7 @@ usage() {
   echo "  - SOO.outdoor"
   echo "  - SOO.refso3"
   echo "  - SOO.wagoled"
+  echo "  - SOO.iuoc"
   echo ""
   echo "OPTIONAL_CONFIG can be one of the following:"
   echo "  - refso3_ramfs"

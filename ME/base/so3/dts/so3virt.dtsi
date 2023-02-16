@@ -107,6 +107,12 @@
 				status = "disabled";
 			};
 
+
+			viuoc {
+				compatible = "viuoc,frontend";
+				status = "disabled";
+			};
+			
 			venocean {
 				compatible = "venocean,frontend";
 				status = "disabled";

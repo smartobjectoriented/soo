@@ -48,6 +48,11 @@
 				compatible = "vwagoled,backend";
 				status = "disabled";
 			};
+			
+			viuoc {
+				compatible = "viuoc,backend";
+				status = "disabled";
+			};
 
 			venocean {
 				compatible = "venocean,backend";

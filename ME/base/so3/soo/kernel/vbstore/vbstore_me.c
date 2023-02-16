@@ -270,6 +270,12 @@ void remove_vbstore_entries(void) {
 		DBG("%s: removing vwagoled from vbstore...\n", __func__);
 		vbstore_dev_remove(ME_domID(), "vwagoled");
 	}
+	
+	fdt_node = fdt_find_compatible_node(__fdt_addr, "viuoc,frontend");
+	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
+		DBG("%s: removing viuoc from vbstore...\n", __func__);
+		vbstore_dev_remove(ME_domID(), "viuoc");
+	}
 
 	fdt_node = fdt_find_compatible_node(__fdt_addr, "venocean,frontend");
 	if (fdt_device_is_available(__fdt_addr, fdt_node)) {
