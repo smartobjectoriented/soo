@@ -27,28 +27,28 @@
 
 #include <soo/dev/viuoc.h>
 #include <me/iuoc.h>
+#include <soo/dev/viuoc.h>
+#include <delay.h>
+
+
+iuoc_data_t data_debug;
+int debug_count = 0; 
+field_data_t field_debug;
 
 void *iuoc_send_cmd(void *args) {
-	iuoc_cmd_t cmd = SWITCH;
+	while (1) {
+	    udelay(3000000);
 
-	viuoc_set(cmd);
-
-	while(atomic_read(&shutdown)) {
-		wait_for_completion(&send_data_lock);
-
-		switch(sh_iuoc->received_data) {
-			case SWITCH:
-				cmd = SWITCH;
-				break;
-			case BLIND:
-				cmd = BLIND;
-				break;
-			default:
-				DBG("switch postion %d not supported\n", sh_iuoc->sw_pos);
-				continue;
-		}
-		viuoc_set(cmd);
+		data_debug.me_type = IUOC_ME_BLIND;
+		data_debug.timestamp = 20 * debug_count++ ;
+		strcpy(field_debug.name, "action");  
+		strcpy(field_debug.type, "int");  
+		field_debug.value = 3;
+		data_debug.data_array[0] = field_debug;
+		data_debug.data_array_size = 1;
+		viuoc_set(data_debug);
 	}
+
 	return 0;
 }
 

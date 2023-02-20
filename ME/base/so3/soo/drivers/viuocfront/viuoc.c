@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -46,16 +46,29 @@ typedef struct {
 
 static struct vbus_device *viuoc_dev = NULL;
 
-/**
- * @brief Set default values for a request struct
- * 
- * @param req request to initialize
- */
-void init_request(viuoc_request_t *req) {
-	req->new_data = 2;
-}
+// iuoc_data_t data_debug;
+// int debug_count = 0; 
+// field_data_t field_debug;
 
-int viuoc_set(iuoc_cmd_t cmd) {
+// void *debug_thread_fn(void *data) 
+// {
+// 	while (1) {
+// 	    udelay(3000000);
+
+// 		data_debug.me_type = IUOC_ME_BLIND;
+// 		data_debug.timestamp = 20 * debug_count;
+// 		strcpy(field_debug.name, "action");  
+// 		strcpy(field_debug.type, "int");  
+// 		field_debug.value = 3;
+// 		data_debug.data_array[0] = field_debug;
+// 		data_debug.data_array_size = 1;
+// 		viuoc_set(data_debug);
+// 	}
+	
+// 	return 0;
+// }
+
+int viuoc_set(iuoc_data_t me_data) {
 	
 	viuoc_priv_t *viuoc_priv;
 	viuoc_request_t *ring_req;
@@ -69,9 +82,7 @@ int viuoc_set(iuoc_cmd_t cmd) {
 	if (!RING_REQ_FULL(&viuoc_priv->viuoc.ring)) {
 		ring_req = viuoc_new_ring_request(&viuoc_priv->viuoc.ring);
 
-		init_request(ring_req);
-
-		ring_req->new_data = (int)cmd;
+		ring_req->me_data = me_data;
 
 		viuoc_ring_request_ready(&viuoc_priv->viuoc.ring);
 

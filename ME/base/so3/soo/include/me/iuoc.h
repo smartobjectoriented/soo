@@ -50,12 +50,6 @@ typedef struct {
 extern sh_iuoc_t *sh_iuoc;
 
 /**
- * @brief Completion used to wait for a switch event
- * 
- */
-extern struct completion send_data_lock;
-
-/**
  * @brief Condition of which the threads are running
  * 
  */

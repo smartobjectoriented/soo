@@ -58,13 +58,14 @@ typedef struct {
 	unsigned timestamp;
     unsigned data_array_size;
 	field_data_t data_array[NB_DATA_MAX];
+} iuoc_data_t;
+
+typedef struct {
+	iuoc_data_t me_data;
 } viuoc_request_t;
 
 typedef struct  {
-	me_type_t me_type;
-	unsigned timestamp;
-    unsigned data_array_size;
-	field_data_t data_array[NB_DATA_MAX];
+	iuoc_data_t me_data;
 } viuoc_response_t;
 
 /*
@@ -95,6 +96,6 @@ typedef struct {
  * @param cmd Command to execute. See wago_cmd_t enum
  * @return int 0 if success, -1 if error
  */
-int viuoc_set(iuoc_cmd_t cmd);
+int viuoc_set(iuoc_data_t me_data);
 
 #endif /* WAGOLED_H */

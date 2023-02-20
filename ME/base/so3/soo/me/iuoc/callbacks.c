@@ -110,8 +110,8 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
  */
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
-	sh_switch_t *incoming_sh_switch;
-	static uint64_t switch_timestamp = 0;
+	sh_iuoc_t *incoming_sh_iuoc;
+	static uint64_t iuoc_timestamp = 0;
 	addr_t pfn;
 
 	switch (cooperate_args->role) {
@@ -211,7 +211,7 @@ void callbacks_init(void) {
 	/* Initialize the shared content page used to exchange information between other MEs */
 	memset(sh_iuoc, 0, PAGE_SIZE);
 
-	sh_iuoc->sw_pos = false;
+	//sh_iuoc->sw_pos = false;
 
 	/* Set the SPAD capabilities */
 	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));
