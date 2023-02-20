@@ -20,14 +20,16 @@
 
 action_listener::action_listener(const std::string& name) : name_(name) {}
 
-void action_listener::on_failure(const mqtt::token& tok) {
+void action_listener::on_failure(const mqtt::token& tok) 
+{
     std::cout << name_ << " failure";
     if (tok.get_message_id() != 0)
         std::cout << " for token: [" << tok.get_message_id() << "]" << std::endl;
     std::cout << std::endl;
 }
 
-void action_listener::on_success(const mqtt::token& tok) {
+void action_listener::on_success(const mqtt::token& tok) 
+{
     std::cout << name_ << " success";
     if (tok.get_message_id() != 0)
         std::cout << " for token: [" << tok.get_message_id() << "]" << std::endl;
@@ -42,14 +44,16 @@ callback::callback(mqtt::async_client& cli, mqtt::connect_options& connOpts,
 		std::unordered_map<std::string, int> sub_topics, unsigned qos,
 		unsigned n_retry_attemps)
         : nretry_(0), cli_(cli), connOpts_(connOpts), subListener_("Subscription"),
-        sub_topics(sub_topics), qos(qos), n_retry_attemps(n_retry_attemps) {
+        sub_topics(sub_topics), qos(qos), n_retry_attemps(n_retry_attemps), running_status(false)
+	{
 	dev = open("/dev/soo/iuoc", O_WRONLY);
 	if(dev == -1) {
 		printf("[IUOC] Opening was not possible!\n");
 	}
 }
 
-void callback::reconnect() {
+void callback::reconnect() 
+{
 	std::this_thread::sleep_for(std::chrono::milliseconds(2500));
 	try {
 		cli_.connect(connOpts_, nullptr, *this);
@@ -61,7 +65,8 @@ void callback::reconnect() {
 }
 
 // Re-connection failure
-void callback::on_failure(const mqtt::token& tok) {
+void callback::on_failure(const mqtt::token& tok) 
+{
 	std::cout << "Connection attempt failed" << std::endl;
 	if (++nretry_ > n_retry_attemps)
 		exit(1);
@@ -73,7 +78,8 @@ void callback::on_failure(const mqtt::token& tok) {
 void callback::on_success(const mqtt::token& tok) {}
 
 // (Re)connection success
-void callback::connected(const std::string& cause) {
+void callback::connected(const std::string& cause) 
+{
 	std::cout << "\nConnection success" << std::endl;
 	std::cout << "\nSubscribing to topic ";
 	for(auto const& topic : sub_topics) {
@@ -83,6 +89,7 @@ void callback::connected(const std::string& cause) {
 	for(auto const& topic : sub_topics) {
 		cli_.subscribe(topic.first, qos, nullptr, subListener_);
 	}
+	running_status = true;
 }
 
 // Callback for when the connection is lost.
@@ -97,9 +104,17 @@ void callback::connection_lost(const std::string& cause) {
 	reconnect();
 }
 
+
+
 // Callback for when a message arrives.
-void callback::message_arrived(mqtt::const_message_ptr msg) {
+void callback::message_arrived(mqtt::const_message_ptr msg) 
+{
  
+	if (msg->get_topic() == KILL_IUOC_TOPIC) {
+		running_status = false;
+		return;
+	} 
+
 	iuoc_data_t me_data;
 	auto me_type = sub_topics[msg->get_topic()];
 	me_data.me_type = (me_type_t)me_type;
@@ -127,5 +142,11 @@ void callback::message_arrived(mqtt::const_message_ptr msg) {
 	}
 	ioctl(dev, UIOC_IOCTL_SEND_DATA, &me_data);
 }
+
+bool callback::get_running_status()
+{
+	return running_status;
+}
+
 
 void callback::delivery_complete(mqtt::delivery_token_ptr token) {}

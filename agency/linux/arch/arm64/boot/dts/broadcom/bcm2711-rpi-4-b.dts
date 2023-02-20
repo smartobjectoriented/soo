@@ -101,6 +101,10 @@
 		vwagoled {
 			status = "ok";
 		};
+		
+		viuoc {
+			status = "ok";
+		};
 
 		venocean {
 			status = "ok";

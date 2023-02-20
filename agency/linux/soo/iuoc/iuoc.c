@@ -31,16 +31,34 @@
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 #include <linux/list.h>
+#include <linux/completion.h>
+#include <linux/kthread.h>
+#include <linux/sched.h>
+
+#include <linux/delay.h> /* usleep_range */
 
 #include <soo/iuoc/iuoc.h>
 #include <soo/uapi/iuoc.h>
-
 
 static int major = -1;
 static struct cdev mycdev;
 static struct class *myclass = NULL;
 
+struct completion data_wait_lock;
+
+struct iuoc_me_data_list {
+    iuoc_data_t me_data;
+    struct list_head list;
+};
+
+static LIST_HEAD(iuoc_me_data_head);
+
 iuoc_data_t *me_received;
+
+static struct task_struct *debug_thread;
+int debug_count = 0;
+iuoc_data_t data_debug;
+field_data_t field_debug;
 
 static void forward_data(iuoc_data_t iuoc_data);
 
@@ -49,32 +67,58 @@ static void forward_data(iuoc_data_t iuoc_data);
  */
 static int driver_open(struct inode *device_file, struct file *instance) 
 {
-	printk("ioctl_example - open was called!\n");
+	printk("close /dev/soo/iuoc\n");
 	return 0;
-}
+} 
 
 /**
  * @brief This function is called, when the device file is opened
  */
 static int driver_close(struct inode *device_file, struct file *instance) 
 {
-	printk("ioctl_example - close was called!\n");
+	printk("open /dev/soo/iuoc\n");
 	return 0;
 }
 
-
-void add_iuoc_element_to_queue(iuoc_data_t *data)
+static int debug_thread_fn(void *data) 
 {
+	while (1) {
+	    usleep_range(3000000, 3000001);
+
+		data_debug.me_type = IUOC_ME_BLIND;
+		data_debug.timestamp = 20 * debug_count;
+		strcpy(field_debug.name, "action");  
+		strcpy(field_debug.type, "int");  
+		field_debug.value = 3;
+		data_debug.data_array[0] = field_debug;
+		data_debug.data_array_size = 1;
+		add_iuoc_element_to_queue(data_debug);
+		debug_count++;
+		complete(&data_wait_lock);
+		printk("GOWAIT\n");
+	}
 	
+	return 0;
+}
+
+void add_iuoc_element_to_queue(iuoc_data_t data)
+{
+	struct iuoc_me_data_list *entry;
+	entry = kmalloc(sizeof(struct iuoc_me_data_list), GFP_KERNEL);
+    entry->me_data = data;
+    list_add_tail(&entry->list, &iuoc_me_data_head);
+	printk("NEW DATA PUT IN QUEUE : timestamp = %d\n", data.timestamp);
+	complete(&data_wait_lock);
+
 }
 
 
 /* Global Variable for reading and writing */
 static long int my_ioctl(struct file *file, unsigned cmd, unsigned long arg) 
 { 
-
 	iuoc_data_t iuoc_data;
 	field_data_t field_data;
+    struct iuoc_me_data_list *tmp;
 
 	switch(cmd) {
 	case UIOC_IOCTL_SEND_DATA:
@@ -85,17 +129,19 @@ static long int my_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		break;
 
 	case UIOC_IOCTL_RECV_DATA:
-		iuoc_data.me_type = IUOC_ME_BLIND;
-		iuoc_data.timestamp = 654321;
-		strcpy(field_data.name, "action");  
-		strcpy(field_data.type, "int");  
-		field_data.value = 3;
-		iuoc_data.data_array[0] = field_data;
-		iuoc_data.data_array_size = 1;
-		if(copy_to_user((iuoc_data_t *) arg, &iuoc_data, sizeof(iuoc_data))) 
+		printk("[IUOC] Receive data before wait\n");
+
+		wait_for_completion(&data_wait_lock);
+
+		tmp = list_first_entry(&iuoc_me_data_head, struct iuoc_me_data_list, list);
+
+		printk("[IUOC] Data in me : timestamp = %d, data = %s \n",  tmp->me_data.timestamp, tmp->me_data.data_array[0].name);
+
+		if(copy_to_user((iuoc_data_t *) arg, &(tmp->me_data), sizeof(iuoc_data))) 
 			printk("ioctl_example - Error copying data to user!\n");
-		else
-			printk("Sending data to broker\n");
+
+		list_del(&tmp->list);
+
 		 break;
 
 	case UIOC_IOCTL_TEST:
@@ -150,6 +196,17 @@ static int ModuleInit(void)
 		printk("[IUOC] kmalloc me_received failed\n");
 		BUG();		
 	}
+
+	init_completion(&data_wait_lock);
+
+    // debug_thread = kthread_create(debug_thread_fn, NULL, "debug_thread");
+
+	// if (IS_ERR(debug_thread)) {
+    //     printk(KERN_ERR "Failed to create thread\n");
+    //     return PTR_ERR(debug_thread);
+    // }
+    // // Start the thread
+    // wake_up_process(debug_thread);
 
 	return 0;
 }

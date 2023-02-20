@@ -13,6 +13,8 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
+#define KILL_IUOC_TOPIC "kill-iuoc-client"
+
 class action_listener : public virtual mqtt::iaction_listener
 {
 private:  
@@ -72,9 +74,14 @@ class callback : public virtual mqtt::callback,
 
 	void delivery_complete(mqtt::delivery_token_ptr token) override;
 
+
 	int dev;
+	bool running_status;
 
 public:
+
+	bool get_running_status();
+
 	callback(mqtt::async_client& cli, mqtt::connect_options& connOpts,
              std::unordered_map<std::string, int> sub_topics, unsigned qos, 
              unsigned n_retry_attemps);

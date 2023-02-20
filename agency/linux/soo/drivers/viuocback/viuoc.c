@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -24,7 +24,6 @@
 
 #include <soo/evtchn.h>
 #include <soo/dev/viuoc.h>
-#include <soo/uapi/iuoc.h>
 
 
 typedef struct {
@@ -41,8 +40,8 @@ irqreturn_t viuoc_interrupt_bh(int irq, void *dev_id) {
 	vdevback_processing_begin(vdev);
 
 	while ((ring_req = viuoc_get_ring_request(&viuoc_priv->viuoc.ring)) != NULL) {
-
-		ledctrl_process_request(ring_req->cmd, ring_req->ids, ring_req->ids_count);
+		printk("[IUOC] Backend IRQ, received element from RING\n");
+		add_iuoc_element_to_queue(ring_req->me_data);
 	}
 		
 	vdevback_processing_end(vdev);
@@ -157,10 +156,6 @@ int viuoc_init(void) {
 		return 0;
 
 	vdevback_init(VIUOC_NAME, &viuocdrv);
-
-	if (ledctrl_init() < 0) {
-		BUG();
-	}
 
     printk(VIUOC_PREFIX "Initialized\n");
 	

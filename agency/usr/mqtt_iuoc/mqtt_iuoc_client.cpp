@@ -89,6 +89,8 @@ int main(int argc, char* argv[])
 		sub_topics_mapping.insert({sub_topic["topic"].asString(), sub_topic["me_type"].asInt()});
 	}
 
+	sub_topics_mapping.insert({KILL_IUOC_TOPIC, -1});
+
 	for(auto pub_topic : root["pub_topics"]) {
 		pub_debug.push_back(pub_topic["me_name"].asString());
 		pub_topics_mapping.insert({pub_topic["me_type"].asInt(), pub_topic["topic"].asString()});
@@ -125,8 +127,12 @@ int main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
+	while (cb.get_running_status() == false) { 
+		sleep(1);
+	}
+	
 	// Just block till user tells us to quit.
-	while (std::tolower(std::cin.get()) != 'q') {
+	while (cb.get_running_status() == true) {
 		iuoc_data_t me_data;
 
 		ioctl(dev, UIOC_IOCTL_RECV_DATA, &me_data);

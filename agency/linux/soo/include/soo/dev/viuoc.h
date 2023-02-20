@@ -47,40 +47,36 @@ To activate add to bcm2711-<platform>.dts:
 #include <soo/ring.h>
 #include <soo/grant_table.h>
 #include <soo/vdevback.h>
+#include <soo/uapi/iuoc.h>
+
 
 #define VIUOC_NAME			"viuoc"
 #define VIUOC_PREFIX		"[" VIUOC_NAME " backend] "
 #define NB_DATA_MAX 			15
 
-/* Global communication declaration for IUOC */
-/* This needs to match the declaration done in the frontend*/
-typedef enum {
-	IUOC_ME_BLIND,
-	IUOC_ME_OUTDOOR,
-	IUOC_ME_WAGOLED,
-	IUOC_ME_HEAT,
-	IUOC_ME_SWITCH,
-	IUOC_ME_END
-} me_type_t;
+// /* Global communication declaration for IUOC */
+// /* This needs to match the declaration done in the frontend*/
+// typedef enum {
+// 	IUOC_ME_BLIND,
+// 	IUOC_ME_OUTDOOR,
+// 	IUOC_ME_WAGOLED,
+// 	IUOC_ME_HEAT,
+// 	IUOC_ME_SWITCH,
+// 	IUOC_ME_END
+// } me_type_t;
+
+// typedef struct {
+// 	char name[30];
+// 	char type[30];
+// 	int value;
+// } field_data_t;
 
 typedef struct {
-	char name[30];
-	char type[30];
-	int value;
-} field_data_t;
-
-typedef struct {
-	me_type_t me_type;
-	unsigned timestamp;
-    unsigned data_array_size;
-	field_data_t data_array[NB_DATA_MAX];
+	iuoc_data_t me_data;
 } viuoc_request_t;
 
 typedef struct  {
-	me_type_t me_type;
-	unsigned timestamp;
-    unsigned data_array_size;
-	field_data_t data_array[NB_DATA_MAX];
+	iuoc_data_t me_data;
 } viuoc_response_t;
 
 /*
@@ -96,7 +92,7 @@ typedef struct {
 	/* Must be the first field */
 	vdevback_t vdevback;
 
-	vwagoled_back_ring_t ring;
+	viuoc_back_ring_t ring;
 	unsigned int irq;
 
 } viuoc_t;
