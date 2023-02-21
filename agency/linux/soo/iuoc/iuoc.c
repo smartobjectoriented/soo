@@ -39,10 +39,12 @@
 
 #include <soo/iuoc/iuoc.h>
 #include <soo/uapi/iuoc.h>
+#include <soo/dev/viuoc.h>
+
 
 static int major = -1;
-static struct cdev mycdev;
-static struct class *myclass = NULL;
+static struct cdev iuoc_cdev;
+static struct class *iuoc_class = NULL;
 
 struct completion data_wait_lock;
 
@@ -65,7 +67,7 @@ static void forward_data(iuoc_data_t iuoc_data);
 /**
  * @brief This function is called, when the device file is opened
  */
-static int driver_open(struct inode *device_file, struct file *instance) 
+static int iuoc_open(struct inode *device_file, struct file *instance) 
 {
 	printk("close /dev/soo/iuoc\n");
 	return 0;
@@ -74,7 +76,7 @@ static int driver_open(struct inode *device_file, struct file *instance)
 /**
  * @brief This function is called, when the device file is opened
  */
-static int driver_close(struct inode *device_file, struct file *instance) 
+static int iuoc_close(struct inode *device_file, struct file *instance) 
 {
 	printk("open /dev/soo/iuoc\n");
 	return 0;
@@ -107,14 +109,13 @@ void add_iuoc_element_to_queue(iuoc_data_t data)
 	entry = kmalloc(sizeof(struct iuoc_me_data_list), GFP_KERNEL);
     entry->me_data = data;
     list_add_tail(&entry->list, &iuoc_me_data_head);
-	printk("NEW DATA PUT IN QUEUE : timestamp = %d\n", data.timestamp);
+	printk("[IUOC driver] New data put in queue, timestamp=%d\n", data.timestamp);
 	complete(&data_wait_lock);
-
 }
 
 
 /* Global Variable for reading and writing */
-static long int my_ioctl(struct file *file, unsigned cmd, unsigned long arg) 
+static long int iuoc_ioctl(struct file *file, unsigned cmd, unsigned long arg) 
 { 
 	iuoc_data_t iuoc_data;
 	field_data_t field_data;
@@ -123,19 +124,21 @@ static long int my_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	switch(cmd) {
 	case UIOC_IOCTL_SEND_DATA:
 		if(copy_from_user(&iuoc_data, (iuoc_data_t *) arg, sizeof(iuoc_data))) {
-			printk("UIOC_IOCTL_SEND_DATA - Error copying data from user!\n");
+			printk("[IUOC driver] Driver IOCTL_SEND_DATA forwarding to FE!\n");
 		}
-		forward_data(iuoc_data);
+		//forward_data(iuoc_data);
+		viuoc_send_data_to_fe(iuoc_data);
+
 		break;
 
 	case UIOC_IOCTL_RECV_DATA:
-		printk("[IUOC] Receive data before wait\n");
+		printk("[IUOC driver] Receive data before wait\n");
 
 		wait_for_completion(&data_wait_lock);
 
 		tmp = list_first_entry(&iuoc_me_data_head, struct iuoc_me_data_list, list);
 
-		printk("[IUOC] Data in me : timestamp = %d, data = %s \n",  tmp->me_data.timestamp, tmp->me_data.data_array[0].name);
+		printk("[IUOC driver] Data in me : timestamp = %d, data = %s \n",  tmp->me_data.timestamp, tmp->me_data.data_array[0].name);
 
 		if(copy_to_user((iuoc_data_t *) arg, &(tmp->me_data), sizeof(iuoc_data))) 
 			printk("ioctl_example - Error copying data to user!\n");
@@ -156,15 +159,15 @@ static long int my_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 
 struct file_operations iuoc_fops = {
 	.owner = THIS_MODULE,
-	.open = driver_open,
-	.release = driver_close,
-	.unlocked_ioctl = my_ioctl
+	.open = iuoc_open,
+	.release = iuoc_close,
+	.unlocked_ioctl = iuoc_ioctl
 };
  
 /**
  * @brief This function is called, when the module is loaded into the kernel
  */
-static int ModuleInit(void) 
+static int iuoc_init(void) 
 {
 
     int device_created = 0;
@@ -174,19 +177,19 @@ static int ModuleInit(void)
 		BUG();
 	}
 
-    if ((myclass = class_create(THIS_MODULE, NAME "_sys")) == NULL) {
+    if ((iuoc_class = class_create(THIS_MODULE, NAME "_sys")) == NULL) {
 		printk("[IUOC] class_create failed\n");
 		BUG();
 	}
 
-    if (device_create(myclass, NULL, major, NULL, NAME) == NULL) {
+    if (device_create(iuoc_class, NULL, major, NULL, NAME) == NULL) {
 		printk("[IUOC] device_create failed\n");
 		BUG();	
 	}
 
     device_created = 1;
-    cdev_init(&mycdev, &iuoc_fops);
-    if (cdev_add(&mycdev, major, 1) == -1) {
+    cdev_init(&iuoc_cdev, &iuoc_fops);
+    if (cdev_add(&iuoc_cdev, major, 1) == -1) {
 		printk("[IUOC] cdev_add failed\n");
 		BUG();		
 	}
@@ -223,4 +226,4 @@ void forward_data(iuoc_data_t iuoc_data)
 }
 
 
-late_initcall(ModuleInit);
+late_initcall(iuoc_init);

@@ -16,60 +16,19 @@
  *
  */
 
-/* ============================== DTS =================================== */
-/*
-soo.dtsi:
-
-	vwagoled {
-		compatible = "vwagoled,backend";
-		status = "disabled";
-	};
-
-To activate add to bcm2711-<platform>.dts:
-	
-	&agency {
-		backends {
-			...
-
-			vwagoled {
-				status = "ok";
-			};
-
-			...
-		};
-	};
-
- */
-
 #ifndef VIUOC_H
 #define VIUOC_H
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
+#include <linux/list.h>
+#include <linux/mutex.h>
 #include <soo/vdevback.h>
 #include <soo/uapi/iuoc.h>
-
 
 #define VIUOC_NAME			"viuoc"
 #define VIUOC_PREFIX		"[" VIUOC_NAME " backend] "
 #define NB_DATA_MAX 			15
-
-// /* Global communication declaration for IUOC */
-// /* This needs to match the declaration done in the frontend*/
-// typedef enum {
-// 	IUOC_ME_BLIND,
-// 	IUOC_ME_OUTDOOR,
-// 	IUOC_ME_WAGOLED,
-// 	IUOC_ME_HEAT,
-// 	IUOC_ME_SWITCH,
-// 	IUOC_ME_END
-// } me_type_t;
-
-// typedef struct {
-// 	char name[30];
-// 	char type[30];
-// 	int value;
-// } field_data_t;
 
 typedef struct {
 	iuoc_data_t me_data;
@@ -96,5 +55,18 @@ typedef struct {
 	unsigned int irq;
 
 } viuoc_t;
+
+typedef struct {
+    struct list_head list;
+    int32_t id;
+} domid_priv_t;
+
+/**
+ * @brief Allows to send a data from the FE to the BE
+ * 
+ * @param iuoc_data: structure containing the ME data information
+ */
+void viuoc_send_data_to_fe(iuoc_data_t iuoc_data);
+
 
 #endif /* VIUOC_H */

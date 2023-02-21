@@ -23,7 +23,7 @@
 #define MAX_DATA_STRING_SIZE 50
 
 /* Global communication declaration for IUOC */
-/* This needs to match the declaration done in the frontend and the backend */
+/* This needs to match the declaration done in the frontend*/
 typedef enum {
 	IUOC_ME_BLIND,
 	IUOC_ME_OUTDOOR,
@@ -33,18 +33,16 @@ typedef enum {
 	IUOC_ME_END
 } me_type_t;
 
-typedef union {
-	int int_val;
-	char char_val[MAX_DATA_STRING_SIZE];
-	//float float_value;
-} data_type_t;
-
+/* Structure used to define a single data defining any behaviour/information
+ * coming from a SO. Multiple data can be sent from the SO.
+ */
 typedef struct {
 	char name[30];
 	char type[30];
 	int value;
 } field_data_t;
 
+/* Generic structure used to pass any ME information between the FE and the user space */
 typedef struct {
 	me_type_t me_type;
 	unsigned timestamp;
@@ -56,6 +54,11 @@ typedef struct {
 #define UIOC_IOCTL_RECV_DATA _IOR('a', 'b', iuoc_data_t *)
 #define UIOC_IOCTL_TEST      _IOW('a', 'c', iuoc_data_t *)
 
+/**
+ * @brief Add a new data received from the FE to a queue to be sure no data is lost
+ * 
+ * @param data: structure containing the ME data information
+ */
 void add_iuoc_element_to_queue(iuoc_data_t data);
 
 #endif

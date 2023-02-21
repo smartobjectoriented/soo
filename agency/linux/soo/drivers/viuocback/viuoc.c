@@ -23,8 +23,14 @@
 #include <linux/of.h>
 
 #include <soo/evtchn.h>
+
 #include <soo/dev/viuoc.h>
 
+/** List of all the connected vbus devices **/
+static struct list_head *vdev_list;
+
+/** List of all the domids of the connected vbus devices **/
+static struct list_head *domid_list;
 
 typedef struct {
 	/* Must be the first field */
@@ -40,7 +46,7 @@ irqreturn_t viuoc_interrupt_bh(int irq, void *dev_id) {
 	vdevback_processing_begin(vdev);
 
 	while ((ring_req = viuoc_get_ring_request(&viuoc_priv->viuoc.ring)) != NULL) {
-		printk("[IUOC] Backend IRQ, received element from RING\n");
+		printk("[IUOC back] IRQ received element from RING\n");
 		add_iuoc_element_to_queue(ring_req->me_data);
 	}
 		
@@ -53,13 +59,54 @@ irqreturn_t viuoc_interrupt(int irq, void *dev_id) {
 	return IRQ_WAKE_THREAD;
 }
 
+void viuoc_send_data_to_fe(iuoc_data_t iuoc_data) {
+	viuoc_priv_t  *viuoc_priv;
+	viuoc_response_t *ring_resp;
+    struct vbus_device *vdev;
+    domid_priv_t *domid_priv;
+	viuoc_response_t *res;
+
+    res = kzalloc(sizeof(viuoc_response_t), GFP_KERNEL);
+    BUG_ON(!res);
+
+	res->me_data = iuoc_data;
+
+	DBG("[IUOC back] Sending data to FE\n");
+
+	list_for_each_entry(domid_priv, domid_list, list) {
+		//DBG(VIUOC_PREFIX "Sending data to frontend: %d\n", domid_priv->id);
+		
+		vdev = vdevback_get_entry(domid_priv->id, vdev_list);
+		vdevback_processing_begin(vdev);
+		viuoc_priv = dev_get_drvdata(&vdev->dev);
+		
+		ring_resp = viuoc_new_ring_response(&viuoc_priv->viuoc.ring);
+		memcpy(ring_resp, res, sizeof(viuoc_response_t));
+		viuoc_ring_response_ready(&viuoc_priv->viuoc.ring);
+		notify_remote_via_virq(viuoc_priv->viuoc.irq);
+
+		vdevback_processing_end(vdev);
+	}
+
+	DBG("[IUOC back] Data sent to FE\n");
+}
+
 void viuoc_probe(struct vbus_device *vdev) {
 	viuoc_priv_t *viuoc_priv;
+	domid_priv_t *domid_priv;
+
+	domid_priv = kzalloc(sizeof(domid_t), GFP_KERNEL);
+	BUG_ON(!domid_priv);
+
+	domid_priv->id = vdev->otherend_id;
+	list_add(&domid_priv->list, domid_list);
 
 	viuoc_priv = kzalloc(sizeof(viuoc_priv_t), GFP_ATOMIC);
 	BUG_ON(!viuoc_priv);
 
 	dev_set_drvdata(&vdev->dev, viuoc_priv);
+
+	vdevback_add_entry(vdev, vdev_list);
 
 	DBG(VIUOC_PREFIX "Probe: %d\n", vdev->otherend_id);
 }
@@ -154,6 +201,16 @@ int viuoc_init(void) {
 	/* Check if DTS has viuoc enabled */
 	if (!of_device_is_available(np))
 		return 0;
+
+	vdev_list = (struct list_head *)kzalloc(sizeof(struct list_head), GFP_ATOMIC);
+    BUG_ON(!vdev_list);
+
+    INIT_LIST_HEAD(vdev_list);
+
+    domid_list = (struct list_head *)kzalloc(sizeof(struct list_head), GFP_KERNEL);
+    BUG_ON(!domid_list);
+
+    INIT_LIST_HEAD(domid_list);
 
 	vdevback_init(VIUOC_NAME, &viuocdrv);
 

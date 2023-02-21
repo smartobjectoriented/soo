@@ -130,7 +130,7 @@ void callback::message_arrived(mqtt::const_message_ptr msg)
 
     if (!reader->parse(msg->to_string().c_str(), msg->to_string().c_str() + msg->to_string().length(), 
 		&root,  &err)) {
-      std::cout << "[IUOC] error converting JSON payload to string" << std::endl;
+    //   std::cout << "[IUOC] error converting JSON payload to string" << std::endl;
     }
 	me_data.data_array_size = root["data"].size();
 	for(int i = 0; i < root["data"].size(); i++) {

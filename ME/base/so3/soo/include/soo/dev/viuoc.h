@@ -14,6 +14,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
+ * Description: This file is the header of the front end for the IUOC 
+ * application. There is the definition of the structure used to transfer
+ * and decode the data. There are also functions to send and retrieve any
+ * data that will be used to control smart objects.
  */
 
 #ifndef VIUOC_H
@@ -37,7 +41,6 @@ typedef enum {
 
 /* Global communication declaration for IUOC */
 /* This needs to match the declaration done in the backend*/
-
 typedef enum {
 	IUOC_ME_BLIND,
 	IUOC_ME_OUTDOOR,
@@ -47,12 +50,16 @@ typedef enum {
 	IUOC_ME_END
 } me_type_t;
 
+/* Structure used to define a single data defining any behaviour/information
+ * coming from a SO. Multiple data can be sent from the SO.
+ */
 typedef struct {
 	char name[30];
 	char type[30];
 	int value;
 } field_data_t;
 
+/* Generic structure used to pass any ME information between the FE and the user space */
 typedef struct {
 	me_type_t me_type;
 	unsigned timestamp;
@@ -97,5 +104,14 @@ typedef struct {
  * @return int 0 if success, -1 if error
  */
 int viuoc_set(iuoc_data_t me_data);
+
+/**
+ * @brief Bloking function that waits on data coming from the IUOC backend
+ * 
+ * @param data: Pointer to the data received from the backend.
+ * @retval 0 if successful, -1 if no data could be read.
+ */
+int get_iuoc_me_data(iuoc_data_t *data);
+
 
 #endif /* WAGOLED_H */

@@ -14,6 +14,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
+ * Description: This file is the implementation of the IUOC ME. This code is 
+ * responsible of managing the data incoming from any ME and from the IUOC server
+ * that are allowed to communicate with the IUOC.
  */
 
 #ifndef IUOC_H

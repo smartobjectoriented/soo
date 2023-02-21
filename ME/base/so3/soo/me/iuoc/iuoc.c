@@ -13,7 +13,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ * 
+ * Description: This file is the implementation of the IUOC ME. This code is 
+ * responsible of managing the data incoming from any ME and from the IUOC server
+ * that are allowed to communicate with the IUOC.
  */
 
 #if 1
@@ -52,15 +55,45 @@ void *iuoc_send_cmd(void *args) {
 	return 0;
 }
 
+/**
+ * @brief Thread to acquire iuoc events
+ * 
+ * @param args not used for now
+ */
+void *iuoc_wait_data_th(void *args) {
+	iuoc_data_t iuoc_data;
+	int ret;
+
+	printk("[IUOC front] ME thread receiver set up !\n");
+
+	while (1) {
+		printk("[IUOC front] ME thread waiting for new data\n");
+		ret = get_iuoc_me_data(&iuoc_data);
+		printk("[IUOC front] ME thread got a new data\n");
+		if (ret) {
+			continue;
+		}
+
+		printk ("Data : ME_type=%d, timestamp=%d, array_size=%d\n", 
+				iuoc_data.me_type, iuoc_data.timestamp, iuoc_data.data_array_size);
+	}
+
+}
+
 void *app_thread_main(void *args) {
 	tcb_t *iuoc_th;
+	tcb_t *iuoc_recv_th;
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();
 	printk("Welcome to IUOC ME\n");
 
 	iuoc_th = kernel_thread(iuoc_send_cmd, "iuoc_send_command", NULL, THREAD_PRIO_DEFAULT);
+
+	iuoc_recv_th = kernel_thread(iuoc_wait_data_th, "iuoc_wait_data", NULL, THREAD_PRIO_DEFAULT);
+
 	thread_join(iuoc_th);
+	thread_join(iuoc_recv_th);
 
 	return 0;
 }

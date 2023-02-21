@@ -13,6 +13,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Description: This file is the implementation of the front end for the IUOC 
+ * application. There is the definition of the structure used to transfer
+ * and decode the data. There are also functions to send and retrieve any
+ * data that will be used to control smart objects. 
  *
  */
 
@@ -42,31 +47,10 @@ typedef struct {
 	/* Must be the first field */
 	viuoc_t viuoc;
 
+	struct completion waitlock;
 } viuoc_priv_t;
 
 static struct vbus_device *viuoc_dev = NULL;
-
-// iuoc_data_t data_debug;
-// int debug_count = 0; 
-// field_data_t field_debug;
-
-// void *debug_thread_fn(void *data) 
-// {
-// 	while (1) {
-// 	    udelay(3000000);
-
-// 		data_debug.me_type = IUOC_ME_BLIND;
-// 		data_debug.timestamp = 20 * debug_count;
-// 		strcpy(field_debug.name, "action");  
-// 		strcpy(field_debug.type, "int");  
-// 		field_debug.value = 3;
-// 		data_debug.data_array[0] = field_debug;
-// 		data_debug.data_array_size = 1;
-// 		viuoc_set(data_debug);
-// 	}
-	
-// 	return 0;
-// }
 
 int viuoc_set(iuoc_data_t me_data) {
 	
@@ -98,23 +82,31 @@ int viuoc_set(iuoc_data_t me_data) {
 	return 0;
 }
 
+int get_iuoc_me_data(iuoc_data_t *data) {
+	viuoc_priv_t *viuoc_priv = dev_get_drvdata(viuoc_dev->dev);
+	viuoc_response_t *ring_rsp;
+	int ret = 0;
+	DBG("[IUOC front]: Waiting for a new data\n");
+	wait_for_completion(&viuoc_priv->waitlock);
+	DBG("[IUOC front]: New data received\n");
+	vdevfront_processing_begin(viuoc_dev);
+	if ((ring_rsp = viuoc_get_ring_response(&viuoc_priv->viuoc.ring)) != NULL) {
+		memcpy(data, &(ring_rsp->me_data), sizeof(iuoc_data_t));
+	} else {
+		ret = -1;
+	}
+	vdevfront_processing_end(viuoc_dev);
+
+	return ret;
+}
+
 irq_return_t viuoc_interrupt(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 	viuoc_priv_t *viuoc_priv = dev_get_drvdata(vdev->dev);
-	viuoc_response_t *ring_rsp;
 
-	DBG("%s, %d\n", __func__, ME_domID());
-
-	while ((ring_rsp = viuoc_get_ring_response(&viuoc_priv->viuoc.ring)) != NULL) {
-
-		DBG("%s, cons=%d\n", __func__);
-
-		/* Do something with the response */
-
-#if 0 /* Debug */
-		lprintk("## Got from the backend: %s\n", ring_rsp->buffer);
-#endif
-	}
+	//DBG(VIUOC_PREFIX "%s, %d\n", __func__, ME_domID());
+	complete(&viuoc_priv->waitlock);
+	DBG("[IUOC front]: INTERRUPT TRIGGERED\n");
 
 	return IRQ_COMPLETED;
 }
@@ -134,6 +126,8 @@ static void viuoc_probe(struct vbus_device *vdev) {
 
 	viuoc_priv = dev_get_drvdata(vdev->dev);
 	viuoc_dev = vdev;
+
+	init_completion(&viuoc_priv->waitlock);
 
 	DBG("Frontend: Setup ring\n");
 
