@@ -263,3 +263,7 @@ void dump_hosts(struct list_head *hosts) {
 	lprintk("\n--- End of list ---\n");
 }
 
+void do_local_cooperation(int domID) {
+	do_sync_dom(DOMID_AGENCY, DC_TRIGGER_LOCAL_COOPERATION);
+}
+

@@ -93,6 +93,8 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	return 0;
 }
 
+
+
 /**
  * PRE-PROPAGATE
  *
@@ -101,7 +103,9 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 int cb_pre_propagate(soo_domcall_arg_t *args) {
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
 
-	// DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
+	agency_ctl_args_t agency_ctl_args;
+
+	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
 	spin_lock(&propagate_lock);
 
@@ -112,6 +116,8 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 		set_ME_state(ME_state_killed);
 		DBG("Now killing the ME %d\n", ME_domID());
 	}
+
+	
 
 	sh_switch->need_propagate = false;
 
@@ -174,6 +180,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			spin_lock(&propagate_lock);
 			sh_switch->need_propagate = true;
 			spin_unlock(&propagate_lock);
+			
 
 			return 0;
 		}
@@ -247,10 +254,12 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			args->__agency_ctl(&agency_ctl_args);
 
 
-			set_ME_state(ME_state_dormant);
-			spin_lock(&propagate_lock);
-			sh_switch->need_propagate = false;
-			spin_unlock(&propagate_lock);
+			// set_ME_state(ME_state_dormant);
+			// spin_lock(&propagate_lock);
+			// sh_switch->need_propagate = false;
+			// spin_unlock(&propagate_lock);
+
+			DBG(MESWITCH_PREFIX "Cooperation with blind over!\n");
 
 			return 0;
 
