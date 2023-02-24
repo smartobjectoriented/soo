@@ -186,7 +186,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 		}
 
 		/** Check if we encountered another SOO.switch **/
-		if(get_spid() == cooperate_args->u.target_coop.spid) {
+		if (get_spid() == cooperate_args->u.target_coop.spid) {
 			DBG(MESWITCH_PREFIX "Found ME switch\n");
 			/**
 			 * Get the other SOO.switch shared data 
@@ -220,11 +220,8 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 						memcpy(target_sh, sh_switch, sizeof(sh_switch_t));
 					}
 					DBG("Found ourself. Killing initiator ME.\n");
-					set_ME_state(ME_state_dormant);
+					set_ME_state(ME_state_killed);
 
-					spin_lock(&propagate_lock);
-					sh_switch->need_propagate = false;
-					spin_unlock(&propagate_lock);
 				} else {
 					/**
 				 	* Continue migration 
