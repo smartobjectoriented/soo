@@ -584,14 +584,13 @@ static int read_serdev_node(struct device_node *node, struct serdev_controller *
 
 static int of_serdev_register_devices(struct serdev_controller *ctrl)
 {
-    struct device_node *port, *node;
-    struct serport *serport = serdev_controller_get_drvdata(ctrl);
-    unsigned int type, port_nr;
-    bool found = false;
+	struct device_node *port, *node;
+	struct serport *serport = serdev_controller_get_drvdata(ctrl);
+	unsigned int type, port_nr;
+	bool found = false;
 
-	
-    for_each_available_child_of_node(ctrl->dev.of_node, port) {
-        if (of_property_read_u32(port, "type", &type) < 0) {
+	for_each_available_child_of_node(ctrl->dev.of_node, port) {
+		if (of_property_read_u32(port, "type", &type) < 0) {
 			dev_info(&ctrl->dev, "No type property for device %s", port->name);
 			if (read_serdev_node(port, ctrl) < 0) 
 				found = false;
@@ -599,7 +598,7 @@ static int of_serdev_register_devices(struct serdev_controller *ctrl)
 				found = true;
 		} else {
 			if (of_property_read_u32(port, "port", &port_nr) < 0 ) {
-				dev_info(&ctrl->dev, "Missing port property");
+				dev_info(&ctrl->dev, "Missing port property for device %s", port->name);
 				if (read_serdev_node(port, ctrl) < 0)
 					found = false;
 				else
@@ -621,10 +620,10 @@ static int of_serdev_register_devices(struct serdev_controller *ctrl)
 			}
 		}
 	}
-    if (!found)
-        return -ENODEV;
+	if (!found)
+		return -ENODEV;
 
-    return 0;
+	return 0;
 }
 #endif
 

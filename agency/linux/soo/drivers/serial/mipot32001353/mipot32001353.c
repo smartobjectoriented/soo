@@ -238,7 +238,7 @@ int mipot320_subscribe(void (*callback)(byte *data)) {
     return 0;
 }
 
-static int test_thread(void *data) {
+static int mipot320_delayed_probe_fn(void *data) {
     /** Wait for boot to complete **/
     int ret = 0;
 
@@ -288,9 +288,7 @@ static int test_thread(void *data) {
 
 static int mipot320_serdev_probe(struct serdev_device *serdev) {
     struct device *dev;
-    int ret = 0;
     u32 baud;
-    int timeout = true;
 
     dev = &serdev->dev;
     BUG_ON(!dev);
@@ -311,35 +309,8 @@ static int mipot320_serdev_probe(struct serdev_device *serdev) {
     mipot320->dev = dev;
     mipot320->baud = baud;
     init_completion(&mipot320->wait_rsp);
-
-    // ret = serdev_device_open(serdev);
-    // if (ret < 0) {
-    //     dev_err(dev, "Failed to open serial port\n");
-    //     return ret;
-    // }
-    // mipot320->is_open = 1;
-
-    // ret = serdev_device_set_baudrate(serdev, baud);
-    // if (ret != baud) {
-    //     dev_err(dev, "Failed to set baudrate\n");
-    //     return -1;
-    // }
-
-    // ret = serdev_device_set_parity(serdev, SERDEV_PARITY_NONE);
-    // if (ret < 0) {
-    //     dev_err(dev, "Failed to set parity\n");
-    //     return ret;
-    // }
-
-    // ret = serdev_device_set_rts(serdev, false);
-    // if (ret < 0) {
-    //     dev_err(dev, "Failed to set rts/cts\n");
-    //     return ret;
-    // }
-
-    // serdev_device_set_flow_control(serdev, false);
-
-    kthread_run(test_thread, NULL, "test-th");
+    
+    kthread_run(mipot320_delayed_probe_fn, NULL, "mipot-delayed-probe-th");  
 
     dev_info(dev,"Probed successfully\n");
 

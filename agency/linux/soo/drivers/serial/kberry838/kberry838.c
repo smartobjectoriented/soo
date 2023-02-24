@@ -26,7 +26,7 @@
 #include <linux/kthread.h>
 #include <soo/device/baos_client.h> 
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -64,6 +64,7 @@ static void kberry838_print_buffer(byte *buf, int len) {
 int kberry838_write_buf(const byte *buffer, size_t len) {
     int tx_bytes = 0;
     int byte_written = 0;
+    size_t i;
 
     BUG_ON(!kberry838->is_open);
 
@@ -72,19 +73,12 @@ int kberry838_write_buf(const byte *buffer, size_t len) {
         BUG();
     }
 
-    /** Write the entire buffer. If the operation can't be done in 
-     *  all at once, repeat the write operation until all bytes have
-     *  been written.
-     */
-    while(tx_bytes < len) {
-        tx_bytes = serdev_device_write_buf(kberry838->serdev, &buffer[byte_written], len - byte_written);
-        BUG_ON(tx_bytes < 1);
+    for (i = 0; i < len; i++) {
+        tx_bytes = serdev_device_write(kberry838->serdev, &buffer[i], sizeof(byte), msecs_to_jiffies(10));
+        if (tx_bytes < 0)
+            return -1;
         byte_written += tx_bytes;
     }
-
-    byte_written += tx_bytes;
-
-    serdev_device_write_flush(kberry838->serdev);
 
     return byte_written;
 }
@@ -450,9 +444,47 @@ static int test_thread(void *data) {
 }
 #endif
 
+static int kberry_delayed_probe_fn(void *data) {
+
+    int ret = 0;
+
+    /* TODO: Change this method!!!! */
+    /* Add a delay to "wait" for the serdev to be ready */ 
+    msleep(8000);
+
+    ret = serdev_device_open(kberry838->serdev);
+    if (ret < 0) {
+        dev_err(kberry838->dev, "Failed to open serial port\n");
+        BUG();
+    }
+    kberry838->is_open = 1;
+
+    ret = serdev_device_set_baudrate(kberry838->serdev, kberry838->baud);
+    if (ret != kberry838->baud) {
+        dev_err(kberry838->dev, "Failed to set baudrate\n");
+        BUG();
+    }
+
+    ret = serdev_device_set_parity(kberry838->serdev, SERDEV_PARITY_EVEN);
+
+    serdev_device_set_flow_control(kberry838->serdev, false);
+
+    if (kberry838_send_reset_request() < 0) {
+        dev_err(kberry838->dev, "Failed to reset\n");
+        return -1;
+    }
+    
+    msleep(1000);
+    
+    kberry838_init_server();
+
+    dev_info(kberry838->dev, "Delayed probe successful!\n");
+
+    return 0;
+}
+
 static int kberry838_serdev_probe(struct serdev_device *serdev) {
     struct device *dev;
-    int ret = 0;
     u32 baud;
 
     dev = &serdev->dev;
@@ -479,36 +511,14 @@ static int kberry838_serdev_probe(struct serdev_device *serdev) {
     
     init_completion(&kberry838->wait_rsp);
 
-    ret = serdev_device_open(serdev);
-    if (ret < 0) {
-        dev_err(dev, "Failed to open serial port\n");
-        BUG();
-    }
-    kberry838->is_open = 1;
-
-    ret = serdev_device_set_baudrate(serdev, baud);
-    if (ret != baud) {
-        dev_err(dev, "Failed to set baudrate\n");
-        BUG();
-    }
-
-    ret = serdev_device_set_parity(serdev, SERDEV_PARITY_EVEN);
-    if (ret < 0) {
-        dev_err(dev, "Failed to set parity\n");
-        BUG();
-    }
-
-    if (kberry838_send_reset_request() < 0) {
-        return -1;
-    }
-    
-    kberry838_init_server();
+    /* The rest of the init is done in a separate thread to allow serdev to be fully probed */
+    kthread_run(kberry_delayed_probe_fn, NULL, "kberry-delayed-probe");
 
 #ifdef DEBUG_THREAD
     kthread_run(test_thread, NULL, "test-thread");
 #endif
 
-    dev_info(dev,"Probed successfully\n");
+    dev_info(dev,"Probed 1st stage successfully\n");
 
     return 0;
 }
