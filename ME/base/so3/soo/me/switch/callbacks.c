@@ -220,11 +220,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 						memcpy(target_sh, sh_switch, sizeof(sh_switch_t));
 					}
 					DBG("Found ourself. Killing initiator ME.\n");
-					set_ME_state(ME_state_dormant);
-
-					spin_lock(&propagate_lock);
-					sh_switch->need_propagate = false;
-					spin_unlock(&propagate_lock);
+					set_ME_state(ME_state_killed);
 				} else {
 					/**
 				 	* Continue migration 
