@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -28,6 +28,7 @@
 #include <soo/debug.h>
 
 #include <me/switch.h>
+#include <me/common.h>
 
 /** Temporary Switch ID for EnOcean switch **/
 #define ENOCEAN_SWITCH_ID	0x002A3D45
@@ -68,7 +69,9 @@ void switch_deinit(switch_t *sw) {
 void switch_get_data(switch_t *sw) {
 #ifdef ENOCEAN
 
+	DBG("WAITING FOR SWITCH DATA...\n");
 	wait_for_completion(&sw->sw._wait_event);
+	DBG("NEW SWITCH DATA!\n");
 	if (atomic_read(&sw->sw.event)) {
 		if (atomic_read(&sw->sw.up)) 
 			sh_switch->pos = POS_LEFT_UP;
@@ -125,14 +128,18 @@ void *switch_wait_data_th(void *args) {
 		if (sh_switch->switch_event) {		
 			/** migrate **/
 			sh_switch->timestamp++;
-
+#if 0
 			spin_lock(&propagate_lock);
 			sh_switch->need_propagate = true;
 			spin_unlock(&propagate_lock);
 
+			do_local_cooperation(ME_domID());
+#endif
 			DBG(MESWITCH_PREFIX "New switch event. pos: %d, press: %d, status %d\n", sh_switch->pos, sh_switch->press,
 				sh_switch->status);
 			sh_switch->switch_event = false;
+
+			do_local_cooperation(ME_domID());
 		} else {
 			DBG(MESWITCH_PREFIX "No switch event\n");
 		}

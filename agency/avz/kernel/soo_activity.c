@@ -157,6 +157,11 @@ void agency_ctl(agency_ctl_args_t *args)
 		args->u.agencyUID = domains[0]->avz_shared->dom_desc.u.agency.agencyUID;
 		return ;
 
+	case AG_LOCAL_COOPERATE:
+		soo_cooperate(args->u.cooperate_args.slotID);
+		// break;
+		return;
+
 	case AG_COOPERATE:
 
 		domcall_args.cmd = CB_COOPERATE;
@@ -504,6 +509,11 @@ void do_soo_hypercall(soo_hyp_t *args) {
 		break;
 	}
 
+	case AVZ_TRIGGER_LOCAL_COOPERATION:
+		slotID = *((unsigned int *) op.p_val1);
+		soo_cooperate(slotID);
+		break;
+		
 	case AVZ_AGENCY_CTL:
 		/*
 		 * Primary agency ctl processing- The args contains the slotID of the ME the agency_ctl is issued from.

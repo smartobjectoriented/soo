@@ -8,6 +8,7 @@
 *.builtin
 *.dtb
 *.su
+*.itb
 
 **/doxy/**
 **/generated/**

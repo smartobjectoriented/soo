@@ -230,6 +230,13 @@ void dc_trigger_dev_probe_fn(dc_event_t dc_event) {
 	tell_dc_stable(dc_event);
 }
 
+void dc_trigger_local_cooperation(dc_event_t dc_event) {
+	lprintk("DOING DC TRIGGER LOCAL COOP!\n");
+	unsigned int domID = atomic_read(&dc_incoming_domID[dc_event]);
+	soo_hypercall(AVZ_TRIGGER_LOCAL_COOPERATION, NULL, NULL, &domID, NULL);
+	tell_dc_stable(dc_event);
+}
+
 /*
  * do_soo_activity() may be called from the hypervisor as a DOMCALL, but not necessary.
  * The function may also be called as a deferred work during the ME kernel execution.
@@ -312,5 +319,6 @@ void soo_guest_activity_init(void)
 	}
 
 	register_dc_event_callback(DC_TRIGGER_DEV_PROBE, dc_trigger_dev_probe_fn);
+	register_dc_event_callback(DC_TRIGGER_LOCAL_COOPERATION, dc_trigger_local_cooperation);
 }
 

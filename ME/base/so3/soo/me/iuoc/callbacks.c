@@ -124,24 +124,24 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
-		// /* Map the content page of the incoming ME to retrieve its data. */
-		// pfn = cooperate_args->u.initiator_coop.pfn;
-		// incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+		/* Map the content page of the incoming ME to retrieve its data. */
+		pfn = cooperate_args->u.initiator_coop.pfn;
+		incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
-		// if (incoming_sh_switch->timestamp > switch_timestamp) {
-		// 	switch_timestamp = incoming_sh_switch->timestamp;
-		// 	sh_wagoled->sw_pos = incoming_sh_switch->pos;
-		// 	sh_wagoled->sw_status = incoming_sh_switch->status;
-		// 	sh_wagoled->switch_event = true;
-		// 	incoming_sh_switch->delivered = true;
-		// }
+		if (incoming_sh_switch->timestamp > switch_timestamp) {
+			switch_timestamp = incoming_sh_switch->timestamp;
+			sh_wagoled->sw_pos = incoming_sh_switch->pos;
+			sh_wagoled->sw_status = incoming_sh_switch->status;
+			sh_wagoled->switch_event = true;
+			incoming_sh_switch->delivered = true;
+		}
 
-		// io_unmap((addr_t)incoming_sh_switch);
+		io_unmap((addr_t)incoming_sh_switch);
 		
-		// if (sh_wagoled->switch_event) {
-		// 	sh_wagoled->switch_event = false;
-		// 	complete(&send_data_lock);
-		// }
+		if (sh_wagoled->switch_event) {
+			sh_wagoled->switch_event = false;
+			complete(&send_data_lock);
+		}
 		break;
 
 	default:

@@ -143,4 +143,7 @@ void merge_hosts(struct list_head *a, struct list_head *b);
  */
 void dump_hosts(struct list_head *hosts);
 
+
+void do_local_cooperation(int domID);
+
 #endif /* ME_COMMON_H */
