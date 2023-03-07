@@ -302,7 +302,7 @@ void finalize_migration(uint32_t slotID) {
 		ME_state = get_ME_state(slotID);
 
 		if (!((ME_state == ME_state_dead) || (ME_state == ME_state_dormant))) {
-			DBG0("Pinging ME for DC_RESUME...\n");
+			DBG("Pinging ME %d for DC_RESUME...\n", slotID);
 			do_sync_dom(slotID, DC_RESUME);
 
 			DBG("Resuming all devices (resuming from backend devices) on domain %d...\n", slotID);

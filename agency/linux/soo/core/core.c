@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -100,17 +100,16 @@ static struct device soo_dev;
 /*
  * Perform a force terminate of ME in <ME_slotID>
  *
- * Possibly, the target ME may not accept to be terminated. In this case,
- * we exit the function.
- *
- * Returns the state of the target ME.
  */
 static void force_terminate(unsigned int ME_slotID) {
 
 	/* The ME may be ME_state_terminated after a cooperate callback */
+
+	/* Asynchronous termination of the ME */
 	if ((get_ME_state(ME_slotID) == ME_state_living) || (get_ME_state(ME_slotID) == ME_state_terminated))
 		do_sync_dom(ME_slotID, DC_FORCE_TERMINATE);
 
+	/* Then, final termination of the residual ME */
 	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated))
 		soo_hypercall(AVZ_KILL_ME, NULL, NULL, &ME_slotID, NULL);
 }
@@ -138,6 +137,7 @@ void check_terminated_ME(void) {
 			force_terminate(slotID);
 		}
 	}
+	DBG("Done\n");
 }
 
 #endif /* !CONFIG_X86 */

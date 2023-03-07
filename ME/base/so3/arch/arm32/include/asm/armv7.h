@@ -64,11 +64,4 @@
 #define CP15DSB	asm volatile ("mcr     p15, 0, %0, c7, c10, 4" : : "r" (0))
 #define CP15DMB	asm volatile ("mcr     p15, 0, %0, c7, c10, 5" : : "r" (0))
 
-#ifdef CONFIG_SO3VIRT
-
-void avz_vector_callback(void);
-void prepare_switch_domain(void);
-
-#endif /* CONFIG_SO3VIRT */
-
 #endif

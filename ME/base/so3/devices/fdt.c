@@ -59,23 +59,41 @@ static void init_dev_info(dev_t *dev) {
 int get_mem_info(const void *fdt, mem_info_t *info) {
 	int offset;
 	const struct fdt_property *prop;
-	const fdt32_t *p;
+	int prop_len;
 
 	offset = fdt_path_offset(fdt, "/memory");
 
 	/* "memory" node not found --> error */
 	if (offset < 0) {
-		return offset;
+		printk("## The device tree does not contain a <memory> node. ##\n");
+		BUG();
 	}
 
-	prop = fdt_get_property(fdt, offset, "reg", NULL);
+	prop = fdt_get_property(fdt, offset, "reg", &prop_len);
+	BUG_ON(!prop);
+
+	/* For some platform, address-cells and size-cells are set to 2 (64-bit)
+	 * event for a 32-bit platform, probably to support LPAE.
+	 */
 
 	if (prop) {
+		if (prop_len == 8) {
+			info->phys_base = fdt32_to_cpu(((const fdt32_t *) prop->data)[0]);
+			info->size = fdt32_to_cpu(((const fdt32_t *) prop->data)[1]);
+		} else {
+			BUG_ON(prop_len != 16);
 
-		p = (const fdt32_t *)prop->data;
-
-		info->phys_base = fdt32_to_cpu(p[0]);
-		info->size = fdt32_to_cpu(p[1]);
+			/* Keep a possible conversion from 64-bit to 32-bit if the address & size are
+			 * on 64-bit for aarch32 platforms.
+			 */
+#ifdef CONFIG_ARCH_ARM32
+			info->phys_base = fdt32_to_cpu(((const fdt32_t *) prop->data)[0]);
+			info->size = fdt32_to_cpu(((const fdt32_t *) prop->data)[1]);
+#else
+			info->phys_base = fdt64_to_cpu(((const fdt64_t *) prop->data)[0]);
+			info->size = fdt64_to_cpu(((const fdt64_t *) prop->data)[1]);
+#endif
+		}
 	}
 
 	return offset;
@@ -176,10 +194,11 @@ int fdt_find_compatible_node(void *fdt_addr, char *compat) {
 
 	return offset;
 }
+
 /*
  * fdt_pack_reg - pack address and size array into the "reg"-suitable stream
  */
-int fdt_pack_reg(const void *fdt, void *buf, u64 *address, u64 *size)
+int fdt_pack_reg(const void *fdt, void *buf, addr_t *address, size_t *size)
 {
 	int address_cells = fdt_address_cells(fdt, 0);
 	int size_cells = fdt_size_cells(fdt, 0);

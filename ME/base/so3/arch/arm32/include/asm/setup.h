@@ -36,7 +36,10 @@ struct meminfo {
 
 extern struct meminfo meminfo;
 
+extern addr_t __cpu1_stack[];
+extern addr_t __cpu3_stack[];
+
 void setup_arch(void);
-void vectors_setup(void);
+void cpu_init(void);
 
 #endif /* ASM_SETUP_H */

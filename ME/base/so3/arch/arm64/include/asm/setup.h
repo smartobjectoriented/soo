@@ -19,7 +19,7 @@
 #ifndef ASM_SETUP_H
 #define ASM_SETUP_H
 
-#define L_TEXT_OFFSET	0x80000
+#define L_TEXT_OFFSET	0x0
 
 /*
  * Memory map description
@@ -37,10 +37,11 @@ struct meminfo {
 };
 
 extern struct meminfo meminfo;
-extern void *cpu1_stack, *cpu2_stack, *cpu3_stack;
+
+extern addr_t __cpu1_stack[];
+extern addr_t __cpu3_stack[];
 
 void setup_arch(void);
 void cpu_init(void);
-void vectors_setup(void);
 
 #endif /* ASM_SETUP_H */

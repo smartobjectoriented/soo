@@ -25,8 +25,6 @@
 
 extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
-void (*__printch)(char c);
-
 void lprintk(char *format, ...) {
 	char buf[CONSOLEIO_BUFFER_SIZE];
 	int i;

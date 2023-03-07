@@ -1,7 +1,4 @@
 
-config DW_APB_UART
-	bool "DesignWare APB UART"
-
 config NS16550
 	bool "NS16550 UART"
 
@@ -11,13 +8,13 @@ config PL011_UART
 
 config BCM283x_MU_UART
 	bool "BCM283x mini-UART"
-	depends on RPI4
-
-config SO3VIRT_SERIAL
-	bool "SO3VIRT serial driver (rely on vuart frontend)"
-	depends on SO3VIRT
+	depends on RPI4 || RPI4_64
 	
 config UART_LL_PADDR
 	hex "Low-level UART base physical address"
 
-	
+config SOO_SERIAL
+	bool "SOO Virtualized serial device (rely on vuart frontend)"
+	depends on SOO
+	select VUART_FRONTEND
+

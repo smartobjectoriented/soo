@@ -16,11 +16,7 @@
  *
  */
 
-#include <soo/uapi/avz.h>
+#include <avz/uapi/avz.h>
 
-extern volatile avz_shared_t *AVZ_shared;
+#define ME_domID() (avz_shared->domID)
 
-extern void hypercall_trampoline(int hcall, long a0, long a2, long a3, long a4);
-
-#define ME_domID() (AVZ_shared->domID)
-#
