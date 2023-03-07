@@ -10,9 +10,10 @@ verbose=n
 
 function usage {
   echo "$0 [OPTIONS]"
-  echo "  -c        Clean"
-  echo "  -v        Verbose"
-  echo "  -h        Print this help"
+  echo "  -c            Clean"
+  echo "  -v            Verbose"
+  echo "  -h            Print this help"
+  echo "  <*_defconfig> Configure AVZ build with the <*_defconfig> configuration"
 }
 
 while getopts chv option
