@@ -130,7 +130,7 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 
 	case COOPERATE_TARGET:
 		DBG("Cooperate: Target %d\n", ME_domID());
-#if 0
+#if 1
 		/* Destroy us */
 		set_ME_state(ME_state_terminated);
 #endif
