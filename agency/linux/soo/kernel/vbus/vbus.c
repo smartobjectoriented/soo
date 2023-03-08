@@ -761,6 +761,7 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	dc_event = atomic_read((const atomic_t *) &AVZ_shared->dc_event);
 
 	DBG("Received directcomm interrupt for event: %d\n", AVZ_shared->dc_event);
+	printk("[%s] Received directcomm interrupt for event: %d\n", __func__, AVZ_shared->dc_event);
 
 	/* We should not receive twice a same dc_event, before it has been fully processed. */
 	BUG_ON(atomic_read(&dc_incoming_domID[dc_event]) != -1);

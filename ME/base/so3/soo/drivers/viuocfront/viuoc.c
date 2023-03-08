@@ -119,7 +119,7 @@ static void viuoc_probe(struct vbus_device *vdev) {
 	struct vbus_transaction vbt;
 	viuoc_priv_t *viuoc_priv;
 
-	DBG0(VIUOC_PREFIX " Frontend probe\n");
+	DBG(VIUOC_PREFIX " Frontend probe\n");
 
 	if (vdev->state == VbusStateConnected)
 		return ;

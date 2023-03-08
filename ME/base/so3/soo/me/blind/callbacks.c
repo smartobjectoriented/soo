@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -36,14 +36,19 @@
 #include <me/blind.h>
 #include <me/switch.h>
 
+#define SWITCH_SPID 	0x0020000000000004
+#define IUOC_SPID 		0x0030000000000003
+
 static LIST_HEAD(visits);
 static LIST_HEAD(known_soo_list);
 
+static volatile bool full_initd = false;
 
 /* Reference to the shared content helpful during synergy with other MEs */
 sh_blind_t *sh_blind;
 struct completion send_data_lock;
 atomic_t shutdown;
+spinlock_t propagate_lock;
 
 /**
  * PRE-ACTIVATE
@@ -82,10 +87,16 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 int cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	pre_propagate_args_t *pre_propagate_args = (pre_propagate_args_t *) &args->u.pre_propagate_args;
+	
+	spin_lock(&propagate_lock);
+
+	pre_propagate_args->propagate_status = sh_blind->need_propagate ? PROPAGATE_STATUS_YES : PROPAGATE_STATUS_NO;
 
 	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
 
 	pre_propagate_args->propagate_status = 0;
+
+	spin_unlock(&propagate_lock);
 
 	return 0;
 }
@@ -125,36 +136,79 @@ int cb_pre_suspend(soo_domcall_arg_t *args) {
 int cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
 	sh_switch_t *incoming_sh_switch;
-	static uint64_t switch_timestamp = 0;
+	sh_blind_t *incoming_sh_blind;
+	static uint64_t blind_timestamp = 0;
+	static uint64_t blind_iuoc_timestamp = 0;
 	addr_t pfn;
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
-
-		if (cooperate_args->alone)
-			return 0;
-
-		break;
+		
+		// spin_lock(&propagate_lock);
 
 	case COOPERATE_TARGET:
-		DBG("Cooperate: Target %d\n", ME_domID());
-		/* Map the content page of the incoming ME to retrieve its data. */
+		DBG("[BLIND] Cooperate: Target %d\n", ME_domID());
 		pfn = cooperate_args->u.initiator_coop.pfn;
-		incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
-		if (incoming_sh_switch->timestamp > switch_timestamp) {
-			switch_timestamp = incoming_sh_switch->timestamp;
-			sh_blind->sw_pos = incoming_sh_switch->pos;
-			sh_blind->sw_press = incoming_sh_switch->press;
-			sh_blind->switch_event = true;
-			incoming_sh_switch->delivered = true;
-		}
+		/** Check if we have been reached by a SOO.blind **/
+		if(cooperate_args->u.initiator_coop.spid == get_spid()) {
+			DBG("[BLIND] Cooperation coming from another BLIND\n");
 
-		io_unmap((addr_t) incoming_sh_switch);
-		
-		if (sh_blind->switch_event) {
-			sh_blind->switch_event = false;
-			complete(&send_data_lock);
+			/* Map the content page of the incoming ME to retrieve its data. */
+			incoming_sh_blind = (sh_blind_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+
+			if (incoming_sh_blind->timestamp > blind_timestamp) {
+				blind_timestamp = incoming_sh_blind->timestamp;
+				sh_blind->direction = incoming_sh_blind->direction;
+				sh_blind->action_mode = incoming_sh_blind->action_mode;
+				incoming_sh_blind->delivered = true;
+			}
+			io_unmap((addr_t) incoming_sh_blind);
+
+			if (sh_blind->blind_event) {
+				sh_blind->blind_event = false;
+				complete(&send_data_lock);
+			}
+
+		} else if(cooperate_args->u.initiator_coop.spid == SWITCH_SPID) {
+			DBG("[BLIND] Cooperation coming from a SWITCH\n");
+
+			/* Check if we have been reached by a SOO.switch */
+			/* Map the content page of the incoming ME to retrieve its data. */
+			incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+
+			if (incoming_sh_switch->timestamp > blind_timestamp) {
+				blind_timestamp = incoming_sh_switch->timestamp;
+				sh_blind->direction = incoming_sh_switch->pos == POS_LEFT_UP ? BLIND_UP : BLIND_DOWN;
+				sh_blind->action_mode = incoming_sh_switch->press == PRESS_LONG ? BLIND_FULL : BLIND_STEP;
+				sh_blind->blind_event = true;
+				incoming_sh_switch->delivered = true;
+			}
+
+			io_unmap((addr_t) incoming_sh_switch);
+
+			if (sh_blind->blind_event) {
+				sh_blind->blind_event = false;
+				complete(&send_data_lock);
+			}
+			
+		} else if(cooperate_args->u.initiator_coop.spid == IUOC_SPID) {
+			DBG("[BLIND] Cooperation coming from IUOC\n");
+
+			/* Check if we have been reached by a SOO.iuoc */
+			incoming_sh_blind = (sh_blind_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+			if (incoming_sh_blind->timestamp > blind_iuoc_timestamp) {
+				blind_iuoc_timestamp = incoming_sh_blind->timestamp;
+				sh_blind->direction = incoming_sh_blind->direction;
+				sh_blind->action_mode = incoming_sh_blind->action_mode;
+				spin_lock(&propagate_lock);
+				sh_blind->need_propagate = true;
+				spin_unlock(&propagate_lock);
+			}
+			
+		} else {
+			DBG("Shouldn't cooperate... bad ME SPID...\n");
+			return 0;
 		}
 
 		break;
@@ -222,6 +276,7 @@ void callbacks_init(void) {
 
 	init_completion(&send_data_lock);
 	atomic_set(&shutdown, 1);
+	spin_lock_init(&propagate_lock);
 
 	/* Allocate the shared page. */
 	sh_blind = (sh_blind_t *) get_contig_free_vpages(1);;
@@ -229,12 +284,17 @@ void callbacks_init(void) {
 	/* Initialize the shared content page used to exchange information between other MEs */
 	memset(sh_blind, 0, PAGE_SIZE);
 
-	sh_blind->switch_event = false;
-	sh_blind->sw_pos = POS_NONE;
-	sh_blind->sw_press = PRESS_NONE;
+	sh_blind->blind_event = false;
+	sh_blind->direction = BLIND_DIRECTION_NULL;
+	sh_blind->action_mode = BLIND_ACTION_MODE_NULL;
+	sh_blind->timestamp = 0; 
+	sh_blind->need_propagate = false;
+	sh_blind->delivered = false;
 
 	/* Set the SPAD capabilities */
 	memset(&get_ME_desc()->spad, 0, sizeof(spad_t));
+	
+	full_initd = true;
 }
 
 

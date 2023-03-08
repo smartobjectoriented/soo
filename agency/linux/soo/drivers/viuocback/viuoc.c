@@ -56,6 +56,7 @@ irqreturn_t viuoc_interrupt_bh(int irq, void *dev_id) {
 }
 
 irqreturn_t viuoc_interrupt(int irq, void *dev_id) {
+	printk("[IUOC back] STRANGE INTERRUPT ?\n");
 	return IRQ_WAKE_THREAD;
 }
 
@@ -71,7 +72,7 @@ void viuoc_send_data_to_fe(iuoc_data_t iuoc_data) {
 
 	res->me_data = iuoc_data;
 
-	DBG("[IUOC back] Sending data to FE\n");
+	printk("[IUOC back] Sending data to FE\n");
 
 	list_for_each_entry(domid_priv, domid_list, list) {
 		//DBG(VIUOC_PREFIX "Sending data to frontend: %d\n", domid_priv->id);
@@ -88,7 +89,7 @@ void viuoc_send_data_to_fe(iuoc_data_t iuoc_data) {
 		vdevback_processing_end(vdev);
 	}
 
-	DBG("[IUOC back] Data sent to FE\n");
+	printk("[IUOC back] Data sent to FE\n");
 }
 
 void viuoc_probe(struct vbus_device *vdev) {

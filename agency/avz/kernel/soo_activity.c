@@ -138,7 +138,7 @@ void agency_ctl(agency_ctl_args_t *args)
 
 	/* Perform a domcall on the target ME */
 	DBG("Processing agency_ctl function, cmd=0x%08x\n", args->cmd);
-
+		
 	switch (args->cmd) {
 
 	case AG_KILL_ME:
@@ -163,7 +163,6 @@ void agency_ctl(agency_ctl_args_t *args)
 		return;
 
 	case AG_COOPERATE:
-
 		domcall_args.cmd = CB_COOPERATE;
 
 		/* Initiator slotID must be filled by the ME - during the cooperation - through the target slotID */
@@ -262,7 +261,6 @@ void soo_cooperate(unsigned int slotID)
 	soo_domcall_arg_t domcall_args;
 	int i, avail_ME;
 	bool itself;   /* Used to detect a ME of a same SPID */
-
 	/* Are we OK to collaborate ? */
 	if (!domains[slotID]->avz_shared->dom_desc.u.ME.spad.valid)
 		return;
@@ -283,7 +281,6 @@ void soo_cooperate(unsigned int slotID)
 
 		/* Look for resident ME */
 		if ((i != slotID) && memslot[i].busy) {
-
 			/* We are not alone in this smart object */
 			domcall_args.u.cooperate_args.alone = false;
 
@@ -410,7 +407,7 @@ void do_soo_hypercall(soo_hyp_t *args) {
 
 	/* Get argument from guest */
 	memcpy(&op, args, sizeof(soo_hyp_t));
-
+	//printk("[%s] AVZ - entering and choosing case AVZ_TRIGGER_LOCAL_COOPERATION\n", __func__);
 	/*
 	 * Execute the hypercall
 	 * The usage of args and returns depend on the hypercall itself.

@@ -120,7 +120,7 @@ static long int iuoc_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	iuoc_data_t iuoc_data;
 	field_data_t field_data;
     struct iuoc_me_data_list *tmp;
-
+	printk("[IUOC driver] Entering in iuoc_ioctl\n");
 	switch(cmd) {
 	case UIOC_IOCTL_SEND_DATA:
 		if(copy_from_user(&iuoc_data, (iuoc_data_t *) arg, sizeof(iuoc_data))) {

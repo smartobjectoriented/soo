@@ -231,7 +231,6 @@ void dc_trigger_dev_probe_fn(dc_event_t dc_event) {
 }
 
 void dc_trigger_local_cooperation(dc_event_t dc_event) {
-	lprintk("DOING DC TRIGGER LOCAL COOP!\n");
 	unsigned int domID = atomic_read(&dc_incoming_domID[dc_event]);
 	soo_hypercall(AVZ_TRIGGER_LOCAL_COOPERATION, NULL, NULL, &domID, NULL);
 	tell_dc_stable(dc_event);
@@ -259,7 +258,6 @@ void do_soo_activity(void *arg)
 		break;
 
 	case CB_AGENCY_CTL: /* DOMCALL */
-
 		/* Prepare the arguments to pass to the agency ctl */
 		memcpy(&agency_ctl_args, &args->u.agency_ctl_args, sizeof(agency_ctl_args_t));
 

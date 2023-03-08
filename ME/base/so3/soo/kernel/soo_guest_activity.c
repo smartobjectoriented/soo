@@ -290,11 +290,11 @@ int do_soo_activity(void *arg)
 	int rc = 0;
 	soo_domcall_arg_t *args = (soo_domcall_arg_t *) arg;
 
+	lprintk("[%s] here we are\n", __func__);
+
 	switch (args->cmd) {
 
 	case CB_PRE_SUSPEND: /* Called by perform_pre_suspend */
-		DBG("Pre-suspend callback for ME %d\n", ME_domID());
-
 		rc = cb_pre_suspend(arg);
 		break;
 
@@ -329,7 +329,7 @@ int do_soo_activity(void *arg)
 		 * Enable possible exchange of data between MEs
 		 * and make further actions
 		 */
-
+		lprintk("GOGO COOP\n");
 		rc = cb_cooperate(arg);
 		break;
 

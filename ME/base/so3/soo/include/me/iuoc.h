@@ -29,6 +29,7 @@
 
 #include <me/common.h>
 #include <me/iuoc.h>
+#include <me/blind.h>
 
 #define MEIUOC_NAME		"ME iuoc"
 #define MEIUOC_PREFIX	"[ " MEIUOC_NAME " ]"
@@ -40,7 +41,8 @@
  */
 typedef struct {
 	int received_data;
-
+	sh_blind_t sh_blind;
+	
 	/*
 	 * MUST BE the last field, since it contains a field at the end which is used
 	 * as "payload" for a concatened list of hosts.

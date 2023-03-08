@@ -134,7 +134,6 @@ int main(int argc, char* argv[])
 	// Just block till user tells us to quit.
 	while (cb.get_running_status() == true) {
 		iuoc_data_t me_data;
-
 		ioctl(dev, UIOC_IOCTL_RECV_DATA, &me_data);
 
 		mqtt::topic top(client, pub_topics_mapping[me_data.me_type], qos);

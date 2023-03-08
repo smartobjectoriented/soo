@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -35,8 +35,13 @@
 
 #include <me/iuoc.h>
 
+#define BLIND_SPID 0x0020000000000001
+
+
 static LIST_HEAD(visits);
 static LIST_HEAD(known_soo_list);
+
+
 
 
 /* Reference to the shared content helpful during synergy with other MEs */
@@ -113,35 +118,48 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	sh_iuoc_t *incoming_sh_iuoc;
 	static uint64_t iuoc_timestamp = 0;
 	addr_t pfn;
+	agency_ctl_args_t agency_ctl_args;
+
+	DBG("[IUOC] Cooperate callback!\n");
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
+		DBG("[IUOC] Cooperate initiator called !\n");
+		if(cooperate_args->u.target_coop.spid == BLIND_SPID) {
+			DBG("[IUOC] Cooperate with SOO.blind\n");
+			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) &(sh_iuoc->sh_blind)));
+			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
-		if (cooperate_args->alone)
-			return 0;
+			/* This pattern enables the cooperation with the target ME */
+			agency_ctl_args.cmd = AG_COOPERATE;
+			agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
+			
+			/* Perform the cooperate in the target ME */
+			args->__agency_ctl(&agency_ctl_args);
+		}
 
 		break;
 
 	case COOPERATE_TARGET:
-		DBG("Cooperate: Target %d\n", ME_domID());
-		/* Map the content page of the incoming ME to retrieve its data. */
-		pfn = cooperate_args->u.initiator_coop.pfn;
-		incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
+		// DBG("Cooperate: Target %d\n", ME_domID());
+		// /* Map the content page of the incoming ME to retrieve its data. */
+		// pfn = cooperate_args->u.initiator_coop.pfn;
+		// incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
-		if (incoming_sh_switch->timestamp > switch_timestamp) {
-			switch_timestamp = incoming_sh_switch->timestamp;
-			sh_wagoled->sw_pos = incoming_sh_switch->pos;
-			sh_wagoled->sw_status = incoming_sh_switch->status;
-			sh_wagoled->switch_event = true;
-			incoming_sh_switch->delivered = true;
-		}
+		// if (incoming_sh_switch->timestamp > switch_timestamp) {
+		// 	switch_timestamp = incoming_sh_switch->timestamp;
+		// 	sh_wagoled->sw_pos = incoming_sh_switch->pos;
+		// 	sh_wagoled->sw_status = incoming_sh_switch->status;
+		// 	sh_wagoled->switch_event = true;
+		// 	incoming_sh_switch->delivered = true;
+		// }
 
-		io_unmap((addr_t)incoming_sh_switch);
+		// io_unmap((addr_t)incoming_sh_switch);
 		
-		if (sh_wagoled->switch_event) {
-			sh_wagoled->switch_event = false;
-			complete(&send_data_lock);
-		}
+		// if (sh_wagoled->switch_event) {
+		// 	sh_wagoled->switch_event = false;
+		// 	complete(&send_data_lock);
+		// }
 		break;
 
 	default:
@@ -207,6 +225,7 @@ void callbacks_init(void) {
 
 	/* Allocate the shared page. */
 	sh_iuoc = (sh_iuoc_t *) get_contig_free_vpages(1);
+	sh_iuoc->sh_blind.timestamp = 0;
 
 	/* Initialize the shared content page used to exchange information between other MEs */
 	memset(sh_iuoc, 0, PAGE_SIZE);

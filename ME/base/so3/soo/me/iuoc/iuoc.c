@@ -29,9 +29,11 @@
 #include <soo/xmlui.h>
 
 #include <soo/dev/viuoc.h>
-#include <me/iuoc.h>
-#include <soo/dev/viuoc.h>
 #include <delay.h>
+
+#include <me/iuoc.h>
+#include <me/switch.h>
+
 
 
 iuoc_data_t data_debug;
@@ -62,22 +64,41 @@ void *iuoc_send_cmd(void *args) {
  */
 void *iuoc_wait_data_th(void *args) {
 	iuoc_data_t iuoc_data;
-	int ret;
+	int ret, i;
 
-	printk("[IUOC front] ME thread receiver set up !\n");
+	printk("[IUOC ME] ME thread receiver set up !\n");
 
 	while (1) {
-		printk("[IUOC front] ME thread waiting for new data\n");
+		printk("[IUOC ME] ME thread waiting for new data\n");
 		ret = get_iuoc_me_data(&iuoc_data);
-		printk("[IUOC front] ME thread got a new data\n");
+		printk("[IUOC ME] ME thread got a new data\n");
 		if (ret) {
 			continue;
 		}
 
 		printk ("Data : ME_type=%d, timestamp=%d, array_size=%d\n", 
 				iuoc_data.me_type, iuoc_data.timestamp, iuoc_data.data_array_size);
-	}
 
+		switch (iuoc_data.me_type) {
+		case IUOC_ME_BLIND:
+			sh_iuoc->sh_blind.timestamp = iuoc_data.timestamp;
+			for (i = 0; i < iuoc_data.data_array_size; i++) {
+				if (!strcmp(iuoc_data.data_array[i].name, "direction")) {
+					printk("[IUOC ME] Blind direction recieved\n");
+					sh_iuoc->sh_blind.direction = iuoc_data.data_array[i].value;
+				} else if (!strcmp(iuoc_data.data_array[i].name, "action_mode")) {
+					printk("[IUOC ME] Blind action mode recieved\n");
+					sh_iuoc->sh_blind.action_mode = iuoc_data.data_array[i].value;
+				}
+			}
+			break;
+		default:
+			printk("[IUOC ME] Data coming from unsupported ME...\n");
+			break;
+		}
+				
+		do_local_cooperation(ME_domID());
+	}
 }
 
 void *app_thread_main(void *args) {
@@ -88,11 +109,11 @@ void *app_thread_main(void *args) {
 	spad_enable_cooperate();
 	printk("Welcome to IUOC ME\n");
 
-	iuoc_th = kernel_thread(iuoc_send_cmd, "iuoc_send_command", NULL, THREAD_PRIO_DEFAULT);
+	//iuoc_th = kernel_thread(iuoc_send_cmd, "iuoc_send_command", NULL, THREAD_PRIO_DEFAULT);
 
 	iuoc_recv_th = kernel_thread(iuoc_wait_data_th, "iuoc_wait_data", NULL, THREAD_PRIO_DEFAULT);
 
-	thread_join(iuoc_th);
+	//thread_join(iuoc_th);
 	thread_join(iuoc_recv_th);
 
 	return 0;
