@@ -125,13 +125,11 @@ void avz_setup(void) {
 
 
 void post_init_setup(void) {
-addr_t tt;
+
 	printk("VBstore shared page with agency at pfn 0x%x\n", avz_shared->vbstore_pfn);
 
 	__intf = (struct vbstore_domain_interface *) io_map(avz_shared->vbstore_pfn << PAGE_SHIFT, PAGE_SIZE);
 	BUG_ON(!__intf);
-	mmu_get_current_pgtable(&tt);
-	printk("## -> %lx\n", tt);
 
 	printk("SOO Mobile Entity booting ...\n");
 
@@ -169,10 +167,7 @@ addr_t tt;
 	}
 
 	BUG_ON(get_ME_state() != ME_state_booting);
-	mmu_get_current_pgtable(&tt);
-		printk("## -> %lx\n", tt);
 
-	__intf->req[0] = 'x';
 	/* Write the entries related to the ME ID in vbstore */
 	vbstore_ME_ID_populate();
 
