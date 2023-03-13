@@ -65,6 +65,7 @@ void *iuoc_send_cmd(void *args) {
 void *iuoc_wait_data_th(void *args) {
 	iuoc_data_t iuoc_data;
 	int ret, i;
+	bool local_coop = false; 
 
 	printk("[IUOC ME] ME thread receiver set up !\n");
 
@@ -91,13 +92,17 @@ void *iuoc_wait_data_th(void *args) {
 					sh_iuoc->sh_blind.action_mode = iuoc_data.data_array[i].value;
 				}
 			}
+			local_coop = true;
 			break;
 		default:
 			printk("[IUOC ME] Data coming from unsupported ME...\n");
+			local_coop = false;
 			break;
+
 		}
-				
-		do_local_cooperation(ME_domID());
+		if (local_coop) {
+			do_local_cooperation(ME_domID());
+		}
 	}
 }
 

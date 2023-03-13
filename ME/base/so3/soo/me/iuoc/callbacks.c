@@ -17,7 +17,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -56,8 +56,23 @@ atomic_t shutdown;
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
 
+	agency_ctl_args_t agency_ctl_args;
+	agency_ctl_args.cmd = AG_AGENCY_UID;
+
 	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
 
+	/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
+	args->__agency_ctl(&agency_ctl_args);
+	sh_iuoc->me_common.here = agency_ctl_args.u.agencyUID;
+	DBG(">> ME %d: Agency UID %d\n", ME_domID(), sh_iuoc->me_common.here);
+
+	// Check if it is necessary 
+	// agency_ctl_args.cmd = AG_CHECK_DEVCAPS;
+	// args->__agency_ctl(&agency_ctl_args);
+
+	// DBG(">> ME %d: devcaps.class = %d, devcaps.devcaps = %d\n", ME_domID(), 
+	// 	agency_ctl_args.u.devcaps_args.class, agency_ctl_args.u.devcaps_args.devcaps);
+		
 #if 0 /* To be implemented... */
 	logmsg("[soo:me:SOO.iuoc] ME %d: cb_pre_activate..\n", ME_domID());
 #endif
@@ -120,13 +135,13 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	addr_t pfn;
 	agency_ctl_args_t agency_ctl_args;
 
-	DBG("[IUOC] Cooperate callback!\n");
+	printk("[IUOC] Cooperate callback!\n");
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
-		DBG("[IUOC] Cooperate initiator called !\n");
+		printk("[IUOC] Cooperate initiator called !\n");
 		if(cooperate_args->u.target_coop.spid == BLIND_SPID) {
-			DBG("[IUOC] Cooperate with SOO.blind\n");
+			printk("[IUOC] Cooperate with SOO.blind\n");
 			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) &(sh_iuoc->sh_blind)));
 			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
