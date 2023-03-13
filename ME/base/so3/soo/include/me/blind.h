@@ -84,7 +84,7 @@ typedef struct {
 	blind_vbwa88pg_t blind;
 #endif
 
-	blind_type type;
+	blind_type type; 
 } blind_t;
 
 
@@ -127,6 +127,7 @@ typedef struct {
 	blind_direction_t direction;
 	blind_action_mode_t action_mode;
 
+    uint64_t originUID;
 	uint64_t timestamp;
 	bool need_propagate;
 	bool delivered;

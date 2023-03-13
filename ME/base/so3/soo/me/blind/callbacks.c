@@ -17,7 +17,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -43,6 +43,7 @@ static LIST_HEAD(visits);
 static LIST_HEAD(known_soo_list);
 
 static volatile bool full_initd = false;
+static volatile bool originUID_initd = false;
 
 /* Reference to the shared content helpful during synergy with other MEs */
 sh_blind_t *sh_blind;
@@ -57,14 +58,31 @@ spinlock_t propagate_lock;
  */
 int cb_pre_activate(soo_domcall_arg_t *args) {
 	agency_ctl_args_t agency_ctl_args;
-	agency_ctl_args.cmd = AG_AGENCY_UID;
+	host_entry_t *host_entry;
 
 	DBG(">> ME %d: cb_pre_activate...\n", ME_domID());
 
 	/* Retrieve the agency UID of the Smart Object on which the ME is about to be activated. */
+	agency_ctl_args.cmd = AG_AGENCY_UID;
 	args->__agency_ctl(&agency_ctl_args);
+
 	sh_blind->me_common.here = agency_ctl_args.u.agencyUID;
-	DBG(">> ME %d: Agency UID %d\n", ME_domID(), sh_blind->me_common.here);
+	if (!originUID_initd) {
+		sh_blind->originUID = agency_ctl_args.u.agencyUID;
+		originUID_initd = true;
+	}
+	DBG(">> ME %d: originUID %d\n", ME_domID(), sh_blind->originUID);
+
+	host_entry = find_host(&visits, sh_blind->me_common.here);
+	if (host_entry) {
+		/** If we already visited this host we ask the agency to kill us **/
+		DBG(MESWITCH_PREFIX "Host already visited. Killing myself\n");
+		set_ME_state(ME_state_killed);
+	} else {
+		/** We add the host to the visited hosts list **/
+		new_host(&visits, sh_blind->me_common.here, NULL, 0);
+		DBG(MESWITCH_PREFIX "Adding new host\n");
+	}
 
 	agency_ctl_args.cmd = AG_CHECK_DEVCAPS;
 	args->__agency_ctl(&agency_ctl_args);
@@ -140,19 +158,34 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 	static uint64_t blind_timestamp = 0;
 	static uint64_t blind_iuoc_timestamp = 0;
 	addr_t pfn;
+	agency_ctl_args_t agency_ctl_args;
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
-		
+		printk("[BLIND] Cooperate initiator called !\n");
+		if(cooperate_args->u.target_coop.spid == get_spid()) {
+			printk("[BLIND] Found a SOO.blind, cooperating...\n");
+			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) &(sh_blind)));
+			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
+
+			/* This pattern enables the cooperation with the target ME */
+			agency_ctl_args.cmd = AG_COOPERATE;
+			agency_ctl_args.slotID = cooperate_args->u.target_coop.slotID;
+			
+			/* Perform the cooperate in the target ME */
+			args->__agency_ctl(&agency_ctl_args);
+		}
+
+		break;
 		// spin_lock(&propagate_lock);
 
 	case COOPERATE_TARGET:
-		DBG("[BLIND] Cooperate: Target %d\n", ME_domID());
+		printk("[BLIND] Cooperate: Target %d\n", ME_domID());
 		pfn = cooperate_args->u.initiator_coop.pfn;
 
 		/** Check if we have been reached by a SOO.blind **/
 		if(cooperate_args->u.initiator_coop.spid == get_spid()) {
-			DBG("[BLIND] Cooperation coming from another BLIND\n");
+			printk("[BLIND] Cooperation coming from another BLIND\n");
 
 			/* Map the content page of the incoming ME to retrieve its data. */
 			incoming_sh_blind = (sh_blind_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
@@ -171,7 +204,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			}
 
 		} else if(cooperate_args->u.initiator_coop.spid == SWITCH_SPID) {
-			DBG("[BLIND] Cooperation coming from a SWITCH\n");
+			printk("[BLIND] Cooperation coming from a SWITCH\n");
 
 			/* Check if we have been reached by a SOO.switch */
 			/* Map the content page of the incoming ME to retrieve its data. */
@@ -193,7 +226,7 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			}
 			
 		} else if(cooperate_args->u.initiator_coop.spid == IUOC_SPID) {
-			DBG("[BLIND] Cooperation coming from IUOC\n");
+			printk("[BLIND] Cooperation coming from IUOC\n");
 
 			/* Check if we have been reached by a SOO.iuoc */
 			incoming_sh_blind = (sh_blind_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
