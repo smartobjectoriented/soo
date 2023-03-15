@@ -15,6 +15,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#include <generated/autoconf.h>
 
 #include <linkage.h>
 
@@ -62,7 +63,6 @@ __start:
 	str 	x9, [x8]
 
 #ifndef CONFIG_SO3VIRT
-
 	// Mostly for future usage...
 	bl		el2_setup			// Drop to EL1, w0=cpu_boot_mode
 
