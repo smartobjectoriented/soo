@@ -47,7 +47,7 @@ void __init avz_setup(void)
 	/* Immediately prepare for hypercall processing */
 	HYPERVISOR_hypercall_addr = (unsigned long *) AVZ_shared->hypercall_vaddr;
 
-	lprintk("SOO Agency Virtualizer (avz) Start info :\n");
+	lprintk("SOO Agency Virtualizer (avz) shared page:\n");
 	lprintk("Hypercall addr: %lx\n", (unsigned long) HYPERVISOR_hypercall_addr);
 	lprintk("Total Pages allocated to this domain : %ld\n", AVZ_shared->nr_pages);
 	lprintk("Domain physical address : 0x%lx\n", AVZ_shared->dom_phys_offset);

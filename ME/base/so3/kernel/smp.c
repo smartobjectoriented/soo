@@ -40,6 +40,10 @@
 #include <asm/processor.h>
 #include <asm/mmu.h>
 
+#ifdef CONFIG_CPU_SPIN_TABLE
+#include <mach/io.h>
+#endif
+
 static volatile int booted[CONFIG_NR_CPUS] = {0};
 
 DEFINE_PER_CPU(spinlock_t, softint_lock);
@@ -178,14 +182,6 @@ void secondary_start_kernel(void)
 
 void cpu_up(unsigned int cpu)
 {
-
-	/* We re-create a small identity mapping to allow the hypervisor
-	 * to bootstrap correctly on other CPUs.
-	 * The size must be enough to reach the stack.
-	 */
-
-	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_32M, false);
-
 	/*
 	 * We need to tell the secondary core where to find
 	 * its stack and the page tables.
@@ -236,11 +232,18 @@ void cpu_up(unsigned int cpu)
 /* Called by boot processor to activate the rest. */
 void smp_init(void)
 {
-#if defined(CONFIG_AVZ) && !defined(CONFIG_SOO)
+#if defined(CONFIG_AVZ) && defined(CONFIG_ARM64VT)
 	int i;
 #endif
 
 #if defined(CONFIG_AVZ)
+
+	/* We re-create a small identity mapping to allow the hypervisor
+	 * to bootstrap correctly on other CPUs.
+	 * The size must be enough to reach the stack.
+	 */
+
+	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_32M, false);
 
 #ifdef CONFIG_SOO
 
@@ -263,8 +266,13 @@ void smp_init(void)
 
 #else /* CONFIG_SOO */
 
+#ifdef CONFIG_ARM64VT
+	/* With VT support, we prepare the CPU to be started through a HVC call
+	 * from the domain.
+	 */
 	for (i = 1; i < CONFIG_NR_CPUS; i++)
 		cpu_up(i);
+#endif
 
 #endif /* !CONFIG_SOO */
 
