@@ -81,7 +81,7 @@ __start:
 	cmp		x0, x1
 	b.cc	1b
 
-#if !defined(CONFIG_SOO)
+#ifndef CONFIG_SO3VIRT
 
 	// Initialize the vector table
 	ldr	x0, =__vectors
@@ -90,17 +90,15 @@ __start:
 	msr vbar_el2, x0
 #else
 	msr vbar_el1, x0
+#endif /* !CONFIG_ARM64VT */
 
 	// Enable FP/ASIMD
 	mov	x0, #3 << 20
 	msr	cpacr_el1, x0
 
+#endif /* !CONFIG_SO3VIRT */
+
     // Up to here, a stack should be initialized
-
-
-#endif /* !CONFIG_ARM64VT */
-
-#endif /* !defined(CONFIG_SOO) */
 
 #ifdef CONFIG_SO3VIRT
 
