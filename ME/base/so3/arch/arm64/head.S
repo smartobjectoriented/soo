@@ -96,8 +96,6 @@ __start:
 
     // Up to here, a stack should be initialized
 
-	// Some CPU setup
-	msr pmuserenr_el0, xzr
 
 #endif /* !CONFIG_ARM64VT */
 
@@ -112,14 +110,15 @@ __start:
 
 #endif /* CONFIG_SO3VIRT */
 
-	// Set up the MMU
-    b		mmu_setup
+	
+    // Set up the MMU
+    b setup_mmu
 
 __kernel_main:
 
 	// Store the device tree paddr
-	adr     x8, .LCfdt_addr_temp
-	ldr 	x9, [x8]
+	adr x8, .LCfdt_addr_temp
+	ldr x9, [x8]
 
 	ldr	x0, =__fdt_addr
 	str	x9, [x0]
@@ -130,6 +129,10 @@ __kernel_main:
 #else
 	b 	kernel_start
 #endif
+
+	nop
+	nop
+	nop
 
 	// never returns...
 
@@ -175,8 +178,7 @@ __mmu_setup:
 
 		ret
 
-mmu_setup:
-
+setup_mmu:
 		// Use a temporary stack
 		adrp	x0, temp_stack
 		mov		sp, x0
@@ -238,7 +240,7 @@ ME:
 
 #else /* CONFIG_ARM64VT */
 
-mmu_setup:
+setup_mmu:
 
 	// Use a temporary stack
   	adrp x0, temp_stack
@@ -422,6 +424,10 @@ install_el2_stub:
 
 	eret
 
+	nop
+	nop
+	nop
+
 #endif /* !CONFIG_ARM64VT */
 
 #ifdef CONFIG_SMP
@@ -436,10 +442,10 @@ ENTRY(secondary_startup)
      */
 
 	// Mostly for future usage...
-	bl		el2_setup			// Drop to EL1, w0=cpu_boot_mode
+	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
 
 	// Initialize the vector table
-	#if !defined(CONFIG_SOO)
+#if !defined(CONFIG_SOO)
 
 	// Initialize the vector table
 	ldr	x0, =__vectors
@@ -454,9 +460,6 @@ ENTRY(secondary_startup)
 	msr	cpacr_el1, x0
 
     // Up to here, a stack should be initialized
-
-	// Some CPU setup
-	msr pmuserenr_el0, xzr
 
 #endif /* !CONFIG_ARM64VT */
 
@@ -494,11 +497,11 @@ ENTRY(secondary_startup)
     // execution after the MMU enabled.
   	ldr		x19, .LC_virt_secondary_entry
 
- 	nop
- 	nop
- 	nop
-
   	blr		x19
+
+	nop
+	nop
+	nop
 
     .type   __secondary_data, %object
 
