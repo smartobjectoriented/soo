@@ -438,7 +438,7 @@ ENTRY(secondary_startup)
 	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
 
 	// Initialize the vector table
-#if !defined(CONFIG_SOO)
+#ifndef CONFIG_SO3VIRT
 
 	// Initialize the vector table
 	ldr	x0, =__vectors
@@ -449,7 +449,7 @@ ENTRY(secondary_startup)
 	msr vbar_el1, x0
 #endif /* !CONFIG_ARM64VT */
 
-#endif /* !defined(CONFIG_SOO) */
+#endif /* !CONFIG_SO3VIRT */
 
 	// Enable FP/ASIMD
 	mov	x0, #3 << 20
