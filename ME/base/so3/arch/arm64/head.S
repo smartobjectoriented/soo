@@ -245,7 +245,9 @@ setup_mmu:
   	adrp x0, temp_stack
   	mov	sp, x0
 
+#ifndef CONFIG_SO3VIRT
   	bl 	mmu_configure
+#endif
 
   	// Readjust the stack
   	ldr	x0, =__stack_top
