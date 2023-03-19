@@ -19,6 +19,8 @@
 
 #include <common.h>
 
+#include <common.h>
+
 #include <linkage.h>
 
 #include <device/arch/gic.h>
