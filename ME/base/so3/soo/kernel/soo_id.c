@@ -73,7 +73,7 @@ const char *get_me_name(void) {
  * (mandatory)
  *
  * @param what  Either "spid" or "spad"
- * @return SPID on 128-bit encoding
+ * @return SPID on 64-bit encoding
  */
 u64 get_spid_spad(char *what) {
 	u64 val;
@@ -81,10 +81,16 @@ u64 get_spid_spad(char *what) {
 
 	/* Get the short description */
 	node = fdt_find_node_by_name(__fdt_addr, 0, "ME");
-	ASSERT(node >= 0);
+	if (node < 0) {
+		printk("%s: node \"ME\" not found\n", __func__);
+		BUG();
+	}
 
 	node = fdt_property_read_u64(__fdt_addr, node, what, &val);
-	ASSERT(node >= 0);
+	if (node < 0) {
+		printk("%s: node \"%s\" not found\n", __func__, what);
+		BUG();
+	}
 
 	return val;
 }
@@ -107,8 +113,8 @@ void vbstore_ME_ID_populate(void) {
 	spid = get_spid_spad("spid");
 	spadcaps = get_spid_spad("spadcaps");
 
-	AVZ_shared->dom_desc.u.ME.spid = spid;
-	AVZ_shared->dom_desc.u.ME.spad.spadcaps = spadcaps;
+	avz_shared->dom_desc.u.ME.spid = spid;
+	avz_shared->dom_desc.u.ME.spad.spadcaps = spadcaps;
 
 	/* Set the name */
 	name = get_me_name();

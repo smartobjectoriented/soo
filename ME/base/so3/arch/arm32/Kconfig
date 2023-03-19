@@ -6,9 +6,7 @@ menu "Platform"
 config KERNEL_VADDR
 	 
 	hex "Virtual base address of kernel space"
-
-if !SO3VIRT	
-
+	
 choice
   prompt "Target"
 	
@@ -22,8 +20,6 @@ endchoice
 
 source "arch/arm32/vexpress/Kconfig"
 source "arch/arm32/rpi4/Kconfig"
-
-endif
 
 endmenu
 

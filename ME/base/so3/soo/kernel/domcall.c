@@ -296,13 +296,13 @@ void domcall(int cmd, void *arg)
  * Enable the cooperation between this ME and the other.
  */
 void spad_enable_cooperate(void) {
-	AVZ_shared->dom_desc.u.ME.spad.valid = true;
+	avz_shared->dom_desc.u.ME.spad.valid = true;
 }
 
 /**
  * Enable the cooperation between this ME and the other.
  */
 void spad_disable_cooperate(void) {
-	AVZ_shared->dom_desc.u.ME.spad.valid = false;
+	avz_shared->dom_desc.u.ME.spad.valid = false;
 }
 
