@@ -40,6 +40,21 @@ ifeq ("$(PLATFORM)", "rpi4")
   AVZ_CONF := rpi4_defconfig
 endif
 
+ifeq ("$(PLATFORM)", "rpi4_64")
+  LINUX_CONF := $(PLATFORM_TYPE)_defconfig
+  AVZ_CONF := rpi4_64_defconfig
+endif
+
+ifeq ("$(PLATFORM)", "cm4_64")
+  LINUX_CONF := $(PLATFORM_TYPE)_defconfig
+  AVZ_CONF := cm4_64_defconfig
+endif
+
+ifeq ("$(PLATFORM)", "virt64")
+  LINUX_CONF := $(PLATFORM)_defconfig
+  AVZ_CONF := $(PLATFORM)_defconfig
+endif
+
 ifeq ("$(PLATFORM)", "")
   PHONY += help
   error:

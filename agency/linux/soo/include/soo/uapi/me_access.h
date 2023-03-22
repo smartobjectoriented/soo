@@ -31,7 +31,7 @@
 #ifndef __AVZ__
 #include <linux/types.h>
 
-typedef uint64_t addr_t;
+typedef unsigned long addr_t;
 
 #endif
 
