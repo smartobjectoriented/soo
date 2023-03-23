@@ -68,7 +68,6 @@ volatile bool __rt_wakeup = false;
 atomic_t cobalt_runstate = ATOMIC_INIT(COBALT_STATE_WARMUP);
 EXPORT_SYMBOL_GPL(cobalt_runstate);
 
-
 #define boot_debug_notice ""
 #define boot_lat_trace_notice ""
 #define boot_evt_trace_notice ""

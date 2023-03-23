@@ -480,13 +480,19 @@ asmlinkage void secondary_start_kernel(void)
 	cpu = smp_processor_id();
 
 	/* SOO.tech */
-#if 0
-	mmgrab(mm);
-	current->active_mm = mm;
-	cpumask_set_cpu(cpu, mm_cpumask(mm));
-#endif /* 0 */
+	if (cpu == AGENCY_RT_CPU)
+		__xnthread_current = &__root_task;
+	else {
+		/*
+		 * All kernel threads share the same mm context; grab a
+		 * reference and switch to it.
+		 */
+		mmgrab(mm);
+	}
 
-	__xnthread_current = &__root_task;
+	current->active_mm = mm;
+
+	cpumask_set_cpu(cpu, mm_cpumask(mm));
 
 	cpu_init();
 
@@ -891,6 +897,11 @@ static void do_handle_IPI(int ipinr)
 		printk_nmi_enter();
 		nmi_cpu_backtrace(get_irq_regs());
 		printk_nmi_exit();
+		break;
+
+	/* SOO.tech */
+	case IPI_RT_TASK_CREATE:
+		complete(&cpu_running);
 		break;
 
 	default:

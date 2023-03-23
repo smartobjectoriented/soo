@@ -36,6 +36,16 @@
 #define SYS_CFGCTRL		0x0a4
 #define SYS_CFGSTAT		0x0a8
 
+/*
+ * (DRE) Just need to define rpisense_get_dev() since it may be used by the
+ * driver developed in POS lab.
+ */
+struct rpisense *rpisense_get_dev(void)
+{
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(rpisense_get_dev);
+
 /* The sysreg block is just a random collection of various functions... */
 
 static struct bgpio_pdata vexpress_sysreg_sys_led_pdata = {
