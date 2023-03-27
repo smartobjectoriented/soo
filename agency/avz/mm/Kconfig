@@ -1,7 +1,0 @@
-
-config HYPERVISOR_VADDR
-	hex "Virtual base address of the hypervisor"
-
-config HYPERVISOR_SIZE
-	hex "Size of hypervisor"
-	default 0xc0000000

@@ -36,10 +36,7 @@
 .extern __vectors_start
 
 #ifdef CONFIG_SO3VIRT
-
 .extern avz_start_info
-.extern avz_setup
-
 #endif /* CONFIG_SO3VIRT */
 
 .section ".head.text","ax"
@@ -78,10 +75,13 @@ __start:
   @ r1 = machine id
   @ r2 = dtb address
 
-#ifndef CONFIG_SO3VIRT
-
   @ Make sure we start in SVC mode
+#ifdef CONFIG_SO3VIRT
 
+  ldr	r10, =avz_shared
+  str 	r12, [r10]
+
+#else /* !CONFIG_SO3VIRT */
   safe_svcmode_maskall r9
 
   msr  	cpsr_c, #PSR_F_BIT | PSR_I_BIT | PSR_SVC_MODE @ ensure svc mode and irqs disabled
@@ -92,7 +92,7 @@ __start:
 
   mcr 	p15, 0, r1, c12, c0, 0		@ vector table
 
-#endif /* !CONFIG_SO3VIRT */
+#endif
 
   @ prepare to clear bss and zero fp
   ldr	r6, =__bss_start
@@ -103,13 +103,6 @@ __start:
   cmp	r6, r7
   strcc	fp, [r6], #4
   bcc	1b
-
-#ifdef CONFIG_SO3VIRT
-
-  ldr	r10, =avz_start_info
-  str 	r12, [r10]
-
-#endif /* CONFIG_SO3VIRT */
 
   @ Preserve the (physical address of) device tree base in r9
   mov 	r9, r2
@@ -132,12 +125,18 @@ __kernel_main:
   ldr	r0, =__fdt_addr
   str	r9, [r0]
 
-#ifdef CONFIG_SO3VIRT
-	bl	avz_setup
-#endif /* CONFIG_SO3VIRT */
+#if defined(CONFIG_SOO) && !defined(CONFIG_AVZ)
+  bl avz_setup
+#else
+  bl setup_arch
+#endif
 
   @ C main entry point
-  b 	kernel_start
+#ifdef CONFIG_AVZ
+	b 	avz_start
+#else
+	b 	kernel_start
+#endif
 
   @ never returns...
 
@@ -161,7 +160,9 @@ mmu_setup:
   mov	r0, r4
   mov	r1, r9 @ fdt addr
 
-  bl mmu_configure
+#ifndef CONFIG_SO3VIRT
+  bl 	mmu_configure
+#endif
 
   @ Readjust the stack
   ldr	sp, =__stack_top
@@ -175,6 +176,54 @@ mmu_setup:
 
  #endif /* CONFIG_MMU */
 
+#ifdef CONFIG_SMP
+
+ENTRY(secondary_startup)
+	/*
+     * Common entry point for secondary CPUs.
+     *
+     * Ensure that we're in SVC mode, and IRQs are disabled.  Lookup
+     * the processor type - there is no need to check the machine type
+     * as it has already been validated by the primary processor.
+     */
+
+    safe_svcmode_maskall r9
+
+  	/*
+     * Use the page tables supplied from  __cpu_up.
+     */
+    adr 	r4, __secondary_data
+    ldmia   r4, {r5, r7}       @ retrieve secondary_data field values (pgdir, stack) / r5 & r7 are virtual addresses.
+    sub 	lr, r4, r5         @ r4 is a physical address since the adr pseudo is based on relative pc (mmu is off at this point).
+
+    ldr 	r0, [lr, r7]       @ get secondary_data.pgdir (r7 is virtual, r0 is phys).
+    add		r7, r7, #4
+    ldr		sp, [lr, r7]	   @ get the stack pointer (virt. address)
+	add		sp, sp, lr		   @ convert to phys address.
+
+  	@ Up to here, a stack should be initialized
+
+  	@ Set up the MMU - The second argument (fdt addr) is not used in this context.
+  	bl 	mmu_configure
+
+ 	 @ Readjust the stack (r7 has still the virt. address of the stack)
+  	ldr	sp, [r7]
+
+  	@ Keep executing in the kernel space
+
+  	@ Store the virtual address which will be used to continue
+ 	@ the execution after the MMU enabled.
+ 	ldr	r0, =.LC_virt_secondary_entry
+  	ldr	pc, [r0]
+
+    .align
+
+    .type   __secondary_data, %object
+__secondary_data:
+    .long   .
+    .long   secondary_data
+
+#endif /* CONFIG_SMP */
 
 .ltorg
 
@@ -190,6 +239,13 @@ temp_stack:
 
 .LCvirt_entry:
   .word __kernel_main
+
+#ifdef CONFIG_SMP
+
+.LC_virt_secondary_entry:
+  .word secondary_start_kernel
+
+#endif /* CONFIG_SMP */
 
 .LCvectors:
   .word __vectors_start

@@ -84,35 +84,8 @@ typedef struct {
 	blind_vbwa88pg_t blind;
 #endif
 
-	blind_type type; 
+	blind_type type;
 } blind_t;
-
-
-// /*
-//  * Never use lock (completion, spinlock, etc.) in the shared page since
-//  * the use of ldrex/strex instructions will fail with cache disabled.
-//  */
-// /**
-//  * @brief Shared struct for blind ME
-//  * 
-//  * @param switch_event set to true if an switch event is received
-//  * @param cmd last switch command received
-//  * @param need_progate set to true if the ME need to migrate  
-//  */
-// typedef struct {
-
-// 	bool switch_event;
-// 	switch_position sw_pos;
-// 	switch_press sw_press;
-
-// 	bool need_propagate;
-// 	/*
-// 	 * MUST BE the last field, since it contains a field at the end which is used
-// 	 * as "payload" for a concatened list of hosts.
-// 	 */
-// 	me_common_t me_common;
-
-// } sh_blind_t;
 
 
 /*
@@ -121,6 +94,10 @@ typedef struct {
  */
 /**
  * @brief Shared struct for blind ME
+ * 
+ * @param switch_event set to true if an switch event is received
+ * @param cmd last switch command received
+ * @param need_progate set to true if the ME need to migrate  
  */
 typedef struct {
 	bool blind_event;

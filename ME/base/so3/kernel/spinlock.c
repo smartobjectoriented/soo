@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2014-2023 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -84,4 +84,9 @@ void spin_unlock_irqrestore(spinlock_t *lock, unsigned long flags)
 }
 
 
+void spin_barrier(spinlock_t *lock)
+{
+	do { smp_mb(); } while (spin_is_locked(lock));
 
+	smp_mb();
+}

@@ -39,6 +39,7 @@
 
 /* SOO.tech */
 #include <soo/avz.h>
+#include <soo/uapi/console.h>
 
 #define NO_BLOCK_MAPPINGS	BIT(0)
 #define NO_CONT_MAPPINGS	BIT(1)

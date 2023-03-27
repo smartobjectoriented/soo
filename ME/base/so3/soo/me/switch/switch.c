@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -69,9 +69,7 @@ void switch_deinit(switch_t *sw) {
 void switch_get_data(switch_t *sw) {
 #ifdef ENOCEAN
 
-	DBG("WAITING FOR SWITCH DATA...\n");
 	wait_for_completion(&sw->sw._wait_event);
-	DBG("NEW SWITCH DATA!\n");
 	if (atomic_read(&sw->sw.event)) {
 		if (atomic_read(&sw->sw.up)) 
 			sh_switch->pos = POS_LEFT_UP;

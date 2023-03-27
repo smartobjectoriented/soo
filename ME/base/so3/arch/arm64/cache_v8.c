@@ -43,8 +43,41 @@ void mmu_setup(void *pgtable)
 
 	tcr = TCR_CACHE_FLAGS | TCR_SMP_FLAGS | TCR_TG_FLAGS | TCR_ASID16 | TCR_A1;
 
-	/* PTWs cacheable, inner/outer WBWA and inner shareable */
-	tcr |= TCR_TxSZ(48) | (TCR_PS_BITS_256TB << TCR_IPS_SHIFT);
+#ifdef CONFIG_VA_BITS_48
+	 tcr |= TCR_TxSZ(48) | (TCR_PS_BITS_256TB << TCR_IPS_SHIFT);
+#elif CONFIG_VA_BITS_39
+	 tcr |= TCR_TxSZ(39) | (TCR_PS_BITS_1TB << TCR_IPS_SHIFT);
+#else
+#error "Wrong VA_BITS configuration."
+#endif
+
+#ifdef CONFIG_ARM64VT
+	asm volatile("msr tcr_el2, %0" : : "r" (tcr) : "memory");
+
+	/* Prepare the stage-2 configuration */
+	tcr =  VTCR_T0SZ_VAL(48) |
+		VTCR_SL0_L0 |
+		TCR_PS_BITS_256TB |
+		(TCR_ORGN0_WBWA << TCR_IRGN0_SHIFT) |
+		(TCR_ORGN0_WBWA << TCR_ORGN0_SHIFT) |
+		TCR_SH0_INNER |
+		VTCR_RES1;
+
+	asm volatile("msr vtcr_el2, %0" : : "r" (tcr) : "memory");
+	asm volatile("isb");
+
+	attr = MAIR_EL2_SET;
+
+	asm volatile("dsb sy");
+
+	asm volatile("msr mair_el2, %0" : : "r" (attr) : "memory");
+
+	asm volatile("isb");
+
+	/* Enable the mmu and set the sctlr & ttbr register correctly. */
+	__mmu_setup(pgtable);
+
+#else /* !CONFIG_ARM64VT */
 
 	attr = MAIR_EL1_SET;
 
@@ -72,6 +105,8 @@ void mmu_setup(void *pgtable)
 
 	invalidate_dcache_all();
 	__asm_invalidate_tlb_all();
+
+#endif /* !CONFIG_ARM64VT */
 
 }
 
@@ -103,17 +138,17 @@ inline void flush_tlb_all(void) {
 /*
  * Invalidates range in all levels of D-cache/unified cache
  */
-void invalidate_dcache_range(unsigned long start, unsigned long stop)
+void invalidate_dcache_range(unsigned long start, unsigned long end)
 {
-	__asm_invalidate_dcache_range(start, stop);
+	__asm_invalidate_dcache_range(start, end);
 }
 
 /*
  * Flush range(clean & invalidate) from all levels of D-cache/unified cache
  */
-void flush_dcache_range(unsigned long start, unsigned long stop)
+void flush_dcache_range(unsigned long start, unsigned long end)
 {
-	__asm_flush_dcache_range(start, stop);
+	__asm_flush_dcache_range(start, end);
 }
 
 /*
@@ -171,8 +206,8 @@ void invalidate_icache_all(void)
 	__asm_invalidate_icache_all();
 }
 
-void mmu_page_table_flush(unsigned long start, unsigned long stop) {
-	flush_dcache_range(start, stop);
+void mmu_page_table_flush(unsigned long start, unsigned long end) {
+	flush_dcache_range(start, end);
 	flush_tlb_all();
 	__asm_invalidate_tlb_all();
 }

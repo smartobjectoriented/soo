@@ -129,6 +129,7 @@ void do_sync_dom(int domID, dc_event_t dc_event)
 
 	set_dc_event(domID, dc_event);
 
+	DBG("%s: notifying via evtchn %d...\n", __func__, dc_evtchn[domID]);
 	notify_remote_via_evtchn(dc_evtchn[domID]);
 
 	/* Wait for the response from the outgoing domain, and reset the barrier. */
@@ -136,7 +137,10 @@ void do_sync_dom(int domID, dc_event_t dc_event)
 		rtdm_event_wait(&rtdm_dc_stable_event[dc_event]);
 		atomic_set(&rtdm_dc_outgoing_domID[dc_event], -1);
 	} else {
+		DBG("%s: waiting for completion on dc_event %d...\n", __func__, dc_event);
 		wait_for_completion(&dc_stable_lock[dc_event]);
+
+		DBG("%s: all right, got the completion, resetting the barrier.\n", __func__);
 		atomic_set(&dc_outgoing_domID[dc_event], -1);
 	}
 }
@@ -230,9 +234,17 @@ void dc_trigger_dev_probe_fn(dc_event_t dc_event) {
 	tell_dc_stable(dc_event);
 }
 
+/**
+ * Perform a local cooperation on target domain passed
+ * in the dc_event.
+ *
+ * @param dc_event
+ */
 void dc_trigger_local_cooperation(dc_event_t dc_event) {
 	unsigned int domID = atomic_read(&dc_incoming_domID[dc_event]);
+
 	soo_hypercall(AVZ_TRIGGER_LOCAL_COOPERATION, NULL, NULL, &domID, NULL);
+
 	tell_dc_stable(dc_event);
 }
 
@@ -258,6 +270,7 @@ void do_soo_activity(void *arg)
 		break;
 
 	case CB_AGENCY_CTL: /* DOMCALL */
+
 		/* Prepare the arguments to pass to the agency ctl */
 		memcpy(&agency_ctl_args, &args->u.agency_ctl_args, sizeof(agency_ctl_args_t));
 

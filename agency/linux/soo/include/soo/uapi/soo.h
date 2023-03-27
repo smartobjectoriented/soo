@@ -404,7 +404,7 @@ typedef struct {
 #define AG_INJECT_ME		0x11
 #define AG_KILL_ME		0x12
 #define AG_COOPERATE		0x13
-#define AG_LOCAL_COOPERATE 0x14
+#define AG_LOCAL_COOPERATE 	0x14
 
 #define AG_AGENCY_UID		0x20
 #define AG_SOO_NAME		0x21

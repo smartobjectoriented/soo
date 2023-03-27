@@ -35,7 +35,6 @@
 #define BLIND_FIRST_DP_ID		0x01
 
 
-
 void blind_send_model(void) {
 	vuihandler_send(BLIND_MODEL, strlen(BLIND_MODEL)+1, VUIHANDLER_SELECT);
 }

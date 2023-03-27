@@ -18,6 +18,8 @@
 
 @ Manage various context-related code (context switch)
 
+#include <generated/autoconf.h>
+
 #include <asm/assembler.h>
 #include <asm-offsets.h>
 #include <asm/processor.h>
@@ -37,7 +39,7 @@
 .globl __get_syscall_arg
 .globl __get_syscall_stack_arg
 
-.global __mmu_switch
+.global __mmu_switch_ttbr0
 .global __exec
 .global __write
 .global __save_context
@@ -141,10 +143,45 @@ __thread_prologue_user:
 	bl	thread_prologue
 
 
+#ifdef CONFIG_AVZ
+
+ENTRY(cpu_do_idle)
+
+	dsb	  sy			// WFI may enter a low-power mode
+	wfi
+
+	mov pc,	lr
+
+/*
+ * r0 = previous domain, r1 = next domain
+ * previous and next are guaranteed not to be the same.
+ *
+ */
+ENTRY(__switch_domain_to)
+	disable_irq 				@ ensure IRQs are disabled
+
+	add     ip, r0, #(OFFSET_CPU_REGS + OFFSET_R4)
+@ save_ctx
+    stmia   ip, {r4 - sl, fp, ip, sp, lr}      @ Store most regs on stack
+
+	current_cpu r6
+
+@ load_ctx
+
+	add		ip, r1, #(OFFSET_CPU_REGS + OFFSET_R4)
+
+    ldmia   ip,  {r4 - sl, fp, ip, sp, pc}       @ Load all regs saved previously
+
+	nop
+	nop
+	nop
+
+#endif /* CONFIG_AVZ */
+
 @ r0: address of tcb prev
 @ r1: address of tcb next
 @ IRQs are disabled and SVC mode
-__switch_context:
+ENTRY(__switch_to)
 
 	cmp	r0, #0
 	beq	load_ctx
@@ -168,7 +205,7 @@ load_ctx:
 @ r0 contains the physical address of the L1 page table
 @ r1 and r2 are used as scratch registers.
 
-__mmu_switch:
+__mmu_switch_ttbr0:
 
 	dsb
 	isb
@@ -192,6 +229,10 @@ __mmu_switch:
 	isb
 
 	mov		pc, lr
+
+	nop
+	nop
+	nop
 
 @ Store the current registers into a cpu_regs structure passed in r0 (as first argument)
 __save_context:
@@ -227,8 +268,8 @@ __save_context:
 .LCcurrent:
 	.word current_thread
 
-// This section contains all data and code which will be
-// mapped in the user space as initial process to be executed.
+@ This section contains all data and code which will be
+@ mapped in the user space as initial process to be executed.
 
 .section ".root_proc.text","ax"
 
@@ -248,31 +289,31 @@ __save_context:
 
 .align 2
 
-// This is the initial code which runs in user mode
-// to start the first process image
+@ This is the initial code which runs in user mode
+@ to start the first process image
 
 ENTRY(__root_proc)
 
-	// write(stdout, buf, len)
+	@ write(stdout, buf, len)
 
 	mov	r0, #STDOUT
 	adr r1, .LC_welcome
 	mov r2, #welcome_len
 	mov r7, #SYSCALL_WRITE
 
-	// No errno
+	@ No errno
 	mov r10, #0
 
-	// Invoke the syscall - kernel side
+	@ Invoke the syscall - kernel side
 	svc	0
 
-	// exec("sh.elf")
+	@ exec("sh.elf")
 
 	adr	r0, .LC_exec
-	// No args
+	@ No args
 	mov r1, #0
 	mov r2, #0
-	// No errno
+	@ No errno
 	mov r10, #0
 
 	mov	r7, #SYSCALL_EXECVE

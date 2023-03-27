@@ -93,8 +93,6 @@ int cb_pre_activate(soo_domcall_arg_t *args) {
 	return 0;
 }
 
-
-
 /**
  * PRE-PROPAGATE
  *
@@ -117,8 +115,6 @@ int cb_pre_propagate(soo_domcall_arg_t *args) {
 		DBG("Now killing the ME %d\n", ME_domID());
 	}
 
-	
-	
 	sh_switch->need_propagate = false;
 
 	spin_unlock(&propagate_lock);
@@ -180,7 +176,6 @@ int cb_cooperate(soo_domcall_arg_t *args) {
 			spin_lock(&propagate_lock);
 			sh_switch->need_propagate = true;
 			spin_unlock(&propagate_lock);
-
 
 			return 0;
 		}

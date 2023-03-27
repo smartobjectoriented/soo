@@ -35,13 +35,19 @@
 
 #include <soo/debug/logbool.h>
 
-/* Force the variable to be stored in .data section so that the BSS can be freely cleared.
- * The value is set during the head.S execution before clear_bss().
- */
+#include <avz/uapi/avz.h>
 
-uint32_t avz_dom_phys_offset;
-volatile uint32_t *HYPERVISOR_hypercall_addr;
-volatile avz_shared_t *AVZ_shared;
+extern volatile uint32_t *HYPERVISOR_hypercall_addr;
+
+#ifdef CONFIG_ARCH_ARM32
+
+void *__guestvectors = NULL;
+
+/* Avoid large area on stack (limited to 1024 bytes */
+
+unsigned char vectors_tmp[PAGE_SIZE];
+
+#endif
 
 int do_presetup_adjust_variables(void *arg)
 {
@@ -50,15 +56,13 @@ int do_presetup_adjust_variables(void *arg)
 	/* Normally, avz_start_info virt address is retrieved from r12 at guest bootstrap (head.S)
 	 * We need to readjust this address after migration.
 	 */
-	AVZ_shared = args->avz_shared;
+	avz_shared = args->avz_shared;
 
-	avz_dom_phys_offset = AVZ_shared->dom_phys_offset;
+	avz_guest_phys_offset = avz_shared->dom_phys_offset;
 
-	mem_info.phys_base = avz_dom_phys_offset;
+	HYPERVISOR_hypercall_addr = (uint32_t *) avz_shared->hypercall_vaddr;
 
-	HYPERVISOR_hypercall_addr = (uint32_t *) AVZ_shared->hypercall_vaddr;
-
-	__printch = AVZ_shared->printch;
+	__printch = avz_shared->printch;
 
 	/* Adjust timer information */
 	postmig_adjust_timer();
@@ -95,32 +99,24 @@ int do_sync_domain_interactions(void *arg)
  */
 void avz_setup(void) {
 
-	mem_info.phys_base = avz_dom_phys_offset;
-	mem_info.size = AVZ_shared->nr_pages << PAGE_SHIFT;
+	__printch = avz_shared->printch;
 
-	__printch = AVZ_shared->printch;
-
-	avz_dom_phys_offset = AVZ_shared->dom_phys_offset;
+	avz_guest_phys_offset = avz_shared->dom_phys_offset;
 
 	/* Immediately prepare for hypercall processing */
-	HYPERVISOR_hypercall_addr = (uint32_t *) AVZ_shared->hypercall_vaddr;
+	HYPERVISOR_hypercall_addr = (uint32_t *) avz_shared->hypercall_vaddr;
 
-	lprintk("SOO Agency Virtualizer (avz) Start info :\n\n");
+	lprintk("SOO Virtualizer (avz) shared page:\n\n");
 
 	lprintk("- Virtual address of printch() function: %lx\n", __printch);
 	lprintk("- Hypercall addr: %lx\n", (addr_t) HYPERVISOR_hypercall_addr);
-	lprintk("- Dom phys offset: %lx\n\n", (addr_t) avz_dom_phys_offset);
+	lprintk("- Dom phys offset: %lx\n\n", (addr_t) avz_guest_phys_offset);
 
-	mem_info.size = AVZ_shared->nr_pages * PAGE_SIZE;
-	mem_info.phys_base = avz_dom_phys_offset;
+	__ht_set = (ht_set_t) avz_shared->logbool_ht_set_addr;
 
-	__ht_set = (ht_set_t) AVZ_shared->logbool_ht_set_addr;
-
-	lprintk("SO3 ME Domain phys base: %x for a size of 0x%x bytes.\n", mem_info.phys_base, mem_info.size);
-
-	AVZ_shared->domcall_vaddr = (unsigned long) domcall;
-	AVZ_shared->vectors_vaddr = (unsigned long) avz_vector_callback;
-	AVZ_shared->traps_vaddr = (unsigned long) trap_handle;
+	avz_shared->domcall_vaddr = (unsigned long) domcall;
+	avz_shared->vectors_vaddr = (unsigned long) avz_vector_callback;
+	avz_shared->traps_vaddr = (unsigned long) trap_handle;
 
 	virq_init();
 }
@@ -128,9 +124,9 @@ void avz_setup(void) {
 
 void post_init_setup(void) {
 
-	printk("VBstore shared page with agency at pfn 0x%x\n", AVZ_shared->vbstore_pfn);
+	printk("VBstore shared page with agency at pfn 0x%x\n", avz_shared->vbstore_pfn);
 
-	__intf = (struct vbstore_domain_interface *) io_map(AVZ_shared->vbstore_pfn << PAGE_SHIFT, PAGE_SIZE);
+	__intf = (struct vbstore_domain_interface *) io_map(avz_shared->vbstore_pfn << PAGE_SHIFT, PAGE_SIZE);
 	BUG_ON(!__intf);
 
 	printk("SOO Mobile Entity booting ...\n");
@@ -180,5 +176,43 @@ void post_init_setup(void) {
 
 	DBG("ME running as domain %d\n", ME_domID());
 }
+
+#ifdef CONFIG_ARCH_ARM32
+
+void vectors_setup(void) {
+
+ 	/* Make a copy of the existing vectors. The L2 pagetable was allocated by AVZ and cannot be used as such by the guest.
+ 	 * Therefore, we will make our own mapping in the guest for this vector page.
+ 	 */
+ 	memcpy(vectors_tmp, (void *) VECTOR_VADDR, PAGE_SIZE);
+
+ 	/* Reset the L1 PTE used for the vector page. */
+ 	clear_l1pte(NULL, VECTOR_VADDR);
+
+ 	create_mapping(NULL, VECTOR_VADDR, __pa((uint32_t) __guestvectors), PAGE_SIZE, true);
+
+ 	memcpy((void *) VECTOR_VADDR, vectors_tmp, PAGE_SIZE);
+
+	/* We need to add handling of swi/svc software interrupt instruction for syscall processing.
+	 * Such an exception is fully processed by the SO3 domain.
+	 */
+	inject_syscall_vector();
+
+	__asm_flush_dcache_range(VECTOR_VADDR, VECTOR_VADDR + PAGE_SIZE);
+	invalidate_icache_all();
+}
+
+void pre_irq_init_setup(void) {
+
+	/* Create a private vector page for the guest vectors */
+	 __guestvectors = memalign(PAGE_SIZE, PAGE_SIZE);
+	BUG_ON(!__guestvectors);
+
+	vectors_setup();
+}
+
+REGISTER_PRE_IRQ_INIT(pre_irq_init_setup)
+
+#endif /* CONFIG_ARCH_ARM32 */
 
 REGISTER_POSTINIT(post_init_setup)

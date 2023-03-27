@@ -119,7 +119,7 @@ ENTRY(_start)
 	strcc	fp, [r6],#4
 	bcc	1b
 
-	ldr r10, =avz_start_info
+	ldr r10, =avz_shared
 	str r12, [r10]
 
 	@ Temporary stack
@@ -139,7 +139,7 @@ ENTRY(_start)
 	ldr r2, =__atags_pointer
 	ldr r2, [r2]
 
-	ldr r11, =avz_start_info
+	ldr r11, =avz_shared
 	ldr r11, [r11]
 	ldr	r8, [r11, #AVZ_DOM_PHYS_OFFSET]
 

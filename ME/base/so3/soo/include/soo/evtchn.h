@@ -28,7 +28,7 @@
 #include <soo/console.h>
 #include <soo/vbstore.h>
 
-#include <soo/uapi/event_channel.h>
+#include <avz/uapi/event_channel.h>
 
 extern unsigned int type_from_irq(int irq);
 
@@ -47,7 +47,7 @@ static inline u32 mk_irq_info(u32 type, u32 index, u32 evtchn) {
 
 static inline void clear_evtchn(u32 evtchn) {
 
-	AVZ_shared->evtchn_pending[evtchn] = false;
+	avz_shared->evtchn_pending[evtchn] = false;
 
 	smp_mb();
 

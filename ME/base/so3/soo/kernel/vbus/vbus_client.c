@@ -31,7 +31,7 @@
 #include <soo/console.h>
 #include <soo/vbus.h>
 
-#include <soo/uapi/event_channel.h>
+#include <avz/uapi/event_channel.h>
 
 const char *vbus_strstate(enum vbus_state state)
 {

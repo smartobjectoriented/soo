@@ -19,7 +19,7 @@
 #ifndef ME_COMMON_H
 #define ME_COMMON_H
 
-#include <soo/soo.h>
+#include <avz/uapi/soo.h>
 
 typedef struct {
 	uint64_t uid;
@@ -143,7 +143,11 @@ void merge_hosts(struct list_head *a, struct list_head *b);
  */
 void dump_hosts(struct list_head *hosts);
 
-
+/**
+ * Perform a local cooperation in target domain <domID>
+ *
+ * @param domID
+ */
 void do_local_cooperation(int domID);
 
 #endif /* ME_COMMON_H */

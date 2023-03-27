@@ -9,5 +9,4 @@ obj-$(CONFIG_VSENSELED_FRONTEND) += vsenseledfront/
 obj-$(CONFIG_VSENSEJ_FRONTEND) += vsensejfront/
 obj-$(CONFIG_VENOCEAN_FRONTEND) += venoceanfront/
 obj-$(CONFIG_VWAGOLED_FRONTEND) += vwagoledfront/
-obj-$(CONFIG_VIUOC_FRONTEND) += viuocfront/
 obj-$(CONFIG_VKNX_FRONTEND) += vknxfront/
