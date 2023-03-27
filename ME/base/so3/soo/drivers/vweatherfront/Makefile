@@ -1,3 +1,1 @@
-obj-$(CONFIG_VWEATHER_FRONTEND) := vweatherfront.o
-
-vweatherfront-y := vweather.o
+ obj-y += vweather.o

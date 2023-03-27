@@ -105,9 +105,12 @@ void blind_up(blind_t *bl) {
 		case VBWA88PG:
 			if (sh_blind->action_mode == BLIND_STEP) {
 				bl->blind.dps[INC_DEC_STOP].data[0] = VBWA88PG_BLIND_INC;
+
 				vbwa88pg_blind_inc_dec_stop(&bl->blind);
+
 			} else if (sh_blind->action_mode == BLIND_FULL) {
 				bl->blind.dps[UP_DOWN].data[0] = VBWA88PG_BLIND_UP;
+
 				vbwa88pg_blind_up_down(&bl->blind);
 			}
 			break;

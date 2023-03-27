@@ -358,13 +358,6 @@ int app_thread_main(void *args) {
 
 	callbacks_init();
 
-	/* Initialize the Vbus subsystem */
-	vbus_init();
-
-	gnttab_init();
-
-	vbstore_init_dev_populate();
-
 	/* Initialize the application */
 	outdoor_init();
 
