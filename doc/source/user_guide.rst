@@ -63,12 +63,12 @@ The AArch-32 (ARM 32-bit) toolchain can be installed with the following commands
 .. code-block:: shell
 
    $ sudo mkdir -p /opt/toolchains && cd /opt/toolchains
-   # Download and extract arm-none-linux-gnueabihf toolchain (gcc v9.2.1).
-   $ sudo wget https://developer.arm.com/-/media/Files/downloads/gnu-a/9.2-2019.12/binrel/gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf.tar.xz
-   $ sudo tar xf gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf.tar.xz
-   $ sudo rm gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf.tar.xz
-   $ sudo mv gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf arm-none-linux-gnueabihf_9.2.1
-   $ sudo echo 'export PATH="${PATH}:/opt/toolchains/arm-none-linux-gnueabihf_9.2.1/bin"' | sudo tee -a /etc/profile.d/02-toolchains.sh
+   # Download and extract arm-none-linux-gnueabihf toolchain (gcc v11.3.1).
+   $ sudo wget https://snapshots.linaro.org/gnu-toolchain/11.3-2022.06-1/arm-linux-gnueabihf/gcc-linaro-11.3.1-2022.06-x86_64_arm-linux-gnueabihf.tar.xz
+   $ sudo tar xf gcc-linaro-11.3.1-2022.06-x86_64_arm-linux-gnueabihf.tar.xz
+   $ sudo rm gcc-linaro-11.3.1-2022.06-x86_64_arm-linux-gnueabihf.tar.xz
+   $ sudo mv gcc-linaro-11.3.1-2022.06-x86_64_arm-linux-gnueabihf arm-linux-gnueabihf_11.3.1
+   $ sudo echo 'export PATH="${PATH}:/opt/toolchains/arm-linux-gnueabihf_11.3.1/bin"' | sudo tee -a /etc/profile.d/02-toolchains.sh
 
 For the 64-bit version (virt & RPi4), the AArch-64 (ARM 64-bit) toolchain can be installed with the following commands:
 

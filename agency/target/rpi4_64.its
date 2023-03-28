@@ -25,19 +25,28 @@
         
    		avz {
         	description = "AVZ Hypervisor (64-bit)";
-        	data = /incbin/("../avz/avz.bin");
+        	data = /incbin/("../avz/so3.bin");
         	type = "kernel";
         	os = "linux";
         	arch = "arm64";
         	compression = "none";
         	load = <0x00080000>;
-        	entry = <0x00080000>;
+		entry = <0x00080000>;
         };
         
+		avz_dt {
+			description = "Flattened Device Tree blob";
+			data = /incbin/("../avz/dts/rpi4_64.dtb");
+			type = "avz_dt";
+			arch = "arm64";
+			compression = "none";
+        	load = <0x00f00000>;
+        };
+
 		linux {
 			description = "Agency Linux kernel";
 			data = /incbin/("../linux/arch/arm64/boot/Image");
-			type = "agency";
+			type = "avz";
 			arch = "arm64";
 			os = "linux";
 			compression = "none";
@@ -70,7 +79,7 @@
 		
         agency_rpi4 {
 			description = "SOO Agency on Raspberry Pi 4 64-bit";
-        	loadables = "linux";
+			loadables = "avz_dt", "linux";
         	kernel = "avz";
         	fdt = "fdt";
         	ramdisk = "initrd";

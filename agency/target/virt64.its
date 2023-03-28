@@ -22,10 +22,10 @@
 	description = "Kernel and rootfs components for virt64 (armv8) environment";
 
 	images {
-        
-        avz {
-			description = "AVZ Hypervisor (64-bit)";
-            data = /incbin/("../avz/avz.bin");
+
+  		avz {
+			description = "AVZ Hypervisor (64-bit) Polymorphic SO3";
+            data = /incbin/("../avz/so3.bin");
 			type = "kernel";
             os = "linux";
 			arch = "arm64";
@@ -34,11 +34,10 @@
 			entry = <0x40080000>;
 		};
 
-
 		linux {
 			description = "Linux kernel";
 			data = /incbin/("../linux/arch/arm64/boot/Image");
-			type = "agency";
+			type = "avz";
 			arch = "arm64";
 			os = "linux";
 			compression = "none";
@@ -46,6 +45,24 @@
 			entry = <0x41000000>;
 		};
 
+ 		avz_pv_dt {
+			description = "Flattened Device Tree blob";
+			data = /incbin/("../avz/dts/virt64_avz_pv.dtb");
+			type = "avz_dt";
+			arch = "arm64";
+			compression = "none";
+			load = <0x40f00000>;
+		};
+        
+         avz_vt_dt {
+			description = "Flattened Device Tree blob";
+			data = /incbin/("../avz/dts/virt64_avz_vt.dtb");
+			type = "avz_dt";
+			arch = "arm64";
+			compression = "none";
+			load = <0x40f00000>;
+		};
+		
         fdt {
 			description = "Linux device tree blob";
 			data = /incbin/("../linux/arch/arm64/boot/dts/arm/virt64.dtb");
@@ -72,7 +89,7 @@
 		agency {
 			description = "SOO Agency on virt64";
 		    kernel = "avz";
-            loadables = "linux"; 
+             loadables = "avz_pv_dt", "linux"; 
              fdt = "fdt"; 
              ramdisk = "initrd"; 
 		};
