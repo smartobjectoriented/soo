@@ -325,6 +325,7 @@ void rtdm_register_dc_event_callback(dc_event_t dc_event, dc_event_fn_t *callbac
 #define AVZ_SET_ME_STATE		14
 #define AVZ_AGENCY_CTL			15
 #define AVZ_GET_DOM_DESC		16
+#define AVZ_TRIGGER_LOCAL_COOPERATION		17
 
 /*
  * General structure to use with the SOO migration hypercall
@@ -400,6 +401,7 @@ typedef struct {
 #define AG_INJECT_ME		0x11
 #define AG_KILL_ME		0x12
 #define AG_COOPERATE		0x13
+#define AG_LOCAL_COOPERATE 	0x14
 
 #define AG_AGENCY_UID		0x20
 #define AG_SOO_NAME		0x21
