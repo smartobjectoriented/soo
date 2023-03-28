@@ -13,6 +13,7 @@ dtb-y += refso3_ramfs.dtb
 else
 dtb-y += refso3.dtb
 endif
+endif
 
 dtb-$(CONFIG_SOO_OUTDOOR) += outdoor.dtb
 dtb-$(CONFIG_SOO_BLIND) += blind.dtb
@@ -27,5 +28,4 @@ dtb-$(CONFIG_SOO_IUOC) += iuoc.dtb
 
 endif
 
-endif
 endif
