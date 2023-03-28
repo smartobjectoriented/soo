@@ -292,6 +292,11 @@ void do_soo_activity(void *arg)
 {
 	soo_domcall_arg_t *args = (soo_domcall_arg_t *) arg;
 
+<<<<<<< HEAD
+=======
+	//lprintk("[%s] here we are\n", __func__);
+
+>>>>>>> 43d67c4bb1 (rebase)
 	switch (args->cmd) {
 
 	case CB_PRE_SUSPEND: /* Called by perform_pre_suspend */
