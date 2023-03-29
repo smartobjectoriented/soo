@@ -89,14 +89,20 @@ static int debug_thread_fn(void *data)
 
 		data_debug.me_type = IUOC_ME_BLIND;
 		data_debug.timestamp = 20 * debug_count;
+
 		strcpy(field_debug.name, "action");  
 		strcpy(field_debug.type, "int");  
+
 		field_debug.value = 3;
 		data_debug.data_array[0] = field_debug;
 		data_debug.data_array_size = 1;
+
 		add_iuoc_element_to_queue(data_debug);
+
 		debug_count++;
+
 		complete(&data_wait_lock);
+
 		printk("GOWAIT\n");
 	}
 	
@@ -107,9 +113,12 @@ void add_iuoc_element_to_queue(iuoc_data_t data)
 {
 	struct iuoc_me_data_list *entry;
 	entry = kmalloc(sizeof(struct iuoc_me_data_list), GFP_KERNEL);
-    entry->me_data = data;
-    list_add_tail(&entry->list, &iuoc_me_data_head);
+	entry->me_data = data;
+
+	list_add_tail(&entry->list, &iuoc_me_data_head);
+
 	printk("[IUOC driver] New data put in queue, timestamp=%d\n", data.timestamp);
+
 	complete(&data_wait_lock);
 }
 
@@ -201,15 +210,17 @@ static int iuoc_init(void)
 	}
 
 	init_completion(&data_wait_lock);
+#if 0
+     debug_thread = kthread_create(debug_thread_fn, NULL, "debug_thread");
 
-    // debug_thread = kthread_create(debug_thread_fn, NULL, "debug_thread");
+     if (IS_ERR(debug_thread)) {
+	     printk(KERN_ERR "Failed to create thread\n");
+	     return PTR_ERR(debug_thread);
+     }
+     /* Start the thread */
+     wake_up_process(debug_thread);
 
-	// if (IS_ERR(debug_thread)) {
-    //     printk(KERN_ERR "Failed to create thread\n");
-    //     return PTR_ERR(debug_thread);
-    // }
-    // // Start the thread
-    // wake_up_process(debug_thread);
+#endif /* 0 */
 
 	return 0;
 }
