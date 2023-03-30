@@ -67,13 +67,16 @@ void cb_pre_activate(soo_domcall_arg_t *args) {
 	args->__agency_ctl(&agency_ctl_args);
 
 	sh_blind->me_common.here = agency_ctl_args.u.agencyUID;
+
 	if (!originUID_initd) {
 		sh_blind->originUID = agency_ctl_args.u.agencyUID;
 		originUID_initd = true;
 	}
+
 	DBG(">> ME %d: originUID %d\n", ME_domID(), sh_blind->originUID);
 
 	host_entry = find_host(&visits, sh_blind->me_common.here);
+	
 	if (host_entry) {
 		/** If we already visited this host we ask the agency to kill us **/
 		DBG(MESWITCH_PREFIX "Host already visited. Killing myself\n");
@@ -109,9 +112,9 @@ void cb_pre_propagate(soo_domcall_arg_t *args) {
 
 	pre_propagate_args->propagate_status = sh_blind->need_propagate ? PROPAGATE_STATUS_YES : PROPAGATE_STATUS_NO;
 
-	DBG(">> ME %d: cb_pre_propagate...\n", ME_domID());
+	DBG(">> ME %d: cb_pre_propagate = %d\n", ME_domID(), pre_propagate_args->propagate_status);
 
-	pre_propagate_args->propagate_status = 0;
+	sh_blind->need_propagate = false;
 
 	spin_unlock(&propagate_lock);
 }
@@ -167,7 +170,6 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 			/* Perform the cooperate in the target ME */
 			args->__agency_ctl(&agency_ctl_args);
 		}
-
 		break;
 		// spin_lock(&propagate_lock);
 
@@ -184,10 +186,13 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 
 			if (incoming_sh_blind->timestamp > blind_timestamp) {
 				blind_timestamp = incoming_sh_blind->timestamp;
+
 				sh_blind->direction = incoming_sh_blind->direction;
 				sh_blind->action_mode = incoming_sh_blind->action_mode;
+
 				incoming_sh_blind->delivered = true;
 			}
+
 			io_unmap((addr_t) incoming_sh_blind);
 
 			if (sh_blind->blind_event) {
@@ -204,8 +209,10 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 
 			if (incoming_sh_switch->timestamp > blind_timestamp) {
 				blind_timestamp = incoming_sh_switch->timestamp;
+
 				sh_blind->direction = incoming_sh_switch->pos == POS_LEFT_UP ? BLIND_UP : BLIND_DOWN;
 				sh_blind->action_mode = incoming_sh_switch->press == PRESS_LONG ? BLIND_FULL : BLIND_STEP;
+				
 				sh_blind->blind_event = true;
 				incoming_sh_switch->delivered = true;
 			}
@@ -222,13 +229,17 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 
 			/* Check if we have been reached by a SOO.iuoc */
 			incoming_sh_blind = (sh_blind_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
-			if (incoming_sh_blind->timestamp > blind_iuoc_timestamp) {
+			if (incoming_sh_blind->timestamp >= blind_iuoc_timestamp) {
+
 				blind_iuoc_timestamp = incoming_sh_blind->timestamp;
 				sh_blind->direction = incoming_sh_blind->direction;
 				sh_blind->action_mode = incoming_sh_blind->action_mode;
+
 				spin_lock(&propagate_lock);
 				sh_blind->need_propagate = true;
 				spin_unlock(&propagate_lock);
+
+				printk("[BLIND] Get information and set propagation to true\n");
 			}
 			
 		} else {
@@ -242,7 +253,6 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 		lprintk("Cooperate: Bad role %d\n", cooperate_args->role);
 		BUG();
 	}
-
 }
 
 /**

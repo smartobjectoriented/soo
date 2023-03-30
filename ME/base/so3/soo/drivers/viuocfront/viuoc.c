@@ -272,7 +272,6 @@ vdrvfront_t viuocdrv = {
 
 static int viuoc_init(dev_t *dev, int fdt_offset) {
 	viuoc_priv_t *viuoc_priv;
-
 	viuoc_priv = malloc(sizeof(viuoc_priv_t));
 	BUG_ON(!viuoc_priv);
 

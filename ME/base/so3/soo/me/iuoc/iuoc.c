@@ -70,6 +70,8 @@ void *iuoc_wait_data_th(void *args) {
 	printk("[IUOC ME] ME thread receiver set up !\n");
 
 	while (1) {
+#if 1 
+
 		printk("[IUOC ME] ME thread waiting for new data\n");
 		ret = get_iuoc_me_data(&iuoc_data);
 		printk("[IUOC ME] ME thread got a new data\n");
@@ -103,6 +105,10 @@ void *iuoc_wait_data_th(void *args) {
 		if (local_coop) {
 			do_local_cooperation(ME_domID());
 		}
+#else
+	udelay(3000000);
+	printk("[IUOC ME] Canari alive\n");
+#endif
 	}
 }
 
