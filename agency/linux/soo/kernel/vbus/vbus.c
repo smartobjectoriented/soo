@@ -781,7 +781,7 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	case DC_POST_ACTIVATE:
 	case DC_TRIGGER_DEV_PROBE:
 	case DC_TRIGGER_LOCAL_COOPERATION:
-	
+
 		/* FALLTHROUGH */
 
 		/* Check if it is the response to a dc_event. Can be done immediately in the top half. */

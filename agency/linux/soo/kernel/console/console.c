@@ -92,19 +92,22 @@ int avz_switch_console(char ch)
 {
 	static int switch_code_count = 0;
 	static char *input_str[N_SWITCH_FOCUS] = { "Agency domain", "Agency-RT domain", "ME-1(2)", "ME-2(3)", "ME-3(4)", "ME-4(5)", "ME-5(6)", "Agency AVZ Hypervisor" };
+#if 0 /* SOO.tech */	
 	struct device_node *np;
-	int active = 0;
 	u32 focus_max = N_SWITCH_FOCUS - 1;
+#endif
+	int active = 0;
 
 #if 0 /* Interactions with RT domain? */
 	int next = 1;
 #endif
 	int next = 2;
-
+#if 0 /* SOO.tech */
 	np = of_find_node_by_name(NULL, "console");
 	if (np)
 		of_property_read_u32((const struct device_node *) np, "focus-dom-max", &focus_max);
 
+#endif
 /* Debugging purpose - enabled forces to forward to an ME */
 #if 0
 	me_cons_sendc(1, ch);
@@ -115,11 +118,29 @@ int avz_switch_console(char ch)
 		/* We eat CTRL-<switch_char> in groups of 2 to switch console input. */
 		if (++switch_code_count == 1) {
 
-			active = (avzcons_get_focus() + 1) % (focus_max + 1);
+#if 0 /* Only switch between the agency and ME #1 */
+
+			if (avzcons_get_focus() == 0) {
+
+				active = 2;
+				next = 0;
+
+			} else {
+				active = 0;
+				next = 2;
+			}
+
+#endif /* 0 */
+
+
+#if 1 /* All MEs considered */
+
+			active = (avzcons_get_focus() + 1) % N_SWITCH_FOCUS;
 			active = ((active == 1) ? active+1 : active);
 
-			next = (active + 1) % (focus_max + 1);
+			next = (active + 1) % N_SWITCH_FOCUS;
 			next = ((next == 1) ? next+1 : next);
+#endif
 
 			avzcons_set_focus(active);
 
@@ -137,8 +158,9 @@ int avz_switch_console(char ch)
 		default:
 		case 0: /* Input to the agency */
 			return 0;
-
+#if 0
 		case 1: /* RT domain */
+#endif
 		case 2: /* Input to ME #1 */
 		case 3: /* Input to ME #2 */
 		case 4: /* Input to ME #3 */

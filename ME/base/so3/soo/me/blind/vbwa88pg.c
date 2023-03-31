@@ -60,7 +60,6 @@ void vbwa88pg_blind_update(blind_vbwa88pg_t *blind, dp_t *dps, int dp_count) {
 void vbwa88pg_blind_up_down(blind_vbwa88pg_t *blind) {
     dp_t dps[1];
     dps[0] = blind->dps[UP_DOWN];
-
     vknx_set_dp_value(dps, 1);
 }
 
@@ -72,6 +71,5 @@ void vbwa88pg_blind_up_down(blind_vbwa88pg_t *blind) {
 void vbwa88pg_blind_inc_dec_stop(blind_vbwa88pg_t *blind) {
     dp_t dps[1];
     dps[0] = blind->dps[INC_DEC_STOP];
-
     vknx_set_dp_value(dps, 1);
 }

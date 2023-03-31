@@ -117,7 +117,14 @@ config VKNX_BACKEND
 	default n
 	help
 	  This driver enabled to deal with a virtualized interface for the KNX bus.
-	  
+
+config MIPOT32001353
+	bool "Support mipot 32001353 uart communication from kernel to provide LoRa support"
+	depends on SERIAL_DEV_CTRL_TTYPORT=y
+	help
+		Create an uart device that uses the serdev framework and allows 
+		to communicate with a Mipot 32001353 LoRa module.
+
 source "soo/drivers/vnetback/Kconfig"
 
 endmenu

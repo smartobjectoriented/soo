@@ -26,7 +26,7 @@
 #include <linux/string.h>
 #include <linux/kthread.h>
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -95,6 +95,15 @@ static void rn2483_process_cmd_response(byte *rsp) {
             BUG();
         }
         dev_info(rn2483->dev, "Watchdog setted successfully");
+        rn2483->status = IDLE;
+        break;
+
+    case GET_VERSION:
+        if (strcmp(rsp, RN2483_OK) != 0) {
+            dev_err(rn2483->dev, "Failed to get version: %s", rsp);
+            BUG();
+        }
+        dev_info(rn2483->dev, "Version: %s", rsp);
         rn2483->status = IDLE;
         break;
 
@@ -257,7 +266,7 @@ int rn2483_write_buf(const byte *buffer, size_t len) {
  * @param cmd command to send
  * @param args command arguments if any, else NULL
  */
-void rn2483_send_cmd(rn2483_cmd_t cmd, char *args) {
+static int rn2483_send_cmd(rn2483_cmd_t cmd, char *args) {
     byte *cmd_str;
     rn2483->status = SEND_CMD;
     rn2483->current_cmd = cmd;
@@ -278,7 +287,12 @@ void rn2483_send_cmd(rn2483_cmd_t cmd, char *args) {
 #endif
     }
 
-    wait_for_completion_timeout(&rn2483->wait_rsp, msecs_to_jiffies(1000));
+    if (wait_for_completion_timeout(&rn2483->wait_rsp, msecs_to_jiffies(1000)) == 0) {
+        dev_err(rn2483->dev, "Failed to execute %s. Timeout expired", __func__);
+        return -1;
+    }
+    else
+        return 0;
 }
 
 /**
@@ -526,10 +540,18 @@ static int rn2483_serdev_probe(struct serdev_device *serdev) {
         dev_err(dev, "Failed to set baudrate\n");
         BUG();
     }
-
-    rn2483_send_cmd(RESET, NULL);
+    
+    if (rn2483_send_cmd(RESET, NULL) < 0)
+        return -1;
+    
     /** Disable watchdog **/
-    rn2483_send_cmd(SET_WDT, "0");
+    if (rn2483_send_cmd(SET_WDT, "0") < 0)
+        return -1;
+
+    /** Read version **/
+    if (rn2483_send_cmd(GET_VERSION, NULL) < 0)
+        return -1;
+
     /** Listen for data **/
     rn2483_start_listening(&timeout);
 

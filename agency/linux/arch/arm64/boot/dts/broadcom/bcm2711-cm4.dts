@@ -7,12 +7,13 @@
 #include "bcm283x-rpi-usb-peripheral.dtsi"
 
 #include <dt-bindings/reset/raspberrypi,firmware-reset.h>
+#include <dt-bindings/soo/soo-mp-v2.h>
 
 #include "../soo.dtsi"
 
 / {
-	compatible = "raspberrypi,4-model-b", "brcm,bcm2711";
-	model = "Raspberry Pi 4 Model B";
+	compatible = "raspberrypi,4-compute-module", "brcm,bcm2711";
+	model = "Raspberry Pi Compute Module 4";
 
 	chosen {
 	 	/* bootargs = "console=ttyAMA0,115200n8 root=/dev/ram rw slub_debug=PUZ"; */
@@ -40,6 +41,8 @@
 		i2c4 = &i2c4;
 		i2c5 = &i2c5;
 		i2c6 = &i2c6;
+		spi3 = &spi3;
+		spi4 = &spi4;
 		/delete-property/ ethernet;
 		/delete-property/ intc;
 		ethernet0 = &genet;
@@ -98,22 +101,7 @@
 			status = "ok";
 		};
 
-                vdoga {
-			status = "ok";
-
-			up_end-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
-			down_end-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
-
-			sleep-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
-			mode-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
-			in1_ph-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
-		};
-
 		vwagoled {
-			status = "ok";
-		};
-
-		viuoc {
 			status = "ok";
 		};
 
@@ -379,6 +367,29 @@
 	status = "okay";
 };
 
+&genet {
+	phy-handle = <&phy1>;
+	phy-mode = "rgmii-rxid";
+	status = "okay";
+};
+
+#if 0
+&genet_mdio {
+	phy1: ethernet-phy@1 {
+		/* No PHY interrupt */
+		reg = <0x1>;
+	};
+};
+#else
+/** SOO.tech **/
+&genet_mdio {
+	phy1: ethernet-phy@0 {
+		/* No PHY interrupt */
+		reg = <0x0>;
+	};
+};
+#endif
+
 /* uart0 communicates with the BT module */
 &uart0 {
 	pinctrl-names = "default";
@@ -400,118 +411,200 @@
 	status = "okay";
 };
 
-/* UART5 used for LoRa communication on soo.mp V1 */
-&uart3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart3_gpio4>;
-	status = "okay";
-
-#if 0
-	lora {
-		compatible = "lora,rn2483";
-		current-speed = <57600>;
-	};
-#else	
-	knx {
-		compatible = "knx,kberry838";
-		current-speed = <19200>;
-	};
-#endif
-};
-
-/* UART5 used for enOcean communication on soo.mp V1 */
+/* UART5 used for enOcean communication */
 &uart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart5_gpio12>;
 	status = "okay";
-#if 1
+
 	enocean {
+		type = <NORMAL_UART>;
 		compatible = "enocean,tcm515";
 		current-speed = <57600>;
 	};
-#else
-	knx {
-		compatible = "knx,kberry838";
-		current-speed = <19200>;
-	};
-#endif
 };	
 
 &spi1 {
 	status = "okay";
 	cs-gpios = <&gpio 18 GPIO_ACTIVE_LOW>;
 	num-cs = <1>;
+};
 
-	/* SOO.tech */
-	drv8703q1@0 {
-		compatible = "ti,drv8703q1";
-		status = "okay";
-		reg = <0>;
-		spi-max-frequency = <0x7735940>;
-		sleep-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>;
-		mode-gpio = <&gpio 10 GPIO_ACTIVE_HIGH>;
+/ {
+	sc16is762_clk: sc16is762_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <1843200>;
+	};
+
+	__overrides__ {
+		xtal = <&sc16is762_clk>,"clock-frequency:0";
 	};
 };
 
-/* SOO.tech */
-&i2c4 {
-    status = "okay";
-    pinctrl-names = "default";
-    pinctrl-0 = <&i2c4_pins>;
-	clock-frequency = <100000>;
-
-    ds1050@28 {
-        compatible = "maxim,ds1050";
-        reg = <0x28>; /* This is due to the control byte (101) + A2, A1, A0 (000) combination (101000 = 0x28) */
-    };
-};
-
-
-
-&i2c1 {
-    compatible = "brcm,bcm2711-i2c", "brcm,bcm2835-i2c";
-	interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
-
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c1_pins>;
-	clock-frequency = <100000>;
-
-
+&spi3 {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi3_pins &spi3_cs_pins>;
+	cs-gpios = <&gpio 0 GPIO_ACTIVE_LOW>, <&gpio 24 GPIO_ACTIVE_LOW>;
+	status = "okay";
 
-	rpi-sense@46 {
-		compatible = "rpi,rpi-sense";
-		reg = <0x46>;
-		keys-int-gpios = <&gpio 23 1>;
+#if 1
+	sc16is762_0: sc16is762@0 {
+		compatible = "nxp,sc16is762";
+		reg = <0>; /* CE0 */
+		clocks = <&sc16is762_clk>;
+		interrupt-parent = <&gpio>;
+		interrupts = <11 IRQ_TYPE_EDGE_FALLING>; /* IRQ_TYPE_EDGE_FALLING */
+		gpio-controller;
+		#gpio-cells = <2>;
+		spi-max-frequency = <15000000>;
+
+		#address-cells = <1>;
+   		#size-cells = <0>;
 		status = "okay";
+#if 0 // both children		
+		/** These are place holder **/
+		wmbus@0 {
+			reg = <0>;
+			type = <SPI_UART>;
+#if 0
+			/** TODO: implement wmbus serdev **/
+			port = <WMBUS_UART_PORT>;
+			wmbus {
+				compatible ="wmbus";
+				current-speed = <57600>;
+			};
+#endif
+		};
+
+#if 0
+		/** These are place holder **/
+		modbus@1 {
+			reg = <1>;
+			type = <SPI_UART>;
+#if 0
+			/** TODO: implement modbus serdev **/
+			port = <MODBUS_UART_PORT>;
+			modbus {
+				compatible = "modbus";
+				current-speed = <57600>;
+			};
+#endif
+		};
+#endif // modbus        
+#endif // both children        
 	};
+#endif //sc16is762_0     
 
-	lsm9ds1-magn@1c {
-		compatible = "st,lsm9ds1-magn";
-		reg = <0x1c>;
-		status = "okay";
-	};
+	sc16is762_1: sc16is762@1 {
+		compatible = "nxp,sc16is762";
+		reg = <1>; /* CE1 */
+		clocks = <&sc16is762_clk>;
+		interrupt-parent = <&gpio>;
+		interrupts = <26 IRQ_TYPE_EDGE_FALLING>; /* IRQ_TYPE_EDGE_FALLING */
+		gpio-controller;
+		#gpio-cells = <2>;
+		// spi-max-frequency = <15000000>;
 
-	lsm9ds1-accel@6a {
-		compatible = "st,lsm9ds1-accel";
-		reg = <0x6a>;
+		#address-cells = <1>;
+   		#size-cells = <0>;
 		status = "okay";
-	};
+		
+		/** These are place holder **/
+		knx@2 {
+			reg = <2>;
+			type = <SPI_UART>;
+#if 1           
+			port = <KNX_UART_PORT>;
+			knx {
+				compatible ="knx,kberry838";
+				current-speed = <19200>;
+			};
+#endif            
+		};
 
-	lps25h-press@5c {
-		compatible = "st,lps25h-press";
-		reg = <0x5c>;
-		status = "okay";
-	};
-
-	hts221-humid@5f {
-		compatible = "st,hts221-humid";
-		reg = <0x5f>;
-		status = "okay";
+#if 0
+		mbus@3 {
+			reg = <3>;
+			type = <SPI_UART>;
+#if 0			
+			/** TODO: implement mbus serdev **/
+			port = <MBUS_UART_PORT>;
+			mbus {
+				compatible = "mbus";
+				current-speed = <57600>;
+			};
+#endif
+		};
+#endif        
 	};
 };
+
+/ {
+	sc16is752_clk: sc16is752_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <1843200>;
+	};
+
+	__overrides__ {
+		xtal = <&sc16is752_clk>,"clock-frequency:0";
+	};
+};
+
+#if 1
+&spi4 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi4_pins &spi4_cs_pins>;
+	cs-gpios = <&gpio 4 GPIO_ACTIVE_LOW>;
+
+	sc16is752: sc16is752@0 {
+		compatible = "nxp,sc16is752";
+		reg = <0>; /* CE0 */
+		clocks = <&sc16is752_clk>;
+		interrupt-parent = <&gpio>;
+		interrupts = <22 IRQ_TYPE_EDGE_FALLING>; /* IRQ_TYPE_EDGE_FALLING */
+		gpio-controller;
+		#gpio-cells = <2>;
+		spi-max-frequency = <4000000>;
+
+		#address-cells = <1>;
+   		#size-cells = <0>;
+		status = "okay";
+#if 0		
+		zigbee@0 {
+      		reg = <0>;
+			type = <SPI_UART>;
+#if 0
+			/** TODO: implement zigbee serdev **/
+			port = <ZIGBEE_UART_PORT>;
+     		zigbee {
+         		compatible = "zigbee";
+         		current-speed = <57600>;
+      		};
+#endif
+   		};
+#endif        
+
+   		lora@1 {
+      		reg = <1>;
+			type = <SPI_UART>;
+#if 1
+			port = <LORA_UART_PORT>;
+      		lora {
+         		compatible = "lora,mipot32001353";
+         		current-speed = <115200>;
+      		};
+#endif
+   		};
+	};
+};
+#endif
 
 &vchiq {
 	interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
