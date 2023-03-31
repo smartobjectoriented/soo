@@ -18,7 +18,6 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <soo/device/tcm515.h>
 #include <linux/serdev.h>
 #include <linux/jiffies.h>
 #include <soo/uapi/console.h>

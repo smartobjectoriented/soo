@@ -6,6 +6,10 @@
  *  Based on max310x.c, by Alexander Shiyan <shc_work@mail.ru>
  */
 
+#if 1
+#define DEBUG
+#endif
+
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/bitops.h>
@@ -294,6 +298,14 @@
 #define SC16IS7XX_FIFO_SIZE		(64)
 #define SC16IS7XX_REG_SHIFT		2
 
+/** SOO **/
+/** Power-On reset default values **/
+#define SC16IS752_LSR_POR		0x65
+#define SC16IS762_LSR_POR		0x79
+#define SC16IS762_LCR_POR		0x1D
+#define SC16IS762_TFL_POR		0x40
+/** end SOO **/
+
 struct sc16is7xx_devtype {
 	char	name[10];
 	int	nr_gpio;
@@ -390,11 +402,17 @@ static void sc16is7xx_fifo_write(struct uart_port *port, u8 to_send)
 	 * Don't send zero-length data, at least on SPI it confuses the chip
 	 * delivering wrong TXLVL data.
 	 */
-	if (unlikely(!to_send))
+	if (unlikely(!to_send)) {
+#ifdef DEBUG
+		printk(SC16IS7XX_NAME " unlikely to send\n");
+#endif
 		return;
+	}
 
 	regcache_cache_bypass(s->regmap, true);
-	regmap_raw_write(s->regmap, addr, s->buf, to_send);
+	if (regmap_raw_write(s->regmap, addr, s->buf, to_send) < 0) {
+		dev_err_ratelimited(port->dev, "regmap_raw_write() failed");
+	}
 	regcache_cache_bypass(s->regmap, false);
 }
 
@@ -495,6 +513,10 @@ static int sc16is7xx_set_baud(struct uart_port *port, int baud)
 	u8 prescaler = 0;
 	unsigned long clk = port->uartclk, div = clk / 16 / baud;
 
+#ifdef DEBUG
+	printk(SC16IS7XX_NAME ": %s %d\n", __func__, s->devtype->nr_uart);
+#endif
+
 	if (div > 0xffff) {
 		prescaler = SC16IS7XX_MCR_CLKSEL_BIT;
 		div /= 4;
@@ -560,6 +582,10 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 	unsigned int lsr = 0, ch, flag, bytes_read, i;
 	bool read_lsr = (iir == SC16IS7XX_IIR_RLSE_SRC) ? true : false;
 
+#ifdef DEBUG
+	printk(SC16IS7XX_NAME ": %s\n", __func__);
+#endif
+
 	if (unlikely(rxlen >= sizeof(s->buf))) {
 		dev_warn_ratelimited(port->dev,
 				     "ttySC%i: Possible RX FIFO overrun: %d\n",
@@ -614,6 +640,10 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 				flag = TTY_OVERRUN;
 		}
 
+#ifdef DEBUG
+	dev_info(port->dev, "Buffer RX: %d", rxlen);
+#endif
+
 		for (i = 0; i < bytes_read; ++i) {
 			ch = s->buf[i];
 			if (uart_handle_sysrq_char(port, ch))
@@ -621,7 +651,9 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 
 			if (lsr & port->ignore_status_mask)
 				continue;
-
+#ifdef DEBUG			
+			dev_info(port->dev, "0x%02X", ch);
+#endif
 			uart_insert_char(port, lsr, SC16IS7XX_LSR_OE_BIT, ch,
 					 flag);
 		}
@@ -637,6 +669,10 @@ static void sc16is7xx_handle_tx(struct uart_port *port)
 	struct circ_buf *xmit = &port->state->xmit;
 	unsigned int txlen, to_send, i;
 
+#ifdef DEBUG
+	printk(SC16IS7XX_NAME ": %s %d\n", __func__, s->devtype->nr_uart);
+#endif
+
 	if (unlikely(port->x_char)) {
 		sc16is7xx_port_write(port, SC16IS7XX_THR_REG, port->x_char);
 		port->icount.tx++;
@@ -649,12 +685,13 @@ static void sc16is7xx_handle_tx(struct uart_port *port)
 
 	/* Get length of data pending in circular buffer */
 	to_send = uart_circ_chars_pending(xmit);
+
 	if (likely(to_send)) {
 		/* Limit to size of TX FIFO */
 		txlen = sc16is7xx_port_read(port, SC16IS7XX_TXLVL_REG);
 		if (txlen > SC16IS7XX_FIFO_SIZE) {
 			dev_err_ratelimited(port->dev,
-				"chip reports %d free bytes in TX fifo, but it only has %d",
+				"chip reports 0x%02X free bytes in TX fifo, but it only has 0x%02X",
 				txlen, SC16IS7XX_FIFO_SIZE);
 			txlen = 0;
 		}
@@ -669,6 +706,13 @@ static void sc16is7xx_handle_tx(struct uart_port *port)
 			xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		}
 
+#ifdef DEBUG
+		printk(SC16IS7XX_NAME " TX data (%d):\n", to_send);
+		for (i = 0; i  < to_send; i++) {
+			printk(SC16IS7XX_NAME " [%d]: 0x%02X\n", i, s->buf[i]);
+		}
+#endif
+
 		sc16is7xx_fifo_write(port, to_send);
 	}
 
@@ -679,10 +723,11 @@ static void sc16is7xx_handle_tx(struct uart_port *port)
 static bool sc16is7xx_port_irq(struct sc16is7xx_port *s, int portno)
 {
 	struct uart_port *port = &s->p[portno].port;
-
 	do {
 		unsigned int iir, rxlen;
-
+#ifdef DEBUG
+	printk(SC16IS7XX_NAME ": %s %d\n", __func__, s->devtype->nr_uart);
+#endif
 		iir = sc16is7xx_port_read(port, SC16IS7XX_IIR_REG);
 		if (iir & SC16IS7XX_IIR_NO_INT_BIT)
 			return false;
@@ -867,6 +912,9 @@ static void sc16is7xx_set_termios(struct uart_port *port,
 	unsigned int lcr, flow = 0;
 	int baud;
 
+#ifdef DEBUG
+	printk(SC16IS7XX_NAME ": %s %d\n", __func__, s->devtype->nr_uart);
+#endif
 	/* Mask termios capabilities we don't support */
 	termios->c_cflag &= ~CMSPAR;
 
@@ -1005,6 +1053,8 @@ static int sc16is7xx_startup(struct uart_port *port)
 	val = SC16IS7XX_FCR_RXRESET_BIT | SC16IS7XX_FCR_TXRESET_BIT;
 	sc16is7xx_port_write(port, SC16IS7XX_FCR_REG, val);
 	udelay(5);
+
+	/** Enable FIFOs **/
 	sc16is7xx_port_write(port, SC16IS7XX_FCR_REG,
 			     SC16IS7XX_FCR_FIFO_BIT);
 
@@ -1022,6 +1072,8 @@ static int sc16is7xx_startup(struct uart_port *port)
 	sc16is7xx_port_update(port, SC16IS7XX_MCR_REG,
 			      SC16IS7XX_MCR_TCRTLR_BIT,
 			      SC16IS7XX_MCR_TCRTLR_BIT);
+
+	// sc16is7xx_port_write(port, SC16IS7XX_TLR_REG, 0x40);
 
 	/* Configure flow control levels */
 	/* Flow control halt level 48, resume level 24 */
@@ -1188,7 +1240,7 @@ static int sc16is7xx_probe(struct device *dev,
 			   struct regmap *regmap, int irq)
 {
 	unsigned long freq = 0, *pfreq = dev_get_platdata(dev);
-	unsigned int val;
+	unsigned int val, dev_lsr;
 	u32 uartclk = 0;
 	int i, ret;
 	struct sc16is7xx_port *s;
@@ -1203,8 +1255,40 @@ static int sc16is7xx_probe(struct device *dev,
 	 */
 	ret = regmap_read(regmap,
 			  SC16IS7XX_LSR_REG << SC16IS7XX_REG_SHIFT, &val);
-	if (ret < 0)
-		return ret;
+
+
+	/** SOO **/
+#if 0
+	if (strcmp(devtype->name, sc16is752_devtype.name) == 0) {
+		dev_lsr = SC16IS752_LSR_POR;
+	} else if (strcmp(devtype->name, sc16is762_devtype.name) == 0) { 
+		dev_lsr = SC16IS762_LSR_POR;
+	} else {
+		dev_err(dev, "Unsupported device: %s", devtype->name);
+		return -ENODEV;
+	}
+
+	if (val != dev_lsr) {
+		dev_err(dev, "Value LSR: 0x%08X is wrong. Expected value is 0x%08X", val, dev_lsr);
+		return -ENODEV;
+	}
+#endif
+	ret = regmap_read(regmap,
+			  SC16IS7XX_LCR_REG << SC16IS7XX_REG_SHIFT, &val);
+
+	if (val != SC16IS762_LCR_POR) {
+		dev_err(dev, "Value LCR: 0x%08X is wrong. Expected value is 0x%08X", val, SC16IS762_LCR_POR);
+		return -ENODEV;
+	}
+
+	ret = regmap_read(regmap,
+			  SC16IS7XX_TXLVL_REG << SC16IS7XX_REG_SHIFT, &val);
+
+	if (val != SC16IS762_TFL_POR) {
+		dev_err(dev, "Value LCR: 0x%08X is wrong. Expected value is 0x%08X", val, SC16IS762_TFL_POR);
+		return -ENODEV;
+	}
+	/** end SOO **/
 
 	/* Alloc port structure */
 	s = devm_kzalloc(dev, struct_size(s, p, devtype->nr_uart), GFP_KERNEL);
