@@ -28,6 +28,7 @@
    dev_flow
    glossary
    specifications/specifications
+   demos/demos
    
 ======================================
 Smart Object Oriented (SOO) Technology
