@@ -679,7 +679,6 @@ static int resume_dev(struct device *dev, void *data)
 	 * the backend has just been created and we make sure it reached the VbusStateInitWait state.
 	 */
 
-
 	/* The backend is now either in VbusStateSuspended OR VbusStateInitWait */
 	vdrv->resume(vdev);
 

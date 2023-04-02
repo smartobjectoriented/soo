@@ -86,15 +86,19 @@ int get_iuoc_me_data(iuoc_data_t *data) {
 	viuoc_priv_t *viuoc_priv = dev_get_drvdata(viuoc_dev->dev);
 	viuoc_response_t *ring_rsp;
 	int ret = 0;
+
 	DBG("[IUOC front]: Waiting for a new data\n");
 	wait_for_completion(&viuoc_priv->waitlock);
+
 	DBG("[IUOC front]: New data received\n");
 	vdevfront_processing_begin(viuoc_dev);
+
 	if ((ring_rsp = viuoc_get_ring_response(&viuoc_priv->viuoc.ring)) != NULL) {
 		memcpy(data, &(ring_rsp->me_data), sizeof(iuoc_data_t));
 	} else {
 		ret = -1;
 	}
+
 	vdevfront_processing_end(viuoc_dev);
 
 	return ret;
