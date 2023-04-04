@@ -87,10 +87,10 @@ void *iuoc_wait_data_th(void *args) {
 			sh_iuoc->sh_blind.timestamp = iuoc_data.timestamp;
 			for (i = 0; i < iuoc_data.data_array_size; i++) {
 				if (!strcmp(iuoc_data.data_array[i].name, "direction")) {
-					printk("[IUOC ME] Blind direction recieved\n");
+					printk("[IUOC ME] Blind direction recieved = %d\n", iuoc_data.data_array[i].value);
 					sh_iuoc->sh_blind.direction = iuoc_data.data_array[i].value;
 				} else if (!strcmp(iuoc_data.data_array[i].name, "action_mode")) {
-					printk("[IUOC ME] Blind action mode recieved\n");
+					printk("[IUOC ME] Blind action mode recieved = %d\n", iuoc_data.data_array[i].value);
 					sh_iuoc->sh_blind.action_mode = iuoc_data.data_array[i].value;
 				}
 			}

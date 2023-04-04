@@ -157,7 +157,7 @@ void *blind_send_cmd_th(void *args) {
 
 	while (atomic_read(&shutdown)) {
 		wait_for_completion(&send_data_lock);
-
+		printk("[BLIND ME] direction = %d, action = %d\n", sh_blind->direction, sh_blind->action_mode);
 		switch(sh_blind->direction) {
 			case BLIND_UP:
 				blind_up(bl);

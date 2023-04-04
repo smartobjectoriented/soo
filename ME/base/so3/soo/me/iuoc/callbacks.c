@@ -128,9 +128,11 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 
 	switch (cooperate_args->role) {
 	case COOPERATE_INITIATOR:
+
 		printk("[IUOC] Cooperate initiator called !\n");
 		if(cooperate_args->u.target_coop.spid == BLIND_SPID) {
 			printk("[IUOC] Cooperate with SOO.blind\n");
+			 
 			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) &(sh_iuoc->sh_blind)));
 			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 

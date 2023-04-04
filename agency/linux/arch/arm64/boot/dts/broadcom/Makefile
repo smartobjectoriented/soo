@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
-dtb-$(CONFIG_ARCH_BCM2835) += bcm2711-rpi-4-b.dtb bcm2711-cm4.dtb
+dtb-$(CONFIG_ARCH_BCM2835) += bcm2711-rpi-4-b.dtb
 
 subdir-y	+= northstar2
 subdir-y	+= stingray
