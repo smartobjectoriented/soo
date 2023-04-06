@@ -209,6 +209,7 @@ void main_loop(int cycle_period) {
 
 		/* Update the migration counter */
 		mig_count++;
+		usleep(cycle_period * 1000);
 	}
 
 #ifdef WITH_LED_ACTIVITIES
