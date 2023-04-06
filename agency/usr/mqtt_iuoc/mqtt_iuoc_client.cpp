@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
 {
 	//test_ioctl();
 	std::ifstream inFile;
-    inFile.open("iuoc_mqtt_config.json"); //open the config file
+    inFile.open("/root/iuoc_mqtt_config.json"); //open the config file
 
     std::stringstream strStream;
     strStream << inFile.rdbuf(); //read the file
@@ -102,8 +102,11 @@ int main(int argc, char* argv[])
 	mqtt::async_client client(server_address, client_id);
 
 	mqtt::connect_options connOpts;
-	connOpts.set_clean_session(false);
 
+	connOpts.set_clean_session(false);
+	connOpts.set_user_name("iuocmqtt");
+	connOpts.set_password("Shaft_Dreaded_Dosage");
+	
 	// Install the callback(s) before connecting.
 	callback cb(client, connOpts, sub_topics_mapping, qos, retry_attemps);
 	client.set_callback(cb);

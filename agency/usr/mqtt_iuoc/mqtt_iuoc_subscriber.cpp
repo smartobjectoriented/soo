@@ -17,6 +17,7 @@
  */
 
 #include "mqtt_iuoc_subscriber.h"
+#include <iostream>
 
 action_listener::action_listener(const std::string& name) : name_(name) {}
 
@@ -119,6 +120,10 @@ void callback::message_arrived(mqtt::const_message_ptr msg)
 	auto me_type = sub_topics[msg->get_topic()];
 	me_data.me_type = (me_type_t)me_type;
 
+	std::cout << "New message recieved : " << std::endl;
+	std::cout << "\ttopic: '" << msg->get_topic() << "'" << std::endl;
+	std::cout << "\tpayload: '" << msg->to_string() << "'\n" << std::endl;
+
 	// TODO: define where is the timestamp set
 	me_data.timestamp = 555666;
 
@@ -131,16 +136,51 @@ void callback::message_arrived(mqtt::const_message_ptr msg)
     if (!reader->parse(msg->to_string().c_str(), msg->to_string().c_str() + msg->to_string().length(), 
 		&root,  &err)) {
     //   std::cout << "[IUOC] error converting JSON payload to string" << std::endl;
-    }
-	me_data.data_array_size = root["data"].size();
-	for(int i = 0; i < root["data"].size(); i++) {
-		field_data_t field_data;
-		strcpy(field_data.name, root["data"][i]["name"].asString().c_str());
-		strcpy(field_data.type, root["data"][i]["type"].asString().c_str());
-		field_data.value = root["data"][i]["value"].asInt();
-		me_data.data_array[i] = field_data;
 	}
-	ioctl(dev, UIOC_IOCTL_SEND_DATA, &me_data);
+
+    field_data_t field_data;
+	if (me_type == IUOC_ME_BLIND) {
+		me_data.data_array_size = 2;
+		strcpy(me_data.data_array[0].name, "direction");
+		strcpy(me_data.data_array[0].type, "int");
+		strcpy(me_data.data_array[1].name, "action_mode");
+		strcpy(me_data.data_array[1].type, "int");
+
+		if (root["data"][0]["value"] == "down") {
+			std::cout << "[USR] going down" << std::endl;
+			me_data.data_array[0].value = 1;
+			me_data.data_array[1].value = 0;
+			ioctl(dev, UIOC_IOCTL_SEND_DATA, &me_data);
+		} else if (root["data"][0]["value"] == "down step") {
+			std::cout << "[USR] going down step" << std::endl;
+			me_data.data_array[0].value = 1;
+			me_data.data_array[1].value = 1;
+			ioctl(dev, UIOC_IOCTL_SEND_DATA, &me_data);
+		} else if (root["data"][0]["value"] == "up") {
+			std::cout << "[USR] going up" << std::endl;
+			me_data.data_array[0].value = 0;
+			me_data.data_array[1].value = 0;
+			ioctl(dev, UIOC_IOCTL_SEND_DATA, &me_data);
+		} else if (root["data"][0]["value"] == "up step") {
+			std::cout << "[USR] going up step" << std::endl;
+			me_data.data_array[0].value = 0;
+			me_data.data_array[1].value = 1;
+			ioctl(dev, UIOC_IOCTL_SEND_DATA, &me_data);
+		}
+		
+	}
+		
+	return;
+
+	// me_data.data_array_size = root["data"].size();
+	// for(int i = 0; i < root["data"].size(); i++) {
+	// 	field_data_t field_data;
+	// 	strcpy(field_data.name, root["data"][i]["name"].asString().c_str());
+	// 	strcpy(field_data.type, root["data"][i]["type"].asString().c_str());
+	// 	field_data.value = root["data"][i]["value"].asInt();
+	// 	me_data.data_array[i] = field_data;
+	// }
+	// ioctl(dev, UIOC_IOCTL_SEND_DATA, &me_data);
 }
 
 bool callback::get_running_status()
