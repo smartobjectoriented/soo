@@ -179,7 +179,7 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 		if(cooperate_args->u.target_coop.spid == get_spid()) {
 			printk("[BLIND] Found a SOO.blind, cooperating...\n");
 
-			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) &(sh_blind)));
+			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_blind));
 			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
 			/* This pattern enables the cooperation with the target ME */
@@ -200,6 +200,7 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 	case COOPERATE_TARGET:
 		printk("[BLIND ME] Cooperate: Target %d\n", ME_domID());
 		pfn = cooperate_args->u.initiator_coop.pfn;
+		printk("[BLIND ME] pfn = %d\n", pfn);
 
 		/** Check if we have been reached by a SOO.blind **/
 		if(cooperate_args->u.initiator_coop.spid == get_spid()) {
@@ -208,16 +209,16 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 			/* Map the content page of the incoming ME to retrieve its data. */
 			incoming_sh_blind = (sh_blind_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
-			if (incoming_sh_blind->timestamp >= blind_timestamp) {
-				printk("[BLIND ME] Update data\n");
+			/* Not checking the timestampfor now, define how to do it correctly to match
+			   between SO */
+			printk("[BLIND ME] Update data\n");
 
-				blind_timestamp       = incoming_sh_blind->timestamp;
-				sh_blind->direction   = incoming_sh_blind->direction;
-				sh_blind->action_mode = incoming_sh_blind->action_mode;
+			blind_timestamp       = incoming_sh_blind->timestamp;
+			sh_blind->direction   = incoming_sh_blind->direction;
+			sh_blind->action_mode = incoming_sh_blind->action_mode;
 
-				sh_blind->blind_event = true;
-				incoming_sh_blind->delivered = true;
-			}
+			sh_blind->blind_event = true;
+			incoming_sh_blind->delivered = true;
 
 			printk("[BLIND ME] Leaving IUOC coop with ->  direction - IN=%d OUT=%d, action - IN=%d, OUT=%d", incoming_sh_blind->direction, sh_blind->direction, incoming_sh_blind->action_mode, sh_blind->action_mode);
 
@@ -236,15 +237,15 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 			/* Map the content page of the incoming ME to retrieve its data. */
 			incoming_sh_switch = (sh_switch_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
-			if (incoming_sh_switch->timestamp >= blind_timestamp) {
-				blind_timestamp = incoming_sh_switch->timestamp;
+			/* Not checking the timestampfor now, define how to do it correctly to match
+			   between SO */
+			blind_timestamp = incoming_sh_switch->timestamp;
 
-				sh_blind->direction   = incoming_sh_switch->pos == POS_LEFT_UP ? BLIND_UP : BLIND_DOWN;
-				sh_blind->action_mode = incoming_sh_switch->press == PRESS_LONG ? BLIND_FULL : BLIND_STEP;
-				
-				sh_blind->blind_event = true;
-				incoming_sh_switch->delivered = true;
-			}
+			sh_blind->direction   = incoming_sh_switch->pos == POS_LEFT_UP ? BLIND_UP : BLIND_DOWN;
+			sh_blind->action_mode = incoming_sh_switch->press == PRESS_LONG ? BLIND_FULL : BLIND_STEP;
+			
+			sh_blind->blind_event = true;
+			incoming_sh_switch->delivered = true;
 
 			io_unmap((addr_t) incoming_sh_switch);
 
@@ -259,22 +260,22 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 			/* Check if we have been reached by a SOO.iuoc */
 			incoming_sh_blind = (sh_blind_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
-			if (incoming_sh_blind->timestamp >= blind_iuoc_timestamp) {
-
-				blind_iuoc_timestamp  = incoming_sh_blind->timestamp;
-				sh_blind->direction   = incoming_sh_blind->direction;
-				sh_blind->action_mode = incoming_sh_blind->action_mode;
-
-				io_unmap((addr_t) incoming_sh_blind);
-
-				spin_lock(&propagate_lock);
-				sh_blind->need_propagate = true;
-				spin_unlock(&propagate_lock);
-
-				printk("[BLIND ME] Get information and set propagation to true\n");
-			}
-
+			/* Not checking the timestampfor now, define how to do it correctly to match
+			   between SO */
+			blind_iuoc_timestamp  = incoming_sh_blind->timestamp;
+			sh_blind->direction   = incoming_sh_blind->direction;
+			sh_blind->action_mode = incoming_sh_blind->action_mode;
+			
 			printk("[BLIND ME] Leaving IUOC coop with ->  direction - IN=%d OUT=%d, action - IN=%d, OUT=%d", incoming_sh_blind->direction, sh_blind->direction, incoming_sh_blind->action_mode, sh_blind->action_mode);
+
+			io_unmap((addr_t) incoming_sh_blind);
+
+			spin_lock(&propagate_lock);
+			sh_blind->need_propagate = true;
+			spin_unlock(&propagate_lock);
+
+			printk("[BLIND ME] Get information and set propagation to true\n");
+
 			
 		} else {
 			DBG("Shouldn't cooperate... bad ME SPID...\n");

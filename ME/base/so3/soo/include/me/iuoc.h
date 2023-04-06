@@ -41,7 +41,7 @@
  */
 typedef struct {
 	int received_data;
-	sh_blind_t sh_blind;
+	sh_blind_t *sh_blind;
 	
 	/*
 	 * MUST BE the last field, since it contains a field at the end which is used

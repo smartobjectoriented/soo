@@ -42,6 +42,7 @@ static LIST_HEAD(known_soo_list);
 
 /* Reference to the shared content helpful during synergy with other MEs */
 sh_iuoc_t *sh_iuoc;
+sh_blind_t *sh_blind;
 
 struct completion send_data_lock;
 atomic_t shutdown;
@@ -124,6 +125,9 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 	addr_t pfn;
 	agency_ctl_args_t agency_ctl_args;
 
+	sh_blind_t *incoming_sh_blind;
+
+
 	printk("[IUOC] Cooperate callback!\n");
 
 	switch (cooperate_args->role) {
@@ -131,9 +135,10 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 
 		printk("[IUOC] Cooperate initiator called !\n");
 		if(cooperate_args->u.target_coop.spid == BLIND_SPID) {
-			printk("[IUOC] Cooperate with SOO.blind\n");
-			 
-			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) &(sh_iuoc->sh_blind)));
+			printk("[IUOC INIT] Cooperate with SOO.blind\n");
+			printk("[IUOC INIT] blind data : direction=%d, action=%d\n", sh_blind->direction, sh_blind->action_mode);
+			
+			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_blind));
 			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
 
 			/* This pattern enables the cooperation with the target ME */
@@ -142,6 +147,8 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 			
 			/* Perform the cooperate in the target ME */
 			args->__agency_ctl(&agency_ctl_args);
+
+			return;
 		}
 
 		break;
@@ -223,10 +230,11 @@ void callbacks_init(void) {
 
 	/* Allocate the shared page. */
 	sh_iuoc = (sh_iuoc_t *) get_contig_free_vpages(1);
-	sh_iuoc->sh_blind.timestamp = 0;
+	sh_blind = (sh_blind_t *) get_contig_free_vpages(1);
 
 	/* Initialize the shared content page used to exchange information between other MEs */
 	memset(sh_iuoc, 0, PAGE_SIZE);
+	memset(sh_blind, 0, PAGE_SIZE);
 
 	//sh_iuoc->sw_pos = false;
 
