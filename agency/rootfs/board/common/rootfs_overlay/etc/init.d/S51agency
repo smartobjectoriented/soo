@@ -25,6 +25,10 @@ case "$1" in
         echo -n "Starting Agency Core... "
         /root/agency &
         echo "OK"
+
+        echo -n "Starting Mqtt App for IUOC... "
+        /root/mqtt-client &
+        echo "OK"
         
         if [ -r /root/otherapps.sh ]; then
                 echo -n "Staring additional applications..."
