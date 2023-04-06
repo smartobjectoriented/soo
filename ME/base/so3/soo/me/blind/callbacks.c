@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2014-2022 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
  * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@soo.tech>
  * Copyright (C) March 2018 Baptiste Delporte <bonel@bonel.net>
  *
@@ -154,14 +155,19 @@ void cb_pre_suspend(soo_domcall_arg_t *args) {
  */
 void cb_cooperate(soo_domcall_arg_t *args) {
 	cooperate_args_t *cooperate_args = (cooperate_args_t *) &args->u.cooperate_args;
+
 	sh_switch_t *incoming_sh_switch;
 	sh_blind_t *incoming_sh_blind;
+
+	/* Keeping this for now, not used and define a strategy to manage timestamps */
 	static uint64_t blind_timestamp = 0;
 	static uint64_t blind_iuoc_timestamp = 0;
+
 	addr_t pfn;
 	agency_ctl_args_t agency_ctl_args;
 
 	switch (cooperate_args->role) {
+
 	case COOPERATE_INITIATOR:
 		if (cooperate_args->alone) {
 				DBG("We are alone! Continue migration\n");
@@ -173,11 +179,10 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 				spin_unlock(&propagate_lock);
 			}
 
-		printk("[BLIND] Cooperate initiator called !\n");
-
+		DBG("[BLIND] Cooperate initiator called !\n");
 
 		if(cooperate_args->u.target_coop.spid == get_spid()) {
-			printk("[BLIND] Found a SOO.blind, cooperating...\n");
+			DBG("[BLIND] Found a SOO.blind, cooperating...\n");
 
 			agency_ctl_args.u.cooperate_args.pfn = phys_to_pfn(virt_to_phys_pt((addr_t) sh_blind));
 			agency_ctl_args.u.cooperate_args.slotID = ME_domID(); /* Will be copied in initiator_cooperate_args */
@@ -190,29 +195,27 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 			args->__agency_ctl(&agency_ctl_args);
 
 			set_ME_state(ME_state_dormant);
+
 			spin_lock(&propagate_lock);
 			sh_blind->need_propagate = false;
 			spin_unlock(&propagate_lock);
 		}
+
 		break;
-		// spin_lock(&propagate_lock);
 
 	case COOPERATE_TARGET:
-		printk("[BLIND ME] Cooperate: Target %d\n", ME_domID());
+		DBG("[BLIND ME] Cooperate: Target %d\n", ME_domID());
 		pfn = cooperate_args->u.initiator_coop.pfn;
-		printk("[BLIND ME] pfn = %d\n", pfn);
 
 		/** Check if we have been reached by a SOO.blind **/
 		if(cooperate_args->u.initiator_coop.spid == get_spid()) {
-			printk("[BLIND ME] Cooperation coming from another BLIND\n");
+			DBG("[BLIND ME] Cooperation coming from another BLIND\n");
 
 			/* Map the content page of the incoming ME to retrieve its data. */
 			incoming_sh_blind = (sh_blind_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
 
 			/* Not checking the timestampfor now, define how to do it correctly to match
 			   between SO */
-			printk("[BLIND ME] Update data\n");
-
 			blind_timestamp       = incoming_sh_blind->timestamp;
 			sh_blind->direction   = incoming_sh_blind->direction;
 			sh_blind->action_mode = incoming_sh_blind->action_mode;
@@ -220,18 +223,15 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 			sh_blind->blind_event = true;
 			incoming_sh_blind->delivered = true;
 
-			printk("[BLIND ME] Leaving IUOC coop with ->  direction - IN=%d OUT=%d, action - IN=%d, OUT=%d", incoming_sh_blind->direction, sh_blind->direction, incoming_sh_blind->action_mode, sh_blind->action_mode);
-
 			io_unmap((addr_t) incoming_sh_blind);
 
 			if (sh_blind->blind_event) {
 				sh_blind->blind_event = false;
-				printk("[BLIND ME] Send data to use the store\n");
 				complete(&send_data_lock);
 			}
 
 		} else if(cooperate_args->u.initiator_coop.spid == SWITCH_SPID) {
-			printk("[BLIND ME] Cooperation coming from a SWITCH\n");
+			DBG("[BLIND ME] Cooperation coming from a SWITCH\n");
 
 			/* Check if we have been reached by a SOO.switch */
 			/* Map the content page of the incoming ME to retrieve its data. */
@@ -255,7 +255,7 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 			}
 		
 		} else if(cooperate_args->u.initiator_coop.spid == IUOC_SPID) {
-			printk("[BLIND ME] Cooperation coming from IUOC\n");
+			DBG("[BLIND ME] Cooperation coming from IUOC\n");
 
 			/* Check if we have been reached by a SOO.iuoc */
 			incoming_sh_blind = (sh_blind_t *) io_map(pfn_to_phys(pfn), PAGE_SIZE);
@@ -266,16 +266,11 @@ void cb_cooperate(soo_domcall_arg_t *args) {
 			sh_blind->direction   = incoming_sh_blind->direction;
 			sh_blind->action_mode = incoming_sh_blind->action_mode;
 			
-			printk("[BLIND ME] Leaving IUOC coop with ->  direction - IN=%d OUT=%d, action - IN=%d, OUT=%d", incoming_sh_blind->direction, sh_blind->direction, incoming_sh_blind->action_mode, sh_blind->action_mode);
-
 			io_unmap((addr_t) incoming_sh_blind);
 
 			spin_lock(&propagate_lock);
 			sh_blind->need_propagate = true;
 			spin_unlock(&propagate_lock);
-
-			printk("[BLIND ME] Get information and set propagation to true\n");
-
 			
 		} else {
 			DBG("Shouldn't cooperate... bad ME SPID...\n");
@@ -350,7 +345,9 @@ void callbacks_init(void) {
 	sh_blind->blind_event = false;
 	sh_blind->direction = BLIND_DIRECTION_NULL;
 	sh_blind->action_mode = BLIND_ACTION_MODE_NULL;
+
 	sh_blind->timestamp = 0; 
+	
 	sh_blind->need_propagate = false;
 	sh_blind->delivered = false;
 

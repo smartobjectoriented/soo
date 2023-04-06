@@ -132,6 +132,7 @@ void blind_down(blind_t *bl) {
 			if (sh_blind->action_mode == BLIND_STEP) {
 				bl->blind.dps[INC_DEC_STOP].data[0] = VBWA88PG_BLIND_DEC;
 				vbwa88pg_blind_inc_dec_stop(&bl->blind);
+
 			} else if (sh_blind->action_mode == BLIND_FULL) {
 				bl->blind.dps[UP_DOWN].data[0] = VBWA88PG_BLIND_DOWN;
 				vbwa88pg_blind_up_down(&bl->blind);
@@ -156,8 +157,9 @@ void *blind_send_cmd_th(void *args) {
 	DBG(MEBLIND_PREFIX "Started: %s\n", __func__);
 
 	while (atomic_read(&shutdown)) {
+		
 		wait_for_completion(&send_data_lock);
-		printk("[BLIND ME] direction = %d, action = %d\n", sh_blind->direction, sh_blind->action_mode);
+
 		switch(sh_blind->direction) {
 			case BLIND_UP:
 				blind_up(bl);
@@ -170,7 +172,6 @@ void *blind_send_cmd_th(void *args) {
 			default:
 				break;
 		}	
-
 	}
 
 	DBG(MEBLIND_PREFIX "Stopped: %s\n", __func__);
