@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@soo.tech>
- * Copyright (C) March 2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2023 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

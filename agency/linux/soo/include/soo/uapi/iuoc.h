@@ -52,7 +52,6 @@ typedef struct {
 
 #define UIOC_IOCTL_SEND_DATA _IOW('a', 'a', iuoc_data_t *)
 #define UIOC_IOCTL_RECV_DATA _IOR('a', 'b', iuoc_data_t *)
-#define UIOC_IOCTL_TEST      _IOW('a', 'c', iuoc_data_t *)
 
 /**
  * @brief Add a new data received from the FE to a queue to be sure no data is lost

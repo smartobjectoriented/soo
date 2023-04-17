@@ -46,7 +46,7 @@ irqreturn_t viuoc_interrupt_bh(int irq, void *dev_id) {
 	vdevback_processing_begin(vdev);
 
 	while ((ring_req = viuoc_get_ring_request(&viuoc_priv->viuoc.ring)) != NULL) {
-		printk("[IUOC back] IRQ received element from RING\n");
+		DBG("[IUOC back] IRQ received element from RING\n");
 		add_iuoc_element_to_queue(ring_req->me_data);
 	}
 		
@@ -56,7 +56,6 @@ irqreturn_t viuoc_interrupt_bh(int irq, void *dev_id) {
 }
 
 irqreturn_t viuoc_interrupt(int irq, void *dev_id) {
-	printk("[IUOC back] STRANGE INTERRUPT ?\n");
 	return IRQ_WAKE_THREAD;
 }
 
@@ -72,7 +71,7 @@ void viuoc_send_data_to_fe(iuoc_data_t iuoc_data) {
 
 	res->me_data = iuoc_data;
 
-	printk("[IUOC back] Sending data to FE\n");
+	DBG("[IUOC back] Sending data to FE\n");
 
 	list_for_each_entry(domid_priv, domid_list, list) {
 		//DBG(VIUOC_PREFIX "Sending data to frontend: %d\n", domid_priv->id);
@@ -89,7 +88,7 @@ void viuoc_send_data_to_fe(iuoc_data_t iuoc_data) {
 		vdevback_processing_end(vdev);
 	}
 
-	printk("[IUOC back] Data sent to FE\n");
+	DBG("[IUOC back] Data sent to FE\n");
 }
 
 void viuoc_probe(struct vbus_device *vdev) {
@@ -195,7 +194,7 @@ vdrvback_t viuocdrv = {
 int viuoc_init(void) {
 	struct device_node *np;
 
-    printk(VIUOC_PREFIX "Starting\n");
+    DBG(VIUOC_PREFIX "Starting\n");
 
 	np = of_find_compatible_node(NULL, NULL, "viuoc,backend");
 
@@ -215,7 +214,7 @@ int viuoc_init(void) {
 
 	vdevback_init(VIUOC_NAME, &viuocdrv);
 
-    printk(VIUOC_PREFIX "Initialized\n");
+    DBG(VIUOC_PREFIX "Initialized\n");
 	
     return 0;
 }

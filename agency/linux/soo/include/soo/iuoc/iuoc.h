@@ -19,7 +19,7 @@
 #ifndef IUOC_H
 #define IUOC_H
 
-// TODO : Specific include for iuoc
+/* TODO : Specific include for iuoc */
 #define NAME "soo/iuoc"
 
 

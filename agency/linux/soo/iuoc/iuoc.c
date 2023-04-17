@@ -57,19 +57,11 @@ static LIST_HEAD(iuoc_me_data_head);
 
 iuoc_data_t *me_received;
 
-static struct task_struct *debug_thread;
-int debug_count = 0;
-iuoc_data_t data_debug;
-field_data_t field_debug;
-
-static void forward_data(iuoc_data_t iuoc_data);
-
 /**
  * @brief This function is called, when the device file is opened
  */
 static int iuoc_open(struct inode *device_file, struct file *instance) 
 {
-	printk("close /dev/soo/iuoc\n");
 	return 0;
 } 
 
@@ -78,36 +70,9 @@ static int iuoc_open(struct inode *device_file, struct file *instance)
  */
 static int iuoc_close(struct inode *device_file, struct file *instance) 
 {
-	printk("open /dev/soo/iuoc\n");
 	return 0;
 }
 
-static int debug_thread_fn(void *data) 
-{
-	while (1) {
-	    usleep_range(3000000, 3000001);
-
-		data_debug.me_type = IUOC_ME_BLIND;
-		data_debug.timestamp = 20 * debug_count;
-
-		strcpy(field_debug.name, "action");  
-		strcpy(field_debug.type, "int");  
-
-		field_debug.value = 3;
-		data_debug.data_array[0] = field_debug;
-		data_debug.data_array_size = 1;
-
-		add_iuoc_element_to_queue(data_debug);
-
-		debug_count++;
-
-		complete(&data_wait_lock);
-
-		printk("GOWAIT\n");
-	}
-	
-	return 0;
-}
 
 void add_iuoc_element_to_queue(iuoc_data_t data)
 {
@@ -117,8 +82,6 @@ void add_iuoc_element_to_queue(iuoc_data_t data)
 
 	list_add_tail(&entry->list, &iuoc_me_data_head);
 
-	printk("[IUOC driver] New data put in queue, timestamp=%d\n", data.timestamp);
-
 	complete(&data_wait_lock);
 }
 
@@ -127,27 +90,25 @@ void add_iuoc_element_to_queue(iuoc_data_t data)
 static long int iuoc_ioctl(struct file *file, unsigned cmd, unsigned long arg) 
 { 
 	iuoc_data_t iuoc_data;
-	field_data_t field_data;
     struct iuoc_me_data_list *tmp;
-	printk("[IUOC driver] Entering in iuoc_ioctl\n");
+
 	switch(cmd) {
+	/* Data coming from the user space, forward it to ME */
 	case UIOC_IOCTL_SEND_DATA:
+
 		if(copy_from_user(&iuoc_data, (iuoc_data_t *) arg, sizeof(iuoc_data))) {
 			printk("[IUOC driver] Driver IOCTL_SEND_DATA forwarding to FE!\n");
 		}
-		//forward_data(iuoc_data);
-		viuoc_send_data_to_fe(iuoc_data);
 
+		viuoc_send_data_to_fe(iuoc_data);
 		break;
 
+	/* Data coming from the ME, forwarding it to the user space */
 	case UIOC_IOCTL_RECV_DATA:
-		printk("[IUOC driver] Receive data before wait\n");
 
 		wait_for_completion(&data_wait_lock);
 
 		tmp = list_first_entry(&iuoc_me_data_head, struct iuoc_me_data_list, list);
-
-		printk("[IUOC driver] Data in me : timestamp = %d, data = %s \n",  tmp->me_data.timestamp, tmp->me_data.data_array[0].name);
 
 		if(copy_to_user((iuoc_data_t *) arg, &(tmp->me_data), sizeof(iuoc_data))) 
 			printk("ioctl_example - Error copying data to user!\n");
@@ -156,13 +117,10 @@ static long int iuoc_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 
 		 break;
 
-	case UIOC_IOCTL_TEST:
-		if(copy_from_user(&iuoc_data, (iuoc_data_t *) arg, sizeof(iuoc_data))) 
-			printk("ioctl_example - Error copying data from user!\n");
-		else
-			printk("Greetings from kernel !\n");
-		break;
+	default: break;
+	
 	}
+
 	return 0;
 }
 
@@ -225,16 +183,7 @@ static int iuoc_init(void)
 	return 0;
 }
 
-void forward_data(iuoc_data_t iuoc_data) 
-{
-	int i;
-	printk("[IUOC] Data sent IUOC_ME_SWITCH -> SOO : me_type=%d, timestamp=%d, nb_data=%d \ndatas:", 
-			iuoc_data.me_type, iuoc_data.timestamp, iuoc_data.data_array_size);
-	for (i = 0; i < iuoc_data.data_array_size; i++) {
-		printk("data nb %d : name=%s, type=%s, value=%d\n", i, iuoc_data.data_array[i].name,
-						iuoc_data.data_array[i].type, iuoc_data.data_array[i].value);
-	}		
-}
+
 
 
 late_initcall(iuoc_init);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2022 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
+ * Copyright (C) 2023 A.Gabriel Catel Torres <arzur.cateltorres@heig-vd.ch>
  * Copyright (C) 2014-2022 Daniel Rossier <daniel.rossier@soo.tech>
  * Copyright (C) March 2018 Baptiste Delporte <bonel@bonel.net>
  *
