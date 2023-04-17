@@ -181,6 +181,7 @@ void agency_ctl(agency_ctl_args_t *args)
 		domcall_args.u.cooperate_args.u.initiator_coop.spid = domains[args->u.cooperate_args.slotID]->avz_shared->dom_desc.u.ME.spid;
 		// domcall_args.u.cooperate_args.u.initiator_coop.spid = domains[args->u.cooperate_args.slotID]->avz_shared->dom_desc.u.ME.spid;
 
+
 		domcall_args.u.cooperate_args.role = COOPERATE_TARGET;
 		target_dom = domains[args->slotID];
 

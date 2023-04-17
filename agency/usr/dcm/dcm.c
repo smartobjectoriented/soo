@@ -99,7 +99,7 @@ void ME_processing_receive(void) {
 		slotID = get_ME_free_slot(dcm_buffer.ME_size);
 		if (slotID > 0) {
 
-			printf("Agency/usr/core/migration/receive.c: ** Receiving a ME -> now in slot %d\n", slotID);
+			printf("(dcm) ** Receiving a ME -> now in slot %d\n", slotID);
 
 			/* Tell AVZ to create a new domain context including the ME descriptor,
 			 * and to prepare the ME to be implemented.

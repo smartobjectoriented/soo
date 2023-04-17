@@ -22,7 +22,7 @@ launch_qemu() {
 
     if [ "$PLATFORM" == "virt64" ]; then
 
-    sudo qemu/build/aarch64-softmmu/qemu-system-aarch64 $@ ${USR_OPTION} \
+    sudo qemu-system-aarch64 $@ ${USR_OPTION} \
   	-smp 4 \
 	-serial mon:stdio  \
 	-M virt,gic-version=2 -cpu cortex-a72  \
@@ -37,7 +37,7 @@ launch_qemu() {
 
     else    
 
-    sudo arm-softmmu/qemu-system-arm $@ ${USR_OPTION} \
+    sudo qemu-system-arm $@ ${USR_OPTION} \
   	-smp 4 \
 	-serial mon:stdio  \
 	-M vexpress-a15,secure=on -cpu cortex-a15 \
