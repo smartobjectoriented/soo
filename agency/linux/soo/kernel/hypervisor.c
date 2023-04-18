@@ -56,7 +56,7 @@ void avz_get_shared(void) {
 
 	avz_hypercall(__HYPERVISOR_domctl, virt_to_phys(op), 0, 0, 0);
 
-	avz_shared = (volatile avz_shared_t *) paging_remap(op->avz_shared_paddr, PAGE_SIZE);
+	avz_shared = (volatile avz_shared_t *) paging_remap(op->u.avz_shared_paddr, PAGE_SIZE);
 	BUG_ON(!avz_shared);
 
 	avz_shared->subdomain_shared = (avz_shared_t *) paging_remap(avz_shared->subdomain_shared_paddr, PAGE_SIZE);
@@ -97,17 +97,5 @@ void avz_send_IPI(int ipinr, long cpu_mask) {
 
 	hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_send_ipi, (long) &send_ipi_args, 0, 0);
 }
-
-#if 0
-/**
- * Get a new (unbound) event channel.
- * @return event channel
- */
-uint32_t avz_new_evtchn(void) {
-
-	return hypercall_trampoline(__HYPERVISOR_event_channel_op. EVTCHNOP_alloc_unbound, 0, 0, 0)
-
-}
-#endif
 
 

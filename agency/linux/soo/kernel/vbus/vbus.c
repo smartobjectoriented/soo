@@ -780,7 +780,8 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	case DC_FORCE_TERMINATE:
 	case DC_POST_ACTIVATE:
 	case DC_TRIGGER_DEV_PROBE:
-
+	case DC_TRIGGER_LOCAL_COOPERATION:
+	
 		/* FALLTHROUGH */
 
 		/* Check if it is the response to a dc_event. Can be done immediately in the top half. */
@@ -809,7 +810,7 @@ static int __init vbus_init(void)
 	int res = 0;
 	int i;
 	int evtchn;
-	struct evtchn_alloc_unbound alloc_unbound;
+	struct evtchn_alloc_unbound *alloc_unbound;
 	unsigned int *p_domID;
 	char buf[20];
 	struct vbus_transaction vbt;
@@ -826,6 +827,9 @@ static int __init vbus_init(void)
 	/* Now setting up the VBstore */
 	vbstore_init();
 
+	alloc_unbound = kmalloc(sizeof(struct evtchn_alloc_unbound), GFP_KERNEL);
+	BUG_ON(!alloc_unbound);
+
 	/*
 	 * Set up the directcomm communication channel that
 	 * is used between the different domains, mainly between the agency and MEs,
@@ -833,13 +837,16 @@ static int __init vbus_init(void)
 	 */
 
 	for (i = 1; i < MAX_DOMAINS; i++) {
+
 		/* Get a free event channel */
-		alloc_unbound.dom = DOMID_SELF;
-		alloc_unbound.remote_dom = i;
+		alloc_unbound->dom = DOMID_SELF;
+		alloc_unbound->remote_dom = i;
 
-		hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
+		__flush_dcache_area((void *) alloc_unbound, sizeof(struct evtchn_alloc_unbound));
+		avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, virt_to_phys(alloc_unbound), 0, 0);
+		__inval_dcache_area((void *) alloc_unbound, sizeof(struct evtchn_alloc_unbound));
 
-		dc_evtchn[i] = alloc_unbound.evtchn;
+		dc_evtchn[i] = alloc_unbound->evtchn;
 
 		/* Keep a valid reference to the domID */
 		p_domID = kmalloc(sizeof(int), GFP_KERNEL);
@@ -867,6 +874,8 @@ static int __init vbus_init(void)
 
 		DBG("%s: direct communication set up between Agency and ME %d with event channel: %d irq: %d\n", __func__, i, dc_evtchn[i], evtchn);
 	}
+
+	kfree(alloc_unbound);
 
 	DBG("vbus_init OK!\n");
 

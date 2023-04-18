@@ -22,6 +22,7 @@
 
 #include <soo/ring.h>
 #include <soo/grant_table.h>
+#include <soo/vdevfront.h>
 
 #include <ioctl.h>
 
@@ -45,16 +46,15 @@ typedef struct {
 	uint32_t	cmd;
 	uint32_t	arg;
 	bool		response_needed;
-} vdoga12v6nm_cmd_request_t;
+} vdoga12v6nm_request_t;
 
 typedef struct  {
 	uint32_t	cmd;
 	uint32_t	arg;
 	uint32_t	ret;
-} vdoga12v6nm_cmd_response_t;
+} vdoga12v6nm_response_t;
 
-DEFINE_RING_TYPES(vdoga12v6nm_cmd, vdoga12v6nm_cmd_request_t, vdoga12v6nm_cmd_response_t);
-
+DEFINE_RING_TYPES(vdoga12v6nm, vdoga12v6nm_request_t, vdoga12v6nm_response_t);
 
 typedef void(*vdoga_interrupt_t)(void);
 
@@ -66,30 +66,27 @@ void vdoga12v6nm_set_rotation_direction(uint8_t direction);
 void vdoga12v6nm_register_interrupts(vdoga_interrupt_t up, vdoga_interrupt_t down);
 
 typedef struct {
-    vdevfront_t vdevfront;
+	/* Must be the first field */
+	vdevfront_t vdevfront;
 
-	vdoga12v6nm_cmd_front_ring_t cmd_ring;
+	vdoga12v6nm_front_ring_t cmd_ring;
+
 	grant_ref_t	cmd_ring_ref;
 	grant_handle_t	cmd_handle;
+
 	uint32_t	cmd_evtchn;
-
 	uint32_t	cmd_irq;
-	uint32_t	up_irq;
-	uint32_t	down_irq;
 
-	mutex_t processing_lock;
-	uint32_t processing_count;
-	struct mutex processing_count_lock;
+	uint32_t	up_evtchn;
+	uint32_t	up_irq;
+
+	uint32_t	down_evtchn;
+	uint32_t	down_irq;
 
 	volatile bool connected;
 	struct completion connected_sync;
 
 } vdoga12v6nm_t;
-
-static inline vdoga12v6nm_t *to_vdoga12v6nm(struct vbus_device *vdev) {
-	vdevfront_t *vdevback = dev_get_drvdata(vdev->dev);
-	return container_of(vdevback, vdoga12v6nm_t, vdevfront);
-}
 
 /* ISRs associated to the ring and notifications */
 irq_return_t vdoga12v6nm_cmd_interrupt(int irq, void *dev_id);
@@ -102,6 +99,5 @@ irq_return_t vdoga12v6nm_down_interrupt(int irq, void *dev_id);
  */
 void up_interrupt(void);
 void down_interrupt(void);
-
 
 #endif /* VDOGA12V6NM_H */

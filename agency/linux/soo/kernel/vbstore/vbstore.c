@@ -43,9 +43,7 @@
 #include <linux/ipipe_base.h>
 
 #include <asm/ipipe_base.h>
-
 #include <asm/memory.h>
-
 #include <asm/cacheflush.h>
 
 #include <soo/vbus.h>
@@ -471,15 +469,15 @@ void vbstore_init(void) {
 		alloc_unbound->remote_dom = i;
 
 		__flush_dcache_area((void *) alloc_unbound, sizeof(struct evtchn_alloc_unbound));
-
 		avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, virt_to_phys(alloc_unbound), 0, 0);
-
 		__inval_dcache_area((void *) alloc_unbound, sizeof(struct evtchn_alloc_unbound));
 
 		/* Store the allocated unbound evtchn.*/
 		DBG("%s: allocating unbound evtchn %d for vbstore shared page on domain: %d (intf = %p)...\n", __func__, alloc_unbound->evtchn, i, vbstore_intf[i]);
 		vbstore_intf[i]->revtchn = alloc_unbound->evtchn;
 	}
+
+	kfree(alloc_unbound);
 
 	/* Now, initialize the basic vbstore virtual database */
 	vbstorage_agency_init();

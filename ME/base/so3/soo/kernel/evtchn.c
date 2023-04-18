@@ -27,6 +27,8 @@
 
 #include <device/irq.h>
 
+#include <avz/uapi/avz.h>
+
 #include <soo/hypervisor.h>
 #include <soo/evtchn.h>
 #include <soo/physdev.h>
@@ -67,7 +69,7 @@ void dump_evtchn_pending(void) {
 
 	printk("   Evtchn info in Agency/ME domain %d\n\n", ME_domID());
 	for (i = 0; i < NR_EVTCHN; i++)
-		printk("e:%d m:%d p:%d  ", i, evtchn_info.evtchn_mask[i], AVZ_shared->evtchn_pending[i]);
+		printk("e:%d m:%d p:%d  ", i, evtchn_info.evtchn_mask[i], avz_shared->evtchn_pending[i]);
 
 	printk("\n\n");
 }
@@ -115,12 +117,12 @@ void evtchn_do_upcall(cpu_regs_t *regs)
 
 retry:
 
-	l1 = xchg(&AVZ_shared->evtchn_upcall_pending, 0);
+	l1 = xchg(&avz_shared->evtchn_upcall_pending, 0);
 	BUG_ON(l1 == 0);
 
 	while (true) {
 		for (evtchn = 0; evtchn < NR_EVTCHN; evtchn++)
-			if ((AVZ_shared->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
+			if ((avz_shared->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
 				break;
 
 		/* Found an evtchn? */
@@ -150,7 +152,7 @@ retry:
 
 	};
 
-	if (AVZ_shared->evtchn_upcall_pending)
+	if (avz_shared->evtchn_upcall_pending)
 		goto retry;
 
 	in_upcall_progress = false;

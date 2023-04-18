@@ -15,6 +15,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#include <generated/autoconf.h>
+
+#include <common.h>
 
 #include <linkage.h>
 
@@ -27,6 +30,7 @@
 
 .global __start
 .global __fdt_addr
+.global __mmu_setup
 
 .extern clear_bss
 .extern mmu_configure
@@ -62,7 +66,6 @@ __start:
 	str 	x9, [x8]
 
 #ifndef CONFIG_SO3VIRT
-
 	// Mostly for future usage...
 	bl		el2_setup			// Drop to EL1, w0=cpu_boot_mode
 
@@ -82,44 +85,52 @@ __start:
 
 	// Initialize the vector table
 	ldr	x0, =__vectors
+
+#ifdef CONFIG_ARM64VT
+	msr vbar_el2, x0
+#else
 	msr vbar_el1, x0
+#endif /* !CONFIG_ARM64VT */
 
 	// Enable FP/ASIMD
 	mov	x0, #3 << 20
 	msr	cpacr_el1, x0
 
-    // Up to here, a stack should be initialized
-
-	// Some CPU setup
-	msr pmuserenr_el0, xzr
-
 #endif /* !CONFIG_SO3VIRT */
+
+    // Up to here, a stack should be initialized
 
 #ifdef CONFIG_SO3VIRT
 
-  ldr	x10, =AVZ_shared
-  str 	x22, [x10]
+  	ldr	x10, =avz_shared
+  	str x22, [x10]
+
+	bl	avz_setup
 
 #endif /* CONFIG_SO3VIRT */
 
-	// Set up the MMU
-    b		mmu_setup
+    // Set up the MMU
+    b setup_mmu
 
 __kernel_main:
 
 	// Store the device tree paddr
-	adr     x8, .LCfdt_addr_temp
-	ldr 	x9, [x8]
+	adr x8, .LCfdt_addr_temp
+	ldr x9, [x8]
 
-	ldr		x0, =__fdt_addr
-	str		x9, [x0]
-
-#ifdef CONFIG_SO3VIRT
-	bl	avz_setup
-#endif /* CONFIG_SO3VIRT */
+	ldr	x0, =__fdt_addr
+	str	x9, [x0]
 
 	// C main entry point
-	b 		kernel_start
+#ifdef CONFIG_AVZ
+	b 	avz_start
+#else
+	b 	kernel_start
+#endif
+
+	nop
+	nop
+	nop
 
 	// never returns...
 
@@ -128,25 +139,127 @@ __kernel_main:
 
 .align 2
 
-mmu_setup:
+#ifdef CONFIG_ARM64VT
+__mmu_setup:
+		// The code to configure tcr_el2
+		// is borrowed from jailhouse hypervisor
+	
+		mrs		x1, tcr_el2
+	
+		/*
+		 * set TCR.(I)PS to the highest supported ID_AA64MMFR0_EL1.PARange value
+		 */
 
-  // Use a temporary stack
-  adrp	x0, temp_stack
-  mov	sp, x0
+		mrs     x2, id_aa64mmfr0_el1
 
-  bl 	mmu_configure
+		/* Narrow PARange to fit the PS field in TCR_ELx */
+		ubfx    x2, x2, #ID_AA64MMFR0_PARANGE_SHIFT, #3
+		bfi     x1, x2, #TCR_PS_SHIFT, #3
 
-  // Readjust the stack
-  ldr	x0, =__stack_top
-  mov	sp, x0
+		msr		tcr_el2, x1
 
-  // Keep executing in the kernel space
+		/*
+		 * The state of the TLBs is unknown before turning on the MMU.
+		 * Flush them to avoid stale one.
+		 */
+		tlbi  alle2                  /* Flush hypervisor TLBs */
+		dsb   nsh
 
-  // Store the virtual address which will be used to continue
-  // the execution after the MMU enabled.
-  ldr	x0, .LCvirt_entry
+		msr   ttbr0_el2, x0
+		isb
 
-  blr	x0
+		ldr	x0, =(SCTLR_I_BIT | SCTLR_C_BIT | SCTLR_M_BIT | SCTLR_EL2_RES1)
+
+		dsb   sy                     /* Flush PTE writes and finish reads */
+		msr   sctlr_el2, x0          /* now paging is enabled */
+		isb                          /* Now, flush the icache */
+
+		ret
+
+setup_mmu:
+		// Use a temporary stack
+		adrp	x0, temp_stack
+		mov		sp, x0
+
+		mov		x0, x9 // fdt addr
+
+		bl 		mmu_configure
+
+		// Readjust the stack
+		ldr		x0, =__stack_top
+		mov		sp, x0
+
+		// Keep executing in the kernel space
+
+		// Store the virtual address which will be used to continue
+		// the execution after the MMU enabled.
+		ldr		x0, .LCvirt_entry
+
+		blr		x0
+
+el2_setup:
+
+		/* Populate ID registers. */
+		mrs	x0, midr_el1
+		mrs	x1, mpidr_el1
+		msr	vpidr_el2, x0
+		msr	vmpidr_el2, x1
+
+		msr	sctlr_el1, xzr
+
+		/* Hyp configuration. */
+	    and x1, x1, #3
+
+#ifdef CONFIG_SOO
+		cmp x1, #AGENCY_RT_CPU
+		bgt ME
+#endif /* CONFIG_SOO */
+
+agency:
+	ldr x0, =HCR_AGENCY_FLAGS
+	b	99f
+ME:
+	ldr x0, =HCR_ME_FLAGS
+99:
+
+	msr	hcr_el2, x0
+	isb
+
+	msr	cntvoff_el2, xzr		// Clear virtual offset
+
+    /*
+     * Ensure that any exceptions encountered at EL2
+     * are handled using the EL2 stack pointer, rather
+     * than SP_EL0.
+    */
+    msr spsel, #1
+
+	ret
+
+#else /* CONFIG_ARM64VT */
+
+setup_mmu:
+
+	// Use a temporary stack
+  	adrp x0, temp_stack
+  	mov	sp, x0
+
+#ifndef CONFIG_SO3VIRT
+  	bl 	mmu_configure
+#endif
+
+  	// Readjust the stack
+  	ldr	x0, =__stack_top
+
+  	mov	sp, x0
+
+  	// Keep executing in the kernel space
+
+  	// Store the virtual address which will be used to continue
+  	// the execution after the MMU enabled.
+  	ldr	x0, .LCvirt_entry
+
+  	blr	x0
 
 /*
  * If we're fortunate enough to boot at EL2, ensure that the world is
@@ -311,6 +424,89 @@ install_el2_stub:
 
 	eret
 
+	nop
+	nop
+	nop
+
+#endif /* !CONFIG_ARM64VT */
+
+#ifdef CONFIG_SMP
+
+ENTRY(secondary_startup)
+	/*
+     * Common entry point for secondary CPUs.
+     */
+
+	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
+
+	// Initialize the vector table
+#ifndef CONFIG_SO3VIRT
+
+	// Initialize the vector table
+	ldr	x0, =__vectors
+
+#ifdef CONFIG_ARM64VT
+	msr vbar_el2, x0
+#else
+	msr vbar_el1, x0
+#endif /* !CONFIG_ARM64VT */
+
+#endif /* !CONFIG_SO3VIRT */
+
+	// Enable FP/ASIMD
+	mov	x0, #3 << 20
+	msr	cpacr_el1, x0
+
+    // Up to here, a stack should be initialized
+    adr 	x4, __secondary_data
+
+	ldr		x5, [x4]
+	ldr		x19, [x4, #8]
+
+	// Nice trick to retrieve secondary_data field values (pgdir, stack)
+	// x5 is a virtual addresses at same location than x4 containing the physical location.
+	// So x10 will contain the offset
+	sub		x10, x4, x5
+
+	// Get secondary_data.pgdir (x19 is virtual, x0 is physical)
+	ldr		x0, [x10, x19]
+
+	// Get the stack pointer (virt. address)
+	add		x19, x19, #8
+	ldr		x8, [x10, x19]
+	mov		sp, x8
+
+	// Convert to physical address
+	add		sp, sp, x10
+
+	bl		mmu_configure
+
+	ldr		x8, [x19]
+	mov		sp, x8
+
+  	// Keep executing in the kernel space
+
+  	// Store the virtual address which will be used to continue
+    // execution after the MMU enabled.
+  	ldr		x19, .LC_virt_secondary_entry
+
+  	blr		x19
+
+	nop
+	nop
+	nop
+
+    .type   __secondary_data, %object
+
+__secondary_data:
+    .quad   .
+    .quad   secondary_data
+
+.LC_virt_secondary_entry:
+  .quad secondary_start_kernel
+
+#endif /* CONFIG_SMP */
+
 .ltorg
 
 __fdt_addr:
@@ -325,3 +521,4 @@ temp_stack:
 
 .LCvirt_entry:
   .quad __kernel_main
+

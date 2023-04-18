@@ -87,10 +87,14 @@ void do_sync_dom(int domID, dc_event_t dc_event)
 
 	set_dc_event(domID, dc_event);
 
+	DBG("%s: notifying via evtchn %d...\n", __func__, dc_evtchn);
 	notify_remote_via_evtchn(dc_evtchn);
 
 	/* Wait for the response from the outgoing domain */
+	DBG("%s: waiting for completion on dc_event %d...\n", __func__, dc_event);
 	wait_for_completion(&dc_stable_lock[dc_event]);
+
+	DBG("%s: all right, got the completion, resetting the barrier.\n", __func__);
 
 	/* Now, reset the barrier. */
 	atomic_set(&dc_outgoing_domID[dc_event], -1);
@@ -124,7 +128,7 @@ void tell_dc_stable(int dc_event)  {
  * Prepare a remote ME to react to a ping event.
  * @domID: the target ME
  */
-void set_dc_event(unsigned int domID, dc_event_t dc_event)
+void set_dc_event(domid_t domID, dc_event_t dc_event)
 {
 	soo_hyp_dc_event_t dc_event_args;
 
@@ -183,7 +187,7 @@ long get_pfn_offset(void)
  */
 int get_ME_state(void)
 {
-	return AVZ_shared->dom_desc.u.ME.state;
+	return avz_shared->dom_desc.u.ME.state;
 }
 
 void set_ME_state(ME_state_t state)
@@ -191,16 +195,15 @@ void set_ME_state(ME_state_t state)
 	/* Be careful if the ME is in living state and suddently is set to killed.
 	 * Backends will be in a weird state.
 	 */
-	if ((state == ME_state_killed) && (AVZ_shared->dom_desc.u.ME.state == ME_state_living))
+	if ((state == ME_state_killed) && (avz_shared->dom_desc.u.ME.state == ME_state_living))
 		lprintk("## WARNING ! ME %d is set to killed while living!\n", ME_domID());
 
-	AVZ_shared->dom_desc.u.ME.state = state;
+	avz_shared->dom_desc.u.ME.state = state;
 }
 
 void perform_task(dc_event_t dc_event)
 {
 	soo_domcall_arg_t args;
-	int rc;
 
 	switch (dc_event) {
 
@@ -208,7 +211,7 @@ void perform_task(dc_event_t dc_event)
 		/* The ME will initiate the force_terminate processing on its own. */
 
 		DBG("perform a CB_FORCE_TERMINATE on this ME %d\n", ME_domID());
-		rc = cb_force_terminate();
+		cb_force_terminate();
 
 		if (get_ME_state() == ME_state_terminated) {
 
@@ -274,7 +277,7 @@ void perform_task(dc_event_t dc_event)
 		break;
 
 	default:
-		lprintk("Wrong DC event %d\n", AVZ_shared->dc_event);
+		lprintk("Wrong DC event %d\n", avz_shared->dc_event);
 	}
 
 	tell_dc_stable(dc_event);
@@ -285,23 +288,22 @@ void perform_task(dc_event_t dc_event)
  * do_soo_activity() may be called from the hypervisor as a DOMCALL, but not necessary.
  * The function may also be called as a deferred work during the ME kernel execution.
  */
-int do_soo_activity(void *arg)
+void do_soo_activity(void *arg)
 {
-	int rc = 0;
 	soo_domcall_arg_t *args = (soo_domcall_arg_t *) arg;
-
+	
 	switch (args->cmd) {
 
 	case CB_PRE_SUSPEND: /* Called by perform_pre_suspend */
 		DBG("Pre-suspend callback for ME %d\n", ME_domID());
 
-		rc = cb_pre_suspend(arg);
+		cb_pre_suspend(arg);
 		break;
 
 	case CB_PRE_RESUME: /* Called from vbus/vbs.c */
 		DBG("Pre-resume callback for ME %d\n", ME_domID());
 
-		rc = cb_pre_resume(arg);
+		cb_pre_resume(arg);
 		break;
 
 	case CB_PRE_ACTIVATE: /* DOMCALL */
@@ -309,18 +311,18 @@ int do_soo_activity(void *arg)
 		/* Allow to pass local information of this SOO to this ME
 		 * and to decide what to do next...
 		 */
-		rc = cb_pre_activate(arg);
+		cb_pre_activate(arg);
 		break;
 
 	case CB_PRE_PROPAGATE: /* DOMCALL */
 
-		rc = cb_pre_propagate(arg);
+		cb_pre_propagate(arg);
 		break;
 
 	case CB_KILL_ME: /* Kill domcall */
 
 		/* If the ME agrees to be killed (immediately being shutdown, it has to change its state to killed) */
-		rc = cb_kill_me(arg);
+		cb_kill_me(arg);
 		break;
 
 	case CB_COOPERATE: /* Both DOMCALL and called by perform_cooperate() */
@@ -330,14 +332,14 @@ int do_soo_activity(void *arg)
 		 * and make further actions
 		 */
 
-		rc = cb_cooperate(arg);
+		cb_cooperate(arg);
 		break;
 
 	case CB_POST_ACTIVATE: /* Called by perform_post_activate() */
 
 		DBG("Post_activate callback for ME %d\n", ME_domID());
 
-		rc = cb_post_activate(args);
+		cb_post_activate(args);
 		break;
 
 	case CB_DUMP_BACKTRACE: /* DOMCALL */
@@ -346,7 +348,6 @@ int do_soo_activity(void *arg)
 		break;
 	}
 
-	return rc;
 }
 
 /*
@@ -362,12 +363,12 @@ void agency_ctl(agency_ctl_args_t *agency_ctl_args)
 
 ME_desc_t *get_ME_desc(void)
 {
-	return (ME_desc_t *) &AVZ_shared->dom_desc.u.ME;
+	return (ME_desc_t *) &avz_shared->dom_desc.u.ME;
 }
 
 agency_desc_t *get_agency_desc(void)
 {
-	return (agency_desc_t *) &AVZ_shared->dom_desc.u.agency;
+	return (agency_desc_t *) &avz_shared->dom_desc.u.agency;
 }
 
 void soo_guest_activity_init(void)

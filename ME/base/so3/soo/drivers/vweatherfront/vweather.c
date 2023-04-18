@@ -17,6 +17,9 @@
  *
  */
 
+/*
+ * UPDATE 27 MARCH 2023 : This FE/BE must be re-architectured with a ring and the new model */
+ */
 #if 0
 #define DEBUG
 #endif
@@ -36,7 +39,6 @@
 #include <soo/grant_table.h>
 #include <soo/vbstore.h>
 
-
 #include <asm/mmu.h>
 #include <memory.h>
 
@@ -45,7 +47,6 @@
 typedef struct {
 	vweather_t vweather;
 } vweather_priv_t;
-
 
 static struct vbus_device *vweather_dev = NULL;
 
@@ -71,6 +72,7 @@ irq_return_t vweather_update_interrupt(int irq, void *dev_id) {
  */
 static int alloc_shared_buffer(struct vbus_device *dev) {
 	vweather_t *vweather = to_vweather(dev);
+
 	int nr_pages = DIV_ROUND_UP(VWEATHER_DATA_SIZE, PAGE_SIZE);
 
 	/* Weather data shared buffer */
@@ -84,43 +86,6 @@ static int alloc_shared_buffer(struct vbus_device *dev) {
 	vweather->weather_pfn = phys_to_pfn(virt_to_phys_pt((uint32_t) vweather->weather_data));
 
 	DBG(VWEATHER_PREFIX "Frontend: data pfn=%x\n", vweather->weather_pfn);
-
-	return 0;
-}
-
-/**
- * Apply the pfn offset to the pages devoted to the shared buffer.
- */
-static int readjust_shared_buffer(struct vbus_device *dev) {
-	vweather_t *vweather = to_vweather(dev);
-	DBG(VWEATHER_PREFIX "Frontend: pfn offset=%d\n", get_pfn_offset());
-
-	/* Weather data shared buffer */
-
-	if ((vweather->weather_data) && (vweather->weather_pfn)) {
-		vweather->weather_pfn += get_pfn_offset();
-		DBG(VWEATHER_PREFIX "Frontend: data pfn=%x\n", vweather->weather_pfn);
-	}
-
-	return 0;
-}
-
-/**
- * Store the pfn of the shared buffer.
- */
-static int setup_shared_buffer(struct vbus_device *dev) {
-	vweather_t *vweather = to_vweather(dev);
-	struct vbus_transaction vbt;
-
-	/* Data shared buffer */
-
-	if ((vweather->weather_data) && (vweather->weather_pfn)) {
-		DBG(VWEATHER_PREFIX "Frontend: data pfn=%x\n", vweather->weather_pfn);
-
-		vbus_transaction_start(&vbt);
-		vbus_printf(vbt, vweather->dev->nodename, "data-pfn", "%u", vweather->weather_pfn);
-		vbus_transaction_end(vbt);
-	}
 
 	return 0;
 }
@@ -156,21 +121,6 @@ static int setup_notification(struct vbus_device *dev) {
 	return 0;
 }
 
-/**
- * Free the shared buffer and deallocate the proper data.
- */
-static void free_shared_buffer(struct vbus_device *dev) {
-	vweather_t *vweather = to_vweather(dev);
-	/* Weather data shared buffer */
-
-	if ((vweather->weather_data) && (vweather->weather_pfn)) {
-		free_vpage((uint32_t) vweather->weather_data);
-
-		vweather->weather_data = NULL;
-		vweather->weather_pfn = 0;
-	}
-}
-
 void vweather_probe(struct vbus_device *vdev) {
 	DBG0(VWEATHER_PREFIX "Frontend probe\n");
 
@@ -190,16 +140,17 @@ void vweather_resume(struct vbus_device *vdev) {
 }
 
 void vweather_connected(struct vbus_device *vdev) {
-	vweather_t *vweather = to_vweather(vdev);
+	vweather_priv_t *vweather_priv = dev_get_drvdata(vdev->dev);
 
 	DBG0(VWEATHER_PREFIX "Frontend connected\n");
 
 	/* Force the processing of pending requests, if any */
-	notify_remote_via_virq(vweather->irq);
+	notify_remote_via_virq(vweather_priv->vweather.irq);
 }
 
 void vweather_reconfiguring(struct vbus_device *vdev) {
 	DBG0(VWEATHER_PREFIX "Frontend reconfiguring\n");
+
 	readjust_shared_buffer(vdev);
 	setup_shared_buffer(vdev);
 }
@@ -228,11 +179,12 @@ vdrvfront_t vweatherdrv = {
 	.connected = vweather_connected
 };
 
-static int vweather_init(dev_t *dev) {
+static int vweather_init(dev_t *dev, int fdt_offset) {
 	vweather_priv_t *vweather_priv;
 
 	vweather_priv = malloc(sizeof(vweather_priv_t));
 	BUG_ON(!vweather_priv);
+
 	memset(vweather_priv, 0, sizeof(vweather_priv_t));
 
 	dev_set_drvdata(dev, vweather_priv);

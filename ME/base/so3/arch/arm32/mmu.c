@@ -26,6 +26,10 @@
 #include <sizes.h>
 #include <string.h>
 
+#ifdef CONFIG_SO3VIRT
+#include <avz/uapi/avz.h>
+#endif
+
 #include <device/ramdev.h>
 
 #include <asm/mmu.h>
@@ -71,8 +75,21 @@ void ramdev_create_mapping(void *root_pgtable, addr_t ramdev_start, addr_t ramde
 }
 #endif /* CONFIG_RAMDEV */
 
+/**
+ * Retrieve the current physical address of the page table
+ *
+ * @param pgtable_paddr
+ */
+void mmu_get_current_pgtable(addr_t *pgtable_paddr) {
+	int cpu;
+
+	cpu = smp_processor_id();
+
+	*pgtable_paddr = READ_CP32(TTBR0_32);
+}
+
 /* Reference to the system 1st-level page table */
-static void alloc_init_pte(uint32_t *l1pte, unsigned long addr, unsigned long end, unsigned long pfn, bool nocache)
+static void alloc_init_pte(uint32_t *l1pte, addr_t addr, addr_t end, addr_t pfn, bool nocache)
 {
 	uint32_t *l2pte, *l2pgtable;
 	uint32_t size;
@@ -186,7 +203,7 @@ void create_mapping(void *l1pgtable, addr_t virt_base, addr_t phys_base, uint32_
 	 * In other cases, the memory context switch will invalidate anyway.
 	 */
 	if (l1pgtable == __sys_root_pgtable)
-		v7_inval_tlb();
+		__asm_invalidate_tlb_all();
 }
 
 /* Empty the corresponding l2 entries */
@@ -295,8 +312,11 @@ void mmu_configure(addr_t l1pgtable, addr_t fdt_addr) {
 	icache_disable();
 	dcache_disable();
 
-	/* Empty the page table */
+#ifdef CONFIG_AVZ
+	if (smp_processor_id() == AGENCY_CPU) {
+#endif /* CONFIG_AVZ */
 
+	/* Empty the page table */
 	for (i = 0; i < 4096; i++)
 		__pgtable[i] = 0;
 
@@ -310,8 +330,13 @@ void mmu_configure(addr_t l1pgtable, addr_t fdt_addr) {
 	__pgtable[l1pte_index(CONFIG_RAM_BASE)] = CONFIG_RAM_BASE;
 	set_l1_pte_sect_dcache(&__pgtable[l1pte_index(CONFIG_RAM_BASE)], L1_SECT_DCACHE_WRITEALLOC);
 
-	/* Now, create a virtual mapping in the kernel space */
+	/* Now, create a linear mapping in the kernel space */
+#ifdef CONFIG_AVZ
+	/* Map the hypervisor */
+	for (i = 0; i < 12; i++) {
+#else
 	for (i = 0; i < 64; i++) {
+#endif /* CONFIG_AVZ */
 		__pgtable[l1pte_index(CONFIG_KERNEL_VADDR) + i] = CONFIG_RAM_BASE + i * TTB_SECT_SIZE;
 
 		set_l1_pte_sect_dcache(&__pgtable[l1pte_index(CONFIG_KERNEL_VADDR) + i], L1_SECT_DCACHE_WRITEALLOC);
@@ -328,6 +353,10 @@ void mmu_configure(addr_t l1pgtable, addr_t fdt_addr) {
 	set_l1_pte_sect_dcache(&__pgtable[l1pte_index(CONFIG_UART_LL_PADDR)], L1_SECT_DCACHE_OFF);
 
 #ifndef CONFIG_SO3VIRT
+
+#ifdef CONFIG_AVZ
+	}
+#endif /* CONFIG_AVZ */
 
 	mmu_setup(__pgtable);
 
@@ -379,7 +408,7 @@ void *new_root_pgtable(void) {
 	void *pgtable;
 #ifdef CONFIG_SO3VIRT
 	int i;
-#endif /* CONFIG_SO3VIRT */
+#endif
 
 	pgtable = memalign(4 * TTB_L1_ENTRIES, SZ_16K);
 	if (!pgtable) {
@@ -389,6 +418,12 @@ void *new_root_pgtable(void) {
 
 	/* Empty the page table */
 	memset(pgtable, 0, 4 * TTB_L1_ENTRIES);
+
+#ifdef CONFIG_SO3VIRT
+	/* Let's copy 12 MB of hypervisor */
+	for (i = 0; i < 12; i++)
+		*l1pte_offset((u32 *) pgtable+i, avz_shared->hypervisor_vaddr) = *l1pte_offset((u32 *) __sys_root_pgtable+i, avz_shared->hypervisor_vaddr);
+#endif
 
 	return pgtable;
 }
@@ -434,23 +469,35 @@ void reset_root_pgtable(void *pgtable, bool remove) {
 	mmu_page_table_flush((addr_t) pgtable, (addr_t) (pgtable + TTB_L1_ENTRIES));
 }
 
-/*
- * Switch the MMU to a L1 page table
- */
-void mmu_switch(void *l1pgtable) {
+void mmu_switch_kernel(void *pgtable_paddr) {
+
+#ifdef CONFIG_SO3VIRT
+	avz_shared->pagetable_paddr = (addr_t) pgtable_paddr;
+#endif
 
 	flush_dcache_all();
 
-	BUG_ON(__pa(l1pgtable) & ~TTBR0_BASE_ADDR_MASK);
-	__mmu_switch((void *) __pa((addr_t) l1pgtable));
+	/* Take care about the lower bits because
+	 * it might be initialized by the Linux domain and should
+	 * be preserved if any.
+	 */
+
+	if (((uint32_t) pgtable_paddr & TTBR0_BASE_ADDR_MASK) != (uint32_t) pgtable_paddr)
+		WRITE_CP32((uint32_t) pgtable_paddr, TTBR0_32);
+	else
+		__mmu_switch_ttbr0(pgtable_paddr);
 
 	invalidate_icache_all();
-	v7_inval_tlb();
-
+	__asm_invalidate_tlb_all();
 }
 
-void mmu_switch_sys(void *l1pgtable) {
-	mmu_switch(l1pgtable);
+/**
+ * Switch memory context in the user space
+ *
+ * @param pgtable
+ */
+void mmu_switch(void *pgtable_paddr) {
+	mmu_switch_kernel(pgtable_paddr);
 }
 
 /*
@@ -537,21 +584,27 @@ void dump_pgtable(void *l1pgtable) {
 
 	for (i = 0; i < TTB_L1_ENTRIES; i++) {
 		l1pte = __l1pgtable + i;
-		if (*l1pte) {
-			if (l1pte_is_sect(*l1pte))
-				lprintk(" - L1 pte@%p (idx %x) mapping %x is section type  content: %x\n", __l1pgtable+i, i, i << (32 - TTB_L1_ORDER), *l1pte);
-			else
-				lprintk(" - L1 pte@%p (idx %x) is PT type   content: %x\n", __l1pgtable+i, i, *l1pte);
+#ifndef CONFIG_AVZ
+		if (i < 0xff0) {
+#endif
+			if (*l1pte) {
+				if (l1pte_is_sect(*l1pte))
+					lprintk(" - L1 pte@%p (idx %x) mapping %x is section type  content: %x\n", __l1pgtable+i, i, i << (32 - TTB_L1_ORDER), *l1pte);
+				else
+					lprintk(" - L1 pte@%p (idx %x) is PT type   content: %x\n", __l1pgtable+i, i, *l1pte);
 
-			if (!l1pte_is_sect(*l1pte)) {
+				if (!l1pte_is_sect(*l1pte)) {
 
-				for (j = 0; j < 256; j++) {
-					l2pte = ((uint32_t *) __va(*l1pte & TTB_L1_PAGE_ADDR_MASK)) + j;
-					if (*l2pte)
-						lprintk("      - L2 pte@%p (i2=%x) mapping %x  content: %x\n", l2pte, j, pte_index_to_vaddr(i, j), *l2pte);
+					for (j = 0; j < 256; j++) {
+						l2pte = ((uint32_t *) __va(*l1pte & TTB_L1_PAGE_ADDR_MASK)) + j;
+						if (*l2pte)
+							lprintk("      - L2 pte@%p (i2=%x) mapping %x  content: %x\n", l2pte, j, pte_index_to_vaddr(i, j), *l2pte);
+					}
 				}
 			}
+#ifndef CONFIG_AVZ
 		}
+#endif
 	}
 }
 
@@ -569,9 +622,10 @@ addr_t virt_to_phys_pt(addr_t vaddr) {
 
 	/* Get the L1 PTE. */
 	l1pte = l1pte_offset(current_pgtable(), vaddr);
+	BUG_ON(!*l1pte);
 
 	offset = vaddr & ~PAGE_MASK;
-	BUG_ON(!*l1pte);
+
 	if (l1pte_is_sect(*l1pte)) {
 
 		return (*l1pte & TTB_L1_SECT_ADDR_MASK) | offset;

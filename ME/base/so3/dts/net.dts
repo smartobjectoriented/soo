@@ -19,7 +19,7 @@
 
 /dts-v1/;
 
-#include "so3virt.dtsi"
+#include "soo.dtsi"
 
 &ME {
 	/* 64 MB is required since an agency image will be embedded into the ME. */

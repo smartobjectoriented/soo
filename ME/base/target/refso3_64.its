@@ -30,10 +30,6 @@
 			arch = "arm64";
 			os = "linux";
 			compression = "none";
-			
-			hash {
-				algo = "crc32";
-			};
 		};
 
 		fdt {
@@ -42,9 +38,6 @@
 			type = "flat_dt";
 			arch = "arm64";
 			compression = "none";
-			hash {
-				algo = "crc32";
-			};
 		};	
     };
 };

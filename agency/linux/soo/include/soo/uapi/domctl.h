@@ -28,6 +28,11 @@
 #define AVZ_SCHEDULER_FLIP			0
 #define AVZ_SCHEDULER_RT	  		1
 
+
+#define DOMCTL_pauseME       	1
+#define DOMCTL_unpauseME     	2
+#define DOMCTL_get_AVZ_shared	3
+
 struct domctl_unpause_ME {
 	addr_t vbstore_pfn;
 };
@@ -35,16 +40,11 @@ struct domctl_unpause_ME {
 struct domctl {
     uint32_t cmd;
 
-#define DOMCTL_pauseME       	1
-#define DOMCTL_unpauseME     	2
-
     domid_t  domain;
     union {
        struct domctl_unpause_ME	unpause_ME;
+       addr_t avz_shared_paddr;
     } u;
-
-#define DOMCTL_get_AVZ_shared	3
-    addr_t avz_shared_paddr;
 };
 typedef struct domctl domctl_t;
 

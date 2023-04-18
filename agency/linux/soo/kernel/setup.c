@@ -45,13 +45,13 @@ void __init avz_setup(void)
 	__printch = AVZ_shared->printch;
 
 	/* Immediately prepare for hypercall processing */
-	HYPERVISOR_hypercall_addr = (unsigned long *) AVZ_shared->hypercall_vaddr;
+	HYPERVISOR_hypercall_addr = (unsigned long *) ((unsigned long) AVZ_shared->hypercall_vaddr);
 
-	lprintk("SOO Agency Virtualizer (avz) Start info :\n");
-	lprintk("Hypercall addr: %lx\n", (unsigned long) HYPERVISOR_hypercall_addr);
-	lprintk("Total Pages allocated to this domain : %ld\n", AVZ_shared->nr_pages);
-	lprintk("Domain physical address : 0x%lx\n", AVZ_shared->dom_phys_offset);
-	lprintk("FDT device tree paddr, if any: %lx\n", AVZ_shared->fdt_paddr);
+	lprintk("  - SOO Agency Virtualizer (avz) Start info :\n");
+	lprintk("  - Hypercall addr: %lx\n", (unsigned long) HYPERVISOR_hypercall_addr);
+	lprintk("  - Total Pages allocated to this domain : %ld\n", AVZ_shared->nr_pages);
+	lprintk("  - Domain physical address : 0x%lx\n", AVZ_shared->dom_phys_offset);
+	lprintk("  - FDT device tree paddr, if any: %lx\n", AVZ_shared->fdt_paddr);
 
 	__ht_set = (ht_set_t) AVZ_shared->logbool_ht_set_addr;
 
@@ -67,5 +67,5 @@ void __init avz_setup(void)
 	AVZ_shared->domcall_vaddr = (unsigned long) domcall;
 	AVZ_shared->subdomain_shared->domcall_vaddr = AVZ_shared->domcall_vaddr;
 
-	lprintk("No problem\n");
+	lprintk("  - All right! AVZ setup successfull.\n");
 }
