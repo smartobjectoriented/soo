@@ -49,8 +49,7 @@ std::string get_payload_from_data(iuoc_data_t *data);
 
 int main(int argc, char* argv[])
 {
-	//test_ioctl();
-	std::ifstream inFile;
+    std::ifstream inFile;
     inFile.open("/root/iuoc_mqtt_config.json"); //open the config file
 
     std::stringstream strStream;
@@ -81,8 +80,6 @@ int main(int argc, char* argv[])
 	// Mapping for topics and MEs
 	std::unordered_map<std::string, int> sub_topics_mapping;
 	std::unordered_map<int, std::string> pub_topics_mapping;
-
-	// sub_topics_mapping.insert()
 
 	for(auto sub_topic : root["sub_topics"]) {
 		//sub_topics_name.push_back(sub_topic["topic"].asString());
