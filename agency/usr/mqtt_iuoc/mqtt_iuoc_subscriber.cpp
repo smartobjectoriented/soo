@@ -23,29 +23,29 @@ action_listener::action_listener(const std::string& name) : name_(name) {}
 
 void action_listener::on_failure(const mqtt::token& tok) 
 {
-    std::cout << name_ << " failure";
-    if (tok.get_message_id() != 0)
-        std::cout << " for token: [" << tok.get_message_id() << "]" << std::endl;
-    std::cout << std::endl;
+	std::cout << name_ << " failure";
+	if (tok.get_message_id() != 0)
+		std::cout << " for token: [" << tok.get_message_id() << "]" << std::endl;
+	std::cout << std::endl;
 }
 
 void action_listener::on_success(const mqtt::token& tok) 
 {
-    std::cout << name_ << " success";
-    if (tok.get_message_id() != 0)
-        std::cout << " for token: [" << tok.get_message_id() << "]" << std::endl;
-    auto top = tok.get_topics();
-    if (top && !top->empty())
-        std::cout << "\ttoken topic: '" << (*top)[0] << "', ..." << std::endl;
-    std::cout << std::endl;
+	std::cout << name_ << " success";
+	if (tok.get_message_id() != 0)
+		std::cout << " for token: [" << tok.get_message_id() << "]" << std::endl;
+	auto top = tok.get_topics();
+	if (top && !top->empty())
+		std::cout << "\ttoken topic: '" << (*top)[0] << "', ..." << std::endl;
+	std::cout << std::endl;
 }
 
 
 callback::callback(mqtt::async_client& cli, mqtt::connect_options& connOpts, 
 		std::unordered_map<std::string, int> sub_topics, unsigned qos,
 		unsigned n_retry_attemps)
-        : nretry_(0), cli_(cli), connOpts_(connOpts), subListener_("Subscription"),
-        sub_topics(sub_topics), qos(qos), n_retry_attemps(n_retry_attemps), running_status(false)
+		: nretry_(0), cli_(cli), connOpts_(connOpts), subListener_("Subscription"),
+		sub_topics(sub_topics), qos(qos), n_retry_attemps(n_retry_attemps), running_status(false)
 	{
 	dev = open("/dev/soo/iuoc", O_WRONLY);
 	if(dev == -1) {
@@ -129,16 +129,16 @@ void callback::message_arrived(mqtt::const_message_ptr msg)
 
 	// Get data from payload with JSON reader
 	Json::CharReaderBuilder builder;
-    const std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+	const std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
 	JSONCPP_STRING err;
-  	Json::Value root;
+	  Json::Value root;
 
-    if (!reader->parse(msg->to_string().c_str(), msg->to_string().c_str() + msg->to_string().length(), 
+	if (!reader->parse(msg->to_string().c_str(), msg->to_string().c_str() + msg->to_string().length(), 
 		&root,  &err)) {
-    //   std::cout << "[IUOC] error converting JSON payload to string" << std::endl;
+	//   std::cout << "[IUOC] error converting JSON payload to string" << std::endl;
 	}
 
-    field_data_t field_data;
+	field_data_t field_data;
 	if (me_type == IUOC_ME_BLIND) {
 		me_data.data_array_size = 2;
 		strcpy(me_data.data_array[0].name, "direction");
