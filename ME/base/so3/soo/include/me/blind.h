@@ -60,7 +60,17 @@ typedef enum {
 	VBWA88PG = 0
 } blind_type;
 
+typedef enum {
+	BLIND_UP = 0,
+	BLIND_DOWN,
+	BLIND_DIRECTION_NULL
+} blind_direction_t;
 
+typedef enum {
+	BLIND_FULL = 0,
+	BLIND_STEP,
+	BLIND_ACTION_MODE_NULL
+} blind_action_mode_t;
 
 /**
  * @brief Generic blind struct. More kinds of blind can be added
@@ -90,12 +100,14 @@ typedef struct {
  * @param need_progate set to true if the ME need to migrate  
  */
 typedef struct {
+	bool blind_event;
+	blind_direction_t direction;
+	blind_action_mode_t action_mode;
 
-	bool switch_event;
-	switch_position sw_pos;
-	switch_press sw_press;
-
+    uint64_t originUID;
+	uint64_t timestamp;
 	bool need_propagate;
+	bool delivered;
 	/*
 	 * MUST BE the last field, since it contains a field at the end which is used
 	 * as "payload" for a concatened list of hosts.
@@ -106,6 +118,9 @@ typedef struct {
 
 /* Export the reference to the shared content structure */
 extern sh_blind_t *sh_blind;
+
+/* Protecting variables between domcalls and the active context */
+extern spinlock_t propagate_lock;
 
 /**
  * @brief Completion use to wait for a switch event to move the blind

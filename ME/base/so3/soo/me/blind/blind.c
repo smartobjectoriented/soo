@@ -51,20 +51,20 @@ void blind_process_events(char *data, size_t size) {
 	if (!strcmp(action, "clickDown")) {
 
 		if (!strcmp(id, BTN_BLIND_UP_ID)) {
-			sh_blind->sw_pos = POS_LEFT_UP;
-			sh_blind->sw_press = PRESS_SHORT;
+			sh_blind->direction = BLIND_UP;
+			sh_blind->action_mode = BLIND_STEP;
 
 		} else if(!strcmp(id, BTN_BLIND_DOWN_ID)) {
-			sh_blind->sw_pos = POS_LEFT_DOWN;
-			sh_blind->sw_press = PRESS_SHORT;
+			sh_blind->direction = BLIND_DOWN;
+			sh_blind->action_mode = BLIND_STEP;
 			
 		} else if(!strcmp(id, BTN_BLIND_UP_LONG_ID)) {
-			sh_blind->sw_pos = POS_LEFT_UP;
-			sh_blind->sw_press = PRESS_LONG;
+			sh_blind->direction = BLIND_UP;
+			sh_blind->action_mode = BLIND_FULL;
 			
 		} else if(!strcmp(id, BTN_BLIND_DOWN_LONG_ID)) {
-			sh_blind->sw_pos = POS_LEFT_DOWN;
-			sh_blind->sw_press = PRESS_LONG;
+			sh_blind->direction = BLIND_DOWN;
+			sh_blind->action_mode = BLIND_FULL;
 			
 		}
 		complete(&send_data_lock);
@@ -103,11 +103,14 @@ void blind_up(blind_t *bl) {
 
 	switch(bl->type) {
 		case VBWA88PG:
-			if (sh_blind->sw_press == PRESS_SHORT) {
+			if (sh_blind->action_mode == BLIND_STEP) {
 				bl->blind.dps[INC_DEC_STOP].data[0] = VBWA88PG_BLIND_INC;
+
 				vbwa88pg_blind_inc_dec_stop(&bl->blind);
-			} else if (sh_blind->sw_press == PRESS_LONG) {
+
+			} else if (sh_blind->action_mode == BLIND_FULL) {
 				bl->blind.dps[UP_DOWN].data[0] = VBWA88PG_BLIND_UP;
+
 				vbwa88pg_blind_up_down(&bl->blind);
 			}
 			break;
@@ -126,10 +129,11 @@ void blind_down(blind_t *bl) {
 
 	switch(bl->type) {
 		case VBWA88PG:
-			if (sh_blind->sw_press == PRESS_SHORT) {
+			if (sh_blind->action_mode == BLIND_STEP) {
 				bl->blind.dps[INC_DEC_STOP].data[0] = VBWA88PG_BLIND_DEC;
 				vbwa88pg_blind_inc_dec_stop(&bl->blind);
-			} else if (sh_blind->sw_press == PRESS_LONG) {
+
+			} else if (sh_blind->action_mode == BLIND_FULL) {
 				bl->blind.dps[UP_DOWN].data[0] = VBWA88PG_BLIND_DOWN;
 				vbwa88pg_blind_up_down(&bl->blind);
 			}
@@ -153,21 +157,21 @@ void *blind_send_cmd_th(void *args) {
 	DBG(MEBLIND_PREFIX "Started: %s\n", __func__);
 
 	while (atomic_read(&shutdown)) {
+		
 		wait_for_completion(&send_data_lock);
 
-		switch(sh_blind->sw_pos) {
-			case POS_LEFT_UP:
+		switch(sh_blind->direction) {
+			case BLIND_UP:
 				blind_up(bl);
 				break;
 
-			case POS_LEFT_DOWN:
+			case BLIND_DOWN:
 				blind_down(bl);
 				break;
 
 			default:
 				break;
 		}	
-
 	}
 
 	DBG(MEBLIND_PREFIX "Stopped: %s\n", __func__);
@@ -180,7 +184,6 @@ void *app_thread_main(void *args) {
 	blind_t *bl;
 
 	bl = (blind_t *)malloc(sizeof(blind_t));
-	sh_blind->sw_press = PRESS_SHORT;
 
 	/* The ME can cooperate with the others. */
 	spad_enable_cooperate();

@@ -76,6 +76,12 @@ config VWAGOLED_BACKEND
 	default n
 	help
 	  The vwagoled driver allows to changes the status of the wago leds 
+	  
+config VIUOC_BACKEND
+	bool "viuoc backend"
+	default n
+	help
+	  The viuoc drivers allow to exchange information with IUOC server
 
 config TCM515
 	bool "Support tmc515 uart communication from kernel to provide EnOcean support"
@@ -111,7 +117,14 @@ config VKNX_BACKEND
 	default n
 	help
 	  This driver enabled to deal with a virtualized interface for the KNX bus.
-	  
+
+config MIPOT32001353
+	bool "Support mipot 32001353 uart communication from kernel to provide LoRa support"
+	depends on SERIAL_DEV_CTRL_TTYPORT=y
+	help
+		Create an uart device that uses the serdev framework and allows 
+		to communicate with a Mipot 32001353 LoRa module.
+
 source "soo/drivers/vnetback/Kconfig"
 
 endmenu

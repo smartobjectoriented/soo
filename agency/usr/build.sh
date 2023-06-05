@@ -94,6 +94,9 @@ install_file_root build/apps/blacklist_soo
 # Wago app
 install_file_root build/wago_client/wago-client
 
+# Mqtt app
+install_file_root build/mqtt_iuoc/mqtt-client
+
 # And modules if any
 cp module/*.ko build/deploy 2>/dev/null
 

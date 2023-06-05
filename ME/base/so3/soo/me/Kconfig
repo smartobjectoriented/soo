@@ -54,6 +54,11 @@ choice
 		bool "SOO.wagoled Mobile Entity"
 		help
 			TODO
+			
+	config SOO_IUOC
+		bool "SOO.iuoc Mobile Entity"
+		help
+			SOO.iuoc me is able to activate any OC in IUOC that can be accessed from IUOC
 
 	config SOO_SWITCH_KNX
 		bool "SOO.switch Mobile Entity using KNX" 

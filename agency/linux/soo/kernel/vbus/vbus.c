@@ -679,7 +679,6 @@ static int resume_dev(struct device *dev, void *data)
 	 * the backend has just been created and we make sure it reached the VbusStateInitWait state.
 	 */
 
-
 	/* The backend is now either in VbusStateSuspended OR VbusStateInitWait */
 	vdrv->resume(vdev);
 
@@ -780,6 +779,7 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	case DC_FORCE_TERMINATE:
 	case DC_POST_ACTIVATE:
 	case DC_TRIGGER_DEV_PROBE:
+	case DC_TRIGGER_LOCAL_COOPERATION:
 
 		/* FALLTHROUGH */
 

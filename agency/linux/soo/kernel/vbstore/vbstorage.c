@@ -505,4 +505,9 @@ void vbstorage_agency_init(void) {
 	np = of_find_compatible_node(NULL, NULL, "vknx,backend");
 	if (of_device_is_available(np))
 		vbs_store_mkdir("/backend/vknx");
+
+	/* Agency backend side of virtual iuoc device */
+	np = of_find_compatible_node(NULL, NULL, "viuoc,backend");
+	if (of_device_is_available(np))
+		vbs_store_mkdir("/backend/viuoc");
 }

@@ -379,7 +379,7 @@ else ifeq ($(PLATFORM),$(filter $(PLATFORM),vexpress rpi4))
 ARCH            ?= arm
 CROSS_COMPILE	?= arm-linux-gnueabihf-
 
-else ifeq ($(PLATFORM),$(filter $(PLATFORM),virt64 rpi4_64 zcu106))
+else ifeq ($(PLATFORM),$(filter $(PLATFORM),virt64 rpi4_64 zcu106 cm4_64))
 
 ARCH            ?= arm64
 CROSS_COMPILE	?= aarch64-none-linux-gnu-

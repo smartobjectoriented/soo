@@ -102,7 +102,7 @@ void ptm210_init(ptm210_t *sw, uint32_t switch_id) {
     sw->id = switch_id;
     ptm210_reset(sw);
 
-    init_timer(&sw->_pressed_time, pressed_time_cb, sw);
+    init_timer(&sw->_pressed_time, pressed_time_cb, sw, smp_processor_id());
     init_completion(&sw->_wait_event);
 
     atomic_set(&sw->_th_run, 1);

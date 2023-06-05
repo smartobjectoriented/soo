@@ -21,3 +21,5 @@ obj-$(CONFIG_TCM515) += serial/tcm515/
 obj-$(CONFIG_RN2483) += serial/rn2483/
 obj-$(CONFIG_KBERRY838) += serial/kberry838/
 obj-$(CONFIG_VKNX_BACKEND) += vknxback/
+obj-$(CONFIG_MIPOT32001353) += serial/mipot32001353/
+obj-$(CONFIG_VIUOC_BACKEND) += viuocback/

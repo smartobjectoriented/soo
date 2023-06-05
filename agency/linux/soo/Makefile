@@ -5,6 +5,7 @@ obj-y	+= kernel/
 obj-y 	+= drivers/
 obj-y	+= core/
 obj-y   += dcm/
+obj-$(CONFIG_VIUOC_BACKEND)   += iuoc/
 
 obj-y 	+= soolink/
 obj-y	+= lib/

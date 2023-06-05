@@ -18,13 +18,13 @@
 
 /dts-v1/;
 
-#include "so3virt.dtsi"
+#include "soo.dtsi"
 
 &ME {
 	/* 16 MB is enough */
 	domain-size =  <0x1000000>;
 	
-	/* SPID on 128-bit encoding */
+	/* SPID on 64-bit encoding */
 	spid = /bits/ 64 <0x0020000000000003>;
 
 	/* SPAD capabilities on 64-bit encoding */

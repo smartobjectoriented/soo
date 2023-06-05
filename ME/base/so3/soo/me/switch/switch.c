@@ -28,6 +28,7 @@
 #include <soo/debug.h>
 
 #include <me/switch.h>
+#include <me/common.h>
 
 /** Temporary Switch ID for EnOcean switch **/
 #define ENOCEAN_SWITCH_ID	0x002A3D45
@@ -125,14 +126,18 @@ void *switch_wait_data_th(void *args) {
 		if (sh_switch->switch_event) {		
 			/** migrate **/
 			sh_switch->timestamp++;
-
+#if 0
 			spin_lock(&propagate_lock);
 			sh_switch->need_propagate = true;
 			spin_unlock(&propagate_lock);
 
+			do_local_cooperation(ME_domID());
+#endif
 			DBG(MESWITCH_PREFIX "New switch event. pos: %d, press: %d, status %d\n", sh_switch->pos, sh_switch->press,
 				sh_switch->status);
 			sh_switch->switch_event = false;
+
+			do_local_cooperation(ME_domID());
 		} else {
 			DBG(MESWITCH_PREFIX "No switch event\n");
 		}

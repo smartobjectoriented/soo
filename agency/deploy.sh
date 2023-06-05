@@ -102,6 +102,13 @@ if [ "$deploy_boot" == "y" ]; then
         ./umount.sh
         cd ..
     fi
+
+    if [ "$PLATFORM" == "cm4_64" ]; then
+        sudo cp -r ../../bsp/rpi4/* fs/
+        sudo cp ../../u-boot/u-boot.bin fs/kernel8.img
+        ./umount.sh
+        cd ..
+    fi
 fi
 
 if [ "$deploy_rootfs" == "y" ]; then
