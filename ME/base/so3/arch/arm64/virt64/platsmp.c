@@ -28,7 +28,6 @@
 #include <device/arch/gic.h>
 
 extern void secondary_startup(void);
-extern void vexpress_secondary_startup(void);
 
 static DEFINE_SPINLOCK(cpu_lock);
 

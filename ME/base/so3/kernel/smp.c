@@ -232,7 +232,7 @@ void cpu_up(unsigned int cpu)
 /* Called by boot processor to activate the rest. */
 void smp_init(void)
 {
-#if defined(CONFIG_AVZ) && defined(CONFIG_ARM64VT)
+#if !defined(CONFIG_SOO) && defined(CONFIG_AVZ) && defined(CONFIG_ARM64VT)
 	int i;
 #endif
 
@@ -243,7 +243,7 @@ void smp_init(void)
 	 * The size must be enough to reach the stack.
 	 */
 
-	create_mapping(NULL, CONFIG_RAM_BASE, CONFIG_RAM_BASE, SZ_32M, false);
+	create_mapping(NULL, mem_info.phys_base, mem_info.phys_base, SZ_32M, false);
 
 #ifdef CONFIG_SOO
 
