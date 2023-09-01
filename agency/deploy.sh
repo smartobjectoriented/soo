@@ -63,7 +63,7 @@ done < build.conf
 
 # We now have ${PLATFORM} which names the platform base.
 
-if [ "$PLATFORM" != "vexpress" -a "$PLATFORM" != "virt64" ]; then
+if [ "$PLATFORM" != "virt32" -a "$PLATFORM" != "virt64" ]; then
     echo "Specify the device name of MMC (ex: sdb or mmcblk0 or other...)"
     read devname
     export devname="$devname"
@@ -83,7 +83,7 @@ if [ "$deploy_boot" == "y" ]; then
     sudo cp ../upgrade/root_flag fs/
     sudo cp ../../u-boot/uEnv.d/uEnv_${PLATFORM}.txt fs/uEnv.txt
 
-    if [ "$PLATFORM" == "vexpress" -o "$PLATFORM" == "virt64" ]; then
+    if [ "$PLATFORM" == "virt32" -o "$PLATFORM" == "virt64" ]; then
 	# Nothing else ...
         ./umount.sh
         cd ..
@@ -97,13 +97,6 @@ if [ "$deploy_boot" == "y" ]; then
     fi
     
     if [ "$PLATFORM" == "rpi4_64" ]; then
-        sudo cp -r ../../bsp/rpi4/* fs/
-        sudo cp ../../u-boot/u-boot.bin fs/kernel8.img
-        ./umount.sh
-        cd ..
-    fi
-
-    if [ "$PLATFORM" == "cm4_64" ]; then
         sudo cp -r ../../bsp/rpi4/* fs/
         sudo cp ../../u-boot/u-boot.bin fs/kernel8.img
         ./umount.sh

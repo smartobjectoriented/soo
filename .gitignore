@@ -28,6 +28,8 @@ vmlinux.*dom*
 
 # Hidden files
 .*
+# QEMU is now fetched and built by the build.sh script
+qemu
 
 # Eclipse stuff
 *.launch

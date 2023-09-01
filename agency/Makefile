@@ -25,8 +25,8 @@ endif
 # Receipts to generate the right configuration (defconfig) for Linux and AVZ
 LINUX_CONF :=
 
-ifeq ("$(PLATFORM)", "vexpress")
-  LINUX_CONF := vexpress_defconfig
+ifeq ("$(PLATFORM)", "virt32")
+  LINUX_CONF := virt32_defconfig
   AVZ_CONF := $(PLATFORM_TYPE)_defconfig
 endif
 

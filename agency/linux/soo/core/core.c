@@ -273,7 +273,7 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		 * - args.buffer contains the ME buffer itself
 		 * - args.slotID contains the size of this buffer
 		 */
-		copy_ME_snapshot_to_user((void *) args.value, args.buffer, args.slotID);
+		copy_ME_snapshot_to_user(args.buffer, (void *) args.value, args.slotID);
 		break;
 	
 	case AGENCY_IOCTL_GET_ME_ID_ARRAY:

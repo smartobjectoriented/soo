@@ -44,6 +44,8 @@
 #include <core/types.h>
 #include <core/injector.h>
 
+#define AGENCY_CORE_VERSION "3.0"
+
 int fd_migration;
 
 /**

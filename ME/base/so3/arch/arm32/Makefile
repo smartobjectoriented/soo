@@ -11,10 +11,6 @@ obj-y += lib/
 
 obj-$(CONFIG_MMU) += mmu.o
 
-ifneq ($(CONFIG_AVZ), y)
-obj-$(CONFIG_SOO) += soo.o
-endif
-
 obj-$(CONFIG_AVZ) += hypercalls.o domain.o migration.o
 
 #obj-$(CONFIG_PSCI) += smccc-call.o

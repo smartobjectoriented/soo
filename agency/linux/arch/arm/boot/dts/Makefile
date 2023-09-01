@@ -1287,7 +1287,8 @@ dtb-$(CONFIG_ARCH_VEXPRESS) += \
 	vexpress.dtb
 	
 dtb-$(CONFIG_ARCH_VIRT) += \
-	xenvm-4.2.dtb
+	xenvm-4.2.dtb \
+	virt32.dtb
 dtb-$(CONFIG_ARCH_VT8500) += \
 	vt8500-bv07.dtb \
 	wm8505-ref.dtb \

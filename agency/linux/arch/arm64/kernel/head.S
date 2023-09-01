@@ -415,7 +415,6 @@ SYM_FUNC_END(__create_page_tables)
  */
 
 .global _start
-.extern avz_start_info
 
 .type   _start, %function
 .section ".init.fromavz_start", "ax"

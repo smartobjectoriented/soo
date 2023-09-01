@@ -270,7 +270,7 @@ export	HOSTARCH HOSTOS
 
 # set default to nothing for native builds
 # (SOO.tech) Usual toolchains for our systems
-include ../build.conf
+include ../agency/build.conf
 
 ifeq ($(PLATFORM),$(filter $(PLATFORM),virt64))
 ARCH	= arm64
