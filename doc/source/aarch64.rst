@@ -13,7 +13,7 @@ This chapter is devoted to the AArch64 64-bit configuration.
 QEMU target
 -----------
 
-The new platform in the emulated environment is called ``virt64`` (instead of ``vexpress``)
+The new platform in the emulated environment is called ``virt64`` (instead of ``virt32``)
 
 The following target is required at the configuration:
 

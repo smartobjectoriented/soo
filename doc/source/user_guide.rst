@@ -10,9 +10,9 @@ to ``16.10``. It is assumed that you are running an x86_64 version.
 The following setup prepares to run the SOO framework in a QEMU-based
 emulated environment. There is a file called **build.conf** in the
 *agency/* directory which specifies the target platform. After a fresh
-clone, build.conf is configured for QEMU *vExpress* platform.
+clone, build.conf is configured for QEMU *virt32* platform.
 
-Additionally, the *vExpress* target is also configured with TrustZone
+Additionally, the *virt32* target is also configured with TrustZone
 support.
 
 *************
@@ -162,25 +162,24 @@ commands (from the soo directory):
 .. code:: bash
 
    cd u-boot
-   make vexpress_defconfig
+   make virt32_defconfig
    make -j8
 
 The following configurations are available:
 
-+-----------------------+-------------------------------------+
-| Name                  | Platform                            |
-+=======================+=====================================+
-| *vexpress_defconfig*  | Basic QEMU/vExpress 32-bit platform |
-+-----------------------+-------------------------------------+
-| *virt64_defconfig*    | QEMU/virt 64-bit platform           |
-+-----------------------+-------------------------------------+
-| *rpi_4_32b_defconfig* | Raspberry Pi 4 in 32-bit mode       |
-+-----------------------+-------------------------------------+
-| *rpi4_64_defconfig*   | Raspberry Pi 4 in 64-bit mode       |
-+-----------------------+-------------------------------------+
-
-(The last one is a custom configuration and is to be used as replacemenent
-of rpi_4_defconfig)
++-----------------------+------------------------------------------+
+| Name                  | Platform                                 |
++=======================+==========================================+
+| *virt32_defconfig*    | Basic QEMU/virt 32-bit platform          |
++-----------------------+------------------------------------------+
+| *virt64_defconfig*    | QEMU/virt 64-bit platform                |
++-----------------------+------------------------------------------+
+| *rpi_4_32b_defconfig* | Raspberry Pi 4 in 32-bit mode            |
++-----------------------+------------------------------------------+
+| *rpi4_64_defconfig*   | Raspberry Pi 4 in 64-bit mode            |
++-----------------------+------------------------------------------+
+| *cm4_64_defconfig*    | Raspberry Pi / CM4 module in 64-bit mode |
++-----------------------+------------------------------------------+
 
 **************
 SOO Components
@@ -199,24 +198,19 @@ to select the target platform.
 
 Possible platforms and types are:
 
-+------------+-------------------------------------+
-| Name       | Platform                            |
-+============+=====================================+
-| *vexpress* | Basic QEMU/vExpress 32-bit platform |
-+------------+-------------------------------------+
-| *virt64*   | QEMU/virt 64-bit platform           |
-+------------+-------------------------------------+
-| *rpi4*     | Raspberry Pi 4 in 32-bit mode       |
-+------------+-------------------------------------+
-| *rpi4_64*  | Raspberry Pi 4 in 64-bit mode       |
-+------------+-------------------------------------+
-
-If *vexpress* is selected, it is (still) necessary to add a TYPE. Only, ``tz`` type
-is supported.
-
-.. note::
-
-   The ``TYPE`` variable is useless and will be removed soon.
++--------------------+------------------------------------------+
+| Name               | Platform                                 |
++====================+==========================================+
+| *virt32_defconfig* | Basic QEMU/virt 32-bit platform          |
++--------------------+------------------------------------------+
+| *virt64*           | QEMU/virt 64-bit platform                |
++--------------------+------------------------------------------+
+| *rpi4*             | Raspberry Pi 4 in 32-bit mode            |
++--------------------+------------------------------------------+
+| *rpi4_64*          | Raspberry Pi 4 in 64-bit mode            |
++--------------------+------------------------------------------+
+| *cm4_64*           | Raspberry Pi / CM4 module in 64-bit mode |
++--------------------+------------------------------------------+
 
 Main root filesystem (**rootfs**)
 ---------------------------------
@@ -225,7 +219,7 @@ In the code below, you have to replace ``MYARCH`` with the selected architecture
 All available configurations (\*_defconfig) are placed in
 the ``configs/`` directory.
 
--  If the chosen architecture is ``vexpress``, *MYARCH* should be *vexpress*.
+-  If the chosen architecture is ``virt32``, *MYARCH* should be *virt32*.
 -  If the chosen architecture is ``Raspberry Pi 4``: *MYARCH* should be *rpi4* .
 -  etc.
 
@@ -255,12 +249,12 @@ Initial ramfs (initrd) filesystem
 In the agency, there is an ``initrd`` filesystem which is embedded in
 the *ITB* image file. In order to access the content of this *initrd*, 
 a script in ``agency/rootfs`` is available. For example, to access
-the content of the *vexpress* board:
+the content of the *virt32* board:
 
 .. code:: bash
 
    cd rootfs
-   ./mount_initrd.sh vexpress
+   ./mount_initrd.sh virt32
    cd fs
 
 Unmounting the filesystem is done with:
@@ -268,7 +262,7 @@ Unmounting the filesystem is done with:
 .. code:: bash
    
    cd rootfs
-   ./umount_initrd.sh vexpress
+   ./umount_initrd.sh virt32
 
 Agency user applications
 ------------------------
@@ -295,7 +289,7 @@ The creation of the virtual disk image is done as follows:
 .. code:: bash
 
    cd agency/filesystem
-   ./create_img.sh vexpress
+   ./create_img.sh virt32
 
 Deployment into the storage device
 ----------------------------------
