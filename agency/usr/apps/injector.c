@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2018 Baptiste Delporte <bonel@bonel.net>
- * Copyright (C) 2019-2021 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2016-2022 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) January 2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2019-2022 David Truan <david.truan@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
