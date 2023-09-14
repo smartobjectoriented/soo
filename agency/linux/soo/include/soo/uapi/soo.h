@@ -328,7 +328,7 @@ void rtdm_register_dc_event_callback(dc_event_t dc_event, dc_event_fn_t *callbac
 #define AVZ_SET_ME_STATE		14
 #define AVZ_AGENCY_CTL			15
 #define AVZ_GET_DOM_DESC		16
-#define AVZ_TRIGGER_LOCAL_COOPERATION		17
+#define AVZ_TRIGGER_LOCAL_COOPERATION	17
 
 /*
  * General structure to use with the SOO migration hypercall

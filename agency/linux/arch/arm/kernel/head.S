@@ -181,7 +181,6 @@ ENTRY(_start)
 __init_sp:
     .long   init_thread_union+8192          @ sp
 
-
 	.align 2
 
 #if 0 /* SOO.tech */

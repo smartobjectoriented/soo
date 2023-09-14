@@ -193,24 +193,23 @@ built in the **agency/** directory. Different configurations are possible.
 
 Target platforms
 ----------------
-The file ``build.conf`` in ``agency/`` contains the ``PLATFORM`` (and eventually ``TYPE``) variables 
-to select the target platform.
+The file ``build.conf`` in ``agency/`` contains the ``PLATFORM`` to select the target platform.
 
 Possible platforms and types are:
 
-+--------------------+------------------------------------------+
-| Name               | Platform                                 |
-+====================+==========================================+
-| *virt32*           | Basic QEMU/virt 32-bit platform          |
-+--------------------+------------------------------------------+
-| *virt64*           | QEMU/virt 64-bit platform                |
-+--------------------+------------------------------------------+
-| *rpi4*             | Raspberry Pi 4 in 32-bit mode            |
-+--------------------+------------------------------------------+
-| *rpi4_64*          | Raspberry Pi 4 in 64-bit mode            |
-+--------------------+------------------------------------------+
-| *cm4_64*           | Raspberry Pi / CM4 module in 64-bit mode |
-+--------------------+------------------------------------------+
++-----------+------------------------------------------+
+| Name      | Platform                                 |
++===========+==========================================+
+| *virt32*  | Basic QEMU/virt 32-bit platform          |
++-----------+------------------------------------------+
+| *virt64*  | QEMU/virt 64-bit platform                |
++-----------+------------------------------------------+
+| *rpi4*    | Raspberry Pi 4 in 32-bit mode            |
++-----------+------------------------------------------+
+| *rpi4_64* | Raspberry Pi 4 in 64-bit mode            |
++-----------+------------------------------------------+
+| *cm4_64*  | Raspberry Pi / CM4 module in 64-bit mode |
++-----------+------------------------------------------+
 
 Main root filesystem (**rootfs**)
 ---------------------------------
