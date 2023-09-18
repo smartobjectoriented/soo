@@ -1,6 +1,5 @@
 .. _architecture:
 
-################
 SOO Architecture
 ################
   

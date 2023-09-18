@@ -1,6 +1,5 @@
 .. _virt_interfaces:
 
-*****************************************
 Virtualized interfaces (backend/frontend)
 *****************************************
 
@@ -36,7 +35,7 @@ be used to handle this private structure:
 To attach a private structure to a *vbus driver*
 
 .. c:function:: 
-   void *vdrv_get_priv(struct vbus_driver *vdrv) 
+   void *vdrv_set_priv(struct vbus_driver *vdrv) 
 
 To get the private structure attached to a *vbus_driver*
 

@@ -52,7 +52,7 @@ Main Conceptual Components
 The two essential components of the framework are the ``Agency`` and the ``Mobile Entity``.
 
 The :ref:`Agency <agency>` (agency) is the part of software which resides permanently within a smart object device while 
-the :ref:`Mobile Entity <ME>` (ME) is the part of software which migrates from one smart object (SOO) to another SOO.
+the :ref:`Mobile Entity <ME_architecture>` (ME) is the part of software which migrates from one smart object (SOO) to another SOO.
 
 
 .. _REDS: http://www.reds.ch

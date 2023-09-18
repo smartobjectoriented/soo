@@ -7,7 +7,7 @@ This documents aims at describing the **SOO.chat** role, use-cases and
 architecture.
 
 SOO.chat purposes
------------------
+*****************
 
 The **SOO.chat** purposes are:
 
@@ -20,7 +20,7 @@ The **SOO.chat** purposes are:
 -  Implementing the *soo.gui* protocol handling in the **SOO.chat** ME.
 
 SOO.chat usage
---------------
+**************
 
 The **SOO.chat** ME will be in charge to handle and distribute chat
 message between the Smart Objects. The user writes a message on the
@@ -38,7 +38,7 @@ read the messages.
 Each tablet can connect to any SO supporting SOO.chat and having a SOO.chat ME residing in it.
 
 SOO.chat architecture
----------------------
+*********************
 
 The SOO.chat architecture only consist of a ME. There is no need for a
 BE in the agency, as all the message are stored in the MEs and the
@@ -53,7 +53,7 @@ In the end, the migrating ones are just a clone of the residing ME,
 which is sent to dispatch the message through the network.
 
 Distributing a message
-~~~~~~~~~~~~~~~~~~~~~~
+======================
 
 The messages are distributed by the The messages are stored in a small
 history in each ME. Each SOO has a residing SOO.chat ME. Here is how a
@@ -84,7 +84,7 @@ It is to note that a migrating ME only carries its new message. It does
 not have a history as its only goal is to distribute its new message.
 
 SOO.chat ME behaviour
----------------------
+=====================
 
 This chapter describes:
 
@@ -94,8 +94,8 @@ This chapter describes:
 
 -  The app behaviour
 
-Migration and cllbacks
-~~~~~~~~~~~~~~~~~~~~~~
+Migration and callbacks
+-----------------------
 
 Every Smart Object has a residing SOO.chat ME. Once the tablet sends a
 new message to our residing ME, the ME is sent to migrate in the system.
@@ -113,12 +113,13 @@ start a cooperation with the present ME. The last part of the diagram is split i
 
 
 Callbacks
-~~~~~~~~~
+---------
 
 This chapter describes the callbacks behaviors.
 
 pre_activate
 ^^^^^^^^^^^^
+
 - The ME retrieve the originUID of the first agency it is deployed on (once).
 - The ME check if the host is already visited.
   * If not: Add the host to the visited list
@@ -129,15 +130,18 @@ cooperate
 
 Most of the job is done in the ``cooperate``. It is described in the migration flowchart.
 The cooperation is always the initiator (migrating ME) cooperating with an already present target ME (it can be a local or a migrating one).
+
 In our case, four scenarios are possible:
- - No ME is present in the SO. So it means the migrating one is alone. We continue our propagation.
- - An ME is present, but it is not a SOO.chat. We continue our propagation.
- - A migrating SOO.chat is present. If we have the same message, merge the histories and kill the initiator, otherwise, don't do anything and continue our propagation.
- - A local SOO.chat is present. The local SOO.chat checks if it already has the new message, and adds it to its history if needed. 
+
+- No ME is present in the SO. So it means the migrating one is alone. We continue our propagation.
+- An ME is present, but it is not a SOO.chat. We continue our propagation.
+- A migrating SOO.chat is present. If we have the same message, merge the histories and kill the initiator, otherwise, don't do anything and continue our propagation.
+- A local SOO.chat is present. The local SOO.chat checks if it already has the new message, and adds it to its history if needed. 
 
 
 pre_propagate
 ^^^^^^^^^^^^^
+
 The pre-propagate will decide if the ME will be propagated or if it must die. It is called periodically (300ms).
 It checks if any of the callbacks asked for a propagation (internal flag). If a propagation is needed, it checks if 
 it is dormant. If yes, it means we need to ask to kill ourself, if not, it means the ME must be propagated.
@@ -151,7 +155,7 @@ small history for the messages which  were distributed. It also
 contains and execute the helpers needed to compare and merge histories. 
 
 Messages id management
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 Each time a new message is received from the tablet, the SOO.chat
 assigns it a ``id``, incrementing it each time. It is used as a
@@ -201,7 +205,7 @@ typed on the tablet `text-edit` widget. The ME knows it has to send the message 
 from the `button-send` widget. 
 
 SOO.chat XML UI model
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 This describes the XML model and how it will interact and be used by the
 tablet.
@@ -232,8 +236,7 @@ XML model
 
 The following model is used to generate the tablet UI for this ME.
 
-.. code:: xml
-
+.. raw:: xml
 
        <model slot_id=SLOT_ID_HERE
            <name>SOO.chat</name>
@@ -264,7 +267,7 @@ The following model is used to generate the tablet UI for this ME.
        </model>    
 
 XML messages management
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 Here are all the message the SOO.chat ME can send to the tablet:
 
@@ -283,7 +286,7 @@ A chat message is a message augmented with a `chat` member which embed this chat
 It is destined to the `msg-history` widget which will create the entry from the metadata and display it.   
 
 XML events management
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 Here are all the events the SOO.chat ME can receive and handle from the
 tablet:

@@ -1,6 +1,5 @@
 .. _user_guide:
 
-##########
 User Guide
 ##########
    
@@ -15,7 +14,6 @@ clone, build.conf is configured for QEMU *virt32* platform.
 Additionally, the *virt32* target is also configured with TrustZone
 support.
 
-*************
 Pre-requisite
 *************
 
@@ -82,7 +80,6 @@ For the 64-bit version (virt & RPi4), the AArch-64 (ARM 64-bit) toolchain can be
    $ sudo mv gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu aarch64-none-linux-gnu_10.2
    $ echo 'export PATH="${PATH}:/opt/toolchains/aarch64-none-linux-gnu_10.2/bin"' | sudo tee -a /etc/profile.d/02-toolchains.sh
 
-****************
 Basic Components
 ****************
 
@@ -126,7 +123,7 @@ ARM Trusted firmware (trusted-firmware-a) also known as ATF
    ./build.sh
 
 OTEE_OS (Open Trusted Execution Environment)
---------------------------------------------
+============================================
 
 .. code:: bash
 
@@ -144,9 +141,8 @@ cipher/uncipher the ME, discovery beacons, etc.
    cd optee_ta
    ./build.sh
 
-******
 U-boot
-******
+======
 
 The bootloader used by SOO is **U-boot**. In the sub-directory, there
 are also various environment files used by the bootloader.
@@ -181,7 +177,6 @@ The following configurations are available:
 | *cm4_64_defconfig*    | Raspberry Pi / CM4 module in 64-bit mode |
 +-----------------------+------------------------------------------+
 
-**************
 SOO Components
 **************
 
@@ -211,6 +206,49 @@ Possible platforms and types are:
 | *cm4_64*  | Raspberry Pi / CM4 module in 64-bit mode |
 +-----------+------------------------------------------+
 
+
+AVZ Hypervisor
+--------------
+
+Since ``avz`` is based on SO3, it will be compiled from the source available
+in ``ME/base/so3/so3`` thanks to the ``./build.sh`` script availabe in *avz* directory.
+
+Building avz first requires to prepare the configuration as the following example for the *virt64* platform:
+
+.. code-block:: bash
+
+   ~$ cd avz
+   ~/avz$ ./build.sh virt64_defconfig
+   `/avz$ ./build.sh
+   
+Executing the script without argument leads to a full build of avz.
+
+To clean the avz directory properly, the ``-c`` option is availabe:
+
+.. code-block:: bash
+
+   ~/avz$ ./build.sh -c
+   
+   
+Linux kernel
+------------
+
+To build the Linux kernel of the Agency, move to the kernel root directory ``agency/linux``.
+
+Using ``make`` is the simplest way to build the kernel after configuring adequatly, as example
+for the *virt64* platform:
+
+.. note::
+
+   The ``-j20`` option assumes you can use 20 CPU cores to make the build with parallel execution.
+   
+.. code-block:: bash
+
+   ~$ cd agency/linux
+   ~/agency/linux$ make virt64_defconfig
+   ~/agency/linux/$ make -j20
+   
+
 Main root filesystem (**rootfs**)
 ---------------------------------
 
@@ -232,14 +270,6 @@ From the agency’s directory:
    cd rootfs
    make MYARCH_defconfig
    make source
-   make
-
-The build of the agency including **AVZ** and **Linux** is
-done by doing simply a make in the ``agency/`` root directory.
-
-.. code:: bash
-
-   cd agency
    make
 
 Initial ramfs (initrd) filesystem
