@@ -19,20 +19,9 @@
 #ifndef ASM_SETUP_H
 #define ASM_SETUP_H
 
-/*
- * Memory map description
- */
-#define NR_BANKS 8
+#define L_TEXT_OFFSET	0x8000
 
-struct meminfo {
-	int nr_banks;
-	unsigned long end;
-	struct {
-		unsigned long start;
-		unsigned long size;
-		int           node;
-	} bank[NR_BANKS];
-};
+#ifndef __ASSEMBLY__
 
 extern struct meminfo meminfo;
 
@@ -41,5 +30,7 @@ extern addr_t __cpu3_stack[];
 
 void setup_arch(void);
 void cpu_init(void);
+
+#endif /* __ASSEMBLY__ */
 
 #endif /* ASM_SETUP_H */

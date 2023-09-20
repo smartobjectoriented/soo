@@ -45,6 +45,10 @@ perform various tests. This variant has no rootfs (only kernel threads).";
 		vuart {
 			status = "ok";
 		};
+		
+		viuoc {
+			status = "ok";
+		};
 	};
 };
 			

@@ -417,6 +417,10 @@
 		vsenseled {
 			status = "ok";
 		};
+
+		viuoc {
+			status = "ok";
+		};
 		
 	};
 

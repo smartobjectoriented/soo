@@ -1,6 +1,5 @@
 .. _user_guide:
 
-##########
 User Guide
 ##########
    
@@ -10,12 +9,11 @@ to ``16.10``. It is assumed that you are running an x86_64 version.
 The following setup prepares to run the SOO framework in a QEMU-based
 emulated environment. There is a file called **build.conf** in the
 *agency/* directory which specifies the target platform. After a fresh
-clone, build.conf is configured for QEMU *vExpress* platform.
+clone, build.conf is configured for QEMU *virt32* platform.
 
-Additionally, the *vExpress* target is also configured with TrustZone
+Additionally, the *virt32* target is also configured with TrustZone
 support.
 
-*************
 Pre-requisite
 *************
 
@@ -82,7 +80,6 @@ For the 64-bit version (virt & RPi4), the AArch-64 (ARM 64-bit) toolchain can be
    $ sudo mv gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu aarch64-none-linux-gnu_10.2
    $ echo 'export PATH="${PATH}:/opt/toolchains/aarch64-none-linux-gnu_10.2/bin"' | sudo tee -a /etc/profile.d/02-toolchains.sh
 
-****************
 Basic Components
 ****************
 
@@ -126,7 +123,7 @@ ARM Trusted firmware (trusted-firmware-a) also known as ATF
    ./build.sh
 
 OTEE_OS (Open Trusted Execution Environment)
---------------------------------------------
+============================================
 
 .. code:: bash
 
@@ -144,9 +141,8 @@ cipher/uncipher the ME, discovery beacons, etc.
    cd optee_ta
    ./build.sh
 
-******
 U-boot
-******
+======
 
 The bootloader used by SOO is **U-boot**. In the sub-directory, there
 are also various environment files used by the bootloader.
@@ -162,27 +158,25 @@ commands (from the soo directory):
 .. code:: bash
 
    cd u-boot
-   make vexpress_defconfig
+   make virt32_defconfig
    make -j8
 
 The following configurations are available:
 
-+-----------------------+-------------------------------------+
-| Name                  | Platform                            |
-+=======================+=====================================+
-| *vexpress_defconfig*  | Basic QEMU/vExpress 32-bit platform |
-+-----------------------+-------------------------------------+
-| *virt64_defconfig*    | QEMU/virt 64-bit platform           |
-+-----------------------+-------------------------------------+
-| *rpi_4_32b_defconfig* | Raspberry Pi 4 in 32-bit mode       |
-+-----------------------+-------------------------------------+
-| *rpi4_64_defconfig*   | Raspberry Pi 4 in 64-bit mode       |
-+-----------------------+-------------------------------------+
++-----------------------+------------------------------------------+
+| Name                  | Platform                                 |
++=======================+==========================================+
+| *virt32_defconfig*    | Basic QEMU/virt 32-bit platform          |
++-----------------------+------------------------------------------+
+| *virt64_defconfig*    | QEMU/virt 64-bit platform                |
++-----------------------+------------------------------------------+
+| *rpi_4_32b_defconfig* | Raspberry Pi 4 in 32-bit mode            |
++-----------------------+------------------------------------------+
+| *rpi4_64_defconfig*   | Raspberry Pi 4 in 64-bit mode            |
++-----------------------+------------------------------------------+
+| *cm4_64_defconfig*    | Raspberry Pi / CM4 module in 64-bit mode |
++-----------------------+------------------------------------------+
 
-(The last one is a custom configuration and is to be used as replacemenent
-of rpi_4_defconfig)
-
-**************
 SOO Components
 **************
 
@@ -194,29 +188,66 @@ built in the **agency/** directory. Different configurations are possible.
 
 Target platforms
 ----------------
-The file ``build.conf`` in ``agency/`` contains the ``PLATFORM`` (and eventually ``TYPE``) variables 
-to select the target platform.
+The file ``build.conf`` in ``agency/`` contains the ``PLATFORM`` to select the target platform.
 
 Possible platforms and types are:
 
-+------------+-------------------------------------+
-| Name       | Platform                            |
-+============+=====================================+
-| *vexpress* | Basic QEMU/vExpress 32-bit platform |
-+------------+-------------------------------------+
-| *virt64*   | QEMU/virt 64-bit platform           |
-+------------+-------------------------------------+
-| *rpi4*     | Raspberry Pi 4 in 32-bit mode       |
-+------------+-------------------------------------+
-| *rpi4_64*  | Raspberry Pi 4 in 64-bit mode       |
-+------------+-------------------------------------+
++-----------+------------------------------------------+
+| Name      | Platform                                 |
++===========+==========================================+
+| *virt32*  | Basic QEMU/virt 32-bit platform          |
++-----------+------------------------------------------+
+| *virt64*  | QEMU/virt 64-bit platform                |
++-----------+------------------------------------------+
+| *rpi4*    | Raspberry Pi 4 in 32-bit mode            |
++-----------+------------------------------------------+
+| *rpi4_64* | Raspberry Pi 4 in 64-bit mode            |
++-----------+------------------------------------------+
+| *cm4_64*  | Raspberry Pi / CM4 module in 64-bit mode |
++-----------+------------------------------------------+
 
-If *vexpress* is selected, it is (still) necessary to add a TYPE. Only, ``tz`` type
-is supported.
+
+AVZ Hypervisor
+--------------
+
+Since ``avz`` is based on SO3, it will be compiled from the source available
+in ``ME/base/so3/so3`` thanks to the ``./build.sh`` script availabe in *avz* directory.
+
+Building avz first requires to prepare the configuration as the following example for the *virt64* platform:
+
+.. code-block:: bash
+
+   ~$ cd avz
+   ~/avz$ ./build.sh virt64_defconfig
+   `/avz$ ./build.sh
+   
+Executing the script without argument leads to a full build of avz.
+
+To clean the avz directory properly, the ``-c`` option is availabe:
+
+.. code-block:: bash
+
+   ~/avz$ ./build.sh -c
+   
+   
+Linux kernel
+------------
+
+To build the Linux kernel of the Agency, move to the kernel root directory ``agency/linux``.
+
+Using ``make`` is the simplest way to build the kernel after configuring adequatly, as example
+for the *virt64* platform:
 
 .. note::
 
-   The ``TYPE`` variable is useless and will be removed soon.
+   The ``-j20`` option assumes you can use 20 CPU cores to make the build with parallel execution.
+   
+.. code-block:: bash
+
+   ~$ cd agency/linux
+   ~/agency/linux$ make virt64_defconfig
+   ~/agency/linux/$ make -j20
+   
 
 Main root filesystem (**rootfs**)
 ---------------------------------
@@ -225,7 +256,7 @@ In the code below, you have to replace ``MYARCH`` with the selected architecture
 All available configurations (\*_defconfig) are placed in
 the ``configs/`` directory.
 
--  If the chosen architecture is ``vexpress``, *MYARCH* should be *vexpress*.
+-  If the chosen architecture is ``virt32``, *MYARCH* should be *virt32*.
 -  If the chosen architecture is ``Raspberry Pi 4``: *MYARCH* should be *rpi4* .
 -  etc.
 
@@ -241,26 +272,18 @@ From the agency’s directory:
    make source
    make
 
-The build of the agency including **AVZ** and **Linux** is
-done by doing simply a make in the ``agency/`` root directory.
-
-.. code:: bash
-
-   cd agency
-   make
-
 Initial ramfs (initrd) filesystem
 ---------------------------------
 
 In the agency, there is an ``initrd`` filesystem which is embedded in
 the *ITB* image file. In order to access the content of this *initrd*, 
 a script in ``agency/rootfs`` is available. For example, to access
-the content of the *vexpress* board:
+the content of the *virt32* board:
 
 .. code:: bash
 
    cd rootfs
-   ./mount_initrd.sh vexpress
+   ./mount_initrd.sh virt32
    cd fs
 
 Unmounting the filesystem is done with:
@@ -268,7 +291,7 @@ Unmounting the filesystem is done with:
 .. code:: bash
    
    cd rootfs
-   ./umount_initrd.sh vexpress
+   ./umount_initrd.sh virt32
 
 Agency user applications
 ------------------------
@@ -295,7 +318,7 @@ The creation of the virtual disk image is done as follows:
 .. code:: bash
 
    cd agency/filesystem
-   ./create_img.sh vexpress
+   ./create_img.sh virt32
 
 Deployment into the storage device
 ----------------------------------

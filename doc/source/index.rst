@@ -27,7 +27,7 @@
    aarch64
    dev_flow
    glossary
-   specifications/specifications
+   ME/ME
    demos/demos
    
 ======================================

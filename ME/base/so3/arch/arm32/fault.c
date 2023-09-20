@@ -62,7 +62,7 @@ void kernel_panic(void)
 	else {
 		lprintk("%s: entering infinite loop... CPU: %d\n", __func__, smp_processor_id());
 
-#ifdef CONFIG_VEXPRESS
+#ifdef CONFIG_VIRT32
 		{
 			extern void send_qemu_halt(void);
 			send_qemu_halt();
@@ -95,11 +95,5 @@ void dumpregisters(void) {
 
 	lprintk("## sp_usr: %x\n", *(sp + OFFSET_SP_USR/4));
 	lprintk("## lr_usr: %x\n", *(sp + OFFSET_LR_USR/4));
-
-}
-
-void trap_handle(cpu_regs_t *regs) {
-
-	/* To be implemented */
 
 }

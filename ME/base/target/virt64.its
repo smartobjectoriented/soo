@@ -43,6 +43,7 @@
 			load = <0x40f00000>;
 		};
 		
+		/* This AVZ DT works with VT support (GIC reg cells number appropriate) */
 		avz_vt_dt {
 			description = "Flattened Device Tree blob";
 			data = /incbin/("../avz/dts/virt64_avz_vt.dtb");

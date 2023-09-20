@@ -25,7 +25,7 @@ are received from each smart object.
 
 Results shown on the figure below have been performed with the following configuration:
 
-* QEMU/vexpress emulated environment
+* QEMU/virt32 emulated environment
 * Buffer of 16 KB
 * From boot up to ~10s after getting the agency prompt
 * The number corresponds to the quantity of buffer (of 16 KB) received from the other side

@@ -33,6 +33,69 @@
 #include <asm/setup.h>
 
 /**
+ * Retrieve the physical address of the AVZ device tree which is loaded by U-boot
+ * as a "loadable" component.
+ *
+ * The same procedure will be done later on when the MMU is enabled. We do not store
+ * the address to avoid relocation issue.
+ *
+ * @param agency_fdt_paddr
+ * @return
+ */
+u64 __get_avz_fdt_paddr(void *agency_fdt_paddr) {
+	int nodeoffset, next_node;
+	int depth, ret;
+	u64 avz_dt_paddr;
+	const char *propstring;
+	bool found = false;
+
+	nodeoffset = 0;
+	depth = 0;
+
+	while (!found && (nodeoffset >= 0)) {
+		next_node = fdt_next_node(agency_fdt_paddr, nodeoffset, &depth);
+
+		ret = fdt_property_read_string(agency_fdt_paddr, nodeoffset, "type", &propstring);
+
+		/* Process the type "avz" to get the AVZ device tree */
+		if ((ret != -1) && !strcmp(propstring, "avz_dt")) {
+
+			/* According to U-boot, the <load> and <entry> properties are both on 64-bit even for aarch32 configuration. */
+
+			ret = fdt_property_read_u64(agency_fdt_paddr, nodeoffset, "load", (u64 *) &avz_dt_paddr);
+			if (ret == -1) {
+				lprintk("!! Missing load-addr in the avz_dt node !!\n");
+				BUG();
+			}
+
+			found = true;
+		}
+		nodeoffset = next_node;
+	}
+
+	if (!found) {
+		lprintk("!! Unable to find a node with type avz and/or avz_dt in the FIT image... !!\n");
+		BUG();
+	}
+
+	/* Let us map this DT since it will be accessed by early_memory_init() */
+#ifdef CONFIG_ARCH_ARM32
+	((uint32_t *) __sys_root_pgtable)[l1pte_index(avz_dt_paddr)] = avz_dt_paddr;
+		set_l1_pte_sect_dcache(&((uint32_t *) __sys_root_pgtable)[l1pte_index(avz_dt_paddr)], L1_SECT_DCACHE_WRITEALLOC);
+
+	mmu_page_table_flush((uint32_t) __sys_root_pgtable, (uint32_t) (__sys_root_pgtable + TTB_L1_ENTRIES));
+#endif /* CONFIG_ARM32 */
+
+	/* Assign the agency DT addr to the general __fdt_addr here
+	 * since loadAgency() will need it to parse the complete device tree.
+	 * It will be re-adjusted at the end of loadAgency().
+	 */
+	__fdt_addr = agency_fdt_paddr; /* Mapped as with direct-mapping by mmu_configure() */
+
+	return avz_dt_paddr;
+}
+
+/**
  * We put all the guest domains in ELF format on top of memory so
  * that the domain_build will be able to elf-parse and load to their final destination.
  *
@@ -203,7 +266,7 @@ void loadAgency(void)
 	/* __fdt_addr MUST BE mapped in an identity mapping */
 
 	/* Get the RAM information of the board */
-	early_memory_init();
+	early_memory_init(__fdt_addr);
 
 	lprintk("  AVZ memory descriptor : found %d MB of RAM at 0x%08X\n", mem_info.size / SZ_1M, mem_info.phys_base);
 
@@ -347,11 +410,19 @@ void loadME(unsigned int slotID, void *itb) {
 		initrd_start = ALIGN_DOWN(initrd_start, PAGE_SIZE);
 		initrd_end = initrd_start + initrd_size;
 
+#ifdef CONFIG_ARCH_ARM32
 		ret = fdt_setprop_u32((void *) __lva(memslot[slotID].fdt_paddr), nodeoffset, "linux,initrd-start", (uint32_t) initrd_start);
 		BUG_ON(ret != 0);
 
 		ret = fdt_setprop_u32((void *) __lva(memslot[slotID].fdt_paddr), nodeoffset, "linux,initrd-end", (uint32_t) initrd_end);
 		BUG_ON(ret != 0);
+#else
+		ret = fdt_setprop_u64((void *) __lva(memslot[slotID].fdt_paddr), nodeoffset, "linux,initrd-start", (uint32_t) initrd_start);
+		BUG_ON(ret != 0);
+
+		ret = fdt_setprop_u64((void *) __lva(memslot[slotID].fdt_paddr), nodeoffset, "linux,initrd-end", (uint32_t) initrd_end);
+		BUG_ON(ret != 0);
+#endif
 
 		memcpy((void *) __lva(initrd_start), initrd_vaddr, initrd_size);
 	}

@@ -118,7 +118,8 @@ int main(int argc, char *argv[]) {
 
 	buffer = get_ME_snapshot_user(buffer, buffer_size);
 
-	printf("  * Got a ME buffer of %ld bytes.\n", buffer_size);
+	/* The use of %zu formatter enables to print a size_t variable regardless the underlying architecture. */
+	printf("  * Got a ME buffer of %zu bytes.\n", buffer_size);
 
 	finalize_migration(2);
 

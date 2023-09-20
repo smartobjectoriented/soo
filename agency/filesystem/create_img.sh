@@ -1,21 +1,21 @@
 #!/bin/bash
 
 if [ $# -ne 1 ]; then
-	echo "Please provide the board name (vexpress, virt64, rpi4, rpi4_64)"
+	echo "Please provide the board name (virt32, virt64, rpi4, rpi4_64, cm4_64)"
 	exit 0
 fi 
 
-# Partition layout on the sdcard (vExpress for example):
+# Partition layout on the sdcard (virt32 for example):
 # - Partition #1: 128 MB (u-boot, kernel, etc.)
 # - Partition #2: 400 MB (agency rootfs 1)
 # - Partition #3: 100 MB (MEs)
 # - Partition #4: remaining size (agency rootfs 2)
 
-if [ "$1" == "vexpress" -o "$1" == "virt64"  ]; then
+if [ "$1" == "virt32" -o "$1" == "virt64"  ]; then
     #create image first
     echo Creating sdcard.img.$1 ... 
     
-    if [ "$1" == "vexpress" -o "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "virt64" ]; then
+    if [ "$1" == "virt32" -o "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "virt64" ]; then
         dd_size=1G
     else
         dd_size=400M
@@ -32,7 +32,7 @@ if [ "$1" == "rpi4" -o "$1" == "rpi4_64" ]; then
     read devname
 fi
 
-if [ "$1" == "vexpress" -o "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "virt64" ]; then
+if [ "$1" == "virt32" -o "$1" == "virt64" -o "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "cm4_64" ]; then
 #create the partition layout this way
     (echo o; echo n; echo p; echo; echo; echo +128M; echo t; echo c; echo n; echo p; echo; echo; echo +400M; echo n; echo p; echo; echo; echo +100M; echo n; echo p; echo; echo; echo; echo w)   | sudo fdisk /dev/"$devname";
 fi
@@ -50,7 +50,7 @@ sudo mkfs.ext4 /dev/"$devname"2
 sudo mkfs.ext4 /dev/"$devname"3
 sudo mkfs.ext4 /dev/"$devname"4
 
-if [ "$1" == "vexpress" -o "$1" == "virt64" ]; then
+if [ "$1" == "virt32" -o "$1" == "virt64" ]; then
 	sudo losetup -D
 fi
 

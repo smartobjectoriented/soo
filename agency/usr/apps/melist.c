@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 #include <sys/ioctl.h>
 
@@ -76,7 +77,7 @@ int main(int argc, char *argv[]) {
 		if (id_array[i].state == ME_state_dead)
 			printf("  slot %d -> empty\n", i+2);
 		else {
-			printf("  slot %d -> spid: %lx       name: %s       state: %s\n", i+2,
+			printf("  slot %d -> spid: %" PRIx64 "       name: %s       state: %s\n", i+2,
 				id_array[i].spid, id_array[i].name,
 				ME_state_str(id_array[i].state));
 

@@ -172,15 +172,10 @@ void agency_ctl(agency_ctl_args_t *args)
 		domcall_args.u.cooperate_args.u.initiator_coop.pfn = args->u.cooperate_args.pfn;
 
 		/* Transfer the capabilities of the target ME */
-		// memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.spad, &domains[args->u.cooperate_args.slotID]->avz_shared->dom_desc.u.ME.spad, sizeof(spad_t));
-		// TODO : Check if we need the target info copied to the initiator spad (might be OK, just verify)
 		memcpy(&domcall_args.u.cooperate_args.u.initiator_coop.spad, &domains[args->slotID]->avz_shared->dom_desc.u.ME.spad, sizeof(spad_t));
 
 		/* Transfer the SPID of the target ME */
-		// TODO : check if the initiator spid must be passed instead of the target one
 		domcall_args.u.cooperate_args.u.initiator_coop.spid = domains[args->u.cooperate_args.slotID]->avz_shared->dom_desc.u.ME.spid;
-		// domcall_args.u.cooperate_args.u.initiator_coop.spid = domains[args->u.cooperate_args.slotID]->avz_shared->dom_desc.u.ME.spid;
-
 
 		domcall_args.u.cooperate_args.role = COOPERATE_TARGET;
 		target_dom = domains[args->slotID];

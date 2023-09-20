@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2014-2023 Daniel Rossier <daniel.rossier@heig-vd.ch>
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,8 +19,15 @@
 
 #ifndef VERSION_H
 
-#define SO3_KERNEL_VERSION "2023.5.0"
+/* CHANGES 2023.6.0 */
+/**
+ * - Removed CONFIG_RAM_BASE and CONFIG_RAM_SIZE. These information are available from the device tree.
+ * - Removed old meminfo structure which is not used anymore.
+ * - Removed avz_guest_phys_offset and rely on avz_shared to initialize mem_info structure (phys base + size)
+ * - Upgrade U-boot to 2022.04
+ */
 
+#define SO3_KERNEL_VERSION "2023.6.0"
 
 #endif /* VERSION_H */
 

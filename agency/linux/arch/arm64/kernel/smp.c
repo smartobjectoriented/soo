@@ -165,7 +165,6 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 	secondary_data.task = idle;
 	secondary_data.stack = task_stack_page(idle) + THREAD_SIZE;
 
-	/* OpenCN */
 	if (cpu == AGENCY_RT_CPU) {
 		xnarch_init_thread(&__root_task);
 

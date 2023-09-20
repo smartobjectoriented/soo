@@ -115,15 +115,16 @@
 				status = "disabled";
 			};
 
-			viuoc {
-				compatible = "viuoc,frontend";
-				status = "disabled";
-			};
-
 			vknx {
 				compatible = "vknx,frontend";
 				status = "disabled";
 			};
+			
+			viuoc {
+				compatible = "viuoc,frontend";
+				status = "disabled";
+			};
 		};
+
 	};
 };

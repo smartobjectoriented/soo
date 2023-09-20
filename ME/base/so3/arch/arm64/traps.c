@@ -23,13 +23,18 @@
 #ifdef CONFIG_AVZ
 #include <avz/sched.h>
 #include <avz/hypercall.h>
+#include <avz/event.h>
+
+#include <avz/domctl.h>
+
+#include <asm/cacheflush.h>
+#include <asm/setup.h>
+
 #else
 #include <syscall.h>
 #endif
 
 #include <asm/processor.h>
-
-#include <avz/domctl.h>
 
 #ifdef CONFIG_ARM64VT
 
@@ -115,6 +120,8 @@ extern addr_t cpu_entrypoint;
  *
  * @param regs	Pointer to the stack frame
  */
+typedef void(*vector_fn_t)(cpu_regs_t *);
+
 int trap_handle(cpu_regs_t *regs) {
 #ifdef CONFIG_ARM64VT
 	unsigned long esr = read_sysreg(esr_el2);
@@ -123,16 +130,34 @@ int trap_handle(cpu_regs_t *regs) {
 	unsigned long esr = read_sysreg(esr_el1);
 #endif
 
+#if defined(CONFIG_AVZ) && defined(CONFIG_SOO)
+	vector_fn_t vector_fn = (vector_fn_t) (ME_VOFFSET + L_TEXT_OFFSET + PAGE_SIZE + 0x400);
+#endif
+
 	switch (ESR_ELx_EC(esr)) {
 
 	/* SVC used for syscalls */
 	case ESR_ELx_EC_SVC64:
-#ifndef CONFIG_AVZ
+
+#ifdef CONFIG_AVZ
+
+#ifdef CONFIG_SOO
+		/* Jump to the guest vector */
+
+		vector_fn(regs);
+		return 0;
+#else
+		BUG();
+#endif
+
+#else /* CONFIG_AVZ */
+
 		local_irq_enable();
 		regs->x0 = syscall_handle(regs->x0, regs->x1, regs->x2, regs->x3);
 		local_irq_disable();
-#endif
-		break;
+#endif /* !CONFIG_AVZ */
+
+		return 0;
 
 #ifdef CONFIG_ARM64VT
 	case ESR_ELx_EC_HVC64:
@@ -159,10 +184,15 @@ int trap_handle(cpu_regs_t *regs) {
 
 		case __HYPERVISOR_domctl:
 
-			do_domctl((domctl_t *)  ipa_to_lva(memslot[MEMSLOT_AGENCY], regs->x1));
+			do_domctl((domctl_t *) ipa_to_lva(memslot[MEMSLOT_AGENCY], regs->x1));
+			flush_dcache_all();
+
 			return ESUCCESS;
 
 		case __HYPERVISOR_event_channel_op:
+
+			do_event_channel_op(regs->x1, (void *) ipa_to_lva(memslot[MEMSLOT_AGENCY], regs->x2));
+			flush_dcache_all();
 
 			return ESUCCESS;
 

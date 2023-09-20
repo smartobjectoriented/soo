@@ -62,7 +62,7 @@ size_t current_size = 0;
 int inject_ME(void *buffer, size_t size) {
 	int slotID;
 
-	DBG("Original contents at address: 0x%08x\n with size %d bytes", (unsigned int) buffer, size);
+	DBG("Original contents at address: 0x%08x\n with size %d bytes\n", (unsigned int) buffer, size);
 
 	soo_hypercall(AVZ_INJECT_ME, buffer, NULL, &slotID, &size);
 

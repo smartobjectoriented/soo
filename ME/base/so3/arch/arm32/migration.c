@@ -34,15 +34,14 @@
  The rest of the page table will get fixed directly in the ME using a DOMCALL.
  ------------------------------------------------------------------------------*/
 extern unsigned long vaddr_start_ME;
+
 void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 {
-#if 0 /* At the moment, need to be aligned */
 	struct domain *me = domains[ME_slotID];
 	uint32_t *pgtable_ME;
 	unsigned long vaddr;
 	unsigned long old_pfn;
 	unsigned long new_pfn;
-	unsigned long offset;
 	volatile unsigned int base;
 	uint32_t *l1pte, *l2pte, *l1pte_current;
 	int i, j;
@@ -95,7 +94,6 @@ void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 
 					flush_pte_entry((void *) l2pte);
 				}
-
 			}
 		}
 	}
@@ -103,7 +101,7 @@ void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 	/* Fix the Hypervisor mapped addresses (size of hyp = 12 MB) */
 	for (vaddr = 0xff000000; vaddr < 0xffc00000; vaddr += TTB_SECT_SIZE) {
 		l1pte = l1pte_offset(pgtable_ME, vaddr);
-		l1pte_current = l1pte_offset(__sys_l1pgtable, vaddr);
+		l1pte_current = l1pte_offset(__sys_root_pgtable, vaddr);
 
 		*l1pte = *l1pte_current;
 		flush_pte_entry((void *) l1pte);
@@ -111,9 +109,10 @@ void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 
 
 	/**********************/
-	/* We re-adjust the PTE entries for the whole kernel space until the hypervisor area. */
 
-	l1pte = pgtable_ME + (VECTORS_BASE >> TTB_I1_SHIFT);
+	/* Fix the vector page physical offset */
+
+	l1pte = pgtable_ME + (VECTOR_VADDR >> TTB_I1_SHIFT);
 
 	/* Fix the pfn of the 1st-level PT */
 
@@ -123,6 +122,7 @@ void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 
 	flush_pte_entry((void *) l1pte);
 
+	/* Walk through the 2nd-level page table */
 	for (j = 0; j < 256; j++) {
 
 		l2pte = ((uint32_t *) __lva(*l1pte & TTB_L1_PAGE_ADDR_MASK)) + j;
@@ -140,21 +140,6 @@ void fix_kernel_boot_page_table_ME(unsigned int ME_slotID)
 	/**********************/
 
 	/* Fix the physical address of the ME kernel page table */
-	me->addrspace.pgtable_paddr = me->addrspace.pgtable_paddr + pfn_to_phys(pfn_offset);
-
-	/* Fix other phys. var. such as TTBR* */
-
-	/* Preserve the low-level bits like SMP related bits */
-
-	offset = me->addrspace.ttbr0[ME_CPU] & ((1 << PAGE_SHIFT) - 1);
-	old_pfn = phys_to_pfn(me->addrspace.ttbr0[ME_CPU]);
-
-	me->addrspace.ttbr0[ME_CPU] = pfn_to_phys(old_pfn + pfn_offset) + offset;
-
-	offset = me->addrspace.ttbr0[smp_processor_id()] & ((1 << PAGE_SHIFT) - 1);
-	old_pfn = phys_to_pfn(me->addrspace.ttbr0[smp_processor_id()]);
-
-	/* Need to be called also on CPU #0 (AGENCY_CPU) */
-	me->addrspace.ttbr0[smp_processor_id()] = pfn_to_phys(old_pfn + pfn_offset) + offset;
-#endif
+	me->avz_shared->pagetable_paddr += pfn_to_phys(pfn_offset);
 }
+
