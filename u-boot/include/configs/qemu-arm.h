@@ -66,11 +66,8 @@
 	BOOTENV
 #endif /* 0 */
 
-#define CONFIG_EXTRA_ENV_SETTINGS \
-		"serverip=10.0.2.2\0" \
-		"ipaddr=10.0.2.15\0" \
-		"console=ttyAMA0,38400n8\0" \
-		"dram=1024M\0"
+#define CONFIG_BOOTCOMMAND \
+        "load virtio 0 0x40000000 uEnv.txt; env import 0x40000000; run start\0" 
 
 #define CONFIG_SYS_CBSIZE 512
 
