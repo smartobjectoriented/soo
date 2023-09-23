@@ -16,7 +16,8 @@
    :maxdepth: 5
    :numbered:
    :hidden:
-  
+
+   Coding conventions <coding_conventions>
    introduction
    architecture/architecture
    drivers/drivers
