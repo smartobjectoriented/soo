@@ -96,7 +96,7 @@ static const struct {
  * @param[in] part_name Info for which partition name to look for
  * @param[in,out] response Pointer to fastboot response buffer
  * @param[out] size If not NULL, will contain partition size
- * Return: Partition number or negative value on error
+ * @return Partition number or negative value on error
  */
 static int getvar_get_part_info(const char *part_name, char *response,
 				size_t *size)

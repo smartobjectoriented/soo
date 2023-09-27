@@ -9,8 +9,6 @@ config SYS_VENDOR
 config SYS_CONFIG_NAME
 	default "giedi"
 
-config IMX_CONFIG
-	default "board/siemens/capricorn/imximage.cfg"
 endif
 
 if TARGET_DENEB
@@ -23,8 +21,5 @@ config SYS_VENDOR
 
 config SYS_CONFIG_NAME
 	default "deneb"
-
-config IMX_CONFIG
-	default "board/siemens/capricorn/imximage.cfg"
 
 endif

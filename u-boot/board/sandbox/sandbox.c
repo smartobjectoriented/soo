@@ -26,10 +26,7 @@
 gd_t *gd;
 
 #if !CONFIG_IS_ENABLED(OF_PLATDATA)
-/*
- * Add a simple GPIO device (don't use with of-platdata as it interferes with
- * the auto-generated devices)
- */
+/* Add a simple GPIO device */
 U_BOOT_DRVINFO(gpio_sandbox) = {
 	.name = "sandbox_gpio",
 };

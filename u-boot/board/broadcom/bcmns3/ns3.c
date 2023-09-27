@@ -150,10 +150,7 @@ int board_init(void)
 
 	if (bl33_info->version != BL33_INFO_VERSION)
 		printf("*** warning: ATF BL31 and U-Boot not in sync! ***\n");
-#if CONFIG_IS_ENABLED(BNXT_ETH)
-	if (chimp_fastboot_optee() != 0)
-		printf("*** warning: secure chimp fastboot failed! ***\n");
-#endif
+
 	return 0;
 }
 
@@ -199,8 +196,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 {
 	u32 chimp_hs = CHIMP_HANDSHAKE_WAIT_TIMEOUT;
 
-	/* FIXME: Need to call gic_lpi_tables_init correctly now */
-	printf("%s: failed to init gic-lpi-tables\n", __func__);
+	gic_lpi_tables_init();
 
 	/*
 	 * Check for chimp handshake status.

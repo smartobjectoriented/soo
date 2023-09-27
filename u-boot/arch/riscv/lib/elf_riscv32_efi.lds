@@ -20,7 +20,7 @@ SECTIONS
 		*(.gnu.linkonce.t.*)
 		*(.srodata)
 		*(.rodata*)
-		. = ALIGN(512);
+		. = ALIGN(16);
 	}
 	_etext = .;
 	_text_size = . - _text;
@@ -46,7 +46,7 @@ SECTIONS
 		*(.bss)
 		*(.bss.*)
 		*(COMMON)
-		. = ALIGN(512);
+		. = ALIGN(16);
 		_bss_end = .;
 		_edata = .;
 	}

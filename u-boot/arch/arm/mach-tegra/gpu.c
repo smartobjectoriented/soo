@@ -46,8 +46,11 @@ int tegra_gpu_enable_node(void *blob, const char *compat)
 	if (!_configured)
 		return 0;
 
-	fdt_for_each_node_by_compatible(offset, blob, -1, compat)
+	offset = fdt_node_offset_by_compatible(blob, -1, compat);
+	while (offset != -FDT_ERR_NOTFOUND) {
 		fdt_status_okay(blob, offset);
+		offset = fdt_node_offset_by_compatible(blob, offset, compat);
+	}
 
 	return 0;
 }

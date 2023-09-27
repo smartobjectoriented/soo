@@ -295,12 +295,12 @@ static void set_ether_addr(void)
 	env_set("ethaddr", ethaddr);
 }
 
-#ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
+#ifdef CONFIG_REVISION_TAG
 static void set_board_rev(void)
 {
 	char info[64] = {0, };
 
-	snprintf(info, ARRAY_SIZE(info), "%02x", get_board_revision());
+	snprintf(info, ARRAY_SIZE(info), "%02x", get_board_rev());
 	env_set("board_rev", info);
 }
 #endif
@@ -310,7 +310,7 @@ static void set_dtb_name(void)
 	char info[64] = {0, };
 
 	snprintf(info, ARRAY_SIZE(info),
-		 "s5p4418-nanopi2-rev%02x.dtb", get_board_revision());
+		 "s5p4418-nanopi2-rev%02x.dtb", get_board_rev());
 	env_set("dtb_name", info);
 }
 
@@ -436,7 +436,7 @@ int board_late_init(void)
 {
 	bd_update_env();
 
-#ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
+#ifdef CONFIG_REVISION_TAG
 	set_board_rev();
 #endif
 	set_dtb_name();

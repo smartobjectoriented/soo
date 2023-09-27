@@ -209,3 +209,4 @@ U_BOOT_DRIVER(serial_sti_asc) = {
 	.probe = sti_asc_serial_probe,
 	.priv_auto	= sizeof(struct sti_asc_serial),
 };
+

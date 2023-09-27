@@ -120,9 +120,7 @@ static const struct rtc_ops pcf2127_rtc_ops = {
 };
 
 static const struct udevice_id pcf2127_rtc_ids[] = {
-	{ .compatible = "nxp,pcf2127" },
-	{ .compatible = "nxp,pcf2129" },
-	{ .compatible = "nxp,pca2129" },
+	{ .compatible = "pcf2127-rtc" },
 	{ }
 };
 

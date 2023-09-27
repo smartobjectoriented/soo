@@ -68,7 +68,7 @@ enum env_redund_flags {
  * This value increments every time the environment changes, so can be used an
  * an indication of this
  *
- * Return: environment ID
+ * @return environment ID
  */
 int env_get_id(void);
 
@@ -78,7 +78,7 @@ int env_get_id(void);
  * This locates the environment or uses the default if nothing is available.
  * This must be called before env_get() will work.
  *
- * Return: 0 if OK, -ENODEV if no environment drivers are enabled
+ * @return 0 if OK, -ENODEV if no environment drivers are enabled
  */
 int env_init(void);
 
@@ -91,6 +91,17 @@ int env_init(void);
 void env_relocate(void);
 
 /**
+ * env_match() - Match a name / name=value pair
+ *
+ * This is used prior to relocation for finding envrionment variables
+ *
+ * @name: A simple 'name', or a 'name=value' pair.
+ * @index: The environment index for a 'name2=value2' pair.
+ * @return index for the value if the names match, else -1.
+ */
+int env_match(unsigned char *name, int index);
+
+/**
  * env_get() - Look up the value of an environment variable
  *
  * In U-Boot proper this can be called before relocation (which is when the
@@ -98,7 +109,7 @@ void env_relocate(void);
  * case this function calls env_get_f().
  *
  * @varname:	Variable to look up
- * Return: value of variable, or NULL if not found
+ * @return value of variable, or NULL if not found
  */
 char *env_get(const char *varname);
 
@@ -108,7 +119,7 @@ char *env_get(const char *varname);
  * place of env_get without changing error handling otherwise.
  *
  * @varname:	Variable to look up
- * Return: value of variable, or NULL if not found
+ * @return value of variable, or NULL if not found
  */
 char *from_env(const char *envvar);
 
@@ -120,25 +131,17 @@ char *from_env(const char *envvar);
  * support reading the value (slowly) and some will not.
  *
  * @varname:	Variable to look up
- * Return: actual length of the variable value excluding the terminating
- *	NULL-byte, or -1 if the variable is not found
+ * @return value of variable, or NULL if not found
  */
 int env_get_f(const char *name, char *buf, unsigned int len);
 
 /**
  * env_get_yesno() - Read an environment variable as a boolean
  *
- * Return: 1 if yes/true (Y/y/T/t), -1 if variable does not exist (i.e. default
+ * @return 1 if yes/true (Y/y/T/t), -1 if variable does not exist (i.e. default
  *	to true), 0 if otherwise
  */
 int env_get_yesno(const char *var);
-
-/**
- * env_get_autostart() - Check if autostart is enabled
- *
- * Return: true if the "autostart" env var exists and is set to "yes"
- */
-bool env_get_autostart(void);
 
 /**
  * env_set() - set an environment variable
@@ -148,7 +151,7 @@ bool env_get_autostart(void);
  *
  * @varname: Variable to adjust
  * @value: Value to set for the variable, or NULL or "" to delete the variable
- * Return: 0 if OK, 1 on error
+ * @return 0 if OK, 1 on error
  */
 int env_set(const char *varname, const char *value);
 
@@ -161,7 +164,7 @@ int env_set(const char *varname, const char *value);
  * @name:	Variable to look up
  * @base:	Base to use (e.g. 10 for base 10, 2 for binary)
  * @default_val: Default value to return if no value is found
- * Return: the value found, or @default_val if none
+ * @return the value found, or @default_val if none
  */
 ulong env_get_ulong(const char *name, int base, ulong default_val);
 
@@ -170,7 +173,7 @@ ulong env_get_ulong(const char *name, int base, ulong default_val);
  *
  * @varname: Variable to adjust
  * @value: Value to set for the variable (will be converted to a string)
- * Return: 0 if OK, 1 on error
+ * @return 0 if OK, 1 on error
  */
 int env_set_ulong(const char *varname, ulong value);
 
@@ -191,7 +194,7 @@ ulong env_get_hex(const char *varname, ulong default_val);
  *
  * @varname: Variable to adjust
  * @value: Value to set for the variable (will be converted to a hex string)
- * Return: 0 if OK, 1 on error
+ * @return 0 if OK, 1 on error
  */
 int env_set_hex(const char *varname, ulong value);
 
@@ -200,7 +203,7 @@ int env_set_hex(const char *varname, ulong value);
  *
  * @varname:	Environment variable to set
  * @addr:	Value to set it to
- * Return: 0 if ok, 1 on error
+ * @return 0 if ok, 1 on error
  */
 static inline int env_set_addr(const char *varname, const void *addr)
 {
@@ -216,7 +219,7 @@ static inline int env_set_addr(const char *varname, const void *addr)
  * @maxsz: Size of buffer to use for matches
  * @buf: Buffer to use for matches
  * @dollar_comp: non-zero to wrap each match in ${...}
- * Return: number of matches found (in @cmdv)
+ * @return number of matches found (in @cmdv)
  */
 int env_complete(char *var, int maxv, char *cmdv[], int maxsz, char *buf,
 		 bool dollar_comp);
@@ -226,7 +229,7 @@ int env_complete(char *var, int maxv, char *cmdv[], int maxsz, char *buf,
  *
  * @name: Environment variable to get (e.g. "ethaddr")
  * @enetaddr: Place to put MAC address (6 bytes)
- * Return: 0 if OK, 1 on error
+ * @return 0 if OK, 1 on error
  */
 int eth_env_get_enetaddr(const char *name, uint8_t *enetaddr);
 
@@ -235,7 +238,7 @@ int eth_env_get_enetaddr(const char *name, uint8_t *enetaddr);
  *
  * @name: Environment variable to set (e.g. "ethaddr")
  * @enetaddr: Pointer to MAC address to put into the variable (6 bytes)
- * Return: 0 if OK, 1 on error
+ * @return 0 if OK, 1 on error
  */
 int eth_env_set_enetaddr(const char *name, const uint8_t *enetaddr);
 
@@ -258,35 +261,35 @@ int env_set_default_vars(int nvars, char *const vars[], int flags);
 /**
  * env_load() - Load the environment from storage
  *
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int env_load(void);
 
 /**
  * env_reload() - Re-Load the environment from current storage
  *
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int env_reload(void);
 
 /**
  * env_save() - Save the environment to storage
  *
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int env_save(void);
 
 /**
  * env_erase() - Erase the environment on storage
  *
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int env_erase(void);
 
 /**
  * env_select() - Select the environment storage
  *
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int env_select(const char *name);
 
@@ -300,7 +303,7 @@ int env_select(const char *name);
  * @check: non-zero to check the CRC at the start of the environment, 0 to
  *	ignore it
  * @flags: Flags controlling matching (H_... - see search.h)
- * Return: 0 if imported successfully, -ENOMSG if the CRC was bad, -EIO if
+ * @return 0 if imported successfully, -ENOMSG if the CRC was bad, -EIO if
  *	something else went wrong
  */
 int env_import(const char *buf, int check, int flags);
@@ -311,7 +314,7 @@ int env_import(const char *buf, int check, int flags);
  * Export from hash table into binary representation
  *
  * @env_out: Buffer to contain the environment (must be large enough!)
- * Return: 0 if OK, 1 on error
+ * @return 0 if OK, 1 on error
  */
 int env_export(struct environment_s *env_out);
 
@@ -323,7 +326,7 @@ int env_export(struct environment_s *env_out);
  * @buf1_read_fail: 0 if buf1 is valid, non-zero if invalid
  * @buf2: Second environment (struct environemnt_s *)
  * @buf2_read_fail: 0 if buf2 is valid, non-zero if invalid
- * Return: 0 if OK,
+ * @return 0 if OK,
  *	-EIO if no environment is valid,
  *	-ENOMSG if the CRC was bad
  */
@@ -339,7 +342,7 @@ int env_check_redund(const char *buf1, int buf1_read_fail,
  * @buf2: Second environment (struct environemnt_s *)
  * @buf2_read_fail: 0 if buf2 is valid, non-zero if invalid
  * @flags: Flags controlling matching (H_... - see search.h)
- * Return: 0 if OK, -EIO if no environment is valid, -ENOMSG if the CRC was bad
+ * @return 0 if OK, -EIO if no environment is valid, -ENOMSG if the CRC was bad
  */
 int env_import_redund(const char *buf1, int buf1_read_fail,
 		      const char *buf2, int buf2_read_fail,
@@ -349,12 +352,22 @@ int env_import_redund(const char *buf1, int buf1_read_fail,
  * env_get_default() - Look up a variable from the default environment
  *
  * @name: Variable to look up
- * Return: value if found, NULL if not found in default environment
+ * @return value if found, NULL if not found in default environment
  */
 char *env_get_default(const char *name);
 
 /* [re]set to the default environment */
 void env_set_default(const char *s, int flags);
+
+/**
+ * env_get_char() - Get a character from the early environment
+ *
+ * This reads from the pre-relocation environment
+ *
+ * @index: Index of character to read (0 = first)
+ * @return character read, or -ve on error
+ */
+int env_get_char(int index);
 
 /**
  * env_reloc() - Relocate the 'env' sub-commands

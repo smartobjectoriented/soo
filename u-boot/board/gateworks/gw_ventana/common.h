@@ -61,10 +61,13 @@ struct ventana {
 	struct dio_cfg *dio_cfg;
 	int dio_num;
 	/* various gpios (0 if non-existent) */
+	int leds[3];
+	int pcie_rst;
 	int mezz_pwren;
 	int mezz_irq;
 	int rs485en;
 	int gps_shdn;
+	int vidin_en;
 	int dioi2c_en;
 	int pcie_sson;
 	int usb_sel;
@@ -75,6 +78,7 @@ struct ventana {
 	int mmc_cd;
 	/* various features */
 	bool usd_vsel;
+	bool nand;
 };
 
 extern struct ventana gpio_cfg[GW_UNKNOWN];
@@ -89,7 +93,5 @@ void setup_pmic(void);
 void setup_iomux_gpio(int board, struct ventana_board_info *);
 /* late setup of GPIO (configuration per baseboard and env) */
 void setup_board_gpio(int board, struct ventana_board_info *);
-/* early model/revision ft fixups */
-void ft_early_fixup(void *fdt, int board_type);
 
 #endif /* #ifndef _GWVENTANA_COMMON_H_ */

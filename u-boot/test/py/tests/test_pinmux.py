@@ -13,9 +13,9 @@ def test_pinmux_usage_1(u_boot_console):
 @pytest.mark.buildconfigspec('cmd_pinmux')
 def test_pinmux_usage_2(u_boot_console):
     """Test that 'pinmux status' executed without previous "pinmux dev"
-    command displays error message."""
+    command displays pinmux usage."""
     output = u_boot_console.run_command('pinmux status')
-    assert 'pin-controller device not selected' in output
+    assert 'Usage:' in output
 
 @pytest.mark.buildconfigspec('cmd_pinmux')
 @pytest.mark.boardspec('sandbox')

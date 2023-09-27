@@ -11,15 +11,11 @@
 #include <common.h>
 #include <config.h>
 #include <command.h>
-#include <ctype.h>
 #include <env.h>
 #include <log.h>
 #include <malloc.h>
 #include <mapmem.h>
 #include <linux/sizes.h>
-#include "printf.h"
-
-#define MAX_STR_LEN 128
 
 /**
  * struct expr_arg: Holds an argument to an expression
@@ -49,7 +45,7 @@ static int get_arg(char *s, int w, struct expr_arg *argp)
 		int len;
 		char *str;
 
-		addr = hextoul(&s[1], NULL);
+		addr = simple_strtoul(&s[1], NULL, 16);
 		switch (w) {
 		case 1:
 			p = map_sysmem(addr, sizeof(uchar));
@@ -94,7 +90,7 @@ static int get_arg(char *s, int w, struct expr_arg *argp)
 	} else {
 		if (w == CMD_DATA_SIZE_STR)
 			return -EINVAL;
-		arg.ival = hextoul(s, NULL);
+		arg.ival = simple_strtoul(s, NULL, 16);
 	}
 	*argp = arg;
 
@@ -140,7 +136,7 @@ static char *memstr(const char *s1, int l1, const char *s2, int l2)
  * @olen: Length of @old excluding terminator
  * @new: New string to replace @old with
  * @nlen: Length of @new excluding terminator
- * Return: pointer to immediately after the copied @new in @string, or NULL if
+ * @return pointer to immediately after the copied @new in @string, or NULL if
  *	no replacement took place
  */
 static char *substitute(char *string, int *slen, int ssize,
@@ -374,40 +370,21 @@ static int do_setexpr(struct cmd_tbl *cmdtp, int flag, int argc,
 	int w;
 
 	/*
-	 * We take 3, 5, or 6 arguments, except fmt operation, which
-	 * takes 4 to 8 arguments (limited by _maxargs):
+	 * We take 3, 5, or 6 arguments:
 	 * 3 : setexpr name value
 	 * 5 : setexpr name val1 op val2
 	 *     setexpr name [g]sub r s
 	 * 6 : setexpr name [g]sub r s t
-	 *     setexpr name fmt format [val1] [val2] [val3] [val4]
 	 */
 
-	if (argc < 3)
+	/* > 6 already tested by max command args */
+	if ((argc < 3) || (argc == 4))
 		return CMD_RET_USAGE;
 
 	w = cmd_get_data_size(argv[0], 4);
 
 	if (get_arg(argv[2], w, &aval))
 		return CMD_RET_FAILURE;
-
-	/* format string assignment: "setexpr name fmt %d value" */
-	if (strcmp(argv[2], "fmt") == 0 && IS_ENABLED(CONFIG_CMD_SETEXPR_FMT)) {
-		char str[MAX_STR_LEN];
-		int result;
-
-		if (argc == 3)
-			return CMD_RET_USAGE;
-
-		result = printf_setexpr(str, sizeof(str), argc - 3, &argv[3]);
-		if (result)
-			return result;
-
-		return env_set(argv[1], str);
-	}
-
-	if (argc == 4 || argc > 6)
-		return CMD_RET_USAGE;
 
 	/* plain assignment: "setexpr name value" */
 	if (argc == 3) {
@@ -518,7 +495,7 @@ static int do_setexpr(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 U_BOOT_CMD(
-	setexpr, 8, 0, do_setexpr,
+	setexpr, 6, 0, do_setexpr,
 	"set environment variable as the result of eval expression",
 	"[.b, .w, .l, .s] name [*]value1 <op> [*]value2\n"
 	"    - set environment variable 'name' to the result of the evaluated\n"
@@ -528,12 +505,6 @@ U_BOOT_CMD(
 	"      memory addresses (*)\n"
 	"setexpr[.b, .w, .l] name [*]value\n"
 	"    - load a value into a variable"
-#ifdef CONFIG_CMD_SETEXPR_FMT
-	"\n"
-	"setexpr name fmt <format> [value1] [value2] [value3] [value4]\n"
-	"    - set environment variable 'name' to the result of the bash like\n"
-	"      format string evaluation of value."
-#endif
 #ifdef CONFIG_REGEX
 	"\n"
 	"setexpr name gsub r s [t]\n"

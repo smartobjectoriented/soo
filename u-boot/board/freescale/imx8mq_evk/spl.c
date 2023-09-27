@@ -156,7 +156,7 @@ int board_mmc_init(struct bd_info *bis)
 	return 0;
 }
 
-#if CONFIG_IS_ENABLED(POWER_LEGACY)
+#ifdef CONFIG_POWER
 #define I2C_PMIC	0
 int power_init_board(void)
 {

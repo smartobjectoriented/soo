@@ -23,18 +23,18 @@
 #include <malloc.h>
 #include <memalign.h>
 #include <part_efi.h>
-#include <dm/ofnode.h>
 #include <linux/compiler.h>
 #include <linux/ctype.h>
 #include <u-boot/crc.h>
 
-#ifdef CONFIG_HAVE_BLOCK_DEVICE
+DECLARE_GLOBAL_DATA_PTR;
 
-/* GUID for basic data partitons */
-#if CONFIG_IS_ENABLED(EFI_PARTITION)
+/*
+ * GUID for basic data partions.
+ */
 static const efi_guid_t partition_basic_data_guid = PARTITION_BASIC_DATA_GUID;
-#endif
 
+#ifdef CONFIG_HAVE_BLOCK_DEVICE
 /**
  * efi_crc32() - EFI version of crc32 function
  * @buf: buffer to calculate crc32 of
@@ -221,7 +221,8 @@ void part_print_efi(struct blk_desc *dev_desc)
 	ALLOC_CACHE_ALIGN_BUFFER_PAD(gpt_header, gpt_head, 1, dev_desc->blksz);
 	gpt_entry *gpt_pte = NULL;
 	int i = 0;
-	unsigned char *uuid;
+	char uuid[UUID_STR_LEN + 1];
+	unsigned char *uuid_bin;
 
 	/* This function validates AND fills in the GPT header and PTE */
 	if (find_valid_gpt(dev_desc, gpt_head, &gpt_pte) != 1)
@@ -235,22 +236,26 @@ void part_print_efi(struct blk_desc *dev_desc)
 	printf("\tPartition GUID\n");
 
 	for (i = 0; i < le32_to_cpu(gpt_head->num_partition_entries); i++) {
-		/* Skip invalid PTE */
+		/* Stop at the first non valid PTE */
 		if (!is_pte_valid(&gpt_pte[i]))
-			continue;
+			break;
 
 		printf("%3d\t0x%08llx\t0x%08llx\t\"%s\"\n", (i + 1),
 			le64_to_cpu(gpt_pte[i].starting_lba),
 			le64_to_cpu(gpt_pte[i].ending_lba),
 			print_efiname(&gpt_pte[i]));
 		printf("\tattrs:\t0x%016llx\n", gpt_pte[i].attributes.raw);
-		uuid = (unsigned char *)gpt_pte[i].partition_type_guid.b;
-		if (CONFIG_IS_ENABLED(PARTITION_TYPE_GUID))
-			printf("\ttype:\t%pUl\n\t\t(%pUs)\n", uuid, uuid);
-		else
-			printf("\ttype:\t%pUl\n", uuid);
-		uuid = (unsigned char *)gpt_pte[i].unique_partition_guid.b;
-		printf("\tguid:\t%pUl\n", uuid);
+		uuid_bin = (unsigned char *)gpt_pte[i].partition_type_guid.b;
+		uuid_bin_to_str(uuid_bin, uuid, UUID_STR_FORMAT_GUID);
+		printf("\ttype:\t%s\n", uuid);
+		if (CONFIG_IS_ENABLED(PARTITION_TYPE_GUID)) {
+			const char *type = uuid_guid_get_str(uuid_bin);
+			if (type)
+				printf("\ttype:\t%s\n", type);
+		}
+		uuid_bin = (unsigned char *)gpt_pte[i].unique_partition_guid.b;
+		uuid_bin_to_str(uuid_bin, uuid, UUID_STR_FORMAT_GUID);
+		printf("\tguid:\t%s\n", uuid);
 	}
 
 	/* Remember to free pte */
@@ -326,7 +331,7 @@ static int part_test_efi(struct blk_desc *dev_desc)
  * set_protective_mbr(): Set the EFI protective MBR
  * @param dev_desc - block device descriptor
  *
- * Return: - zero on success, otherwise error
+ * @return - zero on success, otherwise error
  */
 static int set_protective_mbr(struct blk_desc *dev_desc)
 {
@@ -557,8 +562,9 @@ static uint32_t partition_entries_offset(struct blk_desc *dev_desc)
 	 * from the start of the device) to be specified as a property
 	 * of the device tree '/config' node.
 	 */
-	config_offset = ofnode_conf_read_int(
-		"u-boot,efi-partition-entries-offset", -EINVAL);
+	config_offset = fdtdec_get_config_int(gd->fdt_blob,
+					      "u-boot,efi-partition-entries-offset",
+					      -EINVAL);
 	if (config_offset != -EINVAL) {
 		offset_bytes = PAD_TO_BLOCKSIZE(config_offset, dev_desc);
 		offset_blks = offset_bytes / dev_desc->blksz;
@@ -1120,4 +1126,4 @@ U_BOOT_PART_TYPE(a_efi) = {
 	.print		= part_print_ptr(part_print_efi),
 	.test		= part_test_efi,
 };
-#endif /* CONFIG_HAVE_BLOCK_DEVICE */
+#endif

@@ -153,7 +153,7 @@
 };
 
 &ssi {
-	status = "okay";
+	status = "ok";
 
 	clocks = <&ssi_ssr_fck>,
 		 <&ssi_sst_fck>,

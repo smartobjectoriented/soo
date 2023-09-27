@@ -19,11 +19,11 @@ class TestFdt(unittest.TestCase):
     def setUpClass(self):
         self._binman_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
         self._indir = tempfile.mkdtemp(prefix='binmant.')
-        tools.prepare_output_dir(self._indir, True)
+        tools.PrepareOutputDir(self._indir, True)
 
     @classmethod
     def tearDownClass(self):
-        tools._finalise_for_test()
+        tools._FinaliseForTest()
 
     def TestFile(self, fname):
         return os.path.join(self._binman_dir, 'test', fname)

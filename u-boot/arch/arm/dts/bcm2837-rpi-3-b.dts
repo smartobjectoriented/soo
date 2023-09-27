@@ -15,12 +15,11 @@
 	};
 
 	memory@0 {
-		device_type = "memory";
 		reg = <0 0x40000000>;
 	};
 
 	leds {
-		led-act {
+		act {
 			gpios = <&expgpio 2 GPIO_ACTIVE_HIGH>;
 		};
 	};
@@ -126,8 +125,6 @@
 
 &hdmi {
 	hpd-gpios = <&expgpio 4 GPIO_ACTIVE_LOW>;
-	power-domains = <&power RPI_POWER_DOMAIN_HDMI>;
-	status = "okay";
 };
 
 /* uart0 communicates with the BT module */

@@ -16,14 +16,14 @@
  *
  * @param blob			Device tree blob
  * @param default_lcd_base	Default address of LCD frame buffer
- * Return: 0 if ok, -1 on error (unsupported bits per pixel)
+ * @return 0 if ok, -1 on error (unsupported bits per pixel)
  */
 int tegra_display_probe(const void *blob, void *default_lcd_base);
 
 /**
  * Return the current display configuration
  *
- * Return: pointer to display configuration, or NULL if there is no valid
+ * @return pointer to display configuration, or NULL if there is no valid
  * config
  */
 struct fdt_disp_config *tegra_display_get_config(void);

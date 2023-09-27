@@ -7,7 +7,6 @@
 #include <image.h>
 #include <log.h>
 #include <spl.h>
-#include <asm/arch/spl.h>
 #include <asm/gpio.h>
 #include <asm/io.h>
 #include <linux/bitops.h>
@@ -90,7 +89,6 @@
 
 #define SPI0_CLK_DIV_BY_2           0x1000
 #define SPI0_CLK_DIV_BY_4           0x1001
-#define SPI0_CLK_DIV_BY_32          0x100f
 
 /*****************************************************************************/
 
@@ -133,8 +131,7 @@ static uintptr_t spi0_base_address(void)
 	if (IS_ENABLED(CONFIG_MACH_SUN50I_H6))
 		return 0x05010000;
 
-	if (!is_sun6i_gen_spi() ||
-	    IS_ENABLED(CONFIG_MACH_SUNIV))
+	if (!is_sun6i_gen_spi())
 		return 0x01C05000;
 
 	return 0x01C68000;
@@ -158,16 +155,11 @@ static void spi0_enable_clock(void)
 	if (!IS_ENABLED(CONFIG_MACH_SUN50I_H6))
 		setbits_le32(CCM_AHB_GATING0, (1 << AHB_GATE_OFFSET_SPI0));
 
-	if (IS_ENABLED(CONFIG_MACH_SUNIV)) {
-		/* Divide by 32, clock source is AHB clock 200MHz */
-		writel(SPI0_CLK_DIV_BY_32, base + SUN6I_SPI0_CCTL);
-	} else {
-		/* Divide by 4 */
-		writel(SPI0_CLK_DIV_BY_4, base + (is_sun6i_gen_spi() ?
-					  SUN6I_SPI0_CCTL : SUN4I_SPI0_CCTL));
-		/* 24MHz from OSC24M */
-		writel((1 << 31), CCM_SPI0_CLK);
-	}
+	/* Divide by 4 */
+	writel(SPI0_CLK_DIV_BY_4, base + (is_sun6i_gen_spi() ?
+				  SUN6I_SPI0_CCTL : SUN4I_SPI0_CCTL));
+	/* 24MHz from OSC24M */
+	writel((1 << 31), CCM_SPI0_CLK);
 
 	if (is_sun6i_gen_spi()) {
 		/* Enable SPI in the master mode and do a soft reset */
@@ -198,8 +190,7 @@ static void spi0_disable_clock(void)
 					     SUN4I_CTL_ENABLE);
 
 	/* Disable the SPI0 clock */
-	if (!IS_ENABLED(CONFIG_MACH_SUNIV))
-		writel(0, CCM_SPI0_CLK);
+	writel(0, CCM_SPI0_CLK);
 
 	/* Close the SPI0 gate */
 	if (!IS_ENABLED(CONFIG_MACH_SUN50I_H6))
@@ -220,8 +211,6 @@ static void spi0_init(void)
 	if (IS_ENABLED(CONFIG_MACH_SUN50I) ||
 	    IS_ENABLED(CONFIG_MACH_SUN50I_H6))
 		pin_function = SUN50I_GPC_SPI0;
-	else if (IS_ENABLED(CONFIG_MACH_SUNIV))
-		pin_function = SUNIV_GPC_SPI0;
 
 	spi0_pinmux_setup(pin_function);
 	spi0_enable_clock();
@@ -337,13 +326,10 @@ static int spl_spi_load_image(struct spl_image_info *spl_image,
 	int ret = 0;
 	struct image_header *header;
 	header = (struct image_header *)(CONFIG_SYS_TEXT_BASE);
-	int load_offset = readl(SPL_ADDR + 0x10);
-
-	load_offset = max(load_offset, CONFIG_SYS_SPI_U_BOOT_OFFS);
 
 	spi0_init();
 
-	spi0_read_data((void *)header, load_offset, 0x40);
+	spi0_read_data((void *)header, CONFIG_SYS_SPI_U_BOOT_OFFS, 0x40);
 
         if (IS_ENABLED(CONFIG_SPL_LOAD_FIT) &&
 		image_get_magic(header) == FDT_MAGIC) {
@@ -356,14 +342,14 @@ static int spl_spi_load_image(struct spl_image_info *spl_image,
 		load.bl_len = 1;
 		load.read = spi_load_read;
 		ret = spl_load_simple_fit(spl_image, &load,
-					  load_offset, header);
+					  CONFIG_SYS_SPI_U_BOOT_OFFS, header);
 	} else {
-		ret = spl_parse_image_header(spl_image, bootdev, header);
+		ret = spl_parse_image_header(spl_image, header);
 		if (ret)
 			return ret;
 
 		spi0_read_data((void *)spl_image->load_addr,
-			       load_offset, spl_image->size);
+			       CONFIG_SYS_SPI_U_BOOT_OFFS, spl_image->size);
 	}
 
 	spi0_deinit();

@@ -3,8 +3,6 @@
  * Copyright (c) 2013, Google Inc.
  */
 
-#define OPENSSL_API_COMPAT 0x10101000L
-
 #include "mkimage.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -20,6 +18,24 @@
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
 #include <openssl/engine.h>
+
+#if OPENSSL_VERSION_NUMBER >= 0x10000000L
+#define HAVE_ERR_REMOVE_THREAD_STATE
+#endif
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || \
+	(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x02070000fL)
+static void RSA_get0_key(const RSA *r,
+                 const BIGNUM **n, const BIGNUM **e, const BIGNUM **d)
+{
+   if (n != NULL)
+       *n = r->n;
+   if (e != NULL)
+       *e = r->e;
+   if (d != NULL)
+       *d = r->d;
+}
+#endif
 
 static int rsa_err(const char *msg)
 {
@@ -38,7 +54,7 @@ static int rsa_err(const char *msg)
  * @keydir:	Directory containins the key
  * @name	Name of key file (will have a .crt extension)
  * @evpp	Returns EVP_PKEY object, or NULL on failure
- * Return: 0 if ok, -ve on error (in which case *evpp will be set to NULL)
+ * @return 0 if ok, -ve on error (in which case *evpp will be set to NULL)
  */
 static int rsa_pem_get_pub_key(const char *keydir, const char *name, EVP_PKEY **evpp)
 {
@@ -96,7 +112,7 @@ err_cert:
  * @name	Name of key
  * @engine	Engine to use
  * @evpp	Returns EVP_PKEY object, or NULL on failure
- * Return: 0 if ok, -ve on error (in which case *evpp will be set to NULL)
+ * @return 0 if ok, -ve on error (in which case *evpp will be set to NULL)
  */
 static int rsa_engine_get_pub_key(const char *keydir, const char *name,
 				  ENGINE *engine, EVP_PKEY **evpp)
@@ -156,7 +172,7 @@ static int rsa_engine_get_pub_key(const char *keydir, const char *name,
  * @name	Name of key file (will have a .crt extension)
  * @engine	Engine to use
  * @evpp	Returns EVP_PKEY object, or NULL on failure
- * Return: 0 if ok, -ve on error (in which case *evpp will be set to NULL)
+ * @return 0 if ok, -ve on error (in which case *evpp will be set to NULL)
  */
 static int rsa_get_pub_key(const char *keydir, const char *name,
 			   ENGINE *engine, EVP_PKEY **evpp)
@@ -172,7 +188,7 @@ static int rsa_get_pub_key(const char *keydir, const char *name,
  * @keydir:	Directory containing the key
  * @name	Name of key file (will have a .key extension)
  * @evpp	Returns EVP_PKEY object, or NULL on failure
- * Return: 0 if ok, -ve on error (in which case *evpp will be set to NULL)
+ * @return 0 if ok, -ve on error (in which case *evpp will be set to NULL)
  */
 static int rsa_pem_get_priv_key(const char *keydir, const char *name,
 				const char *keyfile, EVP_PKEY **evpp)
@@ -215,7 +231,7 @@ static int rsa_pem_get_priv_key(const char *keydir, const char *name,
  * @name	Name of key
  * @engine	Engine to use
  * @evpp	Returns EVP_PKEY object, or NULL on failure
- * Return: 0 if ok, -ve on error (in which case *evpp will be set to NULL)
+ * @return 0 if ok, -ve on error (in which case *evpp will be set to NULL)
  */
 static int rsa_engine_get_priv_key(const char *keydir, const char *name,
 				   const char *keyfile,
@@ -253,10 +269,10 @@ static int rsa_engine_get_priv_key(const char *keydir, const char *name,
 			snprintf(key_id, sizeof(key_id),
 				 "%s%s",
 				 keydir, name);
-		else if (name)
+		else if (keydir)
 			snprintf(key_id, sizeof(key_id),
 				 "%s",
-				 name ? name : "");
+				 name);
 		else if (keyfile)
 			snprintf(key_id, sizeof(key_id), "%s", keyfile);
 		else
@@ -283,7 +299,7 @@ static int rsa_engine_get_priv_key(const char *keydir, const char *name,
  * @name	Name of key
  * @engine	Engine to use for signing
  * @evpp	Returns EVP_PKEY object, or NULL on failure
- * Return: 0 if ok, -ve on error (in which case *evpp will be set to NULL)
+ * @return 0 if ok, -ve on error (in which case *evpp will be set to NULL)
  */
 static int rsa_get_priv_key(const char *keydir, const char *name,
 			    const char *keyfile, ENGINE *engine, EVP_PKEY **evpp)
@@ -298,18 +314,30 @@ static int rsa_init(void)
 {
 	int ret;
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || \
+	(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x02070000fL)
+	ret = SSL_library_init();
+#else
 	ret = OPENSSL_init_ssl(0, NULL);
+#endif
 	if (!ret) {
 		fprintf(stderr, "Failure to init SSL library\n");
 		return -1;
 	}
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || \
+	(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x02070000fL)
+	SSL_load_error_strings();
+
+	OpenSSL_add_all_algorithms();
+	OpenSSL_add_all_digests();
+	OpenSSL_add_all_ciphers();
+#endif
 
 	return 0;
 }
 
 static int rsa_engine_init(const char *engine_id, ENGINE **pe)
 {
-	const char *key_pass;
 	ENGINE *e;
 	int ret;
 
@@ -318,7 +346,8 @@ static int rsa_engine_init(const char *engine_id, ENGINE **pe)
 	e = ENGINE_by_id(engine_id);
 	if (!e) {
 		fprintf(stderr, "Engine isn't available\n");
-		return -1;
+		ret = -1;
+		goto err_engine_by_id;
 	}
 
 	if (!ENGINE_init(e)) {
@@ -333,25 +362,35 @@ static int rsa_engine_init(const char *engine_id, ENGINE **pe)
 		goto err_set_rsa;
 	}
 
-	key_pass = getenv("MKIMAGE_SIGN_PIN");
-	if (key_pass) {
-		if (!ENGINE_ctrl_cmd_string(e, "PIN", key_pass, 0)) {
-			fprintf(stderr, "Couldn't set PIN\n");
-			ret = -1;
-			goto err_set_pin;
-		}
-	}
-
 	*pe = e;
 
 	return 0;
 
-err_set_pin:
 err_set_rsa:
 	ENGINE_finish(e);
 err_engine_init:
 	ENGINE_free(e);
+err_engine_by_id:
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || \
+	(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x02070000fL)
+	ENGINE_cleanup();
+#endif
 	return ret;
+}
+
+static void rsa_remove(void)
+{
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || \
+	(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x02070000fL)
+	CRYPTO_cleanup_all_ex_data();
+	ERR_free_strings();
+#ifdef HAVE_ERR_REMOVE_THREAD_STATE
+	ERR_remove_thread_state(NULL);
+#else
+	ERR_remove_state(0);
+#endif
+	EVP_cleanup();
+#endif
 }
 
 static void rsa_engine_remove(ENGINE *e)
@@ -383,11 +422,12 @@ static int rsa_sign_with_key(EVP_PKEY *pkey, struct padding_algo *padding_algo,
 		goto err_alloc;
 	}
 
-	context = EVP_MD_CTX_new();
+	context = EVP_MD_CTX_create();
 	if (!context) {
 		ret = rsa_err("EVP context creation failed");
 		goto err_create;
 	}
+	EVP_MD_CTX_init(context);
 
 	ckey = EVP_PKEY_CTX_new(pkey, NULL);
 	if (!ckey) {
@@ -402,14 +442,15 @@ static int rsa_sign_with_key(EVP_PKEY *pkey, struct padding_algo *padding_algo,
 		goto err_sign;
 	}
 
-	if (CONFIG_IS_ENABLED(FIT_RSASSA_PSS) && padding_algo &&
-	    !strcmp(padding_algo->name, "pss")) {
+#ifdef CONFIG_FIT_ENABLE_RSASSA_PSS_SUPPORT
+	if (padding_algo && !strcmp(padding_algo->name, "pss")) {
 		if (EVP_PKEY_CTX_set_rsa_padding(ckey,
 						 RSA_PKCS1_PSS_PADDING) <= 0) {
 			ret = rsa_err("Signer padding setup failed");
 			goto err_sign;
 		}
 	}
+#endif /* CONFIG_FIT_ENABLE_RSASSA_PSS_SUPPORT */
 
 	for (i = 0; i < region_count; i++) {
 		if (!EVP_DigestSignUpdate(context, region[i].data,
@@ -424,16 +465,22 @@ static int rsa_sign_with_key(EVP_PKEY *pkey, struct padding_algo *padding_algo,
 		goto err_sign;
 	}
 
-	EVP_MD_CTX_free(context);
+	#if OPENSSL_VERSION_NUMBER < 0x10100000L || \
+		(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x02070000fL)
+		EVP_MD_CTX_cleanup(context);
+	#else
+		EVP_MD_CTX_reset(context);
+	#endif
+	EVP_MD_CTX_destroy(context);
 
-	debug("Got signature: %zu bytes, expected %d\n", size, EVP_PKEY_size(pkey));
+	debug("Got signature: %d bytes, expected %zu\n", *sig_size, size);
 	*sigp = sig;
 	*sig_size = size;
 
 	return 0;
 
 err_sign:
-	EVP_MD_CTX_free(context);
+	EVP_MD_CTX_destroy(context);
 err_create:
 	free(sig);
 err_alloc:
@@ -455,7 +502,7 @@ int rsa_sign(struct image_sign_info *info,
 	if (info->engine_id) {
 		ret = rsa_engine_init(info->engine_id, &e);
 		if (ret)
-			return ret;
+			goto err_engine;
 	}
 
 	ret = rsa_get_priv_key(info->keydir, info->keyname, info->keyfile,
@@ -470,6 +517,7 @@ int rsa_sign(struct image_sign_info *info,
 	EVP_PKEY_free(pkey);
 	if (info->engine_id)
 		rsa_engine_remove(e);
+	rsa_remove();
 
 	return ret;
 
@@ -478,6 +526,8 @@ err_sign:
 err_priv:
 	if (info->engine_id)
 		rsa_engine_remove(e);
+err_engine:
+	rsa_remove();
 	return ret;
 }
 
@@ -625,8 +675,12 @@ int rsa_add_verify_data(struct image_sign_info *info, void *keydest)
 	ret = rsa_get_pub_key(info->keydir, info->keyname, e, &pkey);
 	if (ret)
 		goto err_get_pub_key;
-
-	rsa = (RSA *)EVP_PKEY_get0_RSA(pkey);
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || \
+	(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x02070000fL)
+	rsa = EVP_PKEY_get1_RSA(pkey);
+#else
+	rsa = EVP_PKEY_get0_RSA(pkey);
+#endif
 	ret = rsa_get_params(rsa, &exponent, &n0_inv, &modulus, &r_squared);
 	if (ret)
 		goto err_get_params;
@@ -696,13 +750,14 @@ done:
 	if (ret)
 		ret = ret == -FDT_ERR_NOSPACE ? -ENOSPC : -EIO;
 err_get_params:
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || \
+	(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x02070000fL)
+	RSA_free(rsa);
+#endif
 	EVP_PKEY_free(pkey);
 err_get_pub_key:
 	if (info->engine_id)
 		rsa_engine_remove(e);
 
-	if (ret)
-		return ret;
-
-	return node;
+	return ret;
 }

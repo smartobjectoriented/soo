@@ -46,8 +46,6 @@ char *get_cpu_name(void)
 			return "SAMA5D28-CU";
 		case ARCH_EXID_SAMA5D28CN:
 			return "SAMA5D28-CN";
-		case ARCH_EXID_SAMA5D29CN:
-			return "SAMA5D29-CN";
 		}
 	}
 

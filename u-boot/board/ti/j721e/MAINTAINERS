@@ -1,5 +1,5 @@
 J721E BOARD
-M:	Tom Rini <trini@konsulko.com>
+M:	Lokesh Vutla <lokeshvutla@ti.com>
 S:	Maintained
 F:	board/ti/j721e
 F:	include/configs/j721e_evm.h

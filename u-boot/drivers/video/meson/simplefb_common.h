@@ -14,7 +14,7 @@
  *
  * @blob: device tree blob
  * @pipeline: display pipeline
- * Return: device node offset in blob, or negative values if failed
+ * @return device node offset in blob, or negative values if failed
  */
 int meson_simplefb_fdt_match(void *blob, const char *pipeline);
 

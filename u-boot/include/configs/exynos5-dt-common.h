@@ -30,4 +30,7 @@
 #define LCD_BPP			LCD_COLOR16
 #endif
 
+/* Enable keyboard */
+#define CONFIG_KEYBOARD
+
 #endif

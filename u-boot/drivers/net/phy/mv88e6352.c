@@ -238,9 +238,9 @@ int do_mvsw_reg_read(const char *name, int argc, char *const argv[])
 	u16 value = 0, phyaddr, reg, port;
 	int ret;
 
-	phyaddr = dectoul(argv[1], NULL);
-	port = dectoul(argv[2], NULL);
-	reg = dectoul(argv[3], NULL);
+	phyaddr = simple_strtoul(argv[1], NULL, 10);
+	port = simple_strtoul(argv[2], NULL, 10);
+	reg = simple_strtoul(argv[3], NULL, 10);
 
 	ret = sw_reg_read(name, phyaddr, port, reg, &value);
 	printf("%#x\n", value);
@@ -253,10 +253,10 @@ int do_mvsw_reg_write(const char *name, int argc, char *const argv[])
 	u16 value = 0, phyaddr, reg, port;
 	int ret;
 
-	phyaddr = dectoul(argv[1], NULL);
-	port = dectoul(argv[2], NULL);
-	reg = dectoul(argv[3], NULL);
-	value = hextoul(argv[4], NULL);
+	phyaddr = simple_strtoul(argv[1], NULL, 10);
+	port = simple_strtoul(argv[2], NULL, 10);
+	reg = simple_strtoul(argv[3], NULL, 10);
+	value = simple_strtoul(argv[4], NULL, 16);
 
 	ret = sw_reg_write(name, phyaddr, port, reg, value);
 

@@ -12,3 +12,4 @@ enum {
 };
 
 #endif /* _BOARD_SYNOPSYS_AXS10X_H */
+

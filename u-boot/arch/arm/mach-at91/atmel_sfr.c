@@ -39,3 +39,4 @@ void configure_ddrcfg_input_buffers(bool open)
 	else
 		writel(0, &sfr->ddrcfg);
 }
+

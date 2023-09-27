@@ -54,7 +54,7 @@ static int sf_parse_len_arg(char *arg, ulong *len)
 		++arg;
 	}
 
-	len_arg = hextoul(arg, &ep);
+	len_arg = simple_strtoul(arg, &ep, 16);
 	if (ep == arg || *ep != '\0')
 		return -1;
 
@@ -72,7 +72,7 @@ static int sf_parse_len_arg(char *arg, ulong *len)
  *
  * @param len		amount of bytes currently processed
  * @param start_ms	start time of processing in ms
- * Return: bytes per second if OK, 0 on error
+ * @return bytes per second if OK, 0 on error
  */
 static ulong bytes_per_second(unsigned int len, ulong start_ms)
 {
@@ -119,7 +119,7 @@ static int do_spi_flash_probe(int argc, char *const argv[])
 			return -1;
 	}
 	if (argc >= 4) {
-		mode = hextoul(argv[3], &endp);
+		mode = simple_strtoul(argv[3], &endp, 16);
 		if (*argv[3] == 0 || *endp != 0)
 			return -1;
 	}
@@ -166,7 +166,7 @@ static int do_spi_flash_probe(int argc, char *const argv[])
  * @param buf		buffer to write from
  * @param cmp_buf	read buffer to use to compare data
  * @param skipped	Count of skipped data (incremented by this function)
- * Return: NULL if OK, else a string containing the stage which failed
+ * @return NULL if OK, else a string containing the stage which failed
  */
 static const char *spi_flash_update_block(struct spi_flash *flash, u32 offset,
 		size_t len, const char *buf, char *cmp_buf, size_t *skipped)
@@ -208,7 +208,7 @@ static const char *spi_flash_update_block(struct spi_flash *flash, u32 offset,
  * @param offset	flash offset to write
  * @param len		number of bytes to write
  * @param buf		buffer to write from
- * Return: 0 if ok, 1 on error
+ * @return 0 if ok, 1 on error
  */
 static int spi_flash_update(struct spi_flash *flash, u32 offset,
 		size_t len, const char *buf)
@@ -272,7 +272,7 @@ static int do_spi_flash_read_write(int argc, char *const argv[])
 	if (argc < 3)
 		return -1;
 
-	addr = hextoul(argv[1], &endp);
+	addr = simple_strtoul(argv[1], &endp, 16);
 	if (*argv[1] == 0 || *endp != 0)
 		return -1;
 
@@ -384,6 +384,7 @@ static int do_spi_protect(int argc, char *const argv[])
 	return ret == 0 ? 0 : 1;
 }
 
+#ifdef CONFIG_CMD_SF_TEST
 enum {
 	STAGE_ERASE,
 	STAGE_CHECK,
@@ -393,7 +394,7 @@ enum {
 	STAGE_COUNT,
 };
 
-static const char *stage_name[STAGE_COUNT] = {
+static char *stage_name[STAGE_COUNT] = {
 	"erase",
 	"check",
 	"write",
@@ -438,7 +439,7 @@ static void spi_test_next_stage(struct test_info *test)
  * @param len		Size of data to read/write
  * @param offset	Offset within flash to check
  * @param vbuf		Verification buffer
- * Return: 0 if ok, -1 on error
+ * @return 0 if ok, -1 on error
  */
 static int spi_flash_test(struct spi_flash *flash, uint8_t *buf, ulong len,
 			   ulong offset, uint8_t *vbuf)
@@ -516,10 +517,10 @@ static int do_spi_flash_test(int argc, char *const argv[])
 
 	if (argc < 3)
 		return -1;
-	offset = hextoul(argv[1], &endp);
+	offset = simple_strtoul(argv[1], &endp, 16);
 	if (*argv[1] == 0 || *endp != 0)
 		return -1;
-	len = hextoul(argv[2], &endp);
+	len = simple_strtoul(argv[2], &endp, 16);
 	if (*argv[2] == 0 || *endp != 0)
 		return -1;
 
@@ -547,6 +548,7 @@ static int do_spi_flash_test(int argc, char *const argv[])
 
 	return 0;
 }
+#endif /* CONFIG_CMD_SF_TEST */
 
 static int do_spi_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 			char *const argv[])
@@ -580,8 +582,10 @@ static int do_spi_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 		ret = do_spi_flash_erase(argc, argv);
 	else if (strcmp(cmd, "protect") == 0)
 		ret = do_spi_protect(argc, argv);
-	else if (IS_ENABLED(CONFIG_CMD_SF_TEST) && !strcmp(cmd, "test"))
+#ifdef CONFIG_CMD_SF_TEST
+	else if (!strcmp(cmd, "test"))
 		ret = do_spi_flash_test(argc, argv);
+#endif
 	else
 		ret = -1;
 
@@ -593,8 +597,16 @@ usage:
 	return CMD_RET_USAGE;
 }
 
-#ifdef CONFIG_SYS_LONGHELP
-static const char long_help[] =
+#ifdef CONFIG_CMD_SF_TEST
+#define SF_TEST_HELP "\nsf test offset len		" \
+		"- run a very basic destructive test"
+#else
+#define SF_TEST_HELP
+#endif
+
+U_BOOT_CMD(
+	sf,	5,	1,	do_spi_flash,
+	"SPI flash sub-system",
 	"probe [[bus:]cs] [hz] [mode]	- init flash device on given SPI bus\n"
 	"				  and chip select\n"
 	"sf read addr offset|partition len	- read `len' bytes starting at\n"
@@ -610,14 +622,6 @@ static const char long_help[] =
 	"					  at `addr' to flash at `offset'\n"
 	"					  or to start of mtd `partition'\n"
 	"sf protect lock/unlock sector len	- protect/unprotect 'len' bytes starting\n"
-	"					  at address 'sector'"
-#ifdef CONFIG_CMD_SF_TEST
-	"\nsf test offset len		- run a very basic destructive test"
-#endif
-#endif /* CONFIG_SYS_LONGHELP */
-	;
-
-U_BOOT_CMD(
-	sf,	5,	1,	do_spi_flash,
-	"SPI flash sub-system", long_help
+	"					  at address 'sector'\n"
+	SF_TEST_HELP
 );

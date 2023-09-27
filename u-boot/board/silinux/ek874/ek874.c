@@ -24,7 +24,7 @@ int board_init(void)
 	return 0;
 }
 
-void reset_cpu(void)
+void reset_cpu(ulong addr)
 {
 	writel(RST_CA53_CODE, RST_CA53RESCNT);
 }

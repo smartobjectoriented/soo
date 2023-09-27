@@ -12,7 +12,9 @@
  * MX7ULP WDOG Register Map
  */
 struct wdog_regs {
-	u32 cs;
+	u8 cs1;
+	u8 cs2;
+	u16 reserve0;
 	u32 cnt;
 	u32 toval;
 	u32 win;
@@ -28,12 +30,10 @@ struct wdog_regs {
 #define UNLOCK_WORD0 0xC520 /* 1st unlock word */
 #define UNLOCK_WORD1 0xD928 /* 2nd unlock word */
 
-#define WDGCS_WDGE                      BIT(7)
-#define WDGCS_WDGUPDATE                 BIT(5)
+#define WDGCS1_WDGE                      (1<<7)
+#define WDGCS1_WDGUPDATE                 (1<<5)
 
-#define WDGCS_RCS                       BIT(10)
-#define WDGCS_ULK                       BIT(11)
-#define WDGCS_FLG                       BIT(14)
+#define WDGCS2_FLG                       (1<<6)
 
 #define WDG_BUS_CLK                      (0x0)
 #define WDG_LPO_CLK                      (0x1)
@@ -52,34 +52,27 @@ void hw_watchdog_reset(void)
 {
 	struct wdog_regs *wdog = (struct wdog_regs *)WDOG_BASE_ADDR;
 
-	dmb();
-	__raw_writel(REFRESH_WORD0, &wdog->cnt);
-	__raw_writel(REFRESH_WORD1, &wdog->cnt);
-	dmb();
+	writel(REFRESH_WORD0, &wdog->cnt);
+	writel(REFRESH_WORD1, &wdog->cnt);
 }
 
 void hw_watchdog_init(void)
 {
+	u8 val;
 	struct wdog_regs *wdog = (struct wdog_regs *)WDOG_BASE_ADDR;
 
-	dmb();
-	__raw_writel(UNLOCK_WORD0, &wdog->cnt);
-	__raw_writel(UNLOCK_WORD1, &wdog->cnt);
-	dmb();
+	writel(UNLOCK_WORD0, &wdog->cnt);
+	writel(UNLOCK_WORD1, &wdog->cnt);
 
-	/* Wait WDOG Unlock */
-	while (!(readl(&wdog->cs) & WDGCS_ULK))
-		;
+	val = readb(&wdog->cs2);
+	val |= WDGCS2_FLG;
+	writeb(val, &wdog->cs2);
 
 	hw_watchdog_set_timeout(CONFIG_WATCHDOG_TIMEOUT_MSECS);
 	writel(0, &wdog->win);
 
-	/* setting 1-kHz clock source, enable counter running, and clear interrupt */
-	writel((WDGCS_WDGE | WDGCS_WDGUPDATE |(WDG_LPO_CLK << 8) | WDGCS_FLG), &wdog->cs);
-
-	/* Wait WDOG reconfiguration */
-	while (!(readl(&wdog->cs) & WDGCS_RCS))
-		;
+	writeb(WDG_LPO_CLK, &wdog->cs2);/* setting 1-kHz clock source */
+	writeb((WDGCS1_WDGE | WDGCS1_WDGUPDATE), &wdog->cs1);/* enable counter running */
 
 	hw_watchdog_reset();
 }
@@ -88,24 +81,14 @@ void reset_cpu(void)
 {
 	struct wdog_regs *wdog = (struct wdog_regs *)WDOG_BASE_ADDR;
 
-	dmb();
-	__raw_writel(UNLOCK_WORD0, &wdog->cnt);
-	__raw_writel(UNLOCK_WORD1, &wdog->cnt);
-	dmb();
-
-	/* Wait WDOG Unlock */
-	while (!(readl(&wdog->cs) & WDGCS_ULK))
-		;
+	writel(UNLOCK_WORD0, &wdog->cnt);
+	writel(UNLOCK_WORD1, &wdog->cnt);
 
 	hw_watchdog_set_timeout(5); /* 5ms timeout */
 	writel(0, &wdog->win);
 
-	/* enable counter running */
-	writel((WDGCS_WDGE | (WDG_LPO_CLK << 8)), &wdog->cs);
-
-	/* Wait WDOG reconfiguration */
-	while (!(readl(&wdog->cs) & WDGCS_RCS))
-		;
+	writeb(WDG_LPO_CLK, &wdog->cs2);/* setting 1-kHz clock source */
+	writeb(WDGCS1_WDGE, &wdog->cs1);/* enable counter running */
 
 	hw_watchdog_reset();
 

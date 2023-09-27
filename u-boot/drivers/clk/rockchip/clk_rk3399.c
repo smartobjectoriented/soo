@@ -1289,7 +1289,7 @@ static int rk3399_clk_disable(struct clk *clk)
 static struct clk_ops rk3399_clk_ops = {
 	.get_rate = rk3399_clk_get_rate,
 	.set_rate = rk3399_clk_set_rate,
-#if CONFIG_IS_ENABLED(OF_REAL)
+#if CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA)
 	.set_parent = rk3399_clk_set_parent,
 #endif
 	.enable = rk3399_clk_enable,
@@ -1402,12 +1402,11 @@ static int rk3399_clk_probe(struct udevice *dev)
 
 static int rk3399_clk_of_to_plat(struct udevice *dev)
 {
-	if (CONFIG_IS_ENABLED(OF_REAL)) {
-		struct rk3399_clk_priv *priv = dev_get_priv(dev);
+#if !CONFIG_IS_ENABLED(OF_PLATDATA)
+	struct rk3399_clk_priv *priv = dev_get_priv(dev);
 
-		priv->cru = dev_read_addr_ptr(dev);
-	}
-
+	priv->cru = dev_read_addr_ptr(dev);
+#endif
 	return 0;
 }
 
@@ -1615,12 +1614,11 @@ static int rk3399_pmuclk_probe(struct udevice *dev)
 
 static int rk3399_pmuclk_of_to_plat(struct udevice *dev)
 {
-	if (CONFIG_IS_ENABLED(OF_REAL)) {
-		struct rk3399_pmuclk_priv *priv = dev_get_priv(dev);
+#if !CONFIG_IS_ENABLED(OF_PLATDATA)
+	struct rk3399_pmuclk_priv *priv = dev_get_priv(dev);
 
-		priv->pmucru = dev_read_addr_ptr(dev);
-	}
-
+	priv->pmucru = dev_read_addr_ptr(dev);
+#endif
 	return 0;
 }
 

@@ -84,7 +84,7 @@ exit:
  *
  * @param sm0	Place to put SM0 voltage
  * @param sm1	Place to put SM1 voltage
- * Return: 0 if ok, -1 on error
+ * @return 0 if ok, -1 on error
  */
 static int read_voltages(int *sm0, int *sm1)
 {

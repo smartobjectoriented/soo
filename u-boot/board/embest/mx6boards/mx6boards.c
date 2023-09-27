@@ -473,7 +473,7 @@ void board_init_f(ulong dummy)
 	/* setup GP timer */
 	timer_init();
 
-#ifdef CONFIG_SPL_SERIAL
+#ifdef CONFIG_SPL_SERIAL_SUPPORT
 	setup_iomux_uart();
 	preloader_console_init();
 #endif

@@ -24,9 +24,7 @@
 #include <u-boot/crc.h>
 #else
 #include "mkimage.h"
-#include <linux/compiler_attributes.h>
 #include <time.h>
-#include <linux/kconfig.h>
 #endif /* !USE_HOSTCC*/
 
 #include <hash.h>
@@ -43,7 +41,8 @@ DECLARE_GLOBAL_DATA_PTR;
 
 static void reloc_update(void);
 
-static int __maybe_unused hash_init_sha1(struct hash_algo *algo, void **ctxp)
+#if defined(CONFIG_SHA1) && !defined(CONFIG_SHA_PROG_HW_ACCEL)
+static int hash_init_sha1(struct hash_algo *algo, void **ctxp)
 {
 	sha1_context *ctx = malloc(sizeof(sha1_context));
 	sha1_starts(ctx);
@@ -51,16 +50,15 @@ static int __maybe_unused hash_init_sha1(struct hash_algo *algo, void **ctxp)
 	return 0;
 }
 
-static int __maybe_unused hash_update_sha1(struct hash_algo *algo, void *ctx,
-					   const void *buf, unsigned int size,
-					   int is_last)
+static int hash_update_sha1(struct hash_algo *algo, void *ctx, const void *buf,
+			    unsigned int size, int is_last)
 {
 	sha1_update((sha1_context *)ctx, buf, size);
 	return 0;
 }
 
-static int __maybe_unused hash_finish_sha1(struct hash_algo *algo, void *ctx,
-					   void *dest_buf, int size)
+static int hash_finish_sha1(struct hash_algo *algo, void *ctx, void *dest_buf,
+			    int size)
 {
 	if (size < algo->digest_size)
 		return -1;
@@ -69,8 +67,10 @@ static int __maybe_unused hash_finish_sha1(struct hash_algo *algo, void *ctx,
 	free(ctx);
 	return 0;
 }
+#endif
 
-static int __maybe_unused hash_init_sha256(struct hash_algo *algo, void **ctxp)
+#if defined(CONFIG_SHA256) && !defined(CONFIG_SHA_PROG_HW_ACCEL)
+static int hash_init_sha256(struct hash_algo *algo, void **ctxp)
 {
 	sha256_context *ctx = malloc(sizeof(sha256_context));
 	sha256_starts(ctx);
@@ -78,16 +78,15 @@ static int __maybe_unused hash_init_sha256(struct hash_algo *algo, void **ctxp)
 	return 0;
 }
 
-static int __maybe_unused hash_update_sha256(struct hash_algo *algo, void *ctx,
-					     const void *buf, uint size,
-					     int is_last)
+static int hash_update_sha256(struct hash_algo *algo, void *ctx,
+			      const void *buf, unsigned int size, int is_last)
 {
 	sha256_update((sha256_context *)ctx, buf, size);
 	return 0;
 }
 
-static int __maybe_unused hash_finish_sha256(struct hash_algo *algo, void *ctx,
-					     void *dest_buf, int size)
+static int hash_finish_sha256(struct hash_algo *algo, void *ctx, void
+			      *dest_buf, int size)
 {
 	if (size < algo->digest_size)
 		return -1;
@@ -96,8 +95,10 @@ static int __maybe_unused hash_finish_sha256(struct hash_algo *algo, void *ctx,
 	free(ctx);
 	return 0;
 }
+#endif
 
-static int __maybe_unused hash_init_sha384(struct hash_algo *algo, void **ctxp)
+#if defined(CONFIG_SHA384) && !defined(CONFIG_SHA_PROG_HW_ACCEL)
+static int hash_init_sha384(struct hash_algo *algo, void **ctxp)
 {
 	sha512_context *ctx = malloc(sizeof(sha512_context));
 	sha384_starts(ctx);
@@ -105,16 +106,15 @@ static int __maybe_unused hash_init_sha384(struct hash_algo *algo, void **ctxp)
 	return 0;
 }
 
-static int __maybe_unused hash_update_sha384(struct hash_algo *algo, void *ctx,
-					     const void *buf, uint size,
-					     int is_last)
+static int hash_update_sha384(struct hash_algo *algo, void *ctx,
+			      const void *buf, unsigned int size, int is_last)
 {
 	sha384_update((sha512_context *)ctx, buf, size);
 	return 0;
 }
 
-static int __maybe_unused hash_finish_sha384(struct hash_algo *algo, void *ctx,
-					     void *dest_buf, int size)
+static int hash_finish_sha384(struct hash_algo *algo, void *ctx, void
+			      *dest_buf, int size)
 {
 	if (size < algo->digest_size)
 		return -1;
@@ -123,8 +123,10 @@ static int __maybe_unused hash_finish_sha384(struct hash_algo *algo, void *ctx,
 	free(ctx);
 	return 0;
 }
+#endif
 
-static int __maybe_unused hash_init_sha512(struct hash_algo *algo, void **ctxp)
+#if defined(CONFIG_SHA512) && !defined(CONFIG_SHA_PROG_HW_ACCEL)
+static int hash_init_sha512(struct hash_algo *algo, void **ctxp)
 {
 	sha512_context *ctx = malloc(sizeof(sha512_context));
 	sha512_starts(ctx);
@@ -132,16 +134,15 @@ static int __maybe_unused hash_init_sha512(struct hash_algo *algo, void **ctxp)
 	return 0;
 }
 
-static int __maybe_unused hash_update_sha512(struct hash_algo *algo, void *ctx,
-					     const void *buf, uint size,
-					     int is_last)
+static int hash_update_sha512(struct hash_algo *algo, void *ctx,
+			      const void *buf, unsigned int size, int is_last)
 {
 	sha512_update((sha512_context *)ctx, buf, size);
 	return 0;
 }
 
-static int __maybe_unused hash_finish_sha512(struct hash_algo *algo, void *ctx,
-					     void *dest_buf, int size)
+static int hash_finish_sha512(struct hash_algo *algo, void *ctx, void
+			      *dest_buf, int size)
 {
 	if (size < algo->digest_size)
 		return -1;
@@ -150,6 +151,8 @@ static int __maybe_unused hash_finish_sha512(struct hash_algo *algo, void *ctx,
 	free(ctx);
 	return 0;
 }
+#endif
+
 
 static int hash_init_crc16_ccitt(struct hash_algo *algo, void **ctxp)
 {
@@ -178,7 +181,7 @@ static int hash_finish_crc16_ccitt(struct hash_algo *algo, void *ctx,
 	return 0;
 }
 
-static int __maybe_unused hash_init_crc32(struct hash_algo *algo, void **ctxp)
+static int hash_init_crc32(struct hash_algo *algo, void **ctxp)
 {
 	uint32_t *ctx = malloc(sizeof(uint32_t));
 	*ctx = 0;
@@ -186,16 +189,15 @@ static int __maybe_unused hash_init_crc32(struct hash_algo *algo, void **ctxp)
 	return 0;
 }
 
-static int __maybe_unused hash_update_crc32(struct hash_algo *algo, void *ctx,
-					    const void *buf, unsigned int size,
-					    int is_last)
+static int hash_update_crc32(struct hash_algo *algo, void *ctx,
+			     const void *buf, unsigned int size, int is_last)
 {
 	*((uint32_t *)ctx) = crc32(*((uint32_t *)ctx), buf, size);
 	return 0;
 }
 
-static int __maybe_unused hash_finish_crc32(struct hash_algo *algo, void *ctx,
-					    void *dest_buf, int size)
+static int hash_finish_crc32(struct hash_algo *algo, void *ctx, void *dest_buf,
+			     int size)
 {
 	if (size < algo->digest_size)
 		return -1;
@@ -211,25 +213,17 @@ static int __maybe_unused hash_finish_crc32(struct hash_algo *algo, void *ctx,
  * Note that algorithm names must be in lower case.
  */
 static struct hash_algo hash_algo[] = {
-#if CONFIG_IS_ENABLED(MD5)
+#ifdef CONFIG_SHA1
 	{
-		.name		= "md5",
-		.digest_size	= MD5_SUM_LEN,
-		.chunk_size	= CHUNKSZ_MD5,
-		.hash_func_ws	= md5_wd,
-	},
-#endif
-#if CONFIG_IS_ENABLED(SHA1)
-	{
-		.name		= "sha1",
+		.name 		= "sha1",
 		.digest_size	= SHA1_SUM_LEN,
 		.chunk_size	= CHUNKSZ_SHA1,
-#if CONFIG_IS_ENABLED(SHA_HW_ACCEL)
+#ifdef CONFIG_SHA_HW_ACCEL
 		.hash_func_ws	= hw_sha1,
 #else
 		.hash_func_ws	= sha1_csum_wd,
 #endif
-#if CONFIG_IS_ENABLED(SHA_PROG_HW_ACCEL)
+#ifdef CONFIG_SHA_PROG_HW_ACCEL
 		.hash_init	= hw_sha_init,
 		.hash_update	= hw_sha_update,
 		.hash_finish	= hw_sha_finish,
@@ -240,17 +234,17 @@ static struct hash_algo hash_algo[] = {
 #endif
 	},
 #endif
-#if CONFIG_IS_ENABLED(SHA256)
+#ifdef CONFIG_SHA256
 	{
 		.name		= "sha256",
 		.digest_size	= SHA256_SUM_LEN,
 		.chunk_size	= CHUNKSZ_SHA256,
-#if CONFIG_IS_ENABLED(SHA_HW_ACCEL)
+#ifdef CONFIG_SHA_HW_ACCEL
 		.hash_func_ws	= hw_sha256,
 #else
 		.hash_func_ws	= sha256_csum_wd,
 #endif
-#if CONFIG_IS_ENABLED(SHA_PROG_HW_ACCEL)
+#ifdef CONFIG_SHA_PROG_HW_ACCEL
 		.hash_init	= hw_sha_init,
 		.hash_update	= hw_sha_update,
 		.hash_finish	= hw_sha_finish,
@@ -261,17 +255,17 @@ static struct hash_algo hash_algo[] = {
 #endif
 	},
 #endif
-#if CONFIG_IS_ENABLED(SHA384)
+#ifdef CONFIG_SHA384
 	{
 		.name		= "sha384",
 		.digest_size	= SHA384_SUM_LEN,
 		.chunk_size	= CHUNKSZ_SHA384,
-#if CONFIG_IS_ENABLED(SHA512_HW_ACCEL)
+#ifdef CONFIG_SHA512_HW_ACCEL
 		.hash_func_ws	= hw_sha384,
 #else
 		.hash_func_ws	= sha384_csum_wd,
 #endif
-#if CONFIG_IS_ENABLED(SHA512_HW_ACCEL) && CONFIG_IS_ENABLED(SHA_PROG_HW_ACCEL)
+#if defined(CONFIG_SHA512_HW_ACCEL) && defined(CONFIG_SHA_PROG_HW_ACCEL)
 		.hash_init	= hw_sha_init,
 		.hash_update	= hw_sha_update,
 		.hash_finish	= hw_sha_finish,
@@ -282,17 +276,17 @@ static struct hash_algo hash_algo[] = {
 #endif
 	},
 #endif
-#if CONFIG_IS_ENABLED(SHA512)
+#ifdef CONFIG_SHA512
 	{
 		.name		= "sha512",
 		.digest_size	= SHA512_SUM_LEN,
 		.chunk_size	= CHUNKSZ_SHA512,
-#if CONFIG_IS_ENABLED(SHA512_HW_ACCEL)
+#ifdef CONFIG_SHA512_HW_ACCEL
 		.hash_func_ws	= hw_sha512,
 #else
 		.hash_func_ws	= sha512_csum_wd,
 #endif
-#if CONFIG_IS_ENABLED(SHA512_HW_ACCEL) && CONFIG_IS_ENABLED(SHA_PROG_HW_ACCEL)
+#if defined(CONFIG_SHA512_HW_ACCEL) && defined(CONFIG_SHA_PROG_HW_ACCEL)
 		.hash_init	= hw_sha_init,
 		.hash_update	= hw_sha_update,
 		.hash_finish	= hw_sha_finish,
@@ -312,7 +306,6 @@ static struct hash_algo hash_algo[] = {
 		.hash_update	= hash_update_crc16_ccitt,
 		.hash_finish	= hash_finish_crc16_ccitt,
 	},
-#if CONFIG_IS_ENABLED(CRC32)
 	{
 		.name		= "crc32",
 		.digest_size	= 4,
@@ -322,13 +315,12 @@ static struct hash_algo hash_algo[] = {
 		.hash_update	= hash_update_crc32,
 		.hash_finish	= hash_finish_crc32,
 	},
-#endif
 };
 
 /* Try to minimize code size for boards that don't want much hashing */
-#if CONFIG_IS_ENABLED(SHA256) || CONFIG_IS_ENABLED(CMD_SHA1SUM) || \
-	CONFIG_IS_ENABLED(CRC32_VERIFY) || CONFIG_IS_ENABLED(CMD_HASH) || \
-	CONFIG_IS_ENABLED(SHA384) || CONFIG_IS_ENABLED(SHA512)
+#if defined(CONFIG_SHA256) || defined(CONFIG_CMD_SHA1SUM) || \
+	defined(CONFIG_CRC32_VERIFY) || defined(CONFIG_CMD_HASH) || \
+	defined(CONFIG_SHA384) || defined(CONFIG_SHA512)
 #define multi_hash()	1
 #else
 #define multi_hash()	0
@@ -404,8 +396,8 @@ int hash_parse_string(const char *algo_name, const char *str, uint8_t *result)
 	for (i = 0; i < algo->digest_size; i++) {
 		char chr[3];
 
-		strlcpy(chr, &str[i * 2], 3);
-		result[i] = hextoul(chr, NULL);
+		strncpy(chr, &str[i * 2], 2);
+		result[i] = simple_strtoul(chr, NULL, 16);
 	}
 
 	return 0;
@@ -433,8 +425,7 @@ int hash_block(const char *algo_name, const void *data, unsigned int len,
 	return 0;
 }
 
-#if !defined(CONFIG_SPL_BUILD) && (defined(CONFIG_CMD_HASH) || \
-	defined(CONFIG_CMD_SHA1SUM) || defined(CONFIG_CMD_CRC32))
+#if defined(CONFIG_CMD_HASH) || defined(CONFIG_CMD_SHA1SUM) || defined(CONFIG_CMD_CRC32)
 /**
  * store_result: Store the resulting sum to an address or variable
  *
@@ -479,7 +470,7 @@ static void store_result(struct hash_algo *algo, const uint8_t *sum,
 		ulong addr;
 		void *buf;
 
-		addr = hextoul(dest, NULL);
+		addr = simple_strtoul(dest, NULL, 16);
 		buf = map_sysmem(addr, algo->digest_size);
 		memcpy(buf, sum, algo->digest_size);
 		unmap_sysmem(buf);
@@ -500,7 +491,7 @@ static void store_result(struct hash_algo *algo, const uint8_t *sum,
  * @allow_env_vars:	non-zero to permit storing the result to an environment
  *			variable. If 0 then verify_str is assumed to be an
  *			address, and the * prefix is not expected.
- * Return: 0 if ok, non-zero on error
+ * @return 0 if ok, non-zero on error
  */
 static int parse_verify_sum(struct hash_algo *algo, char *verify_str,
 			    uint8_t *vsum, int allow_env_vars)
@@ -519,7 +510,7 @@ static int parse_verify_sum(struct hash_algo *algo, char *verify_str,
 		ulong addr;
 		void *buf;
 
-		addr = hextoul(verify_str, NULL);
+		addr = simple_strtoul(verify_str, NULL, 16);
 		buf = map_sysmem(addr, algo->digest_size);
 		memcpy(vsum, buf, algo->digest_size);
 	} else {
@@ -564,8 +555,8 @@ int hash_command(const char *algo_name, int flags, struct cmd_tbl *cmdtp,
 	if ((argc < 2) || ((flags & HASH_FLAG_VERIFY) && (argc < 3)))
 		return CMD_RET_USAGE;
 
-	addr = hextoul(*argv++, NULL);
-	len = hextoul(*argv++, NULL);
+	addr = simple_strtoul(*argv++, NULL, 16);
+	len = simple_strtoul(*argv++, NULL, 16);
 
 	if (multi_hash()) {
 		struct hash_algo *algo;
@@ -637,7 +628,7 @@ int hash_command(const char *algo_name, int flags, struct cmd_tbl *cmdtp,
 				addr, addr + len - 1, crc);
 
 		if (argc >= 3) {
-			ptr = (ulong *)hextoul(argv[0], NULL);
+			ptr = (ulong *)simple_strtoul(argv[0], NULL, 16);
 			*ptr = crc;
 		}
 	}

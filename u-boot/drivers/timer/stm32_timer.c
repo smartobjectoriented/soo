@@ -135,3 +135,4 @@ U_BOOT_DRIVER(stm32_timer) = {
 	.probe = stm32_timer_probe,
 	.ops = &stm32_timer_ops,
 };
+

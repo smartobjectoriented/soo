@@ -116,7 +116,8 @@ void fdt_fixup_fman_port_icid_by_compat(void *blob, int smmu_ph,
 	int noff, len, icid;
 	const u32 *prop;
 
-	fdt_for_each_node_by_compatible(noff, blob, -1, compat) {
+	noff = fdt_node_offset_by_compatible(blob, -1, compat);
+	while (noff > 0) {
 		prop = fdt_getprop(blob, noff, "cell-index", &len);
 		if (!prop) {
 			printf("WARNING missing cell-index for fman port\n");
@@ -136,6 +137,8 @@ void fdt_fixup_fman_port_icid_by_compat(void *blob, int smmu_ph,
 		}
 
 		fdt_set_iommu_prop(blob, noff, smmu_ph, (u32 *)&icid, 1);
+
+		noff = fdt_node_offset_by_compatible(blob, noff, compat);
 	}
 }
 

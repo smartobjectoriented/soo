@@ -18,9 +18,9 @@ int do_strings(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		return CMD_RET_USAGE;
 
 	if ((flag & CMD_FLAG_REPEAT) == 0) {
-		start_addr = (char *)hextoul(argv[1], NULL);
+		start_addr = (char *)simple_strtoul(argv[1], NULL, 16);
 		if (argc > 2)
-			last_addr = (char *)hextoul(argv[2], NULL);
+			last_addr = (char *)simple_strtoul(argv[2], NULL, 16);
 		else
 			last_addr = (char *)-1;
 	}

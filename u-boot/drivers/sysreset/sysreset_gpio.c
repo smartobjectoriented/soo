@@ -33,7 +33,7 @@ static struct sysreset_ops gpio_reboot_ops = {
 	.request = gpio_reboot_request,
 };
 
-static int gpio_reboot_probe(struct udevice *dev)
+int gpio_reboot_probe(struct udevice *dev)
 {
 	struct gpio_reboot_priv *priv = dev_get_priv(dev);
 

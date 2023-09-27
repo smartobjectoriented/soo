@@ -5,7 +5,6 @@
  */
 
 #include <common.h>
-#include <clock_legacy.h>
 #include <log.h>
 #include <asm/io.h>
 #include <asm/arch/clock.h>
@@ -137,7 +136,7 @@ static int exynos_get_pll_clk(int pllreg, unsigned int r, unsigned int k)
 	/* SDIV [2:0] */
 	s = r & 0x7;
 
-	freq = get_board_sys_clk();
+	freq = CONFIG_SYS_CLK_FREQ;
 
 	if (pllreg == EPLL || pllreg == RPLL) {
 		k = k & 0xffff;
@@ -1052,7 +1051,7 @@ static unsigned long exynos5800_get_lcd_clk(void)
 									RPLL};
 		sclk = get_pll_clk(reg_map[sel]);
 	} else
-		sclk = get_board_sys_clk();
+		sclk = CONFIG_SYS_CLK_FREQ;
 	/*
 	 * CLK_DIV_DISP10
 	 * FIMD1_RATIO [3:0]
@@ -1403,7 +1402,7 @@ int exynos5_set_i2s_clk_prescaler(unsigned int src_frq,
  * @param target_freq		Desired clock frequency in Hz
  * @param best_fine_scalar	Pointer to store the fine stage divisor
  *
- * Return: best_main_scalar	Main scalar for desired frequency or -1 if none
+ * @return best_main_scalar	Main scalar for desired frequency or -1 if none
  * found
  */
 static int clock_calc_best_scalar(unsigned int main_scaler_bits,

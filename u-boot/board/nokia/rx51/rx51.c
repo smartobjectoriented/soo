@@ -26,12 +26,10 @@
 #include <env.h>
 #include <init.h>
 #include <watchdog.h>
-#include <wdt.h>
 #include <malloc.h>
 #include <twl4030.h>
 #include <i2c.h>
-#include <video.h>
-#include <keyboard.h>
+#include <video_fb.h>
 #include <asm/global_data.h>
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -61,6 +59,8 @@ struct emu_hal_params_rx51 {
 #define ONENAND_GPMC_CONFIG6_RX51	0x90060000
 
 DECLARE_GLOBAL_DATA_PTR;
+
+GraphicDevice gdev;
 
 const omap3_sysinfo sysinfo = {
 	DDR_STACKED,
@@ -240,7 +240,6 @@ int board_init(void)
 	return 0;
 }
 
-#ifdef CONFIG_REVISION_TAG
 /*
  * Routine: get_board_revision
  * Description: Return board revision.
@@ -249,7 +248,6 @@ u32 get_board_rev(void)
 {
 	return simple_strtol(hw_build_ptr, NULL, 16);
 }
-#endif
 
 /*
  * Routine: setup_board_tags
@@ -340,27 +338,21 @@ void setup_board_tags(struct tag **in_params)
 	*in_params = params;
 }
 
-static int rx51_video_probe(struct udevice *dev)
+/*
+ * Routine: video_hw_init
+ * Description: Set up the GraphicDevice depending on sys_boot.
+ */
+void *video_hw_init(void)
 {
-	struct video_uc_plat *uc_plat = dev_get_uclass_plat(dev);
-	struct video_priv *uc_priv = dev_get_uclass_priv(dev);
-
-	uc_plat->base = 0x8f9c0000;
-	uc_plat->size = 800 * 480 * sizeof(u16);
-	uc_priv->xsize = 800;
-	uc_priv->ysize = 480;
-	uc_priv->bpix = VIDEO_BPP16;
-
-	video_set_flush_dcache(dev, true);
-
-	return 0;
+	/* fill in Graphic Device */
+	gdev.frameAdrs = 0x8f9c0000;
+	gdev.winSizeX = 800;
+	gdev.winSizeY = 480;
+	gdev.gdfBytesPP = 2;
+	gdev.gdfIndex = GDF_16BIT_565RGB;
+	memset((void *)gdev.frameAdrs, 0, 0xbb800);
+	return (void *) &gdev;
 }
-
-U_BOOT_DRIVER(rx51_video) = {
-	.name = "rx51_video",
-	.id = UCLASS_VIDEO,
-	.probe = rx51_video_probe,
-};
 
 /*
  * Routine: twl4030_regulator_set_mode
@@ -495,20 +487,20 @@ static unsigned long int twl_wd_time; /* last time of watchdog reset */
 static unsigned long int twl_i2c_lock;
 
 /*
- * Routine: rx51_watchdog_reset
+ * Routine: hw_watchdog_reset
  * Description: Reset timeout of twl4030 watchdog.
  */
-static int rx51_watchdog_reset(struct udevice *dev)
+void hw_watchdog_reset(void)
 {
 	u8 timeout = 0;
 
 	/* do not reset watchdog too often - max every 4s */
 	if (get_timer(twl_wd_time) < 4 * CONFIG_SYS_HZ)
-		return 0;
+		return;
 
 	/* localy lock twl4030 i2c bus */
 	if (test_and_set_bit(0, &twl_i2c_lock))
-		return 0;
+		return;
 
 	/* read actual watchdog timeout */
 	twl4030_i2c_read_u8(TWL4030_CHIP_PM_RECEIVER,
@@ -525,31 +517,7 @@ static int rx51_watchdog_reset(struct udevice *dev)
 
 	/* localy unlock twl4030 i2c bus */
 	test_and_clear_bit(0, &twl_i2c_lock);
-
-	return 0;
 }
-
-static int rx51_watchdog_start(struct udevice *dev, u64 timeout_ms, ulong flags)
-{
-	return 0;
-}
-
-static int rx51_watchdog_probe(struct udevice *dev)
-{
-	return 0;
-}
-
-static const struct wdt_ops rx51_watchdog_ops = {
-	.start = rx51_watchdog_start,
-	.reset = rx51_watchdog_reset,
-};
-
-U_BOOT_DRIVER(rx51_watchdog) = {
-	.name = "rx51_watchdog",
-	.id = UCLASS_WDT,
-	.ops = &rx51_watchdog_ops,
-	.probe = rx51_watchdog_probe,
-};
 
 /*
  * TWL4030 keypad handler for cfb_console
@@ -584,10 +552,10 @@ static u8 keybuf_head;
 static u8 keybuf_tail;
 
 /*
- * Routine: rx51_kp_start
+ * Routine: rx51_kp_init
  * Description: Initialize HW keyboard.
  */
-static int rx51_kp_start(struct udevice *dev)
+int rx51_kp_init(void)
 {
 	int ret = 0;
 	u8 ctrl;
@@ -661,7 +629,7 @@ static void rx51_kp_fill(u8 k, u8 mods)
  * Routine: rx51_kp_tstc
  * Description: Test if key was pressed (from buffer).
  */
-static int rx51_kp_tstc(struct udevice *dev)
+int rx51_kp_tstc(struct stdio_dev *sdev)
 {
 	u8 c, r, dk, i;
 	u8 intr;
@@ -717,35 +685,13 @@ static int rx51_kp_tstc(struct udevice *dev)
  * Routine: rx51_kp_getc
  * Description: Get last pressed key (from buffer).
  */
-static int rx51_kp_getc(struct udevice *dev)
+int rx51_kp_getc(struct stdio_dev *sdev)
 {
 	keybuf_head %= KEYBUF_SIZE;
-	while (!rx51_kp_tstc(dev))
+	while (!rx51_kp_tstc(sdev))
 		WATCHDOG_RESET();
 	return keybuf[keybuf_head++];
 }
-
-static int rx51_kp_probe(struct udevice *dev)
-{
-	struct keyboard_priv *uc_priv = dev_get_uclass_priv(dev);
-	struct stdio_dev *sdev = &uc_priv->sdev;
-
-	strcpy(sdev->name, "keyboard");
-	return input_stdio_register(sdev);
-}
-
-static const struct keyboard_ops rx51_kp_ops = {
-	.start = rx51_kp_start,
-	.tstc = rx51_kp_tstc,
-	.getc = rx51_kp_getc,
-};
-
-U_BOOT_DRIVER(rx51_kp) = {
-	.name = "rx51_kp",
-	.id = UCLASS_KEYBOARD,
-	.probe = rx51_kp_probe,
-	.ops = &rx51_kp_ops,
-};
 
 static const struct mmc_config rx51_mmc_cfg = {
 	.host_caps = MMC_MODE_4BIT | MMC_MODE_HS_52MHz | MMC_MODE_HS,
@@ -775,16 +721,4 @@ U_BOOT_DRVINFOS(rx51_i2c) = {
 	{ "i2c_omap", &rx51_i2c[0] },
 	{ "i2c_omap", &rx51_i2c[1] },
 	{ "i2c_omap", &rx51_i2c[2] },
-};
-
-U_BOOT_DRVINFOS(rx51_watchdog) = {
-	{ "rx51_watchdog" },
-};
-
-U_BOOT_DRVINFOS(rx51_video) = {
-	{ "rx51_video" },
-};
-
-U_BOOT_DRVINFOS(rx51_kp) = {
-	{ "rx51_kp" },
 };

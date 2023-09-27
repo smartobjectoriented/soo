@@ -20,8 +20,8 @@ RE_FILE = re.compile(r'#(\d+): (FILE: ([^:]*):(\d+):)?')
 RE_NOTE = re.compile(r'NOTE: (.*)')
 
 
-def find_check_patch():
-    top_level = gitutil.get_top_level()
+def FindCheckPatch():
+    top_level = gitutil.GetTopLevel()
     try_list = [
         os.getcwd(),
         os.path.join(os.getcwd(), '..', '..'),
@@ -47,7 +47,7 @@ def find_check_patch():
              '~/bin directory or use --no-check')
 
 
-def check_patch_parse_one_message(message):
+def CheckPatchParseOneMessage(message):
     """Parse one checkpatch message
 
     Args:
@@ -114,7 +114,7 @@ def check_patch_parse_one_message(message):
     return item
 
 
-def check_patch_parse(checkpatch_output, verbose=False):
+def CheckPatchParse(checkpatch_output, verbose=False):
     """Parse checkpatch.pl output
 
     Args:
@@ -179,14 +179,14 @@ def check_patch_parse(checkpatch_output, verbose=False):
         elif re_bad.match(message):
             result.ok = False
         else:
-            problem = check_patch_parse_one_message(message)
+            problem = CheckPatchParseOneMessage(message)
             if problem:
                 result.problems.append(problem)
 
     return result
 
 
-def check_patch(fname, verbose=False, show_types=False):
+def CheckPatch(fname, verbose=False, show_types=False):
     """Run checkpatch.pl on a file and parse the results.
 
     Args:
@@ -209,16 +209,16 @@ def check_patch(fname, verbose=False, show_types=False):
             lines: Number of lines
             stdout: Full output of checkpatch
     """
-    chk = find_check_patch()
+    chk = FindCheckPatch()
     args = [chk, '--no-tree']
     if show_types:
         args.append('--show-types')
-    output = command.output(*args, fname, raise_on_error=False)
+    output = command.Output(*args, fname, raise_on_error=False)
 
-    return check_patch_parse(output, verbose)
+    return CheckPatchParse(output, verbose)
 
 
-def get_warning_msg(col, msg_type, fname, line, msg):
+def GetWarningMsg(col, msg_type, fname, line, msg):
     '''Create a message for a given file/line
 
     Args:
@@ -228,33 +228,33 @@ def get_warning_msg(col, msg_type, fname, line, msg):
         msg: Message to report
     '''
     if msg_type == 'warning':
-        msg_type = col.build(col.YELLOW, msg_type)
+        msg_type = col.Color(col.YELLOW, msg_type)
     elif msg_type == 'error':
-        msg_type = col.build(col.RED, msg_type)
+        msg_type = col.Color(col.RED, msg_type)
     elif msg_type == 'check':
-        msg_type = col.build(col.MAGENTA, msg_type)
+        msg_type = col.Color(col.MAGENTA, msg_type)
     line_str = '' if line is None else '%d' % line
     return '%s:%s: %s: %s\n' % (fname, line_str, msg_type, msg)
 
-def check_patches(verbose, args):
+def CheckPatches(verbose, args):
     '''Run the checkpatch.pl script on each patch'''
     error_count, warning_count, check_count = 0, 0, 0
     col = terminal.Color()
 
     for fname in args:
-        result = check_patch(fname, verbose)
+        result = CheckPatch(fname, verbose)
         if not result.ok:
             error_count += result.errors
             warning_count += result.warnings
             check_count += result.checks
             print('%d errors, %d warnings, %d checks for %s:' % (result.errors,
-                    result.warnings, result.checks, col.build(col.BLUE, fname)))
+                    result.warnings, result.checks, col.Color(col.BLUE, fname)))
             if (len(result.problems) != result.errors + result.warnings +
                     result.checks):
                 print("Internal error: some problems lost")
             for item in result.problems:
                 sys.stderr.write(
-                    get_warning_msg(col, item.get('type', '<unknown>'),
+                    GetWarningMsg(col, item.get('type', '<unknown>'),
                         item.get('file', '<unknown>'),
                         item.get('line', 0), item.get('msg', 'message')))
             print
@@ -266,6 +266,6 @@ def check_patches(verbose, args):
             color = col.YELLOW
         if error_count:
             color = col.RED
-        print(col.build(color, str % (error_count, warning_count, check_count)))
+        print(col.Color(color, str % (error_count, warning_count, check_count)))
         return False
     return True

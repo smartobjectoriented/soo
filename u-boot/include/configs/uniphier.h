@@ -39,6 +39,10 @@
 #define BOOTENV
 #endif
 
+#define CONFIG_SYS_MALLOC_LEN		(4 * 1024 * 1024)
+
+#define CONFIG_TIMESTAMP
+
 #define CONFIG_SYS_MONITOR_BASE		0
 #define CONFIG_SYS_MONITOR_LEN		0x00200000	/* 2MB */
 
@@ -52,8 +56,10 @@
 #endif
 
 #define CONFIG_SYS_MAX_NAND_DEVICE			1
+#define CONFIG_SYS_NAND_ONFI_DETECTION
 #define CONFIG_SYS_NAND_REGS_BASE			0x68100000
 #define CONFIG_SYS_NAND_DATA_BASE			0x68000000
+#define CONFIG_SYS_NAND_BAD_BLOCK_POS			0
 
 /*
  * Network Configuration
@@ -63,6 +69,7 @@
 #define CONFIG_GATEWAYIP		192.168.11.1
 #define CONFIG_NETMASK			255.255.255.0
 
+#define CONFIG_SYS_LOAD_ADDR		0x85000000
 #define CONFIG_SYS_BOOTM_LEN		(32 << 20)
 
 #if defined(CONFIG_ARM64)
@@ -77,6 +84,11 @@
 #endif
 
 #define CONFIG_ROOTPATH			"/nfs/root/path"
+#define CONFIG_NFSBOOTCOMMAND						\
+	"setenv bootargs $bootargs root=/dev/nfs rw "			\
+	"nfsroot=$serverip:$rootpath "					\
+	"ip=$ipaddr:$serverip:$gatewayip:$netmask:$hostname:$netdev:off;" \
+		"run __nfsboot"
 
 #ifdef CONFIG_FIT
 #define CONFIG_BOOTFILE			"fitImage"
@@ -185,6 +197,8 @@
 
 /* only for SPL */
 #define CONFIG_SPL_STACK		(0x00100000)
+
+#define CONFIG_SYS_NAND_U_BOOT_OFFS		0x20000
 
 /* subtract sizeof(struct image_header) */
 #define CONFIG_SYS_UBOOT_BASE			(0x130000 - 0x40)

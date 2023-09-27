@@ -7,7 +7,6 @@
  * Author: Nicolas Ferre <nicolas.ferre@microcihp.com>
  */
 /dts-v1/;
-#include <dt-bindings/gpio/gpio.h>
 #include "sama5d27_wlsom1.dtsi"
 
 / {
@@ -19,7 +18,7 @@
 	};
 
 	onewire_tm: onewire {
-		gpios = <&pioA PIN_PC9 GPIO_ACTIVE_HIGH>;
+		gpios = <&pioA PIN_PC9 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_onewire_tm_default>;
 		status = "okay";

@@ -4,3 +4,4 @@
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 
 obj-y += mpc837xerdb.o
+obj-$(CONFIG_PCI) += pci.o

@@ -48,7 +48,7 @@ int mtk_soc_early_init(void)
 	return 0;
 }
 
-void reset_cpu(void)
+void reset_cpu(ulong addr)
 {
 	psci_system_reset();
 }

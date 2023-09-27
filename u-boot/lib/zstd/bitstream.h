@@ -127,7 +127,7 @@ static const unsigned BIT_mask[] = {0,       1,       3,       7,	0xF,      0x1F
 ****************************************************************/
 /*! BIT_initCStream() :
  *  `dstCapacity` must be > sizeof(void*)
- *  Return: 0 if success,
+ *  @return : 0 if success,
 			  otherwise an error code (can be tested using ERR_isError() ) */
 ZSTD_STATIC size_t BIT_initCStream(BIT_CStream_t *bitC, void *startPtr, size_t dstCapacity)
 {
@@ -184,7 +184,7 @@ ZSTD_STATIC void BIT_flushBits(BIT_CStream_t *bitC)
 }
 
 /*! BIT_closeCStream() :
- *  Return: size of CStream, in bytes,
+ *  @return : size of CStream, in bytes,
 			  or 0 if it could not fit into dstBuffer */
 ZSTD_STATIC size_t BIT_closeCStream(BIT_CStream_t *bitC)
 {
@@ -259,7 +259,7 @@ ZSTD_STATIC size_t BIT_getLowerBits(size_t bitContainer, U32 const nbBits) { ret
  *  local register is not modified.
  *  On 32-bits, maxNbBits==24.
  *  On 64-bits, maxNbBits==56.
- *  Return: value extracted
+ *  @return : value extracted
  */
 ZSTD_STATIC size_t BIT_lookBits(const BIT_DStream_t *bitD, U32 nbBits)
 {
@@ -280,7 +280,7 @@ ZSTD_STATIC void BIT_skipBits(BIT_DStream_t *bitD, U32 nbBits) { bitD->bitsConsu
 /*! BIT_readBits() :
  *  Read (consume) next n bits from local register and update.
  *  Pay attention to not read more than nbBits contained into local register.
- *  Return: extracted value.
+ *  @return : extracted value.
  */
 ZSTD_STATIC size_t BIT_readBits(BIT_DStream_t *bitD, U32 nbBits)
 {

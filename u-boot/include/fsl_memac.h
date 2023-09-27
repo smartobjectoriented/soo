@@ -254,6 +254,7 @@ struct memac_mdio_controller {
 #define MDIO_CTL_READ		(1 << 15)
 
 #define MDIO_DATA(x)		(x & 0xffff)
+#define MDIO_DATA_BSY		(1 << 31)
 
 struct fsl_enet_mac;
 

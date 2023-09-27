@@ -135,7 +135,7 @@ struct rigid_disk_block *get_rdisk(struct blk_desc *dev_desc)
 
     s = env_get("amiga_scanlimit");
     if (s)
-	limit = dectoul(s, NULL);
+	limit = simple_strtoul(s, NULL, 10);
     else
 	limit = AMIGA_BLOCK_LIMIT;
 
@@ -175,7 +175,7 @@ struct bootcode_block *get_bootcode(struct blk_desc *dev_desc)
 
     s = env_get("amiga_scanlimit");
     if (s)
-	limit = dectoul(s, NULL);
+	limit = simple_strtoul(s, NULL, 10);
     else
 	limit = AMIGA_BLOCK_LIMIT;
 

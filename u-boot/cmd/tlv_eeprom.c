@@ -169,9 +169,6 @@ static void show_eeprom(u8 *eeprom)
 {
 	int tlv_end;
 	int curr_tlv;
-#ifdef DEBUG
-	int i;
-#endif
 	struct tlvinfo_header *eeprom_hdr = to_header(eeprom);
 	struct tlvinfo_tlv    *eeprom_tlv;
 
@@ -754,7 +751,7 @@ static int set_mac(char *buf, const char *string)
 
 	/* Convert string to binary */
 	for (i = 0, p = (char *)string; i < 6; i++) {
-		buf[i] = p ? hextoul(p, &end) : 0;
+		buf[i] = p ? simple_strtoul(p, &end, 16) : 0;
 		if (p)
 			p = (*end) ? end + 1 : end;
 	}

@@ -42,21 +42,21 @@ extern void _start(void);
 /**
  * Works out the SOC/SKU type used for clocks settings
  *
- * Return:	SOC type - see TEGRA_SOC...
+ * @return	SOC type - see TEGRA_SOC...
  */
 int tegra_get_chip_sku(void);
 
 /**
  * Returns the pure SOC (chip ID) from the HIDREV register
  *
- * Return:	SOC ID - see CHIPID_TEGRAxx...
+ * @return	SOC ID - see CHIPID_TEGRAxx...
  */
 int tegra_get_chip(void);
 
 /**
  * Returns the SKU ID from the sku_info register
  *
- * Return:	SKU ID - see SKU_ID_Txx...
+ * @return	SKU ID - see SKU_ID_Txx...
  */
 int tegra_get_sku_info(void);
 

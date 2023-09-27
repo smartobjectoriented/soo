@@ -5,4 +5,5 @@
 
 obj-y += ../../st/common/stpmic1.o board.o
 
+obj-$(CONFIG_SYS_MTDPARTS_RUNTIME) += ../../st/common/stm32mp_mtdparts.o
 obj-$(CONFIG_SET_DFU_ALT_INFO) += ../../st/common/stm32mp_dfu.o

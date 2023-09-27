@@ -2,7 +2,6 @@ if ARCH_IMXRT
 
 config IMXRT
 	bool
-	select SYS_FSL_ERRATUM_ESDHC135
 
 config IMXRT1020
 	bool

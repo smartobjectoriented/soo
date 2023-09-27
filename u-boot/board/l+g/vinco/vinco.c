@@ -30,6 +30,7 @@
 #include <netdev.h>
 #include <nand.h>
 #include <spi.h>
+#include <version.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 

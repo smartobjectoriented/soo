@@ -11,6 +11,7 @@
 
 #define CONFIG_PCIE3
 
+#define CONFIG_SYS_SATA_MAX_DEVICE  2
 #define CONFIG_LBA48
 
 #define CONFIG_SYS_SRIO

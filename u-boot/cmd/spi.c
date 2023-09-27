@@ -29,9 +29,9 @@ static unsigned int	bus;
 static unsigned int	cs;
 static unsigned int	mode;
 static unsigned int	freq;
-static int		bitlen;
-static uchar		dout[MAX_SPI_BYTES];
-static uchar		din[MAX_SPI_BYTES];
+static int   		bitlen;
+static uchar 		dout[MAX_SPI_BYTES];
+static uchar 		din[MAX_SPI_BYTES];
 
 static int do_spi_xfer(int bus, int cs)
 {
@@ -114,20 +114,20 @@ int do_spi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	{
 		if (argc >= 2) {
 			mode = CONFIG_DEFAULT_SPI_MODE;
-			bus = dectoul(argv[1], &cp);
+			bus = simple_strtoul(argv[1], &cp, 10);
 			if (*cp == ':') {
-				cs = dectoul(cp + 1, &cp);
+				cs = simple_strtoul(cp+1, &cp, 10);
 			} else {
 				cs = bus;
 				bus = CONFIG_DEFAULT_SPI_BUS;
 			}
 			if (*cp == '.')
-				mode = dectoul(cp + 1, &cp);
+				mode = simple_strtoul(cp+1, &cp, 10);
 			if (*cp == '@')
-				freq = dectoul(cp + 1, &cp);
+				freq = simple_strtoul(cp+1, &cp, 10);
 		}
 		if (argc >= 3)
-			bitlen = dectoul(argv[2], NULL);
+			bitlen = simple_strtoul(argv[2], NULL, 10);
 		if (argc >= 4) {
 			cp = argv[3];
 			for(j = 0; *cp; j++, cp++) {

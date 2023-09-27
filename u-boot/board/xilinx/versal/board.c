@@ -151,8 +151,6 @@ int board_late_init(void)
 	case EMMC_MODE:
 		puts("EMMC_MODE\n");
 		if (uclass_get_device_by_name(UCLASS_MMC,
-					      "mmc@f1050000", &dev) &&
-		    uclass_get_device_by_name(UCLASS_MMC,
 					      "sdhci@f1050000", &dev)) {
 			puts("Boot from EMMC but without SD1 enabled!\n");
 			return -1;
@@ -164,8 +162,6 @@ int board_late_init(void)
 	case SD_MODE:
 		puts("SD_MODE\n");
 		if (uclass_get_device_by_name(UCLASS_MMC,
-					      "mmc@f1040000", &dev) &&
-		    uclass_get_device_by_name(UCLASS_MMC,
 					      "sdhci@f1040000", &dev)) {
 			puts("Boot from SD0 but without SD0 enabled!\n");
 			return -1;
@@ -181,8 +177,6 @@ int board_late_init(void)
 	case SD_MODE1:
 		puts("SD_MODE1\n");
 		if (uclass_get_device_by_name(UCLASS_MMC,
-					      "mmc@f1050000", &dev) &&
-		    uclass_get_device_by_name(UCLASS_MMC,
 					      "sdhci@f1050000", &dev)) {
 			puts("Boot from SD1 but without SD1 enabled!\n");
 			return -1;
@@ -269,13 +263,13 @@ enum env_location env_get_location(enum env_operation op, int prio)
 			return ENVL_FAT;
 		if (IS_ENABLED(CONFIG_ENV_IS_IN_EXT4))
 			return ENVL_EXT4;
-		return ENVL_NOWHERE;
+		return ENVL_UNKNOWN;
 	case OSPI_MODE:
 	case QSPI_MODE_24BIT:
 	case QSPI_MODE_32BIT:
 		if (IS_ENABLED(CONFIG_ENV_IS_IN_SPI_FLASH))
 			return ENVL_SPI_FLASH;
-		return ENVL_NOWHERE;
+		return ENVL_UNKNOWN;
 	case JTAG_MODE:
 	default:
 		return ENVL_NOWHERE;

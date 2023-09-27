@@ -7,25 +7,18 @@
  */
 
 #include <common.h>
-#include <cpu_func.h>
 #include <dm.h>
-#include <asm/sections.h>
-
-void *board_fdt_blob_setup(int *err)
-{
-	*err = 0;
-	if (IS_ENABLED(CONFIG_OF_SEPARATE) || IS_ENABLED(CONFIG_OF_BOARD)) {
-		if (gd->arch.firmware_fdt_addr)
-			return (ulong *)(uintptr_t)gd->arch.firmware_fdt_addr;
-	}
-
-	return (ulong *)&_end;
-}
+#include <asm/arch/cache.h>
 
 int board_init(void)
 {
-	/* enable all cache ways */
-	enable_caches();
+	int ret;
 
+	/* enable all cache ways */
+	ret = cache_enable_ways();
+	if (ret) {
+		debug("%s: could not enable cache ways\n", __func__);
+		return ret;
+	}
 	return 0;
 }

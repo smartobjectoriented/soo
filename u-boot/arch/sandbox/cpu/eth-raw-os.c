@@ -4,8 +4,6 @@
  * Copyright (c) 2015-2018 Joe Hershberger <joe.hershberger@ni.com>
  */
 
-#define _GNU_SOURCE
-
 #include <asm/eth-raw-os.h>
 #include <errno.h>
 #include <fcntl.h>

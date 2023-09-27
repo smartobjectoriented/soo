@@ -19,6 +19,7 @@
 		     "topic,miamimp", "xlnx,zynqmp";
 
 	aliases {
+		gpio0 = &gpio;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		mmc0 = &sdhci0;
@@ -58,7 +59,7 @@
 	status = "okay";
 	is-dual = <1>;
 	flash@0 {
-		compatible = "st,m25p80", "n25q256a", "jedec,spi-nor";
+		compatible = "st,m25p80", "n25q256a";
 		m25p,fast-read;
 		reg = <0x0>;
 		spi-tx-bus-width = <1>;

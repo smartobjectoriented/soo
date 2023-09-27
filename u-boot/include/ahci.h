@@ -148,12 +148,16 @@ struct ahci_ioports {
  * where dev is the controller (although at present it sometimes stands alone).
  */
 struct ahci_uc_priv {
+#if defined(CONFIG_DM_PCI) || defined(CONFIG_DM_SCSI)
 	/*
 	 * TODO(sjg@chromium.org): Drop this once this structure is only used
 	 * in a driver-model context (i.e. attached to a device with
 	 * dev_get_uclass_priv()
 	 */
 	struct udevice *dev;
+#else
+	pci_dev_t	dev;
+#endif
 	struct ahci_ioports	port[AHCI_MAX_PORTS];
 	u16 *ataid[AHCI_MAX_PORTS];
 	u32	n_ports;
@@ -202,7 +206,7 @@ struct ahci_ops {
  * sata_reset() - reset the controller
  *
  * @dev:	Controller to reset
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int sata_reset(struct udevice *dev);
 
@@ -211,7 +215,7 @@ int sata_reset(struct udevice *dev);
  *
  * @dev:	Controller to reset
  * @port:	Port number to check (0 for first)
- * Return: 0 if detected, -ENXIO if nothin on port, other -ve on error
+ * @return 0 if detected, -ENXIO if nothin on port, other -ve on error
  */
 int sata_dm_port_status(struct udevice *dev, int port);
 
@@ -219,7 +223,7 @@ int sata_dm_port_status(struct udevice *dev, int port);
  * sata_scan() - scan SATA ports
  *
  * @dev:	Controller to scan
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int sata_scan(struct udevice *dev);
 
@@ -254,7 +258,7 @@ int ahci_init_dm(struct udevice *dev, void __iomem *base);
  *
  * @ahci_dev: AHCI parent device
  * @devp: Returns new SCSI bus device
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int ahci_bind_scsi(struct udevice *ahci_dev, struct udevice **devp);
 
@@ -266,7 +270,7 @@ int ahci_bind_scsi(struct udevice *ahci_dev, struct udevice **devp);
  *
  * @ahci_dev: AHCI parent device
  * @base: Base address of AHCI port
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int ahci_probe_scsi(struct udevice *ahci_dev, ulong base);
 
@@ -277,7 +281,7 @@ int ahci_probe_scsi(struct udevice *ahci_dev, ulong base);
  * devices it finds.
  *
  * @ahci_dev: AHCI parent device
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int ahci_probe_scsi_pci(struct udevice *ahci_dev);
 

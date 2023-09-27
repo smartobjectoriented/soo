@@ -111,7 +111,7 @@ static int do_cpld(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc < 3)
 		return CMD_RET_USAGE;
 
-	addr = hextoul(argv[2], NULL);
+	addr = simple_strtoul(argv[2], NULL, 16);
 	if (!(addr == CPLD_ADDR_VERSION || addr == CPLD_ADDR_MODE ||
 	      addr == CPLD_ADDR_MUX || addr == CPLD_ADDR_DIPSW6 ||
 	      addr == CPLD_ADDR_RESET)) {
@@ -122,7 +122,7 @@ static int do_cpld(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc == 3 && strcmp(argv[1], "read") == 0) {
 		printf("0x%x\n", cpld_read(dev, addr));
 	} else if (argc == 4 && strcmp(argv[1], "write") == 0) {
-		val = hextoul(argv[3], NULL);
+		val = simple_strtoul(argv[3], NULL, 16);
 		cpld_write(dev, addr, val);
 	}
 

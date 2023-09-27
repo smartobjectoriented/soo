@@ -9,7 +9,6 @@
 #include <config.h>
 
 OUTPUT_ARCH(m68k)
-ENTRY(_start)
 
 #ifndef LDS_BOARD_TEXT
 #define LDS_BOARD_TEXT

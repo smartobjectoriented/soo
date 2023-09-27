@@ -112,7 +112,7 @@ int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	if (argc > 0) {
 		char *endp;
 
-		hextoul(argv[0], &endp);
+		simple_strtoul(argv[0], &endp, 16);
 		/* endp pointing to NULL means that argv[0] was just a
 		 * valid number, pass it along to the normal bootm processing
 		 *
@@ -140,7 +140,9 @@ int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 int bootm_maybe_autostart(struct cmd_tbl *cmdtp, const char *cmd)
 {
-	if (env_get_autostart()) {
+	const char *ep = env_get("autostart");
+
+	if (ep && !strcmp(ep, "yes")) {
 		char *local_args[2];
 		local_args[0] = (char *)cmd;
 		local_args[1] = NULL;
@@ -238,7 +240,7 @@ static int do_iminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 
 	for (arg = 1; arg < argc; ++arg) {
-		addr = hextoul(argv[arg], NULL);
+		addr = simple_strtoul(argv[arg], NULL, 16);
 		if (image_info(addr) != 0)
 			rcode = 1;
 	}
@@ -338,7 +340,7 @@ static int do_imls_nor(void)
 	void *hdr;
 
 	for (i = 0, info = &flash_info[0];
-		i < CFI_FLASH_BANKS; ++i, ++info) {
+		i < CONFIG_SYS_MAX_FLASH_BANKS; ++i, ++info) {
 
 		if (info->flash_id == FLASH_UNKNOWN)
 			goto next_bank;

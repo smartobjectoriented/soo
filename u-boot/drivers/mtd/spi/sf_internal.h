@@ -68,7 +68,6 @@ struct flash_info {
 #define USE_CLSR		BIT(14)	/* use CLSR command */
 #define SPI_NOR_HAS_SST26LOCK	BIT(15)	/* Flash supports lock/unlock via BPR */
 #define SPI_NOR_OCTAL_READ	BIT(16)	/* Flash supports Octal Read */
-#define SPI_NOR_OCTAL_DTR_READ	BIT(17)	/* Flash supports Octal DTR Read */
 };
 
 extern const struct flash_info spi_nor_ids[];
@@ -82,14 +81,14 @@ int spi_flash_cmd_get_sw_write_prot(struct spi_flash *flash);
 
 #if CONFIG_IS_ENABLED(SPI_FLASH_MTD)
 int spi_flash_mtd_register(struct spi_flash *flash);
-void spi_flash_mtd_unregister(struct spi_flash *flash);
+void spi_flash_mtd_unregister(void);
 #else
 static inline int spi_flash_mtd_register(struct spi_flash *flash)
 {
 	return 0;
 }
 
-static inline void spi_flash_mtd_unregister(struct spi_flash *flash)
+static inline void spi_flash_mtd_unregister(void)
 {
 }
 #endif

@@ -13,4 +13,6 @@
 
 #include <configs/rk3288_common.h>
 
+#define CONFIG_KEYBOARD
+
 #endif

@@ -47,7 +47,7 @@
  * @msg:	Padded message
  * @pad_len:	Number of expected padding bytes
  * @algo:	Checksum algo structure having information on DER encoding etc.
- * Return: 0 on success, != 0 on failure
+ * @return 0 on success, != 0 on failure
  */
 static int rsa_verify_padding(const uint8_t *msg, const int pad_len,
 			      struct checksum_algo *algo)
@@ -79,14 +79,14 @@ int padding_pkcs_15_verify(struct image_sign_info *info,
 	struct checksum_algo *checksum = info->checksum;
 	int ret, pad_len = msg_len - checksum->checksum_len;
 
-	/* Check pkcs1.5 padding bytes */
+	/* Check pkcs1.5 padding bytes. */
 	ret = rsa_verify_padding(msg, pad_len, checksum);
 	if (ret) {
 		debug("In RSAVerify(): Padding check failed!\n");
 		return -EINVAL;
 	}
 
-	/* Check hash */
+	/* Check hash. */
 	if (memcmp((uint8_t *)msg + pad_len, hash, msg_len - pad_len)) {
 		debug("In RSAVerify(): Hash check failed!\n");
 		return -EACCES;
@@ -95,14 +95,7 @@ int padding_pkcs_15_verify(struct image_sign_info *info,
 	return 0;
 }
 
-#ifndef USE_HOSTCC
-U_BOOT_PADDING_ALGO(pkcs_15) = {
-	.name = "pkcs-1.5",
-	.verify = padding_pkcs_15_verify,
-};
-#endif
-
-#if CONFIG_IS_ENABLED(FIT_RSASSA_PSS)
+#ifdef CONFIG_FIT_ENABLE_RSASSA_PSS_SUPPORT
 static void u32_i2osp(uint32_t val, uint8_t *buf)
 {
 	buf[0] = (uint8_t)((val >> 24) & 0xff);
@@ -122,7 +115,7 @@ static void u32_i2osp(uint32_t val, uint8_t *buf)
  * @seed_len:	Size of the input octet string
  * @output:	Specifies the output octet string
  * @output_len:	Size of the output octet string
- * Return: 0 if the octet string was correctly generated, others on error
+ * @return 0 if the octet string was correctly generated, others on error
  */
 static int mask_generation_function1(struct checksum_algo *checksum,
 				     uint8_t *seed, int seed_len,
@@ -303,16 +296,9 @@ out:
 
 	return ret;
 }
-
-#ifndef USE_HOSTCC
-U_BOOT_PADDING_ALGO(pss) = {
-	.name = "pss",
-	.verify = padding_pss_verify,
-};
 #endif
 
-#endif
-
+#if CONFIG_IS_ENABLED(FIT_SIGNATURE) || CONFIG_IS_ENABLED(RSA_VERIFY_WITH_PKEY)
 /**
  * rsa_verify_key() - Verify a signature against some data using RSA Key
  *
@@ -325,7 +311,7 @@ U_BOOT_PADDING_ALGO(pss) = {
  * @sig_len:	Number of bytes in signature
  * @hash:	Pointer to the expected hash
  * @key_len:	Number of bytes in rsa key
- * Return: 0 if verified, -ve on error
+ * @return 0 if verified, -ve on error
  */
 static int rsa_verify_key(struct image_sign_info *info,
 			  struct key_prop *prop, const uint8_t *sig,
@@ -340,7 +326,7 @@ static int rsa_verify_key(struct image_sign_info *info,
 	struct padding_algo *padding = info->padding;
 	int hash_len;
 
-	if (!prop || !sig || !hash || !checksum || !padding)
+	if (!prop || !sig || !hash || !checksum)
 		return -EIO;
 
 	if (sig_len != (prop->num_bits / 8)) {
@@ -384,7 +370,9 @@ static int rsa_verify_key(struct image_sign_info *info,
 
 	return 0;
 }
+#endif
 
+#if CONFIG_IS_ENABLED(RSA_VERIFY_WITH_PKEY)
 /**
  * rsa_verify_with_pkey() - Verify a signature against some data using
  * only modulus and exponent as RSA key properties.
@@ -405,9 +393,6 @@ int rsa_verify_with_pkey(struct image_sign_info *info,
 	struct key_prop *prop;
 	int ret;
 
-	if (!CONFIG_IS_ENABLED(RSA_VERIFY_WITH_PKEY))
-		return -EACCES;
-
 	/* Public key is self-described to fill key_prop */
 	ret = rsa_gen_key_prop(info->key, info->keylen, &prop);
 	if (ret) {
@@ -422,6 +407,13 @@ int rsa_verify_with_pkey(struct image_sign_info *info,
 
 	return ret;
 }
+#else
+int rsa_verify_with_pkey(struct image_sign_info *info,
+			 const void *hash, uint8_t *sig, uint sig_len)
+{
+	return -EACCES;
+}
+#endif
 
 #if CONFIG_IS_ENABLED(FIT_SIGNATURE)
 /**
@@ -437,7 +429,7 @@ int rsa_verify_with_pkey(struct image_sign_info *info,
  * @sig:	Signature
  * @sig_len:	Number of bytes in signature
  * @node:	Node having the RSA Key properties
- * Return: 0 if verified, -ve on error
+ * @return 0 if verified, -ve on error
  */
 static int rsa_verify_with_keynode(struct image_sign_info *info,
 				   const void *hash, uint8_t *sig,
@@ -502,8 +494,7 @@ int rsa_verify_hash(struct image_sign_info *info,
 	if (CONFIG_IS_ENABLED(RSA_VERIFY_WITH_PKEY) && !info->fdt_blob) {
 		/* don't rely on fdt properties */
 		ret = rsa_verify_with_pkey(info, hash, sig, sig_len);
-		if (ret)
-			debug("%s: rsa_verify_with_pkey() failed\n", __func__);
+
 		return ret;
 	}
 
@@ -523,9 +514,6 @@ int rsa_verify_hash(struct image_sign_info *info,
 		if (info->required_keynode != -1) {
 			ret = rsa_verify_with_keynode(info, hash, sig, sig_len,
 						      info->required_keynode);
-			if (ret)
-				debug("%s: Failed to verify required_keynode\n",
-				      __func__);
 			return ret;
 		}
 
@@ -535,8 +523,6 @@ int rsa_verify_hash(struct image_sign_info *info,
 		ret = rsa_verify_with_keynode(info, hash, sig, sig_len, node);
 		if (!ret)
 			return ret;
-		debug("%s: Could not verify key '%s', trying all\n", __func__,
-		      name);
 
 		/* No luck, so try each of the keys in turn */
 		for (ndepth = 0, noffset = fdt_next_node(blob, sig_node,
@@ -552,7 +538,6 @@ int rsa_verify_hash(struct image_sign_info *info,
 			}
 		}
 	}
-	debug("%s: Failed to verify by any means\n", __func__);
 
 	return ret;
 }
@@ -571,7 +556,7 @@ int rsa_verify(struct image_sign_info *info,
 	 */
 	if (info->checksum->checksum_len >
 	    info->crypto->key_len) {
-		debug("%s: invalid checksum-algorithm %s for %s\n",
+		debug("%s: invlaid checksum-algorithm %s for %s\n",
 		      __func__, info->checksum->name, info->crypto->name);
 		return -EINVAL;
 	}
@@ -586,25 +571,3 @@ int rsa_verify(struct image_sign_info *info,
 
 	return rsa_verify_hash(info, hash, sig, sig_len);
 }
-
-#ifndef USE_HOSTCC
-
-U_BOOT_CRYPTO_ALGO(rsa2048) = {
-	.name = "rsa2048",
-	.key_len = RSA2048_BYTES,
-	.verify = rsa_verify,
-};
-
-U_BOOT_CRYPTO_ALGO(rsa3072) = {
-	.name = "rsa3072",
-	.key_len = RSA3072_BYTES,
-	.verify = rsa_verify,
-};
-
-U_BOOT_CRYPTO_ALGO(rsa4096) = {
-	.name = "rsa4096",
-	.key_len = RSA4096_BYTES,
-	.verify = rsa_verify,
-};
-
-#endif

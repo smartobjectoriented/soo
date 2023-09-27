@@ -280,7 +280,7 @@ void ehci_set_controller_priv(int index, void *priv,
  * ehci_get_controller_priv() - Get controller private data
  *
  * @index	Controller number to get
- * Return: controller pointer for this index
+ * @return controller pointer for this index
  */
 void *ehci_get_controller_priv(int index);
 

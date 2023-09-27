@@ -3,8 +3,6 @@
  * Copyright (c) 2016, NVIDIA CORPORATION.
  */
 
-#define LOG_CATEGORY UCLASS_MAILBOX
-
 #include <common.h>
 #include <dm.h>
 #include <log.h>
@@ -24,7 +22,7 @@ static int mbox_of_xlate_default(struct mbox_chan *chan,
 	debug("%s(chan=%p)\n", __func__, chan);
 
 	if (args->args_count != 1) {
-		debug("Invalid args_count: %d\n", args->args_count);
+		debug("Invaild args_count: %d\n", args->args_count);
 		return -EINVAL;
 	}
 

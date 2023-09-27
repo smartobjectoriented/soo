@@ -12,12 +12,8 @@
 
 / {
 	aliases {
-#ifndef CONFIG_MACH_SUNIV
 		mmc0 = &mmc0;
-#endif
-#if CONFIG_MMC_SUNXI_SLOT_EXTRA == 2
 		mmc1 = &mmc2;
-#endif
 	};
 
 	binman: binman {
@@ -68,7 +64,7 @@
 					};
 				};
 
-#ifdef SCP_ADDR
+#ifndef CONFIG_MACH_SUN50I_H616
 				scp {
 					description = "SCP firmware";
 					type = "firmware";
@@ -96,7 +92,7 @@
 				@config-SEQ {
 					description = "NAME";
 					firmware = "atf";
-#ifndef SCP_ADDR
+#ifdef CONFIG_MACH_SUN50I_H616
 					loadables = "uboot";
 #else
 					loadables = "scp", "uboot";

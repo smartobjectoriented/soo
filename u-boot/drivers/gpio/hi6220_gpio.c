@@ -54,6 +54,8 @@ static int hi6220_gpio_get_value(struct udevice *dev, unsigned gpio)
 	return !!readb(bank->base + (BIT(gpio + 2)));
 }
 
+
+
 static const struct dm_gpio_ops gpio_hi6220_ops = {
 	.direction_input	= hi6220_gpio_direction_input,
 	.direction_output	= hi6220_gpio_direction_output,
@@ -89,3 +91,5 @@ U_BOOT_DRIVER(gpio_hi6220) = {
 	.probe	= hi6220_gpio_probe,
 	.priv_auto	= sizeof(struct gpio_bank),
 };
+
+

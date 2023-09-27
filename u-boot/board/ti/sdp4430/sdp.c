@@ -25,7 +25,7 @@ const struct omap_sysinfo sysinfo = {
 /**
  * @brief board_init
  *
- * Return: 0
+ * @return 0
  */
 int board_init(void)
 {
@@ -46,7 +46,7 @@ int board_eth_init(struct bd_info *bis)
  * such as power configurations, ethernet initialization as phase2 of
  * boot sequence
  *
- * Return: 0
+ * @return 0
  */
 int misc_init_r(void)
 {
@@ -104,7 +104,6 @@ int spl_start_uboot(void)
 }
 #endif /* CONFIG_SPL_OS_BOOT */
 
-#ifdef CONFIG_REVISION_TAG
 /*
  * get_board_rev() - get board revision
  */
@@ -112,4 +111,3 @@ u32 get_board_rev(void)
 {
 	return 0x20;
 }
-#endif

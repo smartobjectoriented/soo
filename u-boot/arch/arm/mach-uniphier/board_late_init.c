@@ -66,7 +66,7 @@ static void uniphier_set_env_addr(const char *env, const char *offset_env)
 		if (!str)
 			goto fail;
 
-		offset = hextoul(str, &end);
+		offset = simple_strtoul(str, &end, 16);
 		if (*end)
 			goto fail;
 	}

@@ -180,3 +180,4 @@ U_BOOT_DRIVER(serial_xen) = {
 	.flags			= DM_FLAG_PRE_RELOC,
 #endif
 };
+

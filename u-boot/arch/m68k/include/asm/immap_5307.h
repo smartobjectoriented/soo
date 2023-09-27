@@ -114,3 +114,4 @@ typedef struct gpio {
 } gpio_t;
 
 #endif				/* __IMMAP_5307__ */
+

@@ -22,7 +22,7 @@ enum {
  *
  * @dev: I2S device
  * @value: Value to write to CIF_TX_CTRL register
- * Return: 0
+ * @return 0
  */
 int tegra_i2s_set_cif_tx_ctrl(struct udevice *dev, u32 value);
 

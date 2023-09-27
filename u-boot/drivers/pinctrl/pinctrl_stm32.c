@@ -10,6 +10,7 @@
 #include <hwspinlock.h>
 #include <log.h>
 #include <malloc.h>
+#include <asm/arch/gpio.h>
 #include <asm/gpio.h>
 #include <asm/io.h>
 #include <dm/device_compat.h>
@@ -18,8 +19,6 @@
 #include <linux/bitops.h>
 #include <linux/err.h>
 #include <linux/libfdt.h>
-
-#include "../gpio/stm32_gpio_priv.h"
 
 #define MAX_PINS_ONE_IP			70
 #define MODE_BITS_MASK			3

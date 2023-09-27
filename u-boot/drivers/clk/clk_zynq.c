@@ -472,9 +472,8 @@ static int zynq_clk_probe(struct udevice *dev)
 
 	for (i = 0; i < 2; i++) {
 		sprintf(name, "gem%d_emio_clk", i);
-		ret = clk_get_by_name_optional(dev, name,
-					       &priv->gem_emio_clk[i]);
-		if (ret) {
+		ret = clk_get_by_name(dev, name, &priv->gem_emio_clk[i]);
+		if (ret < 0 && ret != -ENODATA) {
 			dev_err(dev, "failed to get %s clock\n", name);
 			return ret;
 		}

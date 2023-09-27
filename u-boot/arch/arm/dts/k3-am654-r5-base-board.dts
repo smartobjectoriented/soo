@@ -330,3 +330,5 @@
 &scm_conf {
 	u-boot,dm-spl;
 };
+
+#include "k3-am654-base-board-u-boot.dtsi"

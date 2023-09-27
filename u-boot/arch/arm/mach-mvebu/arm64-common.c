@@ -104,9 +104,10 @@ int arch_early_init_r(void)
 	/* Cause the SATA device to do its early init */
 	uclass_first_device(UCLASS_AHCI, &dev);
 
+#ifdef CONFIG_DM_PCI
 	/* Trigger PCIe devices detection */
-	if (IS_ENABLED(CONFIG_PCI))
-		pci_init();
+	pci_init();
+#endif
 
 	return 0;
 }

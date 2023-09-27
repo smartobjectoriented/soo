@@ -19,7 +19,11 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#ifdef CONFIG_SUPPORT_PASSING_ATAGS
+#if defined(CONFIG_SETUP_MEMORY_TAGS) || \
+	defined(CONFIG_CMDLINE_TAG) || \
+	defined(CONFIG_INITRD_TAG) || \
+	defined(CONFIG_SERIAL_TAG) || \
+	defined(CONFIG_REVISION_TAG)
 static void setup_start_tag(struct bd_info *bd);
 
 # ifdef CONFIG_SETUP_MEMORY_TAGS
@@ -34,7 +38,7 @@ static void setup_initrd_tag(struct bd_info *bd, ulong initrd_start,
 static void setup_end_tag(struct bd_info *bd);
 
 static struct tag *params;
-#endif /* CONFIG_SUPPORT_PASSING_ATAGS */
+#endif /* CONFIG_SETUP_MEMORY_TAGS || CONFIG_CMDLINE_TAG || CONFIG_INITRD_TAG */
 
 int do_bootm_linux(int flag, int argc, char *argv[], bootm_headers_t *images)
 {
@@ -60,7 +64,7 @@ int do_bootm_linux(int flag, int argc, char *argv[], bootm_headers_t *images)
 
 	s = env_get("machid");
 	if (s) {
-		machid = hextoul(s, NULL);
+		machid = simple_strtoul(s, NULL, 16);
 		printf("Using machid 0x%x from environment\n", machid);
 	}
 
@@ -69,7 +73,7 @@ int do_bootm_linux(int flag, int argc, char *argv[], bootm_headers_t *images)
 	debug("## Transferring control to Linux (at address %08lx) ...\n",
 	       (ulong)theKernel);
 
-	if (CONFIG_IS_ENABLED(OF_LIBFDT) && images->ft_len) {
+	if (IMAGE_ENABLE_OF_LIBFDT && images->ft_len) {
 #ifdef CONFIG_OF_LIBFDT
 		debug("using: FDT\n");
 		if (image_setup_linux(images)) {
@@ -78,7 +82,11 @@ int do_bootm_linux(int flag, int argc, char *argv[], bootm_headers_t *images)
 		}
 #endif
 	} else if (BOOTM_ENABLE_TAGS) {
-#ifdef CONFIG_SUPPORT_PASSING_ATAGS
+#if defined(CONFIG_SETUP_MEMORY_TAGS) || \
+	defined(CONFIG_CMDLINE_TAG) || \
+	defined(CONFIG_INITRD_TAG) || \
+	defined(CONFIG_SERIAL_TAG) || \
+	defined(CONFIG_REVISION_TAG)
 	setup_start_tag(bd);
 #ifdef CONFIG_SERIAL_TAG
 	setup_serial_tag(&params);
@@ -110,7 +118,7 @@ int do_bootm_linux(int flag, int argc, char *argv[], bootm_headers_t *images)
 #endif
 	}
 	cleanup_before_linux();
-	if (CONFIG_IS_ENABLED(OF_LIBFDT) && images->ft_len)
+	if (IMAGE_ENABLE_OF_LIBFDT && images->ft_len)
 		theKernel(0, machid, (unsigned long)images->ft_addr);
 	else
 		theKernel(0, machid, bd->bi_boot_params);
@@ -119,7 +127,11 @@ int do_bootm_linux(int flag, int argc, char *argv[], bootm_headers_t *images)
 	return 1;
 }
 
-#ifdef CONFIG_SUPPORT_PASSING_ATAGS
+#if defined(CONFIG_SETUP_MEMORY_TAGS) || \
+	defined(CONFIG_CMDLINE_TAG) || \
+	defined(CONFIG_INITRD_TAG) || \
+	defined(CONFIG_SERIAL_TAG) || \
+	defined(CONFIG_REVISION_TAG)
 static void setup_start_tag(struct bd_info *bd)
 {
 	params = (struct tag *)bd->bi_boot_params;
@@ -232,17 +244,4 @@ static void setup_end_tag(struct bd_info *bd)
 	params->hdr.size = 0;
 }
 
-#endif /* CONFIG_SUPPORT_PASSING_ATAGS */
-
-static ulong get_sp(void)
-{
-	ulong ret;
-
-	asm("move %0, $sp" : "=r"(ret) : );
-	return ret;
-}
-
-void arch_lmb_reserve(struct lmb *lmb)
-{
-	arch_lmb_reserve_generic(lmb, get_sp(), gd->ram_top, 4096);
-}
+#endif /* CONFIG_SETUP_MEMORY_TAGS || CONFIG_CMDLINE_TAG || CONFIG_INITRD_TAG */

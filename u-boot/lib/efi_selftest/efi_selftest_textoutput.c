@@ -15,7 +15,7 @@
 /*
  * Execute unit test.
  *
- * Return:	EFI_ST_SUCCESS for success
+ * @return:	EFI_ST_SUCCESS for success
  */
 static int execute(void)
 {
@@ -44,14 +44,14 @@ static int execute(void)
 	}
 	/* TestString */
 	ret = con_out->test_string(con_out,
-			u" !\"#$%&'()*+,-./0-9:;<=>?@A-Z[\\]^_`a-z{|}~\n");
+			L" !\"#$%&'()*+,-./0-9:;<=>?@A-Z[\\]^_`a-z{|}~\n");
 	if (ret != EFI_ST_SUCCESS) {
 		efi_st_error("TestString failed for ANSI characters\n");
 		return EFI_ST_FAILURE;
 	}
 	/* OutputString */
 	ret = con_out->output_string(con_out,
-				     u"Testing cursor column update\n");
+				     L"Testing cursor column update\n");
 	if (ret != EFI_ST_SUCCESS) {
 		efi_st_error("OutputString failed for ANSI characters");
 		return EFI_ST_FAILURE;
@@ -75,7 +75,7 @@ static int execute(void)
 		efi_st_error("Cursor column not 0 at beginning of line\n");
 		return EFI_ST_FAILURE;
 	}
-	ret = con_out->output_string(con_out, u"123");
+	ret = con_out->output_string(con_out, L"123");
 	if (ret != EFI_ST_SUCCESS) {
 		efi_st_error("OutputString failed for ANSI characters\n");
 		return EFI_ST_FAILURE;
@@ -84,7 +84,7 @@ static int execute(void)
 		efi_st_error("Cursor column not incremented properly\n");
 		return EFI_ST_FAILURE;
 	}
-	ret = con_out->output_string(con_out, u"\b");
+	ret = con_out->output_string(con_out, L"\b");
 	if (ret != EFI_ST_SUCCESS) {
 		efi_st_error("OutputString failed for backspace\n");
 		return EFI_ST_FAILURE;
@@ -93,7 +93,7 @@ static int execute(void)
 		efi_st_error("Cursor column not decremented properly\n");
 		return EFI_ST_FAILURE;
 	}
-	ret = con_out->output_string(con_out, u"\b\b");
+	ret = con_out->output_string(con_out, L"\b\b");
 	if (ret != EFI_ST_SUCCESS) {
 		efi_st_error("OutputString failed for backspace\n");
 		return EFI_ST_FAILURE;
@@ -102,7 +102,7 @@ static int execute(void)
 		efi_st_error("Cursor column not decremented properly\n");
 		return EFI_ST_FAILURE;
 	}
-	ret = con_out->output_string(con_out, u"\b\b");
+	ret = con_out->output_string(con_out, L"\b\b");
 	if (ret != EFI_ST_SUCCESS) {
 		efi_st_error("OutputString failed for backspace\n");
 		return EFI_ST_FAILURE;

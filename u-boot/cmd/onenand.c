@@ -186,7 +186,9 @@ next:
 static int onenand_block_erase(u32 start, u32 size, int force)
 {
 	struct onenand_chip *this = mtd->priv;
-	struct erase_info instr = {};
+	struct erase_info instr = {
+		.callback	= NULL,
+	};
 	loff_t ofs;
 	int ret;
 	int blocksize = 1 << this->erase_shift;
@@ -217,7 +219,10 @@ static int onenand_block_erase(u32 start, u32 size, int force)
 static int onenand_block_test(u32 start, u32 size)
 {
 	struct onenand_chip *this = mtd->priv;
-	struct erase_info instr = {};
+	struct erase_info instr = {
+		.callback	= NULL,
+		.priv		= 0,
+	};
 
 	int blocks;
 	loff_t ofs;
@@ -393,7 +398,7 @@ static int do_onenand_read(struct cmd_tbl *cmdtp, int flag, int argc,
 	if ((s != NULL) && (!strcmp(s, ".oob")))
 		oob = 1;
 
-	addr = (ulong)hextoul(argv[1], NULL);
+	addr = (ulong)simple_strtoul(argv[1], NULL, 16);
 
 	printf("\nOneNAND read: ");
 	if (arg_off_size_onenand(argc - 2, argv + 2, &ofs, &len) != 0)
@@ -420,7 +425,7 @@ static int do_onenand_write(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (strncmp(argv[0] + 6, "yaffs", 5) == 0)
 		withoob = 1;
 
-	addr = (ulong)hextoul(argv[1], NULL);
+	addr = (ulong)simple_strtoul(argv[1], NULL, 16);
 
 	printf("\nOneNAND write: ");
 	if (arg_off_size_onenand(argc - 2, argv + 2, &ofs, &len) != 0)
@@ -507,7 +512,7 @@ static int do_onenand_dump(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	s = strchr(argv[0], '.');
-	ofs = (int)hextoul(argv[1], NULL);
+	ofs = (int)simple_strtoul(argv[1], NULL, 16);
 
 	if (s != NULL && strcmp(s, ".oob") == 0)
 		ret = onenand_dump(mtd, ofs, 1);
@@ -530,7 +535,7 @@ static int do_onenand_markbad(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	while (argc > 0) {
-		addr = hextoul(*argv, NULL);
+		addr = simple_strtoul(*argv, NULL, 16);
 
 		if (mtd_block_markbad(mtd, addr)) {
 			printf("block 0x%08lx NOT marked "

@@ -77,10 +77,6 @@
 	u-boot,dm-spl;
 };
 
-&usbotg1 {
-	dr_mode="host";
-};
-
 &usdhc2 {
 	u-boot,dm-spl;
 };

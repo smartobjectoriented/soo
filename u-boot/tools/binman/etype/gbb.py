@@ -70,34 +70,27 @@ class Entry_gbb(Entry):
 
     def ObtainContents(self):
         gbb = 'gbb.bin'
-        fname = tools.get_output_filename(gbb)
+        fname = tools.GetOutputFilename(gbb)
         if not self.size:
             self.Raise('GBB must have a fixed size')
         gbb_size = self.size
         bmpfv_size = gbb_size - 0x2180
         if bmpfv_size < 0:
             self.Raise('GBB is too small (minimum 0x2180 bytes)')
-        keydir = tools.get_input_filename(self.keydir)
+        sizes = [0x100, 0x1000, bmpfv_size, 0x1000]
+        sizes = ['%#x' % size for size in sizes]
+        keydir = tools.GetInputFilename(self.keydir)
+        gbb_set_command = [
+            'gbb_utility', '-s',
+            '--hwid=%s' % self.hardware_id,
+            '--rootkey=%s/root_key.vbpubk' % keydir,
+            '--recoverykey=%s/recovery_key.vbpubk' % keydir,
+            '--flags=%d' % self.gbb_flags,
+            '--bmpfv=%s' % tools.GetInputFilename(self.bmpblk),
+            fname]
 
-        stdout = self.futility.gbb_create(
-            fname, [0x100, 0x1000, bmpfv_size, 0x1000])
-        if stdout is not None:
-            stdout = self.futility.gbb_set(
-                fname,
-                hwid=self.hardware_id,
-                rootkey='%s/root_key.vbpubk' % keydir,
-                recoverykey='%s/recovery_key.vbpubk' % keydir,
-                flags=self.gbb_flags,
-                bmpfv=tools.get_input_filename(self.bmpblk))
+        tools.Run('futility', 'gbb_utility', '-c', ','.join(sizes), fname)
+        tools.Run('futility', *gbb_set_command)
 
-        if stdout is not None:
-            self.SetContents(tools.read_file(fname))
-        else:
-            # Bintool is missing; just use the required amount of zero data
-            self.record_missing_bintool(self.futility)
-            self.SetContents(tools.get_bytes(0, gbb_size))
-
+        self.SetContents(tools.ReadFile(fname))
         return True
-
-    def AddBintools(self, tools):
-        self.futility = self.AddBintool(tools, 'futility')

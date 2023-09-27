@@ -3,9 +3,6 @@
  * Copyright (C) 2018-2019 Intel Corporation <www.intel.com>
  *
  */
-
-#define LOG_CATEGORY UCLASS_FS_FIRMWARE_LOADER
-
 #include <common.h>
 #include <dm.h>
 #include <env.h>

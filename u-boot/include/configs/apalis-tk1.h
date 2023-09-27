@@ -25,6 +25,9 @@
 /* PCI networking support */
 #define CONFIG_E1000_NO_NVM
 
+/* General networking support */
+#define CONFIG_TFTP_TSIZE
+
 /*
  * Custom Distro Boot configuration:
  * 1. 8bit SD port (MMC1)

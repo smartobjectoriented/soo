@@ -1,7 +1,5 @@
-.. SPDX-License-Identifier: GPL-2.0+
-
-Introduction to testing
-=======================
+Testing in U-Boot
+=================
 
 U-Boot has a large amount of code. This file describes how this code is
 tested and what tests you should write when adding a new feature.

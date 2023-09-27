@@ -37,7 +37,7 @@
 	u-boot,dm-spl;
 };
 
-&sdmmc0m1_pin {
+&sdmmc0m1_gpio {
 	u-boot,dm-spl;
 };
 
@@ -46,7 +46,7 @@
 };
 
 &usb_host0_xhci {
-	vbus-supply = <&vcc_host_5v>;
+	vbus-supply = <&vcc5v0_host_xhci>;
 	status = "okay";
 };
 

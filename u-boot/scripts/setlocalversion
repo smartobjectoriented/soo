@@ -153,9 +153,8 @@ if test -e include/config/auto.conf; then
 	# We are interested only in CONFIG_LOCALVERSION and
 	# CONFIG_LOCALVERSION_AUTO, so extract these in a safe
 	# way (i.e. w/o sourcing auto.conf)
-	# xargs echo removes quotes
-	CONFIG_LOCALVERSION=`cat include/config/auto.conf | awk -F '=' '/^CONFIG_LOCALVERSION=/ {print $2}' | xargs echo`
-	CONFIG_LOCALVERSION_AUTO=`cat include/config/auto.conf | awk -F '=' '/^CONFIG_LOCALVERSION_AUTO=/ {print $2}' | xargs echo`
+	CONFIG_LOCALVERSION=`cat include/config/auto.conf | awk -F '=' '/^CONFIG_LOCALVERSION=/ {print $2}'`
+	CONFIG_LOCALVERSION_AUTO=`cat include/config/auto.conf | awk -F '=' '/^CONFIG_LOCALVERSION_AUTO=/ {print $2}'`
 else
 	echo "Error: kernelrelease not valid - run 'make prepare' to update it" >&2
 	exit 1

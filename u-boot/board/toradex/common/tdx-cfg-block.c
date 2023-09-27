@@ -145,11 +145,6 @@ const char * const toradex_modules[] = {
 	[59] = "Verdin iMX8M Mini Quad 2GB IT",
 	[60] = "Verdin iMX8M Mini DualLite 1GB WB IT",
 	[61] = "Verdin iMX8M Plus Quad 2GB",
-	[62] = "Colibri iMX6ULL 1GB IT (eMMC)",
-	[63] = "Verdin iMX8M Plus Quad 4GB IT",
-	[64] = "Verdin iMX8M Plus Quad 2GB Wi-Fi / BT IT",
-	[65] = "Verdin iMX8M Plus QuadLite 1GB IT",
-	[66] = "Verdin iMX8M Plus Quad 8GB Wi-Fi / BT",
 };
 
 const char * const toradex_carrier_boards[] = {
@@ -373,10 +368,7 @@ static int get_cfgblock_interactive(void)
 	if (cpu_is_pxa27x())
 		sprintf(message, "Is the module the 312 MHz version? [y/N] ");
 	else
-		sprintf(message, "Is the module an IT version? [y/N] ");
-
-	len = cli_readline(message);
-	it = console_buffer[0];
+		it = 'y';
 
 #if defined(CONFIG_TARGET_APALIS_IMX8) || \
 		defined(CONFIG_TARGET_APALIS_IMX8X) || \
@@ -420,10 +412,7 @@ static int get_cfgblock_interactive(void)
 			if (wb == 'y' || wb == 'Y')
 				tdx_hw_tag.prodid = COLIBRI_IMX6ULL_WIFI_BT_IT;
 			else
-				if (gd->ram_size == 0x20000000)
-					tdx_hw_tag.prodid = COLIBRI_IMX6ULL_IT;
-				else
-					tdx_hw_tag.prodid = COLIBRI_IMX6ULL_IT_EMMC;
+				tdx_hw_tag.prodid = COLIBRI_IMX6ULL_IT;
 		} else {
 			if (wb == 'y' || wb == 'Y')
 				tdx_hw_tag.prodid = COLIBRI_IMX6ULL_WIFI_BT;
@@ -432,10 +421,7 @@ static int get_cfgblock_interactive(void)
 		}
 #endif
 	} else if (!strcmp("imx7d", soc))
-		if (gd->ram_size == 0x20000000)
-			tdx_hw_tag.prodid = COLIBRI_IMX7D;
-		else
-			tdx_hw_tag.prodid = COLIBRI_IMX7D_EMMC;
+		tdx_hw_tag.prodid = COLIBRI_IMX7D;
 	else if (!strcmp("imx7s", soc))
 		tdx_hw_tag.prodid = COLIBRI_IMX7S;
 	else if (is_cpu_type(MXC_CPU_IMX8QM)) {
@@ -485,21 +471,11 @@ static int get_cfgblock_interactive(void)
 			tdx_hw_tag.prodid = VERDIN_IMX8MMQ_IT;
 	} else if (is_cpu_type(MXC_CPU_IMX8MN)) {
 		tdx_hw_tag.prodid = VERDIN_IMX8MNQ_WIFI_BT;
-	} else if (is_cpu_type(MXC_CPU_IMX8MPL)) {
-		tdx_hw_tag.prodid = VERDIN_IMX8MPQL_IT;
 	} else if (is_cpu_type(MXC_CPU_IMX8MP)) {
 		if (wb == 'y' || wb == 'Y')
-			if (gd->ram_size == 0x80000000)
-				tdx_hw_tag.prodid = VERDIN_IMX8MPQ_2GB_WIFI_BT_IT;
-			else if (gd->ram_size == 0x200000000)
-				tdx_hw_tag.prodid = VERDIN_IMX8MPQ_8GB_WIFI_BT;
-			else
-				tdx_hw_tag.prodid = VERDIN_IMX8MPQ_WIFI_BT_IT;
+			tdx_hw_tag.prodid = VERDIN_IMX8MPQ_WIFI_BT_IT;
 		else
-			if (it == 'y' || it == 'Y')
-				tdx_hw_tag.prodid = VERDIN_IMX8MPQ_IT;
-			else
-				tdx_hw_tag.prodid = VERDIN_IMX8MPQ;
+			tdx_hw_tag.prodid = VERDIN_IMX8MPQ;
 	} else if (!strcmp("tegra20", soc)) {
 		if (it == 'y' || it == 'Y')
 			if (gd->ram_size == 0x10000000)
@@ -517,24 +493,24 @@ static int get_cfgblock_interactive(void)
 		else
 			tdx_hw_tag.prodid = COLIBRI_PXA270_520MHZ;
 	}
-#if defined(CONFIG_TARGET_APALIS_T30) || defined(CONFIG_TARGET_COLIBRI_T30)
+#ifdef CONFIG_MACH_TYPE
 	else if (!strcmp("tegra30", soc)) {
-#ifdef CONFIG_TARGET_APALIS_T30
-		if (it == 'y' || it == 'Y')
-			tdx_hw_tag.prodid = APALIS_T30_IT;
-		else
-			if (gd->ram_size == 0x40000000)
-				tdx_hw_tag.prodid = APALIS_T30_1GB;
+		if (CONFIG_MACH_TYPE == MACH_TYPE_APALIS_T30) {
+			if (it == 'y' || it == 'Y')
+				tdx_hw_tag.prodid = APALIS_T30_IT;
 			else
-				tdx_hw_tag.prodid = APALIS_T30_2GB;
-#else
-		if (it == 'y' || it == 'Y')
-			tdx_hw_tag.prodid = COLIBRI_T30_IT;
-		else
-			tdx_hw_tag.prodid = COLIBRI_T30;
-#endif
+				if (gd->ram_size == 0x40000000)
+					tdx_hw_tag.prodid = APALIS_T30_1GB;
+				else
+					tdx_hw_tag.prodid = APALIS_T30_2GB;
+		} else {
+			if (it == 'y' || it == 'Y')
+				tdx_hw_tag.prodid = COLIBRI_T30_IT;
+			else
+				tdx_hw_tag.prodid = COLIBRI_T30;
+		}
 	}
-#endif /* CONFIG_TARGET_APALIS_T30 || CONFIG_TARGET_COLIBRI_T30 */
+#endif /* CONFIG_MACH_TYPE */
 	else if (!strcmp("tegra124", soc)) {
 		tdx_hw_tag.prodid = APALIS_TK1_2GB;
 	} else if (!strcmp("vf500", soc)) {
@@ -572,7 +548,7 @@ static int get_cfgblock_interactive(void)
 		len = cli_readline(message);
 	}
 
-	tdx_serial = dectoul(console_buffer, NULL);
+	tdx_serial = simple_strtoul(console_buffer, NULL, 10);
 
 	return 0;
 }
@@ -590,14 +566,14 @@ static int get_cfgblock_barcode(char *barcode, struct toradex_hw *tag,
 	/* Get hardware information from the first 8 digits */
 	tag->ver_major = barcode[4] - '0';
 	tag->ver_minor = barcode[5] - '0';
-	tag->ver_assembly = dectoul(revision, NULL);
+	tag->ver_assembly = simple_strtoul(revision, NULL, 10);
 
 	barcode[4] = '\0';
-	tag->prodid = dectoul(barcode, NULL);
+	tag->prodid = simple_strtoul(barcode, NULL, 10);
 
 	/* Parse second part of the barcode (serial number */
 	barcode += 8;
-	*serial = dectoul(barcode, NULL);
+	*serial = simple_strtoul(barcode, NULL, 10);
 
 	return 0;
 }
@@ -734,7 +710,7 @@ int try_migrate_tdx_cfg_block_carrier(void)
 	tdx_car_hw_tag.ver_assembly = pid8[7] - '0';
 
 	pid8[4] = '\0';
-	tdx_car_hw_tag.prodid = dectoul(pid8, NULL);
+	tdx_car_hw_tag.prodid = simple_strtoul(pid8, NULL, 10);
 
 	/* Valid Tag */
 	write_tag(config_block, &offset, TAG_VALID, NULL, 0);
@@ -778,7 +754,7 @@ static int get_cfgblock_carrier_interactive(void)
 
 	sprintf(message, "Choose your carrier board (provide ID): ");
 	len = cli_readline(message);
-	tdx_car_hw_tag.prodid = dectoul(console_buffer, NULL);
+	tdx_car_hw_tag.prodid = simple_strtoul(console_buffer, NULL, 10);
 
 	do {
 		sprintf(message, "Enter carrier board version (e.g. V1.1B): V");
@@ -794,7 +770,7 @@ static int get_cfgblock_carrier_interactive(void)
 		len = cli_readline(message);
 	}
 
-	tdx_car_serial = dectoul(console_buffer, NULL);
+	tdx_car_serial = simple_strtoul(console_buffer, NULL, 10);
 
 	return 0;
 }

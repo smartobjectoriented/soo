@@ -10,8 +10,6 @@
  *
  */
 
-#define LOG_CATEGORY UCLASS_W1_EEPROM
-
 #include <common.h>
 #include <dm.h>
 #include <log.h>

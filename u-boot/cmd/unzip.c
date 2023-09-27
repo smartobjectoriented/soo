@@ -8,7 +8,6 @@
 #include <command.h>
 #include <env.h>
 #include <gzip.h>
-#include <mapmem.h>
 #include <part.h>
 
 static int do_unzip(struct cmd_tbl *cmdtp, int flag, int argc,
@@ -19,18 +18,17 @@ static int do_unzip(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	switch (argc) {
 		case 4:
-			dst_len = hextoul(argv[3], NULL);
+			dst_len = simple_strtoul(argv[3], NULL, 16);
 			/* fall through */
 		case 3:
-			src = hextoul(argv[1], NULL);
-			dst = hextoul(argv[2], NULL);
+			src = simple_strtoul(argv[1], NULL, 16);
+			dst = simple_strtoul(argv[2], NULL, 16);
 			break;
 		default:
 			return CMD_RET_USAGE;
 	}
 
-	if (gunzip(map_sysmem(dst, dst_len), dst_len, map_sysmem(src, 0),
-		   &src_len) != 0)
+	if (gunzip((void *) dst, dst_len, (void *) src, &src_len) != 0)
 		return 1;
 
 	printf("Uncompressed size: %lu = 0x%lX\n", src_len, src_len);
@@ -62,11 +60,11 @@ static int do_gzwrite(struct cmd_tbl *cmdtp, int flag,
 	if (ret < 0)
 		return CMD_RET_FAILURE;
 
-	addr = (unsigned char *)hextoul(argv[3], NULL);
-	length = hextoul(argv[4], NULL);
+	addr = (unsigned char *)simple_strtoul(argv[3], NULL, 16);
+	length = simple_strtoul(argv[4], NULL, 16);
 
 	if (5 < argc) {
-		writebuf = hextoul(argv[5], NULL);
+		writebuf = simple_strtoul(argv[5], NULL, 16);
 		if (6 < argc) {
 			startoffs = simple_strtoull(argv[6], NULL, 16);
 			if (7 < argc)

@@ -49,6 +49,25 @@ struct octeontx_pci {
 	struct resource bus;
 };
 
+static uintptr_t octeontx_cfg_addr(struct octeontx_pci *pcie,
+				   int bus_offs, int shift_offs,
+				   pci_dev_t bdf, uint offset)
+{
+	u32 bus, dev, func;
+	uintptr_t address;
+
+	bus = PCI_BUS(bdf) + bus_offs;
+	dev = PCI_DEV(bdf);
+	func = PCI_FUNC(bdf);
+
+	address = (bus << (20 + shift_offs)) |
+		(dev << (15 + shift_offs)) |
+		(func << (12 + shift_offs)) | offset;
+	address += pcie->cfg.start;
+
+	return address;
+}
+
 static ulong readl_size(uintptr_t addr, enum pci_size_t size)
 {
 	ulong val;
@@ -104,9 +123,9 @@ static int octeontx_ecam_read_config(const struct udevice *bus, pci_dev_t bdf,
 	struct pci_controller *hose = dev_get_uclass_priv(bus);
 	uintptr_t address;
 
-	address = PCIE_ECAM_OFFSET(PCI_BUS(bdf) + pcie->bus.start - hose->first_busno,
-				   PCI_DEV(bdf), PCI_FUNC(bdf), offset);
-	*valuep = readl_size(pcie->cfg.start + address, size);
+	address = octeontx_cfg_addr(pcie, pcie->bus.start - hose->first_busno,
+				    0, bdf, offset);
+	*valuep = readl_size(address, size);
 
 	debug("%02x.%02x.%02x: u%d %x -> %lx\n",
 	      PCI_BUS(bdf), PCI_DEV(bdf), PCI_FUNC(bdf), size, offset, *valuep);
@@ -122,9 +141,9 @@ static int octeontx_ecam_write_config(struct udevice *bus, pci_dev_t bdf,
 	struct pci_controller *hose = dev_get_uclass_priv(bus);
 	uintptr_t address;
 
-	address = PCIE_ECAM_OFFSET(PCI_BUS(bdf) + pcie->bus.start - hose->first_busno,
-				   PCI_DEV(bdf), PCI_FUNC(bdf), offset);
-	writel_size(pcie->cfg.start + address, size, value);
+	address = octeontx_cfg_addr(pcie, pcie->bus.start - hose->first_busno,
+				    0, bdf, offset);
+	writel_size(address, size, value);
 
 	debug("%02x.%02x.%02x: u%d %x <- %lx\n",
 	      PCI_BUS(bdf), PCI_DEV(bdf), PCI_FUNC(bdf), size, offset, value);
@@ -143,16 +162,17 @@ static int octeontx_pem_read_config(const struct udevice *bus, pci_dev_t bdf,
 	u8 pri_bus = pcie->bus.start + 1 - hose->first_busno;
 	u32 bus_offs = (pri_bus << 16) | (pri_bus << 8) | (pri_bus << 0);
 
+	address = octeontx_cfg_addr(pcie, 1 - hose->first_busno, 4,
+				    bdf, 0);
+
 	*valuep = pci_conv_32_to_size(~0UL, offset, size);
 
 	if (octeontx_bdf_invalid(bdf))
 		return -EPERM;
 
-	address = PCIE_ECAM_OFFSET(PCI_BUS(bdf) + 1 - hose->first_busno,
-				   PCI_DEV(bdf), PCI_FUNC(bdf), 0) << 4;
-	*valuep = readl_size(pcie->cfg.start + address + offset, size);
+	*valuep = readl_size(address + offset, size);
 
-	hdrtype = readb(pcie->cfg.start + address + PCI_HEADER_TYPE);
+	hdrtype = readb(address + PCI_HEADER_TYPE);
 	if (hdrtype == PCI_HEADER_TYPE_BRIDGE &&
 	    offset >= PCI_PRIMARY_BUS &&
 	    offset <= PCI_SUBORDINATE_BUS &&
@@ -173,10 +193,9 @@ static int octeontx_pem_write_config(struct udevice *bus, pci_dev_t bdf,
 	u8 pri_bus = pcie->bus.start + 1 - hose->first_busno;
 	u32 bus_offs = (pri_bus << 16) | (pri_bus << 8) | (pri_bus << 0);
 
-	address = PCIE_ECAM_OFFSET(PCI_BUS(bdf) + 1 - hose->first_busno,
-				   PCI_DEV(bdf), PCI_FUNC(bdf), 0) << 4;
+	address = octeontx_cfg_addr(pcie, 1 - hose->first_busno, 4, bdf, 0);
 
-	hdrtype = readb(pcie->cfg.start + address + PCI_HEADER_TYPE);
+	hdrtype = readb(address + PCI_HEADER_TYPE);
 	if (hdrtype == PCI_HEADER_TYPE_BRIDGE &&
 	    offset >= PCI_PRIMARY_BUS &&
 	    offset <= PCI_SUBORDINATE_BUS &&
@@ -186,7 +205,7 @@ static int octeontx_pem_write_config(struct udevice *bus, pci_dev_t bdf,
 	if (octeontx_bdf_invalid(bdf))
 		return -EPERM;
 
-	writel_size(pcie->cfg.start + address + offset, size, value);
+	writel_size(address + offset, size, value);
 
 	debug("%02x.%02x.%02x: u%d %x (%lx) <- %lx\n",
 	      PCI_BUS(bdf), PCI_DEV(bdf), PCI_FUNC(bdf), size, offset,
@@ -203,14 +222,15 @@ static int octeontx2_pem_read_config(const struct udevice *bus, pci_dev_t bdf,
 	struct pci_controller *hose = dev_get_uclass_priv(bus);
 	uintptr_t address;
 
+	address = octeontx_cfg_addr(pcie, 1 - hose->first_busno, 0,
+				    bdf, 0);
+
 	*valuep = pci_conv_32_to_size(~0UL, offset, size);
 
 	if (octeontx_bdf_invalid(bdf))
 		return -EPERM;
 
-	address = PCIE_ECAM_OFFSET(PCI_BUS(bdf) + 1 - hose->first_busno,
-				   PCI_DEV(bdf), PCI_FUNC(bdf), offset);
-	*valuep = readl_size(pcie->cfg.start + address, size);
+	*valuep = readl_size(address + offset, size);
 
 	debug("%02x.%02x.%02x: u%d %x (%lx) -> %lx\n",
 	      PCI_BUS(bdf), PCI_DEV(bdf), PCI_FUNC(bdf), size, offset,
@@ -227,12 +247,13 @@ static int octeontx2_pem_write_config(struct udevice *bus, pci_dev_t bdf,
 	struct pci_controller *hose = dev_get_uclass_priv(bus);
 	uintptr_t address;
 
+	address = octeontx_cfg_addr(pcie, 1 - hose->first_busno, 0,
+				    bdf, 0);
+
 	if (octeontx_bdf_invalid(bdf))
 		return -EPERM;
 
-	address = PCIE_ECAM_OFFSET(PCI_BUS(bdf) + 1 - hose->first_busno,
-				   PCI_DEV(bdf), PCI_FUNC(bdf), offset);
-	writel_size(pcie->cfg.start + address, size, value);
+	writel_size(address + offset, size, value);
 
 	debug("%02x.%02x.%02x: u%d %x (%lx) <- %lx\n",
 	      PCI_BUS(bdf), PCI_DEV(bdf), PCI_FUNC(bdf), size, offset,

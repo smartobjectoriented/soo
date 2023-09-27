@@ -9,20 +9,11 @@ Implementation
 .. toctree::
    :maxdepth: 1
 
-   bloblist
-   ci_testing
    commands
-   config_binding
-   devicetree/index
-   distro
    driver-model/index
-   environment
    global_data
    logging
-   makefiles
    menus
-   printf
-   smbios
    uefi/index
    version
 
@@ -49,25 +40,8 @@ Testing
 .. toctree::
    :maxdepth: 1
 
+   coccinelle
    testing
    py_testing
    tests_writing
    tests_sandbox
-
-Refactoring
------------
-
-.. toctree::
-   :maxdepth: 1
-
-   checkpatch
-   coccinelle
-   moveconfig
-
-Code quality
-------------
-
-.. toctree::
-   :maxdepth: 1
-
-   python_cq

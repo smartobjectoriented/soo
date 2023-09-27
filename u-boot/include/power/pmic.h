@@ -17,8 +17,7 @@
 
 enum { PMIC_I2C, PMIC_SPI, PMIC_NONE};
 
-/* TODO: Change to !CONFIG_IS_ENABLED(DM_PMIC) when SPL_DM_PMIC exists */
-#if CONFIG_IS_ENABLED(POWER_LEGACY)
+#ifdef CONFIG_POWER
 enum { I2C_PMIC, I2C_NUM, };
 enum { PMIC_READ, PMIC_WRITE, };
 enum { PMIC_SENSOR_BYTE_ORDER_LITTLE, PMIC_SENSOR_BYTE_ORDER_BIG, };
@@ -83,9 +82,8 @@ struct pmic {
 	struct pmic *parent;
 	struct list_head list;
 };
-#endif /* CONFIG_IS_ENABLED(POWER_LEGACY) */
+#endif /* CONFIG_POWER */
 
-/* TODO: Change to CONFIG_IS_ENABLED(DM_PMIC) when SPL_DM_PMIC exists */
 #ifdef CONFIG_DM_PMIC
 /**
  * U-Boot PMIC Framework
@@ -201,7 +199,7 @@ struct pmic_child_info {
  *
  * @pmic       - pmic device - the parent of found child's
  * @child_info - N-childs info array
- * Return: a positive number of childs, or 0 if no child found (error)
+ * @return a positive number of childs, or 0 if no child found (error)
  *
  * Note: For N-childs the child_info array should have N+1 entries and the last
  * entry prefix should be NULL - the same as for drivers compatible.
@@ -236,7 +234,7 @@ int pmic_bind_children(struct udevice *pmic, ofnode parent,
  *
  * @name - device name
  * @devp - returned pointer to the pmic device
- * Return: 0 on success or negative value of errno.
+ * @return 0 on success or negative value of errno.
  *
  * The returned devp device can be used with pmic_read/write calls
  */
@@ -248,7 +246,7 @@ int pmic_get(const char *name, struct udevice **devp);
  * The required pmic device can be obtained by 'pmic_get()'
  *
  * @dev - pointer to the UCLASS_PMIC device
- * Return: register count value on success or negative value of errno.
+ * @return register count value on success or negative value of errno.
  */
 int pmic_reg_count(struct udevice *dev);
 
@@ -261,7 +259,7 @@ int pmic_reg_count(struct udevice *dev);
  * @reg    - device register offset
  * @buffer - pointer to read/write buffer
  * @len    - byte count for read/write
- * Return: 0 on success or negative value of errno.
+ * @return 0 on success or negative value of errno.
  */
 int pmic_read(struct udevice *dev, uint reg, uint8_t *buffer, int len);
 int pmic_write(struct udevice *dev, uint reg, const uint8_t *buffer, int len);
@@ -271,7 +269,7 @@ int pmic_write(struct udevice *dev, uint reg, const uint8_t *buffer, int len);
  *
  * @dev:	PMIC device to read
  * @reg:	Register to read
- * Return: value read on success or negative value of errno.
+ * @return value read on success or negative value of errno.
  */
 int pmic_reg_read(struct udevice *dev, uint reg);
 
@@ -281,7 +279,7 @@ int pmic_reg_read(struct udevice *dev, uint reg);
  * @dev:	PMIC device to write
  * @reg:	Register to write
  * @value:	Value to write
- * Return: 0 on success or negative value of errno.
+ * @return 0 on success or negative value of errno.
  */
 int pmic_reg_write(struct udevice *dev, uint reg, uint value);
 
@@ -295,7 +293,7 @@ int pmic_reg_write(struct udevice *dev, uint reg, uint value);
  * @reg:	Register to update
  * @clr:	Bit mask to clear (set those bits that you want cleared)
  * @set:	Bit mask to set (set those bits that you want set)
- * Return: 0 on success or negative value of errno.
+ * @return 0 on success or negative value of errno.
  */
 int pmic_clrsetbits(struct udevice *dev, uint reg, uint clr, uint set);
 
@@ -308,12 +306,9 @@ struct uc_pmic_priv {
 	uint trans_len;
 };
 
-#endif /* DM_PMIC */
+#endif /* CONFIG_DM_PMIC */
 
-/* TODO: Change to CONFIG_IS_ENABLED(DM_PMIC) when SPL_DM_PMIC exists */
-#if CONFIG_IS_ENABLED(POWER_LEGACY)
-
-/* Legacy API, do not use */
+#ifdef CONFIG_POWER
 int pmic_init(unsigned char bus);
 int power_init_board(void);
 int pmic_dialog_init(unsigned char bus);
@@ -324,7 +319,7 @@ int pmic_probe(struct pmic *p);
 int pmic_reg_read(struct pmic *p, u32 reg, u32 *val);
 int pmic_reg_write(struct pmic *p, u32 reg, u32 val);
 int pmic_set_output(struct pmic *p, u32 reg, int ldo, int on);
-#endif /* CONFIG_IS_ENABLED(POWER_LEGACY) */
+#endif
 
 #define pmic_i2c_addr (p->hw.i2c.addr)
 #define pmic_i2c_tx_num (p->hw.i2c.tx_num)

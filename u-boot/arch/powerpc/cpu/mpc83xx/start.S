@@ -13,6 +13,9 @@
 #include <asm-offsets.h>
 #include <config.h>
 #include <mpc83xx.h>
+#include <version.h>
+
+#define CONFIG_83XX	1		/* needed for Linux kernel header files*/
 
 #include <ppc_asm.tmpl>
 #include <ppc_defs.h>
@@ -89,6 +92,12 @@
  */
 	.long	0x27051956		/* U-Boot Magic Number */
 
+	.globl	version_string
+version_string:
+	.ascii U_BOOT_VERSION_STRING, "\0"
+
+	.align 2
+
 	.globl enable_addr_trans
 enable_addr_trans:
 	/* enable address translation */
@@ -113,6 +122,9 @@ disable_addr_trans:
 #ifndef CONFIG_DEFAULT_IMMR
 #error CONFIG_DEFAULT_IMMR must be defined
 #endif /* CONFIG_DEFAULT_IMMR */
+#ifndef CONFIG_SYS_IMMR
+#define CONFIG_SYS_IMMR CONFIG_DEFAULT_IMMR
+#endif /* CONFIG_SYS_IMMR */
 
 /*
  * After configuration, a system reset exception is executed using the

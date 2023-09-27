@@ -111,7 +111,7 @@
  * bridge_silicon_revision() - Get the Northbridge revision
  *
  * @dev:	Northbridge device
- * Return: revision ID (bits 3:0) and bridge ID (bits 7:4)
+ * @return revision ID (bits 3:0) and bridge ID (bits 7:4)
  */
 int bridge_silicon_revision(struct udevice *dev);
 

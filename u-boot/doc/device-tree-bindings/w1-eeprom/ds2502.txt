@@ -30,3 +30,4 @@ Example with parent bus:
 			compatible = "maxim,ds2502";
 		};
 	};
+

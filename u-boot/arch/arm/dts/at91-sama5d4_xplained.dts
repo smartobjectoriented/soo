@@ -59,7 +59,7 @@
 	};
 
 	onewire_tm: onewire {
-		gpios = <&pioE 15 GPIO_ACTIVE_HIGH>;
+		gpios = <&pioE 15 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_onewire_tm_default>;
 		status = "okay";

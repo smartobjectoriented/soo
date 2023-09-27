@@ -41,6 +41,7 @@ int do_bootelf(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	unsigned long addr; /* Address of the ELF image */
 	unsigned long rc; /* Return value from user code */
 	char *sload = NULL;
+	const char *ep = env_get("autostart");
 	int rcode = 0;
 
 	/* Consume 'bootelf' */
@@ -68,7 +69,7 @@ int do_bootelf(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	else
 		addr = load_elf_image_shdr(addr);
 
-	if (!env_get_autostart())
+	if (ep && !strcmp(ep, "no"))
 		return rcode;
 
 	printf("## Starting application at 0x%08lx ...\n", addr);
@@ -114,7 +115,7 @@ int do_bootvx(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	if (argc < 2)
 		addr = image_load_addr;
 	else
-		addr = hextoul(argv[1], NULL);
+		addr = simple_strtoul(argv[1], NULL, 16);
 
 #if defined(CONFIG_CMD_NET)
 	/*
@@ -199,7 +200,7 @@ int do_bootvx(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	}
 
 	if (!bootaddr)
-		bootaddr = hextoul(tmp, NULL);
+		bootaddr = simple_strtoul(tmp, NULL, 16);
 
 	/*
 	 * Check to see if the bootline is defined in the 'bootargs' parameter.

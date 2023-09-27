@@ -226,7 +226,6 @@
 		"fi\0" \
 	\
 	"scsi_boot=" \
-		BOOTENV_RUN_PCI_ENUM \
 		BOOTENV_RUN_SCSI_INIT \
 		BOOTENV_SHARED_BLKDEV_BODY(scsi)
 #define BOOTENV_DEV_SCSI	BOOTENV_DEV_BLKDEV
@@ -266,7 +265,7 @@
 	BOOT_TARGET_DEVICES_references_IDE_without_CONFIG_IDE
 #endif
 
-#if defined(CONFIG_PCI)
+#if defined(CONFIG_DM_PCI)
 #define BOOTENV_RUN_PCI_ENUM "run boot_pci_enum; "
 #define BOOTENV_SHARED_PCI \
 	"boot_pci_enum=pci enum\0"
@@ -376,7 +375,7 @@
 #endif
 #define BOOTENV_DEV_DHCP(devtypeu, devtypel, instance) \
 	"bootcmd_dhcp=" \
-		"devtype=" #devtypel "; " \
+		"setenv devtype " #devtypel "; " \
 		BOOTENV_RUN_NET_USB_START \
 		BOOTENV_RUN_PCI_ENUM \
 		"if dhcp ${scriptaddr} ${boot_script_dhcp}; then " \
@@ -497,5 +496,9 @@
 		"for target in ${boot_targets}; do "                      \
 			"run bootcmd_${target}; "                         \
 		"done\0"
+
+#ifndef CONFIG_BOOTCOMMAND
+#define CONFIG_BOOTCOMMAND "run distro_bootcmd"
+#endif
 
 #endif  /* _CONFIG_CMD_DISTRO_BOOTCMD_H */

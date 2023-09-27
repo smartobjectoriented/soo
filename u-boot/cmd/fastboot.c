@@ -112,13 +112,13 @@ static int do_fastboot(struct cmd_tbl *cmdtp, int flag, int argc,
 			case 'l':
 				if (--argc <= 0)
 					return CMD_RET_USAGE;
-				buf_addr = hextoul(*++argv, NULL);
+				buf_addr = simple_strtoul(*++argv, NULL, 16);
 				goto NXTARG;
 
 			case 's':
 				if (--argc <= 0)
 					return CMD_RET_USAGE;
-				buf_size = hextoul(*++argv, NULL);
+				buf_size = simple_strtoul(*++argv, NULL, 16);
 				goto NXTARG;
 
 			default:

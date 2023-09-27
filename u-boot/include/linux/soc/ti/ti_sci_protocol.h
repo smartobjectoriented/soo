@@ -11,9 +11,6 @@
 #ifndef __TISCI_PROTOCOL_H
 #define __TISCI_PROTOCOL_H
 
-#include <linux/bitops.h>
-#include <linux/err.h>
-
 /**
  * struct ti_sci_version_info - version information structure
  * @abi_major:	Major ABI version. Change here implies risk of backward
@@ -23,6 +20,7 @@
  * @firmware_revision:	Firmware revision (not usually used).
  * @firmware_description: Firmware description (not usually used).
  */
+#include <linux/bitops.h>
 struct ti_sci_version_info {
 	u8 abi_major;
 	u8 abi_minor;

@@ -23,11 +23,7 @@
 #include <asm/arch/clock.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/i2c.h>
-#if IS_ENABLED(CONFIG_TARGET_AM335X_GUARDIAN)
-#include <asm/arch/mem-guardian.h>
-#else
 #include <asm/arch/mem.h>
-#endif
 #include <asm/arch/mmc_host_def.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/global_data.h>
@@ -65,7 +61,7 @@ DECLARE_GLOBAL_DATA_PTR;
 
 int dram_init(void)
 {
-#if !CONFIG_IS_ENABLED(SKIP_LOWLEVEL_INIT)
+#ifndef CONFIG_SKIP_LOWLEVEL_INIT
 	sdram_init();
 #endif
 
@@ -209,7 +205,7 @@ int cpu_mmc_init(struct bd_info *bis)
 #if (defined(CONFIG_USB_MUSB_GADGET) || defined(CONFIG_USB_MUSB_HOST)) && \
 	(defined(CONFIG_AM335X_USB0) || defined(CONFIG_AM335X_USB1)) && \
 	(!CONFIG_IS_ENABLED(DM_USB) || !CONFIG_IS_ENABLED(OF_CONTROL)) && \
-	(!defined(CONFIG_SPL_BUILD) || defined(CONFIG_SPL_MUSB_NEW))
+	(!defined(CONFIG_SPL_BUILD) || defined(CONFIG_SPL_MUSB_NEW_SUPPORT))
 
 static struct musb_hdrc_config musb_config = {
 	.multipoint     = 1,
@@ -351,7 +347,7 @@ int arch_misc_init(void)
 
 #endif /* CONFIG_USB_MUSB_* && CONFIG_AM335X_USB* && !CONFIG_DM_USB */
 
-#if !CONFIG_IS_ENABLED(SKIP_LOWLEVEL_INIT)
+#ifndef CONFIG_SKIP_LOWLEVEL_INIT
 
 #if defined(CONFIG_SPL_AM33XX_ENABLE_RTC32K_OSC) || \
 	(defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_RTC_DDR_SUPPORT))
@@ -417,8 +413,6 @@ __weak void am33xx_spl_board_init(void)
 {
 }
 
-#if 0 /* EDGEMTech */
-
 #if defined(CONFIG_SPL_AM33XX_ENABLE_RTC32K_OSC)
 static void rtc32k_enable(void)
 {
@@ -430,7 +424,6 @@ static void rtc32k_enable(void)
 	writel((1 << 3) | (1 << 6), &rtc->osc);
 }
 #endif
-#endif /* 0 */
 
 static void uart_soft_reset(void)
 {
@@ -602,7 +595,7 @@ void board_init_f(ulong dummy)
 int arch_cpu_init_dm(void)
 {
 	hw_data_init();
-#if !CONFIG_IS_ENABLED(SKIP_LOWLEVEL_INIT)
+#ifndef CONFIG_SKIP_LOWLEVEL_INIT
 	early_system_init();
 #endif
 	return 0;

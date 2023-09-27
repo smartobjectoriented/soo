@@ -128,36 +128,38 @@ static int console_truetype_set_row(struct udevice *dev, uint row, int clr)
 	struct video_priv *vid_priv = dev_get_uclass_priv(dev->parent);
 	struct console_tt_priv *priv = dev_get_priv(dev);
 	void *end, *line;
-	int ret;
+	int pixels = priv->font_size * vid_priv->line_length;
+	int i, ret;
 
 	line = vid_priv->fb + row * priv->font_size * vid_priv->line_length;
-	end = line + priv->font_size * vid_priv->line_length;
-
 	switch (vid_priv->bpix) {
 #ifdef CONFIG_VIDEO_BPP8
 	case VIDEO_BPP8: {
-		u8 *dst;
+		uint8_t *dst = line;
 
-		for (dst = line; dst < (u8 *)end; ++dst)
-			*dst = clr;
+		for (i = 0; i < pixels; i++)
+			*dst++ = clr;
+		end = dst;
 		break;
 	}
 #endif
 #ifdef CONFIG_VIDEO_BPP16
 	case VIDEO_BPP16: {
-		u16 *dst = line;
+		uint16_t *dst = line;
 
-		for (dst = line; dst < (u16 *)end; ++dst)
-			*dst = clr;
+		for (i = 0; i < pixels; i++)
+			*dst++ = clr;
+		end = dst;
 		break;
 	}
 #endif
 #ifdef CONFIG_VIDEO_BPP32
 	case VIDEO_BPP32: {
-		u32 *dst = line;
+		uint32_t *dst = line;
 
-		for (dst = line; dst < (u32 *)end; ++dst)
-			*dst = clr;
+		for (i = 0; i < pixels; i++)
+			*dst++ = clr;
+		end = dst;
 		break;
 	}
 #endif
@@ -274,27 +276,6 @@ static int console_truetype_putc_xy(struct udevice *dev, uint x, uint y,
 	 */
 	for (row = 0; row < height; row++) {
 		switch (vid_priv->bpix) {
-		case VIDEO_BPP8:
-			if (IS_ENABLED(CONFIG_VIDEO_BPP8)) {
-				u8 *dst = line + xoff;
-				int i;
-
-				for (i = 0; i < width; i++) {
-					int val = *bits;
-					int out;
-
-					if (vid_priv->colour_bg)
-						val = 255 - val;
-					out = val;
-					if (vid_priv->colour_fg)
-						*dst++ |= out;
-					else
-						*dst++ &= out;
-					bits++;
-				}
-				end = dst;
-			}
-			break;
 #ifdef CONFIG_VIDEO_BPP16
 		case VIDEO_BPP16: {
 			uint16_t *dst = (uint16_t *)line + xoff;
@@ -368,7 +349,7 @@ static int console_truetype_putc_xy(struct udevice *dev, uint x, uint y,
  * @xend:	X end position in pixels from the left
  * @yend:	Y end position  in pixels from the top
  * @clr:	Value to write
- * Return: 0 if OK, -ENOSYS if the display depth is not supported
+ * @return 0 if OK, -ENOSYS if the display depth is not supported
  */
 static int console_truetype_erase(struct udevice *dev, int xstart, int ystart,
 				  int xend, int yend, int clr)
@@ -429,7 +410,7 @@ static int console_truetype_erase(struct udevice *dev, int xstart, int ystart,
  * not been entered.
  *
  * @dev:	Device to update
- * Return: 0 if OK, -ENOSYS if not supported
+ * @return 0 if OK, -ENOSYS if not supported
  */
 static int console_truetype_backspace(struct udevice *dev)
 {
@@ -535,7 +516,7 @@ static struct font_info font_table[] = {
  *
  * This searched for the first available font.
  *
- * Return: pointer to the font, or NULL if none is found
+ * @return pointer to the font, or NULL if none is found
  */
 static u8 *console_truetype_find_font(void)
 {

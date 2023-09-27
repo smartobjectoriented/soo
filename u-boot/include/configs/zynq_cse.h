@@ -9,6 +9,8 @@
 #ifndef __CONFIG_ZYNQ_CSE_H
 #define __CONFIG_ZYNQ_CSE_H
 
+#define CONFIG_SKIP_LOWLEVEL_INIT
+
 #include <configs/zynq-common.h>
 
 /* Undef unneeded configs */

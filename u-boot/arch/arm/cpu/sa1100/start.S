@@ -39,7 +39,7 @@ reset:
 	 * we do sys-critical inits only at reboot,
 	 * not when booting from ram!
 	 */
-#if !CONFIG_IS_ENABLED(SKIP_LOWLEVEL_INIT)
+#ifndef CONFIG_SKIP_LOWLEVEL_INIT
 	bl	cpu_init_crit
 #endif
 
@@ -95,7 +95,7 @@ cpu_init_crit:
 	ldr	r1, cpuspeed
 	str	r1, [r0, #PPCR]
 
-#if !CONFIG_IS_ENABLED(SKIP_LOWLEVEL_INIT_ONLY)
+#ifndef CONFIG_SKIP_LOWLEVEL_INIT_ONLY
 	/*
 	 * before relocating, we have to setup RAM timing
 	 * because memory timing is board-dependend, you will

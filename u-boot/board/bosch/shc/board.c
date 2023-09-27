@@ -51,17 +51,16 @@ static int shc_eeprom_valid;
 /*
  * Read header information from EEPROM into global structure.
  */
-#define EEPROM_ADDR	0x50
 static int read_eeprom(void)
 {
 	/* Check if baseboard eeprom is available */
-	if (i2c_probe(EEPROM_ADDR)) {
+	if (i2c_probe(CONFIG_SYS_I2C_EEPROM_ADDR)) {
 		puts("Could not probe the EEPROM; something fundamentally wrong on the I2C bus.\n");
 		return -ENODEV;
 	}
 
 	/* read the eeprom using i2c */
-	if (i2c_read(EEPROM_ADDR, 0, 2, (uchar *)&header,
+	if (i2c_read(CONFIG_SYS_I2C_EEPROM_ADDR, 0, 2, (uchar *)&header,
 		     sizeof(header))) {
 		puts("Could not read the EEPROM; something fundamentally wrong on the I2C bus.\n");
 		return -EIO;
@@ -189,7 +188,7 @@ static void __maybe_unused leds_set_booting(void)
 /*
  * Function to set the LEDs in the state "Bootloader error"
  */
-static void __maybe_unused leds_set_failure(int state)
+static void leds_set_failure(int state)
 {
 #if defined(CONFIG_B_SAMPLE)
 	/* Turn all blue and green LEDs off */
@@ -480,7 +479,7 @@ int board_eth_init(struct bd_info *bis)
 }
 #endif
 
-#if CONFIG_IS_ENABLED(BOOTSTAGE)
+#ifdef CONFIG_SHOW_BOOT_PROGRESS
 static void bosch_check_reset_pin(void)
 {
 	if (readl(GPIO1_BASE + OMAP_GPIO_IRQSTATUS_SET_0) & RESET_MASK) {
@@ -526,9 +525,9 @@ void show_boot_progress(int val)
 		break;
 	}
 }
-#endif
 
 void arch_preboot_os(void)
 {
 	leds_set_finish();
 }
+#endif

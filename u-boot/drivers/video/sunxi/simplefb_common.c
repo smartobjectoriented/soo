@@ -7,7 +7,7 @@
  * (C) Copyright 2017 Icenowy Zheng <icenowy@aosc.io>
  */
 
-#include <fdt_support.h>
+#include <fdtdec.h>
 
 int sunxi_simplefb_fdt_match(void *blob, const char *pipeline)
 {
@@ -16,12 +16,13 @@ int sunxi_simplefb_fdt_match(void *blob, const char *pipeline)
 	/* Find a prefilled simpefb node, matching out pipeline config */
 	offset = fdt_node_offset_by_compatible(blob, -1,
 					       "allwinner,simple-framebuffer");
-	fdt_for_each_node_by_compatible(offset, blob, -1,
-					"allwinner,simple-framebuffer") {
+	while (offset >= 0) {
 		ret = fdt_stringlist_search(blob, offset, "allwinner,pipeline",
 					    pipeline);
 		if (ret == 0)
 			break;
+		offset = fdt_node_offset_by_compatible(blob, offset,
+						"allwinner,simple-framebuffer");
 	}
 
 	return offset;

@@ -267,10 +267,10 @@ static void extract_range(
 	unsigned char * phi)
 {
 	char * end;
-	*plo = hextoul(input, &end);
+	*plo = simple_strtoul(input, &end, 16);
 	if (*end == '-') {
 		end++;
-		*phi = hextoul(end, NULL);
+		*phi = simple_strtoul(end, NULL, 16);
 	}
 	else {
 		*phi = *plo;
@@ -319,9 +319,9 @@ static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		if (argc >= 4)
 			extract_range(argv[3], &reglo, &reghi);
 		if (argc >= 5)
-			data = hextoul(argv[4], NULL);
+			data = simple_strtoul(argv[4], NULL, 16);
 		if (argc >= 6)
-			mask = hextoul(argv[5], NULL);
+			mask = simple_strtoul(argv[5], NULL, 16);
 	}
 
 	if (addrhi > 31 && strncmp(op, "de", 2)) {

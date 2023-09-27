@@ -65,7 +65,7 @@ int board_init(void)
 	return 0;
 }
 
-void reset_cpu(void)
+void reset_cpu(ulong addr)
 {
 	unsigned long midr, cputype;
 

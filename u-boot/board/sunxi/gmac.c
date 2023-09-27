@@ -4,6 +4,7 @@
 #include <asm/gpio.h>
 #include <asm/io.h>
 #include <asm/arch/clock.h>
+#include <asm/arch/gpio.h>
 
 void eth_init_board(void)
 {

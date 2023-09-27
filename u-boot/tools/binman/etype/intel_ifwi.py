@@ -50,7 +50,7 @@ class Entry_intel_ifwi(Entry_blob_ext):
         self._ifwi_entries = OrderedDict()
 
     def ReadNode(self):
-        self.ReadEntries()
+        self._ReadSubnodes()
         super().ReadNode()
 
     def _BuildIfwi(self):
@@ -58,37 +58,27 @@ class Entry_intel_ifwi(Entry_blob_ext):
         # Create the IFWI file if needed
         if self._convert_fit:
             inname = self._pathname
-            outname = tools.get_output_filename('ifwi.bin')
-            if self.ifwitool.create_ifwi(inname, outname) is None:
-                # Bintool is missing; just create a zeroed ifwi.bin
-                self.record_missing_bintool(self.ifwitool)
-                self.SetContents(tools.get_bytes(0, 1024))
-
+            outname = tools.GetOutputFilename('ifwi.bin')
+            tools.RunIfwiTool(inname, tools.CMD_CREATE, outname)
             self._filename = 'ifwi.bin'
             self._pathname = outname
         else:
             # Provide a different code path here to ensure we have test coverage
             outname = self._pathname
 
-        # Delete OBBP if it is there, then add the required new items
-        if self.ifwitool.delete_subpart(outname, 'OBBP') is None:
-            # Bintool is missing; just use zero data
-            self.record_missing_bintool(self.ifwitool)
-            self.SetContents(tools.get_bytes(0, 1024))
-            return True
+        # Delete OBBP if it is there, then add the required new items.
+        tools.RunIfwiTool(outname, tools.CMD_DELETE, subpart='OBBP')
 
         for entry in self._ifwi_entries.values():
             # First get the input data and put it in a file
             data = entry.GetPaddedData()
             uniq = self.GetUniqueName()
-            input_fname = tools.get_output_filename('input.%s' % uniq)
-            tools.write_file(input_fname, data)
+            input_fname = tools.GetOutputFilename('input.%s' % uniq)
+            tools.WriteFile(input_fname, data)
 
-            # At this point we know that ifwitool is present, so we don't need
-            # to check for None here
-            self.ifwitool.add_subpart(
-                outname, entry._ifwi_subpart, entry._ifwi_entry_name,
-                input_fname, entry._ifwi_replace)
+            tools.RunIfwiTool(outname,
+                tools.CMD_REPLACE if entry._ifwi_replace else tools.CMD_ADD,
+                input_fname, entry._ifwi_subpart, entry._ifwi_entry_name)
 
         self.ReadBlobContents()
         return True
@@ -107,7 +97,7 @@ class Entry_intel_ifwi(Entry_blob_ext):
         After that we delete the OBBP sub-partition and add each of the files
         that we want in the IFWI file, one for each sub-entry of the IWFI node.
         """
-        self._pathname = tools.get_input_filename(self._filename,
+        self._pathname = tools.GetInputFilename(self._filename,
                                                 self.section.GetAllowMissing())
         # Allow the file to be missing
         if not self._pathname:
@@ -127,7 +117,7 @@ class Entry_intel_ifwi(Entry_blob_ext):
         same = orig_data == self.data
         return same
 
-    def ReadEntries(self):
+    def _ReadSubnodes(self):
         """Read the subnodes to find out what should go in this IFWI"""
         for node in self._node.subnodes:
             entry = Entry.Create(self.section, node)
@@ -142,6 +132,3 @@ class Entry_intel_ifwi(Entry_blob_ext):
         if not self.missing:
             for entry in self._ifwi_entries.values():
                 entry.WriteSymbols(self)
-
-    def AddBintools(self, tools):
-        self.ifwitool = self.AddBintool(tools, 'ifwitool')

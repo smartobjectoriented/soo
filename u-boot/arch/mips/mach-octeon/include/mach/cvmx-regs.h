@@ -295,7 +295,7 @@ static inline void cvmx_write_io(u64 io_addr, u64 val)
  *
  * @param major_did 5 bit major did
  * @param sub_did   3 bit sub did
- * Return: I/O base address
+ * @return I/O base address
  */
 static inline u64 cvmx_build_io_address(u64 major_did, u64 sub_did)
 {
@@ -306,7 +306,7 @@ static inline u64 cvmx_build_io_address(u64 major_did, u64 sub_did)
  * Builds a bit mask given the required size in bits.
  *
  * @param bits   Number of bits in the mask
- * Return: The mask
+ * @return The mask
  */
 static inline u64 cvmx_build_mask(u64 bits)
 {
@@ -323,7 +323,7 @@ static inline u64 cvmx_build_mask(u64 bits)
  * @param lsb    Starting bit, least significant (0-63)
  * @param width  Width in bits (1-64)
  *
- * Return: Extracted number
+ * @return Extracted number
  */
 static inline u64 cvmx_bit_extract(u64 input, int lsb, int width)
 {
@@ -349,7 +349,7 @@ static inline u64 cvmx_bit_extract(u64 input, int lsb, int width)
  * @param high_bit Highest bit value can occupy (inclusive) 0-63
  * @param low_bit  Lowest bit value can occupy inclusive 0-high_bit
  * @param value    Value to use
- * Return: Value masked and shifted
+ * @return Value masked and shifted
  */
 static inline u64 cvmx_build_bits(u64 high_bit, u64 low_bit, u64 value)
 {
@@ -379,7 +379,7 @@ static inline u64 cvmx_ptr_to_phys(void *ptr)
 /**
  * Number of the Core on which the program is currently running.
  *
- * Return: core number
+ * @return core number
  */
 static inline unsigned int cvmx_get_core_num(void)
 {
@@ -392,7 +392,7 @@ static inline unsigned int cvmx_get_core_num(void)
 /**
  * Node-local number of the core on which the program is currently running.
  *
- * Return: core number on local node
+ * @return core number on local node
  */
 static inline unsigned int cvmx_get_local_core_num(void)
 {
@@ -411,7 +411,7 @@ static inline unsigned int cvmx_get_local_core_num(void)
  *
  * @param val    32 bit value to count set bits in
  *
- * Return: Number of bits set
+ * @return Number of bits set
  */
 static inline u32 cvmx_pop(u32 val)
 {

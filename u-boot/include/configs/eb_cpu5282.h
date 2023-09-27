@@ -14,9 +14,12 @@
  * High Level Configuration Options (easy to change)                    *
  *----------------------------------------------------------------------*/
 
+#define CONFIG_MCFUART
 #define CONFIG_SYS_UART_PORT		(0)
 
 #undef	CONFIG_MONITOR_IS_IN_RAM		/* starts uboot direct */
+
+#define CONFIG_BOOTCOMMAND "printenv"
 
 /*----------------------------------------------------------------------*
  * Options								*
@@ -24,6 +27,8 @@
 
 #define CONFIG_BOOT_RETRY_TIME	-1
 #define CONFIG_RESET_TO_RETRY
+
+#define CONFIG_HW_WATCHDOG
 
 #define STATUS_LED_ACTIVE		0
 
@@ -41,6 +46,8 @@
 
 #define	CONFIG_SYS_CBSIZE	1024	/* Console I/O Buffer Size	*/
 #define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE
+
+#define CONFIG_SYS_LOAD_ADDR		0x20000
 
 /*#define CONFIG_SYS_DRAM_TEST		1 */
 #undef CONFIG_SYS_DRAM_TEST
@@ -97,6 +104,7 @@
 #define	CONFIG_SYS_SDRAM_SIZE		CONFIG_SYS_SDRAM_SIZE0
 
 #define CONFIG_SYS_MONITOR_LEN		0x20000
+#define CONFIG_SYS_MALLOC_LEN		(4 * 1024 * 1024)
 #define CONFIG_SYS_BOOTPARAMS_LEN	64*1024
 
 /*
@@ -116,6 +124,7 @@
 #define CONFIG_SYS_INT_FLASH_ENABLE	0x21
 
 #define	CONFIG_SYS_MAX_FLASH_SECT	128
+#define	CONFIG_SYS_MAX_FLASH_BANKS	1
 #define	CONFIG_SYS_FLASH_ERASE_TOUT	10000000
 
 #define CONFIG_SYS_FLASH_SIZE		16*1024*1024
@@ -126,6 +135,7 @@
 /*-----------------------------------------------------------------------
  * Cache Configuration
  */
+#define CONFIG_SYS_CACHELINE_SIZE	16
 
 #define ICACHE_STATUS			(CONFIG_SYS_INIT_RAM_ADDR + \
 					 CONFIG_SYS_INIT_RAM_SIZE - 8)
@@ -183,6 +193,15 @@
 /*-----------------------------------------------------------------------
  * I2C
  */
+
+#define CONFIG_SYS_I2C
+#define CONFIG_SYS_I2C_FSL
+
+#define CONFIG_SYS_FSL_I2C_OFFSET	0x00000300
+#define CONFIG_SYS_IMMR			CONFIG_SYS_MBAR
+
+#define CONFIG_SYS_FSL_I2C_SPEED	100000
+#define CONFIG_SYS_FSL_I2C_SLAVE	0
 
 #ifdef CONFIG_CMD_DATE
 #define CONFIG_RTC_DS1338

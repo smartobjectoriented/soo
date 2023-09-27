@@ -23,7 +23,7 @@
 /**
  * fsp_find_header() - Find FSP header offset in FSP image
  *
- * Return: the offset of FSP header. If signature is invalid, returns 0.
+ * @return the offset of FSP header. If signature is invalid, returns 0.
  */
 struct fsp_header *fsp_find_header(void);
 
@@ -33,7 +33,7 @@ struct fsp_header *fsp_find_header(void);
  * @fsp_hdr: Pointer to FSP information header
  * @phase:   FSP initialization phase defined in enum fsp_phase
  *
- * Return: compatible status code with EFI_STATUS defined in PI spec
+ * @return compatible status code with EFI_STATUS defined in PI spec
  */
 u32 fsp_notify(struct fsp_header *fsp_hdr, u32 phase);
 
@@ -42,7 +42,7 @@ u32 fsp_notify(struct fsp_header *fsp_hdr, u32 phase);
  *
  * @hob_list: A HOB list pointer.
  *
- * Return: Usable low memory top.
+ * @return Usable low memory top.
  */
 u32 fsp_get_usable_lowmem_top(const void *hob_list);
 
@@ -51,7 +51,7 @@ u32 fsp_get_usable_lowmem_top(const void *hob_list);
  *
  * @hob_list: A HOB list pointer.
  *
- * Return: Usable high memory top.
+ * @return Usable high memory top.
  */
 u64 fsp_get_usable_highmem_top(const void *hob_list);
 
@@ -63,7 +63,7 @@ u64 fsp_get_usable_highmem_top(const void *hob_list);
  *            If the GUID HOB is located, the length will be updated.
  * @guid:     A pointer to the owner guild.
  *
- * Return: Reserved region start address.
+ * @return Reserved region start address.
  *            0 if this region does not exist.
  */
 u64 fsp_get_reserved_mem_from_guid(const void *hob_list,
@@ -75,7 +75,7 @@ u64 fsp_get_reserved_mem_from_guid(const void *hob_list,
  * @hob_list: A HOB list pointer.
  * @len:      A pointer to the FSP reserved memory length buffer.
  *            If the GUID HOB is located, the length will be updated.
- * Return: FSP reserved memory base
+ * @return FSP reserved memory base
  *            0 if this region does not exist.
  */
 u32 fsp_get_fsp_reserved_mem(const void *hob_list, u32 *len);
@@ -87,8 +87,8 @@ u32 fsp_get_fsp_reserved_mem(const void *hob_list, u32 *len);
  * @len:           A pointer to the TSEG reserved memory length buffer.
  *                 If the GUID HOB is located, the length will be updated.
  *
- * Return: NULL:   Failed to find the TSEG reserved memory.
- * Return: others: TSEG reserved memory base.
+ * @return NULL:   Failed to find the TSEG reserved memory.
+ * @return others: TSEG reserved memory base.
  */
 u32 fsp_get_tseg_reserved_mem(const void *hob_list, u32 *len);
 
@@ -99,8 +99,8 @@ u32 fsp_get_tseg_reserved_mem(const void *hob_list, u32 *len);
  * @len:           A pointer to the NVS data buffer length.
  *                 If the HOB is located, the length will be updated.
  *
- * Return: NULL:   Failed to find the NVS HOB.
- * Return: others: FSP NVS data buffer pointer.
+ * @return NULL:   Failed to find the NVS HOB.
+ * @return others: FSP NVS data buffer pointer.
  */
 void *fsp_get_nvs_data(const void *hob_list, u32 *len);
 
@@ -111,8 +111,8 @@ void *fsp_get_nvs_data(const void *hob_list, u32 *len);
  * @len:           A pointer to the NVS data buffer length.
  *                 If the HOB is located, the length will be updated.
  *
- * Return: NULL:   Failed to find the NVS HOB.
- * Return: others: FSP NVS data buffer pointer.
+ * @return NULL:   Failed to find the NVS HOB.
+ * @return others: FSP NVS data buffer pointer.
  */
 void *fsp_get_var_nvs_data(const void *hob_list, u32 *len);
 
@@ -123,15 +123,15 @@ void *fsp_get_var_nvs_data(const void *hob_list, u32 *len);
  * @len:           A pointer to the graphics info HOB length.
  *                 If the HOB is located, the length will be updated.
  *
- * Return: NULL:   Failed to find the graphics info HOB.
- * Return: others: A pointer to struct hob_graphics_info.
+ * @return NULL:   Failed to find the graphics info HOB.
+ * @return others: A pointer to struct hob_graphics_info.
  */
 void *fsp_get_graphics_info(const void *hob_list, u32 *len);
 
 /**
  * fsp_init_phase_pci() - Tell the FSP that we have completed PCI init
  *
- * Return: 0 if OK, -EPERM if the FSP gave an error.
+ * @return 0 if OK, -EPERM if the FSP gave an error.
  */
 int fsp_init_phase_pci(void);
 
@@ -140,7 +140,7 @@ int fsp_init_phase_pci(void);
  *
  * This sets gd->ram_size based on what it finds.
  *
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int fsp_scan_for_ram_size(void);
 
@@ -150,7 +150,7 @@ int fsp_scan_for_ram_size(void);
  * @fsp_hdr: Pointer to FSP information header
  * @phase:   FSP initialization phase defined in enum fsp_phase
  *
- * Return: compatible status code with EFI_STATUS defined in PI spec
+ * @return compatible status code with EFI_STATUS defined in PI spec
  */
 u32 fsp_notify(struct fsp_header *fsp_hdr, u32 phase);
 

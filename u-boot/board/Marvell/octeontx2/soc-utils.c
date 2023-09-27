@@ -46,3 +46,4 @@ const char *read_board_name(void)
 {
 	return fdt_get_board_model();
 }
+

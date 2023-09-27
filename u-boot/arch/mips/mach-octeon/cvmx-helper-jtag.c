@@ -71,7 +71,7 @@ void cvmx_helper_qlm_jtag_init(void)
  * @param data   Data to shift in. Bit 0 enters the chain first, followed by
  *               bit 1, etc.
  *
- * Return: The low order bits of the JTAG chain that shifted out of the
+ * @return The low order bits of the JTAG chain that shifted out of the
  *         circle.
  */
 uint32_t cvmx_helper_qlm_jtag_shift(int qlm, int bits, uint32_t data)

@@ -229,3 +229,4 @@ int phy_pipe3_power_off(struct omap_pipe3 *phy)
 
 	return 0;
 }
+

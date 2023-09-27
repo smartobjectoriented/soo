@@ -3,8 +3,6 @@
  * (C) Copyright 2014 Freescale Semiconductor, Inc
  */
 
-#define LOG_CATEGORY UCLASS_THERMAL
-
 #include <common.h>
 #include <dm.h>
 #include <thermal.h>

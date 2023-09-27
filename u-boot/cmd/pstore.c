@@ -11,7 +11,6 @@
 #include <mapmem.h>
 #include <memalign.h>
 #include <part.h>
-#include <fdt_support.h>
 
 struct persistent_ram_buffer {
 	u32    sig;
@@ -173,26 +172,26 @@ static int pstore_set(struct cmd_tbl *cmdtp, int flag,  int argc,
 
 	/* Address is specified since argc > 2
 	 */
-	pstore_addr = hextoul(argv[1], NULL);
+	pstore_addr = simple_strtoul(argv[1], NULL, 16);
 
 	/* Length is specified since argc > 2
 	 */
-	pstore_length = hextoul(argv[2], NULL);
+	pstore_length = simple_strtoul(argv[2], NULL, 16);
 
 	if (argc > 3)
-		pstore_record_size = hextoul(argv[3], NULL);
+		pstore_record_size = simple_strtoul(argv[3], NULL, 16);
 
 	if (argc > 4)
-		pstore_console_size = hextoul(argv[4], NULL);
+		pstore_console_size = simple_strtoul(argv[4], NULL, 16);
 
 	if (argc > 5)
-		pstore_ftrace_size = hextoul(argv[5], NULL);
+		pstore_ftrace_size = simple_strtoul(argv[5], NULL, 16);
 
 	if (argc > 6)
-		pstore_pmsg_size = hextoul(argv[6], NULL);
+		pstore_pmsg_size = simple_strtoul(argv[6], NULL, 16);
 
 	if (argc > 7)
-		pstore_ecc_size = hextoul(argv[7], NULL);
+		pstore_ecc_size = simple_strtoul(argv[7], NULL, 16);
 
 	if (pstore_length < (pstore_record_size + pstore_console_size
 			     + pstore_ftrace_size + pstore_pmsg_size)) {
@@ -280,7 +279,7 @@ static int pstore_display(struct cmd_tbl *cmdtp, int flag,  int argc,
 				- pstore_ftrace_size - pstore_console_size;
 
 		if (argc > 2) {
-			ptr += dectoul(argv[2], NULL)
+			ptr += simple_strtoul(argv[2], NULL, 10)
 				* pstore_record_size;
 			ptr_end = ptr + pstore_record_size;
 		}
@@ -486,8 +485,6 @@ void fdt_fixup_pstore(void *blob)
 {
 	char node[32];
 	int  nodeoffset;	/* node offset from libfdt */
-	u32 addr_cells;
-	u32 size_cells;
 
 	nodeoffset = fdt_path_offset(blob, "/");
 	if (nodeoffset < 0) {
@@ -496,18 +493,14 @@ void fdt_fixup_pstore(void *blob)
 		return;
 	}
 
-	nodeoffset = fdt_find_or_add_subnode(blob, nodeoffset, "reserved-memory");
+	nodeoffset = fdt_add_subnode(blob, nodeoffset, "reserved-memory");
 	if (nodeoffset < 0) {
 		log_err("Add 'reserved-memory' node failed: %s\n",
 				fdt_strerror(nodeoffset));
 		return;
 	}
-
-	addr_cells = fdt_getprop_u32_default_node(blob, nodeoffset, 0, "#address-cells", 2);
-	size_cells = fdt_getprop_u32_default_node(blob, nodeoffset, 0, "#size-cells", 2);
-	fdt_setprop_u32(blob, nodeoffset, "#address-cells", addr_cells);
-	fdt_setprop_u32(blob, nodeoffset, "#size-cells", size_cells);
-
+	fdt_setprop_u32(blob, nodeoffset, "#address-cells", 2);
+	fdt_setprop_u32(blob, nodeoffset, "#size-cells", 2);
 	fdt_setprop_empty(blob, nodeoffset, "ranges");
 
 	sprintf(node, "ramoops@%llx", (unsigned long long)pstore_addr);
@@ -516,36 +509,14 @@ void fdt_fixup_pstore(void *blob)
 		log_err("Add '%s' node failed: %s\n", node, fdt_strerror(nodeoffset));
 		return;
 	}
-
 	fdt_setprop_string(blob, nodeoffset, "compatible", "ramoops");
-
-	if (addr_cells == 1) {
-		fdt_setprop_u32(blob, nodeoffset, "reg", pstore_addr);
-	} else if (addr_cells == 2) {
-		fdt_setprop_u64(blob, nodeoffset, "reg", pstore_addr);
-	} else {
-		log_err("Unsupported #address-cells: %u\n", addr_cells);
-		goto clean_ramoops;
-	}
-
-	if (size_cells == 1) {
-		// Let's consider that the pstore_length fits in a 32 bits value
-		fdt_appendprop_u32(blob, nodeoffset, "reg", pstore_length);
-	} else if (size_cells == 2) {
-		fdt_appendprop_u64(blob, nodeoffset, "reg", pstore_length);
-	} else {
-		log_err("Unsupported #size-cells: %u\n", addr_cells);
-		goto clean_ramoops;
-	}
-
+	fdt_setprop_u64(blob, nodeoffset, "reg", pstore_addr);
+	fdt_appendprop_u64(blob, nodeoffset, "reg", pstore_length);
 	fdt_setprop_u32(blob, nodeoffset, "record-size", pstore_record_size);
 	fdt_setprop_u32(blob, nodeoffset, "console-size", pstore_console_size);
 	fdt_setprop_u32(blob, nodeoffset, "ftrace-size", pstore_ftrace_size);
 	fdt_setprop_u32(blob, nodeoffset, "pmsg-size", pstore_pmsg_size);
 	fdt_setprop_u32(blob, nodeoffset, "ecc-size", pstore_ecc_size);
-
-clean_ramoops:
-	fdt_del_node_and_alias(blob, node);
 }
 
 U_BOOT_CMD(pstore, 10, 0, do_pstore,

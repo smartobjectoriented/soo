@@ -15,6 +15,7 @@
 #include <asm/io.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/lcdc.h>
+#include <asm/arch/gpio.h>
 #include <asm/global_data.h>
 #include <asm/gpio.h>
 

@@ -12,7 +12,11 @@
 
 extern void udc_disconnect(void);
 
-#ifdef CONFIG_SUPPORT_PASSING_ATAGS
+#if defined(CONFIG_SETUP_MEMORY_TAGS) || \
+		defined(CONFIG_CMDLINE_TAG) || \
+		defined(CONFIG_INITRD_TAG) || \
+		defined(CONFIG_SERIAL_TAG) || \
+		defined(CONFIG_REVISION_TAG)
 # define BOOTM_ENABLE_TAGS		1
 #else
 # define BOOTM_ENABLE_TAGS		0

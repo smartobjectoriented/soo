@@ -48,7 +48,7 @@ static int do_demo_light(struct cmd_tbl *cmdtp, int flag, int argc,
 	int ret;
 
 	if (argc) {
-		light = hextoul(argv[0], NULL);
+		light = simple_strtoul(argv[0], NULL, 16);
 		ret = demo_set_light(demo_dev, light);
 	} else {
 		ret = demo_get_light(demo_dev);
@@ -106,7 +106,7 @@ static int do_demo(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	if (argc) {
-		devnum = dectoul(argv[0], NULL);
+		devnum = simple_strtoul(argv[0], NULL, 10);
 		ret = uclass_get_device(UCLASS_DEMO, devnum, &demo_dev);
 		if (ret)
 			return cmd_process_error(cmdtp, ret);

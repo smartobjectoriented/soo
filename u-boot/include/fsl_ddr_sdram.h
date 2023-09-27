@@ -483,7 +483,7 @@ typedef struct fixed_ddr_parm{
 /**
  * fsl_initdram() - Set up the SDRAM
  *
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int fsl_initdram(void);
 

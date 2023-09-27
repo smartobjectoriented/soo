@@ -302,12 +302,12 @@ void net_auto_load(void)
 	if (s != NULL && strcmp(s, "NFS") == 0) {
 		if (net_check_prereq(NFS)) {
 /* We aren't expecting to get a serverip, so just accept the assigned IP */
-			if (IS_ENABLED(CONFIG_BOOTP_SERVERIP)) {
-				net_set_state(NETLOOP_SUCCESS);
-			} else {
-				printf("Cannot autoload with NFS\n");
-				net_set_state(NETLOOP_FAIL);
-			}
+#ifdef CONFIG_BOOTP_SERVERIP
+			net_set_state(NETLOOP_SUCCESS);
+#else
+			printf("Cannot autoload with NFS\n");
+			net_set_state(NETLOOP_FAIL);
+#endif
 			return;
 		}
 		/*
@@ -327,12 +327,12 @@ void net_auto_load(void)
 	}
 	if (net_check_prereq(TFTPGET)) {
 /* We aren't expecting to get a serverip, so just accept the assigned IP */
-		if (IS_ENABLED(CONFIG_BOOTP_SERVERIP)) {
-			net_set_state(NETLOOP_SUCCESS);
-		} else {
-			printf("Cannot autoload with TFTPGET\n");
-			net_set_state(NETLOOP_FAIL);
-		}
+#ifdef CONFIG_BOOTP_SERVERIP
+		net_set_state(NETLOOP_SUCCESS);
+#else
+		printf("Cannot autoload with TFTPGET\n");
+		net_set_state(NETLOOP_FAIL);
+#endif
 		return;
 	}
 	tftp_start(TFTPGET);
@@ -1264,7 +1264,8 @@ void net_process_received_packet(uchar *in_packet, int len)
 			   "received UDP (to=%pI4, from=%pI4, len=%d)\n",
 			   &dst_ip, &src_ip, len);
 
-		if (IS_ENABLED(CONFIG_UDP_CHECKSUM) && ip->udp_xsum != 0) {
+#ifdef CONFIG_UDP_CHECKSUM
+		if (ip->udp_xsum != 0) {
 			ulong   xsum;
 			u8 *sumptr;
 			ushort  sumlen;
@@ -1297,6 +1298,7 @@ void net_process_received_packet(uchar *in_packet, int len)
 				return;
 			}
 		}
+#endif
 
 #if defined(CONFIG_NETCONSOLE) && !defined(CONFIG_SPL_BUILD)
 		nc_input_packet((uchar *)ip + IP_UDP_HDR_SIZE,
@@ -1589,7 +1591,7 @@ ushort string_to_vlan(const char *s)
 	if (*s < '0' || *s > '9')
 		id = VLAN_NONE;
 	else
-		id = (ushort)dectoul(s, NULL);
+		id = (ushort)simple_strtoul(s, NULL, 10);
 
 	return htons(id);
 }

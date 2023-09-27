@@ -16,7 +16,7 @@
  *
  * @param xiface Interface to convert
  *
- * Return: Srio link number
+ * @return Srio link number
  */
 int __cvmx_helper_srio_port(int xiface);
 
@@ -28,7 +28,7 @@ int __cvmx_helper_srio_port(int xiface);
  *
  * @param xiface Interface to probe
  *
- * Return: Number of ports on the interface. Zero to disable.
+ * @return Number of ports on the interface. Zero to disable.
  */
 int __cvmx_helper_srio_probe(int xiface);
 
@@ -40,7 +40,7 @@ int __cvmx_helper_srio_probe(int xiface);
  *
  * @param xiface Interface to bring up
  *
- * Return: Zero on success, negative on failure
+ * @return Zero on success, negative on failure
  */
 int __cvmx_helper_srio_enable(int xiface);
 
@@ -50,7 +50,7 @@ int __cvmx_helper_srio_enable(int xiface);
  *
  * @param ipd_port IPD/PKO port to query
  *
- * Return: Link state
+ * @return Link state
  */
 cvmx_helper_link_info_t __cvmx_helper_srio_link_get(int ipd_port);
 
@@ -65,7 +65,7 @@ cvmx_helper_link_info_t __cvmx_helper_srio_link_get(int ipd_port);
  * @param ipd_port  IPD/PKO port to configure
  * @param link_info The new link state
  *
- * Return: Zero on success, negative on failure
+ * @return Zero on success, negative on failure
  */
 int __cvmx_helper_srio_link_set(int ipd_port, cvmx_helper_link_info_t link_info);
 

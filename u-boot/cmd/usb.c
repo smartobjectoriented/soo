@@ -690,7 +690,7 @@ static int do_usb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			 * have multiple controllers and the device numbering
 			 * starts at 1 on each bus.
 			 */
-			i = dectoul(argv[2], NULL);
+			i = simple_strtoul(argv[2], NULL, 10);
 			printf("config for device %d\n", i);
 			udev = usb_find_device(i);
 			if (udev == NULL) {
@@ -706,13 +706,13 @@ static int do_usb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	if (strncmp(argv[1], "test", 4) == 0) {
 		if (argc < 5)
 			return CMD_RET_USAGE;
-		i = dectoul(argv[2], NULL);
+		i = simple_strtoul(argv[2], NULL, 10);
 		udev = usb_find_device(i);
 		if (udev == NULL) {
 			printf("Device %d does not exist.\n", i);
 			return 1;
 		}
-		i = dectoul(argv[3], NULL);
+		i = simple_strtoul(argv[3], NULL, 10);
 		return usb_test(udev, i, argv[4]);
 	}
 #ifdef CONFIG_USB_STORAGE

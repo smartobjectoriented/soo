@@ -45,7 +45,7 @@ void enable_bios_reset_cpl(void);
  * below 4GB
  *
  * @dev: hostbridge device
- * Return: TOLUD address
+ * @return TOLUD address
  */
 ulong sa_get_tolud_base(struct udevice *dev);
 
@@ -56,7 +56,7 @@ ulong sa_get_tolud_base(struct udevice *dev);
  * for Graphics Translation Tables.
  *
  * @dev: hostbridge device
- * Return: GSM address
+ * @return GSM address
  */
 ulong sa_get_gsm_base(struct udevice *dev);
 
@@ -65,7 +65,7 @@ ulong sa_get_gsm_base(struct udevice *dev);
  *
  * This returns the top address of DRAM available below 4GB
  *
- * Return: TSEG base
+ * @return TSEG base
  */
 ulong sa_get_tseg_base(struct udevice *dev);
 

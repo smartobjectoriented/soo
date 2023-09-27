@@ -132,7 +132,7 @@ static const struct ipd_port_map ipd_port_map_75xx[CVMX_HELPER_MAX_IFACE] = {
  *
  * @param mode   Mode to convert
  *
- * Return: String
+ * @return String
  */
 const char *cvmx_helper_interface_mode_to_string(cvmx_helper_interface_mode_t mode)
 {
@@ -729,7 +729,7 @@ void cvmx_helper_setup_legacy_red(int pass_thresh, int drop_thresh)
  * @param drop_thresh
  *               All incoming packets will be dropped when there are less
  *               than this many free packet buffers in FPA 0.
- * Return: Zero on success. Negative on failure
+ * @return Zero on success. Negative on failure
  */
 int cvmx_helper_setup_red(int pass_thresh, int drop_thresh)
 {
@@ -749,7 +749,7 @@ int cvmx_helper_setup_red(int pass_thresh, int drop_thresh)
  * @param xiface Interface to configure
  * @param num_ports Number of ports on the interface
  *
- * Return: Zero on success, negative on failure
+ * @return Zero on success, negative on failure
  */
 int __cvmx_helper_setup_gmx(int xiface, int num_ports)
 {
@@ -984,7 +984,7 @@ int cvmx_helper_get_bpid(int interface, int port)
  *
  * @param port IPD/PKO port number
  *
- * Return: none
+ * @return none
  */
 void cvmx_helper_show_stats(int port)
 {
@@ -1013,7 +1013,7 @@ void cvmx_helper_show_stats(int port)
  *
  * @param ipd_port IPD/PKO port number
  *
- * Return: Interface number
+ * @return Interface number
  */
 int cvmx_helper_get_interface_num(int ipd_port)
 {
@@ -1096,7 +1096,7 @@ int cvmx_helper_get_interface_num(int ipd_port)
  *
  * @param ipd_port IPD/PKO port number
  *
- * Return: Interface index number
+ * @return Interface index number
  */
 int cvmx_helper_get_interface_index_num(int ipd_port)
 {

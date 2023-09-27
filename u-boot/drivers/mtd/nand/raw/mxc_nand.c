@@ -10,9 +10,8 @@
 #include <nand.h>
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <linux/mtd/rawnand.h>
 #include <asm/io.h>
-#if defined(CONFIG_MX27) || \
+#if defined(CONFIG_MX25) || defined(CONFIG_MX27) || defined(CONFIG_MX35) || \
 	defined(CONFIG_MX51) || defined(CONFIG_MX53)
 #include <asm/arch/imx-regs.h>
 #endif

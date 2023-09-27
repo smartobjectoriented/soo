@@ -18,6 +18,8 @@
 #include <acpi/acpi_device.h>
 #include <asm/gpio.h>
 #include <asm/io.h>
+#include <asm/arch/iomap.h>
+#include <asm/arch/pm.h>
 #include <linux/delay.h>
 #include <dm/acpi.h>
 
@@ -467,7 +469,7 @@ out_err:
  * TPM finished reset processing.
  *
  * @dev: Cr50 device
- * Return: 0 if OK, -EPERM if locality could not be taken
+ * @return 0 if OK, -EPERM if locality could not be taken
  */
 static int process_reset(struct udevice *dev)
 {

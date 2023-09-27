@@ -6,7 +6,8 @@
 /*
  * The MCP83xx's 1-2 GPIO controllers each with 32 bits.
  */
-#if defined(CONFIG_ARCH_MPC8313) || defined(CONFIG_ARCH_MPC8308)
+#if defined(CONFIG_ARCH_MPC8313) || defined(CONFIG_ARCH_MPC8308) || \
+	defined(CONFIG_ARCH_MPC8315)
 #define MPC83XX_GPIO_CTRLRS 1
 #elif defined(CONFIG_ARCH_MPC834X) || defined(CONFIG_ARCH_MPC837X) || \
 	defined(CONFIG_ARCH_MPC8309)

@@ -18,10 +18,6 @@
 #include <dm/platform_data/serial_pl01x.h>
 #include "pcie.h"
 #include <asm/armv8/mmu.h>
-#ifdef CONFIG_VIRTIO_NET
-#include <virtio_types.h>
-#include <virtio.h>
-#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -68,9 +64,6 @@ __weak void vexpress64_pcie_init(void)
 int board_init(void)
 {
 	vexpress64_pcie_init();
-#ifdef CONFIG_VIRTIO_NET
-	virtio_init();
-#endif
 	return 0;
 }
 
@@ -92,15 +85,7 @@ int dram_init_banksize(void)
 	return 0;
 }
 
-/* Assigned in lowlevel_init.S
- * Push the variable into the .data section so that it
- * does not get cleared later.
- */
-unsigned long __section(".data") prior_stage_fdt_address;
-
 #ifdef CONFIG_OF_BOARD
-
-#ifdef CONFIG_TARGET_VEXPRESS64_JUNO
 #define JUNO_FLASH_SEC_SIZE	(256 * 1024)
 static phys_addr_t find_dtb_in_nor_flash(const char *partname)
 {
@@ -145,36 +130,15 @@ static phys_addr_t find_dtb_in_nor_flash(const char *partname)
 
 	return ~0;
 }
-#endif
 
-void *board_fdt_blob_setup(int *err)
+void *board_fdt_blob_setup(void)
 {
-#ifdef CONFIG_TARGET_VEXPRESS64_JUNO
 	phys_addr_t fdt_rom_addr = find_dtb_in_nor_flash(CONFIG_JUNO_DTB_PART);
 
-	*err = 0;
-	if (fdt_rom_addr == ~0UL) {
-		*err = -ENXIO;
+	if (fdt_rom_addr == ~0UL)
 		return NULL;
-	}
 
 	return (void *)fdt_rom_addr;
-#endif
-
-#ifdef VEXPRESS_FDT_ADDR
-	if (fdt_magic(VEXPRESS_FDT_ADDR) == FDT_MAGIC) {
-		*err = 0;
-		return (void *)VEXPRESS_FDT_ADDR;
-	}
-#endif
-
-	if (fdt_magic(prior_stage_fdt_address) == FDT_MAGIC) {
-		*err = 0;
-		return (void *)prior_stage_fdt_address;
-	}
-
-	*err = -ENXIO;
-	return NULL;
 }
 #endif
 

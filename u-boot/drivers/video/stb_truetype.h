@@ -497,6 +497,7 @@ STBTT_DEF void stbtt_GetBakedQuad(stbtt_bakedchar *chardata, int pw, int ph,  //
 // It's inefficient; you might want to c&p it and optimize it.
 
 
+
 //////////////////////////////////////////////////////////////////////////////
 //
 // NEW TEXTURE BAKING API

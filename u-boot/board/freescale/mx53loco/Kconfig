@@ -12,7 +12,4 @@ config SYS_SOC
 config SYS_CONFIG_NAME
 	default "mx53loco"
 
-config IMX_CONFIG
-	default "board/freescale/mx53loco/imximage.cfg"
-
 endif

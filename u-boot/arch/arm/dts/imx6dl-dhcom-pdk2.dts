@@ -6,7 +6,6 @@
 /dts-v1/;
 
 #include "imx6dl.dtsi"
-#include "imx6qdl-dhcom-som.dtsi"
 #include "imx6qdl-dhcom-pdk2.dtsi"
 
 / {

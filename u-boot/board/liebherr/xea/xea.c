@@ -58,7 +58,7 @@ static void init_clocks(void)
 	mxs_set_sspclk(MXC_SSPCLK3, 96000, 0);
 }
 
-#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_FRAMEWORK)
+#ifdef CONFIG_SPL_BUILD
 void board_init_f(ulong arg)
 {
 	init_clocks();

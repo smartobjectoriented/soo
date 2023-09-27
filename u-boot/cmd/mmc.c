@@ -22,18 +22,10 @@ static void print_mmcinfo(struct mmc *mmc)
 
 	printf("Device: %s\n", mmc->cfg->name);
 	printf("Manufacturer ID: %x\n", mmc->cid[0] >> 24);
-	if (IS_SD(mmc)) {
-		printf("OEM: %x\n", (mmc->cid[0] >> 8) & 0xffff);
-		printf("Name: %c%c%c%c%c \n", mmc->cid[0] & 0xff,
-		(mmc->cid[1] >> 24), (mmc->cid[1] >> 16) & 0xff,
-		(mmc->cid[1] >> 8) & 0xff, mmc->cid[1] & 0xff);
-	} else {
-		printf("OEM: %x\n", (mmc->cid[0] >> 8) & 0xff);
-		printf("Name: %c%c%c%c%c%c \n", mmc->cid[0] & 0xff,
-		(mmc->cid[1] >> 24), (mmc->cid[1] >> 16) & 0xff,
-		(mmc->cid[1] >> 8) & 0xff, mmc->cid[1] & 0xff,
-		(mmc->cid[2] >> 24));
-	}
+	printf("OEM: %x\n", (mmc->cid[0] >> 8) & 0xffff);
+	printf("Name: %c%c%c%c%c \n", mmc->cid[0] & 0xff,
+			(mmc->cid[1] >> 24), (mmc->cid[1] >> 16) & 0xff,
+			(mmc->cid[1] >> 8) & 0xff, mmc->cid[1] & 0xff);
 
 	printf("Bus Speed: %d\n", mmc->clock);
 #if CONFIG_IS_ENABLED(MMC_VERBOSE)
@@ -128,9 +120,7 @@ static void print_mmcinfo(struct mmc *mmc)
 		}
 	}
 }
-
-static struct mmc *__init_mmc_device(int dev, bool force_init,
-				     enum bus_mode speed_mode)
+static struct mmc *init_mmc_device(int dev, bool force_init)
 {
 	struct mmc *mmc;
 	mmc = find_mmc_device(dev);
@@ -144,10 +134,6 @@ static struct mmc *__init_mmc_device(int dev, bool force_init,
 
 	if (force_init)
 		mmc->has_init = 0;
-
-	if (IS_ENABLED(CONFIG_MMC_SPEED_MODE_SET))
-		mmc->user_speed_mode = speed_mode;
-
 	if (mmc_init(mmc))
 		return NULL;
 
@@ -157,11 +143,6 @@ static struct mmc *__init_mmc_device(int dev, bool force_init,
 #endif
 
 	return mmc;
-}
-
-static struct mmc *init_mmc_device(int dev, bool force_init)
-{
-	return __init_mmc_device(dev, force_init, MMC_MODES_END);
 }
 
 static int do_mmcinfo(struct cmd_tbl *cmdtp, int flag, int argc,
@@ -208,7 +189,7 @@ static int do_mmcrpmb_key(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 2)
 		return CMD_RET_USAGE;
 
-	key_addr = (void *)hextoul(argv[1], NULL);
+	key_addr = (void *)simple_strtoul(argv[1], NULL, 16);
 	if (!confirm_key_prog())
 		return CMD_RET_FAILURE;
 	if (mmc_rpmb_set_key(mmc, key_addr)) {
@@ -230,12 +211,12 @@ static int do_mmcrpmb_read(struct cmd_tbl *cmdtp, int flag,
 	if (argc < 4)
 		return CMD_RET_USAGE;
 
-	addr = (void *)hextoul(argv[1], NULL);
-	blk = hextoul(argv[2], NULL);
-	cnt = hextoul(argv[3], NULL);
+	addr = (void *)simple_strtoul(argv[1], NULL, 16);
+	blk = simple_strtoul(argv[2], NULL, 16);
+	cnt = simple_strtoul(argv[3], NULL, 16);
 
 	if (argc == 5)
-		key_addr = (void *)hextoul(argv[4], NULL);
+		key_addr = (void *)simple_strtoul(argv[4], NULL, 16);
 
 	printf("\nMMC RPMB read: dev # %d, block # %d, count %d ... ",
 	       curr_device, blk, cnt);
@@ -259,10 +240,10 @@ static int do_mmcrpmb_write(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 5)
 		return CMD_RET_USAGE;
 
-	addr = (void *)hextoul(argv[1], NULL);
-	blk = hextoul(argv[2], NULL);
-	cnt = hextoul(argv[3], NULL);
-	key_addr = (void *)hextoul(argv[4], NULL);
+	addr = (void *)simple_strtoul(argv[1], NULL, 16);
+	blk = simple_strtoul(argv[2], NULL, 16);
+	cnt = simple_strtoul(argv[3], NULL, 16);
+	key_addr = (void *)simple_strtoul(argv[4], NULL, 16);
 
 	printf("\nMMC RPMB write: dev # %d, block # %d, count %d ... ",
 	       curr_device, blk, cnt);
@@ -353,9 +334,9 @@ static int do_mmc_read(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 4)
 		return CMD_RET_USAGE;
 
-	addr = (void *)hextoul(argv[1], NULL);
-	blk = hextoul(argv[2], NULL);
-	cnt = hextoul(argv[3], NULL);
+	addr = (void *)simple_strtoul(argv[1], NULL, 16);
+	blk = simple_strtoul(argv[2], NULL, 16);
+	cnt = simple_strtoul(argv[3], NULL, 16);
 
 	mmc = init_mmc_device(curr_device, false);
 	if (!mmc)
@@ -398,8 +379,8 @@ static int do_mmc_sparse_write(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 3)
 		return CMD_RET_USAGE;
 
-	addr = (void *)hextoul(argv[1], NULL);
-	blk = hextoul(argv[2], NULL);
+	addr = (void *)simple_strtoul(argv[1], NULL, 16);
+	blk = simple_strtoul(argv[2], NULL, 16);
 
 	if (!is_sparse_image(addr)) {
 		printf("Not a sparse image\n");
@@ -446,9 +427,9 @@ static int do_mmc_write(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 4)
 		return CMD_RET_USAGE;
 
-	addr = (void *)hextoul(argv[1], NULL);
-	blk = hextoul(argv[2], NULL);
-	cnt = hextoul(argv[3], NULL);
+	addr = (void *)simple_strtoul(argv[1], NULL, 16);
+	blk = simple_strtoul(argv[2], NULL, 16);
+	cnt = simple_strtoul(argv[3], NULL, 16);
 
 	mmc = init_mmc_device(curr_device, false);
 	if (!mmc)
@@ -476,8 +457,8 @@ static int do_mmc_erase(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 3)
 		return CMD_RET_USAGE;
 
-	blk = hextoul(argv[1], NULL);
-	cnt = hextoul(argv[2], NULL);
+	blk = simple_strtoul(argv[1], NULL, 16);
+	cnt = simple_strtoul(argv[2], NULL, 16);
 
 	mmc = init_mmc_device(curr_device, false);
 	if (!mmc)
@@ -501,17 +482,8 @@ static int do_mmc_rescan(struct cmd_tbl *cmdtp, int flag,
 			 int argc, char *const argv[])
 {
 	struct mmc *mmc;
-	enum bus_mode speed_mode = MMC_MODES_END;
 
-	if (argc == 1) {
-		mmc = init_mmc_device(curr_device, true);
-	} else if (argc == 2) {
-		speed_mode = (int)dectoul(argv[1], NULL);
-		mmc = __init_mmc_device(curr_device, true, speed_mode);
-	} else {
-		return CMD_RET_USAGE;
-	}
-
+	mmc = init_mmc_device(curr_device, true);
 	if (!mmc)
 		return CMD_RET_FAILURE;
 
@@ -543,37 +515,24 @@ static int do_mmc_dev(struct cmd_tbl *cmdtp, int flag,
 {
 	int dev, part = 0, ret;
 	struct mmc *mmc;
-	enum bus_mode speed_mode = MMC_MODES_END;
 
 	if (argc == 1) {
 		dev = curr_device;
-		mmc = init_mmc_device(dev, true);
 	} else if (argc == 2) {
-		dev = (int)dectoul(argv[1], NULL);
-		mmc = init_mmc_device(dev, true);
+		dev = simple_strtoul(argv[1], NULL, 10);
 	} else if (argc == 3) {
-		dev = (int)dectoul(argv[1], NULL);
-		part = (int)dectoul(argv[2], NULL);
+		dev = (int)simple_strtoul(argv[1], NULL, 10);
+		part = (int)simple_strtoul(argv[2], NULL, 10);
 		if (part > PART_ACCESS_MASK) {
 			printf("#part_num shouldn't be larger than %d\n",
 			       PART_ACCESS_MASK);
 			return CMD_RET_FAILURE;
 		}
-		mmc = init_mmc_device(dev, true);
-	} else if (argc == 4) {
-		dev = (int)dectoul(argv[1], NULL);
-		part = (int)dectoul(argv[2], NULL);
-		if (part > PART_ACCESS_MASK) {
-			printf("#part_num shouldn't be larger than %d\n",
-			       PART_ACCESS_MASK);
-			return CMD_RET_FAILURE;
-		}
-		speed_mode = (int)dectoul(argv[3], NULL);
-		mmc = __init_mmc_device(dev, true, speed_mode);
 	} else {
 		return CMD_RET_USAGE;
 	}
 
+	mmc = init_mmc_device(dev, true);
 	if (!mmc)
 		return CMD_RET_FAILURE;
 
@@ -601,51 +560,7 @@ static int do_mmc_list(struct cmd_tbl *cmdtp, int flag,
 }
 
 #if CONFIG_IS_ENABLED(MMC_HW_PARTITIONING)
-static void parse_hwpart_user_enh_size(struct mmc *mmc,
-				       struct mmc_hwpart_conf *pconf,
-				       char *argv)
-{
-	int i, ret;
-
-	pconf->user.enh_size = 0;
-
-	if (!strcmp(argv, "-"))	{ /* The rest of eMMC */
-		ALLOC_CACHE_ALIGN_BUFFER(u8, ext_csd, MMC_MAX_BLOCK_LEN);
-		ret = mmc_send_ext_csd(mmc, ext_csd);
-		if (ret)
-			return;
-		/* The enh_size value is in 512B block units */
-		pconf->user.enh_size =
-			((ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT + 2] << 16) +
-			(ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT + 1] << 8) +
-			ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT]) * 1024 *
-			ext_csd[EXT_CSD_HC_ERASE_GRP_SIZE] *
-			ext_csd[EXT_CSD_HC_WP_GRP_SIZE];
-		pconf->user.enh_size -= pconf->user.enh_start;
-		for (i = 0; i < ARRAY_SIZE(mmc->capacity_gp); i++) {
-			/*
-			 * If the eMMC already has GP partitions set,
-			 * subtract their size from the maximum USER
-			 * partition size.
-			 *
-			 * Else, if the command was used to configure new
-			 * GP partitions, subtract their size from maximum
-			 * USER partition size.
-			 */
-			if (mmc->capacity_gp[i]) {
-				/* The capacity_gp is in 1B units */
-				pconf->user.enh_size -= mmc->capacity_gp[i] >> 9;
-			} else if (pconf->gp_part[i].size) {
-				/* The gp_part[].size is in 512B units */
-				pconf->user.enh_size -= pconf->gp_part[i].size;
-			}
-		}
-	} else {
-		pconf->user.enh_size = dectoul(argv, NULL);
-	}
-}
-
-static int parse_hwpart_user(struct mmc *mmc, struct mmc_hwpart_conf *pconf,
+static int parse_hwpart_user(struct mmc_hwpart_conf *pconf,
 			     int argc, char *const argv[])
 {
 	int i = 0;
@@ -657,8 +572,9 @@ static int parse_hwpart_user(struct mmc *mmc, struct mmc_hwpart_conf *pconf,
 			if (i + 2 >= argc)
 				return -1;
 			pconf->user.enh_start =
-				dectoul(argv[i + 1], NULL);
-			parse_hwpart_user_enh_size(mmc, pconf, argv[i + 2]);
+				simple_strtoul(argv[i+1], NULL, 10);
+			pconf->user.enh_size =
+				simple_strtoul(argv[i+2], NULL, 10);
 			i += 3;
 		} else if (!strcmp(argv[i], "wrrel")) {
 			if (i + 1 >= argc)
@@ -687,7 +603,7 @@ static int parse_hwpart_gp(struct mmc_hwpart_conf *pconf, int pidx,
 
 	if (1 >= argc)
 		return -1;
-	pconf->gp_part[pidx].size = dectoul(argv[0], NULL);
+	pconf->gp_part[pidx].size = simple_strtoul(argv[0], NULL, 10);
 
 	i = 1;
 	while (i < argc) {
@@ -724,18 +640,13 @@ static int do_mmc_hwpartition(struct cmd_tbl *cmdtp, int flag,
 	if (!mmc)
 		return CMD_RET_FAILURE;
 
-	if (IS_SD(mmc)) {
-		puts("SD doesn't support partitioning\n");
-		return CMD_RET_FAILURE;
-	}
-
 	if (argc < 1)
 		return CMD_RET_USAGE;
 	i = 1;
 	while (i < argc) {
 		if (!strcmp(argv[i], "user")) {
 			i++;
-			r = parse_hwpart_user(mmc, &pconf, argc - i, &argv[i]);
+			r = parse_hwpart_user(&pconf, argc-i, &argv[i]);
 			if (r < 0)
 				return CMD_RET_USAGE;
 			i += r;
@@ -810,10 +721,10 @@ static int do_mmc_bootbus(struct cmd_tbl *cmdtp, int flag,
 
 	if (argc != 5)
 		return CMD_RET_USAGE;
-	dev = dectoul(argv[1], NULL);
-	width = dectoul(argv[2], NULL);
-	reset = dectoul(argv[3], NULL);
-	mode = dectoul(argv[4], NULL);
+	dev = simple_strtoul(argv[1], NULL, 10);
+	width = simple_strtoul(argv[2], NULL, 10);
+	reset = simple_strtoul(argv[3], NULL, 10);
+	mode = simple_strtoul(argv[4], NULL, 10);
 
 	mmc = init_mmc_device(dev, false);
 	if (!mmc)
@@ -874,9 +785,9 @@ static int do_mmc_boot_resize(struct cmd_tbl *cmdtp, int flag,
 
 	if (argc != 4)
 		return CMD_RET_USAGE;
-	dev = dectoul(argv[1], NULL);
-	bootsize = dectoul(argv[2], NULL);
-	rpmbsize = dectoul(argv[3], NULL);
+	dev = simple_strtoul(argv[1], NULL, 10);
+	bootsize = simple_strtoul(argv[2], NULL, 10);
+	rpmbsize = simple_strtoul(argv[3], NULL, 10);
 
 	mmc = init_mmc_device(dev, false);
 	if (!mmc)
@@ -931,7 +842,7 @@ static int do_mmc_partconf(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 2 && argc != 3 && argc != 5)
 		return CMD_RET_USAGE;
 
-	dev = dectoul(argv[1], NULL);
+	dev = simple_strtoul(argv[1], NULL, 10);
 
 	mmc = init_mmc_device(dev, false);
 	if (!mmc)
@@ -945,9 +856,9 @@ static int do_mmc_partconf(struct cmd_tbl *cmdtp, int flag,
 	if (argc == 2 || argc == 3)
 		return mmc_partconf_print(mmc, argc == 3 ? argv[2] : NULL);
 
-	ack = dectoul(argv[2], NULL);
-	part_num = dectoul(argv[3], NULL);
-	access = dectoul(argv[4], NULL);
+	ack = simple_strtoul(argv[2], NULL, 10);
+	part_num = simple_strtoul(argv[3], NULL, 10);
+	access = simple_strtoul(argv[4], NULL, 10);
 
 	/* acknowledge to be sent during boot operation */
 	return mmc_set_part_conf(mmc, ack, part_num, access);
@@ -968,8 +879,8 @@ static int do_mmc_rst_func(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 3)
 		return CMD_RET_USAGE;
 
-	dev = dectoul(argv[1], NULL);
-	enable = dectoul(argv[2], NULL);
+	dev = simple_strtoul(argv[1], NULL, 10);
+	enable = simple_strtoul(argv[2], NULL, 10);
 
 	if (enable > 2) {
 		puts("Invalid RST_n_ENABLE value\n");
@@ -997,7 +908,7 @@ static int do_mmc_setdsr(struct cmd_tbl *cmdtp, int flag,
 
 	if (argc != 2)
 		return CMD_RET_USAGE;
-	val = hextoul(argv[1], NULL);
+	val = simple_strtoul(argv[1], NULL, 16);
 
 	mmc = find_mmc_device(curr_device);
 	if (!mmc) {
@@ -1026,7 +937,7 @@ static int do_mmc_bkops_enable(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 2)
 		return CMD_RET_USAGE;
 
-	dev = dectoul(argv[1], NULL);
+	dev = simple_strtoul(argv[1], NULL, 10);
 
 	mmc = init_mmc_device(dev, false);
 	if (!mmc)
@@ -1072,9 +983,9 @@ static struct cmd_tbl cmd_mmc[] = {
 #if CONFIG_IS_ENABLED(CMD_MMC_SWRITE)
 	U_BOOT_CMD_MKENT(swrite, 3, 0, do_mmc_sparse_write, "", ""),
 #endif
-	U_BOOT_CMD_MKENT(rescan, 2, 1, do_mmc_rescan, "", ""),
+	U_BOOT_CMD_MKENT(rescan, 1, 1, do_mmc_rescan, "", ""),
 	U_BOOT_CMD_MKENT(part, 1, 1, do_mmc_part, "", ""),
-	U_BOOT_CMD_MKENT(dev, 4, 0, do_mmc_dev, "", ""),
+	U_BOOT_CMD_MKENT(dev, 3, 0, do_mmc_dev, "", ""),
 	U_BOOT_CMD_MKENT(list, 1, 1, do_mmc_list, "", ""),
 #if CONFIG_IS_ENABLED(MMC_HW_PARTITIONING)
 	U_BOOT_CMD_MKENT(hwpartition, 28, 0, do_mmc_hwpartition, "", ""),
@@ -1131,12 +1042,9 @@ U_BOOT_CMD(
 	"mmc swrite addr blk#\n"
 #endif
 	"mmc erase blk# cnt\n"
-	"mmc rescan [mode]\n"
+	"mmc rescan\n"
 	"mmc part - lists available partition on current mmc device\n"
-	"mmc dev [dev] [part] [mode] - show or set current mmc device [partition] and set mode\n"
-	"  - the required speed mode is passed as the index from the following list\n"
-	"    [MMC_LEGACY, MMC_HS, SD_HS, MMC_HS_52, MMC_DDR_52, UHS_SDR12, UHS_SDR25,\n"
-	"    UHS_SDR50, UHS_DDR50, UHS_SDR104, MMC_HS_200, MMC_HS_400, MMC_HS_400_ES]\n"
+	"mmc dev [dev] [part] - show or set current mmc device [partition]\n"
 	"mmc list - lists available devices\n"
 	"mmc wp - power on write protect boot partitions\n"
 #if CONFIG_IS_ENABLED(MMC_HW_PARTITIONING)

@@ -70,7 +70,3 @@ __weak int dcache_status(void)
 {
 	return 0;
 }
-
-__weak void enable_caches(void)
-{
-}

@@ -20,7 +20,6 @@ import io
 import struct
 import sys
 
-from binman import comp_util
 from binman import elf
 from patman import command
 from patman import tools
@@ -189,9 +188,9 @@ def _pack_string(instr):
     Returns:
         String with required padding (at least one 0x00 byte) at the end
     """
-    val = tools.to_bytes(instr)
+    val = tools.ToBytes(instr)
     pad_len = align_int(len(val) + 1, FILENAME_ALIGN)
-    return val + tools.get_bytes(0, pad_len - len(val))
+    return val + tools.GetBytes(0, pad_len - len(val))
 
 
 class CbfsFile(object):
@@ -241,9 +240,9 @@ class CbfsFile(object):
         """Handle decompressing data if necessary"""
         indata = self.data
         if self.compress == COMPRESS_LZ4:
-            data = comp_util.decompress(indata, 'lz4', with_header=False)
+            data = tools.Decompress(indata, 'lz4', with_header=False)
         elif self.compress == COMPRESS_LZMA:
-            data = comp_util.decompress(indata, 'lzma', with_header=False)
+            data = tools.Decompress(indata, 'lzma', with_header=False)
         else:
             data = indata
         self.memlen = len(data)
@@ -362,16 +361,16 @@ class CbfsFile(object):
         elif self.ftype == TYPE_RAW:
             orig_data = data
             if self.compress == COMPRESS_LZ4:
-                data = comp_util.compress(orig_data, 'lz4', with_header=False)
+                data = tools.Compress(orig_data, 'lz4', with_header=False)
             elif self.compress == COMPRESS_LZMA:
-                data = comp_util.compress(orig_data, 'lzma', with_header=False)
+                data = tools.Compress(orig_data, 'lzma', with_header=False)
             self.memlen = len(orig_data)
             self.data_len = len(data)
             attr = struct.pack(ATTR_COMPRESSION_FORMAT,
                                FILE_ATTR_TAG_COMPRESSION, ATTR_COMPRESSION_LEN,
                                self.compress, self.memlen)
         elif self.ftype == TYPE_EMPTY:
-            data = tools.get_bytes(self.erase_byte, self.size)
+            data = tools.GetBytes(self.erase_byte, self.size)
         else:
             raise ValueError('Unknown type %#x when writing\n' % self.ftype)
         if attr:
@@ -388,7 +387,7 @@ class CbfsFile(object):
                 # possible.
                 raise ValueError("Internal error: CBFS file '%s': Requested offset %#x but current output position is %#x" %
                                  (self.name, self.cbfs_offset, offset))
-            pad = tools.get_bytes(pad_byte, pad_len)
+            pad = tools.GetBytes(pad_byte, pad_len)
             hdr_len += pad_len
 
         # This is the offset of the start of the file's data,
@@ -414,7 +413,7 @@ class CbfsWriter(object):
     Usage is something like:
 
         cbw = CbfsWriter(size)
-        cbw.add_file_raw('u-boot', tools.read_file('u-boot.bin'))
+        cbw.add_file_raw('u-boot', tools.ReadFile('u-boot.bin'))
         ...
         data, cbfs_offset = cbw.get_data_and_offset()
 
@@ -482,7 +481,7 @@ class CbfsWriter(object):
         if fd.tell() > offset:
             raise ValueError('No space for data before offset %#x (current offset %#x)' %
                              (offset, fd.tell()))
-        fd.write(tools.get_bytes(self._erase_byte, offset - fd.tell()))
+        fd.write(tools.GetBytes(self._erase_byte, offset - fd.tell()))
 
     def _pad_to(self, fd, offset):
         """Write out pad bytes and/or an empty file until a given offset
@@ -862,3 +861,27 @@ class CbfsReader(object):
                 val += data[:pos]
                 break
         return val.decode('utf-8')
+
+
+def cbfstool(fname, *cbfs_args, **kwargs):
+    """Run cbfstool with provided arguments
+
+    If the tool fails then this function raises an exception and prints out the
+    output and stderr.
+
+    Args:
+        fname: Filename of CBFS
+        *cbfs_args: List of arguments to pass to cbfstool
+
+    Returns:
+        CommandResult object containing the results
+    """
+    args = ['cbfstool', fname] + list(cbfs_args)
+    if kwargs.get('base') is not None:
+        args += ['-b', '%#x' % kwargs['base']]
+    result = command.RunPipe([args], capture=not VERBOSE,
+                             capture_stderr=not VERBOSE, raise_on_error=False)
+    if result.return_code:
+        print(result.stderr, file=sys.stderr)
+        raise Exception("Failed to run (error %d): '%s'" %
+                        (result.return_code, ' '.join(args)))

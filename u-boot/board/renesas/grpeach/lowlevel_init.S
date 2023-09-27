@@ -4,6 +4,7 @@
  * Copyright (C) 2017 Chris Brandt
  */
 #include <config.h>
+#include <version.h>
 #include <asm/macro.h>
 
 /* Watchdog Registers */

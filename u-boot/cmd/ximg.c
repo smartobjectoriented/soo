@@ -59,16 +59,16 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	verify = env_get_yesno("verify");
 
 	if (argc > 1) {
-		addr = hextoul(argv[1], NULL);
+		addr = simple_strtoul(argv[1], NULL, 16);
 	}
 	if (argc > 2) {
-		part = hextoul(argv[2], NULL);
+		part = simple_strtoul(argv[2], NULL, 16);
 #if defined(CONFIG_FIT)
 		uname = argv[2];
 #endif
 	}
 	if (argc > 3) {
-		dest = hextoul(argv[3], NULL);
+		dest = simple_strtoul(argv[3], NULL, 16);
 	}
 
 	switch (genimg_get_format((void *)addr)) {

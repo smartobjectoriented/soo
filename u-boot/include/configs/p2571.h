@@ -15,6 +15,7 @@
 #define CONFIG_TEGRA_BOARD_STRING	"NVIDIA P2571"
 
 /* Board-specific serial config */
+#define CONFIG_SERIAL_MULTI
 #define CONFIG_TEGRA_ENABLE_UARTA
 
 /* Environment in eMMC, at the end of 2nd "boot sector" */

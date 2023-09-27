@@ -320,6 +320,7 @@ void sha384_csum_wd(const unsigned char *input, unsigned int ilen,
 
 #endif
 
+#if defined(CONFIG_SHA512)
 void sha512_starts(sha512_context * ctx)
 {
 	ctx->state[0] = SHA512_H0;
@@ -380,3 +381,4 @@ void sha512_csum_wd(const unsigned char *input, unsigned int ilen,
 
 	sha512_finish(&ctx, output);
 }
+#endif

@@ -134,6 +134,7 @@
 	.endm
 
 
+
 	.macro	___flush_invalidate_dcache_range ar as at
 
 #if XCHAL_DCACHE_SIZE
@@ -168,6 +169,7 @@
 #endif
 
 	.endm
+
 
 
 	.macro	___flush_invalidate_dcache_page ar as

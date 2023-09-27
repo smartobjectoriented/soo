@@ -699,7 +699,7 @@ enum clock_id get_periph_clock_id(enum periph_id periph_id, int source)
  * @param source	PLL id of required parent clock
  * @param mux_bits	Set to number of bits in mux register: 2 or 4
  * @param divider_bits Set to number of divider bits (8 or 16)
- * Return: mux value (0-4, or -1 if not found)
+ * @return mux value (0-4, or -1 if not found)
  */
 int get_periph_clock_source(enum periph_id periph_id,
 	enum clock_id parent, int *mux_bits, int *divider_bits)
@@ -773,7 +773,7 @@ void reset_set_enable(enum periph_id periph_id, int enable)
  * provided.
  *
  * @param clk_id    Clock ID according to tegra124 device tree binding
- * Return: peripheral ID, or PERIPH_ID_NONE if the clock ID is invalid
+ * @return peripheral ID, or PERIPH_ID_NONE if the clock ID is invalid
  */
 enum periph_id clk_id_to_periph_id(int clk_id)
 {
@@ -899,7 +899,7 @@ void clock_early_init(void)
  * Check a register that we set up to see if clock_early_init() has already
  * been called.
  *
- * Return: true if clock_early_init() was called, false if not
+ * @return true if clock_early_init() was called, false if not
  */
 bool clock_early_init_done(void)
 {

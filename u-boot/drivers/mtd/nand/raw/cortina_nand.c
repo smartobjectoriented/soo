@@ -16,7 +16,6 @@
 #include <linux/delay.h>
 #include <linux/iopoll.h>
 #include <linux/errno.h>
-#include <linux/mtd/rawnand.h>
 #include <asm/gpio.h>
 #include <fdtdec.h>
 #include <bouncebuf.h>
@@ -83,7 +82,7 @@ static int nand_waitfor_cmd_completion(struct nand_ctlr *reg, unsigned int mask)
  * Read one byte from the chip
  *
  * @param mtd	MTD device structure
- * Return:	data byte
+ * @return	data byte
  *
  * Read function for 8bit bus-width
  */
@@ -504,7 +503,7 @@ static void ca_nand_command(struct mtd_info *mtd, unsigned int command,
  * Set up NAND bus width and page size
  *
  * @param info		nand_info structure
- * Return: 0 if ok, -1 on error
+ * @return 0 if ok, -1 on error
  */
 static int set_bus_width_page_size(struct mtd_info *mtd)
 {
@@ -724,7 +723,7 @@ static int ca_do_bch_encode(struct mtd_info *mtd, struct nand_chip *chip,
  * @param page		page number
  * @param with_ecc	1 to enable ECC, 0 to disable ECC
  * @param is_writing	0 for read, 1 for write
- * Return:		0 when successfully completed
+ * @return		0 when successfully completed
  *			-ETIMEDOUT when command timeout
  */
 static int nand_rw_page(struct mtd_info *mtd, struct nand_chip *chip,
@@ -952,7 +951,7 @@ static int nand_rw_page(struct mtd_info *mtd, struct nand_chip *chip,
  * @param chip	nand chip info structure
  * @param buf	buffer to store read data
  * @param page	page number to read
- * Return:	0 when successfully completed
+ * @return	0 when successfully completed
  *		-ETIMEDOUT when command timeout
  */
 static int nand_read_page_hwecc(struct mtd_info *mtd,
@@ -980,7 +979,7 @@ static int nand_read_page_hwecc(struct mtd_info *mtd,
  * @param mtd	mtd info structure
  * @param chip	nand chip info structure
  * @param buf	data buffer
- * Return:	0 when successfully completed
+ * @return	0 when successfully completed
  *		-ETIMEDOUT when command timeout
  */
 static int nand_write_page_hwecc(struct mtd_info *mtd,
@@ -1009,7 +1008,7 @@ static int nand_write_page_hwecc(struct mtd_info *mtd,
  * @param chip	nand chip info structure
  * @param buf	buffer to store read data
  * @param page	page number to read
- * Return:	0 when successfully completed
+ * @return	0 when successfully completed
  *		-ETIMEDOUT when command timeout
  */
 static int nand_read_page_raw(struct mtd_info *mtd,
@@ -1037,7 +1036,7 @@ static int nand_read_page_raw(struct mtd_info *mtd,
  * @param mtd	mtd info structure
  * @param chip	nand chip info structure
  * @param buf	data buffer
- * Return:	0 when successfully completed
+ * @return	0 when successfully completed
  *		-ETIMEDOUT when command timeout
  */
 static int nand_write_page_raw(struct mtd_info *mtd,
@@ -1067,7 +1066,7 @@ static int nand_write_page_raw(struct mtd_info *mtd,
  * @param page		page number to read
  * @param with_ecc	1 to enable ECC, 0 to disable ECC
  * @param is_writing	0 for read, 1 for write
- * Return:		0 when successfully completed
+ * @return		0 when successfully completed
  *			-ETIMEDOUT when command timeout
  */
 static int nand_rw_oob(struct mtd_info *mtd, struct nand_chip *chip,
@@ -1137,7 +1136,7 @@ static int nand_read_oob(struct mtd_info *mtd, struct nand_chip *chip, int page)
  * @param mtd	mtd info structure
  * @param chip	nand chip info structure
  * @param page	page number to write
- * Return:	0 when successfully completed
+ * @return	0 when successfully completed
  *		-ETIMEDOUT when command timeout
  */
 static int nand_write_oob(struct mtd_info *mtd, struct nand_chip *chip,
@@ -1239,7 +1238,7 @@ static void nand_config_flash_type(struct nand_chip *nand)
  * config oob layout
  *
  * @param chip  nand chip info structure
- * Return:	0 when successfully completed
+ * @return	0 when successfully completed
  *		-EINVAL when ECC bytes exceed OOB size
  */
 static int nand_config_oob_layout(struct nand_chip *nand)

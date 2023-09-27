@@ -157,15 +157,15 @@ static void cl_som_imx7_spl_dram_cfg(void)
 	}
 }
 
-#ifdef CONFIG_SPL_SPI
+#ifdef CONFIG_SPL_SPI_SUPPORT
 
 static void cl_som_imx7_spl_spi_init(void)
 {
 	cl_som_imx7_espi1_pads_set();
 }
-#else /* !CONFIG_SPL_SPI */
+#else /* !CONFIG_SPL_SPI_SUPPORT */
 static void cl_som_imx7_spl_spi_init(void) {}
-#endif /* CONFIG_SPL_SPI */
+#endif /* CONFIG_SPL_SPI_SUPPORT */
 
 void board_init_f(ulong dummy)
 {

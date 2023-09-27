@@ -13,7 +13,6 @@
 #include <spi_flash.h>
 #include <jffs2/load_kernel.h>
 #include <linux/mtd/mtd.h>
-#include <linux/ctype.h>
 
 static int dfu_get_medium_size_sf(struct dfu_entity *dfu, u64 *size)
 {
@@ -25,18 +24,8 @@ static int dfu_get_medium_size_sf(struct dfu_entity *dfu, u64 *size)
 static int dfu_read_medium_sf(struct dfu_entity *dfu, u64 offset, void *buf,
 			      long *len)
 {
-	long seglen = *len;
-	int ret;
-
-	if (seglen > (16 << 20))
-		seglen = (16 << 20);
-
-	ret = spi_flash_read(dfu->data.sf.dev, dfu->data.sf.start + offset,
-		seglen, buf);
-	if (!ret)
-		*len = seglen;
-
-	return ret;
+	return spi_flash_read(dfu->data.sf.dev, dfu->data.sf.start + offset,
+		*len, buf);
 }
 
 static u64 find_sector(struct dfu_entity *dfu, u64 start, u64 offset)
@@ -166,9 +155,9 @@ static struct spi_flash *parse_dev(char *devstr)
 	return dev;
 }
 
-int dfu_fill_entity_sf(struct dfu_entity *dfu, char *devstr, char **argv, int argc)
+int dfu_fill_entity_sf(struct dfu_entity *dfu, char *devstr, char *s)
 {
-	char *s;
+	char *st;
 	char *devstr_bkup = strdup(devstr);
 
 	dfu->data.sf.dev = parse_dev(devstr_bkup);
@@ -179,18 +168,14 @@ int dfu_fill_entity_sf(struct dfu_entity *dfu, char *devstr, char **argv, int ar
 	dfu->dev_type = DFU_DEV_SF;
 	dfu->max_buf_size = dfu->data.sf.dev->sector_size;
 
-	if (argc != 3)
-		return -EINVAL;
-	if (!strcmp(argv[0], "raw")) {
+	st = strsep(&s, " ");
+	if (!strcmp(st, "raw")) {
 		dfu->layout = DFU_RAW_ADDR;
-		dfu->data.sf.start = hextoul(argv[1], &s);
-		if (*s)
-			return -EINVAL;
-		dfu->data.sf.size = hextoul(argv[2], &s);
-		if (*s)
-			return -EINVAL;
+		dfu->data.sf.start = simple_strtoul(s, &s, 16);
+		s++;
+		dfu->data.sf.size = simple_strtoul(s, &s, 16);
 	} else if (CONFIG_IS_ENABLED(DFU_SF_PART) &&
-		   (!strcmp(argv[0], "part") || !strcmp(argv[0], "partubi"))) {
+		   (!strcmp(st, "part") || !strcmp(st, "partubi"))) {
 		char mtd_id[32];
 		struct mtd_device *mtd_dev;
 		u8 part_num;
@@ -199,12 +184,9 @@ int dfu_fill_entity_sf(struct dfu_entity *dfu, char *devstr, char **argv, int ar
 
 		dfu->layout = DFU_RAW_ADDR;
 
-		dev = dectoul(argv[1], &s);
-		if (*s)
-			return -EINVAL;
-		part = dectoul(argv[2], &s);
-		if (*s)
-			return -EINVAL;
+		dev = simple_strtoul(s, &s, 10);
+		s++;
+		part = simple_strtoul(s, &s, 10);
 
 		sprintf(mtd_id, "%s%d,%d", "nor", dev, part - 1);
 		printf("using id '%s'\n", mtd_id);
@@ -218,10 +200,10 @@ int dfu_fill_entity_sf(struct dfu_entity *dfu, char *devstr, char **argv, int ar
 		}
 		dfu->data.sf.start = pi->offset;
 		dfu->data.sf.size = pi->size;
-		if (!strcmp(argv[0], "partubi"))
+		if (!strcmp(st, "partubi"))
 			dfu->data.sf.ubi = 1;
 	} else {
-		printf("%s: Memory layout (%s) not supported!\n", __func__, argv[0]);
+		printf("%s: Memory layout (%s) not supported!\n", __func__, st);
 		spi_flash_free(dfu->data.sf.dev);
 		return -1;
 	}

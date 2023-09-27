@@ -937,10 +937,4 @@ int fdt_check_full(const void *fdt, size_t bufsize)
 		}
 	}
 }
-#else
-int fdt_check_full(const void __always_unused *fdt,
-		   size_t __always_unused bufsize)
-{
-	return 0;
-}
-#endif /* #if !defined(FDT_ASSUME_MASK) || FDT_ASSUME_MASK != 0xff */
+#endif

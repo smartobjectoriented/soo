@@ -5,8 +5,6 @@
  * Based on led-uclass.c
  */
 
-#define LOG_CATEGORY UCLASS_BUTTON
-
 #include <common.h>
 #include <button.h>
 #include <dm.h>

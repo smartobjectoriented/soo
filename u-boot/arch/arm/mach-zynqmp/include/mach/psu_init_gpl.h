@@ -22,6 +22,5 @@ void prog_reg(unsigned long addr, unsigned long mask,
 
 int psu_init(void);
 unsigned long psu_post_config_data(void);
-int psu_uboot_init(void);
 
 #endif /* _PSU_INIT_GPL_H_ */

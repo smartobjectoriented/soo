@@ -92,3 +92,4 @@ struct display_info_t const displays[] = {
 };
 
 size_t display_count = ARRAY_SIZE(displays);
+
