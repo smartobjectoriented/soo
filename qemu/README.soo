@@ -1,7 +1,7 @@
 
 
 QEMU for SO3 environment
-(c) 2013 HEIG-VD, REDS Institute
+(c) 2023 HEIG-VD, REDS Institute
 ################################
 
 Pre-requisite
@@ -26,6 +26,7 @@ Configure options:
 
 To build:
 
-make -j<#cpus>
+make -j $(nproc)
+
 
 
