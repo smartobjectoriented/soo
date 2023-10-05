@@ -17,7 +17,6 @@
 #include <asm/arch/crm_regs.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/iomux-mx53.h>
-#include <asm/mach-imx/boot_mode.h>
 #include <asm/mach-imx/mx5_video.h>
 #include <asm/mach-imx/video.h>
 #include <asm/gpio.h>
@@ -335,10 +334,6 @@ int splash_screen_prepare(void)
 
 int board_late_init(void)
 {
-#ifdef CONFIG_CMD_BMODE
-	add_board_boot_modes(NULL);
-#endif
-
 #if defined(CONFIG_VIDEO_IPUV3)
 	struct udevice *dev;
 	int xpos, ypos, ret;
@@ -352,7 +347,7 @@ int board_late_init(void)
 	if (!s)
 		return 0;
 
-	addr = hextoul(s, NULL);
+	addr = simple_strtoul(s, NULL, 16);
 	dst = malloc(CONFIG_SYS_VIDEO_LOGO_MAX_SIZE);
 	if (!dst)
 		return -ENOMEM;

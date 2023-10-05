@@ -49,7 +49,7 @@ static int setup(const efi_handle_t img_handle,
  *
  * @length:	length of the media device node
  * @dp:		device path
- * Return:	status code
+ * @return:	status code
  */
 static int create_single_node_device_path(unsigned int length,
 					  struct efi_device_path **dp)

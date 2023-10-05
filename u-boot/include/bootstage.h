@@ -11,8 +11,6 @@
 #ifndef _BOOTSTAGE_H
 #define _BOOTSTAGE_H
 
-#include <linux/kconfig.h>
-
 /* Flags for each bootstage record */
 enum bootstage_flags {
 	BOOTSTAGEF_ERROR	= 1 << 0,	/* Error record */
@@ -220,7 +218,7 @@ enum bootstage_id {
  */
 ulong timer_get_boot_us(void);
 
-#if defined(USE_HOSTCC) || !CONFIG_IS_ENABLED(SHOW_BOOT_PROGRESS)
+#if defined(USE_HOSTCC)
 #define show_boot_progress(val) do {} while (0)
 #else
 /**
@@ -248,7 +246,7 @@ void show_boot_progress(int val);
  * Call this after relocation has happened and after malloc has been initted.
  * We need to copy any pointers in bootstage records that were added pre-
  * relocation, since memory can be overwritten later.
- * Return: Always returns 0, to indicate success
+ * @return Always returns 0, to indicate success
  */
 int bootstage_relocate(void);
 
@@ -280,7 +278,7 @@ ulong bootstage_mark_name(enum bootstage_id id, const char *name);
  * @param file		Filename to record (NULL if none)
  * @param func		Function name to record
  * @param linenum	Line number to record
- * Return: recorded time stamp
+ * @return recorded time stamp
  */
 ulong bootstage_mark_code(const char *file, const char *func,
 			  int linenum);
@@ -294,7 +292,7 @@ ulong bootstage_mark_code(const char *file, const char *func,
  *
  * @param id	Bootstage id to record this timestamp against
  * @param name	Textual name to display for this id in the report (maybe NULL)
- * Return: start timestamp in microseconds
+ * @return start timestamp in microseconds
  */
 uint32_t bootstage_start(enum bootstage_id id, const char *name);
 
@@ -306,7 +304,7 @@ uint32_t bootstage_start(enum bootstage_id id, const char *name);
  * as many times as you like.
  *
  * @param id	Bootstage id to record this timestamp against
- * Return: time spent in this iteration of the activity (i.e. the time now
+ * @return time spent in this iteration of the activity (i.e. the time now
  *		less the start time recorded in the last bootstage_start() call
  *		with this id.
  */
@@ -318,7 +316,7 @@ void bootstage_report(void);
 /**
  * Add bootstage information to the device tree
  *
- * Return: 0 if ok, -ve on error
+ * @return 0 if ok, -ve on error
  */
 int bootstage_fdt_add_report(void);
 
@@ -327,7 +325,7 @@ int bootstage_fdt_add_report(void);
  *
  * @param base	Base address of memory buffer
  * @param size	Size of memory buffer
- * Return: 0 if stashed ok, -1 if out of space
+ * @return 0 if stashed ok, -1 if out of space
  */
 int bootstage_stash(void *base, int size);
 
@@ -339,7 +337,7 @@ int bootstage_stash(void *base, int size);
  *
  * @param base	Base address of memory buffer
  * @param size	Size of memory buffer (-1 if unknown)
- * Return: 0 if unstashed ok, -ENOENT if bootstage info not found, -ENOSPC if
+ * @return 0 if unstashed ok, -ENOENT if bootstage info not found, -ENOSPC if
  *	there is not space for read the stashed data, or other error if
  *	something else went wrong
  */
@@ -348,7 +346,7 @@ int bootstage_unstash(const void *base, int size);
 /**
  * bootstage_get_size() - Get the size of the bootstage data
  *
- * Return: size of boostage data in bytes
+ * @return size of boostage data in bytes
  */
 int bootstage_get_size(void);
 

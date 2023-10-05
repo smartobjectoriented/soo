@@ -69,7 +69,7 @@ int axp_init(void)
 	return ret;
 }
 
-#if !CONFIG_IS_ENABLED(ARM_PSCI_FW) && !IS_ENABLED(CONFIG_SYSRESET_CMD_POWEROFF)
+#ifndef CONFIG_PSCI_RESET
 int do_poweroff(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	pmic_bus_write(AXP305_SHUTDOWN, AXP305_POWEROFF);

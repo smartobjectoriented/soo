@@ -13,7 +13,6 @@
 #include <linux/bitops.h>
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <linux/mtd/rawnand.h>
 
 static struct mtd_info *mtd;
 static struct nand_chip nand_chip;
@@ -297,8 +296,3 @@ void nand_deselect(void)
 {
 }
 
-u32 nand_spl_adjust_offset(u32 sector, u32 offs)
-{
-	/* Handle the offset adjust in nand_spl_load_image,*/
-	return offs;
-}

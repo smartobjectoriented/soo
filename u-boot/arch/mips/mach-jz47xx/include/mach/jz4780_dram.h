@@ -454,3 +454,4 @@ void pll_init(void);
 void sdram_init(void);
 
 #endif	/* __JZ4780_DRAM_H__ */
+

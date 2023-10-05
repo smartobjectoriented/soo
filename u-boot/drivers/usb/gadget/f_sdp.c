@@ -773,8 +773,7 @@ static ulong search_container_header(ulong p, int size)
 }
 #endif
 
-static int sdp_handle_in_ep(struct spl_image_info *spl_image,
-			    struct spl_boot_device *bootdev)
+static int sdp_handle_in_ep(struct spl_image_info *spl_image)
 {
 	u8 *data = sdp_func->in_req->buf;
 	u32 status;
@@ -863,8 +862,7 @@ static int sdp_handle_in_ep(struct spl_image_info *spl_image,
 
 			/* In SPL, allow jumps to U-Boot images */
 			struct spl_image_info spl_image = {};
-			struct spl_boot_device bootdev = {};
-			spl_parse_image_header(&spl_image, &bootdev, header);
+			spl_parse_image_header(&spl_image, header);
 			jump_to_image_no_args(&spl_image);
 #else
 			/* In U-Boot, allow jumps to scripts */
@@ -912,8 +910,7 @@ static void sdp_handle_out_ep(void)
 #ifndef CONFIG_SPL_BUILD
 int sdp_handle(int controller_index)
 #else
-int spl_sdp_handle(int controller_index, struct spl_image_info *spl_image,
-		   struct spl_boot_device *bootdev)
+int spl_sdp_handle(int controller_index, struct spl_image_info *spl_image)
 #endif
 {
 	int flag = 0;
@@ -931,9 +928,9 @@ int spl_sdp_handle(int controller_index, struct spl_image_info *spl_image,
 		usb_gadget_handle_interrupts(controller_index);
 
 #ifdef CONFIG_SPL_BUILD
-		flag = sdp_handle_in_ep(spl_image, bootdev);
+		flag = sdp_handle_in_ep(spl_image);
 #else
-		flag = sdp_handle_in_ep(NULL, NULL);
+		flag = sdp_handle_in_ep(NULL);
 #endif
 		if (sdp_func->ep_int_enable)
 			sdp_handle_out_ep();

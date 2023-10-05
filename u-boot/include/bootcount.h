@@ -45,7 +45,7 @@ struct bootcount_ops {
  *
  * @dev:	Device to read from
  * @bootcount:	Place to put the current bootcount
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int dm_bootcount_get(struct udevice *dev, u32 *bootcount);
 
@@ -54,7 +54,7 @@ int dm_bootcount_get(struct udevice *dev, u32 *bootcount);
  *
  * @dev:	Device to read from
  * @bootcount:  Value to be written to the backing storage
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int dm_bootcount_set(struct udevice *dev, u32 bootcount);
 
@@ -66,7 +66,7 @@ void bootcount_store(ulong);
 /**
  * bootcount_load() - load the current bootcount
  *
- * Return: bootcount, read from the appropriate location
+ * @return bootcount, read from the appropriate location
  */
 ulong bootcount_load(void);
 

@@ -123,12 +123,12 @@ int name_to_gpio(const char *name)
 	unsigned bank, pin;
 	char *end;
 
-	bank = dectoul(name, &end);
+	bank = simple_strtoul(name, &end, 10);
 
 	if (!*end || *end != ':')
 		return bank;
 
-	pin = dectoul(end + 1, NULL);
+	pin = simple_strtoul(end + 1, NULL, 10);
 
 	return (bank << MXS_PAD_BANK_SHIFT) | (pin << MXS_PAD_PIN_SHIFT);
 }
@@ -262,7 +262,7 @@ static int mxs_gpio_probe(struct udevice *dev)
 	return 0;
 }
 
-#if CONFIG_IS_ENABLED(OF_REAL)
+#if CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA)
 static int mxs_of_to_plat(struct udevice *dev)
 {
 	struct mxs_gpio_plat *plat = dev_get_plat(dev);
@@ -301,7 +301,7 @@ U_BOOT_DRIVER(fsl_imx23_gpio) = {
 	.probe	= mxs_gpio_probe,
 	.priv_auto	= sizeof(struct mxs_gpio_priv),
 	.plat_auto	= sizeof(struct mxs_gpio_plat),
-#if CONFIG_IS_ENABLED(OF_REAL)
+#if CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA)
 	.of_match = mxs_gpio_ids,
 	.of_to_plat = mxs_of_to_plat,
 #endif

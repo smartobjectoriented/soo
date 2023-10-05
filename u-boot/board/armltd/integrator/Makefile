@@ -10,4 +10,5 @@
 obj-y	:= lowlevel_init.o
 
 obj-y	+= integrator.o
+obj-$(CONFIG_PCI) += pci.o
 obj-y += timer.o

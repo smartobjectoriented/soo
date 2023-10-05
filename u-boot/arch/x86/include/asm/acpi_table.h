@@ -24,6 +24,7 @@ struct acpi_table_header;
 
 /* These can be used by the target port */
 
+void acpi_fill_header(struct acpi_table_header *header, char *signature);
 void acpi_create_fadt(struct acpi_fadt *fadt, struct acpi_facs *facs,
 		      void *dsdt);
 int acpi_create_madt_lapics(u32 current);
@@ -36,6 +37,8 @@ int acpi_create_madt_lapic_nmi(struct acpi_madt_lapic_nmi *lapic_nmi,
 u32 acpi_fill_madt(u32 current);
 int acpi_create_mcfg_mmconfig(struct acpi_mcfg_mmconfig *mmconfig, u32 base,
 			      u16 seg_nr, u8 start, u8 end);
+u32 acpi_fill_mcfg(u32 current);
+u32 acpi_fill_csrt(u32 current);
 
 /**
  * acpi_write_hpet() - Write out a HPET table
@@ -43,7 +46,7 @@ int acpi_create_mcfg_mmconfig(struct acpi_mcfg_mmconfig *mmconfig, u32 base,
  * Write out the table for High-Precision Event Timers
  *
  * @ctx: Current ACPI context
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int acpi_write_hpet(struct acpi_ctx *ctx);
 
@@ -53,7 +56,7 @@ int acpi_write_hpet(struct acpi_ctx *ctx);
  * @ctx: Current ACPI context
  * @dev: Debug UART device to describe
  * @access_size: Access size for UART (e.g. ACPI_ACCESS_SIZE_DWORD_ACCESS)
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int acpi_write_dbg2_pci_uart(struct acpi_ctx *ctx, struct udevice *dev,
 			     uint access_size);
@@ -62,9 +65,11 @@ int acpi_write_dbg2_pci_uart(struct acpi_ctx *ctx, struct udevice *dev,
  * acpi_create_gnvs() - Create a GNVS (Global Non Volatile Storage) table
  *
  * @gnvs: Table to fill in
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int acpi_create_gnvs(struct acpi_global_nvs *gnvs);
+
+ulong write_acpi_tables(ulong start);
 
 /**
  * acpi_get_rsdp_addr() - get ACPI RSDP table address
@@ -93,7 +98,7 @@ int arch_write_sci_irq_select(uint scis);
  * arch_madt_sci_irq_polarity() - Return the priority to use for the MADT
  *
  * @sci: System-control interrupt number
- * Return: priority to use (MP_IRQ_POLARITY_...)
+ * @return priority to use (MP_IRQ_POLARITY_...)
  */
 int arch_madt_sci_irq_polarity(int sci);
 
@@ -150,7 +155,7 @@ void acpi_dmar_rmrr_fixup(struct acpi_ctx *ctx, void *base);
  *
  * @ctx: ACPI context pointer
  * @bdf: PCI device to add
- * Return: length of mapping in bytes
+ * @return length of mapping in bytes
  */
 int acpi_create_dmar_ds_pci(struct acpi_ctx *ctx, pci_dev_t bdf);
 
@@ -161,7 +166,7 @@ int acpi_create_dmar_ds_pci(struct acpi_ctx *ctx, pci_dev_t bdf);
  *
  * @ctx: ACPI context pointer
  * @bdf: PCI device to add
- * Return: length of mapping in bytes
+ * @return length of mapping in bytes
  */
 int acpi_create_dmar_ds_pci_br(struct acpi_ctx *ctx, pci_dev_t bdf);
 
@@ -171,7 +176,7 @@ int acpi_create_dmar_ds_pci_br(struct acpi_ctx *ctx, pci_dev_t bdf);
  * @ctx: ACPI context pointer
  * @enumeration_id: Enumeration ID (typically 2)
  * @bdf: PCI device to add
- * Return: length of mapping in bytes
+ * @return length of mapping in bytes
  */
 int acpi_create_dmar_ds_ioapic(struct acpi_ctx *ctx, uint enumeration_id,
 			       pci_dev_t bdf);
@@ -185,7 +190,7 @@ int acpi_create_dmar_ds_ioapic(struct acpi_ctx *ctx, uint enumeration_id,
  * @ctx: ACPI context pointer
  * @enumeration_id: Enumeration ID (typically 0)
  * @bdf: PCI device to add
- * Return: length of mapping in bytes
+ * @return length of mapping in bytes
  */
 int acpi_create_dmar_ds_msi_hpet(struct acpi_ctx *ctx, uint enumeration_id,
 				 pci_dev_t bdf);

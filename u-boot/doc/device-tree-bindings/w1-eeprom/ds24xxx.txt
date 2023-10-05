@@ -34,3 +34,4 @@ onewire_tm: onewire {
 			compatible = "maxim,ds24xxx";
 		}
 };
+

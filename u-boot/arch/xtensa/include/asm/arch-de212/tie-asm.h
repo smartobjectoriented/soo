@@ -146,3 +146,4 @@
 #define XCHAL_SA_NUM_ATMPS	1
 
 #endif /*_XTENSA_CORE_TIE_ASM_H*/
+

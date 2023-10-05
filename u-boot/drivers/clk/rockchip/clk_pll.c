@@ -359,3 +359,4 @@ rockchip_get_cpu_settings(struct rockchip_cpu_rate_table *cpu_table,
 	else
 		return ps;
 }
+

@@ -46,7 +46,11 @@
 #define MSR_RI		(1<<1)		/* Recoverable Exception */
 #define MSR_LE		(1<<0)		/* Little Endian */
 
+#ifdef CONFIG_APUS_FAST_EXCEPT
+#define MSR_		MSR_ME|MSR_IP|MSR_RI
+#else
 #define MSR_		MSR_ME|MSR_RI
+#endif
 #ifndef CONFIG_E500
 #define MSR_KERNEL	MSR_|MSR_IR|MSR_DR
 #else
@@ -748,7 +752,7 @@
 #define MAS5	SPRN_MAS5
 #define MAS6	SPRN_MAS6
 #define MAS7	SPRN_MAS7
-#define MAS8	SPRN_MAS8
+#define MAS8 	SPRN_MAS8
 
 #if defined(CONFIG_MPC85xx)
 #define DAR_DEAR DEAR

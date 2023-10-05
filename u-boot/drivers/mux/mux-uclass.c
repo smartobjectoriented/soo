@@ -11,8 +11,6 @@
  * Jean-Jacques Hiblot <jjhiblot@ti.com>
  */
 
-#define LOG_CATEGORY UCLASS_MUX
-
 #include <common.h>
 #include <dm.h>
 #include <mux-internal.h>
@@ -130,7 +128,7 @@ static int mux_of_xlate_default(struct mux_chip *mux_chip,
 	log_debug("%s(muxp=%p)\n", __func__, muxp);
 
 	if (args->args_count > 1) {
-		debug("Invalid args_count: %d\n", args->args_count);
+		debug("Invaild args_count: %d\n", args->args_count);
 		return -EINVAL;
 	}
 

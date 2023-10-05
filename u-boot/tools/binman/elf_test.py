@@ -6,7 +6,6 @@
 
 import os
 import shutil
-import struct
 import sys
 import tempfile
 import unittest
@@ -27,7 +26,7 @@ class FakeEntry:
     """
     def __init__(self, contents_size):
         self.contents_size = contents_size
-        self.data = tools.get_bytes(ord('a'), contents_size)
+        self.data = tools.GetBytes(ord('a'), contents_size)
 
     def GetPath(self):
         return 'entry_path'
@@ -56,8 +55,8 @@ class FakeSection:
 def BuildElfTestFiles(target_dir):
     """Build ELF files used for testing in binman
 
-    This compiles and links the test files into the specified directory. It uses
-    the Makefile and source files in the binman test/ directory.
+    This compiles and links the test files into the specified directory. It the
+    Makefile and source files in the binman test/ directory.
 
     Args:
         target_dir: Directory to put the files into
@@ -71,19 +70,15 @@ def BuildElfTestFiles(target_dir):
     # correctly. So drop any make flags here.
     if 'MAKEFLAGS' in os.environ:
         del os.environ['MAKEFLAGS']
-    try:
-        tools.run('make', '-C', target_dir, '-f',
-                  os.path.join(testdir, 'Makefile'), 'SRC=%s/' % testdir)
-    except ValueError as e:
-        # The test system seems to suppress this in a strange way
-        print(e)
+    tools.Run('make', '-C', target_dir, '-f',
+              os.path.join(testdir, 'Makefile'), 'SRC=%s/' % testdir)
 
 
 class TestElf(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._indir = tempfile.mkdtemp(prefix='elf.')
-        tools.set_input_dirs(['.'])
+        tools.SetInputDirs(['.'])
         BuildElfTestFiles(cls._indir)
 
     @classmethod
@@ -99,17 +94,17 @@ class TestElf(unittest.TestCase):
         """Test that we can obtain a symbol from the ELF file"""
         fname = self.ElfTestFile('u_boot_ucode_ptr')
         syms = elf.GetSymbols(fname, [])
-        self.assertIn('_dt_ucode_base_size', syms)
+        self.assertIn('.ucode', syms)
 
     def testRegexSymbols(self):
         """Test that we can obtain from the ELF file by regular expression"""
         fname = self.ElfTestFile('u_boot_ucode_ptr')
         syms = elf.GetSymbols(fname, ['ucode'])
-        self.assertIn('_dt_ucode_base_size', syms)
+        self.assertIn('.ucode', syms)
         syms = elf.GetSymbols(fname, ['missing'])
-        self.assertNotIn('_dt_ucode_base_size', syms)
+        self.assertNotIn('.ucode', syms)
         syms = elf.GetSymbols(fname, ['missing', 'ucode'])
-        self.assertIn('_dt_ucode_base_size', syms)
+        self.assertIn('.ucode', syms)
 
     def testMissingFile(self):
         """Test that a missing file is detected"""
@@ -166,13 +161,13 @@ class TestElf(unittest.TestCase):
         section = FakeSection(sym_value=None)
         elf_fname = self.ElfTestFile('u_boot_binman_syms')
         syms = elf.LookupAndWriteSymbols(elf_fname, entry, section)
-        self.assertEqual(tools.get_bytes(255, 20) + tools.get_bytes(ord('a'), 4),
+        self.assertEqual(tools.GetBytes(255, 20) + tools.GetBytes(ord('a'), 4),
                                                                   entry.data)
 
     def testDebug(self):
         """Check that enabling debug in the elf module produced debug output"""
         try:
-            tout.init(tout.DEBUG)
+            tout.Init(tout.DEBUG)
             entry = FakeEntry(20)
             section = FakeSection()
             elf_fname = self.ElfTestFile('u_boot_binman_syms')
@@ -180,7 +175,7 @@ class TestElf(unittest.TestCase):
                 syms = elf.LookupAndWriteSymbols(elf_fname, entry, section)
             self.assertTrue(len(stdout.getvalue()) > 0)
         finally:
-            tout.init(tout.WARNING)
+            tout.Init(tout.WARNING)
 
     def testMakeElf(self):
         """Test for the MakeElf function"""
@@ -193,9 +188,9 @@ class TestElf(unittest.TestCase):
         # Make an Elf file and then convert it to a fkat binary file. This
         # should produce the original data.
         elf.MakeElf(elf_fname, expected_text, expected_data)
-        objcopy, args = tools.get_target_compile_tool('objcopy')
+        objcopy, args = tools.GetTargetCompileTool('objcopy')
         args += ['-O', 'binary', elf_fname, bin_fname]
-        stdout = command.output(objcopy, *args)
+        stdout = command.Output(objcopy, *args)
         with open(bin_fname, 'rb') as fd:
             data = fd.read()
         self.assertEqual(expected_text + expected_data, data)
@@ -210,7 +205,7 @@ class TestElf(unittest.TestCase):
         expected_data = b'wxyz'
         elf_fname = os.path.join(outdir, 'elf')
         elf.MakeElf(elf_fname, expected_text, expected_data)
-        data = tools.read_file(elf_fname)
+        data = tools.ReadFile(elf_fname)
 
         load = 0xfef20000
         entry = load + 2
@@ -221,69 +216,6 @@ class TestElf(unittest.TestCase):
                                      load, entry, len(expected)),
                          elf.DecodeElf(data, load + 2))
         shutil.rmtree(outdir)
-
-    def testEmbedData(self):
-        """Test for the GetSymbolFileOffset() function"""
-        if not elf.ELF_TOOLS:
-            self.skipTest('Python elftools not available')
-
-        fname = self.ElfTestFile('embed_data')
-        offset = elf.GetSymbolFileOffset(fname, ['embed_start', 'embed_end'])
-        start = offset['embed_start'].offset
-        end = offset['embed_end'].offset
-        data = tools.read_file(fname)
-        embed_data = data[start:end]
-        expect = struct.pack('<III', 0x1234, 0x5678, 0)
-        self.assertEqual(expect, embed_data)
-
-    def testEmbedFail(self):
-        """Test calling GetSymbolFileOffset() without elftools"""
-        try:
-            old_val = elf.ELF_TOOLS
-            elf.ELF_TOOLS = False
-            fname = self.ElfTestFile('embed_data')
-            with self.assertRaises(ValueError) as e:
-                elf.GetSymbolFileOffset(fname, ['embed_start', 'embed_end'])
-            self.assertIn('Python elftools package is not available',
-                      str(e.exception))
-        finally:
-            elf.ELF_TOOLS = old_val
-
-    def testEmbedDataNoSym(self):
-        """Test for GetSymbolFileOffset() getting no symbols"""
-        if not elf.ELF_TOOLS:
-            self.skipTest('Python elftools not available')
-
-        fname = self.ElfTestFile('embed_data')
-        offset = elf.GetSymbolFileOffset(fname, ['missing_sym'])
-        self.assertEqual({}, offset)
-
-    def test_read_segments(self):
-        """Test for read_segments()"""
-        if not elf.ELF_TOOLS:
-            self.skipTest('Python elftools not available')
-        fname = self.ElfTestFile('embed_data')
-        segments, entry = elf.read_segments(tools.read_file(fname))
-
-    def test_read_segments_fail(self):
-        """Test for read_segments() without elftools"""
-        try:
-            old_val = elf.ELF_TOOLS
-            elf.ELF_TOOLS = False
-            fname = self.ElfTestFile('embed_data')
-            with self.assertRaises(ValueError) as e:
-                elf.read_segments(tools.read_file(fname))
-            self.assertIn('Python elftools package is not available',
-                          str(e.exception))
-        finally:
-            elf.ELF_TOOLS = old_val
-
-    def test_read_segments_bad_data(self):
-        """Test for read_segments() with an invalid ELF file"""
-        fname = self.ElfTestFile('embed_data')
-        with self.assertRaises(ValueError) as e:
-            elf.read_segments(tools.get_bytes(100, 100))
-        self.assertIn('Magic number does not match', str(e.exception))
 
 
 if __name__ == '__main__':

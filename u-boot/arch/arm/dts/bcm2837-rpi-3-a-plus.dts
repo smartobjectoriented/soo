@@ -14,20 +14,17 @@
 	};
 
 	memory@0 {
-		device_type = "memory";
 		reg = <0 0x20000000>;
 	};
 
 	leds {
-		led-act {
+		act {
 			gpios = <&gpio 29 GPIO_ACTIVE_HIGH>;
 		};
 
-		led-pwr {
+		pwr {
 			label = "PWR";
 			gpios = <&expgpio 2 GPIO_ACTIVE_LOW>;
-			default-state = "keep";
-			linux,default-trigger = "default-on";
 		};
 	};
 };
@@ -120,8 +117,6 @@
 
 &hdmi {
 	hpd-gpios = <&gpio 28 GPIO_ACTIVE_LOW>;
-	power-domains = <&power RPI_POWER_DOMAIN_HDMI>;
-	status = "okay";
 };
 
 &pwm {

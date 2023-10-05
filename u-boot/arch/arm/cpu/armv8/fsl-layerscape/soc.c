@@ -41,36 +41,26 @@ DECLARE_GLOBAL_DATA_PTR;
 #endif
 
 #ifdef CONFIG_GIC_V3_ITS
-#define PENDTABLE_MAX_SZ	ALIGN(BIT(ITS_MAX_LPI_NRBITS), SZ_64K)
-#define PROPTABLE_MAX_SZ	ALIGN(BIT(ITS_MAX_LPI_NRBITS) / 8, SZ_64K)
-#define GIC_LPI_SIZE		ALIGN(cpu_numcores() * PENDTABLE_MAX_SZ + \
-				PROPTABLE_MAX_SZ, SZ_1M)
-static int fdt_add_resv_mem_gic_rd_tables(void *blob, u64 base, size_t size)
-{
-	int err;
-	struct fdt_memory gic_rd_tables;
-
-	gic_rd_tables.start = base;
-	gic_rd_tables.end = base + size - 1;
-	err = fdtdec_add_reserved_memory(blob, "gic-rd-tables", &gic_rd_tables,
-					 NULL, 0, NULL, 0);
-	if (err < 0)
-		debug("%s: failed to add reserved memory: %d\n", __func__, err);
-
-	return err;
-}
-
 int ls_gic_rd_tables_init(void *blob)
 {
-	u64 gic_lpi_base;
-	int ret;
+	struct fdt_memory lpi_base;
+	fdt_addr_t addr;
+	fdt_size_t size;
+	int offset, ret;
 
-	gic_lpi_base = ALIGN(gd->arch.resv_ram - GIC_LPI_SIZE, SZ_64K);
-	ret = fdt_add_resv_mem_gic_rd_tables(blob, gic_lpi_base, GIC_LPI_SIZE);
-	if (ret)
+	offset = fdt_path_offset(gd->fdt_blob, "/syscon@0x80000000");
+	addr = fdtdec_get_addr_size_auto_noparent(gd->fdt_blob, offset, "reg",
+						  0, &size, false);
+
+	lpi_base.start = addr;
+	lpi_base.end = addr + size - 1;
+	ret = fdtdec_add_reserved_memory(blob, "lpi_rd_table", &lpi_base, NULL, false);
+	if (ret) {
+		debug("%s: failed to add reserved memory\n", __func__);
 		return ret;
+	}
 
-	ret = gic_lpi_tables_init(gic_lpi_base, cpu_numcores());
+	ret = gic_lpi_tables_init();
 	if (ret)
 		debug("%s: failed to init gic-lpi-tables\n", __func__);
 
@@ -287,7 +277,7 @@ static unsigned long get_internval_val_mhz(void)
 	ulong interval_mhz = get_bus_freq(0) / (1000 * 1000);
 
 	if (interval)
-		interval_mhz = dectoul(interval, NULL);
+		interval_mhz = simple_strtoul(interval, NULL, 10);
 
 	return interval_mhz;
 }
@@ -339,7 +329,7 @@ static void erratum_rcw_src(void)
 #ifdef CONFIG_SYS_FSL_ERRATUM_A009203
 static void erratum_a009203(void)
 {
-#if CONFIG_IS_ENABLED(SYS_I2C_LEGACY)
+#ifdef CONFIG_SYS_I2C
 	u8 __iomem *ptr;
 #ifdef I2C1_BASE_ADDR
 	ptr = (u8 __iomem *)(I2C1_BASE_ADDR + I2C_DEBUG_REG);
@@ -929,23 +919,25 @@ __weak int fsl_board_late_init(void)
 #define DWC3_GSBUSCFG0_CACHETYPE(n)        (((n) & 0xffff)            \
 	<< DWC3_GSBUSCFG0_CACHETYPE_SHIFT)
 
-static void enable_dwc3_snooping(void)
+void enable_dwc3_snooping(void)
 {
-	static const char * const compatibles[] = {
-	    "fsl,layerscape-dwc3",
-	    "fsl,ls1028a-dwc3",
-	};
-	fdt_addr_t dwc3_base;
-	ofnode node;
+	int ret;
 	u32 val;
-	int i;
+	struct udevice *bus;
+	struct uclass *uc;
+	fdt_addr_t dwc3_base;
 
-	for (i = 0; i < ARRAY_SIZE(compatibles); i++) {
-		ofnode_for_each_compatible_node(node, compatibles[i]) {
-			dwc3_base = ofnode_get_addr(node);
-			if (dwc3_base == FDT_ADDR_T_NONE)
+	ret = uclass_get(UCLASS_USB, &uc);
+	if (ret)
+		return;
+
+	uclass_foreach_dev(bus, uc) {
+		if (!strcmp(bus->driver->of_match->compatible, "fsl,layerscape-dwc3")) {
+			dwc3_base = devfdt_get_addr(bus);
+			if (dwc3_base == FDT_ADDR_T_NONE) {
+				dev_err(bus, "dwc3 regs missing\n");
 				continue;
-
+			}
 			val = in_le32(dwc3_base + DWC3_GSBUSCFG0);
 			val &= ~DWC3_GSBUSCFG0_CACHETYPE(~0);
 			val |= DWC3_GSBUSCFG0_CACHETYPE(0x2222);
@@ -961,15 +953,12 @@ int board_late_init(void)
 #endif
 #ifdef CONFIG_TFABOOT
 	/*
-	 * Set bootcmd and mcinitcmd if "fsl_bootcmd_mcinitcmd_set" does
-	 * not exists in env
+	 * Set bootcmd and mcinitcmd if they don't exist in the environment.
 	 */
-	if (env_get_yesno("fsl_bootcmd_mcinitcmd_set") <= 0) {
-		// Set bootcmd and mcinitcmd as per boot source
+	if (!env_get("bootcmd"))
 		fsl_setenv_bootcmd();
+	if (!env_get("mcinitcmd"))
 		fsl_setenv_mcinitcmd();
-		env_set("fsl_bootcmd_mcinitcmd_set", "y");
-	}
 #endif
 #ifdef CONFIG_QSPI_AHB_INIT
 	qspi_ahb_init();

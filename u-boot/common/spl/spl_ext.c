@@ -10,7 +10,6 @@
 #include <image.h>
 
 int spl_load_image_ext(struct spl_image_info *spl_image,
-		       struct spl_boot_device *bootdev,
 		       struct blk_desc *block_dev, int partition,
 		       const char *filename)
 {
@@ -47,7 +46,7 @@ int spl_load_image_ext(struct spl_image_info *spl_image,
 		goto end;
 	}
 
-	err = spl_parse_image_header(spl_image, bootdev, header);
+	err = spl_parse_image_header(spl_image, header);
 	if (err < 0) {
 		puts("spl: ext: failed to parse image header\n");
 		goto end;
@@ -65,9 +64,8 @@ end:
 	return err < 0;
 }
 
-#if CONFIG_IS_ENABLED(OS_BOOT)
+#ifdef CONFIG_SPL_OS_BOOT
 int spl_load_image_ext_os(struct spl_image_info *spl_image,
-			  struct spl_boot_device *bootdev,
 			  struct blk_desc *block_dev, int partition)
 {
 	int err;
@@ -105,7 +103,7 @@ int spl_load_image_ext_os(struct spl_image_info *spl_image,
 		}
 		file = env_get("falcon_image_file");
 		if (file) {
-			err = spl_load_image_ext(spl_image, bootdev, block_dev,
+			err = spl_load_image_ext(spl_image, block_dev,
 						 partition, file);
 			if (err != 0) {
 				puts("spl: falling back to default\n");
@@ -136,12 +134,11 @@ defaults:
 		return -1;
 	}
 
-	return spl_load_image_ext(spl_image, bootdev, block_dev, partition,
+	return spl_load_image_ext(spl_image, block_dev, partition,
 			CONFIG_SPL_FS_LOAD_KERNEL_NAME);
 }
 #else
 int spl_load_image_ext_os(struct spl_image_info *spl_image,
-			  struct spl_boot_device *bootdev,
 			  struct blk_desc *block_dev, int partition)
 {
 	return -ENOSYS;

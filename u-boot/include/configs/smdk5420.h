@@ -15,6 +15,8 @@
 #undef CONFIG_EXYNOS_FB
 #undef CONFIG_EXYNOS_DP
 
+#undef CONFIG_KEYBOARD
+
 #define CONFIG_BOARD_COMMON
 
 #define CONFIG_SMDK5420			/* which is in a SMDK5420 */

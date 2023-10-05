@@ -7,7 +7,6 @@
 
 #include <common.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <log.h>
 #include <dm/devres.h>
 #include <dm/device_compat.h>
@@ -53,7 +52,7 @@ static void gpio_desc_init(struct gpio_desc *desc,
  *
  * @gpio:	The numeric representation of the GPIO
  * @desc:	Returns description (desc->flags will always be 0)
- * Return: 0 if found, -ENOENT if not found
+ * @return 0 if found, -ENOENT if not found
  */
 static int gpio_to_device(unsigned int gpio, struct gpio_desc *desc)
 {
@@ -123,7 +122,7 @@ int dm_gpio_lookup_name(const char *name, struct gpio_desc *desc)
 	int numeric;
 	int ret;
 
-	numeric = isdigit(*name) ? dectoul(name, NULL) : -1;
+	numeric = isdigit(*name) ? simple_strtoul(name, NULL, 10) : -1;
 	for (ret = uclass_first_device(UCLASS_GPIO, &dev);
 	     dev;
 	     ret = uclass_next_device(&dev)) {
@@ -141,8 +140,7 @@ int dm_gpio_lookup_name(const char *name, struct gpio_desc *desc)
 
 		if (!strncasecmp(name, uc_priv->bank_name, len)) {
 			if (!strict_strtoul(name + len, 10, &offset))
-				if (offset < uc_priv->gpio_count)
-					break;
+				break;
 		}
 
 		/*
@@ -186,50 +184,38 @@ int gpio_lookup_name(const char *name, struct udevice **devp,
 	return 0;
 }
 
-unsigned long gpio_flags_xlate(uint32_t arg)
+int gpio_xlate_offs_flags(struct udevice *dev, struct gpio_desc *desc,
+			  struct ofnode_phandle_args *args)
 {
-	unsigned long flags = 0;
+	if (args->args_count < 1)
+		return -EINVAL;
 
-	if (arg & GPIO_ACTIVE_LOW)
-		flags |= GPIOD_ACTIVE_LOW;
+	desc->offset = args->args[0];
+
+	if (args->args_count < 2)
+		return 0;
+
+	desc->flags = 0;
+	if (args->args[1] & GPIO_ACTIVE_LOW)
+		desc->flags |= GPIOD_ACTIVE_LOW;
 
 	/*
 	 * need to test 2 bits for gpio output binding:
 	 * OPEN_DRAIN (0x6) = SINGLE_ENDED (0x2) | LINE_OPEN_DRAIN (0x4)
 	 * OPEN_SOURCE (0x2) = SINGLE_ENDED (0x2) | LINE_OPEN_SOURCE (0x0)
 	 */
-	if (arg & GPIO_SINGLE_ENDED) {
-		if (arg & GPIO_LINE_OPEN_DRAIN)
-			flags |= GPIOD_OPEN_DRAIN;
+	if (args->args[1] & GPIO_SINGLE_ENDED) {
+		if (args->args[1] & GPIO_LINE_OPEN_DRAIN)
+			desc->flags |= GPIOD_OPEN_DRAIN;
 		else
-			flags |= GPIOD_OPEN_SOURCE;
+			desc->flags |= GPIOD_OPEN_SOURCE;
 	}
 
-	if (arg & GPIO_PULL_UP)
-		flags |= GPIOD_PULL_UP;
+	if (args->args[1] & GPIO_PULL_UP)
+		desc->flags |= GPIOD_PULL_UP;
 
-	if (arg & GPIO_PULL_DOWN)
-		flags |= GPIOD_PULL_DOWN;
-
-	return flags;
-}
-
-int gpio_xlate_offs_flags(struct udevice *dev, struct gpio_desc *desc,
-			  struct ofnode_phandle_args *args)
-{
-	struct gpio_dev_priv *uc_priv = dev_get_uclass_priv(dev);
-
-	if (args->args_count < 1)
-		return -EINVAL;
-
-	desc->offset = args->args[0];
-	if (desc->offset >= uc_priv->gpio_count)
-		return -EINVAL;
-
-	if (args->args_count < 2)
-		return 0;
-
-	desc->flags = gpio_flags_xlate(args->args[1]);
+	if (args->args[1] & GPIO_PULL_DOWN)
+		desc->flags |= GPIOD_PULL_DOWN;
 
 	return 0;
 }
@@ -245,7 +231,7 @@ static int gpio_find_and_xlate(struct gpio_desc *desc,
 		return gpio_xlate_offs_flags(desc->dev, desc, args);
 }
 
-#if CONFIG_IS_ENABLED(GPIO_HOG)
+#if defined(CONFIG_GPIO_HOG)
 
 struct gpio_hog_priv {
 	struct gpio_desc gpiod;
@@ -659,7 +645,7 @@ static int check_dir_flags(ulong flags)
  *
  * @desc:	GPIO description
  * @flags:	flags value to set
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 static int _dm_gpio_set_flags(struct gpio_desc *desc, ulong flags)
 {
@@ -1151,7 +1137,7 @@ err:
 	return ret;
 }
 
-#if CONFIG_IS_ENABLED(OF_REAL)
+#if !CONFIG_IS_ENABLED(OF_PLATDATA)
 static int _gpio_request_by_name_nodev(ofnode node, const char *list_name,
 				       int index, struct gpio_desc *desc,
 				       int flags, bool add_index)
@@ -1239,27 +1225,6 @@ int gpio_get_list_count(struct udevice *dev, const char *list_name)
 	return ret;
 }
 #endif /* OF_PLATDATA */
-
-#if CONFIG_IS_ENABLED(OF_PLATDATA)
-int gpio_request_by_phandle(struct udevice *dev,
-			    const struct phandle_2_arg *cells,
-			    struct gpio_desc *desc, int flags)
-{
-	struct ofnode_phandle_args args;
-	struct udevice *gpio_dev;
-	const int index = 0;
-	int ret;
-
-	ret = device_get_by_ofplat_idx(cells->idx, &gpio_dev);
-	if (ret)
-		return ret;
-	args.args[0] = cells->arg[0];
-	args.args[1] = cells->arg[1];
-
-	return gpio_request_tail(ret, NULL, &args, NULL, index, desc, flags,
-				 index > 0, gpio_dev);
-}
-#endif
 
 int dm_gpio_free(struct udevice *dev, struct gpio_desc *desc)
 {
@@ -1465,7 +1430,7 @@ static int gpio_post_bind(struct udevice *dev)
 	}
 #endif
 
-	if (CONFIG_IS_ENABLED(OF_REAL) && IS_ENABLED(CONFIG_GPIO_HOG)) {
+	if (IS_ENABLED(CONFIG_GPIO_HOG)) {
 		dev_for_each_subnode(node, dev) {
 			if (ofnode_read_bool(node, "gpio-hog")) {
 				const char *name = ofnode_get_name(node);

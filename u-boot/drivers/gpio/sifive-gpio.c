@@ -157,11 +157,13 @@ static const struct dm_gpio_ops sifive_gpio_ops = {
 static int sifive_gpio_of_to_plat(struct udevice *dev)
 {
 	struct sifive_gpio_plat *plat = dev_get_plat(dev);
+	fdt_addr_t addr;
 
-	plat->base = dev_read_addr_ptr(dev);
-	if (!plat->base)
+	addr = dev_read_addr(dev);
+	if (addr == FDT_ADDR_T_NONE)
 		return -EINVAL;
 
+	plat->base = (void *)addr;
 	return 0;
 }
 

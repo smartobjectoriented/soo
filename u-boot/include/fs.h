@@ -6,7 +6,6 @@
 #define _FS_H
 
 #include <common.h>
-#include <rtc.h>
 
 struct cmd_tbl;
 
@@ -27,7 +26,7 @@ struct blk_desc;
  * @flag: Command flags (CMD_FLAG_...)
  * @argc: Number of arguments
  * @argv: List of arguments
- * Return: result (see enum command_ret_t)
+ * @return result (see enum command_ret_t)
  */
 int do_fat_fsload(struct cmd_tbl *cmdtp, int flag, int argc,
 		  char *const argv[]);
@@ -39,7 +38,7 @@ int do_fat_fsload(struct cmd_tbl *cmdtp, int flag, int argc,
  * @flag: Command flags (CMD_FLAG_...)
  * @argc: Number of arguments
  * @argv: List of arguments
- * Return: result (see enum command_ret_t)
+ * @return result (see enum command_ret_t)
  */
 int do_ext2load(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
 
@@ -118,7 +117,7 @@ int fs_exists(const char *filename);
  *
  * @filename: Name of the file
  * @size: Size of file
- * Return: 0 if ok with valid *size, negative on error
+ * @return 0 if ok with valid *size, negative on error
  */
 int fs_size(const char *filename, loff_t *size);
 
@@ -161,26 +160,13 @@ int fs_write(const char *filename, ulong addr, loff_t offset, loff_t len,
 #define FS_DT_REG  8         /* regular file */
 #define FS_DT_LNK  10        /* symbolic link */
 
-/**
- * struct fs_dirent - directory entry
- *
- * A directory entry, returned by fs_readdir(). Returns information
+/*
+ * A directory entry, returned by fs_readdir().  Returns information
  * about the file/directory at the current directory entry position.
  */
 struct fs_dirent {
-	/** @type:		one of FS_DT_x (not a mask) */
-	unsigned int type;
-	/** @size:		file size */
-	loff_t size;
-	/** @flags:		attribute flags (FS_ATTR_*) */
-	u32 attr;
-	/** create_time:	time of creation */
-	struct rtc_time create_time;
-	/** access_time:	time of last access */
-	struct rtc_time access_time;
-	/** change_time:	time of last modification */
-	struct rtc_time change_time;
-	/** name:		file name */
+	unsigned type;       /* one of FS_DT_x (not a mask) */
+	loff_t size;         /* size in bytes */
 	char name[256];
 };
 
@@ -195,7 +181,7 @@ struct fs_dir_stream {
  * fs_opendir - Open a directory
  *
  * @filename: the path to directory to open
- * Return: a pointer to the directory stream or NULL on error and errno
+ * @return a pointer to the directory stream or NULL on error and errno
  *    set appropriately
  */
 struct fs_dir_stream *fs_opendir(const char *filename);
@@ -209,7 +195,7 @@ struct fs_dir_stream *fs_opendir(const char *filename);
  * longer valid.
  *
  * @dirs: the directory stream
- * Return: the next directory entry (only valid until next fs_readdir() or
+ * @return the next directory entry (only valid until next fs_readdir() or
  *    fs_closedir() call, do not attempt to free()) or NULL if the end of
  *    the directory is reached.
  */
@@ -228,7 +214,7 @@ void fs_closedir(struct fs_dir_stream *dirs);
  * If a given name is a directory, it will be deleted only if it's empty
  *
  * @filename: Name of file or directory to delete
- * Return: 0 on success, -1 on error conditions
+ * @return 0 on success, -1 on error conditions
  */
 int fs_unlink(const char *filename);
 
@@ -236,7 +222,7 @@ int fs_unlink(const char *filename);
  * fs_mkdir - Create a directory
  *
  * @filename: Name of directory to create
- * Return: 0 on success, -1 on error conditions
+ * @return 0 on success, -1 on error conditions
  */
 int fs_mkdir(const char *filename);
 
@@ -281,7 +267,7 @@ int do_fs_type(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
  * @flag: Command flags (CMD_FLAG_...)
  * @argc: Number of arguments
  * @argv: List of arguments
- * Return: result (see enum command_ret_t)
+ * @return result (see enum command_ret_t)
  */
 int do_fs_types(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[]);
 

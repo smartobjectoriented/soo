@@ -6,8 +6,7 @@ Required properties:
 - reg			: SPI Chip select
 
 Optional properties:
-- reset-gpios		: Reset GPIO (if not connected to the SoC reset line)
-- gpio-reset		: Reset GPIO (deprecated, use reset-gpios instead)
+- gpio-reset		: Reset GPIO (if not connected to the SoC reset line)
 - spi-max-frequency	: See spi-bus.txt
 
 Example:

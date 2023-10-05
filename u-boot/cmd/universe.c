@@ -307,17 +307,17 @@ int do_universe(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	if (argc > 1)
 		cmd = argv[1][0];
 	if (argc > 2)
-		addr1 = hextoul(argv[2], NULL);
+		addr1 = simple_strtoul(argv[2], NULL, 16);
 	if (argc > 3)
-		addr2 = hextoul(argv[3], NULL);
+		addr2 = simple_strtoul(argv[3], NULL, 16);
 	if (argc > 4)
-		size = hextoul(argv[4], NULL);
+		size = simple_strtoul(argv[4], NULL, 16);
 	if (argc > 5)
-		vam = hextoul(argv[5], NULL);
+		vam = simple_strtoul(argv[5], NULL, 16);
 	if (argc > 6)
-		pms = hextoul(argv[6], NULL);
+		pms = simple_strtoul(argv[6], NULL, 16);
 	if (argc > 7)
-		vdw = hextoul(argv[7], NULL);
+		vdw = simple_strtoul(argv[7], NULL, 16);
 
 	switch (cmd) {
 	case 'i':		/* init */

@@ -18,8 +18,6 @@
  * Copyright (c) 2020,2021, Alexandru Gagniuc <mr.nuke.me@gmail.com>
  */
 
-#define OPENSSL_API_COMPAT 0x10101000L
-
 #include <u-boot/ecdsa.h>
 #include <u-boot/fdt-libcrypto.h>
 #include <openssl/ssl.h>
@@ -301,7 +299,7 @@ static int do_add(struct signer *ctx, void *fdt, const char *key_node_name)
 	if (ret < 0)
 		return ret;
 
-	return key_node;
+	return 0;
 }
 
 int ecdsa_add_verify_data(struct image_sign_info *info, void *fdt)
@@ -313,7 +311,7 @@ int ecdsa_add_verify_data(struct image_sign_info *info, void *fdt)
 	fdt_key_name = info->keyname ? info->keyname : "default-key";
 	ret = prepare_ctx(&ctx, info);
 	if (ret >= 0)
-		ret = do_add(&ctx, fdt, fdt_key_name);
+		do_add(&ctx, fdt, fdt_key_name);
 
 	free_ctx(&ctx);
 	return ret;

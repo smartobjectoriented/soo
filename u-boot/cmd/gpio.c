@@ -17,7 +17,7 @@
 
 __weak int name_to_gpio(const char *name)
 {
-	return dectoul(name, NULL);
+	return simple_strtoul(name, NULL, 10);
 }
 
 enum gpio_cmd {
@@ -99,7 +99,7 @@ static int do_gpio_status(bool all, const char *gpio_name)
 
 			p = gpio_name + banklen;
 			if (gpio_name && *p) {
-				offset = dectoul(p, NULL);
+				offset = simple_strtoul(p, NULL, 10);
 				gpio_get_description(dev, bank_name, offset,
 						     &flags, true);
 			} else {

@@ -194,25 +194,20 @@ unsigned int dfu_polltimeout_nand(struct dfu_entity *dfu)
 	return DFU_DEFAULT_POLL_TIMEOUT;
 }
 
-int dfu_fill_entity_nand(struct dfu_entity *dfu, char *devstr, char **argv, int argc)
+int dfu_fill_entity_nand(struct dfu_entity *dfu, char *devstr, char *s)
 {
-	char *s;
+	char *st;
 	int ret, dev, part;
 
 	dfu->data.nand.ubi = 0;
 	dfu->dev_type = DFU_DEV_NAND;
-	if (argc != 3)
-		return -EINVAL;
-
-	if (!strcmp(argv[0], "raw")) {
+	st = strsep(&s, " ");
+	if (!strcmp(st, "raw")) {
 		dfu->layout = DFU_RAW_ADDR;
-		dfu->data.nand.start = hextoul(argv[1], &s);
-		if (*s)
-			return -EINVAL;
-		dfu->data.nand.size = hextoul(argv[2], &s);
-		if (*s)
-			return -EINVAL;
-	} else if ((!strcmp(argv[0], "part")) || (!strcmp(argv[0], "partubi"))) {
+		dfu->data.nand.start = simple_strtoul(s, &s, 16);
+		s++;
+		dfu->data.nand.size = simple_strtoul(s, &s, 16);
+	} else if ((!strcmp(st, "part")) || (!strcmp(st, "partubi"))) {
 		char mtd_id[32];
 		struct mtd_device *mtd_dev;
 		u8 part_num;
@@ -220,12 +215,9 @@ int dfu_fill_entity_nand(struct dfu_entity *dfu, char *devstr, char **argv, int 
 
 		dfu->layout = DFU_RAW_ADDR;
 
-		dev = dectoul(argv[1], &s);
-		if (*s)
-			return -EINVAL;
-		part = dectoul(argv[2], &s);
-		if (*s)
-			return -EINVAL;
+		dev = simple_strtoul(s, &s, 10);
+		s++;
+		part = simple_strtoul(s, &s, 10);
 
 		sprintf(mtd_id, "%s%d,%d", "nand", dev, part - 1);
 		debug("using id '%s'\n", mtd_id);
@@ -240,10 +232,10 @@ int dfu_fill_entity_nand(struct dfu_entity *dfu, char *devstr, char **argv, int 
 
 		dfu->data.nand.start = pi->offset;
 		dfu->data.nand.size = pi->size;
-		if (!strcmp(argv[0], "partubi"))
+		if (!strcmp(st, "partubi"))
 			dfu->data.nand.ubi = 1;
 	} else {
-		printf("%s: Memory layout (%s) not supported!\n", __func__, argv[0]);
+		printf("%s: Memory layout (%s) not supported!\n", __func__, st);
 		return -1;
 	}
 

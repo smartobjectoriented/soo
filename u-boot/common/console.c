@@ -95,22 +95,16 @@ static void console_record_putc(const char c)
 {
 	if (!(gd->flags & GD_FLG_RECORD))
 		return;
-	if  (gd->console_out.start &&
-	     !membuff_putbyte((struct membuff *)&gd->console_out, c))
-		gd->flags |= GD_FLG_RECORD_OVF;
+	if  (gd->console_out.start)
+		membuff_putbyte((struct membuff *)&gd->console_out, c);
 }
 
 static void console_record_puts(const char *s)
 {
 	if (!(gd->flags & GD_FLG_RECORD))
 		return;
-	if  (gd->console_out.start) {
-		int len = strlen(s);
-
-		if (membuff_put((struct membuff *)&gd->console_out, s, len) !=
-		    len)
-			gd->flags |= GD_FLG_RECORD_OVF;
-	}
+	if  (gd->console_out.start)
+		membuff_put((struct membuff *)&gd->console_out, s, strlen(s));
 }
 
 static int console_record_getc(void)
@@ -213,7 +207,7 @@ static int console_setfile(int file, struct stdio_dev * dev)
  * console_dev_is_serial() - Check if a stdio device is a serial device
  *
  * @sdev: Device to check
- * Return: true if this device is in the serial uclass (or for pre-driver-model,
+ * @return true if this device is in the serial uclass (or for pre-driver-model,
  * whether it is called "serial".
  */
 static bool console_dev_is_serial(struct stdio_dev *sdev)
@@ -348,8 +342,7 @@ static void console_puts_select(int file, bool serial_only, const char *s)
 
 void console_puts_select_stderr(bool serial_only, const char *s)
 {
-	if (gd->flags & GD_FLG_DEVINIT)
-		console_puts_select(stderr, serial_only, s);
+	console_puts_select(stderr, serial_only, s);
 }
 
 static void console_puts(int file, const char *s)
@@ -402,8 +395,7 @@ static inline void console_putc(int file, const char c)
 
 void console_puts_select(int file, bool serial_only, const char *s)
 {
-	if ((gd->flags & GD_FLG_DEVINIT) &&
-	    serial_only == console_dev_is_serial(stdio_devices[file]))
+	if (serial_only == console_dev_is_serial(stdio_devices[file]))
 		stdio_devices[file]->puts(stdio_devices[file], s);
 }
 
@@ -737,9 +729,7 @@ int console_record_init(void)
 	int ret;
 
 	ret = membuff_new((struct membuff *)&gd->console_out,
-			  gd->flags & GD_FLG_RELOC ?
-				  CONFIG_CONSOLE_RECORD_OUT_SIZE :
-				  CONFIG_CONSOLE_RECORD_OUT_SIZE_F);
+			  CONFIG_CONSOLE_RECORD_OUT_SIZE);
 	if (ret)
 		return ret;
 	ret = membuff_new((struct membuff *)&gd->console_in,
@@ -752,7 +742,6 @@ void console_record_reset(void)
 {
 	membuff_purge((struct membuff *)&gd->console_out);
 	membuff_purge((struct membuff *)&gd->console_in);
-	gd->flags &= ~GD_FLG_RECORD_OVF;
 }
 
 int console_record_reset_enable(void)
@@ -765,9 +754,6 @@ int console_record_reset_enable(void)
 
 int console_record_readline(char *str, int maxlen)
 {
-	if (gd->flags & GD_FLG_RECORD_OVF)
-		return -ENOSPC;
-
 	return membuff_readline((struct membuff *)&gd->console_out, str,
 				maxlen, ' ');
 }
@@ -775,11 +761,6 @@ int console_record_readline(char *str, int maxlen)
 int console_record_avail(void)
 {
 	return membuff_avail((struct membuff *)&gd->console_out);
-}
-
-int console_in_puts(const char *str)
-{
-	return membuff_put((struct membuff *)&gd->console_in, str, strlen(str));
 }
 
 #endif

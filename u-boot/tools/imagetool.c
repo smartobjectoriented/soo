@@ -26,12 +26,6 @@ struct image_type_params *imagetool_get_type(int type)
 	return NULL;
 }
 
-static int imagetool_verify_print_header_by_type(
-	void *ptr,
-	struct stat *sbuf,
-	struct image_type_params *tparams,
-	struct image_tool_params *params);
-
 int imagetool_verify_print_header(
 	void *ptr,
 	struct stat *sbuf,
@@ -44,9 +38,6 @@ int imagetool_verify_print_header(
 
 	struct image_type_params **start = __start_image_type;
 	struct image_type_params **end = __stop_image_type;
-
-	if (tparams)
-		return imagetool_verify_print_header_by_type(ptr, sbuf, tparams, params);
 
 	for (curr = start; curr != end; curr++) {
 		if ((*curr)->verify_header) {
@@ -74,7 +65,7 @@ int imagetool_verify_print_header(
 	return retval;
 }
 
-static int imagetool_verify_print_header_by_type(
+int imagetool_verify_print_header_by_type(
 	void *ptr,
 	struct stat *sbuf,
 	struct image_type_params *tparams,

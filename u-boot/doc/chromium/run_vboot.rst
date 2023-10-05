@@ -6,15 +6,11 @@
 Running U-Boot with Chromium OS verified boot
 =============================================
 
-Note: Once you use the source below you can obtain extra documentation with
-'make htmldocs'. See the 'Internal Documentation' link, under
-'Chromium OS-specific doc'.
-
 To obtain::
 
    git clone https://github.com/sjg20/u-boot.git
    cd u-boot
-   git checkout cros-2021.04
+   git checkout cros-master
 
    cd ..
    git clone https://chromium.googlesource.com/chromiumos/platform/vboot_reference
@@ -173,8 +169,7 @@ detect problems that affect the flow or particular vboot features.
 U-Boot without Chromium OS verified boot
 ----------------------------------------
 
-The following script can be used to boot a Chrome OS image on coral. It is
-defined as the boot command in mainline::
+The following script can be used to boot a Chrome OS image on coral::
 
    # Read the image header and obtain the address of the kernel
    # The offset 4f0 is defined by verified boot and may change for other
@@ -198,6 +193,12 @@ defined as the boot command in mainline::
 
    # Boot into Chrome OS
    zboot go
+
+
+TO DO
+-----
+
+Get the full ACPI tables working with Coral
 
 
 7 October 2018

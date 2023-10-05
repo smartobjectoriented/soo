@@ -154,7 +154,7 @@ enum {
 	OPMODE_ON,
 };
 
-#if CONFIG_IS_ENABLED(POWER_LEGACY)
+#ifdef CONFIG_POWER
 int max77686_set_ldo_voltage(struct pmic *p, int ldo, ulong uV);
 int max77686_set_ldo_mode(struct pmic *p, int ldo, char opmode);
 int max77686_set_buck_voltage(struct pmic *p, int buck, ulong uV);

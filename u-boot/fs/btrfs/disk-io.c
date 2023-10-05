@@ -126,8 +126,6 @@ int btrfs_csum_data(u16 csum_type, const u8 *data, u8 *out, size_t len)
 		return hash_xxhash(data, len, out);
 	case BTRFS_CSUM_TYPE_SHA256:
 		return hash_sha256(data, len, out);
-	case BTRFS_CSUM_TYPE_BLAKE2:
-		return hash_blake2(data, len, out);
 	default:
 		printf("Unknown csum type %d\n", csum_type);
 		return -EINVAL;
@@ -806,30 +804,6 @@ static int setup_root_or_create_block(struct btrfs_fs_info *fs_info,
 	return 0;
 }
 
-static int get_default_subvolume(struct btrfs_fs_info *fs_info,
-				 struct btrfs_key *key_ret)
-{
-	struct btrfs_root *root = fs_info->tree_root;
-	struct btrfs_dir_item *dir_item;
-	struct btrfs_path path;
-	int ret = 0;
-
-	btrfs_init_path(&path);
-
-	dir_item = btrfs_lookup_dir_item(NULL, root, &path,
-					 BTRFS_ROOT_TREE_DIR_OBJECTID,
-					 "default", 7, 0);
-	if (IS_ERR(dir_item)) {
-		ret = PTR_ERR(dir_item);
-		goto out;
-	}
-
-	btrfs_dir_item_key_to_cpu(path.nodes[0], dir_item, key_ret);
-out:
-	btrfs_release_path(&path);
-	return ret;
-}
-
 int btrfs_setup_all_roots(struct btrfs_fs_info *fs_info)
 {
 	struct btrfs_super_block *sb = fs_info->super_copy;
@@ -859,17 +833,9 @@ int btrfs_setup_all_roots(struct btrfs_fs_info *fs_info)
 
 	fs_info->last_trans_committed = generation;
 
-	ret = get_default_subvolume(fs_info, &key);
-	if (ret) {
-		/*
-		 * The default dir item isn't there. Linux kernel behaviour is
-		 * to silently use the top-level subvolume in this case.
-		 */
-		key.objectid = BTRFS_FS_TREE_OBJECTID;
-		key.type = BTRFS_ROOT_ITEM_KEY;
-		key.offset = (u64)-1;
-	}
-
+	key.objectid = BTRFS_FS_TREE_OBJECTID;
+	key.type = BTRFS_ROOT_ITEM_KEY;
+	key.offset = (u64)-1;
 	fs_info->fs_root = btrfs_read_fs_root(fs_info, &key);
 
 	if (IS_ERR(fs_info->fs_root))
@@ -920,11 +886,7 @@ static int btrfs_scan_fs_devices(struct blk_desc *desc,
 
 	ret = btrfs_scan_one_device(desc, part, fs_devices, &total_devs);
 	if (ret) {
-		/*
-		 * Avoid showing this when probing for a possible Btrfs
-		 *
-		 * fprintf(stderr, "No valid Btrfs found\n");
-		 */
+		fprintf(stderr, "No valid Btrfs found\n");
 		return ret;
 	}
 	return 0;
@@ -1013,7 +975,7 @@ struct btrfs_fs_info *open_ctree_fs_info(struct blk_desc *desc,
 	disk_super = fs_info->super_copy;
 	ret = btrfs_read_dev_super(desc, part, disk_super);
 	if (ret) {
-		debug("No valid btrfs found\n");
+		printk("No valid btrfs found\n");
 		goto out_devices;
 	}
 

@@ -328,3 +328,4 @@ int rk_mipi_phy_enable(struct udevice *dev)
 
 	return 0;
 }
+

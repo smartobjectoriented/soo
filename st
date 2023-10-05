@@ -21,7 +21,7 @@ done < agency/build.conf
 if [ "$PLATFORM" == "virt64" ]; then
 	echo Starting on ARM64
 	
-	sudo qemu-system-aarch64 $@ ${USR_OPTION} \
+	sudo qemu/build/qemu-system-aarch64 $@ ${USR_OPTION} \
 		-smp 4  \
 		-serial mon:stdio  \
 		-M virt,gic-version=2 -cpu cortex-a72  \

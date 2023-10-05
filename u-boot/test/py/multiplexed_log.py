@@ -2,10 +2,8 @@
 # Copyright (c) 2015 Stephen Warren
 # Copyright (c) 2015-2016, NVIDIA CORPORATION. All rights reserved.
 
-"""
-Generate an HTML-formatted log file containing multiple streams of data,
-each represented in a well-delineated/-structured fashion.
-"""
+# Generate an HTML-formatted log file containing multiple streams of data,
+# each represented in a well-delineated/-structured fashion.
 
 import datetime
 import html
@@ -111,7 +109,7 @@ class RunAndLog(object):
         """Clean up any resources managed by this object."""
         pass
 
-    def run(self, cmd, cwd=None, ignore_errors=False, stdin=None):
+    def run(self, cmd, cwd=None, ignore_errors=False):
         """Run a command as a sub-process, and log the results.
 
         The output is available at self.output which can be useful if there is
@@ -125,7 +123,6 @@ class RunAndLog(object):
                 function will simply return if the command cannot be executed
                 or exits with an error code, otherwise an exception will be
                 raised if such problems occur.
-            stdin: Input string to pass to the command as stdin (or None)
 
         Returns:
             The output as a string.
@@ -138,9 +135,8 @@ class RunAndLog(object):
 
         try:
             p = subprocess.Popen(cmd, cwd=cwd,
-                stdin=subprocess.PIPE if stdin else None,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            (stdout, stderr) = p.communicate(input=stdin)
+                stdin=None, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            (stdout, stderr) = p.communicate()
             if stdout is not None:
                 stdout = stdout.decode('utf-8')
             if stderr is not None:
@@ -167,7 +163,7 @@ class RunAndLog(object):
         if output and not output.endswith('\n'):
             output += '\n'
         if exit_status and not exception and not ignore_errors:
-            exception = ValueError('Exit code: ' + str(exit_status))
+            exception = Exception('Exit code: ' + str(exit_status))
         if exception:
             output += str(exception) + '\n'
         self.logfile.write(self, output)
@@ -182,7 +178,7 @@ class RunAndLog(object):
             raise exception
         return output
 
-class SectionCtxMgr:
+class SectionCtxMgr(object):
     """A context manager for Python's "with" statement, which allows a certain
     portion of test code to be logged to a separate section of the log file.
     Objects of this type should be created by factory functions in the Logfile
@@ -210,7 +206,7 @@ class SectionCtxMgr:
     def __exit__(self, extype, value, traceback):
         self.log.end_section(self.marker)
 
-class Logfile:
+class Logfile(object):
     """Generates an HTML-formatted log file containing multiple streams of
     data, each represented in a well-delineated/-structured fashion."""
 
@@ -324,8 +320,8 @@ $(document).ready(function () {
     # The set of characters that should be represented as hexadecimal codes in
     # the log file.
     _nonprint = {ord('%')}
-    _nonprint.update(c for c in range(0, 32) if c not in (9, 10))
-    _nonprint.update(range(127, 256))
+    _nonprint.update({c for c in range(0, 32) if c not in (9, 10)})
+    _nonprint.update({c for c in range(127, 256)})
 
     def _escape(self, data):
         """Render data format suitable for inclusion in an HTML document.

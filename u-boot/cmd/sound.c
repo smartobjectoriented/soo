@@ -41,9 +41,9 @@ static int do_play(struct cmd_tbl *cmdtp, int flag, int argc,
 	int freq = 400;
 
 	if (argc > 1)
-		msec = dectoul(argv[1], NULL);
+		msec = simple_strtoul(argv[1], NULL, 10);
 	if (argc > 2)
-		freq = dectoul(argv[2], NULL);
+		freq = simple_strtoul(argv[2], NULL, 10);
 
 	ret = uclass_first_device_err(UCLASS_SOUND, &dev);
 	if (!ret)

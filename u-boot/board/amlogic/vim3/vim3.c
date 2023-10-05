@@ -19,15 +19,9 @@
 
 int mmc_get_env_dev(void)
 {
-	switch (meson_get_boot_device()) {
-	case BOOT_DEVICE_EMMC:
+	if (meson_get_boot_device() == BOOT_DEVICE_EMMC)
 		return 2;
-	case BOOT_DEVICE_SD:
-		return 1;
-	default:
-		/* boot device is not EMMC|SD */
-		return -1;
-	}
+	return 1;
 }
 
 /*
@@ -104,8 +98,8 @@ int meson_ft_board_setup(void *blob, struct bd_info *bd)
 		}
 
 		/* Update PHY names (mandatory to disable USB3.0) */
-		len = strlcpy(data, "usb2-phy0", 32);
-		len += strlcpy(&data[len], "usb2-phy1", 32 - len);
+		len = strlcpy(data, "usb2-phy0", 32) + 1;
+		len += strlcpy(&data[len], "usb2-phy1", 32 - len) + 1;
 		ret = fdt_setprop(blob, node, "phy-names", data, len);
 		if (ret < 0) {
 			printf("vim3: failed to update usb phy names property (%d)\n", ret);
@@ -153,7 +147,6 @@ int misc_init_r(void)
 {
 	u8 mac_addr[MAC_ADDR_LEN];
 	char efuse_mac_addr[EFUSE_MAC_SIZE], tmp[3];
-	char serial_string[EFUSE_MAC_SIZE + 1];
 	ssize_t len;
 
 	if (!eth_env_get_enetaddr("ethaddr", mac_addr)) {
@@ -167,7 +160,7 @@ int misc_init_r(void)
 			tmp[0] = efuse_mac_addr[i * 2];
 			tmp[1] = efuse_mac_addr[i * 2 + 1];
 			tmp[2] = '\0';
-			mac_addr[i] = hextoul(tmp, NULL);
+			mac_addr[i] = simple_strtoul(tmp, NULL, 16);
 		}
 
 		if (is_valid_ethaddr(mac_addr))
@@ -176,14 +169,6 @@ int misc_init_r(void)
 			meson_generate_serial_ethaddr();
 
 		eth_env_get_enetaddr("ethaddr", mac_addr);
-	}
-
-	if (!env_get("serial#")) {
-		eth_env_get_enetaddr("ethaddr", mac_addr);
-		sprintf(serial_string, "%02X%02X%02X%02X%02X%02X",
-			mac_addr[0], mac_addr[1], mac_addr[2],
-			mac_addr[3], mac_addr[4], mac_addr[5]);
-		env_set("serial#", serial_string);
 	}
 
 	return 0;

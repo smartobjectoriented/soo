@@ -73,7 +73,7 @@ int cleanup_before_linux_select(int flags)
  * which we can use to map back to the pointer later.
  *
  * @ptr: Pointer to check
- * Return: true if this is within sandbox emulated DRAM, false if not
+ * @return true if this is within sandbox emulated DRAM, false if not
  */
 static bool is_in_sandbox_mem(const void *ptr)
 {
@@ -291,51 +291,44 @@ void invalidate_dcache_range(unsigned long start, unsigned long stop)
 {
 }
 
-void *board_fdt_blob_setup(int *ret)
+int sandbox_read_fdt_from_file(void)
 {
 	struct sandbox_state *state = state_get_current();
 	const char *fname = state->fdt_fname;
-	void *blob = NULL;
+	void *blob;
 	loff_t size;
 	int err;
 	int fd;
 
 	blob = map_sysmem(CONFIG_SYS_FDT_LOAD_ADDR, 0);
-	*ret = 0;
 	if (!state->fdt_fname) {
 		err = fdt_create_empty_tree(blob, 256);
 		if (!err)
 			goto done;
 		printf("Unable to create empty FDT: %s\n", fdt_strerror(err));
-		*ret = -EINVAL;
-		goto fail;
+		return -EINVAL;
 	}
 
 	err = os_get_filesize(fname, &size);
 	if (err < 0) {
-		printf("Failed to find FDT file '%s'\n", fname);
-		*ret = err;
-		goto fail;
+		printf("Failed to file FDT file '%s'\n", fname);
+		return err;
 	}
 	fd = os_open(fname, OS_O_RDONLY);
 	if (fd < 0) {
 		printf("Failed to open FDT file '%s'\n", fname);
-		*ret = -EACCES;
-		goto fail;
+		return -EACCES;
 	}
-
 	if (os_read(fd, blob, size) != size) {
 		os_close(fd);
-		printf("Failed to read FDT file '%s'\n", fname);
-		*ret =  -EIO;
-		goto fail;
+		return -EIO;
 	}
 	os_close(fd);
 
 done:
-	return blob;
-fail:
-	return NULL;
+	gd->fdt_blob = blob;
+
+	return 0;
 }
 
 ulong timer_get_boot_us(void)

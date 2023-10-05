@@ -17,7 +17,6 @@
 #include <asm-offsets.h>
 #include <config.h>
 #include <common.h>
-#include <linux/linkage.h>
 
 /*
  *************************************************************************
@@ -33,13 +32,8 @@
  */
 
 	.globl	reset
-	.globl	save_boot_params_ret
-	.type   save_boot_params_ret,%function
 
 reset:
-	/* Allow the board to save important registers */
-	b	save_boot_params
-save_boot_params_ret:
 	/*
 	 * set the cpu to SVC32 mode
 	 */
@@ -52,7 +46,7 @@ save_boot_params_ret:
 	 * we do sys-critical inits only at reboot,
 	 * not when booting from ram!
 	 */
-#if !CONFIG_IS_ENABLED(SKIP_LOWLEVEL_INIT)
+#ifndef CONFIG_SKIP_LOWLEVEL_INIT
 	bl	cpu_init_crit
 #endif
 
@@ -75,7 +69,7 @@ c_runtime_cpu_setup:
  *
  *************************************************************************
  */
-#if !CONFIG_IS_ENABLED(SKIP_LOWLEVEL_INIT)
+#ifndef CONFIG_SKIP_LOWLEVEL_INIT
 cpu_init_crit:
 	/*
 	 * flush D cache before disabling it
@@ -106,7 +100,7 @@ flush_dcache:
 #endif
 	mcr	p15, 0, r0, c1, c0, 0
 
-#if !CONFIG_IS_ENABLED(SKIP_LOWLEVEL_INIT_ONLY)
+#ifndef CONFIG_SKIP_LOWLEVEL_INIT_ONLY
 	/*
 	 * Go setup Memory and board specific bits prior to relocation.
 	 */
@@ -115,17 +109,4 @@ flush_dcache:
 	mov	lr, r4		/* restore link */
 #endif
 	mov	pc, lr		/* back to my caller */
-#endif /* CONFIG_IS_ENABLED(SKIP_LOWLEVEL_INIT) */
-
-/*************************************************************************
- *
- * void save_boot_params(u32 r0, u32 r1, u32 r2, u32 r3)
- *	__attribute__((weak));
- *
- * Stack pointer is not yet initialized at this moment
- * Don't save anything to stack even if compiled with -O0
- *
- *************************************************************************/
-WEAK(save_boot_params)
-	b	save_boot_params_ret	/* back to my caller */
-ENDPROC(save_boot_params)
+#endif /* CONFIG_SKIP_LOWLEVEL_INIT */

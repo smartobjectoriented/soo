@@ -130,19 +130,18 @@ void dm_dump_drivers(void)
 	struct driver *entry;
 	struct udevice *udev;
 	struct uclass *uc;
-	int ret;
 	int i;
 
 	puts("Driver                    uid uclass               Devices\n");
 	puts("----------------------------------------------------------\n");
 
 	for (entry = d; entry < d + n_ents; entry++) {
-		ret = uclass_get(entry->id, &uc);
+		uclass_get(entry->id, &uc);
 
 		printf("%-25.25s %-3.3d %-20.20s ", entry->name, entry->id,
-		       !ret ? uc->uc_drv->name : "<no uclass>");
+		       uc ? uc->uc_drv->name : "<no uclass>");
 
-		if (ret) {
+		if (!uc) {
 			puts("\n");
 			continue;
 		}

@@ -128,11 +128,8 @@ static efi_status_t efi_get_dfu_info(
 	size_t names_len, total_size;
 	int dfu_num, i;
 	u16 *name, *next;
-	int ret;
 
-	ret = dfu_init_env_entities(NULL, NULL);
-	if (ret)
-		return EFI_SUCCESS;
+	dfu_init_env_entities(NULL, NULL);
 
 	names_len = 0;
 	dfu_num = 0;
@@ -141,7 +138,7 @@ static efi_status_t efi_get_dfu_info(
 		dfu_num++;
 	}
 	if (!dfu_num) {
-		log_warning("No entities in dfu_alt_info\n");
+		log_warning("Probably dfu_alt_info not defined\n");
 		*image_info_size = 0;
 		dfu_free_entities();
 
@@ -302,7 +299,7 @@ efi_status_t EFIAPI efi_firmware_fit_set_image(
 	efi_status_t (*progress)(efi_uintn_t completion),
 	u16 **abort_reason)
 {
-	EFI_ENTRY("%p %d %p %zu %p %p %p\n", this, image_index, image,
+	EFI_ENTRY("%p %d %p %zd %p %p %p\n", this, image_index, image,
 		  image_size, vendor_code, progress, abort_reason);
 
 	if (!image || image_index != 1)
@@ -417,7 +414,7 @@ efi_status_t EFIAPI efi_firmware_raw_set_image(
 	efi_status_t status;
 	efi_uintn_t capsule_payload_size;
 
-	EFI_ENTRY("%p %d %p %zu %p %p %p\n", this, image_index, image,
+	EFI_ENTRY("%p %d %p %zd %p %p %p\n", this, image_index, image,
 		  image_size, vendor_code, progress, abort_reason);
 
 	if (!image)

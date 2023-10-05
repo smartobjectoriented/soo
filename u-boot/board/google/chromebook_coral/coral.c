@@ -10,20 +10,16 @@
 #include <command.h>
 #include <cros_ec.h>
 #include <dm.h>
-#include <init.h>
 #include <log.h>
 #include <sysinfo.h>
 #include <acpi/acpigen.h>
 #include <asm-generic/gpio.h>
 #include <asm/acpi_nhlt.h>
-#include <asm/cb_sysinfo.h>
 #include <asm/intel_gnvs.h>
 #include <asm/intel_pinctrl.h>
 #include <dm/acpi.h>
 #include <linux/delay.h>
 #include "variant_gpio.h"
-
-DECLARE_GLOBAL_DATA_PTR;
 
 struct cros_gpio_info {
 	const char *linux_name;
@@ -31,30 +27,6 @@ struct cros_gpio_info {
 	int gpio_num;
 	int flags;
 };
-
-int misc_init_f(void)
-{
-	if (!ll_boot_init()) {
-		printf("Running as secondary loader");
-		if (gd->arch.coreboot_table) {
-			int ret;
-
-			printf(" (found coreboot table at %lx)",
-			       gd->arch.coreboot_table);
-
-			ret = get_coreboot_info(&lib_sysinfo);
-			if (ret) {
-				printf("\nFailed to parse coreboot tables (err=%d)\n",
-				       ret);
-				return ret;
-			}
-		}
-
-		printf("\n");
-	}
-
-	return 0;
-}
 
 int arch_misc_init(void)
 {
@@ -98,7 +70,7 @@ static int get_memconfig(struct udevice *dev)
  *     EC              - reading from the EC (backup)
  *
  * @dev: sysinfo device to use
- * Return: SKU ID, or -ve error if not found
+ * @return SKU ID, or -ve error if not found
  */
 static int get_skuconfig(struct udevice *dev)
 {
@@ -300,7 +272,7 @@ struct sysinfo_ops coral_sysinfo_ops = {
 	.get_str	= coral_get_str,
 };
 
-#if CONFIG_IS_ENABLED(OF_REAL)
+#if !CONFIG_IS_ENABLED(OF_PLATDATA)
 static const struct udevice_id coral_ids[] = {
 	{ .compatible = "google,coral" },
 	{ }

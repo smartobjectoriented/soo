@@ -23,7 +23,6 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand_bch.h>
 #include <linux/mtd/nand_ecc.h>
-#include <linux/mtd/rawnand.h>
 #include <asm/global_data.h>
 #include <asm/io.h>
 #include <asm/types.h>
@@ -2179,7 +2178,7 @@ int octeontx_pci_nand_disable(struct udevice *dev)
  * In this case, the initial probe returns success but the actual probing
  * is deferred until the BCH VF has been probed.
  *
- * Return:	0 for success, otherwise error
+ * @return	0 for success, otherwise error
  */
 int octeontx_pci_nand_deferred_probe(void)
 {

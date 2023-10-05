@@ -2,9 +2,6 @@
 /*
  * Copyright (c) 2019,Softathome
  */
-
-#define OPENSSL_API_COMPAT 0x10101000L
-
 #include "mkimage.h"
 #include <stdio.h>
 #include <string.h>

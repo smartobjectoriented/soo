@@ -154,7 +154,7 @@ static struct cvmx_bootinfo cvmx_bootinfo_array[CVMX_MIPS_MAX_CORES];
  *				16 dwords.
  * @param	num_words	Number of data dwords (up to 32)
  *
- * Return:	0 for success, -1 on error
+ * @return	0 for success, -1 on error
  */
 static int octeon_set_moveable_region(u32 base, int region_num,
 				      bool enable, const u64 *data,
@@ -219,7 +219,7 @@ static int octeon_set_moveable_region(u32 base, int region_num,
  * @param[in] str string to parse
  * @param base 0 for auto, otherwise 8, 10 or 16 for the number base
  *
- * Return: number of values read.
+ * @return number of values read.
  */
 static int octeon_parse_nodes(u64 values[CVMX_MAX_NODES],
 			      const char *str, int base)
@@ -246,7 +246,7 @@ static int octeon_parse_nodes(u64 values[CVMX_MAX_NODES],
  * @param cmd			command type
  * @param[out] boot_args	parsed values
  *
- * Return: number of arguments parsed
+ * @return number of arguments parsed
  */
 int octeon_parse_bootopts(int argc, char *const argv[],
 			  enum octeon_boot_cmd_type cmd,
@@ -281,7 +281,8 @@ int octeon_parse_bootopts(int argc, char *const argv[],
 		} else if (!strncmp(argv[arg], "forceboot", 9)) {
 			boot_args->forceboot = true;
 		} else if (!strncmp(argv[arg], "nodemask=", 9)) {
-			boot_args->node_mask = hextoul(argv[arg] + 9, NULL);
+			boot_args->node_mask = simple_strtoul(argv[arg] + 9,
+							      NULL, 16);
 		} else if (!strncmp(argv[arg], "numcores=", 9)) {
 			memset(node_values, 0, sizeof(node_values));
 			num_values = octeon_parse_nodes(node_values,
@@ -382,7 +383,7 @@ int do_bootoctlinux(struct cmd_tbl *cmdtp, int flag, int argc,
 						   argv[1][1] == 'x' ||
 						   argv[1][1] == 'X' ||
 						   argv[1][1] == '\0'))) {
-		addr = hextoul(argv[1], NULL);
+		addr = simple_strtoul(argv[1], NULL, 16);
 		if (!addr)
 			addr = CONFIG_SYS_LOAD_ADDR;
 		arg_start++;

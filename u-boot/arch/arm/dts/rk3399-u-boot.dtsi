@@ -88,10 +88,6 @@
 	u-boot,dm-pre-reloc;
 };
 
-&emmc_phy {
-	u-boot,dm-pre-reloc;
-};
-
 &grf {
 	u-boot,dm-pre-reloc;
 };

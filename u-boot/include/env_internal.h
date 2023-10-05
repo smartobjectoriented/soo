@@ -54,6 +54,7 @@
 #   error "is set"
 #  endif
 extern unsigned long nand_env_oob_offset;
+#  define CONFIG_ENV_OFFSET nand_env_oob_offset
 # endif /* CONFIG_ENV_OFFSET_OOB */
 #endif /* CONFIG_ENV_IS_IN_NAND */
 
@@ -111,9 +112,9 @@ extern env_t embedded_environment;
 #endif /* ENV_IS_EMBEDDED */
 
 #ifdef DEFAULT_ENV_IS_RW
-extern char default_environment[];
+extern unsigned char default_environment[];
 #else
-extern const char default_environment[];
+extern const unsigned char default_environment[];
 #endif
 
 #ifndef DO_DEPS_ONLY
@@ -220,7 +221,7 @@ extern struct hsearch_data env_htab;
  * It is a weak function allowing board to overidde the default interface for
  * U-Boot env in EXT4: CONFIG_ENV_EXT4_INTERFACE
  *
- * Return: string of interface, empty if not supported
+ * @return string of interface, empty if not supported
  */
 const char *env_ext4_get_intf(void);
 
@@ -230,7 +231,7 @@ const char *env_ext4_get_intf(void);
  * It is a weak function allowing board to overidde the default device and
  * partition used for U-Boot env in EXT4: CONFIG_ENV_EXT4_DEVICE_AND_PART
  *
- * Return: string of device and partition
+ * @return string of device and partition
  */
 const char *env_ext4_get_dev_part(void);
 
@@ -242,7 +243,7 @@ const char *env_ext4_get_dev_part(void);
  * @op: operations performed on the environment
  * @prio: priority between the multiple environments, 0 being the
  *        highest priority
- * Return:  an enum env_location value on success, or -ve error code.
+ * @return  an enum env_location value on success, or -ve error code.
  */
 enum env_location env_get_location(enum env_operation op, int prio);
 #endif /* DO_DEPS_ONLY */

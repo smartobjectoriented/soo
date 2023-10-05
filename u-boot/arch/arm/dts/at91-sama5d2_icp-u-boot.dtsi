@@ -13,30 +13,6 @@
 	};
 };
 
-&pinctrl_mikrobus1_uart {
-	u-boot,dm-pre-reloc;
-};
-
-&pinctrl_qspi1_sck_cs_default {
-	u-boot,dm-pre-reloc;
-};
-
-&pinctrl_qspi1_dat_default {
-	u-boot,dm-pre-reloc;
-};
-
-&pinctrl_sdmmc0_default {
-	u-boot,dm-pre-reloc;
-};
-
-&qspi1 {
-	u-boot,dm-pre-reloc;
-
-	flash@0 {
-		u-boot,dm-pre-reloc;
-	};
-};
-
 &sdmmc0 {
 	u-boot,dm-pre-reloc;
 };
@@ -45,3 +21,10 @@
 	u-boot,dm-pre-reloc;
 };
 
+&pinctrl_sdmmc0_default {
+	u-boot,dm-pre-reloc;
+};
+
+&pinctrl_mikrobus1_uart {
+	u-boot,dm-pre-reloc;
+};

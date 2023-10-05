@@ -27,3 +27,4 @@ U_BOOT_CMD(pvblock, 5, 1, do_pvblock,
 	   "pvblock write addr blk# cnt - read/write `cnt'"
 	   " blocks starting at block `blk#'\n"
 	   "    to/from memory address `addr'");
+

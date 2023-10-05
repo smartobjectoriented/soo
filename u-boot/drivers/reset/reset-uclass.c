@@ -3,8 +3,6 @@
  * Copyright (c) 2016, NVIDIA CORPORATION.
  */
 
-#define LOG_CATEGORY UCLASS_RESET
-
 #include <common.h>
 #include <dm.h>
 #include <fdtdec.h>
@@ -26,7 +24,7 @@ static int reset_of_xlate_default(struct reset_ctl *reset_ctl,
 	debug("%s(reset_ctl=%p)\n", __func__, reset_ctl);
 
 	if (args->args_count != 1) {
-		debug("Invalid args_count: %d\n", args->args_count);
+		debug("Invaild args_count: %d\n", args->args_count);
 		return -EINVAL;
 	}
 
@@ -325,8 +323,6 @@ struct reset_ctl_bulk *devm_reset_bulk_get_by_node(struct udevice *dev,
 	bulk = devres_alloc(devm_reset_bulk_release,
 			    sizeof(struct reset_ctl_bulk),
 			    __GFP_ZERO);
-
-	/* this looks like a leak, but devres takes care of it */
 	if (unlikely(!bulk))
 		return ERR_PTR(-ENOMEM);
 

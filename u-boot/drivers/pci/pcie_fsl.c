@@ -58,9 +58,8 @@ static int fsl_pcie_read_config(const struct udevice *bus, pci_dev_t bdf,
 		return 0;
 	}
 
-	val = PCI_CONF1_EXT_ADDRESS(PCI_BUS(bdf) - dev_seq(bus),
-				    PCI_DEV(bdf), PCI_FUNC(bdf),
-				    offset);
+	bdf = bdf - PCI_BDF(dev_seq(bus), 0, 0);
+	val = bdf | (offset & 0xfc) | ((offset & 0xf00) << 16) | 0x80000000;
 	out_be32(&regs->cfg_addr, val);
 
 	sync();
@@ -95,9 +94,8 @@ static int fsl_pcie_write_config(struct udevice *bus, pci_dev_t bdf,
 	if (fsl_pcie_addr_valid(pcie, bdf))
 		return 0;
 
-	val = PCI_CONF1_EXT_ADDRESS(PCI_BUS(bdf) - dev_seq(bus),
-				    PCI_DEV(bdf), PCI_FUNC(bdf),
-				    offset);
+	bdf = bdf - PCI_BDF(dev_seq(bus), 0, 0);
+	val = bdf | (offset & 0xfc) | ((offset & 0xf00) << 16) | 0x80000000;
 	out_be32(&regs->cfg_addr, val);
 
 	sync();

@@ -14,6 +14,7 @@
 #define CONFIG_TIZEN			/* TIZEN lib */
 
 /* Keep L2 Cache Disabled */
+#define CONFIG_SYS_L2CACHE_OFF		1
 
 /* Universal has 2 banks of DRAM */
 #define CONFIG_SYS_SDRAM_BASE		0x40000000
@@ -21,12 +22,17 @@
 
 #define SDRAM_BANK_SIZE			(256 << 20)	/* 256 MB */
 
+#define CONFIG_BOOTCOMMAND		"run mmcboot"
+
 #define CONFIG_SYS_INIT_SP_ADDR	(CONFIG_SYS_LOAD_ADDR \
 					- GENERATED_GBL_DATA_SIZE)
 
 #define CONFIG_SYS_MEM_TOP_HIDE	(1 << 20)	/* ram console */
 
 #define CONFIG_SYS_MONITOR_BASE	0x00000000
+
+/* memtest works on */
+#define CONFIG_SYS_LOAD_ADDR		(CONFIG_SYS_SDRAM_BASE + 0x4800000)
 
 /* Actual modem binary size is 16MiB. Add 2MiB for bad block handling */
 
@@ -37,6 +43,16 @@
 				",1G(system)"\
 				",100M(swap)"\
 				",-(UMS)\0"
+
+#define CONFIG_ENV_UBI_MTD	" ubi.mtd=${ubiblock} ubi.mtd=4 ubi.mtd=7"
+#define CONFIG_BOOTBLOCK	"10"
+#define CONFIG_UBIBLOCK		"9"
+
+#define CONFIG_ENV_UBIFS_OPTION	" rootflags=bulk_read,no_chk_data_crc "
+#define CONFIG_ENV_FLASHBOOT	CONFIG_ENV_UBI_MTD CONFIG_ENV_UBIFS_OPTION \
+				"${mtdparts}"
+
+#define CONFIG_ENV_COMMON_BOOT	"${console} ${meminfo}"
 
 #define CONFIG_EXTRA_ENV_SETTINGS					\
 	"updateb=" \
@@ -55,20 +71,18 @@
 	"lpj=lpj=3981312\0" \
 	"ubifsboot=" \
 		"set bootargs root=ubi0!rootfs rootfstype=ubifs ${lpj} " \
-		"ubi.mtd=${ubiblock} ubi.mtd=4 ubi.mtd=7 " \
-		"rootflags=bulk_read,no_chk_data_crc ${mtdparts} ${opts} " \
-		"${lcdinfo} ${console} ${meminfo}; run bootk\0" \
+		CONFIG_ENV_FLASHBOOT " ${opts} ${lcdinfo} " \
+		CONFIG_ENV_COMMON_BOOT "; run bootk\0" \
 	"tftpboot=" \
 		"set bootargs root=ubi0!rootfs rootfstype=ubifs " \
-		"ubi.mtd=${ubiblock} ubi.mtd=4 ubi.mtd=7 " \
-		"rootflags=bulk_read,no_chk_data_crc ${mtdparts} ${opts} " \
-		"${lcdinfo} ${console} ${meminfo}" \
+		CONFIG_ENV_FLASHBOOT " ${opts} ${lcdinfo} " \
+		CONFIG_ENV_COMMON_BOOT \
 		"; tftp 0x40007FC0 uImage; bootm 0x40007FC0\0" \
 	"nfsboot=" \
 		"set bootargs root=/dev/nfs rw " \
 		"nfsroot=${nfsroot},nolock,tcp " \
 		"ip=${ipaddr}:${serverip}:${gatewayip}:" \
-		"${netmask}:generic:usb0:off ${console} ${meminfo}" \
+		"${netmask}:generic:usb0:off " CONFIG_ENV_COMMON_BOOT \
 		"; run bootk\0" \
 	"ramfsboot=" \
 		"set bootargs root=/dev/ram0 rw rootfstype=ext2 " \
@@ -88,8 +102,8 @@
 	"mbrparts=" MBRPARTS_DEFAULT \
 	"meminfo=crashkernel=32M@0x50000000\0" \
 	"nfsroot=/nfsroot/arm\0" \
-	"bootblock=10\0" \
-	"ubiblock=9\0" \
+	"bootblock=" CONFIG_BOOTBLOCK "\0" \
+	"ubiblock=" CONFIG_UBIBLOCK" \0" \
 	"ubi=enabled\0" \
 	"loaduimage=fatload mmc ${mmcdev}:${mmcbootpart} 0x40007FC0 uImage\0" \
 	"mmcdev=0\0" \
@@ -102,6 +116,11 @@
 #define CONFIG_SYS_ONENAND_BASE		0x0C000000
 
 #define CONFIG_USB_GADGET_DWC2_OTG_PHY
+
+/*
+ * SPI Settings
+ */
+#define CONFIG_SOFT_SPI
 
 #ifndef	__ASSEMBLY__
 void universal_spi_scl(int bit);

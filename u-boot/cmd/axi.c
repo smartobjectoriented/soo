@@ -120,7 +120,7 @@ static int do_axi_show_bus(struct cmd_tbl *cmdtp, int flag, int argc,
 		int i;
 
 		/* show specific bus */
-		i = dectoul(argv[1], NULL);
+		i = simple_strtoul(argv[1], NULL, 10);
 
 		struct udevice *bus;
 		int ret;
@@ -153,7 +153,7 @@ static int do_axi_bus_num(struct cmd_tbl *cmdtp, int flag, int argc,
 
 		printf("Current bus is %d\n", bus_no);
 	} else {
-		bus_no = dectoul(argv[1], NULL);
+		bus_no = simple_strtoul(argv[1], NULL, 10);
 		printf("Setting bus to %d\n", bus_no);
 
 		ret = axi_set_cur_bus(bus_no);
@@ -193,19 +193,19 @@ static int do_axi_md(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 
 	if ((flag & CMD_FLAG_REPEAT) == 0) {
-		size = dectoul(argv[1], NULL);
+		size = simple_strtoul(argv[1], NULL, 10);
 
 		/*
 		 * Address is specified since argc >= 3
 		 */
-		addr = hextoul(argv[2], NULL);
+		addr = simple_strtoul(argv[2], NULL, 16);
 
 		/*
 		 * If there's another parameter, it is the length to display;
 		 * length is the number of objects, not number of bytes
 		 */
 		if (argc > 3)
-			length = hextoul(argv[3], NULL);
+			length = simple_strtoul(argv[3], NULL, 16);
 	}
 
 	switch (size) {
@@ -273,7 +273,7 @@ static int do_axi_mw(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc <= 3 || argc >= 6)
 		return CMD_RET_USAGE;
 
-	size = dectoul(argv[1], NULL);
+	size = simple_strtoul(argv[1], NULL, 10);
 
 	switch (size) {
 	case 8:
@@ -291,14 +291,14 @@ static int do_axi_mw(struct cmd_tbl *cmdtp, int flag, int argc,
 	};
 
 	/* Address is specified since argc > 4 */
-	addr = hextoul(argv[2], NULL);
+	addr = simple_strtoul(argv[2], NULL, 16);
 
 	/* Get the value to write */
-	writeval = hextoul(argv[3], NULL);
+	writeval = simple_strtoul(argv[3], NULL, 16);
 
 	/* Count ? */
 	if (argc == 5)
-		count = hextoul(argv[4], NULL);
+		count = simple_strtoul(argv[4], NULL, 16);
 	else
 		count = 1;
 

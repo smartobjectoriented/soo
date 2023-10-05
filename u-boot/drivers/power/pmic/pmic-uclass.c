@@ -4,8 +4,6 @@
  * Przemyslaw Marczak <p.marczak@samsung.com>
  */
 
-#define LOG_CATEGORY UCLASS_PMIC
-
 #include <common.h>
 #include <fdtdec.h>
 #include <errno.h>

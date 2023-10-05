@@ -44,26 +44,6 @@ int dsa_set_tagging(struct udevice *dev, ushort headroom, ushort tailroom)
 	return 0;
 }
 
-ofnode dsa_port_get_ofnode(struct udevice *dev, int port)
-{
-	struct dsa_pdata *pdata = dev_get_uclass_plat(dev);
-	struct dsa_port_pdata *port_pdata;
-	struct udevice *pdev;
-
-	if (port == pdata->cpu_port)
-		return pdata->cpu_port_node;
-
-	for (device_find_first_child(dev, &pdev);
-	     pdev;
-	     device_find_next_child(&pdev)) {
-		port_pdata = dev_get_parent_plat(pdev);
-		if (port_pdata->index == port)
-			return dev_ofnode(pdev);
-	}
-
-	return ofnode_null();
-}
-
 /* returns the DSA master Ethernet device */
 struct udevice *dsa_get_master(struct udevice *dev)
 {
@@ -120,7 +100,7 @@ static void dsa_port_stop(struct udevice *pdev)
 
 		port_pdata = dev_get_parent_plat(pdev);
 		ops->port_disable(dev, port_pdata->index, port_pdata->phy);
-		ops->port_disable(dev, priv->cpu_port, priv->cpu_port_fixed_phy);
+		ops->port_disable(dev, priv->cpu_port, NULL);
 	}
 
 	eth_get_ops(master)->stop(master);
@@ -219,7 +199,9 @@ static int dsa_port_free_pkt(struct udevice *pdev, uchar *packet, int length)
 static int dsa_port_of_to_pdata(struct udevice *pdev)
 {
 	struct dsa_port_pdata *port_pdata;
+	struct dsa_pdata *dsa_pdata;
 	struct eth_pdata *eth_pdata;
+	struct udevice *dev;
 	const char *label;
 	u32 index;
 	int err;
@@ -231,12 +213,15 @@ static int dsa_port_of_to_pdata(struct udevice *pdev)
 	if (err)
 		return err;
 
+	dev = dev_get_parent(pdev);
+	dsa_pdata = dev_get_uclass_plat(dev);
+
 	port_pdata = dev_get_parent_plat(pdev);
 	port_pdata->index = index;
 
 	label = ofnode_read_string(dev_ofnode(pdev), "label");
 	if (label)
-		strlcpy(port_pdata->name, label, DSA_PORT_NAME_LENGTH);
+		strncpy(port_pdata->name, label, DSA_PORT_NAME_LENGTH);
 
 	eth_pdata = dev_get_plat(pdev);
 	eth_pdata->priv_pdata = port_pdata;
@@ -255,42 +240,18 @@ static const struct eth_ops dsa_port_ops = {
 	.free_pkt	= dsa_port_free_pkt,
 };
 
-/*
- * Inherit port's hwaddr from the DSA master, unless the port already has a
- * unique MAC address specified in the environment.
- */
-static void dsa_port_set_hwaddr(struct udevice *pdev, struct udevice *master)
-{
-	struct eth_pdata *eth_pdata, *master_pdata;
-	unsigned char env_enetaddr[ARP_HLEN];
-
-	eth_env_get_enetaddr_by_index("eth", dev_seq(pdev), env_enetaddr);
-	if (!is_zero_ethaddr(env_enetaddr)) {
-		/* individual port mac addrs require master to be promisc */
-		struct eth_ops *eth_ops = eth_get_ops(master);
-
-		if (eth_ops->set_promisc)
-			eth_ops->set_promisc(master, true);
-
-		return;
-	}
-
-	master_pdata = dev_get_plat(master);
-	eth_pdata = dev_get_plat(pdev);
-	memcpy(eth_pdata->enetaddr, master_pdata->enetaddr, ARP_HLEN);
-	eth_env_set_enetaddr_by_index("eth", dev_seq(pdev),
-				      master_pdata->enetaddr);
-}
-
 static int dsa_port_probe(struct udevice *pdev)
 {
 	struct udevice *dev = dev_get_parent(pdev);
-	struct dsa_ops *ops = dsa_get_ops(dev);
+	struct eth_pdata *eth_pdata, *master_pdata;
+	unsigned char env_enetaddr[ARP_HLEN];
 	struct dsa_port_pdata *port_pdata;
+	struct dsa_priv *dsa_priv;
 	struct udevice *master;
-	int err;
+	int ret;
 
 	port_pdata = dev_get_parent_plat(pdev);
+	dsa_priv = dev_get_uclass_priv(dev);
 
 	port_pdata->phy = dm_eth_phy_connect(pdev);
 	if (!port_pdata->phy)
@@ -307,25 +268,35 @@ static int dsa_port_probe(struct udevice *pdev)
 	 * TODO: we assume the master device is always there and doesn't get
 	 * removed during runtime.
 	 */
-	err = device_probe(master);
-	if (err)
-		return err;
+	ret = device_probe(master);
+	if (ret)
+		return ret;
 
-	dsa_port_set_hwaddr(pdev, master);
+	/*
+	 * Inherit port's hwaddr from the DSA master, unless the port already
+	 * has a unique MAC address specified in the environment.
+	 */
+	eth_env_get_enetaddr_by_index("eth", dev_seq(pdev), env_enetaddr);
+	if (!is_zero_ethaddr(env_enetaddr))
+		return 0;
 
-	if (ops->port_probe) {
-		err = ops->port_probe(dev, port_pdata->index,
-				      port_pdata->phy);
-		if (err)
-			return err;
-	}
+	master_pdata = dev_get_plat(master);
+	eth_pdata = dev_get_plat(pdev);
+	memcpy(eth_pdata->enetaddr, master_pdata->enetaddr, ARP_HLEN);
+	eth_env_set_enetaddr_by_index("eth", dev_seq(pdev),
+				      master_pdata->enetaddr);
 
 	return 0;
 }
 
 static int dsa_port_remove(struct udevice *pdev)
 {
-	struct dsa_port_pdata *port_pdata = dev_get_parent_plat(pdev);
+	struct udevice *dev = dev_get_parent(pdev);
+	struct dsa_port_pdata *port_pdata;
+	struct dsa_priv *dsa_priv;
+
+	port_pdata = dev_get_parent_plat(pdev);
+	dsa_priv = dev_get_uclass_priv(dev);
 
 	port_pdata->phy = NULL;
 
@@ -441,7 +412,7 @@ static int dsa_post_bind(struct udevice *dev)
 			struct dsa_port_pdata *port_pdata;
 
 			port_pdata = dev_get_parent_plat(pdev);
-			strlcpy(port_pdata->name, name, DSA_PORT_NAME_LENGTH);
+			strncpy(port_pdata->name, name, DSA_PORT_NAME_LENGTH);
 			pdev->name = port_pdata->name;
 		}
 
@@ -466,8 +437,6 @@ static int dsa_pre_probe(struct udevice *dev)
 {
 	struct dsa_pdata *pdata = dev_get_uclass_plat(dev);
 	struct dsa_priv *priv = dev_get_uclass_priv(dev);
-	struct dsa_ops *ops = dsa_get_ops(dev);
-	int err;
 
 	priv->num_ports = pdata->num_ports;
 	priv->cpu_port = pdata->cpu_port;
@@ -479,15 +448,6 @@ static int dsa_pre_probe(struct udevice *dev)
 
 	uclass_find_device_by_ofnode(UCLASS_ETH, pdata->master_node,
 				     &priv->master_dev);
-
-	/* Simulate a probing event for the CPU port */
-	if (ops->port_probe) {
-		err = ops->port_probe(dev, priv->cpu_port,
-				      priv->cpu_port_fixed_phy);
-		if (err)
-			return err;
-	}
-
 	return 0;
 }
 

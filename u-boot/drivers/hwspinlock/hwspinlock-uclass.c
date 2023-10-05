@@ -3,8 +3,6 @@
  * Copyright (C) 2018, STMicroelectronics - All Rights Reserved
  */
 
-#define LOG_CATEGORY UCLASS_HWSPINLOCK
-
 #include <common.h>
 #include <dm.h>
 #include <errno.h>
@@ -25,7 +23,7 @@ static int hwspinlock_of_xlate_default(struct hwspinlock *hws,
 				       struct ofnode_phandle_args *args)
 {
 	if (args->args_count > 1) {
-		debug("Invalid args_count: %d\n", args->args_count);
+		debug("Invaild args_count: %d\n", args->args_count);
 		return -EINVAL;
 	}
 

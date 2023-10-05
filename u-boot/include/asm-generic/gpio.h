@@ -50,7 +50,7 @@ struct ofnode_phandle_args;
  *
  * @param gpio	GPIO number
  * @param label	User label for this GPIO
- * Return: 0 if ok, -1 on error
+ * @return 0 if ok, -1 on error
  */
 int gpio_request(unsigned gpio, const char *label);
 
@@ -59,7 +59,7 @@ int gpio_request(unsigned gpio, const char *label);
  * Stop using the GPIO.  This function should not alter pin configuration.
  *
  * @param gpio	GPIO number
- * Return: 0 if ok, -1 on error
+ * @return 0 if ok, -1 on error
  */
 int gpio_free(unsigned gpio);
 
@@ -68,7 +68,7 @@ int gpio_free(unsigned gpio);
  * Make a GPIO an input.
  *
  * @param gpio	GPIO number
- * Return: 0 if ok, -1 on error
+ * @return 0 if ok, -1 on error
  */
 int gpio_direction_input(unsigned gpio);
 
@@ -78,7 +78,7 @@ int gpio_direction_input(unsigned gpio);
  *
  * @param gpio	GPIO number
  * @param value	GPIO value (0 for low or 1 for high)
- * Return: 0 if ok, -1 on error
+ * @return 0 if ok, -1 on error
  */
 int gpio_direction_output(unsigned gpio, int value);
 
@@ -88,7 +88,7 @@ int gpio_direction_output(unsigned gpio, int value);
  * or an output.
  *
  * @param gpio	GPIO number
- * Return: 0 if low, 1 if high, -1 on error
+ * @return 0 if low, 1 if high, -1 on error
  */
 int gpio_get_value(unsigned gpio);
 
@@ -99,7 +99,7 @@ int gpio_get_value(unsigned gpio);
  *
  * @param gpio	GPIO number
  * @param value	GPIO value (0 for low or 1 for high)
- * Return: 0 if ok, -1 on error
+ * @return 0 if ok, -1 on error
  */
 int gpio_set_value(unsigned gpio, int value);
 
@@ -146,7 +146,7 @@ struct gpio_desc {
  *
  * @desc:	GPIO description containing device, offset and flags,
  *		previously returned by gpio_request_by_name()
- * Return: true if valid, false if not
+ * @return true if valid, false if not
  */
 static inline bool dm_gpio_is_valid(const struct gpio_desc *desc)
 {
@@ -184,7 +184,7 @@ int gpio_get_status(struct udevice *dev, int offset, char *buf, int buffsize);
  * @offset:	Offset of device GPIO to check
  * @namep:	If non-NULL, this is set to the name given when the GPIO
  *		was requested, or -1 if it has not been requested
- * Return:  -ENODATA if the driver returned an unknown function,
+ * @return  -ENODATA if the driver returned an unknown function,
  * -ENODEV if the device is not active, -EINVAL if the offset is invalid.
  * GPIOF_UNUSED if the GPIO has not been requested. Otherwise returns the
  * function from enum gpio_func_t.
@@ -203,7 +203,7 @@ int gpio_get_function(struct udevice *dev, int offset, const char **namep);
  * @offset:	Offset of device GPIO to check
  * @namep:	If non-NULL, this is set to the name given when the GPIO
  *		was requested, or -1 if it has not been requested
- * Return:  -ENODATA if the driver returned an unknown function,
+ * @return  -ENODATA if the driver returned an unknown function,
  * -ENODEV if the device is not active, -EINVAL if the offset is invalid.
  * Otherwise returns the function from enum gpio_func_t.
  */
@@ -220,14 +220,6 @@ int gpio_requestf(unsigned gpio, const char *fmt, ...)
 		__attribute__ ((format (__printf__, 2, 3)));
 
 struct fdtdec_phandle_args;
-
-/**
- * gpio_flags_xlate() - convert DT flags to internal flags
- *
- * This routine converts the GPIO_* flags from the generic DT binding to the
- * GPIOD_* flags used internally. It can be called from driver xlate functions.
- */
-unsigned long gpio_flags_xlate(uint32_t arg);
 
 /**
  * gpio_xlate_offs_flags() - implementation for common use of dm_gpio_ops.xlate
@@ -434,7 +426,7 @@ struct gpio_dev_priv {
  *
  * @dev: Device to look up
  * @offset_count: Returns number of GPIOs within this bank
- * Return: bank name of this device
+ * @return bank name of this device
  */
 const char *gpio_get_bank_info(struct udevice *dev, int *offset_count);
 
@@ -447,7 +439,7 @@ const char *gpio_get_bank_info(struct udevice *dev, int *offset_count);
  *
  * @name:	Name to look up
  * @desc:	Returns description, on success
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int dm_gpio_lookup_name(const char *name, struct gpio_desc *desc);
 
@@ -489,7 +481,7 @@ int gpio_lookup_name(const char *name, struct udevice **devp,
  * etc. then returns the resulting integer.
  *
  * @gpio_list: List of GPIOs to collect
- * Return: resulting integer value, or -ve on error
+ * @return resulting integer value, or -ve on error
  */
 int gpio_get_values_as_int(const int *gpio_list);
 
@@ -501,7 +493,7 @@ int gpio_get_values_as_int(const int *gpio_list);
  *
  * @desc_list: List of GPIOs to collect
  * @count: Number of GPIOs
- * Return: resulting integer value, or -ve on error
+ * @return resulting integer value, or -ve on error
  */
 int dm_gpio_get_values_as_int(const struct gpio_desc *desc_list, int count);
 
@@ -525,7 +517,7 @@ int dm_gpio_get_values_as_int(const struct gpio_desc *desc_list, int count);
  *
  * @desc_list: List of GPIOs to collect
  * @count: Number of GPIOs
- * Return: resulting integer value, or -ve on error
+ * @return resulting integer value, or -ve on error
  */
 int dm_gpio_get_values_as_int_base3(struct gpio_desc *desc_list,
 				    int count);
@@ -535,7 +527,7 @@ int dm_gpio_get_values_as_int_base3(struct gpio_desc *desc_list,
  *
  * @gpio_num_array:	array of gpios to claim, terminated by -1
  * @fmt:		format string for GPIO names, e.g. "board_id%d"
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int gpio_claim_vector(const int *gpio_num_array, const char *fmt);
 
@@ -572,7 +564,7 @@ int gpio_claim_vector(const int *gpio_num_array, const char *fmt);
  * @desc:	Returns GPIO description information. If there is no such
  *		GPIO, @desc->dev will be NULL.
  * @flags:	Indicates the GPIO input/output settings (GPIOD_...)
- * Return: 0 if OK, -ENOENT if the GPIO does not exist, -EINVAL if there is
+ * @return 0 if OK, -ENOENT if the GPIO does not exist, -EINVAL if there is
  * something wrong with the list, or other -ve for another error (e.g.
  * -EBUSY if a GPIO was already requested)
  */
@@ -598,7 +590,7 @@ int gpio_request_by_name(struct udevice *dev, const char *list_name,
  * @max_count:	Maximum number of GPIOs to return (@desc_list must be at least
  *		this big)
  * @flags:	Indicates the GPIO input/output settings (GPIOD_...)
- * Return: number of GPIOs requested, or -ve on error
+ * @return number of GPIOs requested, or -ve on error
  */
 int gpio_request_list_by_name(struct udevice *dev, const char *list_name,
 			      struct gpio_desc *desc_list, int max_count,
@@ -612,14 +604,9 @@ int gpio_request_list_by_name(struct udevice *dev, const char *list_name,
  *
  * @desc:	GPIO description of GPIO to request (see dm_gpio_lookup_name())
  * @label:	Label to attach to the GPIO while claimed
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int dm_gpio_request(struct gpio_desc *desc, const char *label);
-
-struct phandle_2_arg;
-int gpio_request_by_phandle(struct udevice *dev,
-			    const struct phandle_2_arg *cells,
-			    struct gpio_desc *desc, int flags);
 
 /**
  * gpio_get_list_count() - Returns the number of GPIOs in a list
@@ -629,7 +616,7 @@ int gpio_request_by_phandle(struct udevice *dev,
  *
  * @dev:	Device requesting the GPIO
  * @list_name:	Name of GPIO list (e.g. "board-id-gpios")
- * Return: number of GPIOs (0 for an empty property) or -ENOENT if the list
+ * @return number of GPIOs (0 for an empty property) or -ENOENT if the list
  * does not exist
  */
 int gpio_get_list_count(struct udevice *dev, const char *list_name);
@@ -677,7 +664,7 @@ int gpio_dev_request_index(struct udevice *dev, const char *nodename,
  *
  * @dev:	Device which requested the GPIO
  * @desc:	GPIO to free
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int dm_gpio_free(struct udevice *dev, struct gpio_desc *desc);
 
@@ -690,7 +677,7 @@ int dm_gpio_free(struct udevice *dev, struct gpio_desc *desc);
  * @dev:	Device which requested the GPIOs
  * @desc:	List of GPIOs to free
  * @count:	Number of GPIOs in the list
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int gpio_free_list(struct udevice *dev, struct gpio_desc *desc, int count);
 
@@ -713,7 +700,7 @@ int gpio_free_list_nodev(struct gpio_desc *desc, int count);
  *
  * @desc:	GPIO description containing device, offset and flags,
  *		previously returned by gpio_request_by_name()
- * Return: GPIO value (0 for inactive, 1 for active) or -ve on error
+ * @return GPIO value (0 for inactive, 1 for active) or -ve on error
  */
 int dm_gpio_get_value(const struct gpio_desc *desc);
 
@@ -732,7 +719,7 @@ int dm_gpio_set_value(const struct gpio_desc *desc, int value);
  *		previously returned by gpio_request_by_name()
  * @clr:	Flags to clear (GPIOD_...)
  * @set:	Flags to set (GPIOD_...)
- * Return: 0 if OK, -EINVAL if the flags had obvious conflicts,
+ * @return 0 if OK, -EINVAL if the flags had obvious conflicts,
  * -ERECALLCONFLICT if there was a non-obvious hardware conflict when attempting
  * to set the flags
  */
@@ -748,7 +735,7 @@ int dm_gpio_clrset_flags(struct gpio_desc *desc, ulong clr, ulong set);
  * @desc:	GPIO description containing device, offset and flags,
  *		previously returned by gpio_request_by_name()
  * @flags:	New flags to use
- * Return: 0 if OK, -ve on error, in which case desc->flags is not updated
+ * @return 0 if OK, -ve on error, in which case desc->flags is not updated
  */
 int dm_gpio_set_dir_flags(struct gpio_desc *desc, ulong flags);
 
@@ -762,7 +749,7 @@ int dm_gpio_set_dir_flags(struct gpio_desc *desc, ulong flags);
  * @clr:	Flags to clear (GPIOD_...), e.g. GPIOD_MASK_DIR if you are
  *		changing the direction
  * @set:	Flags to set (GPIOD_...)
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int dm_gpios_clrset_flags(struct gpio_desc *desc, int count, ulong clr,
 			  ulong set);
@@ -775,7 +762,7 @@ int dm_gpios_clrset_flags(struct gpio_desc *desc, int count, ulong clr,
  * @desc:	GPIO description containing device, offset and flags,
  *		previously returned by gpio_request_by_name()
  * @flags:	place to put the used flags
- * Return: 0 if OK, -ve on error, in which case desc->flags is not updated
+ * @return 0 if OK, -ve on error, in which case desc->flags is not updated
  */
 int dm_gpio_get_flags(struct gpio_desc *desc, ulong *flags);
 
@@ -787,7 +774,7 @@ int dm_gpio_get_flags(struct gpio_desc *desc, ulong *flags);
  *
  * @desc:	GPIO description containing device, offset and flags,
  *		previously returned by gpio_request_by_name()
- * Return: GPIO number, or -ve if not found
+ * @return GPIO number, or -ve if not found
  */
 int gpio_get_number(const struct gpio_desc *desc);
 
@@ -799,7 +786,7 @@ int gpio_get_number(const struct gpio_desc *desc);
  *
  * @desc:	GPIO description to convert
  * @gpio:	Output ACPI GPIO information
- * Return: ACPI pin number or -ve on error
+ * @return ACPI pin number or -ve on error
  */
 int gpio_get_acpi(const struct gpio_desc *desc, struct acpi_gpio *gpio);
 

@@ -25,3 +25,4 @@ void device_disable(const struct devdis_table *tbl, uint32_t num)
 				tbl[i].mask);
 	}
 }
+

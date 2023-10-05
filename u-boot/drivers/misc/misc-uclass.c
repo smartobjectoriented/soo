@@ -3,8 +3,6 @@
  * Copyright (C) 2010 Thomas Chou <thomas@wytron.com.tw>
  */
 
-#define LOG_CATEGORY UCLASS_MISC
-
 #include <common.h>
 #include <dm.h>
 #include <errno.h>
@@ -26,7 +24,7 @@ int misc_read(struct udevice *dev, int offset, void *buf, int size)
 	return ops->read(dev, offset, buf, size);
 }
 
-int misc_write(struct udevice *dev, int offset, const void *buf, int size)
+int misc_write(struct udevice *dev, int offset, void *buf, int size)
 {
 	const struct misc_ops *ops = device_get_ops(dev);
 
@@ -70,7 +68,7 @@ int misc_set_enabled(struct udevice *dev, bool val)
 UCLASS_DRIVER(misc) = {
 	.id		= UCLASS_MISC,
 	.name		= "misc",
-#if CONFIG_IS_ENABLED(OF_REAL)
+#if CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA)
 	.post_bind	= dm_scan_fdt_dev,
 #endif
 };

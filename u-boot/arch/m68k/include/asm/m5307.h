@@ -66,3 +66,4 @@
 #define	MCFSIM_ICR_PRI3		0x03	/* Priority 3 intr */
 
 #endif	/* mcf5307_h */
+

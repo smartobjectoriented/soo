@@ -167,7 +167,7 @@ int cpu_release(u32 nr, int argc, char *const argv[])
 	for (i = 1; i < 3; i++) {
 		if (argv[i][0] != '-') {
 			u8 entry = boot_entry_map[i];
-			val = hextoul(argv[i], NULL);
+			val = simple_strtoul(argv[i], NULL, 16);
 			table[entry] = val;
 		}
 	}

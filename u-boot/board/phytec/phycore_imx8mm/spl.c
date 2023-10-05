@@ -12,6 +12,8 @@
 #include <asm/global_data.h>
 #include <asm/mach-imx/boot_mode.h>
 #include <asm/mach-imx/iomux-v3.h>
+#include <dm/device.h>
+#include <dm/uclass.h>
 #include <hang.h>
 #include <init.h>
 #include <log.h>
@@ -37,7 +39,7 @@ int spl_board_boot_device(enum boot_device boot_dev_spl)
 	}
 }
 
-static void spl_dram_init(void)
+void spl_dram_init(void)
 {
 	ddr_init(&dram_timing);
 }
@@ -52,10 +54,15 @@ void spl_board_init(void)
 	puts("Normal Boot\n");
 }
 
+#ifdef CONFIG_SPL_LOAD_FIT
 int board_fit_config_name_match(const char *name)
 {
+	/* Just empty function now - can't decide what to choose */
+	debug("%s: %s\n", __func__, name);
+
 	return 0;
 }
+#endif
 
 #define UART_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_FSEL1)
 #define WDOG_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_ODE)
@@ -84,6 +91,7 @@ int board_early_init_f(void)
 
 void board_init_f(ulong dummy)
 {
+	struct udevice *dev;
 	int ret;
 
 	arch_cpu_init();
@@ -91,6 +99,8 @@ void board_init_f(ulong dummy)
 	init_uart_clk(2);
 
 	board_early_init_f();
+
+	timer_init();
 
 	preloader_console_init();
 
@@ -100,6 +110,13 @@ void board_init_f(ulong dummy)
 	ret = spl_early_init();
 	if (ret) {
 		debug("spl_early_init() failed: %d\n", ret);
+		hang();
+	}
+
+	ret = uclass_get_device_by_name(UCLASS_CLK,
+					"clock-controller@30380000", &dev);
+	if (ret < 0) {
+		printf("Failed to find clock node. Check device tree\n");
 		hang();
 	}
 

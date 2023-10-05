@@ -37,8 +37,6 @@
 
 #define ZYNQMP_CORE_APU0	0
 #define ZYNQMP_CORE_APU3	3
-#define ZYNQMP_CORE_RPU0	4
-#define ZYNQMP_CORE_RPU1	5
 
 #define ZYNQMP_MAX_CORES	6
 
@@ -56,20 +54,18 @@ int cpu_reset(u32 nr)
 	return 0;
 }
 
-static void set_r5_halt_mode(u32 nr, u8 halt, u8 mode)
+static void set_r5_halt_mode(u8 halt, u8 mode)
 {
 	u32 tmp;
 
-	if (mode == LOCK || nr == ZYNQMP_CORE_RPU0) {
-		tmp = readl(&rpu_base->rpu0_cfg);
-		if (halt == HALT)
-			tmp &= ~ZYNQMP_RPU_CFG_CPU_HALT_MASK;
-		else
-			tmp |= ZYNQMP_RPU_CFG_CPU_HALT_MASK;
-		writel(tmp, &rpu_base->rpu0_cfg);
-	}
+	tmp = readl(&rpu_base->rpu0_cfg);
+	if (halt == HALT)
+		tmp &= ~ZYNQMP_RPU_CFG_CPU_HALT_MASK;
+	else
+		tmp |= ZYNQMP_RPU_CFG_CPU_HALT_MASK;
+	writel(tmp, &rpu_base->rpu0_cfg);
 
-	if (mode == LOCK || nr == ZYNQMP_CORE_RPU1) {
+	if (mode == LOCK) {
 		tmp = readl(&rpu_base->rpu1_cfg);
 		if (halt == HALT)
 			tmp &= ~ZYNQMP_RPU_CFG_CPU_HALT_MASK;
@@ -97,34 +93,30 @@ static void set_r5_tcm_mode(u8 mode)
 	writel(tmp, &rpu_base->rpu_glbl_ctrl);
 }
 
-static void set_r5_reset(u32 nr, u8 mode)
+static void set_r5_reset(u8 mode)
 {
 	u32 tmp;
 
 	tmp = readl(&crlapb_base->rst_lpd_top);
-	if (mode == LOCK || nr == ZYNQMP_CORE_RPU0)
-		tmp |= (ZYNQMP_CRLAPB_RST_LPD_AMBA_RST_MASK |
-			ZYNQMP_CRLAPB_RST_LPD_R50_RST_MASK);
+	tmp |= (ZYNQMP_CRLAPB_RST_LPD_AMBA_RST_MASK |
+	       ZYNQMP_CRLAPB_RST_LPD_R50_RST_MASK);
 
-	if (mode == LOCK || nr == ZYNQMP_CORE_RPU1)
-		tmp |= (ZYNQMP_CRLAPB_RST_LPD_AMBA_RST_MASK |
-			ZYNQMP_CRLAPB_RST_LPD_R51_RST_MASK);
+	if (mode == LOCK)
+		tmp |= ZYNQMP_CRLAPB_RST_LPD_R51_RST_MASK;
 
 	writel(tmp, &crlapb_base->rst_lpd_top);
 }
 
-static void release_r5_reset(u32 nr, u8 mode)
+static void release_r5_reset(u8 mode)
 {
 	u32 tmp;
 
 	tmp = readl(&crlapb_base->rst_lpd_top);
-	if (mode == LOCK || nr == ZYNQMP_CORE_RPU0)
-		tmp &= ~(ZYNQMP_CRLAPB_RST_LPD_AMBA_RST_MASK |
-			 ZYNQMP_CRLAPB_RST_LPD_R50_RST_MASK);
+	tmp &= ~(ZYNQMP_CRLAPB_RST_LPD_AMBA_RST_MASK |
+	       ZYNQMP_CRLAPB_RST_LPD_R50_RST_MASK);
 
-	if (mode == LOCK || nr == ZYNQMP_CORE_RPU1)
-		tmp &= ~(ZYNQMP_CRLAPB_RST_LPD_AMBA_RST_MASK |
-			 ZYNQMP_CRLAPB_RST_LPD_R51_RST_MASK);
+	if (mode == LOCK)
+		tmp &= ~ZYNQMP_CRLAPB_RST_LPD_R51_RST_MASK;
 
 	writel(tmp, &crlapb_base->rst_lpd_top);
 }
@@ -149,7 +141,7 @@ int cpu_disable(u32 nr)
 		val |= 1 << nr;
 		writel(val, &crfapb_base->rst_fpd_apu);
 	} else {
-		set_r5_reset(nr, SPLIT);
+		set_r5_reset(LOCK);
 	}
 
 	return 0;
@@ -220,14 +212,14 @@ void initialize_tcm(bool mode)
 {
 	if (!mode) {
 		set_r5_tcm_mode(LOCK);
-		set_r5_halt_mode(ZYNQMP_CORE_RPU0, HALT, LOCK);
+		set_r5_halt_mode(HALT, LOCK);
 		enable_clock_r5();
-		release_r5_reset(ZYNQMP_CORE_RPU0, LOCK);
+		release_r5_reset(LOCK);
 	} else {
 		set_r5_tcm_mode(SPLIT);
-		set_r5_halt_mode(ZYNQMP_CORE_RPU1, HALT, SPLIT);
+		set_r5_halt_mode(HALT, SPLIT);
 		enable_clock_r5();
-		release_r5_reset(ZYNQMP_CORE_RPU1, SPLIT);
+		release_r5_reset(SPLIT);
 	}
 }
 
@@ -252,7 +244,7 @@ int cpu_release(u32 nr, int argc, char *const argv[])
 			return 1;
 		}
 
-		u32 boot_addr = hextoul(argv[0], NULL);
+		u32 boot_addr = simple_strtoul(argv[0], NULL, 16);
 		u32 boot_addr_uniq = 0;
 		if (!(boot_addr == ZYNQMP_R5_LOVEC_ADDR ||
 		      boot_addr == ZYNQMP_R5_HIVEC_ADDR)) {
@@ -276,28 +268,28 @@ int cpu_release(u32 nr, int argc, char *const argv[])
 
 		if (!strncmp(argv[1], "lockstep", 8)) {
 			printf("R5 lockstep mode\n");
-			set_r5_reset(nr, LOCK);
+			set_r5_reset(LOCK);
 			set_r5_tcm_mode(LOCK);
-			set_r5_halt_mode(nr, HALT, LOCK);
+			set_r5_halt_mode(HALT, LOCK);
 			set_r5_start(boot_addr);
 			enable_clock_r5();
-			release_r5_reset(nr, LOCK);
+			release_r5_reset(LOCK);
 			dcache_disable();
 			write_tcm_boot_trampoline(boot_addr_uniq);
 			dcache_enable();
-			set_r5_halt_mode(nr, RELEASE, LOCK);
+			set_r5_halt_mode(RELEASE, LOCK);
 		} else if (!strncmp(argv[1], "split", 5)) {
 			printf("R5 split mode\n");
-			set_r5_reset(nr, SPLIT);
+			set_r5_reset(SPLIT);
 			set_r5_tcm_mode(SPLIT);
-			set_r5_halt_mode(nr, HALT, SPLIT);
+			set_r5_halt_mode(HALT, SPLIT);
 			set_r5_start(boot_addr);
 			enable_clock_r5();
-			release_r5_reset(nr, SPLIT);
+			release_r5_reset(SPLIT);
 			dcache_disable();
 			write_tcm_boot_trampoline(boot_addr_uniq);
 			dcache_enable();
-			set_r5_halt_mode(nr, RELEASE, SPLIT);
+			set_r5_halt_mode(RELEASE, SPLIT);
 		} else {
 			printf("Unsupported mode\n");
 			return 1;

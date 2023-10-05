@@ -24,7 +24,7 @@ static int do_rng(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	}
 
 	if (argc >= 2)
-		n = hextoul(argv[1], NULL);
+		n = simple_strtoul(argv[1], NULL, 16);
 
 	buf = malloc(n);
 	if (!buf) {

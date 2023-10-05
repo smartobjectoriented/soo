@@ -18,3 +18,4 @@
 void stm32_flash_latency_cfg(int latency);
 
 #endif /* _ASM_ARCH_STM32F_H */
+

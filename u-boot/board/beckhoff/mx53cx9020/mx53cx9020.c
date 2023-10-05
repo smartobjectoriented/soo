@@ -48,7 +48,6 @@ static const u32 CCAT_MODE_RUN = 0x0033DC8F;
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#ifdef CONFIG_REVISION_TAG
 u32 get_board_rev(void)
 {
 	struct iim_regs *iim = (struct iim_regs *)IMX_IIM_BASE;
@@ -60,7 +59,6 @@ u32 get_board_rev(void)
 
 	return (get_cpu_rev() & ~(0xF << 8)) | (rev & 0xF) << 8;
 }
-#endif
 
 /*
  * Set CCAT mode

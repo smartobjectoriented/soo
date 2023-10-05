@@ -422,7 +422,7 @@ static int do_zynq_rsa(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc != cmdtp->maxargs)
 		return CMD_RET_FAILURE;
 
-	src_ptr = hextoul(argv[2], &endp);
+	src_ptr = simple_strtoul(argv[2], &endp, 16);
 	if (*argv[2] == 0 || *endp != 0)
 		return CMD_RET_USAGE;
 
@@ -453,26 +453,26 @@ static int zynq_decrypt_image(struct cmd_tbl *cmdtp, int flag, int argc,
 		else
 			return CMD_RET_USAGE;
 
-		srcaddr = hextoul(argv[3], &endp);
+		srcaddr = simple_strtoul(argv[3], &endp, 16);
 		if (*argv[3] == 0 || *endp != 0)
 			return CMD_RET_USAGE;
-		srclen = hextoul(argv[4], &endp);
+		srclen = simple_strtoul(argv[4], &endp, 16);
 		if (*argv[4] == 0 || *endp != 0)
 			return CMD_RET_USAGE;
 
 		dstaddr = 0xFFFFFFFF;
 		dstlen = srclen;
 	} else {
-		srcaddr = hextoul(argv[2], &endp);
+		srcaddr = simple_strtoul(argv[2], &endp, 16);
 		if (*argv[2] == 0 || *endp != 0)
 			return CMD_RET_USAGE;
-		srclen = hextoul(argv[3], &endp);
+		srclen = simple_strtoul(argv[3], &endp, 16);
 		if (*argv[3] == 0 || *endp != 0)
 			return CMD_RET_USAGE;
-		dstaddr = hextoul(argv[4], &endp);
+		dstaddr = simple_strtoul(argv[4], &endp, 16);
 		if (*argv[4] == 0 || *endp != 0)
 			return CMD_RET_USAGE;
-		dstlen = hextoul(argv[5], &endp);
+		dstlen = simple_strtoul(argv[5], &endp, 16);
 		if (*argv[5] == 0 || *endp != 0)
 			return CMD_RET_USAGE;
 	}

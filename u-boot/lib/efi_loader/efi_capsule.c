@@ -6,25 +6,17 @@
  *			Author: AKASHI Takahiro
  */
 
-#define LOG_CATEGORY LOGC_EFI
-
 #include <common.h>
 #include <efi_loader.h>
 #include <efi_variable.h>
-#include <env.h>
-#include <fdtdec.h>
 #include <fs.h>
-#include <hang.h>
 #include <malloc.h>
 #include <mapmem.h>
 #include <sort.h>
-#include <asm/global_data.h>
 
 #include <crypto/pkcs7.h>
 #include <crypto/pkcs7_parser.h>
 #include <linux/err.h>
-
-DECLARE_GLOBAL_DATA_PTR;
 
 const efi_guid_t efi_guid_capsule_report = EFI_CAPSULE_REPORT_GUID;
 static const efi_guid_t efi_guid_firmware_management_capsule_id =
@@ -57,10 +49,10 @@ static __maybe_unused unsigned int get_last_capsule(void)
 	int i;
 
 	size = sizeof(value16);
-	ret = efi_get_variable_int(u"CapsuleLast", &efi_guid_capsule_report,
+	ret = efi_get_variable_int(L"CapsuleLast", &efi_guid_capsule_report,
 				   NULL, &size, value16, NULL);
 	if (ret != EFI_SUCCESS || size != 22 ||
-	    u16_strncmp(value16, u"Capsule", 7))
+	    u16_strncmp(value16, L"Capsule", 7))
 		goto err;
 	for (i = 0; i < 4; ++i) {
 		u16 c = value16[i + 7];
@@ -103,25 +95,13 @@ void set_capsule_result(int index, struct efi_capsule_header *capsule,
 	else
 		memset(&result.capsule_processed, 0, sizeof(time));
 	result.capsule_status = return_status;
-	ret = efi_set_variable_int(variable_name16, &efi_guid_capsule_report,
-				   EFI_VARIABLE_NON_VOLATILE |
-				   EFI_VARIABLE_BOOTSERVICE_ACCESS |
-				   EFI_VARIABLE_RUNTIME_ACCESS,
-				   sizeof(result), &result, false);
-	if (ret != EFI_SUCCESS) {
-		log_err("Setting %ls failed\n", variable_name16);
-		return;
-	}
-
-	/* Variable CapsuleLast must not include terminating 0x0000 */
-	ret = efi_set_variable_int(u"CapsuleLast", &efi_guid_capsule_report,
-				   EFI_VARIABLE_READ_ONLY |
-				   EFI_VARIABLE_NON_VOLATILE |
-				   EFI_VARIABLE_BOOTSERVICE_ACCESS |
-				   EFI_VARIABLE_RUNTIME_ACCESS,
-				   22, variable_name16, false);
-	if (ret != EFI_SUCCESS)
-		log_err("Setting %ls failed\n", u"CapsuleLast");
+	ret = efi_set_variable(variable_name16, &efi_guid_capsule_report,
+			       EFI_VARIABLE_NON_VOLATILE |
+			       EFI_VARIABLE_BOOTSERVICE_ACCESS |
+			       EFI_VARIABLE_RUNTIME_ACCESS,
+			       sizeof(result), &result);
+	if (ret)
+		log_err("EFI: creating %ls failed\n", variable_name16);
 }
 
 #ifdef CONFIG_EFI_CAPSULE_FIRMWARE_MANAGEMENT
@@ -223,71 +203,10 @@ skip:
 	return NULL;
 }
 
-/**
- * efi_remove_auth_hdr - remove authentication data from image
- * @image:	Pointer to pointer to Image
- * @image_size:	Pointer to Image size
- *
- * Remove the authentication data from image if possible.
- * Update @image and @image_size.
- *
- * Return:		status code
- */
-static efi_status_t efi_remove_auth_hdr(void **image, efi_uintn_t *image_size)
-{
-	struct efi_firmware_image_authentication *auth_hdr;
-	efi_status_t ret = EFI_INVALID_PARAMETER;
-
-	auth_hdr = (struct efi_firmware_image_authentication *)*image;
-	if (*image_size < sizeof(*auth_hdr))
-		goto out;
-
-	if (auth_hdr->auth_info.hdr.dwLength <=
-	    offsetof(struct win_certificate_uefi_guid, cert_data))
-		goto out;
-
-	*image = (uint8_t *)*image + sizeof(auth_hdr->monotonic_count) +
-		auth_hdr->auth_info.hdr.dwLength;
-	*image_size = *image_size - auth_hdr->auth_info.hdr.dwLength -
-		sizeof(auth_hdr->monotonic_count);
-
-	ret = EFI_SUCCESS;
-out:
-	return ret;
-}
-
 #if defined(CONFIG_EFI_CAPSULE_AUTHENTICATE)
-int efi_get_public_key_data(void **pkey, efi_uintn_t *pkey_len)
-{
-	const void *fdt_blob = gd->fdt_blob;
-	const void *blob;
-	const char *cnode_name = "capsule-key";
-	const char *snode_name = "signature";
-	int sig_node;
-	int len;
 
-	sig_node = fdt_subnode_offset(fdt_blob, 0, snode_name);
-	if (sig_node < 0) {
-		log_err("Unable to get signature node offset\n");
-
-		return -FDT_ERR_NOTFOUND;
-	}
-
-	blob = fdt_getprop(fdt_blob, sig_node, cnode_name, &len);
-
-	if (!blob || len < 0) {
-		log_err("Unable to get capsule-key value\n");
-		*pkey = NULL;
-		*pkey_len = 0;
-
-		return -FDT_ERR_NOTFOUND;
-	}
-
-	*pkey = (void *)blob;
-	*pkey_len = len;
-
-	return 0;
-}
+const efi_guid_t efi_guid_capsule_root_cert_guid =
+	EFI_FIRMWARE_MANAGEMENT_CAPSULE_ID_GUID;
 
 efi_status_t efi_capsule_authenticate(const void *capsule, efi_uintn_t capsule_size,
 				      void **image, efi_uintn_t *image_size)
@@ -312,15 +231,21 @@ efi_status_t efi_capsule_authenticate(const void *capsule, efi_uintn_t capsule_s
 	if (capsule == NULL || capsule_size == 0)
 		goto out;
 
-	*image = (uint8_t *)capsule;
-	*image_size = capsule_size;
-	if (efi_remove_auth_hdr(image, image_size) != EFI_SUCCESS)
+	auth_hdr = (struct efi_firmware_image_authentication *)capsule;
+	if (capsule_size < sizeof(*auth_hdr))
 		goto out;
 
-	auth_hdr = (struct efi_firmware_image_authentication *)capsule;
+	if (auth_hdr->auth_info.hdr.dwLength <=
+	    offsetof(struct win_certificate_uefi_guid, cert_data))
+		goto out;
+
 	if (guidcmp(&auth_hdr->auth_info.cert_type, &efi_guid_cert_type_pkcs7))
 		goto out;
 
+	*image = (uint8_t *)capsule + sizeof(auth_hdr->monotonic_count) +
+		auth_hdr->auth_info.hdr.dwLength;
+	*image_size = capsule_size - auth_hdr->auth_info.hdr.dwLength -
+		sizeof(auth_hdr->monotonic_count);
 	memcpy(&monotonic_count, &auth_hdr->monotonic_count,
 	       sizeof(monotonic_count));
 
@@ -400,7 +325,7 @@ static efi_status_t efi_capsule_update_firmware(
 {
 	struct efi_firmware_management_capsule_header *capsule;
 	struct efi_firmware_management_capsule_image_header *image;
-	size_t capsule_size, image_binary_size;
+	size_t capsule_size;
 	void *image_binary, *vendor_code;
 	efi_handle_t *handles;
 	efi_uintn_t no_handles;
@@ -436,7 +361,7 @@ static efi_status_t efi_capsule_update_firmware(
 		/* sanity check */
 		if ((capsule->item_offset_list[item] + sizeof(*image)
 				 >= capsule_size)) {
-			log_err("Capsule does not have enough data\n");
+			log_err("EFI: A capsule has not enough data\n");
 			ret = EFI_INVALID_PARAMETER;
 			goto out;
 		}
@@ -454,7 +379,7 @@ static efi_status_t efi_capsule_update_firmware(
 				   image->update_hardware_instance,
 				   handles, no_handles);
 		if (!fmp) {
-			log_err("FMP driver not found for firmware type %pUs, hardware instance %lld\n",
+			log_err("EFI Capsule: driver not found for firmware type: %pUl, hardware instance: %lld\n",
 				&image->update_image_type_id,
 				image->update_hardware_instance);
 			ret = EFI_UNSUPPORTED;
@@ -462,34 +387,17 @@ static efi_status_t efi_capsule_update_firmware(
 		}
 
 		/* do update */
-		if (IS_ENABLED(CONFIG_EFI_CAPSULE_AUTHENTICATE) &&
-		    !(image->image_capsule_support &
-				CAPSULE_SUPPORT_AUTHENTICATION)) {
-			/* no signature */
-			ret = EFI_SECURITY_VIOLATION;
-			goto out;
-		}
-
 		image_binary = (void *)image + sizeof(*image);
-		image_binary_size = image->update_image_size;
-		vendor_code = image_binary + image_binary_size;
-		if (!IS_ENABLED(CONFIG_EFI_CAPSULE_AUTHENTICATE) &&
-		    (image->image_capsule_support &
-				CAPSULE_SUPPORT_AUTHENTICATION)) {
-			ret = efi_remove_auth_hdr(&image_binary,
-						  &image_binary_size);
-			if (ret != EFI_SUCCESS)
-				goto out;
-		}
+		vendor_code = image_binary + image->update_image_size;
 
 		abort_reason = NULL;
 		ret = EFI_CALL(fmp->set_image(fmp, image->update_image_index,
 					      image_binary,
-					      image_binary_size,
+					      image->update_image_size,
 					      vendor_code, NULL,
 					      &abort_reason));
 		if (ret != EFI_SUCCESS) {
-			log_err("Firmware update failed: %ls\n",
+			log_err("EFI Capsule: firmware update failed: %ls\n",
 				abort_reason);
 			efi_free_pool(abort_reason);
 			goto out;
@@ -545,17 +453,17 @@ efi_status_t EFIAPI efi_update_capsule(
 		/* sanity check */
 		if (capsule->header_size < sizeof(*capsule) ||
 		    capsule->capsule_image_size < sizeof(*capsule)) {
-			log_err("Capsule does not have enough data\n");
+			log_err("EFI: A capsule has not enough data\n");
 			continue;
 		}
 
-		log_debug("Capsule[%d] (guid:%pUs)\n",
+		log_debug("Capsule[%d] (guid:%pUl)\n",
 			  i, &capsule->capsule_guid);
 		if (!guidcmp(&capsule->capsule_guid,
 			     &efi_guid_firmware_management_capsule_id)) {
 			ret  = efi_capsule_update_firmware(capsule);
 		} else {
-			log_err("Unsupported capsule type: %pUs\n",
+			log_err("EFI: not support capsule type: %pUl\n",
 				&capsule->capsule_guid);
 			ret = EFI_UNSUPPORTED;
 		}
@@ -568,7 +476,7 @@ efi_status_t EFIAPI efi_update_capsule(
 		/* Rebuild the ESRT to reflect any updated FW images. */
 		ret = efi_esrt_populate();
 		if (ret != EFI_SUCCESS)
-			log_warning("ESRT update failed\n");
+			log_warning("EFI Capsule: failed to update ESRT\n");
 	}
 out:
 
@@ -669,29 +577,22 @@ static efi_status_t get_dp_device(u16 *boot_var,
 
 /**
  * device_is_present_and_system_part - check if a device exists
+ * @dp		Device path
  *
  * Check if a device pointed to by the device path, @dp, exists and is
  * located in UEFI system partition.
  *
- * @dp		device path
  * Return:	true - yes, false - no
  */
 static bool device_is_present_and_system_part(struct efi_device_path *dp)
 {
 	efi_handle_t handle;
-	struct efi_device_path *rem;
 
-	/* Check device exists */
-	handle = efi_dp_find_obj(dp, NULL, NULL);
+	handle = efi_dp_find_obj(dp, NULL);
 	if (!handle)
 		return false;
 
-	/* Check device is on system partition */
-	handle = efi_dp_find_obj(dp, &efi_system_partition_guid, &rem);
-	if (!handle)
-		return false;
-
-	return true;
+	return efi_disk_is_system_part(handle);
 }
 
 /**
@@ -715,7 +616,7 @@ static efi_status_t find_boot_device(void)
 	/* find active boot device in BootNext */
 	bootnext = 0;
 	size = sizeof(bootnext);
-	ret = efi_get_variable_int(u"BootNext",
+	ret = efi_get_variable_int(L"BootNext",
 				   (efi_guid_t *)&efi_global_variable_guid,
 				   NULL, &size, &bootnext, NULL);
 	if (ret == EFI_SUCCESS || ret == EFI_BUFFER_TOO_SMALL) {
@@ -731,7 +632,7 @@ static efi_status_t find_boot_device(void)
 		ret = get_dp_device(boot_var16, &boot_dev);
 		if (ret == EFI_SUCCESS) {
 			if (device_is_present_and_system_part(boot_dev)) {
-				goto found;
+				goto out;
 			} else {
 				efi_free_pool(boot_dev);
 				boot_dev = NULL;
@@ -742,7 +643,7 @@ static efi_status_t find_boot_device(void)
 skip:
 	/* find active boot device in BootOrder */
 	size = 0;
-	ret = efi_get_variable_int(u"BootOrder", &efi_global_variable_guid,
+	ret = efi_get_variable_int(L"BootOrder", &efi_global_variable_guid,
 				   NULL, &size, NULL, NULL);
 	if (ret == EFI_BUFFER_TOO_SMALL) {
 		boot_order = malloc(size);
@@ -751,7 +652,7 @@ skip:
 			goto out;
 		}
 
-		ret = efi_get_variable_int(u"BootOrder",
+		ret = efi_get_variable_int(L"BootOrder",
 					   &efi_global_variable_guid,
 					   NULL, &size, boot_order, NULL);
 	}
@@ -774,9 +675,12 @@ skip:
 		efi_free_pool(boot_dev);
 		boot_dev = NULL;
 	}
-found:
 	if (boot_dev) {
-		log_debug("Boot device %pD\n", boot_dev);
+		u16 *path_str;
+
+		path_str = efi_dp_str(boot_dev);
+		log_debug("EFI Capsule: bootdev is %ls\n", path_str);
+		efi_free_pool(path_str);
 
 		volume = efi_fs_from_path(boot_dev);
 		if (!volume)
@@ -816,7 +720,7 @@ static efi_status_t efi_capsule_scan_dir(u16 ***files, unsigned int *num)
 
 	ret = find_boot_device();
 	if (ret == EFI_NOT_FOUND) {
-		log_debug("Boot device is not set\n");
+		log_debug("EFI Capsule: bootdev is not set\n");
 		*num = 0;
 		return EFI_SUCCESS;
 	} else if (ret != EFI_SUCCESS) {
@@ -883,8 +787,8 @@ static efi_status_t efi_capsule_scan_dir(u16 ***files, unsigned int *num)
 			break;
 
 		if (!(dirent->attribute & EFI_FILE_DIRECTORY) &&
-		    u16_strcmp(dirent->file_name, u".") &&
-		    u16_strcmp(dirent->file_name, u".."))
+		    u16_strcmp(dirent->file_name, L".") &&
+		    u16_strcmp(dirent->file_name, L".."))
 			tmp_files[count++] = u16_strdup(dirent->file_name);
 	}
 	/* ignore an error */
@@ -1015,13 +919,13 @@ static void efi_capsule_scan_done(void)
 }
 
 /**
- * efi_load_capsule_drivers - initialize capsule drivers
+ * arch_efi_load_capsule_drivers - initialize capsule drivers
  *
- * Generic FMP drivers backed by DFU
+ * Architecture or board specific initialization routine
  *
  * Return:	status code
  */
-efi_status_t __weak efi_load_capsule_drivers(void)
+efi_status_t __weak arch_efi_load_capsule_drivers(void)
 {
 	__maybe_unused efi_handle_t handle;
 	efi_status_t ret = EFI_SUCCESS;
@@ -1036,54 +940,12 @@ efi_status_t __weak efi_load_capsule_drivers(void)
 	if (IS_ENABLED(CONFIG_EFI_CAPSULE_FIRMWARE_RAW)) {
 		handle = NULL;
 		ret = EFI_CALL(efi_install_multiple_protocol_interfaces(
-				&handle,
+				&efi_root,
 				&efi_guid_firmware_management_protocol,
 				&efi_fmp_raw, NULL));
 	}
 
 	return ret;
-}
-
-/**
- * check_run_capsules() - check whether capsule update should run
- *
- * The spec says OsIndications must be set in order to run the capsule update
- * on-disk.  Since U-Boot doesn't support runtime SetVariable, allow capsules to
- * run explicitly if CONFIG_EFI_IGNORE_OSINDICATIONS is selected
- *
- * Return:	EFI_SUCCESS if update to run, EFI_NOT_FOUND otherwise
- */
-static efi_status_t check_run_capsules(void)
-{
-	u64 os_indications;
-	efi_uintn_t size;
-	efi_status_t r;
-
-	size = sizeof(os_indications);
-	r = efi_get_variable_int(u"OsIndications", &efi_global_variable_guid,
-				 NULL, &size, &os_indications, NULL);
-	if (r != EFI_SUCCESS || size != sizeof(os_indications))
-		return EFI_NOT_FOUND;
-
-	if (os_indications &
-	    EFI_OS_INDICATIONS_FILE_CAPSULE_DELIVERY_SUPPORTED) {
-		os_indications &=
-			~EFI_OS_INDICATIONS_FILE_CAPSULE_DELIVERY_SUPPORTED;
-		r = efi_set_variable_int(u"OsIndications",
-					 &efi_global_variable_guid,
-					 EFI_VARIABLE_NON_VOLATILE |
-					 EFI_VARIABLE_BOOTSERVICE_ACCESS |
-					 EFI_VARIABLE_RUNTIME_ACCESS,
-					 sizeof(os_indications),
-					 &os_indications, false);
-		if (r != EFI_SUCCESS)
-			log_err("Setting %ls failed\n", L"OsIndications");
-		return EFI_SUCCESS;
-	} else if (IS_ENABLED(CONFIG_EFI_IGNORE_OSINDICATIONS)) {
-		return EFI_SUCCESS;
-	} else  {
-		return EFI_NOT_FOUND;
-	}
 }
 
 /**
@@ -1096,15 +958,28 @@ static efi_status_t check_run_capsules(void)
  */
 efi_status_t efi_launch_capsules(void)
 {
+	u64 os_indications;
+	efi_uintn_t size;
 	struct efi_capsule_header *capsule = NULL;
 	u16 **files;
 	unsigned int nfiles, index, i;
+	u16 variable_name16[12];
 	efi_status_t ret;
 
-	if (check_run_capsules() != EFI_SUCCESS)
+	size = sizeof(os_indications);
+	ret = efi_get_variable_int(L"OsIndications", &efi_global_variable_guid,
+				   NULL, &size, &os_indications, NULL);
+	if (ret != EFI_SUCCESS ||
+	    !(os_indications
+	      & EFI_OS_INDICATIONS_FILE_CAPSULE_DELIVERY_SUPPORTED))
 		return EFI_SUCCESS;
 
 	index = get_last_capsule();
+
+	/* Load capsule drivers */
+	ret = arch_efi_load_capsule_drivers();
+	if (ret != EFI_SUCCESS)
+		return ret;
 
 	/*
 	 * Find capsules on disk.
@@ -1121,30 +996,27 @@ efi_status_t efi_launch_capsules(void)
 
 	/* Launch capsules */
 	for (i = 0, ++index; i < nfiles; i++, index++) {
-		log_debug("Applying %ls\n", files[i]);
+		log_debug("capsule from %ls ...\n", files[i]);
 		if (index > 0xffff)
 			index = 0;
 		ret = efi_capsule_read_file(files[i], &capsule);
 		if (ret == EFI_SUCCESS) {
-			ret = efi_capsule_update_firmware(capsule);
+			ret = EFI_CALL(efi_update_capsule(&capsule, 1, 0));
 			if (ret != EFI_SUCCESS)
-				log_err("Applying capsule %ls failed.\n",
+				log_err("EFI Capsule update failed at %ls\n",
 					files[i]);
-			else
-				log_info("Applying capsule %ls succeeded.\n",
-					 files[i]);
-
-			/* create CapsuleXXXX */
-			set_capsule_result(index, capsule, ret);
 
 			free(capsule);
 		} else {
-			log_err("Reading capsule %ls failed\n", files[i]);
+			log_err("EFI: reading capsule failed: %ls\n", files[i]);
 		}
+		/* create CapsuleXXXX */
+		set_capsule_result(index, capsule, ret);
+
 		/* delete a capsule either in case of success or failure */
 		ret = efi_capsule_delete_file(files[i]);
 		if (ret != EFI_SUCCESS)
-			log_err("Deleting capsule %ls failed\n",
+			log_err("EFI: deleting a capsule file failed: %ls\n",
 				files[i]);
 	}
 	efi_capsule_scan_done();
@@ -1153,16 +1025,16 @@ efi_status_t efi_launch_capsules(void)
 		free(files[i]);
 	free(files);
 
-	/*
-	 * UEFI spec requires to reset system after complete processing capsule
-	 * update on the storage.
-	 */
-	log_info("Reboot after firmware update");
-	/* Cold reset is required for loading the new firmware. */
-	do_reset(NULL, 0, 0, NULL);
-	hang();
-	/* not reach here */
+	/* CapsuleLast */
+	efi_create_indexed_name(variable_name16, sizeof(variable_name16),
+				"Capsule", index - 1);
+	efi_set_variable_int(L"CapsuleLast", &efi_guid_capsule_report,
+			     EFI_VARIABLE_READ_ONLY |
+			     EFI_VARIABLE_NON_VOLATILE |
+			     EFI_VARIABLE_BOOTSERVICE_ACCESS |
+			     EFI_VARIABLE_RUNTIME_ACCESS,
+			     22, variable_name16, false);
 
-	return 0;
+	return ret;
 }
 #endif /* CONFIG_EFI_CAPSULE_ON_DISK */

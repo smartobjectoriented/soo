@@ -48,7 +48,7 @@
 					};
 				};
 
-#ifndef CONFIG_OF_BOARD
+#ifndef CONFIG_OF_PRIOR_STAGE
 				@fdt-SEQ {
 					description = "NAME";
 					type = "flat_dt";
@@ -60,7 +60,7 @@
 			configurations {
 				default = "conf-1";
 
-#ifndef CONFIG_OF_BOARD
+#ifndef CONFIG_OF_PRIOR_STAGE
 				@conf-SEQ {
 #else
 				conf-1 {
@@ -68,7 +68,7 @@
 					description = "NAME";
 					firmware = "opensbi";
 					loadables = "uboot";
-#ifndef CONFIG_OF_BOARD
+#ifndef CONFIG_OF_PRIOR_STAGE
 					fdt = "fdt-SEQ";
 #endif
 				};

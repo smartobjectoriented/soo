@@ -9,8 +9,18 @@
 #include <dm.h>
 #include <irq.h>
 #include <acpi/acpi_device.h>
-#include <asm/irq.h>
 #include <asm/test.h>
+
+/**
+ * struct sandbox_irq_priv - private data for this driver
+ *
+ * @count: Counts the number calls to the read_and_clear() method
+ * @pending: true if an interrupt is pending, else false
+ */
+struct sandbox_irq_priv {
+	int count;
+	bool pending;
+};
 
 static int sandbox_set_polarity(struct udevice *dev, uint irq, bool active_low)
 {
@@ -93,11 +103,10 @@ static const struct udevice_id sandbox_irq_ids[] = {
 	{ }
 };
 
-U_BOOT_DRIVER(sandbox_irq) = {
+U_BOOT_DRIVER(sandbox_irq_drv) = {
 	.name		= "sandbox_irq",
 	.id		= UCLASS_IRQ,
 	.of_match	= sandbox_irq_ids,
 	.ops		= &sandbox_irq_ops,
 	.priv_auto	= sizeof(struct sandbox_irq_priv),
-	DM_HEADER(<asm/irq.h>)
 };

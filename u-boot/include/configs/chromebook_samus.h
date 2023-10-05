@@ -23,4 +23,6 @@
 					"stdout=vidconsole,serial\0" \
 					"stderr=vidconsole,serial\0"
 
+#define CONFIG_TPL_TEXT_BASE		0xfffd8000
+
 #endif	/* __CONFIG_H */

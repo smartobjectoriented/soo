@@ -67,6 +67,7 @@
 #define CONFIG_SYS_DDR_TIMING_3			0x00000000
 
 /* EEprom support */
+#define CONFIG_SYS_I2C_EEPROM_ADDR_LEN		2
 
 /*
  * PAXE on the local bus CS3

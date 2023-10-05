@@ -57,3 +57,4 @@ U_BOOT_DRIVER(raspberrypi_reset) = {
 	.of_match = raspberrypi_reset_ids,
 	.ops = &raspberrypi_reset_ops,
 };
+

@@ -390,7 +390,7 @@ struct mmc_uclass_priv {
  * will be available.
  *
  * @dev:	Device
- * Return: associated mmc struct pointer if available, else NULL
+ * @return associated mmc struct pointer if available, else NULL
  */
 struct mmc *mmc_get_mmc_dev(const struct udevice *dev);
 
@@ -726,8 +726,6 @@ struct mmc {
 				  */
 	u32 quirks;
 	u8 hs400_tuning;
-
-	enum bus_mode user_speed_mode; /* input speed mode from user */
 };
 
 #if CONFIG_IS_ENABLED(DM_MMC)
@@ -768,7 +766,7 @@ struct mmc *mmc_create(const struct mmc_config *cfg, void *priv);
  * @dev:	MMC device to set up
  * @mmc:	MMC struct
  * @cfg:	MMC configuration
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int mmc_bind(struct udevice *dev, struct mmc *mmc,
 	     const struct mmc_config *cfg);
@@ -778,7 +776,7 @@ void mmc_destroy(struct mmc *mmc);
  * mmc_unbind() - Unbind a MMC device's child block device
  *
  * @dev:	MMC device
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int mmc_unbind(struct udevice *dev);
 int mmc_initialize(struct bd_info *bis);
@@ -786,14 +784,19 @@ int mmc_init_device(int num);
 int mmc_init(struct mmc *mmc);
 int mmc_send_tuning(struct mmc *mmc, u32 opcode, int *cmd_error);
 int mmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data);
+
+#if CONFIG_IS_ENABLED(MMC_UHS_SUPPORT) || \
+    CONFIG_IS_ENABLED(MMC_HS200_SUPPORT) || \
+    CONFIG_IS_ENABLED(MMC_HS400_SUPPORT)
 int mmc_deinit(struct mmc *mmc);
+#endif
 
 /**
  * mmc_of_parse() - Parse the device tree to get the capabilities of the host
  *
  * @dev:	MMC device
  * @cfg:	MMC configuration
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int mmc_of_parse(struct udevice *dev, struct mmc_config *cfg);
 
@@ -803,7 +806,7 @@ int mmc_of_parse(struct udevice *dev, struct mmc_config *cfg);
  *
  * @dev:	MMC device
  * @cfg:	MMC configuration
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int mmc_pwrseq_get_power(struct udevice *dev, struct mmc_config *cfg);
 #endif
@@ -814,7 +817,7 @@ int mmc_read(struct mmc *mmc, u64 src, uchar *dst, int size);
  * mmc_voltage_to_mv() - Convert a mmc_voltage in mV
  *
  * @voltage:	The mmc_voltage to convert
- * Return: the value in mV if OK, -EINVAL on error (invalid mmc_voltage value)
+ * @return the value in mV if OK, -EINVAL on error (invalid mmc_voltage value)
  */
 int mmc_voltage_to_mv(enum mmc_voltage voltage);
 
@@ -823,7 +826,7 @@ int mmc_voltage_to_mv(enum mmc_voltage voltage);
  * @mmc:	MMC struct
  * @clock:	bus frequency in Hz
  * @disable:	flag indicating if the clock must on or off
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int mmc_set_clock(struct mmc *mmc, uint clock, bool disable);
 
@@ -837,7 +840,7 @@ void print_mmc_devices(char separator);
 /**
  * get_mmc_num() - get the total MMC device number
  *
- * Return: 0 if there is no MMC device, else the number of devices
+ * @return 0 if there is no MMC device, else the number of devices
  */
 int get_mmc_num(void);
 int mmc_switch_part(struct mmc *mmc, unsigned int part_num);
@@ -897,10 +900,9 @@ int mmc_set_bkops_enable(struct mmc *mmc);
  * the presence of SD/eMMC when no card detect logic is available.
  *
  * @param mmc	Pointer to a MMC device struct
- * @param quiet	Be quiet, do not print error messages when card is not detected.
- * Return: 0 on success, <0 on error.
+ * @return 0 on success, <0 on error.
  */
-int mmc_get_op_cond(struct mmc *mmc, bool quiet);
+int mmc_get_op_cond(struct mmc *mmc);
 
 /**
  * Start device initialization and return immediately; it does not block on
@@ -909,7 +911,7 @@ int mmc_get_op_cond(struct mmc *mmc, bool quiet);
  * initializatin.
  *
  * @param mmc	Pointer to a MMC device struct
- * Return: 0 on success, <0 on error.
+ * @return 0 on success, <0 on error.
  */
 int mmc_start_init(struct mmc *mmc);
 
@@ -956,7 +958,7 @@ int mmc_get_env_dev(void);
  * mmc_get_blk_desc() - Get the block descriptor for an MMC device
  *
  * @mmc:	MMC device
- * Return: block device if found, else NULL
+ * @return block device if found, else NULL
  */
 struct blk_desc *mmc_get_blk_desc(struct mmc *mmc);
 

@@ -215,3 +215,4 @@ void fini_gnttab(void)
 	setup.dom = DOMID_SELF;
 	setup.nr_frames = 0;
 }
+

@@ -12,8 +12,6 @@
  *
  */
 
-#define LOG_CATEGORY UCLASS_W1
-
 #include <common.h>
 #include <dm.h>
 #include <log.h>

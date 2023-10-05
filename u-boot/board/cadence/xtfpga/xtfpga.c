@@ -5,7 +5,6 @@
  */
 
 #include <common.h>
-#include <clock_legacy.h>
 #include <command.h>
 #include <dm.h>
 #include <init.h>
@@ -50,7 +49,7 @@ int checkboard(void)
 	return 0;
 }
 
-unsigned long get_board_sys_clk(void)
+int board_postclk_init(void)
 {
 	/*
 	 * Obtain CPU clock frequency from board and cache in global
@@ -59,17 +58,11 @@ unsigned long get_board_sys_clk(void)
 	 */
 
 #ifdef CONFIG_SYS_FPGAREG_FREQ
-	return (*(volatile unsigned long *)CONFIG_SYS_FPGAREG_FREQ);
+	gd->cpu_clk = (*(volatile unsigned long *)CONFIG_SYS_FPGAREG_FREQ);
 #else
 	/* early Tensilica bitstreams lack this reg, but most run at 50 MHz */
-	return 50000000;
+	gd->cpu_clk = 50000000UL;
 #endif
-}
-
-int board_postclk_init(void)
-{
-	gd->cpu_clk = get_board_sys_clk();
-
 	return 0;
 }
 

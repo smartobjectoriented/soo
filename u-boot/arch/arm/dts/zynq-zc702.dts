@@ -68,12 +68,6 @@
 	ocm: sram@fffc0000 {
 		compatible = "mmio-sram";
 		reg = <0xfffc0000 0x10000>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges = <0 0xfffc0000 0x10000>;
-		ocm-sram@0 {
-			reg = <0x0 0x10000>;
-		};
 	};
 };
 
@@ -213,7 +207,7 @@
 		conf {
 			groups = "can0_9_grp";
 			slew-rate = <0>;
-			power-source = <1>;
+			io-standard = <1>;
 		};
 
 		conf-rx {
@@ -236,7 +230,7 @@
 		conf {
 			groups = "ethernet0_0_grp";
 			slew-rate = <0>;
-			power-source = <4>;
+			io-standard = <4>;
 		};
 
 		conf-rx {
@@ -259,7 +253,7 @@
 		conf-mdio {
 			groups = "mdio0_0_grp";
 			slew-rate = <0>;
-			power-source = <1>;
+			io-standard = <1>;
 			bias-disable;
 		};
 	};
@@ -277,7 +271,7 @@
 				 "gpio0_10_grp", "gpio0_11_grp", "gpio0_12_grp",
 				 "gpio0_13_grp", "gpio0_14_grp";
 			slew-rate = <0>;
-			power-source = <1>;
+			io-standard = <1>;
 		};
 
 		conf-pull-up {
@@ -301,7 +295,7 @@
 			groups = "i2c0_10_grp";
 			bias-pull-up;
 			slew-rate = <0>;
-			power-source = <1>;
+			io-standard = <1>;
 		};
 	};
 
@@ -314,7 +308,7 @@
 		conf {
 			groups = "gpio0_50_grp", "gpio0_51_grp";
 			slew-rate = <0>;
-			power-source = <1>;
+			io-standard = <1>;
 		};
 	};
 
@@ -327,7 +321,7 @@
 		conf {
 			groups = "sdio0_2_grp";
 			slew-rate = <0>;
-			power-source = <1>;
+			io-standard = <1>;
 			bias-disable;
 		};
 
@@ -341,7 +335,7 @@
 			bias-high-impedance;
 			bias-pull-up;
 			slew-rate = <0>;
-			power-source = <1>;
+			io-standard = <1>;
 		};
 
 		mux-wp {
@@ -354,7 +348,7 @@
 			bias-high-impedance;
 			bias-pull-up;
 			slew-rate = <0>;
-			power-source = <1>;
+			io-standard = <1>;
 		};
 	};
 
@@ -367,7 +361,7 @@
 		conf {
 			groups = "uart1_10_grp";
 			slew-rate = <0>;
-			power-source = <1>;
+			io-standard = <1>;
 		};
 
 		conf-rx {
@@ -390,7 +384,7 @@
 		conf {
 			groups = "usb0_0_grp";
 			slew-rate = <0>;
-			power-source = <1>;
+			io-standard = <1>;
 		};
 
 		conf-rx {
@@ -409,14 +403,6 @@
 &qspi {
 	u-boot,dm-pre-reloc;
 	status = "okay";
-	num-cs = <1>;
-	flash@0 {
-		compatible = "n25q128a11", "jedec,spi-nor";
-		reg = <0x0>;
-		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <4>;
-		spi-max-frequency = <50000000>;
-	};
 };
 
 &sdhci0 {

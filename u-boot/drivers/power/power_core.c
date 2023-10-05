@@ -159,7 +159,7 @@ static int do_pmic(struct cmd_tbl *cmdtp, int flag, int argc,
 		if (argc < 4)
 			return CMD_RET_USAGE;
 
-		reg = hextoul(argv[3], NULL);
+		reg = simple_strtoul(argv[3], NULL, 16);
 		ret = pmic_reg_read(p, reg, &val);
 
 		if (ret)
@@ -174,8 +174,8 @@ static int do_pmic(struct cmd_tbl *cmdtp, int flag, int argc,
 		if (argc < 5)
 			return CMD_RET_USAGE;
 
-		reg = hextoul(argv[3], NULL);
-		val = hextoul(argv[4], NULL);
+		reg = simple_strtoul(argv[3], NULL, 16);
+		val = simple_strtoul(argv[4], NULL, 16);
 		pmic_reg_write(p, reg, val);
 
 		return CMD_RET_SUCCESS;

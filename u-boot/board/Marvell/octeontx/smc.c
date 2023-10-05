@@ -22,3 +22,4 @@ ssize_t smc_dram_size(unsigned int node)
 
 	return regs.regs[0];
 }
+

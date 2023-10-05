@@ -111,7 +111,7 @@ typedef union {
  *               - Step by 2 for 16 bit access.
  *               - Step by 4 for 32 bit access.
  *               - Step by 8 for 64 bit access.
- * Return: Address to store for atomic update
+ * @return Address to store for atomic update
  */
 static inline u64 __cvmx_hwfau_store_address(u64 noadd, u64 reg)
 {
@@ -135,7 +135,7 @@ static inline u64 __cvmx_hwfau_store_address(u64 noadd, u64 reg)
  * @param value   Signed value to add.
  *                Note: When performing 32 and 64 bit access, only the low
  *                22 bits are available.
- * Return: Address to read from for atomic update
+ * @return Address to read from for atomic update
  */
 static inline u64 __cvmx_hwfau_atomic_address(u64 tagwait, u64 reg, s64 value)
 {
@@ -152,7 +152,7 @@ static inline u64 __cvmx_hwfau_atomic_address(u64 tagwait, u64 reg, s64 value)
  *                - Step by 8 for 64 bit access.
  * @param value   Signed value to add.
  *                Note: Only the low 22 bits are available.
- * Return: Value of the register before the update
+ * @return Value of the register before the update
  */
 static inline s64 cvmx_hwfau_fetch_and_add64(cvmx_fau_reg64_t reg, s64 value)
 {
@@ -166,7 +166,7 @@ static inline s64 cvmx_hwfau_fetch_and_add64(cvmx_fau_reg64_t reg, s64 value)
  *                - Step by 4 for 32 bit access.
  * @param value   Signed value to add.
  *                Note: Only the low 22 bits are available.
- * Return: Value of the register before the update
+ * @return Value of the register before the update
  */
 static inline s32 cvmx_hwfau_fetch_and_add32(cvmx_fau_reg32_t reg, s32 value)
 {
@@ -180,7 +180,7 @@ static inline s32 cvmx_hwfau_fetch_and_add32(cvmx_fau_reg32_t reg, s32 value)
  * @param reg     FAU atomic register to access. 0 <= reg < 2048.
  *                - Step by 2 for 16 bit access.
  * @param value   Signed value to add.
- * Return: Value of the register before the update
+ * @return Value of the register before the update
  */
 static inline s16 cvmx_hwfau_fetch_and_add16(cvmx_fau_reg16_t reg, s16 value)
 {
@@ -193,7 +193,7 @@ static inline s16 cvmx_hwfau_fetch_and_add16(cvmx_fau_reg16_t reg, s16 value)
  *
  * @param reg     FAU atomic register to access. 0 <= reg < 2048.
  * @param value   Signed value to add.
- * Return: Value of the register before the update
+ * @return Value of the register before the update
  */
 static inline int8_t cvmx_hwfau_fetch_and_add8(cvmx_fau_reg8_t reg, int8_t value)
 {
@@ -209,7 +209,7 @@ static inline int8_t cvmx_hwfau_fetch_and_add8(cvmx_fau_reg8_t reg, int8_t value
  *               - Step by 8 for 64 bit access.
  * @param value  Signed value to add.
  *               Note: Only the low 22 bits are available.
- * Return: If a timeout occurs, the error bit will be set. Otherwise
+ * @return If a timeout occurs, the error bit will be set. Otherwise
  *         the value of the register before the update will be
  *         returned
  */
@@ -232,7 +232,7 @@ static inline cvmx_fau_tagwait64_t cvmx_hwfau_tagwait_fetch_and_add64(cvmx_fau_r
  *               - Step by 4 for 32 bit access.
  * @param value  Signed value to add.
  *               Note: Only the low 22 bits are available.
- * Return: If a timeout occurs, the error bit will be set. Otherwise
+ * @return If a timeout occurs, the error bit will be set. Otherwise
  *         the value of the register before the update will be
  *         returned
  */
@@ -255,7 +255,7 @@ static inline cvmx_fau_tagwait32_t cvmx_hwfau_tagwait_fetch_and_add32(cvmx_fau_r
  * @param reg    FAU atomic register to access. 0 <= reg < 2048.
  *               - Step by 2 for 16 bit access.
  * @param value  Signed value to add.
- * Return: If a timeout occurs, the error bit will be set. Otherwise
+ * @return If a timeout occurs, the error bit will be set. Otherwise
  *         the value of the register before the update will be
  *         returned
  */
@@ -277,7 +277,7 @@ static inline cvmx_fau_tagwait16_t cvmx_hwfau_tagwait_fetch_and_add16(cvmx_fau_r
  *
  * @param reg    FAU atomic register to access. 0 <= reg < 2048.
  * @param value  Signed value to add.
- * Return: If a timeout occurs, the error bit will be set. Otherwise
+ * @return If a timeout occurs, the error bit will be set. Otherwise
  *         the value of the register before the update will be
  *         returned
  */
@@ -314,7 +314,7 @@ static inline cvmx_fau_tagwait8_t cvmx_hwfau_tagwait_fetch_and_add8(cvmx_fau_reg
  *                - Step by 2 for 16 bit access.
  *                - Step by 4 for 32 bit access.
  *                - Step by 8 for 64 bit access.
- * Return: Data to write using cvmx_send_single
+ * @return Data to write using cvmx_send_single
  */
 static inline u64 __cvmx_fau_iobdma_data(u64 scraddr, s64 value, u64 tagwait,
 					 cvmx_fau_op_size_t size, u64 reg)
@@ -337,7 +337,7 @@ static inline u64 __cvmx_fau_iobdma_data(u64 scraddr, s64 value, u64 tagwait,
  *                - Step by 8 for 64 bit access.
  * @param value   Signed value to add.
  *                Note: Only the low 22 bits are available.
- * Return: Placed in the scratch pad register
+ * @return Placed in the scratch pad register
  */
 static inline void cvmx_hwfau_async_fetch_and_add64(u64 scraddr, cvmx_fau_reg64_t reg, s64 value)
 {
@@ -354,7 +354,7 @@ static inline void cvmx_hwfau_async_fetch_and_add64(u64 scraddr, cvmx_fau_reg64_
  *                - Step by 4 for 32 bit access.
  * @param value   Signed value to add.
  *                Note: Only the low 22 bits are available.
- * Return: Placed in the scratch pad register
+ * @return Placed in the scratch pad register
  */
 static inline void cvmx_hwfau_async_fetch_and_add32(u64 scraddr, cvmx_fau_reg32_t reg, s32 value)
 {
@@ -370,7 +370,7 @@ static inline void cvmx_hwfau_async_fetch_and_add32(u64 scraddr, cvmx_fau_reg32_
  * @param reg     FAU atomic register to access. 0 <= reg < 2048.
  *                - Step by 2 for 16 bit access.
  * @param value   Signed value to add.
- * Return: Placed in the scratch pad register
+ * @return Placed in the scratch pad register
  */
 static inline void cvmx_hwfau_async_fetch_and_add16(u64 scraddr, cvmx_fau_reg16_t reg, s16 value)
 {
@@ -385,7 +385,7 @@ static inline void cvmx_hwfau_async_fetch_and_add16(u64 scraddr, cvmx_fau_reg16_
  *                Must be 8 byte aligned.
  * @param reg     FAU atomic register to access. 0 <= reg < 2048.
  * @param value   Signed value to add.
- * Return: Placed in the scratch pad register
+ * @return Placed in the scratch pad register
  */
 static inline void cvmx_hwfau_async_fetch_and_add8(u64 scraddr, cvmx_fau_reg8_t reg, int8_t value)
 {
@@ -405,7 +405,7 @@ static inline void cvmx_hwfau_async_fetch_and_add8(u64 scraddr, cvmx_fau_reg8_t 
  *                - Step by 8 for 64 bit access.
  * @param value   Signed value to add.
  *                Note: Only the low 22 bits are available.
- * Return: Placed in the scratch pad register
+ * @return Placed in the scratch pad register
  */
 static inline void cvmx_hwfau_async_tagwait_fetch_and_add64(u64 scraddr, cvmx_fau_reg64_t reg,
 							    s64 value)
@@ -426,7 +426,7 @@ static inline void cvmx_hwfau_async_tagwait_fetch_and_add64(u64 scraddr, cvmx_fa
  *                - Step by 4 for 32 bit access.
  * @param value   Signed value to add.
  *                Note: Only the low 22 bits are available.
- * Return: Placed in the scratch pad register
+ * @return Placed in the scratch pad register
  */
 static inline void cvmx_hwfau_async_tagwait_fetch_and_add32(u64 scraddr, cvmx_fau_reg32_t reg,
 							    s32 value)
@@ -446,7 +446,7 @@ static inline void cvmx_hwfau_async_tagwait_fetch_and_add32(u64 scraddr, cvmx_fa
  * @param reg     FAU atomic register to access. 0 <= reg < 2048.
  *                - Step by 2 for 16 bit access.
  * @param value   Signed value to add.
- * Return: Placed in the scratch pad register
+ * @return Placed in the scratch pad register
  */
 static inline void cvmx_hwfau_async_tagwait_fetch_and_add16(u64 scraddr, cvmx_fau_reg16_t reg,
 							    s16 value)
@@ -465,7 +465,7 @@ static inline void cvmx_hwfau_async_tagwait_fetch_and_add16(u64 scraddr, cvmx_fa
  *                returned
  * @param reg     FAU atomic register to access. 0 <= reg < 2048.
  * @param value   Signed value to add.
- * Return: Placed in the scratch pad register
+ * @return Placed in the scratch pad register
  */
 static inline void cvmx_hwfau_async_tagwait_fetch_and_add8(u64 scraddr, cvmx_fau_reg8_t reg,
 							   int8_t value)
@@ -574,28 +574,28 @@ static inline void cvmx_hwfau_atomic_write8(cvmx_fau_reg8_t reg, int8_t value)
 }
 
 /** Allocates 64bit FAU register.
- *  Return: value is the base address of allocated FAU register
+ *  @return value is the base address of allocated FAU register
  */
 int cvmx_fau64_alloc(int reserve);
 
 /** Allocates 32bit FAU register.
- *  Return: value is the base address of allocated FAU register
+ *  @return value is the base address of allocated FAU register
  */
 int cvmx_fau32_alloc(int reserve);
 
 /** Allocates 16bit FAU register.
- *  Return: value is the base address of allocated FAU register
+ *  @return value is the base address of allocated FAU register
  */
 int cvmx_fau16_alloc(int reserve);
 
 /** Allocates 8bit FAU register.
- *  Return: value is the base address of allocated FAU register
+ *  @return value is the base address of allocated FAU register
  */
 int cvmx_fau8_alloc(int reserve);
 
 /** Frees the specified FAU register.
  *  @param address Base address of register to release.
- *  Return: 0 on success; -1 on failure
+ *  @return 0 on success; -1 on failure
  */
 int cvmx_fau_free(int address);
 

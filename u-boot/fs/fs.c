@@ -37,7 +37,7 @@ static int fs_type = FS_TYPE_ANY;
 static inline int fs_probe_unsupported(struct blk_desc *fs_dev_desc,
 				      struct disk_partition *fs_partition)
 {
-	log_debug("Unrecognized filesystem type\n");
+	log_err("** Unrecognized filesystem type **\n");
 	return -1;
 }
 
@@ -717,13 +717,13 @@ int do_load(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[],
 	}
 
 	if (argc >= 4) {
-		addr = hextoul(argv[3], &ep);
+		addr = simple_strtoul(argv[3], &ep, 16);
 		if (ep == argv[3] || *ep != '\0')
 			return CMD_RET_USAGE;
 	} else {
 		addr_str = env_get("loadaddr");
 		if (addr_str != NULL)
-			addr = hextoul(addr_str, NULL);
+			addr = simple_strtoul(addr_str, NULL, 16);
 		else
 			addr = CONFIG_SYS_LOAD_ADDR;
 	}
@@ -737,11 +737,11 @@ int do_load(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[],
 		}
 	}
 	if (argc >= 6)
-		bytes = hextoul(argv[5], NULL);
+		bytes = simple_strtoul(argv[5], NULL, 16);
 	else
 		bytes = 0;
 	if (argc >= 7)
-		pos = hextoul(argv[6], NULL);
+		pos = simple_strtoul(argv[6], NULL, 16);
 	else
 		pos = 0;
 
@@ -815,11 +815,11 @@ int do_save(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[],
 	if (fs_set_blk_dev(argv[1], argv[2], fstype))
 		return 1;
 
-	addr = hextoul(argv[3], NULL);
+	addr = simple_strtoul(argv[3], NULL, 16);
 	filename = argv[4];
-	bytes = hextoul(argv[5], NULL);
+	bytes = simple_strtoul(argv[5], NULL, 16);
 	if (argc >= 7)
-		pos = hextoul(argv[6], NULL);
+		pos = simple_strtoul(argv[6], NULL, 16);
 	else
 		pos = 0;
 

@@ -14,7 +14,7 @@
  * Check for a keypress repeatedly, resetting the watchdog each time. If a
  * keypress is not received within the command timeout, return an error.
  *
- * Return: 0 if a key is received in time, -ETIMEDOUT if not
+ * @return 0 if a key is received in time, -ETIMEDOUT if not
  */
 int bootretry_tstc_timeout(void);
 

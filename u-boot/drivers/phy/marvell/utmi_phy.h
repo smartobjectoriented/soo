@@ -98,3 +98,4 @@
 	(0x3 << UTMI_CHGDTC_CTRL_VSRC_OFFSET)
 
 #endif /* _UTMI_PHY_H_ */
+

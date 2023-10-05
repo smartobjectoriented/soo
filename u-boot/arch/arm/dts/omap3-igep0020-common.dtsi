@@ -248,7 +248,7 @@
 };
 
 &dss {
-	status = "okay";
+	status = "ok";
 
 	port {
 		dpi_out: endpoint {

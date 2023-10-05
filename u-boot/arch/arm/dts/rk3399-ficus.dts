@@ -27,43 +27,42 @@
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&user_led1_pin>, <&user_led2_pin>,
-			    <&user_led3_pin>, <&user_led4_pin>,
-			    <&wlan_led_pin>, <&bt_led_pin>;
+		pinctrl-0 = <&user_led1>, <&user_led2>, <&user_led3>,
+			    <&user_led4>, <&wlan_led>, <&bt_led>;
 
-		user_led1: led-1 {
+		user_led1 {
 			label = "red:user1";
 			gpios = <&gpio4 25 0>;
 			linux,default-trigger = "heartbeat";
 		};
 
-		user_led2: led-2 {
+		user_led2 {
 			label = "red:user2";
 			gpios = <&gpio4 26 0>;
 			linux,default-trigger = "mmc0";
 		};
 
-		user_led3: led-3 {
+		user_led3 {
 			label = "red:user3";
 			gpios = <&gpio4 30 0>;
 			linux,default-trigger = "mmc1";
 		};
 
-		user_led4: led-4 {
+		user_led4 {
 			label = "red:user4";
 			gpios = <&gpio1 0 0>;
 			panic-indicator;
 			linux,default-trigger = "none";
 		};
 
-		wlan_active_led: led-5 {
+		wlan_active_led {
 			label = "red:wlan";
 			gpios = <&gpio1 1 0>;
 			linux,default-trigger = "phy0tx";
 			default-state = "off";
 		};
 
-		bt_active_led: led-6 {
+		bt_active_led {
 			label = "red:bt";
 			gpios = <&gpio1 4 0>;
 			linux,default-trigger = "hci0-power";
@@ -115,32 +114,32 @@
 	};
 
 	leds {
-		user_led1_pin: user-led1-pin {
+		user_led1: user_led1 {
 			rockchip,pins =
 				<4 RK_PD1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 
-		user_led2_pin: user-led2-pin {
+		user_led2: user_led2 {
 			rockchip,pins =
 				<4 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 
-		user_led3_pin: user-led3-pin {
+		user_led3: user_led3 {
 			rockchip,pins =
 				<4 RK_PD6 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 
-		user_led4_pin: user-led4-pin {
+		user_led4: user_led4 {
 			rockchip,pins =
 				<1 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 
-		wlan_led_pin: wlan-led-pin {
+		wlan_led: wlan_led {
 			rockchip,pins =
 				<1 RK_PA1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 
-		bt_led_pin: bt-led-pin {
+		bt_led: bt_led {
 			rockchip,pins =
 				<1 RK_PA4 RK_FUNC_GPIO &pcfg_pull_none>;
 		};

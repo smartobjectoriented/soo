@@ -268,10 +268,15 @@ static void fdt_fixup_pci_liodn_offsets(void *fdt, const char *compat,
 	 * Count the number of pci nodes.
 	 * It's needed later when the interleaved liodn offsets are generated.
 	 */
-	fdt_for_each_node_by_compatible(off, fdt, -1, compat)
+	off = fdt_node_offset_by_compatible(fdt, -1, compat);
+	while (off != -FDT_ERR_NOTFOUND) {
 		pci_cnt++;
+		off = fdt_node_offset_by_compatible(fdt, off, compat);
+	}
 
-	fdt_for_each_node_by_compatible(off, fdt, -1, compat) {
+	for (off = fdt_node_offset_by_compatible(fdt, -1, compat);
+	     off != -FDT_ERR_NOTFOUND;
+	     off = fdt_node_offset_by_compatible(fdt, off, compat)) {
 		base_liodn = fdt_getprop(fdt, off, "fsl,liodn", &rc);
 		if (!base_liodn) {
 			char path[64];

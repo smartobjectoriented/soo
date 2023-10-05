@@ -17,7 +17,7 @@
  *
  * @param xiface Interface to probe
  *
- * Return: Number of ports on the interface. Zero to disable.
+ * @return Number of ports on the interface. Zero to disable.
  */
 int __cvmx_helper_loop_probe(int xiface);
 int __cvmx_helper_loop_enumerate(int xiface);
@@ -30,7 +30,7 @@ int __cvmx_helper_loop_enumerate(int xiface);
  *
  * @param xiface Interface to bring up
  *
- * Return: Zero on success, negative on failure
+ * @return Zero on success, negative on failure
  */
 int __cvmx_helper_loop_enable(int xiface);
 

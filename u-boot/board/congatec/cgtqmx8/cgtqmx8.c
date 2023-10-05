@@ -374,7 +374,7 @@ void detail_board_ddr_info(void)
 /*
  * Board specific reset that is system reset.
  */
-void reset_cpu(void)
+void reset_cpu(ulong addr)
 {
 	/* TODO */
 }

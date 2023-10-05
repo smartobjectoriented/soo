@@ -12,6 +12,7 @@
 /*
  * High Level Configuration Options
  */
+#define CONFIG_SYS_L2CACHE_OFF		/* No L2 cache */
 
 #include <asm/arch/tegra.h>		/* get chip and board defs */
 
@@ -20,6 +21,8 @@
 #define CONFIG_SYS_TIMER_RATE		1000000
 #define CONFIG_SYS_TIMER_COUNTER	NV_PA_TMRUS_BASE
 #endif
+
+#define CONFIG_CMDLINE_TAG		/* enable passing of ATAGs */
 
 /* Environment */
 

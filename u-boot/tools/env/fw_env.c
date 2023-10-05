@@ -346,7 +346,7 @@ static int ubi_write(int fd, const void *buf, size_t count)
 	return 0;
 }
 
-static int flash_io(int mode, void *buf, size_t count);
+static int flash_io(int mode);
 static int parse_config(struct env_opts *opts);
 
 #if defined(CONFIG_FILE)
@@ -516,7 +516,7 @@ int fw_env_flush(struct env_opts *opts)
 	*environment.crc = crc32(0, (uint8_t *) environment.data, ENV_SIZE);
 
 	/* write environment back to flash */
-	if (flash_io(O_RDWR, environment.image, CUR_ENVSIZE)) {
+	if (flash_io(O_RDWR)) {
 		fprintf(stderr, "Error: can't write fw_env to flash\n");
 		return -1;
 	}
@@ -951,23 +951,21 @@ static int flash_read_buf(int dev, int fd, void *buf, size_t count,
 				DEVNAME(dev), strerror(errno));
 			return -1;
 		}
+		if (rc != readlen) {
+			fprintf(stderr,
+				"Read error on %s: Attempted to read %zd bytes but got %d\n",
+				DEVNAME(dev), readlen, rc);
+			return -1;
+		}
 #ifdef DEBUG
 		fprintf(stderr, "Read 0x%x bytes at 0x%llx on %s\n",
 			rc, (unsigned long long)blockstart + block_seek,
 			DEVNAME(dev));
 #endif
-		processed += rc;
-		if (rc != readlen) {
-			fprintf(stderr,
-				"Warning on %s: Attempted to read %zd bytes but got %d\n",
-				DEVNAME(dev), readlen, rc);
-			readlen -= rc;
-			block_seek += rc;
-		} else {
-			blockstart += blocklen;
-			readlen = min(blocklen, count - processed);
-			block_seek = 0;
-		}
+		processed += readlen;
+		readlen = min(blocklen, count - processed);
+		block_seek = 0;
+		blockstart += blocklen;
 	}
 
 	return processed;
@@ -1083,6 +1081,12 @@ static int flash_write_buf(int dev, int fd, void *buf, size_t count)
 	}
 
 	erase.length = erasesize;
+	if (DEVTYPE(dev) != MTD_ABSENT) {
+		was_locked = ioctl(fd, MEMISLOCKED, &erase);
+		/* treat any errors as unlocked flash */
+		if (was_locked < 0)
+			was_locked = 0;
+	}
 
 	/* This only runs once on NOR flash and SPI-dataflash */
 	while (processed < write_total) {
@@ -1102,10 +1106,6 @@ static int flash_write_buf(int dev, int fd, void *buf, size_t count)
 
 		if (DEVTYPE(dev) != MTD_ABSENT) {
 			erase.start = blockstart;
-			was_locked = ioctl(fd, MEMISLOCKED, &erase);
-			/* treat any errors as unlocked flash */
-			if (was_locked < 0)
-					was_locked = 0;
 			if (was_locked)
 				ioctl(fd, MEMUNLOCK, &erase);
 			/* These do not need an explicit erase cycle */
@@ -1161,6 +1161,7 @@ static int flash_flag_obsolete(int dev, int fd, off_t offset)
 	char tmp = ENV_REDUND_OBSOLETE;
 	int was_locked;	/* flash lock flag */
 
+	was_locked = ioctl(fd, MEMISLOCKED, &erase);
 	erase.start = DEVOFFSET(dev);
 	erase.length = DEVESIZE(dev);
 	/* This relies on the fact, that ENV_REDUND_OBSOLETE == 0 */
@@ -1170,10 +1171,6 @@ static int flash_flag_obsolete(int dev, int fd, off_t offset)
 			DEVNAME(dev));
 		return rc;
 	}
-	was_locked = ioctl(fd, MEMISLOCKED, &erase);
-	/* treat any errors as unlocked flash */
-	if (was_locked < 0)
-		was_locked = 0;
 	if (was_locked)
 		ioctl(fd, MEMUNLOCK, &erase);
 	rc = write(fd, &tmp, sizeof(tmp));
@@ -1185,8 +1182,7 @@ static int flash_flag_obsolete(int dev, int fd, off_t offset)
 	return rc;
 }
 
-static int flash_write(int fd_current, int fd_target, int dev_target, void *buf,
-		       size_t count)
+static int flash_write(int fd_current, int fd_target, int dev_target)
 {
 	int rc;
 
@@ -1213,10 +1209,11 @@ static int flash_write(int fd_current, int fd_target, int dev_target, void *buf,
 	if (IS_UBI(dev_target)) {
 		if (ubi_update_start(fd_target, CUR_ENVSIZE) < 0)
 			return -1;
-		return ubi_write(fd_target, buf, count);
+		return ubi_write(fd_target, environment.image, CUR_ENVSIZE);
 	}
 
-	rc = flash_write_buf(dev_target, fd_target, buf, count);
+	rc = flash_write_buf(dev_target, fd_target, environment.image,
+			     CUR_ENVSIZE);
 	if (rc < 0)
 		return rc;
 
@@ -1235,17 +1232,17 @@ static int flash_write(int fd_current, int fd_target, int dev_target, void *buf,
 	return 0;
 }
 
-static int flash_read(int fd, void *buf, size_t count)
+static int flash_read(int fd)
 {
 	int rc;
 
 	if (IS_UBI(dev_current)) {
 		DEVTYPE(dev_current) = MTD_ABSENT;
 
-		return ubi_read(fd, buf, count);
+		return ubi_read(fd, environment.image, CUR_ENVSIZE);
 	}
 
-	rc = flash_read_buf(dev_current, fd, buf, count,
+	rc = flash_read_buf(dev_current, fd, environment.image, CUR_ENVSIZE,
 			    DEVOFFSET(dev_current));
 	if (rc != CUR_ENVSIZE)
 		return -1;
@@ -1291,7 +1288,7 @@ err:
 	return rc;
 }
 
-static int flash_io_write(int fd_current, void *buf, size_t count)
+static int flash_io_write(int fd_current)
 {
 	int fd_target = -1, rc, dev_target;
 	const char *dname, *target_temp = NULL;
@@ -1322,7 +1319,7 @@ static int flash_io_write(int fd_current, void *buf, size_t count)
 			fd_target = fd_current;
 	}
 
-	rc = flash_write(fd_current, fd_target, dev_target, buf, count);
+	rc = flash_write(fd_current, fd_target, dev_target);
 
 	if (fsync(fd_current) && !(errno == EINVAL || errno == EROFS)) {
 		fprintf(stderr,
@@ -1377,7 +1374,7 @@ static int flash_io_write(int fd_current, void *buf, size_t count)
 	return rc;
 }
 
-static int flash_io(int mode, void *buf, size_t count)
+static int flash_io(int mode)
 {
 	int fd_current, rc;
 
@@ -1391,9 +1388,9 @@ static int flash_io(int mode, void *buf, size_t count)
 	}
 
 	if (mode == O_RDWR) {
-		rc = flash_io_write(fd_current, buf, count);
+		rc = flash_io_write(fd_current);
 	} else {
-		rc = flash_read(fd_current, buf, count);
+		rc = flash_read(fd_current);
 	}
 
 	if (close(fd_current)) {
@@ -1421,6 +1418,9 @@ int fw_env_open(struct env_opts *opts)
 
 	int ret;
 
+	struct env_image_single *single;
+	struct env_image_redundant *redundant;
+
 	if (!opts)
 		opts = &default_opts;
 
@@ -1436,37 +1436,40 @@ int fw_env_open(struct env_opts *opts)
 		goto open_cleanup;
 	}
 
+	/* read environment from FLASH to local buffer */
+	environment.image = addr0;
+
+	if (have_redund_env) {
+		redundant = addr0;
+		environment.crc = &redundant->crc;
+		environment.flags = &redundant->flags;
+		environment.data = redundant->data;
+	} else {
+		single = addr0;
+		environment.crc = &single->crc;
+		environment.flags = NULL;
+		environment.data = single->data;
+	}
+
 	dev_current = 0;
-	if (flash_io(O_RDONLY, addr0, CUR_ENVSIZE)) {
+	if (flash_io(O_RDONLY)) {
 		ret = -EIO;
 		goto open_cleanup;
 	}
 
-	if (!have_redund_env) {
-		struct env_image_single *single = addr0;
+	crc0 = crc32(0, (uint8_t *)environment.data, ENV_SIZE);
 
-		crc0 = crc32(0, (uint8_t *)single->data, ENV_SIZE);
-		crc0_ok = (crc0 == single->crc);
+	crc0_ok = (crc0 == *environment.crc);
+	if (!have_redund_env) {
 		if (!crc0_ok) {
 			fprintf(stderr,
 				"Warning: Bad CRC, using default environment\n");
-			memcpy(single->data, default_environment,
+			memcpy(environment.data, default_environment,
 			       sizeof(default_environment));
 			environment.dirty = 1;
 		}
-
-		environment.image = addr0;
-		environment.crc = &single->crc;
-		environment.flags = NULL;
-		environment.data = single->data;
 	} else {
-		struct env_image_redundant *redundant0 = addr0;
-		struct env_image_redundant *redundant1;
-
-		crc0 = crc32(0, (uint8_t *)redundant0->data, ENV_SIZE);
-		crc0_ok = (crc0 == redundant0->crc);
-
-		flag0 = redundant0->flags;
+		flag0 = *environment.flags;
 
 		dev_current = 1;
 		addr1 = calloc(1, CUR_ENVSIZE);
@@ -1477,9 +1480,14 @@ int fw_env_open(struct env_opts *opts)
 			ret = -ENOMEM;
 			goto open_cleanup;
 		}
-		redundant1 = addr1;
+		redundant = addr1;
 
-		if (flash_io(O_RDONLY, addr1, CUR_ENVSIZE)) {
+		/*
+		 * have to set environment.image for flash_read(), careful -
+		 * other pointers in environment still point inside addr0
+		 */
+		environment.image = addr1;
+		if (flash_io(O_RDONLY)) {
 			ret = -EIO;
 			goto open_cleanup;
 		}
@@ -1507,12 +1515,18 @@ int fw_env_open(struct env_opts *opts)
 			goto open_cleanup;
 		}
 
-		crc1 = crc32(0, (uint8_t *)redundant1->data, ENV_SIZE);
+		crc1 = crc32(0, (uint8_t *)redundant->data, ENV_SIZE);
 
-		crc1_ok = (crc1 == redundant1->crc);
-		flag1 = redundant1->flags;
+		crc1_ok = (crc1 == redundant->crc);
+		flag1 = redundant->flags;
 
-		if (memcmp(redundant0->data, redundant1->data, ENV_SIZE) ||
+		/*
+		 * environment.data still points to ((struct
+		 * env_image_redundant *)addr0)->data. If the two
+		 * environments differ, or one has bad crc, force a
+		 * write-out by marking the environment dirty.
+		 */
+		if (memcmp(environment.data, redundant->data, ENV_SIZE) ||
 		    !crc0_ok || !crc1_ok)
 			environment.dirty = 1;
 
@@ -1523,7 +1537,7 @@ int fw_env_open(struct env_opts *opts)
 		} else if (!crc0_ok && !crc1_ok) {
 			fprintf(stderr,
 				"Warning: Bad CRC, using default environment\n");
-			memcpy(redundant0->data, default_environment,
+			memcpy(environment.data, default_environment,
 			       sizeof(default_environment));
 			environment.dirty = 1;
 			dev_current = 0;
@@ -1569,15 +1583,13 @@ int fw_env_open(struct env_opts *opts)
 		 */
 		if (dev_current) {
 			environment.image = addr1;
-			environment.crc = &redundant1->crc;
-			environment.flags = &redundant1->flags;
-			environment.data = redundant1->data;
+			environment.crc = &redundant->crc;
+			environment.flags = &redundant->flags;
+			environment.data = redundant->data;
 			free(addr0);
 		} else {
 			environment.image = addr0;
-			environment.crc = &redundant0->crc;
-			environment.flags = &redundant0->flags;
-			environment.data = redundant0->data;
+			/* Other pointers are already set */
 			free(addr1);
 		}
 #ifdef DEBUG

@@ -179,7 +179,7 @@ static int do_source(struct cmd_tbl *cmdtp, int flag, int argc,
 		      fit_uname, addr);
 #endif
 	} else {
-		addr = hextoul(argv[1], NULL);
+		addr = simple_strtoul(argv[1], NULL, 16);
 		debug("*  source: cmdline image address = 0x%08lx\n", addr);
 	}
 

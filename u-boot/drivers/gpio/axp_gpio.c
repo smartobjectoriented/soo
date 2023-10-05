@@ -6,6 +6,7 @@
  */
 
 #include <common.h>
+#include <asm/arch/gpio.h>
 #include <asm/arch/pmic_bus.h>
 #include <asm/gpio.h>
 #include <axp_pmic.h>

@@ -85,7 +85,7 @@ char *get_dfu_alt_boot(char *interface, char *devstr)
 	char *alt_boot;
 	int dev_num;
 
-	dev_num = dectoul(devstr, NULL);
+	dev_num = simple_strtoul(devstr, NULL, 10);
 
 	mmc = find_mmc_device(dev_num);
 	if (!mmc)

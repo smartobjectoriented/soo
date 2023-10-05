@@ -20,11 +20,11 @@
 
 	aliases {
 		ethernet0 = &gem0;
+		gpio0 = &gpio;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		mmc0 = &sdhci0;
 		mmc1 = &sdhci1;
-		nvmem0 = &eeprom;
 		rtc0 = &rtc;
 		serial0 = &uart0;
 		serial1 = &uart1;
@@ -36,6 +36,8 @@
 	chosen {
 		bootargs = "earlycon";
 		stdout-path = "serial0:115200n8";
+		xlnx,eeprom = <&eeprom>;
+		/* xlnx,fmc-eeprom = FIXME */
 	};
 
 	memory@0 {
@@ -46,7 +48,7 @@
 	si5332_1: si5332_1 { /* clk0_sgmii - u142 */
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
-		clock-frequency = <125000000>;
+		clock-frequency = <33333333>; /* FIXME */
 	};
 
 	si5332_2: si5332_2 { /* clk1_usb - u142 */
@@ -66,10 +68,12 @@
 
 &uart0 { /* uart0 MIO38-39 */
 	status = "okay";
+	u-boot,dm-pre-reloc;
 };
 
 &uart1 { /* uart1 MIO40-41 */
 	status = "okay";
+	u-boot,dm-pre-reloc;
 };
 
 &sdhci1 { /* sd1 MIO45-51 cd in place */
@@ -545,8 +549,6 @@
 	status = "okay";
 	xlnx,usb-polarity = <0>;
 	xlnx,usb-reset-mode = <0>;
-	phy-names = "usb3-phy";
-	phys = <&psgtr 1 PHY_TYPE_USB3 0 1>;
 };
 
 &dwc3_0 {
@@ -555,6 +557,8 @@
 	snps,dis_u2_susphy_quirk;
 	snps,dis_u3_susphy_quirk;
 	maximum-speed = "super-speed";
+	phy-names = "usb3-phy";
+	phys = <&psgtr 1 PHY_TYPE_USB3 0 1>;
 };
 
 &usb1 {

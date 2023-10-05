@@ -208,7 +208,7 @@ static void download(char *cmd_parameter, char *response)
 		return;
 	}
 	fastboot_bytes_received = 0;
-	fastboot_bytes_expected = hextoul(cmd_parameter, &tmp);
+	fastboot_bytes_expected = simple_strtoul(cmd_parameter, &tmp, 16);
 	if (fastboot_bytes_expected == 0) {
 		fastboot_fail("Expected nonzero image size", response);
 		return;

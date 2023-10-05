@@ -24,49 +24,49 @@
 &dpmac1 {
 	status = "okay";
 	phy-handle = <&mdio1_phy1>;
-	phy-connection-type = "10gbase-r";
+	phy-connection-type = "xfi";
 };
 
 &dpmac2 {
 	status = "okay";
 	phy-handle = <&mdio1_phy2>;
-	phy-connection-type = "10gbase-r";
+	phy-connection-type = "xfi";
 };
 
 &dpmac3 {
 	status = "okay";
 	phy-handle = <&mdio1_phy3>;
-	phy-connection-type = "10gbase-r";
+	phy-connection-type = "xfi";
 };
 
 &dpmac4 {
 	status = "okay";
 	phy-handle = <&mdio1_phy4>;
-	phy-connection-type = "10gbase-r";
+	phy-connection-type = "xfi";
 };
 
 &dpmac5 {
 	status = "okay";
 	phy-handle = <&mdio2_phy1>;
-	phy-connection-type = "10gbase-r";
+	phy-connection-type = "xfi";
 };
 
 &dpmac6 {
 	status = "okay";
 	phy-handle = <&mdio2_phy2>;
-	phy-connection-type = "10gbase-r";
+	phy-connection-type = "xfi";
 };
 
 &dpmac7 {
 	status = "okay";
 	phy-handle = <&mdio2_phy3>;
-	phy-connection-type = "10gbase-r";
+	phy-connection-type = "xfi";
 };
 
 &dpmac8 {
 	status = "okay";
 	phy-handle = <&mdio2_phy4>;
-	phy-connection-type = "10gbase-r";
+	phy-connection-type = "xfi";
 };
 
 &emdio1 {

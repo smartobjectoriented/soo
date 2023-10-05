@@ -1,7 +1,7 @@
 
 
 QEMU for SO3 environment
-(c) 2013 HEIG-VD, REDS Institute
+(c) 2023 HEIG-VD, REDS Institute
 ################################
 
 Pre-requisite
@@ -22,16 +22,11 @@ QEMU Configuration and compilation
 
 Configure options:
 
-AArch32 version:
-
-./configure --target-list=arm-softmmu --disable-attr --disable-werror --disable-docs
-
-AArch64 version:
-
-./configure --target-list=aarch64-softmmu --disable-attr --disable-werror --disable-docs
+./configure --target-list=arm-softmmu,aarch64-softmmu --disable-attr --disable-werror --disable-docs
 
 To build:
 
-make -j<#cpus>
+make -j $(nproc)
+
 
 

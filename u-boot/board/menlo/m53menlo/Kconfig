@@ -12,7 +12,4 @@ config SYS_SOC
 config SYS_CONFIG_NAME
 	default "m53menlo"
 
-config IMX_CONFIG
-	default "board/menlo/m53menlo/imximage.cfg"
-
 endif

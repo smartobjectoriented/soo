@@ -27,7 +27,9 @@
 #define CONFIG_SYS_INIT_SP_ADDR		\
 	(CONFIG_SYS_SDRAM_BASE + 0x1000 - GENERATED_GBL_DATA_SIZE)
 
+#define CONFIG_SYS_MALLOC_LEN		SZ_2M
 #define CONFIG_SYS_BOOTM_LEN		SZ_128M
+#define CONFIG_SYS_LOAD_ADDR		0x82000000
 
 /*
  * UART configuration
@@ -61,6 +63,7 @@
  * Environment configuration
  */
 #define CONFIG_BOOTFILE			"uImage"
+#define CONFIG_LOADADDR			CONFIG_SYS_LOAD_ADDR
 
 /*
  * Console configuration

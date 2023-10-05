@@ -5,7 +5,6 @@
  */
 
 #include <common.h>
-#include <clock_legacy.h>
 #include <init.h>
 #include <asm/arch/hardware.h>
 #include <asm/global_data.h>
@@ -91,9 +90,4 @@ int set_cpu_clk_info(void)
 				(clk_get(DAVINCI_DDR_CLKID) / 1000000);
 	gd->bd->bi_dsp_freq = 0;
 	return 0;
-}
-
-unsigned long get_board_sys_clk(void)
-{
-	return clk_get(DAVINCI_ARM_CLKID);
 }

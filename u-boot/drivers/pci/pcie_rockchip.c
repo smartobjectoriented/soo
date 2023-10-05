@@ -101,6 +101,15 @@ struct rockchip_pcie {
 	struct phy pcie_phy;
 };
 
+static int rockchip_pcie_off_conf(pci_dev_t bdf, uint offset)
+{
+	unsigned int bus = PCI_BUS(bdf);
+	unsigned int dev = PCI_DEV(bdf);
+	unsigned int func = PCI_FUNC(bdf);
+
+	return (bus << 20) | (dev << 15) | (func << 12) | (offset & ~0x3);
+}
+
 static int rockchip_pcie_rd_conf(const struct udevice *udev, pci_dev_t bdf,
 				 uint offset, ulong *valuep,
 				 enum pci_size_t size)
@@ -108,7 +117,7 @@ static int rockchip_pcie_rd_conf(const struct udevice *udev, pci_dev_t bdf,
 	struct rockchip_pcie *priv = dev_get_priv(udev);
 	unsigned int bus = PCI_BUS(bdf);
 	unsigned int dev = PCI_DEV(bdf);
-	int where = PCIE_ECAM_OFFSET(PCI_BUS(bdf), PCI_DEV(bdf), PCI_FUNC(bdf), offset & ~0x3);
+	int where = rockchip_pcie_off_conf(bdf, offset);
 	ulong value;
 
 	if (bus == priv->first_busno && dev == 0) {
@@ -135,7 +144,7 @@ static int rockchip_pcie_wr_conf(struct udevice *udev, pci_dev_t bdf,
 	struct rockchip_pcie *priv = dev_get_priv(udev);
 	unsigned int bus = PCI_BUS(bdf);
 	unsigned int dev = PCI_DEV(bdf);
-	int where = PCIE_ECAM_OFFSET(PCI_BUS(bdf), PCI_DEV(bdf), PCI_FUNC(bdf), offset & ~0x3);
+	int where = rockchip_pcie_off_conf(bdf, offset);
 	ulong old;
 
 	if (bus == priv->first_busno && dev == 0) {

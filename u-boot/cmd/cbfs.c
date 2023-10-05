@@ -22,7 +22,7 @@ static int do_cbfs_init(struct cmd_tbl *cmdtp, int flag, int argc,
 		return 0;
 	}
 	if (argc == 2) {
-		end_of_rom = hextoul(argv[1], &ep);
+		end_of_rom = simple_strtoul(argv[1], &ep, 16);
 		if (*ep) {
 			puts("\n** Invalid end of ROM **\n");
 			return 1;
@@ -58,9 +58,9 @@ static int do_cbfs_fsload(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 
 	/* parse offset and count */
-	offset = hextoul(argv[1], NULL);
+	offset = simple_strtoul(argv[1], NULL, 16);
 	if (argc == 4)
-		count = hextoul(argv[3], NULL);
+		count = simple_strtoul(argv[3], NULL, 16);
 	else
 		count = 0;
 

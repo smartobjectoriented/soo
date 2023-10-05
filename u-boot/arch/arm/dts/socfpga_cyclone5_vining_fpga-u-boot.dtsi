@@ -11,8 +11,12 @@
 /{
 	aliases {
 		spi0 = "/soc/spi@ff705000";
-		udc0 = &usb1;
+		udc0 = &usb0;
 	};
+};
+
+&watchdog0 {
+	status = "disabled";
 };
 
 &mmc {

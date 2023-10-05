@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2021 NXP Semiconductors
  */
 
 #include <asm/eth.h>

@@ -402,9 +402,6 @@ align:
 
 flush:
 	hwaddr = (unsigned long)ci_req->hw_buf;
-	if (!hwaddr)
-		return 0;
-
 	aligned_used_len = roundup(req->length, ARCH_DMA_MINALIGN);
 	flush_dcache_range(hwaddr, hwaddr + aligned_used_len);
 
@@ -418,7 +415,7 @@ static void ci_debounce(struct ci_req *ci_req, int in)
 	unsigned long hwaddr = (unsigned long)ci_req->hw_buf;
 	uint32_t aligned_used_len;
 
-	if (in || !hwaddr)
+	if (in)
 		return;
 
 	aligned_used_len = roundup(req->actual, ARCH_DMA_MINALIGN);

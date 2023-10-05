@@ -45,6 +45,9 @@ struct arch_global_data {
 # if defined(CONFIG_ARCH_MPC834X)
 	u32 usbmph_clk;
 # endif /* CONFIG_ARCH_MPC834X */
+# if defined(CONFIG_ARCH_MPC8315)
+	u32 tdm_clk;
+# endif
 	u32 core_clk;
 	u32 enc_clk;
 	u32 lbiu_clk;
@@ -54,7 +57,7 @@ struct arch_global_data {
 	u32 pciexp1_clk;
 	u32 pciexp2_clk;
 # endif
-# if defined(CONFIG_ARCH_MPC837X)
+# if defined(CONFIG_ARCH_MPC837X) || defined(CONFIG_ARCH_MPC8315)
 	u32 sata_clk;
 # endif
 # if defined(CONFIG_ARCH_MPC8360)

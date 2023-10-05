@@ -50,8 +50,6 @@ source "drivers/i2c/Kconfig"
 
 source "drivers/input/Kconfig"
 
-source "drivers/iommu/Kconfig"
-
 source "drivers/led/Kconfig"
 
 source "drivers/mailbox/Kconfig"
@@ -82,8 +80,6 @@ source "drivers/phy/allwinner/Kconfig"
 
 source "drivers/phy/marvell/Kconfig"
 
-source "drivers/phy/socionext/Kconfig"
-
 source "drivers/pinctrl/Kconfig"
 
 source "drivers/power/Kconfig"
@@ -93,8 +89,6 @@ source "drivers/pwm/Kconfig"
 source "drivers/qe/Kconfig"
 
 source "drivers/ram/Kconfig"
-
-source "drivers/reboot-mode/Kconfig"
 
 source "drivers/remoteproc/Kconfig"
 

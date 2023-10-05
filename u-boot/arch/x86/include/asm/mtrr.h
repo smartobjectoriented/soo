@@ -119,7 +119,7 @@ void mtrr_close(struct mtrr_state *state, bool do_caches);
  *
  * @type:	Requested type (MTRR_TYPE_)
  * @start:	Start address
- * @size:	Size, must be power of 2
+ * @size:	Size
  *
  * @return:	0 on success, non-zero on failure
  */
@@ -144,9 +144,8 @@ int mtrr_commit(bool do_caches);
  *
  * @type:	Requested type (MTRR_TYPE_)
  * @start:	Start address
- * @size:	Size, must be power of 2
- * Return: 0 on success, -EINVAL if size is not power of 2,
- * -ENOSPC if there are no more MTRRs
+ * @size:	Size
+ * @return 0 on success, -ENOSPC if there are no more MTRRs
  */
 int mtrr_set_next_var(uint type, uint64_t base, uint64_t size);
 
@@ -166,7 +165,7 @@ void mtrr_read_all(struct mtrr_info *info);
  * @cpu_select: Selected CPUs (either a CPU number or MP_SELECT_...)
  * @reg: MTRR register to write (0-7)
  * @valid: Valid flag to write
- * Return: 0 on success, -ve on error
+ * @return 0 on success, -ve on error
  */
 int mtrr_set_valid(int cpu_select, int reg, bool valid);
 
@@ -177,7 +176,7 @@ int mtrr_set_valid(int cpu_select, int reg, bool valid);
  * @reg: MTRR register to write (0-7)
  * @base: Base address and MTRR_BASE_TYPE_MASK
  * @mask: Mask and MTRR_PHYS_MASK_VALID
- * Return: 0 on success, -ve on error
+ * @return 0 on success, -ve on error
  */
 int mtrr_set(int cpu_select, int reg, u64 base, u64 mask);
 
@@ -186,7 +185,7 @@ int mtrr_set(int cpu_select, int reg, u64 base, u64 mask);
  *
  * Some CPUs have more than 8 MTRRs. This function returns the actual number
  *
- * Return: number of variable MTRRs
+ * @return number of variable MTRRs
  */
 int mtrr_get_var_count(void);
 

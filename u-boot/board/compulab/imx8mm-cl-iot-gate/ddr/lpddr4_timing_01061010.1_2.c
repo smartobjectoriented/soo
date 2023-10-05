@@ -1845,3 +1845,4 @@ struct dram_timing_info ucm_dram_timing_01061010 = {
 	.ddrphy_pie_num = ARRAY_SIZE(ddr_phy_pie),
 	.fsp_table = { 2400, 400, 100, },
 };
+

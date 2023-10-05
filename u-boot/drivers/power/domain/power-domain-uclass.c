@@ -3,8 +3,6 @@
  * Copyright (c) 2016, NVIDIA CORPORATION.
  */
 
-#define LOG_CATEGORY UCLASS_POWER_DOMAIN
-
 #include <common.h>
 #include <dm.h>
 #include <log.h>
@@ -112,7 +110,7 @@ int power_domain_off(struct power_domain *power_domain)
 	return ops->off(power_domain);
 }
 
-#if CONFIG_IS_ENABLED(OF_REAL)
+#if (CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA))
 static int dev_power_domain_ctrl(struct udevice *dev, bool on)
 {
 	struct power_domain pd;
@@ -162,7 +160,7 @@ int dev_power_domain_off(struct udevice *dev)
 {
 	return dev_power_domain_ctrl(dev, false);
 }
-#endif  /* OF_REAL */
+#endif
 
 UCLASS_DRIVER(power_domain) = {
 	.id		= UCLASS_POWER_DOMAIN,

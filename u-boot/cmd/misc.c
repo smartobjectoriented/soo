@@ -57,9 +57,9 @@ static int do_misc_op(struct cmd_tbl *cmdtp, int flag,
 		return ret;
 	}
 
-	offset = hextoul(argv[1], NULL);
-	buf = (void *)hextoul(argv[2], NULL);
-	size = hextoul(argv[3], NULL);
+	offset = simple_strtoul(argv[1], NULL, 16);
+	buf = (void *)simple_strtoul(argv[2], NULL, 16);
+	size = simple_strtoul(argv[3], NULL, 16);
 
 	if (op == MISC_OP_READ)
 		misc_op = misc_read;

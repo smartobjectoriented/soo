@@ -90,23 +90,20 @@ components, U-boot bootlader, etc.
 QEMU
 ====
 
-Currently QEMU is version *5.2* QEMU requires the additional package to
-be installed:
+QEMU us in version 8.0.0. The source code is fetched and patched in order
+to have framebuffer and mouse/keyboard support with the ``virt`` machine.
+
+To fetch, patch and build QEMU, execute the following commands:
 
 .. code:: bash
 
-   pip3 install ninja
+   cd qemu/
+   ./fetch.sh
+   ./configure --target-list=arm-softmmu,aarch64-softmmu --disable-attr --disable-werror --disable-docs
+   make -j $(nproc)
 
-From the root of the repository: (the configuration for qemu is
-available in README.soo)
-
-.. code:: bash
-
-   cd qemu
-   ./configure --target-list=arm-softmmu --disable-attr --disable-docs
-   make -j8
-
-It may take some time, be patient!
+It may take some time, be patient! It builds QEMU to support both virt32 and virt64 platforms as defined
+in the SOO environment.
 
 TrustZone Related Components
 ============================

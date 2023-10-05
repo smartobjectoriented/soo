@@ -180,7 +180,7 @@ static int do_bootaux(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_SUCCESS;
 	}
 
-	addr = hextoul(argv[1], NULL);
+	addr = simple_strtoul(argv[1], NULL, 16);
 
 	if (!addr)
 		return CMD_RET_FAILURE;

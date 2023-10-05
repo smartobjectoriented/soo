@@ -1,4 +1,4 @@
-if VENDOR_COREBOOT
+if TARGET_COREBOOT
 
 config SYS_COREBOOT
 	bool

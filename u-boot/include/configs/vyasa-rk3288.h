@@ -21,6 +21,9 @@
 	func(MMC, mmc, 1) \
 
 #ifndef CONFIG_TPL_BUILD
+
+#define CONFIG_SPL_OS_BOOT
+
 /* Falcon Mode */
 #define CONFIG_SPL_FS_LOAD_ARGS_NAME	"args"
 #define CONFIG_SPL_FS_LOAD_KERNEL_NAME	"uImage"
@@ -29,6 +32,7 @@
 /* Falcon Mode - MMC support: args@16MB kernel@17MB */
 #define CONFIG_SYS_MMCSD_RAW_MODE_ARGS_SECTOR		0x8000	/* 16MB */
 #define CONFIG_SYS_MMCSD_RAW_MODE_ARGS_SECTORS		(CONFIG_CMD_SPL_WRITE_SIZE / 512)
+#define CONFIG_SYS_MMCSD_RAW_MODE_KERNEL_SECTOR		0x8800	/* 17MB */
 #endif
 
 #endif

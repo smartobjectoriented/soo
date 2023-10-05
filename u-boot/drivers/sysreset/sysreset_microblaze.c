@@ -8,15 +8,13 @@
 #include <errno.h>
 #include <sysreset.h>
 #include <linux/err.h>
-#include <linux/stringify.h>
 
 static int microblaze_sysreset_request(struct udevice *dev,
 				       enum sysreset_t type)
 {
 	puts("Microblaze soft reset sysreset\n");
-	__asm__ __volatile__ (
-	    "mts rmsr, r0;" \
-	    "brai " __stringify(CONFIG_XILINX_MICROBLAZE0_VECTOR_BASE_ADDR));
+	__asm__ __volatile__ ("	mts rmsr, r0;" \
+				"bra r0");
 
 	return -EINPROGRESS;
 }

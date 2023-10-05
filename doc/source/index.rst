@@ -16,7 +16,7 @@
    :maxdepth: 5
    :numbered:
    :hidden:
-  
+
    introduction
    architecture/architecture
    drivers/drivers
@@ -29,6 +29,7 @@
    glossary
    ME/ME
    demos/demos
+   Coding conventions <coding_conventions>
    
 ======================================
 Smart Object Oriented (SOO) Technology

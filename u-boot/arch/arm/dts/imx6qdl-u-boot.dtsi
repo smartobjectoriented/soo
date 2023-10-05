@@ -13,14 +13,14 @@
 		u-boot,dm-spl;
 		u-boot,dm-pre-reloc;
 
-		bus@2000000 {
+		aips-bus@2000000 {
 			u-boot,dm-spl;
 			spba-bus@2000000 {
 				u-boot,dm-spl;
 			};
 		};
 
-		bus@2100000 {
+		aips-bus@2100000 {
 			u-boot,dm-spl;
 		};
 	};

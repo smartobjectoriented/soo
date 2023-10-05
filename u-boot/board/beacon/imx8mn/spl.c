@@ -122,8 +122,6 @@ void board_init_f(ulong dummy)
 		hang();
 	}
 
-	enable_tzc380();
-
 	/* DDR initialization */
 	spl_dram_init();
 

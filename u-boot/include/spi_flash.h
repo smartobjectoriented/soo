@@ -14,6 +14,20 @@
 
 struct udevice;
 
+/* by default ENV use the same parameters than SF command */
+#ifndef CONFIG_ENV_SPI_BUS
+# define CONFIG_ENV_SPI_BUS	CONFIG_SF_DEFAULT_BUS
+#endif
+#ifndef CONFIG_ENV_SPI_CS
+# define CONFIG_ENV_SPI_CS	CONFIG_SF_DEFAULT_CS
+#endif
+#ifndef CONFIG_ENV_SPI_MAX_HZ
+# define CONFIG_ENV_SPI_MAX_HZ	CONFIG_SF_DEFAULT_SPEED
+#endif
+#ifndef CONFIG_ENV_SPI_MODE
+# define CONFIG_ENV_SPI_MODE	CONFIG_SF_DEFAULT_MODE
+#endif
+
 struct spi_slave;
 
 struct dm_spi_flash_ops {
@@ -47,7 +61,7 @@ struct dm_spi_flash_ops {
  * @offset:	Offset into device in bytes to read from
  * @len:	Number of bytes to read
  * @buf:	Buffer to put the data that is read
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int spi_flash_read_dm(struct udevice *dev, u32 offset, size_t len, void *buf);
 
@@ -58,7 +72,7 @@ int spi_flash_read_dm(struct udevice *dev, u32 offset, size_t len, void *buf);
  * @offset:	Offset into device in bytes to write to
  * @len:	Number of bytes to write
  * @buf:	Buffer containing bytes to write
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int spi_flash_write_dm(struct udevice *dev, u32 offset, size_t len,
 		       const void *buf);
@@ -71,7 +85,7 @@ int spi_flash_write_dm(struct udevice *dev, u32 offset, size_t len,
  * @dev:	SPI flash device
  * @offset:	Offset into device in bytes to start erasing
  * @len:	Number of bytes to erase
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int spi_flash_erase_dm(struct udevice *dev, u32 offset, size_t len);
 
@@ -83,7 +97,7 @@ int spi_flash_erase_dm(struct udevice *dev, u32 offset, size_t len);
  * defined.
  *
  * @dev:	SPI flash device
- * Return: 0 if no region is write-protected, 1 if a region is
+ * @return 0 if no region is write-protected, 1 if a region is
  *	write-protected, -ENOSYS if the driver does not implement this,
  *	other -ve value on error
  */
@@ -97,7 +111,7 @@ int spl_flash_get_sw_write_prot(struct udevice *dev);
  * do this, typically with of-platdata
  *
  * @dev: SPI-flash device to probe
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int spi_flash_std_probe(struct udevice *dev);
 
@@ -151,9 +165,6 @@ static inline int spi_flash_read(struct spi_flash *flash, u32 offset,
 	struct mtd_info *mtd = &flash->mtd;
 	size_t retlen;
 
-	if (!len)
-		return 0;
-
 	return mtd->_read(mtd, offset, len, &retlen, buf);
 }
 
@@ -162,9 +173,6 @@ static inline int spi_flash_write(struct spi_flash *flash, u32 offset,
 {
 	struct mtd_info *mtd = &flash->mtd;
 	size_t retlen;
-
-	if (!len)
-		return 0;
 
 	return mtd->_write(mtd, offset, len, &retlen, buf);
 }
@@ -179,9 +187,6 @@ static inline int spi_flash_erase(struct spi_flash *flash, u32 offset,
 		printf("SF: Erase offset/length not multiple of erase size\n");
 		return -EINVAL;
 	}
-
-	if (!len)
-		return 0;
 
 	memset(&instr, 0, sizeof(instr));
 	instr.addr = offset;

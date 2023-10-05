@@ -716,13 +716,11 @@ out:
 
 static int rk322x_dmc_of_to_plat(struct udevice *dev)
 {
+#if !CONFIG_IS_ENABLED(OF_PLATDATA)
 	struct rk322x_sdram_params *params = dev_get_plat(dev);
 	const void *blob = gd->fdt_blob;
 	int node = dev_of_offset(dev);
 	int ret;
-
-	if (!CONFIG_IS_ENABLED(OF_REAL))
-		return 0;
 
 	params->num_channels = 1;
 
@@ -750,6 +748,7 @@ static int rk322x_dmc_of_to_plat(struct udevice *dev)
 	ret = regmap_init_mem(dev_ofnode(dev), &params->map);
 	if (ret)
 		return ret;
+#endif
 
 	return 0;
 }
@@ -853,3 +852,4 @@ U_BOOT_DRIVER(dmc_rk322x) = {
 	.plat_auto	= sizeof(struct rk322x_sdram_params),
 #endif
 };
+

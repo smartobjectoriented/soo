@@ -6,7 +6,7 @@ import os
 
 from patman import command
 
-def find_get_maintainer(try_list):
+def FindGetMaintainer(try_list):
     """Look for the get_maintainer.pl script.
 
     Args:
@@ -23,7 +23,7 @@ def find_get_maintainer(try_list):
 
     return None
 
-def get_maintainer(dir_list, fname, verbose=False):
+def GetMaintainer(dir_list, fname, verbose=False):
     """Run get_maintainer.pl on a file if we find it.
 
     We look for get_maintainer.pl in the 'scripts' directory at the top of
@@ -37,12 +37,12 @@ def get_maintainer(dir_list, fname, verbose=False):
     Returns:
         A list of email addresses to CC to.
     """
-    get_maintainer = find_get_maintainer(dir_list)
+    get_maintainer = FindGetMaintainer(dir_list)
     if not get_maintainer:
         if verbose:
             print("WARNING: Couldn't find get_maintainer.pl")
         return []
 
-    stdout = command.output(get_maintainer, '--norolestats', fname)
+    stdout = command.Output(get_maintainer, '--norolestats', fname)
     lines = stdout.splitlines()
     return [ x.replace('"', '') for x in lines ]

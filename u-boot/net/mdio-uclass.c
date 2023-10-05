@@ -101,7 +101,7 @@ static int dm_mdio_post_probe(struct udevice *dev)
 	pdata->mii_bus->write = mdio_write;
 	pdata->mii_bus->reset = mdio_reset;
 	pdata->mii_bus->priv = dev;
-	strlcpy(pdata->mii_bus->name, dev->name, MDIO_NAME_LEN);
+	strncpy(pdata->mii_bus->name, dev->name, MDIO_NAME_LEN - 1);
 
 	return mdio_register(pdata->mii_bus);
 }

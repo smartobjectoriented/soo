@@ -4,8 +4,6 @@
  * Written by Simon Glass <sjg@chromium.org>
  */
 
-#define LOG_CATEGORY UCLASS_PANEL
-
 #include <common.h>
 #include <dm.h>
 #include <panel.h>
@@ -26,7 +24,7 @@ int panel_enable_backlight(struct udevice *dev)
  * @dev:	Panel device containing the backlight to update
  * @percent:	Brightness value (0=off, 1=min brightness,
  *		100=full brightness)
- * Return: 0 if OK, -ve on error
+ * @return 0 if OK, -ve on error
  */
 int panel_set_backlight(struct udevice *dev, int percent)
 {

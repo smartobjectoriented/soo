@@ -6,3 +6,5 @@
 #include <configs/bmips_common.h>
 #include <configs/bmips_bcm6358.h>
 
+#define CONFIG_REMAKE_ELF
+

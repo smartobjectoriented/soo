@@ -22,6 +22,7 @@
 
 /* Environment settings */
 
+#undef CONFIG_BOOTCOMMAND
 #undef CONFIG_EXTRA_ENV_SETTINGS
 
 #define CONFIG_EXTRA_ENV_SETTINGS				\

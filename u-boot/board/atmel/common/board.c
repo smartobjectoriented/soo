@@ -47,7 +47,7 @@ void at91_pda_detect(void)
 			break;
 		}
 	}
-	pda = dectoul((const char *)buf, NULL);
+	pda = simple_strtoul((const char *)buf, NULL, 10);
 
 	switch (pda) {
 	case 7000:

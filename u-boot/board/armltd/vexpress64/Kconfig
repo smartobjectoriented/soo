@@ -7,7 +7,7 @@ config SYS_VENDOR
 	default "armltd"
 
 config SYS_CONFIG_NAME
-	default "vexpress_aemv8"
+	default "vexpress_aemv8a"
 
 config JUNO_DTB_PART
 	string "NOR flash partition holding DTB"

@@ -134,7 +134,7 @@ void __efi_runtime efi_var_mem_del(struct efi_var_entry *var)
 }
 
 efi_status_t __efi_runtime efi_var_mem_ins(
-				const u16 *variable_name,
+				u16 *variable_name,
 				const efi_guid_t *vendor, u32 attributes,
 				const efi_uintn_t size1, const void *data1,
 				const efi_uintn_t size2, const void *data2,
@@ -274,9 +274,8 @@ efi_status_t efi_var_mem_init(void)
 }
 
 efi_status_t __efi_runtime
-efi_get_variable_mem(const u16 *variable_name, const efi_guid_t *vendor,
-		     u32 *attributes, efi_uintn_t *data_size, void *data,
-		     u64 *timep)
+efi_get_variable_mem(u16 *variable_name, const efi_guid_t *vendor, u32 *attributes,
+		     efi_uintn_t *data_size, void *data, u64 *timep)
 {
 	efi_uintn_t old_size;
 	struct efi_var_entry *var;

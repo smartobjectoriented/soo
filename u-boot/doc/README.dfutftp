@@ -88,6 +88,7 @@ for pure DFU USB transfer.
 		    possible to set large enough default buffer (8 MiB @ BBB)
 
 
+
 FIT image format for download
 -----------------------------
 
@@ -107,6 +108,7 @@ should look like
 			description = "U-Boot binary";
 
 where "u-boot.bin" is the DFU entity name to be stored.
+
 
 
 To do

@@ -10,20 +10,35 @@
 
 #include <config.h>
 
+/*
+ * All boards using a given driver must convert to self-init
+ * at the same time, so do it here.  When all drivers are
+ * converted, this will go away.
+ */
+#ifdef CONFIG_SPL_BUILD
+#if defined(CONFIG_NAND_FSL_ELBC) || defined(CONFIG_NAND_FSL_IFC)
+#define CONFIG_SYS_NAND_SELF_INIT
+#endif
+#else
+#if defined(CONFIG_NAND_FSL_ELBC) || defined(CONFIG_NAND_ATMEL)\
+	|| defined(CONFIG_NAND_FSL_IFC)
+#define CONFIG_SYS_NAND_SELF_INIT
+#endif
+#endif
+
 extern void nand_init(void);
 unsigned long nand_size(void);
 
 #include <linux/compat.h>
 #include <linux/mtd/mtd.h>
+#include <linux/mtd/rawnand.h>
 
 int nand_mtd_to_devnum(struct mtd_info *mtd);
 
-#if CONFIG_IS_ENABLED(SYS_NAND_SELF_INIT)
+#ifdef CONFIG_SYS_NAND_SELF_INIT
 void board_nand_init(void);
 int nand_register(int devnum, struct mtd_info *mtd);
 #else
-struct nand_chip;
-
 extern int board_nand_init(struct nand_chip *nand);
 #endif
 
@@ -53,6 +68,7 @@ static inline int nand_erase(struct mtd_info *info, loff_t off, size_t size)
 	instr.mtd = info;
 	instr.addr = off;
 	instr.len = size;
+	instr.callback = 0;
 
 	return mtd_erase(info, &instr);
 }

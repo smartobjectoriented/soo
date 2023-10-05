@@ -24,6 +24,11 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+u32 get_board_rev(void)
+{
+	return 0;
+}
+
 int board_init(void)
 {
 	/* Set Initial global variables */

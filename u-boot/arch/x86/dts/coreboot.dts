@@ -12,8 +12,7 @@
 /include/ "pcspkr.dtsi"
 /include/ "reset.dtsi"
 /include/ "rtc.dtsi"
-
-#include "tsc_timer.dtsi"
+/include/ "tsc_timer.dtsi"
 
 / {
 	model = "coreboot x86 payload";
@@ -29,6 +28,10 @@
 
 	chosen {
 		stdout-path = "/serial";
+	};
+
+	tsc-timer {
+		clock-frequency = <1000000000>;
 	};
 
 	pci {

@@ -17,7 +17,7 @@
  * The serial device will only work properly if it has been muxed to the serial
  * pins by firmware. Check whether that happened here.
  *
- * Return: true if serial device is muxed, false if not
+ * @return true if serial device is muxed, false if not
  */
 static bool bcm283x_is_serial_muxed(void)
 {

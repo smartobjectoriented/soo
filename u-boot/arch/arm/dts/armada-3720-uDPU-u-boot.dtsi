@@ -28,6 +28,6 @@
 	};
 };
 
-&sdhci0 {
+&sdhci1 {
 	u-boot,dm-pre-reloc;
 };

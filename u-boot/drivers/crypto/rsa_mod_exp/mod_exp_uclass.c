@@ -4,8 +4,6 @@
  * Author: Ruchika Gupta <ruchika.gupta@freescale.com>
  */
 
-#define LOG_CATEGORY UCLASS_MOD_EXP
-
 #include <common.h>
 #include <dm.h>
 #include <asm/global_data.h>

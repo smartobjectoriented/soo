@@ -5,7 +5,7 @@
 # ATF, OPTEE, SPL and multiple device trees (given on the command line).
 # Inspired from board/sunxi/mksunxi_fit_atf.sh
 #
-# usage: $0 <atf_load_addr> <dt_name> [<dt_name> [<dt_name] ...]
+# usage: $0 <dt_name> [<dt_name> [<dt_name] ...]
 
 [ -z "$ATF" ] && ATF="bl31.bin"
 
@@ -19,13 +19,6 @@ fi
 if [ ! -f $TEE ]; then
 	echo "WARNING OPTEE file $TEE NOT found, resulting might be non-functional" >&2
 	TEE=/dev/null
-fi
-
-[ -z "$DM" ] && DM="dm.bin"
-
-if [ ! -e $DM ]; then
-	echo "WARNING DM file $DM NOT found, resulting might be non-functional" >&2
-	DM=/dev/null
 fi
 
 if [ ! -z "$IS_HS" ]; then
@@ -47,8 +40,8 @@ cat << __HEADER_EOF
 			arch = "arm64";
 			compression = "none";
 			os = "arm-trusted-firmware";
-			load = <$1>;
-			entry = <$1>;
+			load = <0x70000000>;
+			entry = <0x70000000>;
 		};
 		tee {
 			description = "OPTEE";
@@ -59,16 +52,6 @@ cat << __HEADER_EOF
 			os = "tee";
 			load = <0x9e800000>;
 			entry = <0x9e800000>;
-		};
-		dm {
-			description = "DM binary";
-			data = /incbin/("$DM");
-			type = "firmware";
-			arch = "arm32";
-			compression = "none";
-			os = "DM";
-			load = <0x89000000>;
-			entry = <0x89000000>;
 		};
 		spl {
 			description = "SPL (64-bit)";
@@ -81,9 +64,6 @@ cat << __HEADER_EOF
 			entry = <0x80080000>;
 		};
 __HEADER_EOF
-
-# shift through ATF load address in the command line arguments
-shift
 
 for dtname in $*
 do
@@ -111,7 +91,7 @@ do
 		$(basename $dtname) {
 			description = "$(basename $dtname .dtb)";
 			firmware = "atf";
-			loadables = "tee", "dm", "spl";
+			loadables = "tee", "spl";
 			fdt = "$(basename $dtname)";
 		};
 __CONF_SECTION_EOF
