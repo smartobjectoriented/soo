@@ -272,12 +272,12 @@ export	HOSTARCH HOSTOS
 # (SOO.tech) Usual toolchains for our systems
 include ../agency/build.conf
 
-ifeq ($(PLATFORM),$(filter $(PLATFORM),virt64))
+ifeq ($(PLATFORM),$(filter $(PLATFORM),virt64 rpi4_64))
 ARCH	= arm64
-CROSS_COMPILE = aarch64-none-linux-gnu-
+CROSS_COMPILE = aarch64-linux-gnu-
 endif
 
-ifeq ($(PLATFORM),$(filter $(PLATFORM),virt32 vexpress bbb))
+ifeq ($(PLATFORM),$(filter $(PLATFORM),virt32 rpi4))
 ARCH = arm
 CROSS_COMPILE = arm-none-eabi-
 endif
