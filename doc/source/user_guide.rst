@@ -368,7 +368,7 @@ rootfs is embedded in the ME image itself, hence the ITB file).
 ME build script
 ---------------
 
-The ME can be build using the build.sh script found in ``ME/base`` directory.
+The ME can be build using the build.sh script found in ``ME`` directory.
 This script takes 3 arguments 2 of which a mandatory and an optional one.
 
 .. code:: bash
