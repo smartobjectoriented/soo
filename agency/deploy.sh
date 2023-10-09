@@ -123,7 +123,7 @@ if [ "$deploy_me" == "y" ]; then
 
     # Deploy the usr apps related to the agency
     cd ../ME
-    ./deploy.sh $2
+    ./deploy.sh -d $2
     cd ../agency
 fi
 
@@ -140,6 +140,6 @@ if [ "$clean_me" == "y" ]; then
 
     # Deploy the usr apps related to the agency
     cd ../ME
-    ./deploy.sh clean
+    ./deploy.sh -r
     cd ../agency
 fi

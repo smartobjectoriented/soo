@@ -36,7 +36,7 @@
         
 		avz_dt {
 			description = "Flattened Device Tree blob";
-			data = /incbin/("../avz/dts/rpi4_64.dtb");
+			data = /incbin/("../avz/dts/rpi4_64_avz_pv.dtb");
 			type = "avz_dt";
 			arch = "arm64";
 			compression = "none";
