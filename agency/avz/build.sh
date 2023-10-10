@@ -2,8 +2,8 @@
 
 set -e
 
-SO3_SRC=../../ME/base/so3/so3
-AVZ_TARGET=../../../../agency/avz
+SO3_SRC=../../ME/so3/so3
+AVZ_TARGET=../../../agency/avz
 
 clean=n
 verbose=n
