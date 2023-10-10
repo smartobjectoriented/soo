@@ -108,7 +108,7 @@ if [ "$deploy_rootfs" == "y" ]; then
     # Deploy of the rootfs (second partition)
     cd linux/rootfs
     ./deploy.sh
-    cd ..
+    cd -
 fi
 
 if [ "$deploy_usr" == "y" ]; then
@@ -116,21 +116,21 @@ if [ "$deploy_usr" == "y" ]; then
     # Deploy the usr apps related to the agency
     cd linux/usr
     ./deploy.sh
-    cd ..
+    cd -
 fi
 
 if [ "$deploy_me" == "y" ]; then
 
     # Deploy the usr apps related to the agency
-    cd ../ME
+    cd ME
     ./deploy.sh -d $2
-    cd ..
+    cd -
 fi
 
 if [ "$deploy_ta" == "y" ]; then
 
     # Deploy the TA related to the agency
-    cd ../optee_ta
+    cd optee_ta
     ./deploy.sh
     cd -
 fi
@@ -139,7 +139,7 @@ fi
 if [ "$clean_me" == "y" ]; then
 
     # Deploy the usr apps related to the agency
-    cd ../ME
+    cd ME
     ./deploy.sh -r
-    cd ..
+    cd -
 fi

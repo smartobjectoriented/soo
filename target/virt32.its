@@ -45,7 +45,7 @@
 
 		linux {
 			description = "Linux kernel";
-			data = /incbin/("../linux/arch/arm/boot/Image");
+			data = /incbin/("../linux/linux/arch/arm/boot/Image");
 			type = "avz";
 			arch = "arm";
 			os = "linux";
@@ -56,7 +56,7 @@
 		 
 		fdt_linux {
 			description = "Linux device tree blob";
-			data = /incbin/("../linux/arch/arm/boot/dts/virt32.dtb");
+			data = /incbin/("../linux/linux/arch/arm/boot/dts/virt32.dtb");
 			type = "flat_dt";
 			arch = "arm";
 			compression = "none";
@@ -65,7 +65,7 @@
 
 		initrd {
 			description = "Initial rootfs (initrd)";
-			data = /incbin/("../rootfs/board/virt32/initrd.cpio");
+			data = /incbin/("../linux/rootfs/board/virt32/initrd.cpio");
 			type = "ramdisk";
 			arch = "arm";
 			os = "linux";			

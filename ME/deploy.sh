@@ -59,7 +59,7 @@ if [ $OPTIND -eq 1 ]; then usage; fi
 if [ "$deploy_clean" == "y" ]; then
 
         echo "Removing all ITB images in $2"
-        rm -f $2/target/*
+        rm -f $2/*
 fi
 
 if [ "$deploy_me_fs" == "y" ]; then
@@ -68,7 +68,7 @@ if [ "$deploy_me_fs" == "y" ]; then
         SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
         ME_to_deploy="${SCRIPTPATH}/${2}/*.itb"
-        cd ../agency/filesystem
+        cd ../filesystem
 
         ./mount.sh 3
 
@@ -87,18 +87,18 @@ fi
 if [ "$deploy_me" == "y" ]; then
         echo Deploying the ME into its itb file...
 
-        cd so3/target
+        cd ../so3/target
         ./mkuboot.sh $3
 
         echo Copying the ITB image $2.itb in the $2 directory
-        cp $3.itb ../../$2/
+        cp $3.itb ../../ME/$2/
 fi
 
 if [ "$deploy_rm_fs" == "y" ]; then
         echo Erasing all ITBs belong to the ME $2...
 
         SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-        cd ../agency/filesystem
+        cd ../filesystem
         ./mount.sh 3
 
         sudo rm fs/* 2>/dev/null
