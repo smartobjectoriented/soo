@@ -1,0 +1,15 @@
+{
+    "server_address": "10.192.75.245:1883",
+    "client_id": "iuoc_mqtt_client",
+    "sub_topics": [ 
+        {"topic": "/iuoc/server/cover/cmd", "me_name": "SOO.blind", "me_type": 0},
+    ],
+
+    "pub_topics": [ 
+        {"topic": "soo-blind", "me_name": "SOO.blind", "me_type": 0},
+    ],
+    "qos": 1,
+    "retry_attemps": 100000
+}
+
+ 
