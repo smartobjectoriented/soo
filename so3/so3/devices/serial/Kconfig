@@ -1,0 +1,20 @@
+
+config NS16550
+	bool "NS16550 UART"
+
+config PL011_UART
+	bool "PL011 UART serial interface"
+	depends on VIRT32 || VIRT64
+
+config BCM283x_MU_UART
+	bool "BCM283x mini-UART"
+	depends on RPI4 || RPI4_64
+	
+config UART_LL_PADDR
+	hex "Low-level UART base physical address"
+
+config SOO_SERIAL
+	bool "SOO Virtualized serial device (rely on vuart frontend)"
+	depends on SOO && !AVZ
+	select VUART_FRONTEND
+
