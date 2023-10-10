@@ -81,7 +81,7 @@ if [ "$deploy_boot" == "y" ]; then
     sudo cp ../target/${PLATFORM}.itb fs/${PLATFORM}.itb
     sudo cp ../upgrade/agency.json fs/
     sudo cp ../upgrade/root_flag fs/
-    sudo cp ../../u-boot/uEnv.d/uEnv_${PLATFORM}.txt fs/uEnv.txt
+    sudo cp ../u-boot/uEnv.d/uEnv_${PLATFORM}.txt fs/uEnv.txt
 
     if [ "$PLATFORM" == "virt32" -o "$PLATFORM" == "virt64" ]; then
 	# Nothing else ...
@@ -90,15 +90,15 @@ if [ "$deploy_boot" == "y" ]; then
     fi
 
     if [ "$PLATFORM" == "rpi4" ]; then
-        sudo cp -r ../../bsp/rpi4/* fs/
-        sudo cp ../../u-boot/u-boot.bin fs/kernel7.img
+        sudo cp -r ../bsp/rpi4/* fs/
+        sudo cp ../u-boot/u-boot.bin fs/kernel7.img
         ./umount.sh
         cd ..
     fi
     
     if [ "$PLATFORM" == "rpi4_64" -o "$PLATFORM" == "cm4_64" ]; then
-        sudo cp -r ../../bsp/rpi4/* fs/
-        sudo cp ../../u-boot/u-boot.bin fs/kernel8.img
+        sudo cp -r ../bsp/rpi4/* fs/
+        sudo cp ../u-boot/u-boot.bin fs/kernel8.img
         ./umount.sh
         cd ..
     fi
@@ -106,7 +106,7 @@ fi
 
 if [ "$deploy_rootfs" == "y" ]; then
     # Deploy of the rootfs (second partition)
-    cd rootfs
+    cd linux/rootfs
     ./deploy.sh
     cd ..
 fi
@@ -114,7 +114,7 @@ fi
 if [ "$deploy_usr" == "y" ]; then
 
     # Deploy the usr apps related to the agency
-    cd usr
+    cd linux/usr
     ./deploy.sh
     cd ..
 fi
@@ -124,7 +124,7 @@ if [ "$deploy_me" == "y" ]; then
     # Deploy the usr apps related to the agency
     cd ../ME
     ./deploy.sh -d $2
-    cd ../agency
+    cd ..
 fi
 
 if [ "$deploy_ta" == "y" ]; then
@@ -141,5 +141,5 @@ if [ "$clean_me" == "y" ]; then
     # Deploy the usr apps related to the agency
     cd ../ME
     ./deploy.sh -r
-    cd ../agency
+    cd ..
 fi

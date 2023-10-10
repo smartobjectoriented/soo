@@ -4,7 +4,7 @@ include $(PWD)/../../build.conf
 
 KDIR = $(PWD)/../linux
 
-ifeq ($(PLATFORM),$(filter $(PLATFORM),rpi4 rpi4_64)
+ifeq ($(PLATFORM),$(filter $(PLATFORM),rpi4 rpi4_64))
 obj-m := senseled.o
 endif
 
