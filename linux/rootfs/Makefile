@@ -2,7 +2,7 @@
 lastword = $(word $(words $(1)),$(1))
 makedir := $(dir $(call lastword,$(MAKEFILE_LIST)))
 
-MAKEARGS := -C ../../buildroot BR2_EXTERNAL_DIRS="../agency/rootfs"
+MAKEARGS := -C ../../buildroot BR2_EXTERNAL_DIRS="../linux/rootfs"
 MAKEARGS += O=$(if $(patsubst /%,,$(makedir)),$(CURDIR)/)$(patsubst %/,%,$(makedir))
 
 MAKEFLAGS += --no-print-directory
