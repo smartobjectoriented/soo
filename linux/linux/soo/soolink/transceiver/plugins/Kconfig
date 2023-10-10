@@ -1,0 +1,41 @@
+#
+# Network configuration
+#
+
+menu "Soolink plugins"
+
+config SOOLINK_PLUGIN_WLAN
+	bool "WLan plugin"
+	help
+		WLan plugin is used for wireless connection like 802.11 WIFI
+	default N
+
+config SOOLINK_PLUGIN_ETHERNET
+	bool "Ethernet plugin"
+	default N
+
+config SOOLINK_PLUGIN_BLUETOOTH
+	bool "Bluetooth plugin"
+	depends on BT_RFCOMM
+	help
+		Bluetooth plugin is used for RFCOMM communications with a remote tablet/smartphone.
+	default N
+
+config SOOLINK_PLUGIN_LOOPBACK
+	bool "Loopback plugin"
+	help
+		Loopback plugin is mainly used for debugging purposes, on Qemu environment typically
+		or to do some send/receive scenarios with only one SOO device.
+	default N
+
+config SOOLINK_PLUGIN_SIMULATION
+	bool "Simulation plugin"
+	help
+		Simulation plugin is used to simulate the network of smart objects.
+		This plugin is used for debugging and validation purposes, helpful to
+		study the behaviour of datalink protocols such as Winenet.
+		
+	default N
+
+endmenu
+ 
