@@ -215,8 +215,10 @@ Building avz first requires to prepare the configuration as the following exampl
 .. code-block:: bash
 
    ~$ cd avz
-   ~/avz$ ./build.sh virt64_defconfig
+   ~/avz$ ./build.sh virt64_avz_pv_soo_defconfig
    `/avz$ ./build.sh
+
+In this example, the hypervisor is configured to support paravirtualized SOO enabled guest.
    
 Executing the script without argument leads to a full build of avz.
 
