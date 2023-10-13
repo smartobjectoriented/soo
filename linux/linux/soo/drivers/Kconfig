@@ -1,0 +1,134 @@
+#
+# SOO device configuration
+#
+
+
+menu "Smart Object Oriented subsystem" 
+
+config VDUMMY_BACKEND
+        bool "SOO (realtime and no-RT) vDummy support for debugging and testing"
+
+config VUART_BACKEND
+	bool "vuart UART Backend support for SOO Mobile Entity consoles"
+	select SERIAL_CORE_CONSOLE
+	
+config VINPUT_BACKEND
+    tristate "vinput input (keyboard/mouse) backend on SOO device"
+    default n
+    help
+      This driver implements the backend of the input (keyboard/mouse) driver of the SOO environment.
+	
+config VDOGA12V6NM_BACKEND
+	bool "vDOGA12V6NM backend"
+	depends on TTY
+	default n
+	help
+	  Support for DOGA 12V 6Nm blind motor.
+
+config VWEATHER_BACKEND
+	bool "vWeather backend"
+	depends on TTY
+	default n
+	help
+	  Support for multi-purpose weather station, for the SOO.outdoor
+	  product.
+	  
+config VUIHANDLER_BACKEND
+	bool "vUihandler backend driver"
+	default N
+	help
+	  vUihandler backend driver for remote UI over Bluetooth or WLAN.
+	  
+config VLEDS_BACKEND
+        bool "vleds LEDS backend driver"
+        default N
+        
+config VFB_BACKEND
+	tristate "vfb framebuffer backend driver"
+	default n
+	help
+	  This driver enabled to deal with a virtualized interface for a framebuffer
+	  in the Mobile Entity.
+
+config VNET_BACKEND
+    bool "vnet network access"
+    default n
+    help
+      This driver implements the backend of the network driver of the SOO environment.
+
+config VSENSELED_BACKEND
+	depends on FB_RPISENSE || ARCH_VEXPRESS
+	bool "vsenseled Sense-HAT led backend driver"
+	default n
+	help
+	  The vsenseled driver enables 5 logical LEDs that may be used to represent the joystick movement
+	  for example.
+
+config VSENSEJ_BACKEND
+	depends on FB_RPISENSE || ARCH_VEXPRESS
+	bool "vsensej Sense-HAT joystick backend driver"
+	default n
+	help
+	  The vsensej driver captures joystick movements.
+
+config VWAGOLED_BACKEND
+	bool "vwagoled wago led controller backend"
+	default n
+	help
+	  The vwagoled driver allows to changes the status of the wago leds 
+	  
+config VIUOC_BACKEND
+	bool "viuoc backend"
+	default n
+	help
+	  The viuoc drivers allow to exchange information with IUOC server
+
+config TCM515
+	bool "Support tmc515 uart communication from kernel to provide EnOcean support"
+	depends on SERIAL_DEV_CTRL_TTYPORT=y
+	help
+		Create an uart device that uses the serdev framework and allows 
+		to communicate with a TCM515 en0cean module.
+
+config VENOCEAN_BACKEND
+	bool "enOcean backend driver"
+	depends on TCM515=y
+	default n
+	help
+	  This driver enabled to deal with a virtualized interface for the enOcean actuator.
+
+config RN2483
+	bool "Support rn2483 uart communication from kernel to provide LoRa support"
+	depends on SERIAL_DEV_CTRL_TTYPORT=y
+	help
+		Create an uart device that uses the serdev framework and allows 
+		to communicate with a RN2483 LoRa module.
+
+config KBERRY838
+	bool "Support kberry838 uart communication from kernel to provide KNX support"
+	depends on SERIAL_DEV_CTRL_TTYPORT=y
+	help
+		Create an uart device that uses the serdev framework and allows 
+		to communicate with a kberry838 KNX module.
+
+config VKNX_BACKEND
+	bool "KNX backend driver"
+	depends on KBERRY838=y
+	default n
+	help
+	  This driver enabled to deal with a virtualized interface for the KNX bus.
+
+config MIPOT32001353
+	bool "Support mipot 32001353 uart communication from kernel to provide LoRa support"
+	depends on SERIAL_DEV_CTRL_TTYPORT=y
+	help
+		Create an uart device that uses the serdev framework and allows 
+		to communicate with a Mipot 32001353 LoRa module.
+
+source "soo/drivers/vnetback/Kconfig"
+
+endmenu
+	
+
+
+

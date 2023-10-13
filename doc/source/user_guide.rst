@@ -90,7 +90,7 @@ components, U-boot bootlader, etc.
 QEMU
 ====
 
-QEMU us in version 8.0.0. The source code is fetched and patched in order
+QEMU is in version 8.0.0. The source code is fetched and patched in order
 to have framebuffer and mouse/keyboard support with the ``virt`` machine.
 
 To fetch, patch and build QEMU, execute the following commands:
@@ -185,7 +185,7 @@ built in the **agency/** directory. Different configurations are possible.
 
 Target platforms
 ----------------
-The file ``build.conf`` in ``agency/`` contains the ``PLATFORM`` to select the target platform.
+The file ``build.conf`` in the root directory contains the ``PLATFORM`` to select the target platform.
 
 Possible platforms and types are:
 
@@ -208,15 +208,17 @@ AVZ Hypervisor
 --------------
 
 Since ``avz`` is based on SO3, it will be compiled from the source available
-in ``ME/base/so3/so3`` thanks to the ``./build.sh`` script availabe in *avz* directory.
+in ``so3/so3`` thanks to the ``./build.sh`` script availabe in *avz* directory.
 
 Building avz first requires to prepare the configuration as the following example for the *virt64* platform:
 
 .. code-block:: bash
 
    ~$ cd avz
-   ~/avz$ ./build.sh virt64_defconfig
+   ~/avz$ ./build.sh virt64_avz_pv_soo_defconfig
    `/avz$ ./build.sh
+
+In this example, the hypervisor is configured to support paravirtualized SOO enabled guest.
    
 Executing the script without argument leads to a full build of avz.
 
@@ -230,7 +232,7 @@ To clean the avz directory properly, the ``-c`` option is availabe:
 Linux kernel
 ------------
 
-To build the Linux kernel of the Agency, move to the kernel root directory ``agency/linux``.
+To build the Linux kernel of the Agency, move to the kernel root directory ``linux/linux``.
 
 Using ``make`` is the simplest way to build the kernel after configuring adequatly, as example
 for the *virt64* platform:
@@ -241,9 +243,9 @@ for the *virt64* platform:
    
 .. code-block:: bash
 
-   ~$ cd agency/linux
-   ~/agency/linux$ make virt64_defconfig
-   ~/agency/linux/$ make -j20
+   ~$ cd linux/linux
+   ~/linux/linux$ make virt64_defconfig
+   ~/linux/linux$ make -j20
    
 
 Main root filesystem (**rootfs**)
@@ -264,7 +266,7 @@ From the agency’s directory:
 
 .. code:: bash
 
-   cd rootfs
+   cd linux/rootfs
    make MYARCH_defconfig
    make source
    make
@@ -279,7 +281,7 @@ the content of the *virt32* board:
 
 .. code:: bash
 
-   cd rootfs
+   cd linux/rootfs
    ./mount_initrd.sh virt32
    cd fs
 
@@ -287,19 +289,19 @@ Unmounting the filesystem is done with:
 
 .. code:: bash
    
-   cd rootfs
+   cd linux/rootfs
    ./umount_initrd.sh virt32
 
 Agency user applications
 ------------------------
 
 In addition to the ``rootfs``, the Agency has its own applications that
-can be found in ``agency/usr``. The build system of this part relies on
+can be found in ``linux/usr``. The build system of this part relies on
 CMake. The build is achieved with the following script:
 
 ::
 
-   cd agency/usr
+   cd linux/usr
    ./build.sh
 
 Agency filesystem
@@ -314,7 +316,7 @@ The creation of the virtual disk image is done as follows:
 
 .. code:: bash
 
-   cd agency/filesystem
+   cd filesystem
    ./create_img.sh virt32
 
 Deployment into the storage device
@@ -322,11 +324,10 @@ Deployment into the storage device
 
 Finally, the deployment of all Agency components (including the
 bootloader in some configurations) is achieved with the following script
-(option ``-a`` for all)
+(option ``-a`` for all) located at the root directory:
 
 .. code:: bash
 
-   cd agency
    ./deploy.sh -a
 
 The script has different options (try simply ``./deploy.sh`` to get all
@@ -356,10 +357,9 @@ reference Mobile Entity.
 ME Build
 --------
 
-The main ``ME``\ directory is amazingly ``ME`` at the root. The
-``ME/base`` directory contains all the source code and related files of
-all mobile entities. Indeed, each ME is produced according to their
-configuration file and device tree.
+The main ``ME``\ directory is amazingly ``ME`` at the root. However,
+the source code is located in ``so3/`` directory since it is based on
+this operating system.
 
 Basically, a ME is constituted of its kernel (based on SO3 Operating
 System), a device tree and eventually a rootfs used as **ramfs** (the
@@ -410,11 +410,11 @@ The build output `<ME_NAME>.itb` will be put inside the ``ME/SOO.<ME_NAME>`` fol
 Final Deployment
 ----------------
 
-To deploy the newly built ME in the third partition of (virtual) SD-card use the deploy.sh script found in the``agency/`` folder.
+To deploy the newly built ME in the third partition of (virtual) SD-card use the deploy.sh script found 
+in the root folder.
 
 .. code:: bash
    
-   cd agency
    ./deploy.sh -m SOO.<ME_NAME>
 
 

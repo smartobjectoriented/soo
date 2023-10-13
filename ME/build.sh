@@ -3,7 +3,7 @@
 # This script is used to configure, build and generate MEs. 
 
 ME_PATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-SO3_PATH=$ME_PATH/so3
+SO3_PATH=$ME_PATH/../so3
 
 RED='\033[0;31m'
 NC='\033[0m' # No Color

@@ -1,0 +1,47 @@
+#!/bin/sh
+
+SOO_CORE_MAJOR=126
+DCM_MAJOR=127
+ASF_MAJOR=100
+
+case "$1" in
+    start)
+        echo -n "Creating SOO Agency devices..."
+        mkdir /dev/soo
+        mknod /dev/soo/core c ${SOO_CORE_MAJOR} 0
+        mknod /dev/soo/dcm c ${DCM_MAJOR} 0
+        mknod /dev/soo/asf c ${ASF_MAJOR} 0
+        echo "OK"
+
+        echo -n "Setting Smart Object environment..."
+        # Set the Smart Object environment
+        source /root/soo_env.sh
+        echo "OK"
+
+        echo -n "Configuring Bluetooth... "
+        /root/btmanager.sh &
+        echo "OK"
+
+        echo -n "Starting Agency Core... "
+        /root/agency &
+        echo "OK"
+
+        echo -n "Starting Mqtt App for IUOC... "
+        /root/mqtt-client &
+        echo "OK"
+        
+        if [ -r /root/otherapps.sh ]; then
+                echo -n "Staring additional applications..."
+                /root/otherapps.sh
+                echo "OK"
+        fi
+        ;;
+    stop)
+        ;;
+    restart|force-reload)
+        ;;
+    *)
+        ;;
+esac
+
+exit 0

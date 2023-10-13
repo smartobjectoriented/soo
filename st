@@ -16,7 +16,7 @@ while read var; do
 	if [ "$var" != "" ]; then
 		export $(echo $var | sed -e 's/ //g' -e /^$/d -e 's/://g' -e /^#/d)
 	fi      
-done < agency/build.conf
+done < build.conf
 
 if [ "$PLATFORM" == "virt64" ]; then
 	echo Starting on ARM64
@@ -26,9 +26,9 @@ if [ "$PLATFORM" == "virt64" ]; then
 		-serial mon:stdio  \
 		-M virt,gic-version=2 -cpu cortex-a72  \
 		-device virtio-blk-device,drive=hd0 \
-		-drive if=none,file=agency/filesystem/sdcard.img.virt64,id=hd0,format=raw,file.locking=off \
+		-drive if=none,file=filesystem/sdcard.img.virt64,id=hd0,format=raw,file.locking=off \
 		-m 1024 \
-		-kernel u-boot/u-boot \
+		-kernel so3/u-boot/u-boot \
 		-nographic \
 		-netdev tap,id=n1,script=scripts/qemu-ifup.sh,downscript=scripts/qemu-ifdown.sh \
 		-device virtio-net-device,netdev=n1,mac=${QEMU_MAC_ADDR} \
@@ -41,9 +41,9 @@ else
 		-smp 4 \
 		-serial mon:stdio  \
 		-M virt -cpu cortex-a15 \-device virtio-blk-device,drive=hd0 \
-		-drive if=none,file=agency/filesystem/sdcard.img.virt32,id=hd0,format=raw,file.locking=off \
+		-drive if=none,file=filesystem/sdcard.img.virt32,id=hd0,format=raw,file.locking=off \
 		-m 1024 \
-		-kernel u-boot/u-boot \
+		-kernel so3/u-boot/u-boot \
 		-net tap,script=scripts/qemu-ifup.sh,downscript=scripts/qemu-ifdown.sh -net nic,macaddr=${QEMU_MAC_ADDR} \
 		-nographic \
 		-gdb tcp::${GDB_PORT}

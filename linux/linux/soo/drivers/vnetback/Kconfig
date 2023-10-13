@@ -1,0 +1,35 @@
+#
+# SOO device configuration
+#
+
+
+menu "vnet backend config"
+
+choice VNET_BACKEND_ARCH
+    prompt "Backend architecture"
+    depends on VNET_BACKEND
+    default VNET_BACKEND_ARCH_BRIDGE
+
+config VNET_BACKEND_ARCH_BRIDGE
+    bool "Use bridge architectue"
+    help
+      All virtual interfaces are grouped in a single bridge with the outgoing interface (ex: eth0).
+
+config VNET_BACKEND_ARCH_BRIDGE_AND_NAT
+    bool "Use bridge and NAT architectue"
+    help
+        All virtual interfaces are grouped in a single bridge without the outgoing interface. A NAT give access to the internet.
+
+config VNET_BACKEND_ARCH_NAT
+    bool "Use NAT only architectue"
+    help
+        Each virtual interface has it's own network. Can't be used with migrant ME. A NAT give access to the internet.
+
+
+endchoice
+
+endmenu
+
+
+
+
