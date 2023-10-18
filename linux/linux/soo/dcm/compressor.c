@@ -92,10 +92,10 @@ int compress_data(void **data_compressed, void *source_data, size_t source_size)
 	return lz4_compress_data(data_compressed, source_data, source_size);
 }
 
-void decompress_data(void **data_decompressed, void *data_compressed, size_t compressed_size) {
+int decompress_data(void **data_decompressed, void *data_compressed, size_t compressed_size) {
 	compressor_data_t *data = (compressor_data_t *) data_compressed;
 
-	lz4_decompress_data(data_decompressed, data, compressed_size);
+	return lz4_decompress_data(data_decompressed, data, compressed_size);
 
 }
 

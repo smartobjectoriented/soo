@@ -33,7 +33,7 @@ typedef struct {
 } compressor_data_t;
 
 int compress_data(void **data_compressed, void *source_data, size_t source_size);
-void decompress_data(void **data_decompressed, void *data_compressed, size_t compressed_size);
+int decompress_data(void **data_decompressed, void *data_compressed, size_t compressed_size);
 
 void compressor_init(void);
 

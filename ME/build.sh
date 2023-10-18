@@ -137,7 +137,7 @@ if [ "$build_user" == "y" ]; then
   fi  
   cd $SO3_PATH/usr
   ./build.sh
-  ./deploy.sh so3virt
+  ./deploy.sh
 fi
   
 # === Generate itb ===

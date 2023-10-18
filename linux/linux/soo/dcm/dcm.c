@@ -164,7 +164,7 @@ int dcm_ME_rx(void *ME_buffer, uint32_t size) {
 
 	mutex_lock(&recv_lock);
 
-	soo_log("[soo:dcm] Got a ME buffer rx size: %x bytes\n", size);
+	soo_log("[soo:dcm] Got a ME buffer rx size: %d bytes\n", size);
 
 	if (buffers_rx_count == DCM_N_RECV_BUFFERS) {
 		mutex_unlock(&recv_lock);

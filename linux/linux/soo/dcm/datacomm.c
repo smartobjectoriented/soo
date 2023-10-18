@@ -120,7 +120,7 @@ static int recv_thread_task_fn(void *data) {
 
 #else /* !CONFIG_SOO_CORE_ASF */
 
-		decompress_data(&ME_decompressed_buffer, ME_compressed_buffer, compressed_size);
+		ret = decompress_data(&ME_decompressed_buffer, ME_compressed_buffer, compressed_size);
 
 #endif /* !CONFIG_SOO_CORE_ASF */
 
