@@ -373,22 +373,15 @@
 	status = "okay";
 };
 
-#if 0
-&genet_mdio {
-	phy1: ethernet-phy@1 {
-		/* No PHY interrupt */
-		reg = <0x1>;
-	};
-};
-#else
+
 /** SOO.tech **/
-&genet_mdio {
-	phy1: ethernet-phy@0 {
-		/* No PHY interrupt */
-		reg = <0x0>;
-	};
+
+&phy1 {
+	/* No PHY interrupt */
+	reg = <0x0>;
 };
-#endif
+
+
 
 /* uart0 communicates with the BT module */
 &uart0 {

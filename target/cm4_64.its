@@ -75,11 +75,11 @@
     };
 	
     configurations {
-		default = "agency_rpi4";
+		default = "agency_cm4";
 		
-        agency_rpi4 {
-			description = "SOO Agency on cm4 64-bit";
-			loadables = "avz_dt", "linux";
+        agency_cm4 {
+		description = "SOO Agency on cm4 64-bit";
+		loadables = "avz_dt", "linux";
         	kernel = "avz";
         	fdt = "fdt";
         	ramdisk = "initrd";
