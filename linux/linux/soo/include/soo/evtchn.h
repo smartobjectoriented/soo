@@ -34,6 +34,7 @@
 #include <soo/vbstore.h>
 
 #include <asm/ipipe_hwirq.h>
+#include <asm/cacheflush.h>
 
 extern unsigned int evtchn_from_virq(int virq);
 extern unsigned int evtchn_from_irq_data(struct irq_data *irq_data);
@@ -49,10 +50,18 @@ static inline void clear_evtchn(u32 evtchn) {
 
 static inline void notify_remote_via_evtchn(uint32_t evtchn)
 {
-	evtchn_send_t op;
-	op.evtchn = evtchn;
+	evtchn_send_t *op;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_send, (long) &op, 0, 0);
+	op = kzalloc(sizeof(evtchn_send_t), GFP_ATOMIC);
+	BUG_ON(!op);
+
+	op->evtchn = evtchn;
+
+	__flush_dcache_area((void *) op, sizeof(evtchn_send_t));
+	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_send, virt_to_phys(op), 0, 0);
+	__inval_dcache_area((void *) op, sizeof(evtchn_send_t));
+
+	kfree(op);
 }
 
 /* Entry point for notifications into Linux subsystems. */

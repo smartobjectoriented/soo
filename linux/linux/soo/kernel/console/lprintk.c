@@ -21,9 +21,16 @@
 
 #include <soo/sooenv.h>
 
+#include <soo/dev/vuart.h>
+
 #include <soo/hypervisor.h>
 
 #include <soo/uapi/console.h>
+
+#ifdef CONFIG_X86
+#include <linux/smp.h>
+#include <opencn/frontend/vlog.h>
+#endif
 
 /* Agency Core */
 static bool log_soo_core = false;
@@ -63,12 +70,22 @@ bool __soo_log_lock_initialized = false;
 
 extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
+#ifdef CONFIG_X86
+extern bool send_to_uart(char *str);
+extern void smp_kick_vt_out(void);
+
+atomic64_t str_to_print;
+
+#endif
+
 void (*__printch)(char c) = NULL;
 
 void __lprintk(const char *format, va_list va) {
 	char buf[CONSOLEIO_BUFFER_SIZE];
 	char *__start;
+#ifndef CONFIG_X86
 	int i;
+#endif
 
 	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
 
@@ -78,9 +95,41 @@ void __lprintk(const char *format, va_list va) {
 	if ((*__start != 0) && (*__start < 10))
 		__start += 2;
 
+#ifdef CONFIG_X86
+	if (vlog_enabled && (smp_processor_id() == AGENCY_RT_CPU)) {
+
+	        vlog_send(__start);
+	        return;
+	}
+
+	if (!send_to_uart(__start)) {
+	        if (smp_processor_id() == AGENCY_RT_CPU) {
+	                /* Make sure a previous IPI is not being processed... */
+	                while (atomic64_cmpxchg(&str_to_print, 0ull, (u64) __start) != 0ull) ;
+
+	                smp_kick_vt_out();
+	        } else {
+	                if (*__start == 0) {
+	                        /* On OPENCN_CPU0, printk() is executed natively */
+	                        printk("%s", (char *) atomic64_read(&str_to_print));
+
+	                        atomic64_set(&str_to_print, 0);
+	                } else
+	                        printk("%s", __start);
+	        }
+	}
+
+#else /* !CONFIG_X86 */
+
 	for (i = 0; i < strlen(__start); i++)
-		if (likely(__printch))
-			__printch(__start[i]);
+#ifdef CONFIG_LINUXVIRT
+	        if (likely(__printch))
+	                __printch(__start[i]);
+#else
+		avz_printch(__start[i]);
+#endif
+
+#endif /* !CONFIG_X86 */
 
 }
 

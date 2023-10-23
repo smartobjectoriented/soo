@@ -205,7 +205,7 @@ void soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2
 		panic("Unauthorized.\n");
 	}
 
-	hypercall_trampoline(__HYPERVISOR_soo_hypercall, (long) &soo_hyp, 0, 0, 0);
+	avz_hypercall(__HYPERVISOR_soo_hypercall, (long) &soo_hyp, 0, 0, 0);
 }
 
 void dump_threads(void)

@@ -23,12 +23,14 @@ static inline int tty_insert_flip_char(struct tty_port *port,
 	struct tty_buffer *tb = port->buf.tail;
 	int change;
 
+#ifdef CONFIG_LINUXVIRT
 	/*
 	 * SOO.tech
 	 * (Only chars coming from the main console should be considered)
 	 */
 	if (port->console && avz_switch_console(ch))
  		return 1;
+#endif
 
 	change = (tb->flags & TTYB_NORMAL) && (flag != TTY_NORMAL);
 	if (!change && tb->used < tb->size) {

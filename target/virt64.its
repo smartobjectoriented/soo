@@ -89,7 +89,7 @@
 		agency {
 			description = "SOO Agency on virt64";
 		    kernel = "avz";
-             loadables = "avz_pv_dt", "linux"; 
+             loadables = "avz_vt_dt", "linux"; 
              fdt = "fdt"; 
              ramdisk = "initrd"; 
 		};

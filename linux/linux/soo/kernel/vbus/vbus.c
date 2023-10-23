@@ -837,7 +837,7 @@ static int __init vbus_init(void)
 		alloc_unbound.dom = DOMID_SELF;
 		alloc_unbound.remote_dom = i;
 
-		hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
+		avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
 
 		dc_evtchn[i] = alloc_unbound.evtchn;
 

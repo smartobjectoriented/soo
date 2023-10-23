@@ -120,8 +120,9 @@ SECTIONS
 	.head.text : {
 		_text = .;
 
-		/* SOO.tech */
+#ifdef CONFIG_LINUXVIRT
 		*(.init.fromavz_start)
+#endif
 
 		HEAD_TEXT
 	}

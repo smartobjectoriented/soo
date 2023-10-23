@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* SOO.tech */
+
 
 /dts-v1/;
 #include "bcm2711.dtsi"
@@ -8,7 +8,9 @@
 
 #include <dt-bindings/reset/raspberrypi,firmware-reset.h>
 
+#ifdef CONFIG_SOO
 #include "../soo.dtsi"
+#endif
 
 / {
 	compatible = "raspberrypi,4-model-b", "brcm,bcm2711";
@@ -18,11 +20,13 @@
 	 	/* bootargs = "console=ttyAMA0,115200n8 root=/dev/ram rw slub_debug=PUZ"; */
 		/*  bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=serial0,115200 console=tty1 root=/dev/ram elevator=deadline fsck.repair=yes rootwait"; */
 		/* bootargs = "initcall_debug=1 ignore_loglevel coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=ttyS0,115200 root=/dev/ram fsck.repair=yes rootwait"; */
+		
 		bootargs = "coherent_pool=1M 8250.nr_uarts=1 cma=64M cma=256M  smsc95xx.macaddr=DC:A6:32:18:DD:95 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000  console=ttyS0,115200 root=/dev/ram fsck.repair=yes rootwait";
-#if 0 /* SOO.tech */
+ #ifndef CONFIG_SOO
 		/* 8250 auxiliary UART instead of pl011 */
-		stdout-path = "serial1:115200n8";
+		/* stdout-path = "serial1:115200n8"; */
 #endif
+ 
 	   };
 	   
 	/* Will be filled by the bootloader */
@@ -31,7 +35,16 @@
 		reg = <0 0 0>;
 	};
 
+	agency {
+		domain-size = <0x20000000>;
+	};
+	
 	aliases {
+#ifdef CONFIG_SOO
+		fb = &fb;
+		i2c1 = &i2c1;
+#endif
+
 		serial0 = &uart1;
 		serial1 = &uart0;
 		mmc0 = &emmc2;
@@ -77,6 +90,7 @@
 	};
 };
 
+#ifdef CONFIG_SOO
 &agency {
 	
 	/* Backends */
@@ -128,6 +142,7 @@
 	};
 
 };
+#endif /* CONFIG_SOO */
 
 &pcie0 {
 	pci@1,0 {
@@ -155,7 +170,8 @@
 		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
 	};
     
-    /* SOO.tech: Added SPI1 pin conf */
+#ifdef CONFIG_SOO
+    /* heig-vd: Added SPI1 pin conf */
     spi1_pins: spi1_pins {
 		brcm,pins = <19 20 21>;
 		brcm,function = <BCM2835_FSEL_ALT4>;
@@ -165,7 +181,7 @@
 		brcm,pins = <18>;
 		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
 	};
-
+#endif
 
 	spi3_pins: spi3_pins {
 		brcm,pins = <1 2 3>;
@@ -226,10 +242,9 @@
 	};
 
 	i2c4_pins: i2c4 {
-       
-	 /* SOO.tech */
-        brcm,pins = <6 7>;
-#if 0
+#ifdef CONFIG_SOO
+		brcm,pins = <6 7>;
+#else
 		brcm,pins = <8 9>;
 #endif
 		brcm,function = <BCM2835_FSEL_ALT5>;
@@ -400,6 +415,8 @@
 	status = "okay";
 };
 
+#ifdef CONFIG_SOO
+
 /* UART5 used for LoRa communication on soo.mp V1 */
 &uart3 {
 	pinctrl-names = "default";
@@ -436,6 +453,8 @@
 	};
 #endif
 };	
+
+#endif /* CONFIG_SOO */
 
 &spi1 {
 	status = "okay";

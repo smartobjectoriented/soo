@@ -235,7 +235,7 @@ void unbind_domain_evtchn(unsigned int domID, unsigned int evtchn)
 	bind_interdomain.remote_dom = domID;
 	bind_interdomain.local_evtchn = evtchn;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_unbind_domain, (long) &bind_interdomain, 0, 0);
+	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_unbind_domain, (long) &bind_interdomain, 0, 0);
 
 	evtchn_info.valid[evtchn] = false;
 }
@@ -247,7 +247,7 @@ static int bind_interdomain_evtchn_to_virq(unsigned int remote_domain, unsigned 
 	bind_interdomain.remote_dom  = remote_domain;
 	bind_interdomain.remote_evtchn = remote_evtchn;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
+	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
 
 	return bind_evtchn_to_virq(bind_interdomain.local_evtchn);
 }
@@ -260,7 +260,7 @@ int bind_existing_interdomain_evtchn(unsigned local_evtchn, unsigned int remote_
 	bind_interdomain.remote_dom  = remote_domain;
 	bind_interdomain.remote_evtchn = remote_evtchn;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_existing_interdomain, (long) &bind_interdomain, 0, 0);
+	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_existing_interdomain, (long) &bind_interdomain, 0, 0);
 
 	return bind_evtchn_to_virq(bind_interdomain.local_evtchn);
 }
@@ -276,7 +276,7 @@ static void unbind_from_virq(unsigned int virq)
 	if (--per_cpu(evtchn_info, cpu).virq_bindcount[virq] == 0) {
 		op.evtchn = evtchn;
 
-		hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &op, 0, 0);
+		avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &op, 0, 0);
 
 		per_cpu(evtchn_info, cpu).evtchn_to_virq[evtchn] = -1;
 		per_cpu(evtchn_info, cpu).valid[evtchn] = false;

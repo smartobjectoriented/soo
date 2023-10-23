@@ -51,7 +51,7 @@
 #include <asm/ptrace.h>
 #include <asm/virt.h>
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 
 #include <linux/ipipe.h>
 
@@ -63,7 +63,9 @@
 #include <soo/uapi/logbool.h>
 #include <soo/uapi/soo.h>
 
-/*static*/ void smp_cross_call(const struct cpumask *target, unsigned int ipinr);
+void smp_cross_call(const struct cpumask *target, unsigned int ipinr);
+
+#endif /* CONFIG_SOO */
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
@@ -71,7 +73,8 @@
 DEFINE_PER_CPU_READ_MOSTLY(int, cpu_number);
 EXPORT_PER_CPU_SYMBOL(cpu_number);
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
+
 extern void xenomai_init(void);
 extern void __smp_vfp_enable(void);
 extern bool in_upcall_process(void);
@@ -80,6 +83,9 @@ extern void xntimer_raise(void);
 #ifdef CONFIG_ARCH_BCM2835
 extern volatile int __irq_in_process;
 #endif
+
+#endif /* CONFIG_SOO */
+
 
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
@@ -90,13 +96,13 @@ struct secondary_data secondary_data;
 /* Number of CPUs which aren't online, but looping in kernel text. */
 static int cpus_stuck_in_kernel;
 
+#ifdef CONFIG_SOO
+
 enum ipi_msg_type {
 	IPI_RESCHEDULE,
 	IPI_CALL_FUNC,
 	IPI_CPU_CRASH_STOP,
 	IPI_TIMER,
-
-	/* SOO.tech */
 
 	/* We move IPI_CPU_STOP here to be compatible with the 32-bit version.
 	 * This number (4) is known in AVZ.
@@ -106,19 +112,30 @@ enum ipi_msg_type {
 	IPI_IRQ_WORK,
 	IPI_WAKEUP,
 
-	/* SOO.tech */
 	IPI_IRQ_HANDLE,
 
 	NR_IPI
 };
 
-/* SOO.tech */
-
 #define IPI_RT_TASK_CREATE	IPI_CPU_CRASH_STOP
 #define IPI_AVZ_EVENT_CHECK	IPI_CPU_STOP
 
-/* SOO.tech */
 struct xnthread __root_task;
+
+#else
+
+enum ipi_msg_type {
+	IPI_RESCHEDULE,
+	IPI_CALL_FUNC,
+	IPI_CPU_STOP,
+	IPI_CPU_CRASH_STOP,
+	IPI_TIMER,
+	IPI_IRQ_WORK,
+	IPI_WAKEUP,
+	NR_IPI
+};
+
+#endif /* !CONFIG_SOO */
 
 static int ipi_irq_base __read_mostly;
 static int nr_ipi __read_mostly = NR_IPI;
@@ -162,18 +179,20 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 	 * We need to tell the secondary core where to find its stack and the
 	 * page tables.
 	 */
-	secondary_data.task = idle;
-	secondary_data.stack = task_stack_page(idle) + THREAD_SIZE;
 
+#ifdef CONFIG_SOO
 	if (cpu == AGENCY_RT_CPU) {
 		xnarch_init_thread(&__root_task);
 
 		secondary_data.task = __root_task.tcb.task;
 		secondary_data.stack = (void *)  __root_task.tcb.sp;
 	} else {
-		secondary_data.task = idle;
-		secondary_data.stack = task_stack_page(idle) + THREAD_SIZE;
+#endif
+	secondary_data.task = idle;
+	secondary_data.stack = task_stack_page(idle) + THREAD_SIZE;
+#ifdef CONFIG_SOO
 	}
+#endif
 
 	update_cpu_boot_status(CPU_MMU_OFF);
 	__flush_dcache_area(&secondary_data, sizeof(secondary_data));
@@ -260,17 +279,21 @@ asmlinkage notrace void secondary_start_kernel(void)
 	cpu = task_cpu(current);
 	set_my_cpu_offset(per_cpu_offset(cpu));
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	if (cpu == AGENCY_RT_CPU)
 		__xnthread_current = &__root_task;
 	else {
+#endif /* CONFIG_SOO */
 
-		/*
-		 * All kernel threads share the same mm context; grab a
-		 * reference and switch to it.
-		 */
-		mmgrab(mm);
+	/*
+	 * All kernel threads share the same mm context; grab a
+	 * reference and switch to it.
+	 */
+	mmgrab(mm);
+
+#ifdef CONFIG_SOO
 	}
+#endif
 
 	current->active_mm = mm;
 
@@ -283,9 +306,10 @@ asmlinkage notrace void secondary_start_kernel(void)
 	if (system_uses_irq_prio_masking())
 		init_gic_priority_masking();
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	if (cpu != AGENCY_RT_CPU)
-		rcu_cpu_starting(cpu);
+#endif
+	rcu_cpu_starting(cpu);
 
 	preempt_disable();
 	trace_hardirqs_off();
@@ -295,27 +319,28 @@ asmlinkage notrace void secondary_start_kernel(void)
 	 * this CPU ticks all of those. If it doesn't, the CPU will
 	 * fail to come online.
 	 */
-
-	/* SOO.tech*/
+#ifdef CONFIG_SOO
 	if (smp_processor_id() != AGENCY_RT_CPU) {
-		check_local_cpu_capabilities();
+#endif
+	check_local_cpu_capabilities();
 
-		ops = get_cpu_ops(cpu);
-		if (ops->cpu_postboot)
-			ops->cpu_postboot();
+	ops = get_cpu_ops(cpu);
+	if (ops->cpu_postboot)
+		ops->cpu_postboot();
 
-		/*
-		 * Log the CPU info before it is marked online and might get read.
-		 */
-		cpuinfo_store_cpu();
+	/*
+	 * Log the CPU info before it is marked online and might get read.
+	 */
+	cpuinfo_store_cpu();
+#ifdef CONFIG_SOO
 	}
+#endif
 
 	/*
 	 * Enable GIC and timers.
 	 */
 	notify_cpu_starting(cpu);
-
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	if (smp_processor_id() == AGENCY_RT_CPU) {
 
 		/* Enable SVE */
@@ -326,14 +351,18 @@ asmlinkage notrace void secondary_start_kernel(void)
 			printk("## Cobalt: system does NOT support SVE.\n");
 
 	}
+#endif /* CONFIG_SOO */
 
 	ipi_setup(cpu);
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	if (smp_processor_id() != AGENCY_RT_CPU) {
-		store_cpu_topology(cpu);
-		numa_add_cpu(cpu);
+#endif
+	store_cpu_topology(cpu);
+	numa_add_cpu(cpu);
+#ifdef CONFIG_SOO
 	}
+#endif
 
 	/*
 	 * OK, now it's safe to let the boot CPU continue.  Wait for
@@ -343,22 +372,21 @@ asmlinkage notrace void secondary_start_kernel(void)
 	pr_info("CPU%u: Booted secondary processor 0x%010lx [0x%08x]\n",
 					 cpu, (unsigned long)mpidr,
 					 read_cpuid_id());
-
 	update_cpu_boot_status(CPU_BOOT_SUCCESS);
 	set_cpu_online(cpu, true);
-
+#ifdef CONFIG_SOO
 	if (smp_processor_id() == AGENCY_RT_CPU)
 		smp_cross_call(cpumask_of(AGENCY_CPU), IPI_RT_TASK_CREATE);
 	else
-		complete(&cpu_running);
-
-	/* SOO.tech */
+#endif
+	complete(&cpu_running);
+#ifdef CONFIG_SOO
 	if (cpu == AGENCY_RT_CPU)
 		smp_cross_call(cpumask_of(AGENCY_CPU), IPI_RESCHEDULE);
+#endif /* CONFIG_SOO */
 
 	local_daif_restore(DAIF_PROCCTX);
-
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	if (cpu == AGENCY_RT_CPU) {
 
 		/* Initialize the sp_el0 which will be used by the
@@ -389,15 +417,14 @@ asmlinkage notrace void secondary_start_kernel(void)
 	} else {
 		printk("%s: CPU %d now showing up as online ...\n", __func__, cpu);
 
-		/*
-		 * OK, it's off to the idle thread for us
-		 */
-
-		/*
-		 * OK, it's off to the idle thread for us
-		 */
-		cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
+#endif /* CONFIG_SOO */
+	/*
+	 * OK, it's off to the idle thread for us
+	 */
+	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
+#ifdef CONFIG_SOO
 	}
+#endif
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -923,14 +950,11 @@ static const char *ipi_types[NR_IPI] __tracepoint_string = {
 	S(IPI_TIMER, "Timer broadcast interrupts"),
 	S(IPI_IRQ_WORK, "IRQ work interrupts"),
 	S(IPI_WAKEUP, "CPU wake-up interrupts"),
-
-	/* SOO.tech */
-#if 0 /* SOO.tech */
-	S(IPI_IRQ_HANDLE, "(cross-CPU) IRQ handle interrupts"),
-#endif /* 0 */
 };
 
-/*static*/ void smp_cross_call(const struct cpumask *target, unsigned int ipinr);
+#ifndef CONFIG_SOO
+static void smp_cross_call(const struct cpumask *target, unsigned int ipinr);
+#endif
 
 unsigned long irq_err_count;
 
@@ -998,7 +1022,7 @@ void panic_smp_self_stop(void)
 static atomic_t waiting_for_crash_ipi = ATOMIC_INIT(0);
 #endif
 
-#if 0 /* SOO.tech */
+#ifndef CONFIG_SOO
 
 static void ipi_cpu_crash_stop(unsigned int cpu, struct pt_regs *regs)
 {
@@ -1018,9 +1042,10 @@ static void ipi_cpu_crash_stop(unsigned int cpu, struct pt_regs *regs)
 #endif
 }
 
-#endif /* 0 */
+#endif /* !CONFIG_SOO */
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
+
 void smp_irq_handle(int cpu) {
 	smp_cross_call(cpumask_of(cpu), IPI_IRQ_HANDLE);
 }
@@ -1088,6 +1113,9 @@ static void do_handle_rt_IPI(int ipinr)
 	}
 }
 
+#endif /* CONFIG_SOO */
+
+
 /*
  * Main handler for inter-processor interrupts
  */
@@ -1106,18 +1134,21 @@ static void do_handle_IPI(int ipinr)
 	case IPI_CALL_FUNC:
 		generic_smp_call_function_interrupt();
 		break;
-
-	/* SOO.tech */
-	/* case IPI_CPU_STOP: */
+#ifdef CONFIG_SOO
 	case IPI_AVZ_EVENT_CHECK:
 		evtchn_do_upcall(get_irq_regs());
-
-#if 0 /* Temporary */
-		local_cpu_stop();
-#endif
 		break;
+#else
+	case IPI_CPU_STOP:
+		local_cpu_stop();
+		break;
+#endif
 
-#if 0 /* Temporary */
+#ifdef CONFIG_SOO
+	case IPI_RT_TASK_CREATE:
+		complete(&cpu_running);
+		break;
+#else
 	case IPI_CPU_CRASH_STOP:
 		if (IS_ENABLED(CONFIG_KEXEC_CORE)) {
 			ipi_cpu_crash_stop(cpu, get_irq_regs());
@@ -1125,10 +1156,7 @@ static void do_handle_IPI(int ipinr)
 			unreachable();
 		}
 		break;
-#endif
-	case IPI_RT_TASK_CREATE:
-		complete(&cpu_running);
-		break;
+#endif /* !CONFIG_SOO */
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
 	case IPI_TIMER:
@@ -1152,10 +1180,9 @@ static void do_handle_IPI(int ipinr)
 
 	default:
 		pr_crit("CPU%u: Unknown IPI message 0x%x\n", cpu, ipinr);
-
-		/* SOO.tech */
-		BUG();
-
+#ifdef CONFIG_SOO
+	BUG();
+#endif
 		break;
 	}
 
@@ -1169,12 +1196,15 @@ static irqreturn_t ipi_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 void rt_ipi_handler(int hwirq) {
 	do_handle_rt_IPI(hwirq);
 }
 
-/* static */ void smp_cross_call(const struct cpumask *target, unsigned int ipinr)
+void smp_cross_call(const struct cpumask *target, unsigned int ipinr)
+#else
+static void smp_cross_call(const struct cpumask *target, unsigned int ipinr)
+#endif
 {
 	trace_ipi_raise(target, ipi_types[ipinr]);
 	__ipi_send_mask(ipi_desc[ipinr], target);
@@ -1230,12 +1260,23 @@ void __init set_smp_ipi_range(int ipi_base, int n)
 
 void smp_send_reschedule(int cpu)
 {
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	BUG_ON(cpu == AGENCY_RT_CPU);
+#endif /* CONFIG_SOO */
 
 	smp_cross_call(cpumask_of(cpu), IPI_RESCHEDULE);
 }
 
+#ifndef CONFIG_SOO
+
+#ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
+void tick_broadcast(const struct cpumask *mask)
+{
+	smp_cross_call(mask, IPI_TIMER);
+}
+#endif
+
+#endif /* !CONFIG_SOO */
 
 /*
  * The number of CPUs online, not counting this CPU (which may not be
@@ -1260,12 +1301,10 @@ void smp_send_stop(void)
 
 		if (system_state <= SYSTEM_RUNNING)
 			pr_crit("SMP: stopping secondary CPUs\n");
-
-		/* SOO.tech */
+#ifdef CONFIG_SOO
 		printk("## SMP_SEND_STOP ##\n\n");
 		BUG();
-
-#if 0 /* SOO.tech */
+#else
 		smp_cross_call(&mask, IPI_CPU_STOP);
 #endif
 	}
@@ -1314,8 +1353,9 @@ void crash_smp_send_stop(void)
 
 	pr_crit("SMP: stopping secondary CPUs\n");
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	BUG();
+#endif
 
 	smp_cross_call(&mask, IPI_CPU_CRASH_STOP);
 

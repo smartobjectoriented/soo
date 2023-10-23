@@ -67,7 +67,9 @@ void __init avz_setup(void)
 	AVZ_shared->domcall_vaddr = (unsigned long) domcall;
 	AVZ_shared->subdomain_shared->domcall_vaddr = AVZ_shared->domcall_vaddr;
 
+#if defined(CONFIG_SOO) && defined(CONFIG_LINUXVIRT)
 	AVZ_shared->vectors_vaddr = (addr_t) avz_linux_callback;
+#endif
 
 	lprintk("  - All right! AVZ setup successfull.\n");
 }

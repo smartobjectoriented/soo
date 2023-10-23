@@ -51,6 +51,32 @@
 #include <asm/xen/hypervisor.h>
 #include <asm/mmu_context.h>
 
+#include <lprintk.h>
+#include <avz.h>
+
+#if defined(CONFIG_LINUXVIRT) && !defined(CONFIG_SOO)
+
+/* Force the variable to be stored in .data section so that the BSS can be freely cleared.
+ * The value is set during the head.S execution before clear_bss().
+ */
+volatile avz_shared_t *avz_shared = (avz_shared_t *) 0xbeef;
+
+volatile unsigned long *HYPERVISOR_hypercall_addr;
+
+#endif /* CONFIG_LINUXVIRT */
+
+#if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
+char fpe_type[8];
+
+static int __init fpe_setup(char *line)
+{
+	memcpy(fpe_type, line, 8);
+	return 1;
+}
+
+__setup("fpe=", fpe_setup);
+#endif
+
 static int num_standard_resources;
 static struct resource *standard_resources;
 
@@ -280,6 +306,32 @@ u64 cpu_logical_map(int cpu)
 {
 	return __cpu_logical_map[cpu];
 }
+
+#if defined(CONFIG_LINUXVIRT) && !defined(CONFIG_SOO)
+
+extern unsigned long __pv_phys_pfn_offset;
+extern u64 __pv_offset;
+
+void __init avz_setup(void)
+{
+	__printch = avz_shared->printch;
+
+	/* Immediately prepare for hypercall processing */
+	HYPERVISOR_hypercall_addr = (unsigned long *) avz_shared->hypercall_vaddr;
+
+#ifdef CONFIG_SOO
+        AVZ_shared->domcall_vaddr = (unsigned long) domcall;
+        AVZ_shared->subdomain_shared->domcall_vaddr = AVZ_shared->domcall_vaddr;
+
+        AVZ_shared->vectors_vaddr = (addr_t) avz_linux_callback;
+
+        lprintk("  - All right! avz (SOO) setup successfull.\n");
+
+#endif /* CONFIG_SOO */
+
+}
+
+#endif /* CONFIG_LINUXVIRT */
 
 void __init __no_sanitize_address setup_arch(char **cmdline_p)
 {

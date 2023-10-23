@@ -188,5 +188,6 @@ struct DOMCALL_sync_domain_interactions_args {
 };
 
 void postmig_adjust_timer(void);
+void avz_printch(char c);
 
 #endif /* UAPI_AVZ */

@@ -126,7 +126,7 @@ void vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
 
 	alloc_unbound.remote_dom = dev->otherend_id;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
+	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
 	*evtchn = alloc_unbound.evtchn;
 }
 
@@ -143,7 +143,7 @@ void vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_evtchn, uint32_t 
 	bind_interdomain.remote_dom = dev->otherend_id;
 	bind_interdomain.remote_evtchn = remote_evtchn;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
+	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
 
 	*evtchn = bind_interdomain.local_evtchn;
 	DBG("%s: got local evtchn: %d for remote evtchn: %d\n", __func__, *evtchn, remote_evtchn);
@@ -158,7 +158,7 @@ void vbus_free_evtchn(struct vbus_device *dev, uint32_t evtchn)
 
 	close.evtchn = evtchn;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &close, 0, 0);
+	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &close, 0, 0);
 }
 
 /**

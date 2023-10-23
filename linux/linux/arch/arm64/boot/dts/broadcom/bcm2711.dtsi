@@ -441,8 +441,7 @@
 			<GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
-/* SOO.tech */
-#if 0
+#ifndef CONFIG_SOO
 		interrupt-affinity = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
 #endif
 		interrupt-affinity = <&cpu0>, <&cpu1>;
@@ -483,7 +482,7 @@
 			cpu-release-addr = <0x0 0x000000e0>;
 		};
 
-/* SOO.tech */
+/* heig-vd */
 #if 0
 		cpu2: cpu@2 {
 			device_type = "cpu";
@@ -539,7 +538,7 @@
 			brcm,enable-ssc;
 		};
 
-#if 0 /* SOO.tech */
+#ifndef CONFIG_SOO 
 		genet: ethernet@7d580000 {
 			compatible = "brcm,bcm2711-genet-v5";
 			reg = <0x0 0x7d580000  0x0 0x10000>;

@@ -19,10 +19,13 @@
 
 #include "internals.h"
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
+
 #include <asm/ipipe.h>
 
 #include <soo/uapi/soo.h>
+
+#endif
 
 /*
  * lockdep: we want to handle all irq_desc locks as a single lock-class:
@@ -659,8 +662,9 @@ EXPORT_SYMBOL_GPL(generic_handle_irq);
 
 #ifdef CONFIG_HANDLE_DOMAIN_IRQ
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 extern void rt_ipi_handler(int hwirq);
+#endif
 
 /**
  * __handle_domain_irq - Invoke the handler for a HW irq belonging to a domain
@@ -680,7 +684,8 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 
 	irq_enter();
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
+
 	if (smp_processor_id() == AGENCY_RT_CPU) {
 		if (hwirq >= NR_IPI_MAX)
 			__ipipe_grab_irq(irq, false);
@@ -696,6 +701,7 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 
 		return 0;
 	}
+#endif /* CONFIG_SOO */
 
 #ifdef CONFIG_IRQ_DOMAIN
 	if (lookup)

@@ -244,7 +244,8 @@ static inline bool arch_timer_have_evtstrm_feature(void)
 	return cpu_have_named_feature(EVTSTRM);
 }
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 extern int __ipipe_timer_handler(unsigned int irq, void *cookie);
+#endif
 
 #endif
