@@ -386,6 +386,7 @@ asmlinkage notrace void secondary_start_kernel(void)
 #endif /* CONFIG_SOO */
 
 	local_daif_restore(DAIF_PROCCTX);
+
 #ifdef CONFIG_SOO
 	if (cpu == AGENCY_RT_CPU) {
 

@@ -869,7 +869,7 @@ void gic_ipi_send_mask(struct irq_data *d, const struct cpumask *mask)
 	dmb(ishst);
 
 	/* this always happens on GIC0 */
-#ifdef CONFIG_SOO
+#if defined(CONFIG_SOO) && defined(CONFIG_LINUXVIRT)
 	avz_send_IPI(d->hwirq, map);
 #else
 	writel_relaxed(map << 16 | d->hwirq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);

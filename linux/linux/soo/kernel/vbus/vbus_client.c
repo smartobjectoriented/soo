@@ -25,6 +25,8 @@
 #include <linux/types.h>
 #include <linux/vmalloc.h>
 
+#include <asm/cacheflush.h>
+
 #include <soo/gnttab.h>		 
 #include <soo/grant_table.h>
 
@@ -120,14 +122,21 @@ void vbus_watch_pathfmt(struct vbus_device *dev, struct vbus_watch *watch, void 
  */
 void vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
 {
-	struct evtchn_alloc_unbound alloc_unbound;
+	struct evtchn_alloc_unbound *alloc_unbound;
 
-	alloc_unbound.dom = DOMID_SELF;
+	alloc_unbound = kmalloc(sizeof(struct evtchn_alloc_unbound), GFP_KERNEL);
+	BUG_ON(!alloc_unbound);
 
-	alloc_unbound.remote_dom = dev->otherend_id;
+	alloc_unbound->dom = DOMID_SELF;
+	alloc_unbound->remote_dom = dev->otherend_id;
 
-	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
-	*evtchn = alloc_unbound.evtchn;
+	__flush_dcache_area((void *) alloc_unbound, sizeof(struct evtchn_alloc_unbound));
+	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, virt_to_phys(alloc_unbound), 0, 0);
+	__inval_dcache_area((void *) alloc_unbound, sizeof(struct evtchn_alloc_unbound));
+
+	*evtchn = alloc_unbound->evtchn;
+
+	kfree(alloc_unbound);
 }
 
 
@@ -138,15 +147,22 @@ void vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
  */
 void vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_evtchn, uint32_t *evtchn)
 {
-	struct evtchn_bind_interdomain bind_interdomain;
+	struct evtchn_bind_interdomain *bind_interdomain;
 
-	bind_interdomain.remote_dom = dev->otherend_id;
-	bind_interdomain.remote_evtchn = remote_evtchn;
+	bind_interdomain = kmalloc(sizeof(struct evtchn_bind_interdomain), GFP_KERNEL);
+	BUG_ON(!bind_interdomain);
 
-	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
+	bind_interdomain->remote_dom = dev->otherend_id;
+	bind_interdomain->remote_evtchn = remote_evtchn;
 
-	*evtchn = bind_interdomain.local_evtchn;
+	__flush_dcache_area((void *) bind_interdomain, sizeof(struct evtchn_bind_interdomain));
+	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, virt_to_phys(bind_interdomain), 0, 0);
+	__inval_dcache_area((void *) bind_interdomain, sizeof(struct evtchn_bind_interdomain));
+
+	*evtchn = bind_interdomain->local_evtchn;
 	DBG("%s: got local evtchn: %d for remote evtchn: %d\n", __func__, *evtchn, remote_evtchn);
+
+	kfree(bind_interdomain);
 }
 
 /**
@@ -154,11 +170,17 @@ void vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_evtchn, uint32_t 
  */
 void vbus_free_evtchn(struct vbus_device *dev, uint32_t evtchn)
 {
-	struct evtchn_close close;
+	struct evtchn_close *close;
 
-	close.evtchn = evtchn;
+	close = kmalloc(sizeof(struct evtchn_close), GFP_KERNEL);
+	BUG_ON(!close);
 
-	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &close, 0, 0);
+	close->evtchn = evtchn;
+
+	__flush_dcache_area((void *) close, sizeof(struct evtchn_bind_interdomain));
+	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_close, virt_to_phys(close), 0, 0);
+
+	kfree(close);
 }
 
 /**
