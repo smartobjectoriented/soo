@@ -58,8 +58,12 @@ void avz_get_shared(void) {
 
 	avz_hypercall(__HYPERVISOR_domctl, virt_to_phys(op), 0, 0, 0);
 
+	BUG_ON(!op->u.avz_shared_paddr);
+
 	avz_shared = (volatile avz_shared_t *) paging_remap(op->u.avz_shared_paddr, PAGE_SIZE);
 	BUG_ON(!avz_shared);
+
+	BUG_ON(!avz_shared->subdomain_shared_paddr);
 
 	avz_shared->subdomain_shared = (avz_shared_t *) paging_remap(avz_shared->subdomain_shared_paddr, PAGE_SIZE);
 	BUG_ON(!avz_shared->subdomain_shared);

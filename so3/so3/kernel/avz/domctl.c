@@ -66,9 +66,15 @@ void do_domctl(domctl_t *args)
 
 #ifdef CONFIG_ARM64VT
 	case DOMCTL_get_AVZ_shared:
-		args->u.avz_shared_paddr =
-			memslot[(current_domain->avz_shared->domID == DOMID_AGENCY) ? 1 : current_domain->avz_shared->domID].ipa_addr + memslot[MEMSLOT_AGENCY].size;
-		break;
+
+			/* Return the intermediate address (hence our vaddr) of the shared page
+			 * which is located on top of the domain
+			 */
+
+			args->u.avz_shared_paddr =
+				memslot[(current_domain->avz_shared->domID == DOMID_AGENCY) ? 1 : current_domain->avz_shared->domID].ipa_addr + memslot[MEMSLOT_AGENCY].size;
+			break;
+
 #endif /* CONFIG_ARM64VT */
 
 	}

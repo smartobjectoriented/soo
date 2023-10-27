@@ -80,14 +80,16 @@ void __setup_dom_pgtable(struct domain *d, addr_t paddr_start, unsigned long map
 	do_ipamap(new_pt, ipamap, ARRAY_SIZE(ipamap));
 
 	/* Map the shared page in the IPA space; the shared page is located right after the domain area
-	 * in the IPA space.
+	 * in the IPA space, and if any, the RT shared page follows the shared page (in IPA space).
 	 */
 	__create_mapping(new_pt, memslot[MEMSLOT_AGENCY].ipa_addr + map_size, __pa(d->avz_shared), PAGE_SIZE, true, S2);
 
 	if (d->avz_shared->subdomain_shared)  {
 
+		/* We map the RT domain shared page using our vaddr since it is the IPA address. */
+
 		__create_mapping(new_pt, memslot[MEMSLOT_AGENCY].ipa_addr + map_size + PAGE_SIZE,
-			       __pa(d->avz_shared->subdomain_shared_paddr), PAGE_SIZE, true, S2);
+			       __pa(d->avz_shared->subdomain_shared), PAGE_SIZE, true, S2);
 
 		/* <subdomain_shared_paddr> will be used by the guest only. The AGENCY_RT domain has
 		 * its own shared page, so we will be able to use it via the domain descriptor in avz.
