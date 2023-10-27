@@ -95,6 +95,11 @@
 				status = "disabled";
 			};
 
+			venocean {
+				compatible = "venocean,frontend";
+				status = "disabled";
+			};
+
 		};
 
 	};
