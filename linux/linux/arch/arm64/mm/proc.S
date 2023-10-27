@@ -187,8 +187,9 @@ SYM_FUNC_END(cpu_do_resume)
 SYM_FUNC_START(idmap_cpu_replace_ttbr1)
 	save_and_disable_daif flags=x2
 
+#ifdef CONFIG_LINUXVIRT
 	msr	ttbr1_el1, x0
-#ifndef CONFIG_LINUXVIRT
+#else
 	__idmap_cpu_set_reserved_ttbr1 x1, x3
 
 	offset_ttbr1 x0, x3

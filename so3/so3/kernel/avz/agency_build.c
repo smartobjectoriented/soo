@@ -134,7 +134,6 @@ int construct_agency(struct domain *d) {
 		   memslot[MEMSLOT_AGENCY].ipa_addr + memslot[MEMSLOT_AGENCY].size);
 
 #else
-	printk("## before new_thread\n");
 	new_thread(d, memslot[MEMSLOT_AGENCY].entry_addr, d->avz_shared->fdt_paddr, AGENCY_VOFFSET + memslot[MEMSLOT_AGENCY].size);
 #endif
 

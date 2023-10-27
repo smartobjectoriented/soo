@@ -315,7 +315,7 @@ el2_setup:
 	 * kernel is intended to run at EL2.
 	 */
 	mrs	x2, id_aa64mmfr1_el1
-	ubfx x2, x2, #ID_AA64MMFR1_VHE_SHIFT, #4
+	ubfx	x2, x2, #ID_AA64MMFR1_VHE_SHIFT, #4
 
 	/* Hyp configuration. */
 	ldr x0, =HCR_HOST_NVHE_FLAGS
