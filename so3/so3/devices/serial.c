@@ -124,7 +124,7 @@ int serial_write(char *str, int len) {
 
 	for (i = 0; i < len; i++)
 		if (str[i] != 0)
-#ifdef CONFIG_SO3VIRT
+#if defined(CONFIG_SO3VIRT) && !defined(CONFIG_SOO)
 		__printch(str[i]);
 #else
 		serial_putc(str[i]);
