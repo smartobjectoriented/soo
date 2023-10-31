@@ -6,7 +6,7 @@
  *  Based on max310x.c, by Alexander Shiyan <shc_work@mail.ru>
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
