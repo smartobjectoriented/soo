@@ -1,5 +1,5 @@
 {
-    "server_address": "10.192.75.245:1883",
+    "server_address": "10.192.127.83:1883",
     "client_id": "iuoc_mqtt_client",
     "sub_topics": [ 
         {"topic": "/iuoc/server/cover/cmd", "me_name": "SOO.blind", "me_type": 0},

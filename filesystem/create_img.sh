@@ -27,7 +27,7 @@ if [ "$1" == "virt32" -o "$1" == "virt64"  ]; then
     devname=${devname#"/dev/"}
 fi
 
-if [ "$1" == "rpi4" -o "$1" == "rpi4_64" ]; then
+if [ "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "cm4_64" ]; then
     echo "Specify the MMC device you want to deploy on (ex: sdb or mmcblk0 or other...)" 
     read devname
 fi

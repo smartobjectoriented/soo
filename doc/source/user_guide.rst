@@ -74,11 +74,11 @@ For the 64-bit version (virt & RPi4), the AArch-64 (ARM 64-bit) toolchain can be
 
    $ sudo mkdir -p /opt/toolchains && cd /opt/toolchains
    # Download and extract arm-none-linux-gnueabihf toolchain (gcc v10.2).
-   $ sudo wget https://developer.arm.com/-/media/Files/downloads/gnu-a/10.2-2020.11/binrel/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz
-   $ sudo tar xf gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz
-   $ sudo rm gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz
-   $ sudo mv gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu aarch64-none-linux-gnu_10.2
-   $ echo 'export PATH="${PATH}:/opt/toolchains/aarch64-none-linux-gnu_10.2/bin"' | sudo tee -a /etc/profile.d/02-toolchains.sh
+   $ sudo wget https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+   $ sudo tar xf arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+   $ sudo rm arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+   $ sudo mv arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-linux-gnu aarch64-none-linux-gnu_11.3
+   $ echo 'export PATH="${PATH}:/opt/toolchains/aarch64-none-linux-gnu_11.3/bin"' | sudo tee -a /etc/profile.d/02-toolchains.sh
 
 Basic Components
 ****************
