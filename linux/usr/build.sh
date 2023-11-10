@@ -65,9 +65,9 @@ else
     NRPROC=$((`cat /proc/cpuinfo | awk '/^processor/{print $3}' | wc -l` + 1))
 fi
 if [ $verbose == y ]; then
-	make VERBOSE=1 -j1
+	make install VERBOSE=1 -j1
 else
-	make -j$NRPROC
+	make install -j$NRPROC
 fi
 cd -
 
