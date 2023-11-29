@@ -12,6 +12,7 @@ add_executable(${PROJECT_NAME} emiso_engine.cpp
                                webserver/network/network.cpp
                                webserver/volume/volume.cpp
                                daemon/image.cpp
+                               daemon/container.cpp
                                cli/cli.cpp
 )
 

@@ -35,6 +35,8 @@ namespace image {
             std::string payload_str = "";
             Json::Value payload_json;
 
+            std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
+
             // Retrieve image info
             std::map<std::string, daemon::ImageInfo> info;
             _image.info(info);
@@ -42,7 +44,7 @@ namespace image {
             unsigned idx = 0;
             for (auto it = info.begin(); it != info.end(); ++it) {
 
-                payload_json[idx]["ID"]          = it->second.id;
+                payload_json[idx]["Id"]          = it->second.id;
                 payload_json[idx]["ParentId"]    = "";
                 payload_json[idx]["RepoTags"][0] = it->second.name;
                 payload_json[idx]["Created"]     = it->second.date;
