@@ -33,6 +33,8 @@ namespace emiso {
             const std::shared_ptr<httpserver::http_response> render_GET(const httpserver::http_request &req) {
                 std::string payload_str = "[]";
 
+                std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
+
                 auto response = std::make_shared<httpserver::string_response>(payload_str,
                            httpserver::http::http_utils::http_ok, "application/json");
                 return response;
