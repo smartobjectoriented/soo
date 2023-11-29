@@ -1,0 +1,10 @@
+[Unit]
+Description=EMISO startup Service
+
+[Service]
+Type=oneshot
+ExecStart=/etc/emiso/startup.sh
+
+[Install]
+WantedBy=multi-user.target
+Enabled=true
