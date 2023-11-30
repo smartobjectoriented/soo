@@ -458,6 +458,38 @@ install_el2_stub:
 
 #ifdef CONFIG_SMP
 
+__secondary_kernel_main:
+
+#if !defined(CONFIG_SOO) || defined(CONFIG_AVZ)
+
+	// Enable the interrupt
+	adrp x0, __vectors  // Virtual address as required
+
+#ifdef CONFIG_ARM64VT
+	msr vbar_el2, x0
+#else
+	msr vbar_el1, x0
+#endif /* !CONFIG_ARM64VT */
+
+#endif /* !CONFIG_SOO */
+
+	// C main entry point
+
+#ifdef CONFIG_AVZ
+
+  	ldr		x19, .LC_secondary_final_start_kernel
+  	blr		x19
+
+#else
+	b 	kernel_start
+#endif
+
+	nop
+	nop
+	nop
+
+	// never returns...
+
 ENTRY(secondary_startup)
 	/*
      * Common entry point for secondary CPUs.
@@ -500,6 +532,8 @@ ENTRY(secondary_startup)
   	// Keep executing in the kernel space
 
 	// Initialize the vector table
+	// The vector table address is the virtual address
+
 #ifndef CONFIG_SO3VIRT
 
 	// Initialize the vector table
@@ -529,8 +563,11 @@ __secondary_data:
     .quad   .
     .quad   secondary_data
 
-.LC_virt_secondary_entry:
+.LC_secondary_final_start_kernel:
   .quad secondary_start_kernel
+
+.LC_virt_secondary_entry:
+  .quad __secondary_kernel_main
 
 #endif /* CONFIG_SMP */
 
