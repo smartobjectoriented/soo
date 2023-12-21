@@ -2,8 +2,8 @@
 
 set -e
 
-SO3_SRC=$(pwd -P)/../so3
-AVZ_TARGET=$(pwd -P)/../avz
+SO3_SRC=../so3
+AVZ_TARGET=../avz
 
 clean=n
 verbose=n
