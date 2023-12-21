@@ -18,3 +18,4 @@ if (MICROPYTHON AND (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64"))
 	message("== Building uPython")
 	add_subdirectory(micropython)
 endif()
+
