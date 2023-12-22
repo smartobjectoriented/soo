@@ -2,8 +2,8 @@
 
 set -e
 
-SO3_SRC=../so3
-AVZ_TARGET=../avz
+SO3_SRC=$(pwd -P)/../so3 # pwd necessary because avz is a symbolic link that redirects deeper into the hierarchy
+AVZ_TARGET=$(pwd -P)/../avz 
 
 clean=n
 verbose=n
