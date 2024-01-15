@@ -73,15 +73,23 @@ if [ "$deploy_boot" == "y" ]; then
     # Deploy files into the boot partition (first partition)
     echo Deploying boot files into the first partition...
 
-    cd target
-    ./mkuboot.sh ${PLATFORM}
-    cd ../filesystem
+    if [ "$PLATFORM" != "bbb" ]; then
+      cd target
+      ./mkuboot.sh ${PLATFORM}
+      cd -
+    fi
+    cd filesystem
     ./mount.sh 1
     sudo rm -rf fs/*
-    sudo cp ../target/${PLATFORM}.itb fs/${PLATFORM}.itb
-    sudo cp ../upgrade/agency.json fs/
-    sudo cp ../upgrade/root_flag fs/
-    sudo cp ../u-boot/uEnv.d/uEnv_${PLATFORM}.txt fs/uEnv.txt
+    if [ "$PLATFORM" == "bbb" ]; then
+      echo "BBB platform: no secondary boot environment yet"
+      #sudo cp ../u-boot/uEnv.d/uEnv_bbb_sd.txt fs/uEnv.txt
+    else
+      sudo cp ../target/${PLATFORM}.itb fs/${PLATFORM}.itb
+      sudo cp ../upgrade/agency.json fs/
+      sudo cp ../upgrade/root_flag fs/
+      sudo cp ../u-boot/uEnv.d/uEnv_${PLATFORM}.txt fs/uEnv.txt
+    fi
 
     if [ "$PLATFORM" == "virt32" -o "$PLATFORM" == "virt64" ]; then
 	# Nothing else ...
@@ -92,6 +100,14 @@ if [ "$deploy_boot" == "y" ]; then
     if [ "$PLATFORM" == "rpi4" ]; then
         sudo cp -r ../bsp/rpi4/* fs/
         sudo cp ../u-boot/u-boot.bin fs/kernel7.img
+        ./umount.sh
+        cd ..
+    fi
+
+    if [ "$PLATFORM" == "bbb" ]; then
+        #sudo cp -r ../bsp/bbb/* fs/
+        sudo cp ../u-boot/MLO fs/
+        sudo cp ../u-boot/u-boot.img fs/
         ./umount.sh
         cd ..
     fi

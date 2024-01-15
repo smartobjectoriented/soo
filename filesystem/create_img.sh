@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ $# -ne 1 ]; then
-	echo "Please provide the board name (virt32, virt64, rpi4, rpi4_64, cm4_64)"
+	echo "Please provide the board name (virt32, virt64, rpi4, rpi4_64, cm4_64, bbb)"
 	exit 0
 fi 
 
@@ -27,14 +27,14 @@ if [ "$1" == "virt32" -o "$1" == "virt64"  ]; then
     devname=${devname#"/dev/"}
 fi
 
-if [ "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "cm4_64" ]; then
+if [ "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "cm4_64" -o "$1" == "bbb" ]; then
     echo "Specify the MMC device you want to deploy on (ex: sdb or mmcblk0 or other...)" 
     read devname
 fi
 
-if [ "$1" == "virt32" -o "$1" == "virt64" -o "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "cm4_64" ]; then
+if [ "$1" == "virt32" -o "$1" == "virt64" -o "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "cm4_64" -o "$1" == "bbb" ]; then
 #create the partition layout this way
-    (echo o; echo n; echo p; echo; echo; echo +128M; echo t; echo c; echo n; echo p; echo; echo; echo +400M; echo n; echo p; echo; echo; echo +100M; echo n; echo p; echo; echo; echo; echo w)   | sudo fdisk /dev/"$devname";
+    (echo o; echo n; echo p; echo; echo; echo +128M; echo a; echo t; echo c; echo n; echo p; echo; echo; echo +400M; echo n; echo p; echo; echo; echo +100M; echo n; echo p; echo; echo; echo; echo w)   | sudo fdisk /dev/"$devname";
 fi
 
 echo Waiting...

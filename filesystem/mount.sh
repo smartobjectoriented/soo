@@ -34,6 +34,6 @@ if [[ "$devname" = *[0-9] ]]; then
     export devname="${devname}p"
 fi
 
-if [ "$PLATFORM" == "rpi4" -o "$PLATFORM" == "rpi4_64" -o "$PLATFORM" == "cm4_64" ]; then
+if [ "$PLATFORM" == "rpi4" -o "$PLATFORM" == "rpi4_64" -o "$PLATFORM" == "cm4_64" -o "$PLATFORM" == "bbb" ]; then
     sudo mount /dev/"${devname}"$1 fs
 fi
