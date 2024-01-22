@@ -1,0 +1,56 @@
+/*
+ * Copyright (C) 2020 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
+
+/dts-v1/;
+
+/ {
+	description = "Kernel and rootfs components for BeagleBoneBlack environment";
+
+	images {
+		
+		linux {
+			description = "Linux kernel";
+			data = /incbin/("../linux/linux/arch/arm/boot/zImage");
+			type = "kernel";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x80008000>;
+			entry = <0x80008000>;
+		};
+
+        fdt_linux {
+			description = "Linux device tree blob";
+			data = /incbin/("../linux/linux/arch/arm/boot/dts/am335x-boneblack.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x88000000>; 
+		};
+	};
+	
+	configurations {
+		default = "conf_linux";
+
+		conf_linux {
+			description = "Linux on BeagleBoneBlack";
+            kernel = "linux";
+            fdt = "fdt_linux";
+		};
+	};
+};
