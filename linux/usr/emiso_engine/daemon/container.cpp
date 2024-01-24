@@ -17,6 +17,7 @@
  */
 
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <fcntl.h>
 
@@ -27,9 +28,12 @@
 #include "container.hpp"
 
 #define EMISO_IMAGE_PATH     "/mnt/ME/"
+#define SOO_CORE_DRV_PATH    ("/dev/soo/core")
 
 namespace emiso {
 namespace daemon {
+
+std::map<int, ContainerId> Container::_containersId;
 
 Container::Container() {};
 
@@ -41,9 +45,9 @@ std::string Container::meToDockerState(int meState)
 {
     switch (meState) {
     case ME_state_booting:
-        return "booting";   // WARNING - not a valid Docker state
+        return "created";   // WARNING - not a valid Docker state
     case ME_state_preparing:
-        return "booting";    // WARNING - not a valid Docker state
+        return "created";    // WARNING - not a valid Docker state
     case ME_state_living:
         return "running";
     case ME_state_suspended:
@@ -68,8 +72,10 @@ void Container::info(std::map<int, ContainerInfo> &containerList)
     int i, fd;
     ME_id_t id_array[MAX_ME_DOMAINS];
     agency_ioctl_args_t args;
+    int ME_size;
+    unsigned char *ME_buffer;
 
-    fd = open("/dev/soo/core", O_RDWR);
+    fd = open(SOO_CORE_DRV_PATH, O_RDWR);
     // assert(fd_core > 0);
 
     args.buffer = &id_array;
@@ -80,10 +86,11 @@ void Container::info(std::map<int, ContainerInfo> &containerList)
     for (i = 0; i < MAX_ME_DOMAINS; i++) {
         if (id_array[i].state != ME_state_dead) {
             ContainerInfo info;
+            int slotID = i + 2;
 
             // Should it be 'i+2' ??
-            info.id    = i; /* Use the slot number as Container ID */
-            info.name  = id_array[i].name;
+            info.id    = slotID;
+            info.name  = _containersId[slotID].name;
             info.state = this->meToDockerState(id_array[i].state);
 
             containerList[i] = info;
@@ -92,20 +99,191 @@ void Container::info(std::map<int, ContainerInfo> &containerList)
 }
 
 
-int Container::create(std::string imageName)
+int Container::create(std::string imageName, std::string containerName)
 {
-    char cmd[80];
+    int fd;
+    int ret;
+    struct agency_ioctl_args args;
+    struct stat filestat;
+    char *containerBuf;
+    int nread;
+    std::streampos containerSize;
 
     std::cout << "[EMISO] Creating container from '" << imageName << "'" << std::endl;
 
-    sprintf(cmd, "/root/injector %s", imageName.c_str());
+    std::ifstream image(imageName.c_str(), std::ios::in | std::ios::binary | std::ios::ate) ;
 
-    std::cout << "[EMISO] injection cmd: " << cmd << std::endl;
+    containerSize = image.tellg();
+    containerBuf = new char [containerSize];
+    image.seekg (0, std::ios::beg);
+    image.read (containerBuf, containerSize);
+    image.close();
 
-    int rc = std::system(cmd);
+    args.buffer = containerBuf;
+    args.value = containerSize;
+
+    fd = open(SOO_CORE_DRV_PATH, O_RDWR);
+    ret = ioctl(fd, AGENCY_IOCTL_INJECT_ME, &args);
+    if (ret < 0) {
+        printf("Failed to inject ME (%d)\n", ret);
+    }
+
+    ContainerId id;
+    id.name  = containerName;
+    id.image = imageName;
+
+    _containersId[args.slotID] = id;
+
+    delete[] containerBuf;
+
+    std::cout << "slotID: " << args.slotID << std::endl
+              << "id.name: " << id.name << std::endl
+              << "id.image: " << id.image << std::endl;
+
+
+
+
+    return args.slotID;
+}
+
+
+
+int Container::start(unsigned contenerId)
+{
+    int fd;
+    int ret;
+    struct agency_ioctl_args args;
+
+    args.slotID = contenerId;
+
+     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
+     ret = ioctl(fd, AGENCY_IOCTL_FINAL_MIGRATION, &args);
+
+    if (ret < 0) {
+        printf("Failed to initialize migration (%d)\n", ret);
+    }
+
+    // close(fd);
+
+    return ret;
+}
+
+int Container::stop(unsigned contenerId)
+{
+    int ret;
+    int fd;
+    struct agency_ioctl_args args;
+
+
+    // == Force ME termination ==
+    args.slotID = contenerId;
+
+     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
+     ret = ioctl(fd, AGENCY_IOCTL_FORCE_TERMINATE, &args);
+
+    if (ret < 0) {
+        printf("Failed to force termination (%d)\n", ret);
+    }
+
+    // close(fd);
+
+    // == inject ME ==
+    std::string imageName;
+    std::string containerName;
+
+    // 1. Retrieve the image file
+    auto it = _containersId.find(contenerId);
+
+    if (it != _containersId.end()) {
+        imageName     = it->second.image;
+        containerName = it->second.name;
+
+     } else {
+        // BUG - the ME has to be in _containersId MAP
+     }
+
+    int slotId = this->create(imageName, containerName);
+
+    std::cout << "[DAEMON] Stop cmd - final slotID: " << slotId << std::endl;
+
+
+
+
+    return ret;
+}
+
+
+int Container::restart(unsigned contenerId)
+{
+    std::cout << "[DAEMON] Restart cmd - stop" << std::endl;
+    this->stop(contenerId);
+    std::cout << "[DAEMON] Restart cmd - start" << std::endl;
+    this->start(contenerId);
+    std::cout << "[DAEMON] Restart cmd - completed" << std::endl;
 
     return 0;
+
 }
+
+int Container::pause(unsigned contenerId)
+{
+    int fd;
+    int ret;
+    struct agency_ioctl_args args;
+
+    args.slotID = contenerId;
+
+    fd = open(SOO_CORE_DRV_PATH, O_RDWR);
+
+    ret = ioctl(fd, AGENCY_IOCTL_INIT_MIGRATION, &args);
+
+    if (ret < 0) {
+        printf("Failed to initialize migration (%d)\n", ret);
+    }
+
+    return ret;
+}
+
+int Container::unpause(unsigned contenerId)
+{
+    int fd;
+    int ret;
+    struct agency_ioctl_args args;
+
+    args.slotID = contenerId;
+
+    fd = open(SOO_CORE_DRV_PATH, O_RDWR);
+
+    ret = ioctl(fd, AGENCY_IOCTL_FINAL_MIGRATION, &args);
+
+    if (ret < 0) {
+        printf("Failed to initialize migration (%d)\n", ret);
+    }
+
+    close(fd);
+
+    return ret;
+}
+
+int Container::remove(unsigned contenerId)
+{
+    int ret;
+    int fd;
+    struct agency_ioctl_args args;
+
+
+    // == Force ME termination ==
+    args.slotID = contenerId;
+
+    fd = open(SOO_CORE_DRV_PATH, O_RDWR);
+    ret = ioctl(fd, AGENCY_IOCTL_FORCE_TERMINATE, &args);
+    if (ret < 0) {
+        printf("Failed to force termination (%d)\n", ret);
+    }
+
+    return ret;
+}
+
 
 
 } // daemon
