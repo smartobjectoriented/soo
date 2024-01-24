@@ -31,6 +31,11 @@ namespace daemon {
         std::string state;
     };
 
+    struct ContainerId {
+        std::string name;
+        std::string image;
+    };
+
     class Container {
 
     public:
@@ -38,10 +43,17 @@ namespace daemon {
         ~Container();
 
         void info(std::map<int, ContainerInfo> &containerList);
-        int create(std::string imageName);
+        int create(std::string imageName, std::string containerName);
+        int start(unsigned contenerId);
+        int stop(unsigned contenerId);
+        int restart(unsigned contenerId);
+        int pause(unsigned contenerId);
+        int unpause(unsigned contenerId);
+        int remove(unsigned contenerId);
 
     private:
         std::string meToDockerState(int meState);
+        static std::map<int, ContainerId> _containersId;
 
     };
 }

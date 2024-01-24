@@ -25,7 +25,6 @@
 
 #include "../../daemon/container.hpp"
 
-
 namespace emiso {
 namespace container {
 
@@ -99,6 +98,7 @@ namespace container {
         const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
             std::string payload_str = "";
             Json::Value payload_json;
+            int containerId;
 
             std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
 
@@ -109,13 +109,13 @@ namespace container {
             Json::Value jsonData;
             Json::Reader jsonReader;
 
-
             if (!jsonReader.parse(requestBody, jsonData)) {
                 // JSON parsing error
                 // Return error message
             }
 
             std::string imageName = jsonData["Image"].asString();
+            std::string containerName = jsonData["name"].asString();
 
             // Remove the image version of the name
             size_t colonPosition = imageName.find(':');
@@ -123,10 +123,10 @@ namespace container {
 
             std::cout << "[Webserver] Create container based on '" << imageName << "' name" << std::endl;
 
-            _container.create(imageName);
+            containerId = _container.create(imageName, containerName);
 
             // build the response
-            payload_json["Id"] = "12345";
+            payload_json["Id"] = std::to_string(containerId);
             payload_json["Warnings"] = Json::arrayValue;
 
             Json::StreamWriterBuilder builder;
@@ -142,6 +142,233 @@ namespace container {
 
     };
 
+    class StartHandler : public httpserver::http_resource {
+    public:
+
+        const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
+            std::string payload_str = "";
+            Json::Value payload_json;
+            int containerId = -1;
+
+
+            std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
+
+            // Retrieve the Container ID from request path
+            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+)/start)");
+            std::smatch matches;
+
+            if (std::regex_search(req.get_path(), matches, pattern)) {
+                std::cout << "found something" << std::endl;
+                containerId = std::stoi(matches[1]);
+
+                _container.start(containerId);
+
+            } else {
+                /* Error in the message */
+            }
+
+             std::cout << "containerId: " << containerId << std::endl;
+
+            auto response = std::make_shared<httpserver::string_response>(payload_str,
+                       httpserver::http::http_utils::http_no_content, "application/json");
+            return response;
+        }
+
+    private:
+        daemon::Container _container;
+
+    };
+
+
+
+    class StopHandler : public httpserver::http_resource {
+    public:
+
+        const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
+            std::string payload_str = "";
+            Json::Value payload_json;
+            int containerId = -1;
+
+            std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
+
+            // Retrieve the Container ID from request path
+            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+)/stop)");
+            std::smatch matches;
+
+            if (std::regex_search(req.get_path(), matches, pattern)) {
+                std::cout << "found something" << std::endl;
+                containerId = std::stoi(matches[1]);
+
+                _container.stop(containerId);
+
+            } else {
+                /* Error in the message */
+            }
+
+             std::cout << "containerId: " << containerId << std::endl;
+
+            auto response = std::make_shared<httpserver::string_response>(payload_str,
+                       httpserver::http::http_utils::http_no_content, "application/json");
+            return response;
+        }
+
+    private:
+        daemon::Container _container;
+
+    };
+
+
+    class RestartHandler : public httpserver::http_resource {
+    public:
+
+        const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
+            std::string payload_str = "";
+            Json::Value payload_json;
+            int containerId = -1;
+
+            std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
+
+            // Retrieve the Container ID from request path
+            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+)/restart)");
+            std::smatch matches;
+
+            if (std::regex_search(req.get_path(), matches, pattern)) {
+                std::cout << "found something" << std::endl;
+                containerId = std::stoi(matches[1]);
+
+                _container.restart(containerId);
+
+            } else {
+                /* Error in the message */
+            }
+
+             std::cout << "containerId: " << containerId << std::endl;
+
+            auto response = std::make_shared<httpserver::string_response>(payload_str,
+                       httpserver::http::http_utils::http_no_content, "application/json");
+            return response;
+        }
+
+    private:
+        daemon::Container _container;
+
+    };
+
+
+
+
+
+    class PauseHandler : public httpserver::http_resource {
+    public:
+
+        const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
+            std::string payload_str = "";
+            Json::Value payload_json;
+            int containerId = -1;
+
+            std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
+
+            // Retrieve the Container ID from request path
+            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+)/pause)");
+            std::smatch matches;
+
+            if (std::regex_search(req.get_path(), matches, pattern)) {
+                std::cout << "found something" << std::endl;
+                containerId = std::stoi(matches[1]);
+
+                _container.pause(containerId);
+
+            } else {
+                /* Error in the message */
+            }
+
+             std::cout << "containerId: " << containerId << std::endl;
+
+            auto response = std::make_shared<httpserver::string_response>(payload_str,
+                       httpserver::http::http_utils::http_no_content, "application/json");
+            return response;
+        }
+
+    private:
+        daemon::Container _container;
+
+    };
+
+
+
+    class UnpauseHandler : public httpserver::http_resource {
+    public:
+
+        const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
+            std::string payload_str = "";
+            Json::Value payload_json;
+            int containerId = -1;
+
+            std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
+
+            // Retrieve the Container ID from request path
+            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+)/unpause)");
+            std::smatch matches;
+
+            if (std::regex_search(req.get_path(), matches, pattern)) {
+                std::cout << "found something" << std::endl;
+                containerId = std::stoi(matches[1]);
+
+                _container.unpause(containerId);
+
+            } else {
+                /* Error in the message */
+            }
+
+             std::cout << "containerId: " << containerId << std::endl;
+
+            auto response = std::make_shared<httpserver::string_response>(payload_str,
+                       httpserver::http::http_utils::http_no_content, "application/json");
+            return response;
+        }
+
+    private:
+        daemon::Container _container;
+
+    };
+
+
+    class RemoveHandler : public httpserver::http_resource {
+    public:
+
+        const std::shared_ptr<httpserver::http_response> render_DELETE(const httpserver::http_request &req) {
+            std::string payload_str = "";
+            Json::Value payload_json;
+            int containerId = -1;
+
+            std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
+
+            // Retrieve the Container ID from request path
+            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+))");
+            std::smatch matches;
+
+            if (std::regex_search(req.get_path(), matches, pattern)) {
+                std::cout << "found something" << std::endl;
+                containerId = std::stoi(matches[1]);
+
+                _container.remove(containerId);
+
+            } else {
+                /* Error in the message */
+            }
+
+            auto response = std::make_shared<httpserver::string_response>(payload_str,
+                       httpserver::http::http_utils::http_no_content, "application/json");
+            return response;
+        }
+
+    private:
+        daemon::Container _container;
+
+    };
+
+
+
     class ContainerApi {
     public:
         // Constructor
@@ -154,9 +381,14 @@ namespace container {
         httpserver::webserver *_server;
 
         // Handler for the different 'container' routes
-        ListHandler *_listHandler;
-        CreateHandler *_createHandler;
-
+        ListHandler    *_listHandler;
+        CreateHandler  *_createHandler;
+        StartHandler   *_startHandler;
+        StopHandler    *_stopHandler;
+        PauseHandler   *_pauseHandler;
+        UnpauseHandler *_unpauseHandler;
+        RestartHandler *_restartHandler;
+        RemoveHandler  *_removeHandler;
     };
 
 } // container
