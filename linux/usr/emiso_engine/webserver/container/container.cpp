@@ -29,11 +29,36 @@ namespace emiso {
             // Create routes and handlers
             _listHandler   = new ListHandler();
             _createHandler = new CreateHandler();
+            _startHandler  = new StartHandler();
+            _stopHandler    = new StopHandler();
+            _restartHandler  = new RestartHandler();
+            _pauseHandler   = new PauseHandler();
+            _unpauseHandler = new UnpauseHandler();
+            _removeHandler = new RemoveHandler();
 
             _server->register_resource(path + "/json", _listHandler);
             _server->register_resource("/v[1-9]+.[0-9]+" + path + "/json", _listHandler);
             _server->register_resource(path + "/create", _createHandler);
             _server->register_resource("/v[1-9]+.[0-9]+" + path + "/create", _createHandler);
+
+            _server->register_resource(path + "/[1-9]+/start", _startHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+/start", _startHandler);
+
+            _server->register_resource(path + "/[1-9]+/stop", _stopHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+/stop", _stopHandler);
+
+            _server->register_resource(path + "/[1-9]+/restart", _restartHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+/restart", _restartHandler);
+
+            _server->register_resource(path + "/[1-9]+/pause", _pauseHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+/pause", _pauseHandler);
+
+            _server->register_resource(path + "/[1-9]+/unpause", _unpauseHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+/unpause", _unpauseHandler);
+
+            _server->register_resource(path + "/[1-9]+", _removeHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+", _removeHandler);
+
         }
 
         ContainerApi::~ContainerApi() {}
