@@ -28,6 +28,8 @@
 #include "../../daemon/daemon.hpp"
 
 #include "container_inspect.hpp"
+// #include "../../daemon/container.hpp"
+#include "../../daemon/daemon.hpp"
 
 namespace emiso {
 namespace container {

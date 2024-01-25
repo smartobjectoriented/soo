@@ -31,8 +31,8 @@ Daemon* Daemon::getInstance()
 {
 
     if (_daemon == nullptr) {
-    _daemon = new Daemon();
-    }
+		_daemon = new Daemon();
+	}
 
     return _daemon;
 }
