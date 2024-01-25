@@ -22,8 +22,8 @@
 
 namespace emiso {
 
-    WebServer::WebServer(int port, bool secure)
-        : _port(port), _secure(secure) {
+    WebServer::WebServer(int port, bool secure, Daemon *daemon)
+        : _port(port), _secure(secure)  {
 
         // Use builder to define webserver configuration options
         httpserver::create_webserver cw = httpserver::create_webserver(_port);
@@ -34,9 +34,9 @@ namespace emiso {
         _server = new httpserver::webserver(cw);
 
         // Registration of the different APIs
-        _system    = new system::SytemApi(_server);
-        _container = new container::ContainerApi(_server);
-        _image     = new image::ImageApi(_server);
+        _system    = new system::SytemApi(_server, daemon);
+        _container = new container::ContainerApi(_server, daemon);
+        _image     = new image::ImageApi(_server, daemon);
         _network   = new network::NetworkApi(_server);
         _volume    = new volume::VolumeApi(_server);
 

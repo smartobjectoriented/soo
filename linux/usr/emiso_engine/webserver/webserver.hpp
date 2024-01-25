@@ -26,6 +26,7 @@
 #include "image/image.hpp"
 #include "network/network.hpp"
 #include "volume/volume.hpp"
+#include "../daemon/daemon.hpp"
 
 // DefaultHandler - used to print info for all paths not already registered to the
 //                  server
@@ -54,7 +55,7 @@ namespace emiso {
     class WebServer {
     public:
         // Constructor
-        WebServer(int port, bool secure);
+        WebServer(int port, bool secure, Daemon *daemon);
 
         // Destructor
         ~WebServer();

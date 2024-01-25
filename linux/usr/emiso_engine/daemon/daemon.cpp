@@ -16,23 +16,25 @@
  *
  */
 
-#include "image.hpp"
+#include "daemon.hpp"
 
 namespace emiso {
 
-    namespace image {
+Daemon* Daemon::_daemon = nullptr;
 
-        ImageApi::ImageApi(httpserver::webserver *server, Daemon *daemon)
-            : _server(server) {
-                std::string path  = "/images";
+Daemon::Daemon() {};
 
-            // Create routes and handlers
-            _listHandler = new ListHandler(daemon);
+Daemon::~Daemon() {};
 
-            _server->register_resource(path + "/json", _listHandler);
-            _server->register_resource("/v[1-9]+.[0-9]+" + path + "/json", _listHandler);
-        }
 
-        ImageApi::~ImageApi() {}
-    }
+Daemon* Daemon::getInstance()
+{
+
+    if (_daemon == nullptr) {
+		_daemon = new Daemon();
+	}
+
+    return _daemon;
 }
+
+} // namespace emiso

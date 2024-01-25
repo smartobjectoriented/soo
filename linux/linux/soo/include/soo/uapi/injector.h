@@ -99,6 +99,8 @@ void injector_receive_ME(void *ME, size_t size);
 
 int inject_ME(void *buffer, size_t size);
 
+int inject_ME_with_slotID(void *buffer, size_t size, int slotID);
+
 ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos);
 
 #endif /* __KERNEL__ */

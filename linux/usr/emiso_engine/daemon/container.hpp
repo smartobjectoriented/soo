@@ -23,7 +23,6 @@
 #include <map>
 
 namespace emiso {
-namespace daemon {
 
     struct ContainerInfo {
         int id;
@@ -43,7 +42,7 @@ namespace daemon {
         ~Container();
 
         void info(std::map<int, ContainerInfo> &containerList);
-        int create(std::string imageName, std::string containerName);
+        int create(std::string imageName, std::string containerName, int slotId=-1);
         int start(unsigned contenerId);
         int stop(unsigned contenerId);
         int restart(unsigned contenerId);
@@ -56,7 +55,6 @@ namespace daemon {
         static std::map<int, ContainerId> _containersId;
 
     };
-}
 }
 
 #endif // EMISO_DAEMON_CONTAINER_H
