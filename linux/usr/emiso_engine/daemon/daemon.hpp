@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Jean-Pierre Miceli <jean-pierre.miceli@heig-vd.ch>
+ * Copyright (C) 2024 Jean-Pierre Miceli <jean-pierre.miceli@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,23 +16,31 @@
  *
  */
 
+
+#ifndef EMISO_DAEMON_H
+#define EMISO_DAEMON_H
+
 #include "image.hpp"
+#include "container.hpp"
+
 
 namespace emiso {
 
-    namespace image {
+    class Daemon {
 
-        ImageApi::ImageApi(httpserver::webserver *server, Daemon *daemon)
-            : _server(server) {
-                std::string path  = "/images";
+    public:
+        Image     image;
+        Container container;
 
-            // Create routes and handlers
-            _listHandler = new ListHandler(daemon);
+        static Daemon* getInstance();
 
-            _server->register_resource(path + "/json", _listHandler);
-            _server->register_resource("/v[1-9]+.[0-9]+" + path + "/json", _listHandler);
-        }
+    private:
+        Daemon();
+        ~Daemon();
 
-        ImageApi::~ImageApi() {}
-    }
+        static Daemon* _daemon;
+    };
 }
+
+#endif // EMISO_DAEMON_H
+

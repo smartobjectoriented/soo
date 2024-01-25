@@ -31,7 +31,6 @@
 #define SOO_CORE_DRV_PATH    ("/dev/soo/core")
 
 namespace emiso {
-namespace daemon {
 
 std::map<int, ContainerId> Container::_containersId;
 
@@ -88,7 +87,6 @@ void Container::info(std::map<int, ContainerInfo> &containerList)
             ContainerInfo info;
             int slotID = i + 2;
 
-            // Should it be 'i+2' ??
             info.id    = slotID;
             info.name  = _containersId[slotID].name;
             info.state = this->meToDockerState(id_array[i].state);
@@ -98,8 +96,7 @@ void Container::info(std::map<int, ContainerInfo> &containerList)
     }
 }
 
-
-int Container::create(std::string imageName, std::string containerName)
+int Container::create(std::string imageName, std::string containerName, int slotID)
 {
     int fd;
     int ret;
@@ -123,7 +120,15 @@ int Container::create(std::string imageName, std::string containerName)
     args.value = containerSize;
 
     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
-    ret = ioctl(fd, AGENCY_IOCTL_INJECT_ME, &args);
+
+    if (slotID != -1) {
+        args.slotID = slotID;
+        ret = ioctl(fd, AGENCY_IOCTL_INJECT_ME_WITH_SLOTID, &args);
+
+    } else {
+        ret = ioctl(fd, AGENCY_IOCTL_INJECT_ME, &args);
+    }
+
     if (ret < 0) {
         printf("Failed to inject ME (%d)\n", ret);
     }
@@ -140,13 +145,8 @@ int Container::create(std::string imageName, std::string containerName)
               << "id.name: " << id.name << std::endl
               << "id.image: " << id.image << std::endl;
 
-
-
-
     return args.slotID;
 }
-
-
 
 int Container::start(unsigned contenerId)
 {
@@ -202,12 +202,11 @@ int Container::stop(unsigned contenerId)
         // BUG - the ME has to be in _containersId MAP
      }
 
+     // experiment - let time to free the slot memory !
+     sleep(0.5);
+
+    // int slotId = this->create(imageName, containerName, contenerId);
     int slotId = this->create(imageName, containerName);
-
-    std::cout << "[DAEMON] Stop cmd - final slotID: " << slotId << std::endl;
-
-
-
 
     return ret;
 }
@@ -284,7 +283,4 @@ int Container::remove(unsigned contenerId)
     return ret;
 }
 
-
-
-} // daemon
 } // emiso

@@ -13,7 +13,8 @@ add_executable(${PROJECT_NAME} emiso_engine.cpp
                                webserver/volume/volume.cpp
                                daemon/image.cpp
                                daemon/container.cpp
-                               cli/cli.cpp
+                               daemon/daemon.cpp
+                               #cli/cli.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE include)

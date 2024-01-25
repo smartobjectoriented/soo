@@ -25,7 +25,8 @@
 #include <httpserver.hpp>
 
 #include "webserver/webserver.hpp"
-#include "cli/cli.hpp"
+// #include "cli/cli.hpp"
+#include "daemon/daemon.hpp"
 
 #define SERVER_PORT    2375
 
@@ -51,15 +52,17 @@ int main(int argc, char **argv)
         }
     }
 
-    if (interactive) {
-        emiso::Cli cli;
-        cli.start();
+    emiso::Daemon *daemon = emiso::Daemon::getInstance();
 
-    } else {
+//    if (interactive) {
+//        emiso::Cli cli;
+//        cli.start();
+//
+//    } else {
         // TODO - in interactive mode, also start the webserver !
-        emiso::WebServer server(SERVER_PORT, secure);
+        emiso::WebServer server(SERVER_PORT, secure, daemon);
         server.start(true);
-    }
+//    }
 
     return 0;
 }

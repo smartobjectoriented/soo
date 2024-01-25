@@ -28,6 +28,7 @@
 
 #include "../../daemon/image.hpp"
 #include "../../daemon/container.hpp"
+#include "../../daemon/daemon.hpp"
 
 namespace emiso {
     namespace system {
@@ -64,6 +65,7 @@ namespace emiso {
 
         class SysInfoHandler : public httpserver::http_resource {
         public:
+             SysInfoHandler(Daemon *daemon) : _daemon(daemon) {};
 
             const std::shared_ptr<httpserver::http_response> render_GET(const httpserver::http_request &req) {
                 std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
@@ -72,17 +74,17 @@ namespace emiso {
                 Json::Value payload_json;
                 Utils& utils = Utils::getInstance();
                 auto config = utils.getInfo();
-                daemon::Image     image;
-                std::map<std::string, daemon::ImageInfo> info;
-                daemon::Container container;
-                std::map<int, daemon::ContainerInfo> containerInfo;
+                // daemon::Image     image;
+                std::map<std::string, ImageInfo> info;
+                // daemon::Container container;
+                std::map<int, ContainerInfo> containerInfo;
 
                 // Retrieve images info
-                image.info(info);
+                _daemon->image.info(info);
                 auto image_nr = info.size();
 
                 // Retrieve container info
-                container.info(containerInfo);
+                _daemon->container.info(containerInfo);
                 auto containerNr = containerInfo.size();
 
                 payload_json["ID"]         =  utils.getAgencyUID();
@@ -168,6 +170,8 @@ namespace emiso {
                            httpserver::http::http_utils::http_ok, "application/json");
                 return response;
             }
+        private:
+            Daemon *_daemon;
         };
 
         class GetVersionHandler : public httpserver::http_resource {
@@ -215,7 +219,7 @@ namespace emiso {
         class SytemApi {
         public:
             // Constructor
-            SytemApi(httpserver::webserver *server);
+            SytemApi(httpserver::webserver *server, Daemon *daemon);
 
             // Destructor
             ~SytemApi();

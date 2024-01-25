@@ -25,7 +25,6 @@
 #define EMISO_IMAGE_ID_MODE  "md5"
 
 namespace emiso {
-namespace daemon {
 
 Image::Image() {};
 
@@ -121,6 +120,4 @@ void Image::remove(std::string name)
     }
 }
 
-
-} // daemon
 } // emiso

@@ -24,12 +24,14 @@
 #include <json/json.h>
 
 #include "../../daemon/image.hpp"
+#include "../../daemon/daemon.hpp"
 
 namespace emiso {
 namespace image {
 
     class ListHandler : public httpserver::http_resource {
     public:
+        ListHandler(Daemon *daemon) : _daemon(daemon) {};
 
         const std::shared_ptr<httpserver::http_response> render_GET(const httpserver::http_request &req) {
             std::string payload_str = "";
@@ -38,8 +40,8 @@ namespace image {
             std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
 
             // Retrieve image info
-            std::map<std::string, daemon::ImageInfo> info;
-            _image.info(info);
+            std::map<std::string, ImageInfo> info;
+            _daemon->image.info(info);
 
             unsigned idx = 0;
             for (auto it = info.begin(); it != info.end(); ++it) {
@@ -65,14 +67,15 @@ namespace image {
         }
 
     private:
-        daemon::Image _image;
+        // daemon::Image _image;
+        Daemon *_daemon;
 
     };
 
     class ImageApi {
     public:
         // Constructor
-        ImageApi(httpserver::webserver *server);
+        ImageApi(httpserver::webserver *server, Daemon *daemon);
 
         // Destructor
         ~ImageApi();

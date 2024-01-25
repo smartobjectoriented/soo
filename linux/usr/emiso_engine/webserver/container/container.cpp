@@ -22,19 +22,19 @@ namespace emiso {
 
     namespace container {
 
-        ContainerApi::ContainerApi(httpserver::webserver *server)
+        ContainerApi::ContainerApi(httpserver::webserver *server, Daemon *daemon)
             : _server(server) {
             std::string path  = "/containers";
 
             // Create routes and handlers
-            _listHandler   = new ListHandler();
-            _createHandler = new CreateHandler();
-            _startHandler  = new StartHandler();
-            _stopHandler    = new StopHandler();
-            _restartHandler  = new RestartHandler();
-            _pauseHandler   = new PauseHandler();
-            _unpauseHandler = new UnpauseHandler();
-            _removeHandler = new RemoveHandler();
+            _listHandler   = new ListHandler(daemon);
+            _createHandler = new CreateHandler(daemon);
+            _startHandler  = new StartHandler(daemon);
+            _stopHandler    = new StopHandler(daemon);
+            _restartHandler  = new RestartHandler(daemon);
+            _pauseHandler   = new PauseHandler(daemon);
+            _unpauseHandler = new UnpauseHandler(daemon);
+            _removeHandler = new RemoveHandler(daemon);
 
             _server->register_resource(path + "/json", _listHandler);
             _server->register_resource("/v[1-9]+.[0-9]+" + path + "/json", _listHandler);
