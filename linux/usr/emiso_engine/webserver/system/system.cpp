@@ -21,12 +21,12 @@
 namespace emiso {
     namespace system {
 
-        SytemApi::SytemApi(httpserver::webserver *server)
+        SytemApi::SytemApi(httpserver::webserver *server, Daemon *daemon)
             : _server(server) {
 
             // Create routes and handlers
             _pinghandler    = new PingHandler();
-            _sysInfoHandler = new SysInfoHandler();
+            _sysInfoHandler = new SysInfoHandler(daemon);
             _getVersionHandler = new GetVersionHandler();
 
             _server->register_resource("/_ping", _pinghandler);

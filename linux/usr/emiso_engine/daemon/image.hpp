@@ -25,7 +25,7 @@
 #include <string>
 
 namespace emiso {
-namespace daemon {
+// namespace daemon {
 
     struct ImageInfo {
         std::string id;
@@ -52,7 +52,7 @@ namespace daemon {
         int createdTime(const std::string& filePath);
 
     };
-}
+// }
 }
 
 #endif // EMISO_DAEMON_IMAGE_H

@@ -60,13 +60,35 @@ size_t current_size = 0;
  * @return slotID or -1 if no slotID available.
  */
 int inject_ME(void *buffer, size_t size) {
-	int slotID;
+	int slotID = -1;
 
 	DBG("Original contents at address: 0x%08x\n with size %d bytes\n", (unsigned int) buffer, size);
 
 	soo_hypercall(AVZ_INJECT_ME, buffer, NULL, &slotID, &size);
 
 	return slotID;
+}
+
+/**
+ * Initiate the injection of a ME
+ *
+ * @param buffer
+ * @return slotID or -1 if no slotID available.
+ *
+ *
+ * Note: It is expected that the 'slotID' is free !
+ *
+ */
+int inject_ME_with_slotID(void *buffer, size_t size, int slotID) {
+	int ret_slotID = slotID;
+
+	DBG("Original contents at address: 0x%08x\n with size %d bytes\n", (unsigned int) buffer, size);
+
+	printk("[INJECT ME] with slotID: %d\n", slotID);
+
+	soo_hypercall(AVZ_INJECT_ME, buffer, NULL, &ret_slotID, &size);
+
+	return ret_slotID;
 }
 
 
