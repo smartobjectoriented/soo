@@ -73,17 +73,15 @@ if [ "$deploy_boot" == "y" ]; then
     # Deploy files into the boot partition (first partition)
     echo Deploying boot files into the first partition...
 
-    if [ "$PLATFORM" != "bbb" ]; then
-      cd target
-      ./mkuboot.sh ${PLATFORM}
-      cd -
-    fi
-    cd filesystem
+    cd target
+    ./mkuboot.sh ${PLATFORM}
+    cd ../filesystem
     ./mount.sh 1
     sudo rm -rf fs/*
     if [ "$PLATFORM" == "bbb" ]; then
-      echo "BBB platform: no secondary boot environment yet"
-      #sudo cp ../u-boot/uEnv.d/uEnv_bbb_sd.txt fs/uEnv.txt
+      echo "BBB platform: Deploying bare linux kernel"
+      sudo cp ../u-boot/uEnv.d/uEnv_bbb_sd.txt fs/uEnv.txt
+      sudo cp ../target/${PLATFORM}.itb fs/${PLATFORM}.itb
     else
       sudo cp ../target/${PLATFORM}.itb fs/${PLATFORM}.itb
       sudo cp ../upgrade/agency.json fs/

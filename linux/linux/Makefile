@@ -374,7 +374,7 @@ ifeq ($(PLATFORM),$(filter $(PLATFORM),x86 x86-qemu))
 
 ARCH		?= x86
 
-else ifeq ($(PLATFORM),$(filter $(PLATFORM),virt32 rpi4))
+else ifeq ($(PLATFORM),$(filter $(PLATFORM),virt32 rpi4 bbb))
  
 ARCH            ?= arm
 CROSS_COMPILE	?= arm-linux-gnueabihf-
