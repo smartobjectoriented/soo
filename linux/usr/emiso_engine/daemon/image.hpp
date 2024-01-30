@@ -40,7 +40,10 @@ namespace emiso {
         Image();
         ~Image();
 
+        // Return the info on all the images
         void info(std::map<std::string, ImageInfo> &imagesList);
+
+        void info(std::string name, ImageInfo &info);
 
         // Remove image 'name' from the disk
         void remove(std::string name);
