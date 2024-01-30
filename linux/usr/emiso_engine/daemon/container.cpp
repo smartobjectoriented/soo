@@ -20,6 +20,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <fcntl.h>
+#include <chrono>
 
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -66,6 +67,14 @@ std::string Container::meToDockerState(int meState)
     return "(n/a)";
 }
 
+uint64_t Container::createdTime()
+{
+    const auto now   = std::chrono::system_clock::now();
+    const auto epoch = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+
+    return epoch;
+}
+
 void Container::info(std::map<int, ContainerInfo> &containerList)
 {
     int i, fd;
@@ -89,6 +98,8 @@ void Container::info(std::map<int, ContainerInfo> &containerList)
 
             info.id    = slotID;
             info.name  = _containersId[slotID].name;
+            info.image = _containersId[slotID].image;
+            info.created = _containersId[slotID].created;
             info.state = this->meToDockerState(id_array[i].state);
 
             containerList[i] = info;
@@ -134,8 +145,9 @@ int Container::create(std::string imageName, std::string containerName, int slot
     }
 
     ContainerId id;
-    id.name  = containerName;
-    id.image = imageName;
+    id.name    = containerName;
+    id.image   = imageName;
+    id.created = this->createdTime();
 
     _containersId[args.slotID] = id;
 
