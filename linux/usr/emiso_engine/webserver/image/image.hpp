@@ -48,12 +48,12 @@ namespace image {
 
                 payload_json[idx]["Id"]          = it->second.id;
                 payload_json[idx]["ParentId"]    = "";
-                payload_json[idx]["RepoTags"][0] = it->second.name;
+                payload_json[idx]["RepoTags"][0] = it->second.name + ":latest";
                 payload_json[idx]["Created"]     = it->second.date;
                 payload_json[idx]["Size"]        = it->second.size;
                 payload_json[idx]["SharedSize"]  = -1;  // Value not set or calculated
                 payload_json[idx]["Containers"]  = -1; // Value not set or calculated
-                payload_json[idx]["Labels"][0][it->second.name]   = it->second.name;
+                payload_json[idx]["Labels"]      = Json::Value::null;
 
                 idx++;
             }
