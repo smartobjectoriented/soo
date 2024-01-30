@@ -20,8 +20,10 @@
 #define EMISO_CONTAINER_H
 
 #include <iostream>
+#include <vector>
 #include <httpserver.hpp>
 #include <json/json.h>
+#include <regex>
 
 // #include "../../daemon/container.hpp"
 #include "../../daemon/daemon.hpp"
@@ -39,6 +41,39 @@ namespace container {
 
             std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
 
+            // Retrieve the command args -
+            // only "all" and "filters/name" args are handled
+            bool allArg  = false;
+            bool sizeArg = false;
+            std::string filtersArg = "";
+            for (const auto& arg : req.get_args()) {
+                std::cout << "    " << arg.first << ": " << arg.second << std::endl;
+                if (arg.first == "all") {
+                    allArg = (arg.second == "true");
+                }
+                if (arg.first == "filters") {
+                    filtersArg = arg.second;
+                }
+            }
+
+             std::vector<std::string> namesFilter;
+            if (!filtersArg.empty()) {
+                Json::CharReaderBuilder readerBuilder;
+                Json::Value filtersJsonValue;
+                std::istringstream filtersJsonStream(filtersArg);
+
+                if (!Json::parseFromStream(readerBuilder, filtersJsonStream, &filtersJsonValue, nullptr)) {
+                    // Parsing failed, handle the error as needed
+                    std::cerr << "Error parsing JSON!" << std::endl;
+                }
+
+                if (filtersJsonValue.isMember("name")) {
+                    for (int i = 0; i < filtersJsonValue["name"].size(); ++i) {
+                        namesFilter.push_back(filtersJsonValue["name"][i].asString());
+                    }
+                }
+            }
+
             // Retrieve container info
             std::map<int, ContainerInfo> info;
             _daemon->container.info(info);
@@ -47,15 +82,49 @@ namespace container {
                 payload_json = Json::arrayValue;
             } else {
 
-               unsigned idx = 0;
-               for (auto it = info.begin(); it != info.end(); ++it) {
+                unsigned idx = 0;
+                for (auto it = info.begin(); it != info.end(); ++it) {
+
+                    // == Checks the args passed to the command ==
+
+                    // 'all' - if true, return all containers. else only running
+                    // containers are returned.
+                    if ((!allArg) && (it->second.state != "running")) {
+                        // Only return running containers
+                        continue;
+                    }
+
+                    // 'filters' (only name filter is supported)
+                    bool nameFound = false;
+                    if (!namesFilter.empty()) {
+                        for (const auto &pattern : namesFilter) {
+                            std::regex regexPattern(pattern);
+                             if (std::regex_match("/" + it->second.name, regexPattern)) {
+                                std::cout << "Match found with pattern: " << pattern << std::endl;
+                                nameFound = true;
+                                break;
+                             }
+                        }
+                    } else {
+                        nameFound = true;
+                    }
+
+                    if (!nameFound) {
+                        continue;
+                    }
+
+                    // == Return info on the container ==
+
+                    ImageInfo imageInfo;
+                    _daemon->image.info(it->second.image, imageInfo);
+
                     payload_json[idx]["Id"]       =  std::to_string(it->second.id);
                     payload_json[idx]["Names"][0] = "/" + it->second.name;
-                    payload_json[idx]["Image"]    = it->second.name + ":latest";
-                    payload_json[idx]["ImageID"]  = "md5:14044887700990924592";   // Compute the image ID as in image List (hardcoded value for refso3) !
+                    payload_json[idx]["Image"]    = it->second.image + ":latest";
+                    payload_json[idx]["ImageID"]  = imageInfo.id;
                     payload_json[idx]["Command"]  = "/inject";
 
-                    payload_json[idx]["Created"] = 1694161384;  // TODO Add support to get container creation time !
+                    payload_json[idx]["Created"] = it->second.created;
                     payload_json[idx]["Ports"]   = Json::arrayValue;
                     payload_json[idx]["Labels"]  = Json::objectValue;
                     payload_json[idx]["State"]   = it->second.state;

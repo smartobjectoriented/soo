@@ -28,11 +28,14 @@ namespace emiso {
         int id;
         std::string name;
         std::string state;
+        std::string image;
+        uint64_t created;
     };
 
     struct ContainerId {
         std::string name;
         std::string image;
+        uint64_t created;
     };
 
     class Container {
@@ -52,6 +55,8 @@ namespace emiso {
 
     private:
         std::string meToDockerState(int meState);
+        uint64_t createdTime();
+
         static std::map<int, ContainerId> _containersId;
 
     };
