@@ -25,8 +25,9 @@
 #include <json/json.h>
 #include <regex>
 
-// #include "../../daemon/container.hpp"
 #include "../../daemon/daemon.hpp"
+
+#include "container_inspect.hpp"
 
 namespace emiso {
 namespace container {
@@ -460,6 +461,7 @@ namespace container {
         UnpauseHandler *_unpauseHandler;
         RestartHandler *_restartHandler;
         RemoveHandler  *_removeHandler;
+        InspectHandler *_inspectHandler;
     };
 
 } // container
