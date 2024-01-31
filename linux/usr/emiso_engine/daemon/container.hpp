@@ -45,6 +45,8 @@ namespace emiso {
         ~Container();
 
         void info(std::map<int, ContainerInfo> &containerList);
+        void info(int id, ContainerInfo &info);
+
         int create(std::string imageName, std::string containerName, int slotId=-1);
         int start(unsigned contenerId);
         int stop(unsigned contenerId);

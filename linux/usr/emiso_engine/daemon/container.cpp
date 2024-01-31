@@ -107,6 +107,33 @@ void Container::info(std::map<int, ContainerInfo> &containerList)
     }
 }
 
+void Container::info(int id, ContainerInfo &info)
+{
+    int i, fd;
+    ME_id_t id_array[MAX_ME_DOMAINS];
+    agency_ioctl_args_t args;
+    int ME_size;
+    unsigned char *ME_buffer;
+
+    fd = open(SOO_CORE_DRV_PATH, O_RDWR);
+    // assert(fd_core > 0);
+
+    args.buffer = &id_array;
+    ioctl(fd, AGENCY_IOCTL_GET_ME_ID_ARRAY, (unsigned long) &args);
+
+    close(fd);
+
+    if (id_array[i].state != ME_state_dead) {
+        int slotID = i + 2;
+
+        info.id    = slotID;
+        info.name  = _containersId[slotID].name;
+        info.image = _containersId[slotID].image;
+        info.created = _containersId[slotID].created;
+        info.state = this->meToDockerState(id_array[i].state);
+    }
+}
+
 int Container::create(std::string imageName, std::string containerName, int slotID)
 {
     int fd;

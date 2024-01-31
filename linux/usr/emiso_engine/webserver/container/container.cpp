@@ -35,6 +35,7 @@ namespace emiso {
             _pauseHandler   = new PauseHandler(daemon);
             _unpauseHandler = new UnpauseHandler(daemon);
             _removeHandler = new RemoveHandler(daemon);
+            _inspectHandler = new InspectHandler(daemon);
 
             _server->register_resource(path + "/json", _listHandler);
             _server->register_resource("/v[1-9]+.[0-9]+" + path + "/json", _listHandler);
@@ -58,6 +59,9 @@ namespace emiso {
 
             _server->register_resource(path + "/[1-9]+", _removeHandler);
             _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+", _removeHandler);
+
+            _server->register_resource(path + "/{id|[0-9]+}/json", _inspectHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "/{id|[0-9]+}/json", _inspectHandler);
 
         }
 
