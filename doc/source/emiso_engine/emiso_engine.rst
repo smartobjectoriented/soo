@@ -38,6 +38,27 @@ Where
 * (optional) ``-i``: Interactive mode - start the cli interface instead of the
   webserver.
 
+*******
+Service
+*******
+
+A ``emiso`` service has been added to help control the engine. Currently this
+service only starts the ``emiso-engine``.
+
+Usage:
+
+* control
+
+.. code-block:: shell
+
+		systemctl {start,stop,status,restart} emiso.service
+
+	* Retrieve logs
+
+.. code-block:: shell
+
+		journalctl -fu emiso.service
+
 ************
 Architecture
 ************
