@@ -103,25 +103,35 @@ void Image::info(std::map<std::string, ImageInfo> &imagesList)
 
 void Image::info(std::string name, ImageInfo &info)
 {
-    // Check if the folder exists
-    if (std::filesystem::exists(EMISO_IMAGE_PATH) && std::filesystem::is_directory(EMISO_IMAGE_PATH)) {
-        // Iterate through the files in the folder
-        for (const auto& entry : std::filesystem::directory_iterator(EMISO_IMAGE_PATH)) {
-            if (std::filesystem::is_regular_file(entry)) {
-                if (entry.path().filename() == name)
+    //std::cout << "[JMI DEBUG] Get info for '" << name << "'" << std::endl;
 
-                    info.name = entry.path().filename();
-                    info.size = std::filesystem::file_size(entry);
-                    info.date = this->createdTime(EMISO_IMAGE_PATH + info.name);
+    info.name = name;
+    info.size = std::filesystem::file_size(name);
+    info.date = this->createdTime(name);
 
-                    auto id   = this->calculateId(EMISO_IMAGE_PATH + info.name);
-                    std::string mode = EMISO_IMAGE_ID_MODE;
-                    info.id   = mode + ":" + id;
-            }
-        }
-    } else {
-        std::cerr << "Folder '" << EMISO_IMAGE_PATH << "' does not exist or is not a directory." << std::endl;
-    }
+    auto id   = this->calculateId(info.name);
+    std::string mode = EMISO_IMAGE_ID_MODE;
+    info.id   = mode + ":" + id;
+
+//    // Check if the folder exists
+//    if (std::filesystem::exists(EMISO_IMAGE_PATH) && std::filesystem::is_directory(EMISO_IMAGE_PATH)) {
+//        // Iterate through the files in the folder
+//        for (const auto& entry : std::filesystem::directory_iterator(EMISO_IMAGE_PATH)) {
+//            if (std::filesystem::is_regular_file(entry)) {
+//                if (entry.path().filename() == name)
+//
+//                    info.name = entry.path().filename();
+//                    info.size = std::filesystem::file_size(entry);
+//                    info.date = this->createdTime(EMISO_IMAGE_PATH + info.name);
+//
+//                    auto id   = this->calculateId(EMISO_IMAGE_PATH + info.name);
+//                    std::string mode = EMISO_IMAGE_ID_MODE;
+//                    info.id   = mode + ":" + id;
+//            }
+//        }
+//    } else {
+//        std::cerr << "Folder '" << EMISO_IMAGE_PATH << "' does not exist or is not a directory." << std::endl;
+//    }
 }
 
 void Image::remove(std::string name)
