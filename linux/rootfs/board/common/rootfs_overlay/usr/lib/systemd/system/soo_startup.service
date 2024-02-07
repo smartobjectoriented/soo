@@ -1,9 +1,9 @@
 [Unit]
-Description=EMISO startup Service
+Description=SOO startup Service
 
 [Service]
 Type=oneshot
-ExecStart=/etc/emiso/startup.sh
+ExecStart=/etc/soo/startup.sh
 
 [Install]
 WantedBy=multi-user.target
