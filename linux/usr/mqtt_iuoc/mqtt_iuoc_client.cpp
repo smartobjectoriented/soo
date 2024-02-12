@@ -96,13 +96,14 @@ int main(int argc, char* argv[])
     unsigned qos = root["qos"].asUInt();
     unsigned retry_attemps = root["retry_attemps"].asUInt();
 
-    mqtt::async_client client(server_address, client_id);
+    //mqtt::async_client client(server_address, client_id);
+    mqtt::async_client client("193.134.223.70:1883", "l7yojnrgblai1dmu4fed");
 
     mqtt::connect_options connOpts;
 
     connOpts.set_clean_session(false);
-    connOpts.set_user_name("iuocmqtt");
-    connOpts.set_password("Shaft_Dreaded_Dosage");
+    //connOpts.set_user_name("iuocmqtt");
+    //connOpts.set_password("Shaft_Dreaded_Dosage");
     
     // Install the callback(s) before connecting.
     callback cb(client, connOpts, sub_topics_mapping, qos, retry_attemps);

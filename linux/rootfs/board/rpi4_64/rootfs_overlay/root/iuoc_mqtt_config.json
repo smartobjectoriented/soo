@@ -1,8 +1,8 @@
 {
-    "server_address": "10.192.127.83:1883",
-    "client_id": "iuoc_mqtt_client",
+    "server_address": "193.134.223.70:1883",
+    "client_id": "l7yojnrgblai1dmu4fed",
     "sub_topics": [ 
-        {"topic": "/iuoc/server/cover/cmd", "me_name": "SOO.blind", "me_type": 0},
+        {"topic": "v1/devices/me/rpc/request/+", "me_name": "SOO.blind", "me_type": 0},
     ],
 
     "pub_topics": [ 
