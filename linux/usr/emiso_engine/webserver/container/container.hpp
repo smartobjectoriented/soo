@@ -223,26 +223,13 @@ namespace container {
         const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
             std::string payload_str = "";
             Json::Value payload_json;
-            int containerId = -1;
-
 
             std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
 
-            // Retrieve the Container ID from request path
-            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+)/start)");
-            std::smatch matches;
+            // == Retrieve container ID from the request path ==
+            int containerId = stoi(req.get_arg("id"));
 
-            if (std::regex_search(req.get_path(), matches, pattern)) {
-                std::cout << "found something" << std::endl;
-                containerId = std::stoi(matches[1]);
-
-                _daemon->container.start(containerId);
-
-            } else {
-                /* Error in the message */
-            }
-
-             std::cout << "containerId: " << containerId << std::endl;
+            _daemon->container.start(containerId);
 
             auto response = std::make_shared<httpserver::string_response>(payload_str,
                        httpserver::http::http_utils::http_no_content, "application/json");
@@ -250,7 +237,6 @@ namespace container {
         }
 
     private:
-    // daemon::Container _container;
         Daemon *_daemon;
     };
 
@@ -263,25 +249,13 @@ namespace container {
         const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
             std::string payload_str = "";
             Json::Value payload_json;
-            int containerId = -1;
 
             std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
 
-            // Retrieve the Container ID from request path
-            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+)/stop)");
-            std::smatch matches;
+            // == Retrieve container ID from the request path ==
+            int containerId = stoi(req.get_arg("id"));
 
-            if (std::regex_search(req.get_path(), matches, pattern)) {
-                std::cout << "found something" << std::endl;
-                containerId = std::stoi(matches[1]);
-
-                _daemon->container.stop(containerId);
-
-            } else {
-                /* Error in the message */
-            }
-
-             std::cout << "containerId: " << containerId << std::endl;
+            _daemon->container.stop(containerId);
 
             auto response = std::make_shared<httpserver::string_response>(payload_str,
                        httpserver::http::http_utils::http_no_content, "application/json");
@@ -301,25 +275,13 @@ namespace container {
         const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
             std::string payload_str = "";
             Json::Value payload_json;
-            int containerId = -1;
 
             std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
 
-            // Retrieve the Container ID from request path
-            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+)/restart)");
-            std::smatch matches;
+            // == Retrieve container ID from the request path ==
+            int containerId = stoi(req.get_arg("id"));
 
-            if (std::regex_search(req.get_path(), matches, pattern)) {
-                std::cout << "found something" << std::endl;
-                containerId = std::stoi(matches[1]);
-
-                _daemon->container.restart(containerId);
-
-            } else {
-                /* Error in the message */
-            }
-
-             std::cout << "containerId: " << containerId << std::endl;
+            _daemon->container.restart(containerId);
 
             auto response = std::make_shared<httpserver::string_response>(payload_str,
                        httpserver::http::http_utils::http_no_content, "application/json");
@@ -338,25 +300,13 @@ namespace container {
         const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
             std::string payload_str = "";
             Json::Value payload_json;
-            int containerId = -1;
 
             std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
 
-            // Retrieve the Container ID from request path
-            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+)/pause)");
-            std::smatch matches;
+            // == Retrieve container ID from the request path ==
+            int containerId = stoi(req.get_arg("id"));
 
-            if (std::regex_search(req.get_path(), matches, pattern)) {
-                std::cout << "found something" << std::endl;
-                containerId = std::stoi(matches[1]);
-
-                _daemon->container.pause(containerId);
-
-            } else {
-                /* Error in the message */
-            }
-
-             std::cout << "containerId: " << containerId << std::endl;
+            _daemon->container.pause(containerId);
 
             auto response = std::make_shared<httpserver::string_response>(payload_str,
                        httpserver::http::http_utils::http_no_content, "application/json");
@@ -364,7 +314,6 @@ namespace container {
         }
 
     private:
-        // daemon::Container _container;
         Daemon *_daemon;
 
     };
@@ -376,25 +325,15 @@ namespace container {
         const std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
             std::string payload_str = "";
             Json::Value payload_json;
-            int containerId = -1;
 
             std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
 
-            // Retrieve the Container ID from request path
-            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+)/unpause)");
-            std::smatch matches;
+            // == Retrieve container ID from the request path ==
+            int containerId = stoi(req.get_arg("id"));
 
-            if (std::regex_search(req.get_path(), matches, pattern)) {
-                std::cout << "found something" << std::endl;
-                containerId = std::stoi(matches[1]);
+            _daemon->container.unpause(containerId);
 
-                _daemon->container.unpause(containerId);
-
-            } else {
-                /* Error in the message */
-            }
-
-             std::cout << "containerId: " << containerId << std::endl;
+            std::cout << "containerId: " << containerId << std::endl;
 
             auto response = std::make_shared<httpserver::string_response>(payload_str,
                        httpserver::http::http_utils::http_no_content, "application/json");
@@ -402,7 +341,6 @@ namespace container {
         }
 
     private:
-        // daemon::Container _container;
         Daemon *_daemon;
     };
 
@@ -414,23 +352,13 @@ namespace container {
         const std::shared_ptr<httpserver::http_response> render_DELETE(const httpserver::http_request &req) {
             std::string payload_str = "";
             Json::Value payload_json;
-            int containerId = -1;
 
             std::cout << "[WEBERVER] '" << req.get_path()  << "' (" << req.get_method() << ") called" << std::endl;
 
-            // Retrieve the Container ID from request path
-            std::regex pattern(R"(/(?:v\d+\.)?containers/([0-9]+))");
-            std::smatch matches;
+            // == Retrieve container ID from the request path ==
+            int containerId = stoi(req.get_arg("id"));
 
-            if (std::regex_search(req.get_path(), matches, pattern)) {
-                std::cout << "found something" << std::endl;
-                containerId = std::stoi(matches[1]);
-
-                _daemon->container.remove(containerId);
-
-            } else {
-                /* Error in the message */
-            }
+            _daemon->container.remove(containerId);
 
             auto response = std::make_shared<httpserver::string_response>(payload_str,
                        httpserver::http::http_utils::http_no_content, "application/json");
