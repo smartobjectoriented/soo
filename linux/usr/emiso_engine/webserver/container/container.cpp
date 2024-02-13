@@ -42,27 +42,26 @@ namespace emiso {
             _server->register_resource(path + "/create", _createHandler);
             _server->register_resource("/v[1-9]+.[0-9]+" + path + "/create", _createHandler);
 
-            _server->register_resource(path + "/[1-9]+/start", _startHandler);
-            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+/start", _startHandler);
+            _server->register_resource(path + "/{id|[0-9]+}/start", _startHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "/{id|[0-9]+}/start", _startHandler);
 
-            _server->register_resource(path + "/[1-9]+/stop", _stopHandler);
-            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+/stop", _stopHandler);
+            _server->register_resource(path + "/{id|[0-9]+}/stop", _stopHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "/{id|[0-9]+}/stop", _stopHandler);
 
-            _server->register_resource(path + "/[1-9]+/restart", _restartHandler);
-            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+/restart", _restartHandler);
+            _server->register_resource(path + "/{id|[0-9]+}/restart", _restartHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "/{id|[0-9]+}/restart", _restartHandler);
 
-            _server->register_resource(path + "/[1-9]+/pause", _pauseHandler);
-            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+/pause", _pauseHandler);
+            _server->register_resource(path + "/{id|[0-9]+}/pause", _pauseHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "/{id|[0-9]+}/pause", _pauseHandler);
 
-            _server->register_resource(path + "/[1-9]+/unpause", _unpauseHandler);
-            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+/unpause", _unpauseHandler);
+            _server->register_resource(path + "/{id|[0-9]+}/unpause", _unpauseHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "/{id|[0-9]+}/unpause", _unpauseHandler);
 
-            _server->register_resource(path + "/[1-9]+", _removeHandler);
-            _server->register_resource("/v[1-9]+.[0-9]+" + path + "[0-9]+", _removeHandler);
+            _server->register_resource(path + "/{id|[0-9]+}", _removeHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "/{id|[0-9]+}", _removeHandler);
 
             _server->register_resource(path + "/{id|[0-9]+}/json", _inspectHandler);
             _server->register_resource("/v[1-9]+.[0-9]+" + path + "/{id|[0-9]+}/json", _inspectHandler);
-
         }
 
         ContainerApi::~ContainerApi() {}
