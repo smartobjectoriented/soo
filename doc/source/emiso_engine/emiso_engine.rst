@@ -51,13 +51,13 @@ Usage:
 
 .. code-block:: shell
 
-		systemctl {start,stop,status,restart} emiso.service
+	systemctl {start,stop,status,restart} emiso.service
 
 	* Retrieve logs
 
 .. code-block:: shell
 
-		journalctl -fu emiso.service
+	journalctl -fu emiso.service
 
 ************
 Architecture
@@ -80,9 +80,76 @@ by:
 
 	Engine Architecture
 
+The different blocks of the engine are:
+
+* A web server compliant with a subset of the Docker APIs.
+* EMISO Daemon handles the interactions with the SO3 Containers
+* The cli interface offers an entry point to interact with the EMISO Daemon. It
+  is used to directly interact with the SO3 Containers, bypassing the webserver.
+  It can be used for debugging purposes, for example.
+
+.. note::
+
+	The cli interface is not implemented in current ``emiso-engine`` version
+
+******
+Daemon
+******
+
+The EMISO engine *Daemon* provides an interface to interact with the SO3 containers.
+SO3 Container are SOO Mobile Entity (ME). ME has been instrumented to be controlled
+by the daemon.
+
+The following table provides the mapping between the Docker and SO3 elements. The
+Docker elements which are not present in the table - like volumes, networks, … -
+are not handled by the SO3 containers.
+
+	==============  =============================
+	Docker          SO3 container
+	==============  =============================
+	Dockerfile      SO3 Container sources
+	Image           SO3 itb file
+	Container       SO3 “injected” container
+	==============  =============================
+
+The following table provides the mapping between the Docker and SO3 states.
+
+	==============  =============================
+	Docker          SO3 container
+	==============  =============================
+	created         ME_state_booting
+	created         ME_state_preparing
+	running         ME_state_living
+	paused          ME_state_suspended
+	error           ME_state_migrating
+	paused          ME_state_dormant
+	dead            ME_state_killed
+	exited          ME_state_terminated
+	dead            ME_state_dead
+	==============  =============================
+
+The EMISO Engine daemon provides supports the following features:
+
+* Retrieving status/info about the SO3 Images/Containers
+* SO3 Container deployment/injection/creation
+* SO3 Container start/stop/restart
+* SO3 Container pause/unpause
+* SO3 Container termination / kill
+* SO3 Container update with a new container version
+
+SO3 Images
+==========
+
+An SO3 Container image consists in a SO3 “itb” file. These images are stored in
+``/mnt/ME/`` SD card partition.
+
 *************
 cli interface
 *************
+
+.. note::
+
+	The cli interface is not implemented in current ``emiso-engine`` version
 
 The cli interface supports the following commands:
 
