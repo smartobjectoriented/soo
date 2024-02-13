@@ -57,8 +57,6 @@ namespace container {
             // ptm = std::localtime((const long int*)&info.created + 500);
             // std::strftime(endDate, 32, "%Y-%M-%dT%H.%M.%S", ptm);
 
-            std::cout << "image: (" << imageInfo.id << ") '" << imageInfo.name << "'"  << std::endl;
-
             // == Build the response message ==
             payloadJson["Id"] =  std::to_string(containerId);
             payloadJson["Created"] = createdDate;
