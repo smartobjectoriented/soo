@@ -180,10 +180,6 @@ int Container::create(std::string imageName, std::string containerName, int slot
 
     delete[] containerBuf;
 
-    std::cout << "slotID: " << args.slotID << std::endl
-              << "id.name: " << id.name << std::endl
-              << "id.image: " << id.image << std::endl;
-
     return args.slotID;
 }
 
