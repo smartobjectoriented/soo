@@ -48,7 +48,6 @@ namespace container {
             bool sizeArg = false;
             std::string filtersArg = "";
             for (const auto& arg : req.get_args()) {
-                std::cout << "    " << arg.first << ": " << arg.second << std::endl;
                 if (arg.first == "all") {
                     allArg = (arg.second == "true");
                 }
@@ -101,7 +100,6 @@ namespace container {
                         for (const auto &pattern : namesFilter) {
                             std::regex regexPattern(pattern);
                              if (std::regex_match("/" + it->second.name, regexPattern)) {
-                                std::cout << "Match found with pattern: " << pattern << std::endl;
                                 nameFound = true;
                                 break;
                              }
@@ -332,8 +330,6 @@ namespace container {
             int containerId = stoi(req.get_arg("id"));
 
             _daemon->container.unpause(containerId);
-
-            std::cout << "containerId: " << containerId << std::endl;
 
             auto response = std::make_shared<httpserver::string_response>(payload_str,
                        httpserver::http::http_utils::http_no_content, "application/json");
