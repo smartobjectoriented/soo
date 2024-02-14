@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
     unsigned retry_attemps = root["retry_attemps"].asUInt();
 
     //mqtt::async_client client(server_address, client_id);
-    mqtt::async_client client("193.134.223.70:1883", "l7yojnrgblai1dmu4fed");
+    mqtt::async_client client("193.134.223.70:1883", "3rfxl75hllgfj29xcz3i");
 
     mqtt::connect_options connOpts;
 

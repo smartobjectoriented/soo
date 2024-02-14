@@ -1,6 +1,6 @@
 {
     "server_address": "193.134.223.70:1883",
-    "client_id": "l7yojnrgblai1dmu4fed",
+    "client_id": "3rfxl75hllgfj29xcz3i",
     "sub_topics": [ 
         {"topic": "v1/devices/me/rpc/request/+", "me_name": "SOO.blind", "me_type": 0},
     ],
