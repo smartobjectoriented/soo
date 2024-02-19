@@ -47,13 +47,13 @@ service only starts the ``emiso-engine``.
 
 Usage:
 
-* control
+* Control
 
 .. code-block:: shell
 
 	systemctl {start,stop,status,restart} emiso.service
 
-	* Retrieve logs
+* Retrieve logs
 
 .. code-block:: shell
 
@@ -159,4 +159,3 @@ The cli interface supports the following commands:
 	image info             Return information on the available images
 	image rm <IMAGE NAME>  Remove <IMAGE NAME>
 	=====================  ==========================================
-
