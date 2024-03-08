@@ -40,7 +40,7 @@
 
 #include <lvgl.h>
 
-#include "lv_demo_stress.h"
+#include "lvgl_perf.h"
 
 /* Screen resolution. */
 static uint32_t scr_hres, scr_vres, *fbp;
@@ -217,6 +217,8 @@ int fb_init(void)
 int main(int argc, char **argv)
 {
 	pthread_t tick_thread;
+
+	printf("LVGL Performance test\n");
 
 	/* Initialization of lvgl. */
 	lv_init();
