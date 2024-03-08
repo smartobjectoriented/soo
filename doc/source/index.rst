@@ -22,6 +22,8 @@
    drivers/drivers
    rootfs/rootfs
    user_guide
+   emiso_engine/emiso_engine.rst
+   portainer/portainer
    logging
    board_issues
    aarch64

@@ -23,12 +23,19 @@
 #include <map>
 
 namespace emiso {
-namespace daemon {
 
     struct ContainerInfo {
         int id;
         std::string name;
         std::string state;
+        std::string image;
+        uint64_t created;
+    };
+
+    struct ContainerId {
+        std::string name;
+        std::string image;
+        uint64_t created;
     };
 
     class Container {
@@ -38,13 +45,23 @@ namespace daemon {
         ~Container();
 
         void info(std::map<int, ContainerInfo> &containerList);
-        int create(std::string imageName);
+        void info(int id, ContainerInfo &info);
+
+        int create(std::string imageName, std::string containerName, int slotId=-1);
+        int start(unsigned contenerId);
+        int stop(unsigned contenerId);
+        int restart(unsigned contenerId);
+        int pause(unsigned contenerId);
+        int unpause(unsigned contenerId);
+        int remove(unsigned contenerId);
 
     private:
         std::string meToDockerState(int meState);
+        uint64_t createdTime();
+
+        static std::map<int, ContainerId> _containersId;
 
     };
-}
 }
 
 #endif // EMISO_DAEMON_CONTAINER_H

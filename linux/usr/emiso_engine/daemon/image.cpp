@@ -25,7 +25,6 @@
 #define EMISO_IMAGE_ID_MODE  "md5"
 
 namespace emiso {
-namespace daemon {
 
 Image::Image() {};
 
@@ -102,6 +101,17 @@ void Image::info(std::map<std::string, ImageInfo> &imagesList)
     }
 }
 
+void Image::info(std::string name, ImageInfo &info)
+{
+    info.name = name;
+    info.size = std::filesystem::file_size(name);
+    info.date = this->createdTime(name);
+
+    auto id   = this->calculateId(info.name);
+    std::string mode = EMISO_IMAGE_ID_MODE;
+    info.id   = mode + ":" + id;
+}
+
 void Image::remove(std::string name)
 {
     std::filesystem::path filePath = EMISO_IMAGE_PATH + name;
@@ -121,6 +131,4 @@ void Image::remove(std::string name)
     }
 }
 
-
-} // daemon
 } // emiso
