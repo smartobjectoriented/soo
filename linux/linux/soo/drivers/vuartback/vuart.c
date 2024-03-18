@@ -126,8 +126,9 @@ void process_response(struct vbus_device *vdev) {
 
 			notify_remote_via_virq(vuart_priv->vuart.irq);
 
-		} else
-			lprintch(ring_req->c);
+		} else {
+			printk(KERN_CONT "%c", ring_req->c);
+		}
 	}
 
 	vdevback_processing_end(vdev);
@@ -188,6 +189,8 @@ void vuart_probe(struct vbus_device *vdev) {
 
 	vuart_priv = kzalloc(sizeof(vuart_priv_t), GFP_ATOMIC);
 	BUG_ON(!vuart_priv);
+
+	printk("[JMI] vuart probed / me: %d\n", vdev->otherend_id);
 
 	spin_lock_init(&vuart_priv->vuart.ring_lock);
 
