@@ -190,8 +190,6 @@ void vuart_probe(struct vbus_device *vdev) {
 	vuart_priv = kzalloc(sizeof(vuart_priv_t), GFP_ATOMIC);
 	BUG_ON(!vuart_priv);
 
-	printk("[JMI] vuart probed / me: %d\n", vdev->otherend_id);
-
 	spin_lock_init(&vuart_priv->vuart.ring_lock);
 
 	dev_set_drvdata(&vdev->dev, vuart_priv);

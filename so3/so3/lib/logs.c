@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2024 Jean-Pierre Miceli <jean-pierre.miceli@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -21,16 +21,39 @@
 #include <stdarg.h>
 #include <process.h>
 #include <vfs.h>
-
 #include <device/serial.h>
 
+#include <soo/avz.h>
+
+/* Sends some bytes to the UART */
+static int log_write(char *str, int len) {
+	int i;
+	unsigned long flags;
+
+	/* Here, we disable IRQ since printk() can also be used with IRQs off */
+	flags = local_irq_save();
+
+	for (i = 0; i < len; i++) {
+		if (str[i] != 0)
+			serial_putc(str[i]);
+	}
+
+	local_irq_restore(flags);
+
+	return len;
+}
+
 /*
- * Standard version of printk to be used.
+ * Generates logs messages. It is similar 'printk', but:
+ *   1. Add '[ME:<ME_ID>]' prefix
+ *   2. Send message though vUART
+ *
+ *   Only available in virtual mode
  */
-void printk(const char *fmt, ...)
+void logs(const char *fmt, ...)
 {
 	static char   buf[1024];
-
+	static char   msg[1024];
 	va_list       args;
 	char         *p, *q;
 
@@ -38,19 +61,19 @@ void printk(const char *fmt, ...)
 	(void)vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 
-	p = buf;
+	sprintf(msg, "[ME:%d] %s", ME_domID(), buf);
 
-	while ((q = strchr(p, '\n')) != NULL)
-	{
+	p = msg;
+
+	while ((q = strchr(p, '\n')) != NULL) {
 		*q = '\0';
 
-		serial_write(p, strlen(p)+1);
-		serial_write("\n", 2);
+		log_write(p, strlen(p)+1);
+		log_write("\n", 2);
 
 		p = q + 1;
 	}
 
 	if (*p != '\0')
-		serial_write(p, strlen(p)+1);
+		log_write(p, strlen(p)+1);
 }
-
