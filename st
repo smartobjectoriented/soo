@@ -28,7 +28,7 @@ if [ "$PLATFORM" == "virt64" ]; then
 		-device virtio-blk-device,drive=hd0 \
 		-drive if=none,file=filesystem/sdcard.img.virt64,id=hd0,format=raw,file.locking=off \
 		-m 1024 \
-		-kernel so3/u-boot/u-boot \
+		-kernel ME/work/so3/u-boot/u-boot \
 		-nographic \
 		-netdev tap,id=n1,script=scripts/qemu-ifup.sh,downscript=scripts/qemu-ifdown.sh \
 		-device virtio-net-device,netdev=n1,mac=${QEMU_MAC_ADDR} \
@@ -43,7 +43,7 @@ else
 		-M virt -cpu cortex-a15 \-device virtio-blk-device,drive=hd0 \
 		-drive if=none,file=filesystem/sdcard.img.virt32,id=hd0,format=raw,file.locking=off \
 		-m 1024 \
-		-kernel so3/u-boot/u-boot \
+		-kernel ME/work/so3/u-boot/u-boot \
 		-net tap,script=scripts/qemu-ifup.sh,downscript=scripts/qemu-ifdown.sh -net nic,macaddr=${QEMU_MAC_ADDR} \
 		-nographic \
 		-gdb tcp::${GDB_PORT}

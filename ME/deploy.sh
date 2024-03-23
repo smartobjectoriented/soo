@@ -87,7 +87,7 @@ fi
 if [ "$deploy_me" == "y" ]; then
         echo Deploying the ME into its itb file...
 
-        cd ../so3/target
+        cd work/so3/target
         ./mkuboot.sh $3
 
         echo Copying the ITB image $2.itb in the $2 directory

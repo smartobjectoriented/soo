@@ -1,6 +1,3 @@
 [submodule "ME/so3"]
 	path = ME/so3
 	url = git@github.com:smartobjectoriented/so3
-[submodule "ME/--force"]
-	path = ME/--force
-	url = git@github.com:smartobjectoriented/so3
