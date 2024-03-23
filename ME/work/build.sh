@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo Building symlinks with mainline SO3 (it takes a while!)...
+echo "Building symlinks with mainline SO3 (it takes a while!)..."
 
 # Source directory containing files to link from
 source_dir="${PWD}/../so3"
@@ -23,18 +23,18 @@ for file do
     # Ensure destination directory structure exists
     mkdir -p "$2/${relative_path%/*}"
 
-    # Check if the file already exists in the destination directory
-    if [ ! -e "$2/$relative_path" ]; then
-        # Create symlink
-        ln -s "$file" "$2/$relative_path"
+    # Create symlink
+    if [ ! -d "$2/$relative_path" ]; then
+        ln -fs "$file" "$2/$relative_path"
     fi
+
 done
 ' bash "$source_dir" "$destination_dir" {} +
 
-echo Remove .git* files in the root...
+echo "Remove .git* files in the root..."
 rm -rf so3/.git*
 
-echo Now, building symlinks for overlays...
+echo "Now, building symlinks for overlays..."
 
 # Source directory containing files to link from
 source_dir="${PWD}/../soo/so3"
@@ -57,11 +57,12 @@ for file do
     # Ensure destination directory structure exists
     mkdir -p "$2/${relative_path%/*}"
 
-    # Check if the file already exists in the destination directory
-    if [ ! -e "$2/$relative_path" ]; then
-        # Create symlink
+    # Create symlink
+    if [ ! -d "$2/$relative_path" ]; then
         ln -fs "$file" "$2/$relative_path"
     fi
+
 done
 ' bash "$source_dir" "$destination_dir" {} +
 
+echo "Completed."
