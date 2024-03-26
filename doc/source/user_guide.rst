@@ -17,6 +17,9 @@ support.
 Pre-requisite
 *************
 
+Additional packages
+===================
+
 We need to run some i386 executables, and we need to install some i386
 libraries too.
 
@@ -52,6 +55,40 @@ prevent annoying warnings:
 .. code:: bash
 
    sudo apt-get install bison flex
+
+SO3 Git submodule
+=================
+
+SO3 is used as hypervisor (AVZ) and for MEs. It is defined as a sub-module in
+the main SOO repository.
+
+To clone the submodule, do:
+
+.. code-block:: bash
+
+   git submodule update --init
+
+Actually, the SO3 version for SOO includes additional files and a piece of modified
+files specific to the SOO environment. A build script is used to create symbolic
+links to original SO3 files as well as to SOO-related files stored in ``ME/soo/so3``.
+
+Go to the ``ME/work`` directory and execute the ``build.sh`` in order to build
+the SOO specific SO3 environment.
+
+.. code-block: bash
+
+   cd ME/work
+   ./build.sh
+
+It may take a while since the script create symlinks to all SO3 files.
+
+.. warning::
+
+   Do not modify SO3 files which are not stored in ``ME/soo/so3`` since these
+   files come from the submodule. Go rather to Github SO3 page and make an issue
+   if modifications concern *standalone* SO3 or simply copy the original file
+   in ``ME/soo/so3`` to make changes which are SOO-specific.
+
 
 Toolchain
 =========

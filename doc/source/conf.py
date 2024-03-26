@@ -42,7 +42,6 @@ extensions = [
     'sphinx.ext.imgmath'
 ]
 
-plantuml = 'java -jar %s -t' % os.path.join(os.path.dirname(__file__), "../utils", "plantuml.jar")
 plantuml_output_format = 'png'
 
 # Add any paths that contain templates here, relative to this directory.
