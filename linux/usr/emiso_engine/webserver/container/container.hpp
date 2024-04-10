@@ -388,6 +388,7 @@ namespace container {
         RestartHandler *_restartHandler;
         RemoveHandler  *_removeHandler;
         InspectHandler *_inspectHandler;
+        LogsHandler    *_logsHandler;
     };
 
 } // container
