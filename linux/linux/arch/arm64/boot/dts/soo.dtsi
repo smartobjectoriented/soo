@@ -64,6 +64,11 @@
 				status = "disabled";
 			};
 
+			vvext {
+				compatible = "vvext,backend";
+				status = "disabled";
+			};
+
 		};
 	};
 	
