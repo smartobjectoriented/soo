@@ -11,3 +11,4 @@ obj-$(CONFIG_VENOCEAN_FRONTEND) += venoceanfront/
 obj-$(CONFIG_VWAGOLED_FRONTEND) += vwagoledfront/
 obj-$(CONFIG_VIUOC_FRONTEND) += viuocfront/
 obj-$(CONFIG_VKNX_FRONTEND) += vknxfront/
+obj-$(CONFIG_VVEXT_FRONTEND) += vvextfront/
