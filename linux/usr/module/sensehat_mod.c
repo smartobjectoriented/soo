@@ -25,6 +25,9 @@
 
 #include "rpisense.h"
 
+#define QEMU 0
+#define VVEXT 1
+
 char *vext_led_name[]  = {
 	"vext_led0",
 	"vext_led1",
@@ -64,13 +67,7 @@ static irqreturn_t process_input(int irq, void *dev_id) {
 	pdev_vext_t *pdev_vext = (pdev_vext_t *) dev_id;
 	vvext_response_t *vvext_response;
 
-#if 0
-	input_report_key(pdev_vext->switch_input.input, keys[pdev_vext->switch_input.switch_nr-1], 1);
-	input_sync(pdev_vext->switch_input.input);
-	input_report_key(pdev_vext->switch_input.input, keys[pdev_vext->switch_input.switch_nr-1], 0);
-	input_sync(pdev_vext->switch_input.input);
-#endif
-
+#if VVEXT
 	if (vdevfront_is_connected(pdev_vext->vvext.vdev)) {
 
 		vdevback_processing_begin(pdev_vext->vvext.vdev);
@@ -88,6 +85,12 @@ static irqreturn_t process_input(int irq, void *dev_id) {
 		vdevback_processing_end(pdev_vext->vvext.vdev);
 
 	}
+#else
+	input_report_key(pdev_vext->switch_input.input, keys[pdev_vext->switch_input.switch_nr-1], 1);
+	input_sync(pdev_vext->switch_input.input);
+	input_report_key(pdev_vext->switch_input.input, keys[pdev_vext->switch_input.switch_nr-1], 0);
+	input_sync(pdev_vext->switch_input.input);
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -121,7 +124,7 @@ void led_set(struct led_classdev *led_cdev, enum led_brightness brightness) {
 
 	volatile uint16_t *led_vaddr = (uint16_t *) (pdev_vext->vext_vaddr + 0x3a);
 
-#if 0
+#if 1
 	printk("## led nr %d  brightness: %d\n", vext_led->lednr, brightness);
 #endif
 
@@ -150,6 +153,7 @@ void led_set(struct led_classdev *led_cdev, enum led_brightness brightness) {
 void rpisense_process_switch( struct platform_device *pdev, int key) {
 	pdev_vext_t *pdev_vext = (pdev_vext_t *) platform_get_drvdata(pdev);
 	uint32_t key_input;
+	vvext_response_t *vvext_response;
 
 	printk("### %s: got %d\n", __func__, key);
 
@@ -174,10 +178,30 @@ void rpisense_process_switch( struct platform_device *pdev, int key) {
 			break;
 	}
 
-	input_report_key(pdev_vext->switch_input.input, key_input, 1);
+#if VVEXT
+	if (vdevfront_is_connected(pdev_vext->vvext.vdev)) {
+
+		vdevback_processing_begin(pdev_vext->vvext.vdev);
+
+		vvext_response = vvext_new_ring_response(&pdev_vext->vvext.ring);
+
+		vvext_response->type = EV_KEY;
+		vvext_response->code = keys[pdev_vext->switch_input.switch_nr-1];
+		vvext_response->value = 1;
+
+		vvext_ring_response_ready(&pdev_vext->vvext.ring);
+
+		notify_remote_via_virq(pdev_vext->vvext.irq);
+
+		vdevback_processing_end(pdev_vext->vvext.vdev);
+
+	}
+#else
+	input_report_key(pdev_vext->switch_input.input, keys[pdev_vext->switch_input.switch_nr-1], 1);
 	input_sync(pdev_vext->switch_input.input);
-	input_report_key(pdev_vext->switch_input.input, key_input, 0);
+	input_report_key(pdev_vext->switch_input.input, keys[pdev_vext->switch_input.switch_nr-1], 0);
 	input_sync(pdev_vext->switch_input.input);
+#endif
 }
 
 
@@ -235,9 +259,9 @@ static int vext_probe_common(struct platform_device *pdev, pdev_vext_t *pdev_vex
 		printk("input register failed (%d)...\n", ret);
 		return -1;
 	}
-
+#if VVEXT
 	vvext_init(&pdev_vext->vvext, vvext_interrupt);
-
+#endif
 	return 0;
 }
 
@@ -360,8 +384,11 @@ static int access_init(void) {
 
 	printk("access: small driver for accessing I/O ...\n");
 
+#if QEMU
 	platform_driver_register(&vext_driver);
+#else
 	platform_driver_register(&vext_rpisense_driver);
+#endif
 
 	return 0;
 }

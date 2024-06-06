@@ -46,6 +46,11 @@
 		pcie0 = &pcie0;
 	};
 
+	vext {
+		compatible = "rpi4,vext";
+	};
+
+
 	leds {
 		act {
 			gpios = <&gpio 42 GPIO_ACTIVE_HIGH>;
@@ -122,6 +127,10 @@
 		};
 
 		vknx {
+			status = "ok";
+		};
+
+		vvext {
 			status = "ok";
 		};
 

@@ -649,6 +649,8 @@ bool vbus_gather(struct vbus_transaction t, const char *dir, ...)
 	return true;
 }
 
+EXPORT_SYMBOL(vbus_gather);
+
 void vbs_watch(const char *path)
 {
 	msgvec_t vec[1];

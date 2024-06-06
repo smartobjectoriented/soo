@@ -38,7 +38,7 @@ config VKNX_FRONTEND
     bool "KNX frontend"
 
 config VVEXT_FRONTEND
-    bool "KNX frontend"
+    bool "VVEXT frontend"
 
 endmenu
 
