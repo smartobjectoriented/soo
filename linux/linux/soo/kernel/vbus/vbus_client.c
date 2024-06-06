@@ -213,6 +213,8 @@ void vbus_map_ring_valloc(struct vbus_device *dev, int gnt_ref, void **vaddr)
 	*vaddr = area->addr;
 }
 
+EXPORT_SYMBOL(vbus_map_ring_valloc);
+
 /**
  * vbus_map_ring
  * @dev: vbus device
@@ -282,6 +284,8 @@ void vbus_unmap_ring_vfree(struct vbus_device *dev, void *vaddr)
 		BUG();
 	}
 }
+
+EXPORT_SYMBOL(vbus_unmap_ring_vfree);
 
 /**
  * vbus_unmap_ring

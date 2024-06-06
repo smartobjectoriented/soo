@@ -67,5 +67,8 @@ choice
 	
 	config SOO_SWITCH_ENOCEAN
 		bool "SOO.switch Mobile Entity using enocean"
+
+	config SOO_VVEXT
+		bool "SOO.vvext_64 ME using rpisense"
 		
 endchoice

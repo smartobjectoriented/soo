@@ -77,6 +77,8 @@ bool vdevback_processing_begin(struct vbus_device *vdev) {
 	return true;
 }
 
+EXPORT_SYMBOL(vdevback_processing_begin);
+
 /*
  * Finish a processing section against suspend/close prevention
  */
@@ -91,6 +93,8 @@ void vdevback_processing_end(struct vbus_device *vdev) {
 
 }
 
+EXPORT_SYMBOL(vdevback_processing_end);
+
 /*
  * Check if the frontend state and tell whether it is connected.
  */
@@ -103,6 +107,8 @@ bool vdevfront_is_connected(struct vbus_device *vdev) {
 
 	return vdevback->vdevfront_connected;
 }
+
+EXPORT_SYMBOL(vdevfront_is_connected);
 
 /*
  * Probe entry point for our vbus backend.
@@ -268,7 +274,7 @@ void vdevback_init(char *name, vdrvback_t *vbackdrv) {
 	vbus_register_backend(&vbackdrv->vdrv);
 }
 
-
+EXPORT_SYMBOL(vdevback_init);
 
 void vdevback_add_entry(struct vbus_device *vdev, struct list_head *list) {
 	vdev_entry_t *entry;

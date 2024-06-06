@@ -318,6 +318,8 @@ int bind_interdomain_evtchn_to_virqhandler(unsigned int remote_domain, unsigned 
 	return virq;
 }
 
+EXPORT_SYMBOL(bind_interdomain_evtchn_to_virqhandler);
+
 int rtdm_bind_evtchn_to_virq_handler(rtdm_irq_t *irq_handle, unsigned int evtchn, rtdm_irq_handler_t handler, unsigned long irqflags, const char *devname, void *dev_id)
 {
 	unsigned int virq;
@@ -376,6 +378,8 @@ void unbind_from_virqhandler(unsigned int virq, void *dev_id)
 
 }
 
+EXPORT_SYMBOL(unbind_from_virqhandler);
+
 /*
  * Interface to generic handling in irq.c
  */
@@ -425,6 +429,8 @@ void notify_remote_via_virq(int virq)
 
 	notify_remote_via_evtchn(evtchn);
 }
+
+EXPORT_SYMBOL(notify_remote_via_virq);
 
 void mask_evtchn(int evtchn)
 {
