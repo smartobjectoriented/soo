@@ -186,6 +186,10 @@ void inject_MEs_from_filesystem(char *filename) {
 
 	/* Allocate the ME buffer */
 	ME_buffer = malloc(ME_size);
+	if (ME_buffer == NULL) {
+		printf("Error at ME_buffer allocation\n");
+		BUG();
+	}
 
 	DBG("agency_core: size to read from sd : %d, buffer address : 0x%08x\n", ME_size, (unsigned int) ME_buffer);
 
