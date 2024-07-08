@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2.2.2.3. Plugins management &mdash; Smart Object Oriented 2021.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/style.css" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/theme_overrides.css?v=7751120a" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/documentation_options.js?v=b4aaf8b5"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="2.3. Mobile Entity (ME)" href="../../ME/ME.html" />
+    <link rel="prev" title="2.2.2.2. Transceiver logical block" href="transceiver.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Smart Object Oriented
+          </a>
+              <div class="version">
+                2021.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">1. Introduction</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../architecture.html">2. SOO Architecture</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../overall.html">2.1. Overall framework architecture</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../agency.html">2.2. Agency</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core/core.html">2.2.1. Core subsystem</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="soolink.html">2.2.2. SOOlink subsystem</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="transcoder.html">2.2.2.1. Transcoder logical block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="transceiver.html">2.2.2.2. Transceiver logical block</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">2.2.2.3. Plugins management</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../agency.html#vbus-and-vbstore">2.2.3. VBus and VBstore</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../ME/ME.html">2.3. Mobile Entity (ME)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../virt_interfaces/virt_interfaces.html">2.4. Virtualized interfaces (backend/frontend)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../drivers/drivers.html">3. Frontend &amp; backend drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rootfs/rootfs.html">4. User applications and rootfs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide.html">5. User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">6. Logging facility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html#enabling-initcall-logging">7. Enabling <code class="docutils literal notranslate"><span class="pre">initcall</span></code> logging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../board_issues.html">8. Board related issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../aarch64.html">9. Configuration for AArch64 64-bit architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev_flow.html">10. Development  flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">11. Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../ME/ME.html">12. Mobile Entities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../demos/demos.html">13. Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../coding_conventions.html">14. Coding conventions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Smart Object Oriented</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../architecture.html"><span class="section-number">2. </span>SOO Architecture</a></li>
+          <li class="breadcrumb-item"><a href="../agency.html"><span class="section-number">2.2. </span>Agency</a></li>
+          <li class="breadcrumb-item"><a href="soolink.html"><span class="section-number">2.2.2. </span>SOOlink subsystem</a></li>
+      <li class="breadcrumb-item active"><span class="section-number">2.2.2.3. </span>Plugins management</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="plugins-management">
+<span id="plugins"></span><h1><span class="section-number">2.2.2.3. </span>Plugins management<a class="headerlink" href="#plugins-management" title="Link to this heading">¶</a></h1>
+<p>Plugins are used to access physical network interfaces in order to send and to receive data packets.
+It constitutes the OSI layer #1 which is the physical layer under the datalink.</p>
+<section id="simulation-plugin">
+<span id="id1"></span><h2><span class="section-number">2.2.2.3.1. </span>Simulation plugin<a class="headerlink" href="#simulation-plugin" title="Link to this heading">¶</a></h2>
+<p>The simulation plugin enables the instantiation of several SOO environments which run in a unique
+QEMU instance. It is basically used in emulation and for debugging/testing/assessment purposes.</p>
+<p>With this plugin, it is possible to have several emulated (independent) smart objects running in
+a unique QEMU instance. It is possible to define whatever network topology, i.e. it is
+possible to define the <em>light of sight</em> between each smart object and thus create a specific neighbourhood.</p>
+<p>To evaluate the efficiency in disseminating the MEs in the neighbourhood taking into account
+hidden smart objects, we can stream buffers constantly between SOOs and to count how many buffers
+are received from each smart object.</p>
+<p>Results shown on the figure below have been performed with the following configuration:</p>
+<ul class="simple">
+<li><p>QEMU/virt32 emulated environment</p></li>
+<li><p>Buffer of 16 KB</p></li>
+<li><p>From boot up to ~10s after getting the agency prompt</p></li>
+<li><p>The number corresponds to the quantity of buffer (of 16 KB) received from the other side</p></li>
+</ul>
+<figure class="align-center" id="id2">
+<img alt="../../../_images/SOO_architecture_v2021_2-Topologies_6_SOO.png" src="../../../_images/SOO_architecture_v2021_2-Topologies_6_SOO.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 2.5 </span><span class="caption-text">Dissemination of buffers with 6 smart objects (direct neighbourhood and hidden nodes)</span><a class="headerlink" href="#id2" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The next figure shows the same experiments with a linear topology composed of 4 SOOs.</p>
+<figure class="align-center" id="id3">
+<img alt="../../../_images/SOO_architecture_v2021_2-Topologies_4_SOO.png" src="../../../_images/SOO_architecture_v2021_2-Topologies_4_SOO.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 2.6 </span><span class="caption-text">Topology with 4 SOOs in a simple linear light of sight</span><a class="headerlink" href="#id3" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>And another topology with 8 SOOs leading to several conflicts and retries on no-ack</p>
+<figure class="align-center" id="id4">
+<img alt="../../../_images/SOO_architecture_v2021_2-Topologies_8_SOO.png" src="../../../_images/SOO_architecture_v2021_2-Topologies_8_SOO.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 2.7 </span><span class="caption-text">Topology with 8 SOOs in a simple linear light of sight</span><a class="headerlink" href="#id4" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>As we can see with these results, the dissemination is globally well spread between the different smart objects
+even with some hidden nodes. It is very promising regarding high network scalability of the ecosystem.</p>
+</section>
+<section id="wlan-plugin">
+<h2><span class="section-number">2.2.2.3.2. </span>WLAN plugin<a class="headerlink" href="#wlan-plugin" title="Link to this heading">¶</a></h2>
+<p>The WLAN plugin is the main plugin used for the wireless Wifi network used for the migration
+of MEs.</p>
+<section id="raspberry-pi-4-wifi-capabilities">
+<h3><span class="section-number">2.2.2.3.2.1. </span>Raspberry Pi 4 WIFI capabilities<a class="headerlink" href="#raspberry-pi-4-wifi-capabilities" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>soo-rpi4<span class="w"> </span>~<span class="w"> </span><span class="c1"># iw phy0 info</span>
+Wiphy<span class="w"> </span>phy0
+<span class="w">   </span>max<span class="w"> </span><span class="c1"># scan SSIDs: 10</span>
+<span class="w">   </span>max<span class="w"> </span>scan<span class="w"> </span>IEs<span class="w"> </span>length:<span class="w"> </span><span class="m">2048</span><span class="w"> </span>bytes
+<span class="w">   </span>max<span class="w"> </span><span class="c1"># sched scan SSIDs: 16</span>
+<span class="w">   </span>max<span class="w"> </span><span class="c1"># match sets: 16</span>
+<span class="w">   </span>max<span class="w"> </span><span class="c1"># scan plans: 1</span>
+<span class="w">   </span>max<span class="w"> </span>scan<span class="w"> </span>plan<span class="w"> </span>interval:<span class="w"> </span><span class="m">508</span>
+<span class="w">   </span>max<span class="w"> </span>scan<span class="w"> </span>plan<span class="w"> </span>iterations:<span class="w"> </span><span class="m">0</span>
+<span class="w">   </span>Retry<span class="w"> </span>short<span class="w"> </span>limit:<span class="w"> </span><span class="m">7</span>
+<span class="w">   </span>Retry<span class="w"> </span>long<span class="w"> </span>limit:<span class="w"> </span><span class="m">4</span>
+<span class="w">   </span>Coverage<span class="w"> </span>class:<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="o">(</span>up<span class="w"> </span>to<span class="w"> </span>0m<span class="o">)</span>
+<span class="w">   </span>Device<span class="w"> </span>supports<span class="w"> </span>roaming.
+<span class="w">   </span>Device<span class="w"> </span>supports<span class="w"> </span>T-DLS.
+<span class="w">   </span>Supported<span class="w"> </span>Ciphers:
+<span class="w">      </span>*<span class="w"> </span>WEP40<span class="w"> </span><span class="o">(</span><span class="m">00</span>-0f-ac:1<span class="o">)</span>
+<span class="w">      </span>*<span class="w"> </span>WEP104<span class="w"> </span><span class="o">(</span><span class="m">00</span>-0f-ac:5<span class="o">)</span>
+<span class="w">      </span>*<span class="w"> </span>TKIP<span class="w"> </span><span class="o">(</span><span class="m">00</span>-0f-ac:2<span class="o">)</span>
+<span class="w">      </span>*<span class="w"> </span>CCMP-128<span class="w"> </span><span class="o">(</span><span class="m">00</span>-0f-ac:4<span class="o">)</span>
+<span class="w">      </span>*<span class="w"> </span>CMAC<span class="w"> </span><span class="o">(</span><span class="m">00</span>-0f-ac:6<span class="o">)</span>
+<span class="w">   </span>Available<span class="w"> </span>Antennas:<span class="w"> </span>TX<span class="w"> </span><span class="m">0</span><span class="w"> </span>RX<span class="w"> </span><span class="m">0</span>
+<span class="w">   </span>Supported<span class="w"> </span>interface<span class="w"> </span>modes:
+<span class="w">       </span>*<span class="w"> </span>IBSS
+<span class="w">       </span>*<span class="w"> </span>managed
+<span class="w">       </span>*<span class="w"> </span>AP
+<span class="w">       </span>*<span class="w"> </span>P2P-client
+<span class="w">       </span>*<span class="w"> </span>P2P-GO
+<span class="w">       </span>*<span class="w"> </span>P2P-device
+<span class="w">   </span>Band<span class="w"> </span><span class="m">1</span>:
+<span class="w">      </span>Capabilities:<span class="w"> </span>0x1022
+<span class="w">         </span>HT20/HT40
+<span class="w">         </span>Static<span class="w"> </span>SM<span class="w"> </span>Power<span class="w"> </span>Save
+<span class="w">         </span>RX<span class="w"> </span>HT20<span class="w"> </span>SGI
+<span class="w">         </span>No<span class="w"> </span>RX<span class="w"> </span>STBC
+<span class="w">         </span>Max<span class="w"> </span>AMSDU<span class="w"> </span>length:<span class="w"> </span><span class="m">3839</span><span class="w"> </span>bytes
+<span class="w">         </span>DSSS/CCK<span class="w"> </span>HT40
+<span class="w">      </span>Maximum<span class="w"> </span>RX<span class="w"> </span>AMPDU<span class="w"> </span>length<span class="w"> </span><span class="m">65535</span><span class="w"> </span>bytes<span class="w"> </span><span class="o">(</span>exponent:<span class="w"> </span>0x003<span class="o">)</span>
+<span class="w">      </span>Minimum<span class="w"> </span>RX<span class="w"> </span>AMPDU<span class="w"> </span><span class="nb">time</span><span class="w"> </span>spacing:<span class="w"> </span><span class="m">16</span><span class="w"> </span>usec<span class="w"> </span><span class="o">(</span>0x07<span class="o">)</span>
+<span class="w">      </span>HT<span class="w"> </span>TX/RX<span class="w"> </span>MCS<span class="w"> </span>rate<span class="w"> </span>indexes<span class="w"> </span>supported:<span class="w"> </span><span class="m">0</span>-7
+<span class="w">      </span>Bitrates<span class="w"> </span><span class="o">(</span>non-HT<span class="o">)</span>:
+<span class="w">         </span>*<span class="w"> </span><span class="m">1</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">2</span>.0<span class="w"> </span>Mbps<span class="w"> </span><span class="o">(</span>short<span class="w"> </span>preamble<span class="w"> </span>supported<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5</span>.5<span class="w"> </span>Mbps<span class="w"> </span><span class="o">(</span>short<span class="w"> </span>preamble<span class="w"> </span>supported<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">11</span>.0<span class="w"> </span>Mbps<span class="w"> </span><span class="o">(</span>short<span class="w"> </span>preamble<span class="w"> </span>supported<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">6</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">9</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">12</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">18</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">24</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">36</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">48</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">54</span>.0<span class="w"> </span>Mbps
+<span class="w">      </span>Frequencies:
+<span class="w">         </span>*<span class="w"> </span><span class="m">2412</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">1</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2417</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">2</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2422</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">3</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2427</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">4</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2432</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">5</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2437</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">6</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2442</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">7</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2447</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">8</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2452</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">9</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2457</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">10</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2462</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">11</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2467</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">12</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2472</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">13</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">2484</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">14</span><span class="o">]</span><span class="w"> </span><span class="o">(</span>disabled<span class="o">)</span>
+<span class="w">   </span>Band<span class="w"> </span><span class="m">2</span>:
+<span class="w">      </span>Capabilities:<span class="w"> </span>0x1062
+<span class="w">         </span>HT20/HT40
+<span class="w">         </span>Static<span class="w"> </span>SM<span class="w"> </span>Power<span class="w"> </span>Save
+<span class="w">         </span>RX<span class="w"> </span>HT20<span class="w"> </span>SGI
+<span class="w">         </span>RX<span class="w"> </span>HT40<span class="w"> </span>SGI
+<span class="w">         </span>No<span class="w"> </span>RX<span class="w"> </span>STBC
+<span class="w">         </span>Max<span class="w"> </span>AMSDU<span class="w"> </span>length:<span class="w"> </span><span class="m">3839</span><span class="w"> </span>bytes
+<span class="w">         </span>DSSS/CCK<span class="w"> </span>HT40
+<span class="w">      </span>Maximum<span class="w"> </span>RX<span class="w"> </span>AMPDU<span class="w"> </span>length<span class="w"> </span><span class="m">65535</span><span class="w"> </span>bytes<span class="w"> </span><span class="o">(</span>exponent:<span class="w"> </span>0x003<span class="o">)</span>
+<span class="w">      </span>Minimum<span class="w"> </span>RX<span class="w"> </span>AMPDU<span class="w"> </span><span class="nb">time</span><span class="w"> </span>spacing:<span class="w"> </span><span class="m">16</span><span class="w"> </span>usec<span class="w"> </span><span class="o">(</span>0x07<span class="o">)</span>
+<span class="w">      </span>HT<span class="w"> </span>TX/RX<span class="w"> </span>MCS<span class="w"> </span>rate<span class="w"> </span>indexes<span class="w"> </span>supported:<span class="w"> </span><span class="m">0</span>-7
+<span class="w">      </span>VHT<span class="w"> </span>Capabilities<span class="w"> </span><span class="o">(</span>0x00001020<span class="o">)</span>:
+<span class="w">         </span>Max<span class="w"> </span>MPDU<span class="w"> </span>length:<span class="w"> </span><span class="m">3895</span>
+<span class="w">         </span>Supported<span class="w"> </span>Channel<span class="w"> </span>Width:<span class="w"> </span>neither<span class="w"> </span><span class="m">160</span><span class="w"> </span>nor<span class="w"> </span><span class="m">80</span>+80
+<span class="w">         </span>short<span class="w"> </span>GI<span class="w"> </span><span class="o">(</span><span class="m">80</span><span class="w"> </span>MHz<span class="o">)</span>
+<span class="w">         </span>SU<span class="w"> </span>Beamformee
+<span class="w">      </span>VHT<span class="w"> </span>RX<span class="w"> </span>MCS<span class="w"> </span>set:
+<span class="w">         </span><span class="m">1</span><span class="w"> </span>streams:<span class="w"> </span>MCS<span class="w"> </span><span class="m">0</span>-9
+<span class="w">         </span><span class="m">2</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">3</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">4</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">5</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">6</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">7</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">8</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">      </span>VHT<span class="w"> </span>RX<span class="w"> </span>highest<span class="w"> </span>supported:<span class="w"> </span><span class="m">0</span><span class="w"> </span>Mbps
+<span class="w">      </span>VHT<span class="w"> </span>TX<span class="w"> </span>MCS<span class="w"> </span>set:
+<span class="w">         </span><span class="m">1</span><span class="w"> </span>streams:<span class="w"> </span>MCS<span class="w"> </span><span class="m">0</span>-9
+<span class="w">         </span><span class="m">2</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">3</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">4</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">5</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">6</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">7</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">         </span><span class="m">8</span><span class="w"> </span>streams:<span class="w"> </span>not<span class="w"> </span>supported
+<span class="w">      </span>VHT<span class="w"> </span>TX<span class="w"> </span>highest<span class="w"> </span>supported:<span class="w"> </span><span class="m">0</span><span class="w"> </span>Mbps
+<span class="w">      </span>Bitrates<span class="w"> </span><span class="o">(</span>non-HT<span class="o">)</span>:
+<span class="w">         </span>*<span class="w"> </span><span class="m">6</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">9</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">12</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">18</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">24</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">36</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">48</span>.0<span class="w"> </span>Mbps
+<span class="w">         </span>*<span class="w"> </span><span class="m">54</span>.0<span class="w"> </span>Mbps
+<span class="w">      </span>Frequencies:
+<span class="w">         </span>*<span class="w"> </span><span class="m">5170</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">34</span><span class="o">]</span><span class="w"> </span><span class="o">(</span>disabled<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5180</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">36</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5190</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">38</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5200</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">40</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5210</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">42</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5220</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">44</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5230</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">46</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5240</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">48</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5260</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">52</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5280</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">56</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5300</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">60</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5320</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">64</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5500</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">100</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5520</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">104</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5540</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">108</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5560</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">112</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5580</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">116</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5600</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">120</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5620</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">124</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5640</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">128</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5660</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">132</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5680</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">136</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5700</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">140</span><span class="o">]</span><span class="w"> </span><span class="o">(</span><span class="m">20</span>.0<span class="w"> </span>dBm<span class="o">)</span><span class="w"> </span><span class="o">(</span>radar<span class="w"> </span>detection<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5720</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">144</span><span class="o">]</span><span class="w"> </span><span class="o">(</span>disabled<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5745</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">149</span><span class="o">]</span><span class="w"> </span><span class="o">(</span>disabled<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5765</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">153</span><span class="o">]</span><span class="w"> </span><span class="o">(</span>disabled<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5785</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">157</span><span class="o">]</span><span class="w"> </span><span class="o">(</span>disabled<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5805</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">161</span><span class="o">]</span><span class="w"> </span><span class="o">(</span>disabled<span class="o">)</span>
+<span class="w">         </span>*<span class="w"> </span><span class="m">5825</span><span class="w"> </span>MHz<span class="w"> </span><span class="o">[</span><span class="m">165</span><span class="o">]</span><span class="w"> </span><span class="o">(</span>disabled<span class="o">)</span>
+<span class="w">   </span>Supported<span class="w"> </span>commands:
+<span class="w">       </span>*<span class="w"> </span>new_interface
+<span class="w">       </span>*<span class="w"> </span>set_interface
+<span class="w">       </span>*<span class="w"> </span>new_key
+<span class="w">       </span>*<span class="w"> </span>start_ap
+<span class="w">       </span>*<span class="w"> </span>join_ibss
+<span class="w">       </span>*<span class="w"> </span>set_pmksa
+<span class="w">       </span>*<span class="w"> </span>del_pmksa
+<span class="w">       </span>*<span class="w"> </span>flush_pmksa
+<span class="w">       </span>*<span class="w"> </span>remain_on_channel
+<span class="w">       </span>*<span class="w"> </span>frame
+<span class="w">       </span>*<span class="w"> </span>set_wiphy_netns
+<span class="w">       </span>*<span class="w"> </span>set_channel
+<span class="w">       </span>*<span class="w"> </span>tdls_oper
+<span class="w">       </span>*<span class="w"> </span>start_sched_scan
+<span class="w">       </span>*<span class="w"> </span>start_p2p_device
+<span class="w">       </span>*<span class="w"> </span>connect
+<span class="w">       </span>*<span class="w"> </span>disconnect
+<span class="w">       </span>*<span class="w"> </span>crit_protocol_start
+<span class="w">       </span>*<span class="w"> </span>crit_protocol_stop
+<span class="w">       </span>*<span class="w"> </span>update_connect_params
+<span class="w">   </span>Supported<span class="w"> </span>TX<span class="w"> </span>frame<span class="w"> </span>types:
+<span class="w">       </span>*<span class="w"> </span>managed:<span class="w"> </span>0x00<span class="w"> </span>0x10<span class="w"> </span>0x20<span class="w"> </span>0x30<span class="w"> </span>0x40<span class="w"> </span>0x50<span class="w"> </span>0x60<span class="w"> </span>0x70<span class="w"> </span>0x80<span class="w"> </span>0x90<span class="w"> </span>0xa0<span class="w"> </span>0xb0<span class="w"> </span>0xc0<span class="w"> </span>0xd0<span class="w"> </span>0xe0<span class="w"> </span>0xf0
+<span class="w">       </span>*<span class="w"> </span>AP:<span class="w"> </span>0x00<span class="w"> </span>0x10<span class="w"> </span>0x20<span class="w"> </span>0x30<span class="w"> </span>0x40<span class="w"> </span>0x50<span class="w"> </span>0x60<span class="w"> </span>0x70<span class="w"> </span>0x80<span class="w"> </span>0x90<span class="w"> </span>0xa0<span class="w"> </span>0xb0<span class="w"> </span>0xc0<span class="w"> </span>0xd0<span class="w"> </span>0xe0<span class="w"> </span>0xf0
+<span class="w">       </span>*<span class="w"> </span>P2P-client:<span class="w"> </span>0x00<span class="w"> </span>0x10<span class="w"> </span>0x20<span class="w"> </span>0x30<span class="w"> </span>0x40<span class="w"> </span>0x50<span class="w"> </span>0x60<span class="w"> </span>0x70<span class="w"> </span>0x80<span class="w"> </span>0x90<span class="w"> </span>0xa0<span class="w"> </span>0xb0<span class="w"> </span>0xc0<span class="w"> </span>0xd0<span class="w"> </span>0xe0<span class="w"> </span>0xf0
+<span class="w">       </span>*<span class="w"> </span>P2P-GO:<span class="w"> </span>0x00<span class="w"> </span>0x10<span class="w"> </span>0x20<span class="w"> </span>0x30<span class="w"> </span>0x40<span class="w"> </span>0x50<span class="w"> </span>0x60<span class="w"> </span>0x70<span class="w"> </span>0x80<span class="w"> </span>0x90<span class="w"> </span>0xa0<span class="w"> </span>0xb0<span class="w"> </span>0xc0<span class="w"> </span>0xd0<span class="w"> </span>0xe0<span class="w"> </span>0xf0
+<span class="w">       </span>*<span class="w"> </span>P2P-device:<span class="w"> </span>0x00<span class="w"> </span>0x10<span class="w"> </span>0x20<span class="w"> </span>0x30<span class="w"> </span>0x40<span class="w"> </span>0x50<span class="w"> </span>0x60<span class="w"> </span>0x70<span class="w"> </span>0x80<span class="w"> </span>0x90<span class="w"> </span>0xa0<span class="w"> </span>0xb0<span class="w"> </span>0xc0<span class="w"> </span>0xd0<span class="w"> </span>0xe0<span class="w"> </span>0xf0
+<span class="w">   </span>Supported<span class="w"> </span>RX<span class="w"> </span>frame<span class="w"> </span>types:
+<span class="w">       </span>*<span class="w"> </span>managed:<span class="w"> </span>0x40<span class="w"> </span>0xd0
+<span class="w">       </span>*<span class="w"> </span>AP:<span class="w"> </span>0x00<span class="w"> </span>0x20<span class="w"> </span>0x40<span class="w"> </span>0xa0<span class="w"> </span>0xb0<span class="w"> </span>0xc0<span class="w"> </span>0xd0
+<span class="w">       </span>*<span class="w"> </span>P2P-client:<span class="w"> </span>0x40<span class="w"> </span>0xd0
+<span class="w">       </span>*<span class="w"> </span>P2P-GO:<span class="w"> </span>0x00<span class="w"> </span>0x20<span class="w"> </span>0x40<span class="w"> </span>0xa0<span class="w"> </span>0xb0<span class="w"> </span>0xc0<span class="w"> </span>0xd0
+<span class="w">       </span>*<span class="w"> </span>P2P-device:<span class="w"> </span>0x40<span class="w"> </span>0xd0
+<span class="w">   </span>software<span class="w"> </span>interface<span class="w"> </span>modes<span class="w"> </span><span class="o">(</span>can<span class="w"> </span>always<span class="w"> </span>be<span class="w"> </span>added<span class="o">)</span>:
+<span class="w">   </span>valid<span class="w"> </span>interface<span class="w"> </span>combinations:
+<span class="w">       </span>*<span class="w"> </span><span class="c1">#{ managed } &lt;= 1, #{ P2P-device } &lt;= 1, #{ P2P-client, P2P-GO } &lt;= 1,</span>
+<span class="w">         </span>total<span class="w"> </span>&lt;<span class="o">=</span><span class="w"> </span><span class="m">3</span>,<span class="w"> </span><span class="c1">#channels &lt;= 2</span>
+<span class="w">       </span>*<span class="w"> </span><span class="c1">#{ managed } &lt;= 1, #{ AP } &lt;= 1, #{ P2P-client } &lt;= 1, #{ P2P-device } &lt;= 1,</span>
+<span class="w">         </span>total<span class="w"> </span>&lt;<span class="o">=</span><span class="w"> </span><span class="m">4</span>,<span class="w"> </span><span class="c1">#channels &lt;= 1</span>
+<span class="w">   </span>Device<span class="w"> </span>supports<span class="w"> </span>scan<span class="w"> </span>flush.
+<span class="w">   </span>Device<span class="w"> </span>supports<span class="w"> </span>randomizing<span class="w"> </span>MAC-addr<span class="w"> </span><span class="k">in</span><span class="w"> </span>sched<span class="w"> </span>scans.
+<span class="w">   </span>Supported<span class="w"> </span>extended<span class="w"> </span>features:
+<span class="w">      </span>*<span class="w"> </span><span class="o">[</span><span class="w"> </span>4WAY_HANDSHAKE_STA_PSK<span class="w"> </span><span class="o">]</span>:<span class="w"> </span><span class="m">4</span>-way<span class="w"> </span>handshake<span class="w"> </span>with<span class="w"> </span>PSK<span class="w"> </span><span class="k">in</span><span class="w"> </span>station<span class="w"> </span>mode
+<span class="w">      </span>*<span class="w"> </span><span class="o">[</span><span class="w"> </span>4WAY_HANDSHAKE_STA_1X<span class="w"> </span><span class="o">]</span>:<span class="w"> </span><span class="m">4</span>-way<span class="w"> </span>handshake<span class="w"> </span>with<span class="w"> </span><span class="m">802</span>.1X<span class="w"> </span><span class="k">in</span><span class="w"> </span>station<span class="w"> </span>mode
+<span class="w">      </span>*<span class="w"> </span><span class="o">[</span><span class="w"> </span>DFS_OFFLOAD<span class="w"> </span><span class="o">]</span>:<span class="w"> </span>DFS<span class="w"> </span>offload
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="transceiver.html" class="btn btn-neutral float-left" title="2.2.2.2. Transceiver logical block" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../ME/ME.html" class="btn btn-neutral float-right" title="2.3. Mobile Entity (ME)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, HEIG-VD - REDS Institute.
+      <span class="lastupdated">Last updated on 08 Jul 2024, 16:43.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

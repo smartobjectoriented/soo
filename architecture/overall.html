@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2.1. Overall framework architecture &mdash; Smart Object Oriented 2021.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/style.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/theme_overrides.css?v=7751120a" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/documentation_options.js?v=b4aaf8b5"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="2.2. Agency" href="agency/agency.html" />
+    <link rel="prev" title="2. SOO Architecture" href="architecture.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Smart Object Oriented
+          </a>
+              <div class="version">
+                2021.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">1. Introduction</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="architecture.html">2. SOO Architecture</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">2.1. Overall framework architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#the-big-picture">2.1.1. The Big Picture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#descriptors-and-identity-management">2.1.2. Descriptors and identity management</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#agency-descriptor">2.1.2.1. Agency descriptor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#me-descriptor">2.1.2.2. ME descriptor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#me-id-information">2.1.2.3. ME ID information</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="agency/agency.html">2.2. Agency</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ME/ME.html">2.3. Mobile Entity (ME)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virt_interfaces/virt_interfaces.html">2.4. Virtualized interfaces (backend/frontend)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../drivers/drivers.html">3. Frontend &amp; backend drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rootfs/rootfs.html">4. User applications and rootfs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user_guide.html">5. User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">6. Logging facility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html#enabling-initcall-logging">7. Enabling <code class="docutils literal notranslate"><span class="pre">initcall</span></code> logging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../board_issues.html">8. Board related issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aarch64.html">9. Configuration for AArch64 64-bit architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev_flow.html">10. Development  flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">11. Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ME/ME.html">12. Mobile Entities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../demos/demos.html">13. Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../coding_conventions.html">14. Coding conventions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Smart Object Oriented</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="architecture.html"><span class="section-number">2. </span>SOO Architecture</a></li>
+      <li class="breadcrumb-item active"><span class="section-number">2.1. </span>Overall framework architecture</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="overall-framework-architecture">
+<span id="overall"></span><h1><span class="section-number">2.1. </span>Overall framework architecture<a class="headerlink" href="#overall-framework-architecture" title="Link to this heading">¶</a></h1>
+<p>The next figure shows an overview of the execution environment inside a smart object</p>
+<figure class="align-default" id="id1">
+<a class="reference internal image-reference" href="../_images/SOO_Architecture_overview.png"><img alt="../_images/SOO_Architecture_overview.png" src="../_images/SOO_Architecture_overview.png" style="width: 437.5px; height: 245.0px;" /></a>
+<figcaption>
+<p><span class="caption-number">Fig. 2.1 </span><span class="caption-text">Overview of the SOO framework in a smart object</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The <code class="docutils literal notranslate"><span class="pre">Agency</span></code> has two components: the <code class="docutils literal notranslate"><span class="pre">AVZ</span> <span class="pre">Hypervisor</span></code> which is a type-1 hypervisor and
+the Linux domain. The Agency constitutes the resident part of the smart object, i.e. it does not
+migrate itself between smart objects.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">Mobile</span> <span class="pre">Entity</span></code> (ME) is a complete environment based on the SO3 operating system.
+The ME automatically migrates from a smart object to another smart object which is present
+in its neighborhood. The ME has the application logic which interacts with the hardware by
+means of interactions with the Agency, through virtualized interfaces. Furthermore, one
+of major fharacteristics of SOO is that all resident MEs can interact each with other according
+when necessary.</p>
+<p>As shown on this picture, several MEs can reside (and run) at a certain time. The limit of MEs will depend
+on the available RAM reserved for this purpose.</p>
+<section id="the-big-picture">
+<h2><span class="section-number">2.1.1. </span>The Big Picture<a class="headerlink" href="#the-big-picture" title="Link to this heading">¶</a></h2>
+<p>The next figure is another view of the general architecture. The ME embeds the SO3 kernel and may also have a
+user space; in this case, applications such a shell can run and make usage of libc (or other libraries) functionalities.</p>
+<figure class="align-default" id="id2">
+<a class="reference internal image-reference" href="../_images/SOO_Architecture_general.png"><img alt="../_images/SOO_Architecture_general.png" src="../_images/SOO_Architecture_general.png" style="width: 688.0px; height: 426.5px;" /></a>
+<figcaption>
+<p><span class="caption-number">Fig. 2.2 </span><span class="caption-text">General architecture with resident and migrating parts</span><a class="headerlink" href="#id2" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>AVZ Hypervisor is responsible to start the Agency when the smart object is switched on as well as taking care
+about loading, hosting and managing the migration of all mobile entities which may travel over the time.</p>
+</section>
+<section id="descriptors-and-identity-management">
+<h2><span class="section-number">2.1.2. </span>Descriptors and identity management<a class="headerlink" href="#descriptors-and-identity-management" title="Link to this heading">¶</a></h2>
+<p>The agency and the ME have their own attributes which are stored in descriptors and in
+the <a class="reference internal" href="virt_interfaces/virt_interfaces.html#virt-interfaces"><span class="std std-ref">vbstore database</span></a>.</p>
+<p>The following picture shows how the agency and ME descriptors are managed in the framework.</p>
+<figure class="align-default" id="id3">
+<img alt="../_images/20220316_4_SOO_architecture-AVZ_and_domains.drawio.png" src="../_images/20220316_4_SOO_architecture-AVZ_and_domains.drawio.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 2.3 </span><span class="caption-text">Agency descriptor, ME descriptor and ME ID information</span><a class="headerlink" href="#id3" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>There are actually three kinds of structure to be differenciated as shown in this figure: the Agency descriptor,
+the ME descriptor and the ME identity information. The two descriptors contain basic ID information and technical
+data such as pfn, ME size, etc. and are mainly used by the (<em>Linux</em>) domain and <em>avz</em> hypervisor.</p>
+<p>Agency and ME descriptors are stored in their own <code class="docutils literal notranslate"><span class="pre">shared</span> <span class="pre">info</span> <span class="pre">page</span></code>; on the agency side, this page is shared
+between the domain and the hypervisor, and on the ME side, the page is shared between the ME and the hypervisor.</p>
+<section id="agency-descriptor">
+<h3><span class="section-number">2.1.2.1. </span>Agency descriptor<a class="headerlink" href="#agency-descriptor" title="Link to this heading">¶</a></h3>
+<p>The agency descriptor is very simple since currently, only the <code class="docutils literal notranslate"><span class="pre">agencyUID</span></code> is stored.
+In the agency, <code class="docutils literal notranslate"><span class="pre">agencyUID</span></code> can be obtained with <code class="docutils literal notranslate"><span class="pre">current_soo-&gt;agencyUID</span></code></p>
+<p>The <code class="docutils literal notranslate"><span class="pre">agencyUID</span></code> is the unique 64-bit identifier which identify a smart object (SOO). It is merely
+related to the hardware.</p>
+</section>
+<section id="me-descriptor">
+<h3><span class="section-number">2.1.2.2. </span>ME descriptor<a class="headerlink" href="#me-descriptor" title="Link to this heading">¶</a></h3>
+<p>The ME descriptor is accessible in the ME through its <em>shared info</em> page.
+On the agency side, the ME descriptor is access via the following function:</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.get_ME_desc">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_ME_desc</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">slotID</span></span>, <span class="n"><span class="pre">ME_desc_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ME_desc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.get_ME_desc" title="Link to this definition">¶</a><br /></dt>
+<dd><p>The function executes an hypercall to retrieve the ME descriptor (allocated by the caller).</p>
+</dd></dl>
+
+</section>
+<section id="me-id-information">
+<h3><span class="section-number">2.1.2.3. </span>ME ID information<a class="headerlink" href="#me-id-information" title="Link to this heading">¶</a></h3>
+<p>At the injection of a ME or at its arrival in a smart object, some <em>vbstore</em> entries are populated
+with various information such as the SPID (ME identifier), name and short description.</p>
+<p>Typically, if a backend driver or any other functional block that needs to retrieve some general information
+about the ME will use the <code class="docutils literal notranslate"><span class="pre">ME_id_t</span></code> structure which contain some common attributes than the ME descriptor (SPID, <em>spadcaps</em>, etc.)
+and additional information like name, short description, etc.</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.get_ME_id">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_ME_id</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">slotID</span></span>, <span class="n"><span class="pre">ME_id_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ME_id</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.get_ME_id" title="Link to this definition">¶</a><br /></dt>
+<dd><p>This function queries <em>vbstore</em> to get various information such as SPID, <em>spadcaps</em>, name, short description, etc.</p>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="architecture.html" class="btn btn-neutral float-left" title="2. SOO Architecture" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="agency/agency.html" class="btn btn-neutral float-right" title="2.2. Agency" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, HEIG-VD - REDS Institute.
+      <span class="lastupdated">Last updated on 08 Jul 2024, 16:43.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

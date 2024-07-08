@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>10. Development flow &mdash; Smart Object Oriented 2021.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/style.css" />
+      <link rel="stylesheet" type="text/css" href="_static/theme_overrides.css?v=7751120a" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/documentation_options.js?v=b4aaf8b5"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="11. Glossary" href="glossary.html" />
+    <link rel="prev" title="9. Configuration for AArch64 64-bit architecture" href="aarch64.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Smart Object Oriented
+          </a>
+              <div class="version">
+                2021.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture/architecture.html">2. SOO Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="drivers/drivers.html">3. Frontend &amp; backend drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rootfs/rootfs.html">4. User applications and rootfs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide.html">5. User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">6. Logging facility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html#enabling-initcall-logging">7. Enabling <code class="docutils literal notranslate"><span class="pre">initcall</span></code> logging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="board_issues.html">8. Board related issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="aarch64.html">9. Configuration for AArch64 64-bit architecture</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">10. Development  flow</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#development">10.1. Development</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#create-new-issue-branch">10.1.1. Create new issue &amp; branch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#merge-in-master">10.1.2. Merge in Master</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#documentation">10.2. Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">11. Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ME/ME.html">12. Mobile Entities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="demos/demos.html">13. Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coding_conventions.html">14. Coding conventions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Smart Object Oriented</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active"><span class="section-number">10. </span>Development  flow</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="development-flow">
+<span id="dev-flow"></span><h1><span class="section-number">10. </span>Development  flow<a class="headerlink" href="#development-flow" title="Link to this heading">¶</a></h1>
+<p>Here is an overview of the <em>development flow</em> used in the SOO framework development.</p>
+<ul class="simple">
+<li><p><strong>Current</strong>/<strong>latest</strong> version of the framework is available in the <code class="docutils literal notranslate"><span class="pre">master</span></code>
+branch.</p></li>
+<li><p>The development activities are done in a specific branch. An issue is linked
+with each development branches.</p></li>
+<li><p>Once the development of a new feature has completed, the developer create a <code class="docutils literal notranslate"><span class="pre">merge</span>
+<span class="pre">request</span></code>. The <em>changes</em> are reviewed and then merged into the <code class="docutils literal notranslate"><span class="pre">master</span></code> branch
+by the <em>SOO framework maintainers</em>.</p></li>
+</ul>
+<p>The <a class="reference internal" href="#gitflow">gitFlow</a> figures shows this flow.</p>
+<p>Periodically, the <em>maintainers</em> publish a major release of the <em>SOO framework</em>.
+For a new version, the following steps are performed:</p>
+<ul class="simple">
+<li><p>The main new features has been re-tested</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">CHANGELOG</span></code> file is updated with the new release information (release
+number, description of the main add-on to the framework, …)</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">tag</span></code> with the version number is created</p></li>
+</ul>
+<section id="development">
+<h2><span class="section-number">10.1. </span>Development<a class="headerlink" href="#development" title="Link to this heading">¶</a></h2>
+<p>For the development of new features or improvements, a new branch has to be created.
+It should not be any development done directly in the <code class="docutils literal notranslate"><span class="pre">master</span></code> branch. Each new
+<em>topic</em> has to have is own branch. Branches are not reused.</p>
+<p>An issue should be linked with each branch (an issue per branch). This issue should
+provide:</p>
+<ul class="simple">
+<li><p>A description of what is addressed</p></li>
+<li><p>(Optional) Information on the advancement of this topic, issues
+found, explanation of the implementation, …</p></li>
+</ul>
+<p>The issue is automatically closed after
+the development branch is merged of in the <code class="docutils literal notranslate"><span class="pre">master</span></code> branch.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Issue can be (should be) created to document problems, improvement found using
+the framework without having to create a branch.</p>
+<p>The branch can be created when the <em>issue</em> is addressed</p>
+</div>
+<section id="create-new-issue-branch">
+<h3><span class="section-number">10.1.1. </span>Create new issue &amp; branch<a class="headerlink" href="#create-new-issue-branch" title="Link to this heading">¶</a></h3>
+<p>To create a branch with an associated issue:</p>
+<ol class="arabic simple">
+<li><p>Create a new issue. The doc from gitlab: <a class="reference external" href="https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#create-a-new-issue">Create a new
+issue</a></p></li>
+<li><p>Create the branch from the issue. The doc from gitlab: <a class="reference external" href="https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-new-branch-from-an-issue">Create a new
+branch from an
+issue</a></p></li>
+</ol>
+</section>
+<section id="merge-in-master">
+<h3><span class="section-number">10.1.2. </span>Merge in Master<a class="headerlink" href="#merge-in-master" title="Link to this heading">¶</a></h3>
+<p>Once the development of a specific topic has completed and been tested, it has to be
+<em>integrated</em> in the <code class="docutils literal notranslate"><span class="pre">master</span></code> branch. It is done by creating a <code class="docutils literal notranslate"><span class="pre">merge</span> <span class="pre">request</span></code>.</p>
+<p>By creating a <code class="docutils literal notranslate"><span class="pre">merge</span> <span class="pre">request</span></code>, a developer asks <em>SOO maintainers</em> to:</p>
+<ul class="simple">
+<li><p>Do a review of the modifications</p></li>
+<li><p>Performs the <code class="docutils literal notranslate"><span class="pre">merge</span></code></p></li>
+</ul>
+<p>The creation of a <code class="docutils literal notranslate"><span class="pre">merge</span> <span class="pre">request</span></code> is simple:</p>
+<ol class="arabic simple">
+<li><p>Form the issue page in gitlab, click <code class="docutils literal notranslate"><span class="pre">Create</span> <span class="pre">merge</span> <span class="pre">request</span></code> button</p></li>
+<li><p>Validate the creation of the <code class="docutils literal notranslate"><span class="pre">merge</span> <span class="pre">request</span></code> in the new Windows</p></li>
+</ol>
+<p><a class="reference external" href="https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html">Merge request official doc</a>.</p>
+</section>
+</section>
+<section id="documentation">
+<h2><span class="section-number">10.2. </span>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The Documentation of a new feature <strong>shall</strong> be part of the <em>feature Merge Request</em>.</p>
+</div>
+<p>The issue <code class="docutils literal notranslate"><span class="pre">#30</span> <span class="pre">Documentation</span> <span class="pre">Update</span></code>, with its related branch (<code class="docutils literal notranslate"><span class="pre">30-documentation-update</span></code>),
+can be use for documentation update, improvement.</p>
+<p>The flow is the following:</p>
+<ul class="simple">
+<li><p>Select and update <code class="docutils literal notranslate"><span class="pre">30-documentation-update</span></code> branch</p></li>
+</ul>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>fetch<span class="w"> </span>--all
+$<span class="w"> </span>git<span class="w"> </span>checkout<span class="w"> </span><span class="m">30</span>-documentation-update
+$<span class="w"> </span>git<span class="w"> </span>rebase<span class="w"> </span>origin/master
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Update the documentation and push the modification</p></li>
+</ul>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>--force
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Update the issue with info on modification made</p></li>
+<li><p>Create a <em>Merge Request</em></p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Ideally, there is only one commit per changes. If, for some reasons, it is not
+possible, please inform the <em>dev team</em> to lock this branch.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="aarch64.html" class="btn btn-neutral float-left" title="9. Configuration for AArch64 64-bit architecture" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="glossary.html" class="btn btn-neutral float-right" title="11. Glossary" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, HEIG-VD - REDS Institute.
+      <span class="lastupdated">Last updated on 08 Jul 2024, 16:43.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

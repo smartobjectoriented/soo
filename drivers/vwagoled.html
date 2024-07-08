@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3.3. vwagoled &mdash; Smart Object Oriented 2021.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/style.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/theme_overrides.css?v=7751120a" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/documentation_options.js?v=b4aaf8b5"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="3.4. EnOcean" href="venocean.html" />
+    <link rel="prev" title="3.2. vuihandler driver" href="vuihandler.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Smart Object Oriented
+          </a>
+              <div class="version">
+                2021.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/architecture.html">2. SOO Architecture</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="drivers.html">3. Frontend &amp; backend drivers</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="vdummy.html">3.1. <em>vdummy</em> driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vuihandler.html">3.2. vuihandler driver</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">3.3. vwagoled</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#vwagoled-backend">3.3.1. <em>vwagoled</em> backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vwagoled-front-end">3.3.2. <em>vwagoled</em> front end</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wago-client-application">3.3.3. Wago client application</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wago-server-application">3.3.4. Wago server application</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#future-developments">3.3.5. Future developments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="venocean.html">3.4. EnOcean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vlora.html">3.5. LoRa</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../rootfs/rootfs.html">4. User applications and rootfs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user_guide.html">5. User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">6. Logging facility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html#enabling-initcall-logging">7. Enabling <code class="docutils literal notranslate"><span class="pre">initcall</span></code> logging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../board_issues.html">8. Board related issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aarch64.html">9. Configuration for AArch64 64-bit architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev_flow.html">10. Development  flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">11. Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ME/ME.html">12. Mobile Entities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../demos/demos.html">13. Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../coding_conventions.html">14. Coding conventions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Smart Object Oriented</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="drivers.html"><span class="section-number">3. </span>Frontend &amp; backend drivers</a></li>
+      <li class="breadcrumb-item active"><span class="section-number">3.3. </span>vwagoled</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vwagoled">
+<span id="id1"></span><h1><span class="section-number">3.3. </span>vwagoled<a class="headerlink" href="#vwagoled" title="Link to this heading">¶</a></h1>
+<p>The <em>vwagoled</em> interface allows a ME to interact with WAGO PFC200 and its bus components. The figure below shows the interactions
+to communicate with the Wago ecosystem.</p>
+<figure class="align-center">
+<img alt="../_images/SOO_wagoled_architecture.png" src="../_images/SOO_wagoled_architecture.png" />
+</figure>
+<section id="vwagoled-backend">
+<h2><span class="section-number">3.3.1. </span><em>vwagoled</em> backend<a class="headerlink" href="#vwagoled-backend" title="Link to this heading">¶</a></h2>
+<p>The backend receives instructions from the shared ring and communicate with the Wago-client through
+the <em>sysfs</em> interface.</p>
+</section>
+<section id="vwagoled-front-end">
+<h2><span class="section-number">3.3.2. </span><em>vwagoled</em> front end<a class="headerlink" href="#vwagoled-front-end" title="Link to this heading">¶</a></h2>
+<p>The fronted provides a function to send a command to apply to the LEDs. This function will create a
+new ring request and send it to the backend.</p>
+</section>
+<section id="wago-client-application">
+<h2><span class="section-number">3.3.3. </span>Wago client application<a class="headerlink" href="#wago-client-application" title="Link to this heading">¶</a></h2>
+<p>The Wago client application interacts with the <em>vwagoled</em> backend through <em>sysfs</em>. The entries provided
+by the backend are the following:</p>
+<ul class="simple">
+<li><p>vwagoled_notify (read-only)</p></li>
+<li><p>vwagoled_led_on (read-only)</p></li>
+<li><p>vwagoled_led_off (read-only)</p></li>
+<li><p>vwagoled_get_topology (read/write)</p></li>
+<li><p>vwagoled_get_status (read/write)</p></li>
+</ul>
+<p>The application performs a blocking <em>read()</em> on <em>vwagoled_notify</em>. Once new data arrives <em>vwagoled_notify</em>
+will return a string containing which attribute to read next. The other attributes correspond to a specific action
+like turn on or off the LEDs. When performing a <em>read()</em> on one of this the IDs of the LEDs to perform the action
+on is returned. The Wago application then send the corresponding HTTP request to the wago-server application running on the PFC200.</p>
+</section>
+<section id="wago-server-application">
+<h2><span class="section-number">3.3.4. </span>Wago server application<a class="headerlink" href="#wago-server-application" title="Link to this heading">¶</a></h2>
+<p>The Wago server application implements a REST server which provides a REST API that allows to access
+the devices connected on the PFC200 KBus. In this specific case the REST API provides access to a
+DALI Master Module (Wago 753-647) use to control the led connected to the DALI bus. The routes provided
+by the REST API are listed below:</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Route (URL)</p></td>
+<td><p>HTTP method</p></td>
+<td><p>Arguments</p></td>
+<td><p>Description</p></td>
+</tr>
+<tr class="row-even"><td><p>&lt;ip&gt;:&lt;port&gt;/dali/topology</p></td>
+<td><p>GET</p></td>
+<td><p>None</p></td>
+<td><p>Return a list (json) of the devices found on the DALI bus</p></td>
+</tr>
+<tr class="row-odd"><td><p>&lt;ip&gt;:&lt;port&gt;/dali/led?id=</p></td>
+<td><p>GET</p></td>
+<td><p>Comma separated LED ids or “all”</p></td>
+<td><p>Return the current status of the LEDs</p></td>
+</tr>
+<tr class="row-even"><td><p>&lt;ip&gt;:&lt;port&gt;/dali/led/on?id=</p></td>
+<td><p>POST</p></td>
+<td><p>Comma separated LED ids or “all”</p></td>
+<td><p>Turn on the LEDs</p></td>
+</tr>
+<tr class="row-odd"><td><p>&lt;ip&gt;:&lt;port&gt;/dali/led/off?id=</p></td>
+<td><p>POST</p></td>
+<td><p>Comma separated LED ids or “all”</p></td>
+<td><p>Turn off the LEDs</p></td>
+</tr>
+<tr class="row-even"><td><p>&lt;ip&gt;:&lt;port&gt;/dali/led/toggle?id=</p></td>
+<td><p>POST</p></td>
+<td><p>Comma separated LED ids or “all”</p></td>
+<td><p>Toggle the LEDs (inverse current status)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="future-developments">
+<h2><span class="section-number">3.3.5. </span>Future developments<a class="headerlink" href="#future-developments" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>BE support for multiple FEs</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="vuihandler.html" class="btn btn-neutral float-left" title="3.2. vuihandler driver" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="venocean.html" class="btn btn-neutral float-right" title="3.4. EnOcean" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, HEIG-VD - REDS Institute.
+      <span class="lastupdated">Last updated on 08 Jul 2024, 16:43.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

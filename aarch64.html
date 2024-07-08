@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>9. Configuration for AArch64 64-bit architecture &mdash; Smart Object Oriented 2021.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/style.css" />
+      <link rel="stylesheet" type="text/css" href="_static/theme_overrides.css?v=7751120a" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/documentation_options.js?v=b4aaf8b5"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="10. Development flow" href="dev_flow.html" />
+    <link rel="prev" title="8. Board related issues" href="board_issues.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Smart Object Oriented
+          </a>
+              <div class="version">
+                2021.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture/architecture.html">2. SOO Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="drivers/drivers.html">3. Frontend &amp; backend drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rootfs/rootfs.html">4. User applications and rootfs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide.html">5. User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">6. Logging facility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html#enabling-initcall-logging">7. Enabling <code class="docutils literal notranslate"><span class="pre">initcall</span></code> logging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="board_issues.html">8. Board related issues</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">9. Configuration for AArch64 64-bit architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#qemu-target">9.1. QEMU target</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#virtual-sd-card-storage">9.2. (Virtual) SD-card Storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#u-boot">9.3. U-boot</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#agency">9.4. Agency</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#linux">9.4.1. Linux</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#address-space-management">9.4.1.1. Address Space Management</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#avz-hypervisor">9.5. AVZ Hypervisor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#realtime-agency">9.6. Realtime Agency</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dev_flow.html">10. Development  flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">11. Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ME/ME.html">12. Mobile Entities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="demos/demos.html">13. Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coding_conventions.html">14. Coding conventions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Smart Object Oriented</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active"><span class="section-number">9. </span>Configuration for AArch64 64-bit architecture</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="configuration-for-aarch64-64-bit-architecture">
+<h1><span class="section-number">9. </span>Configuration for AArch64 64-bit architecture<a class="headerlink" href="#configuration-for-aarch64-64-bit-architecture" title="Link to this heading">¶</a></h1>
+<p>This chapter is devoted to the AArch64 64-bit configuration.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This is a ongoing work… and should be placed in a branch.</p>
+</div>
+<section id="qemu-target">
+<h2><span class="section-number">9.1. </span>QEMU target<a class="headerlink" href="#qemu-target" title="Link to this heading">¶</a></h2>
+<p>The new platform in the emulated environment is called <code class="docutils literal notranslate"><span class="pre">virt64</span></code> (instead of <code class="docutils literal notranslate"><span class="pre">virt32</span></code>)</p>
+<p>The following target is required at the configuration:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>qemu
+./configure<span class="w"> </span>--target-list<span class="o">=</span>aarch64-softmmu<span class="w"> </span>--disable-attr<span class="w"> </span>--disable-docs
+make<span class="w"> </span>-j8
+</pre></div>
+</div>
+<p>(The other options may remain unchanged)</p>
+</section>
+<section id="virtual-sd-card-storage">
+<h2><span class="section-number">9.2. </span>(Virtual) SD-card Storage<a class="headerlink" href="#virtual-sd-card-storage" title="Link to this heading">¶</a></h2>
+<p>The virtual storage file can be generated with the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./create_img.sh<span class="w"> </span>virt64
+</pre></div>
+</div>
+</section>
+<section id="u-boot">
+<h2><span class="section-number">9.3. </span>U-boot<a class="headerlink" href="#u-boot" title="Link to this heading">¶</a></h2>
+<p>Of course, U-boot must be compiled with the aarch64-linux-gnu toolchain.
+Edit the Makefile and change the <code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> variable.</p>
+<p>U-boot can be configured (and rebuilt) as follows:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>qemu_arm64_defconfig
+make<span class="w"> </span>-j8
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Since the virtio-blk-device of QEMU has a block size of 512 bytes, the uEnv file
+stored in <code class="docutils literal notranslate"><span class="pre">uEnv.d</span></code> directory must not be less than 512 bytes.</p>
+</div>
+</section>
+<section id="agency">
+<h2><span class="section-number">9.4. </span>Agency<a class="headerlink" href="#agency" title="Link to this heading">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Do not forget to modify file <code class="docutils literal notranslate"><span class="pre">build.conf</span></code> in the <em>agency/</em> directory in order to have
+the correct platform.</p>
+</div>
+<section id="linux">
+<h3><span class="section-number">9.4.1. </span>Linux<a class="headerlink" href="#linux" title="Link to this heading">¶</a></h3>
+<p>Again, the Makefile needs to be adpated accordingly, with the correct <em>CROSS_COMPILE</em> value, i.e. <code class="docutils literal notranslate"><span class="pre">aarch64-linux-gnu</span></code>
+Furthermore, the <strong>ARCH</strong> variable must be set to <code class="docutils literal notranslate"><span class="pre">arm64</span></code> (which corresponds to the subdirectory in <em>arm/</em> directory.</p>
+<ul class="simple">
+<li><p>The default configuration to be used is  <code class="docutils literal notranslate"><span class="pre">virt64_defconfig</span></code></p></li>
+</ul>
+<section id="address-space-management">
+<h4><span class="section-number">9.4.1.1. </span>Address Space Management<a class="headerlink" href="#address-space-management" title="Link to this heading">¶</a></h4>
+<p>Linux address space:</p>
+<p>Virtual addresses are 48-bit</p>
+<ul class="simple">
+<li><p>User space:     0x0000000000000000 - 0x0000800000000000</p></li>
+<li><p>Kernel space:   0xffff800000000000 - 0xffffffffffffffff</p></li>
+</ul>
+<p>Constants:</p>
+<ul class="simple">
+<li><p>TEXT_OFFSET = 0x800000</p></li>
+<li><p>PHYS_OFFSET = 0x40000000</p></li>
+</ul>
+<section id="bootstrap">
+<h5><span class="section-number">9.4.1.1.1. </span>Bootstrap<a class="headerlink" href="#bootstrap" title="Link to this heading">¶</a></h5>
+<ul class="simple">
+<li><p>The kernel image must have a valid header (used by U-boot) as follows:</p></li>
+</ul>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">Image_header</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">code0</span><span class="p">;</span><span class="w">      </span><span class="cm">/* Executable code */</span>
+<span class="w">   </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">code1</span><span class="p">;</span><span class="w">      </span><span class="cm">/* Executable code */</span>
+<span class="w">   </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">text_offset</span><span class="p">;</span><span class="w">   </span><span class="cm">/* Image load offset, LE */</span>
+<span class="w">   </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">image_size</span><span class="p">;</span><span class="w"> </span><span class="cm">/* Effective Image size, LE */</span>
+<span class="w">   </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">flags</span><span class="p">;</span><span class="w">      </span><span class="cm">/* Kernel flags, LE */</span>
+<span class="w">   </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">res2</span><span class="p">;</span><span class="w">    </span><span class="cm">/* reserved */</span>
+<span class="w">   </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">res3</span><span class="p">;</span><span class="w">    </span><span class="cm">/* reserved */</span>
+<span class="w">   </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">res4</span><span class="p">;</span><span class="w">    </span><span class="cm">/* reserved */</span>
+<span class="w">   </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">magic</span><span class="p">;</span><span class="w">      </span><span class="cm">/* Magic number */</span>
+<span class="w">   </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">res5</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>The structure above is mapped at the beginning of the image, i.e. the first instructions located
+at the <code class="docutils literal notranslate"><span class="pre">_head</span></code> label. <em>code0</em> and <em>code1</em> are the location of the two first instructions in <em>head.S</em>
+(mainly a branch instruction, encoded on 32-bit as any aarch64 instructions).</p>
+<p>Possible kernel flags are:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Bit</span> <span class="mi">0</span><span class="p">:</span> <span class="n">Kernel</span> <span class="n">endianness</span><span class="o">.</span>  <span class="mi">1</span> <span class="k">if</span> <span class="n">BE</span><span class="p">,</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">LE</span><span class="o">.</span>
+<span class="n">Bit</span> <span class="mi">1</span><span class="o">-</span><span class="mi">2</span><span class="p">:</span>  <span class="n">Kernel</span> <span class="n">Page</span> <span class="n">size</span><span class="o">.</span>
+      <span class="mi">0</span> <span class="o">-</span> <span class="n">Unspecified</span><span class="o">.</span>
+      <span class="mi">1</span> <span class="o">-</span> <span class="mi">4</span><span class="n">K</span>
+      <span class="mi">2</span> <span class="o">-</span> <span class="mi">16</span><span class="n">K</span>
+      <span class="mi">3</span> <span class="o">-</span> <span class="mi">64</span><span class="n">K</span>
+<span class="n">Bit</span> <span class="mi">3</span><span class="p">:</span> <span class="n">Kernel</span> <span class="n">physical</span> <span class="n">placement</span>
+      <span class="mi">0</span> <span class="o">-</span> <span class="mi">2</span><span class="n">MB</span> <span class="n">aligned</span> <span class="n">base</span> <span class="n">should</span> <span class="n">be</span> <span class="k">as</span> <span class="n">close</span> <span class="k">as</span> <span class="n">possible</span>
+          <span class="n">to</span> <span class="n">the</span> <span class="n">base</span> <span class="n">of</span> <span class="n">DRAM</span><span class="p">,</span> <span class="n">since</span> <span class="n">memory</span> <span class="n">below</span> <span class="n">it</span> <span class="ow">is</span> <span class="ow">not</span>
+          <span class="n">accessible</span> <span class="n">via</span> <span class="n">the</span> <span class="n">linear</span> <span class="n">mapping</span>
+      <span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span><span class="n">MB</span> <span class="n">aligned</span> <span class="n">base</span> <span class="n">may</span> <span class="n">be</span> <span class="n">anywhere</span> <span class="ow">in</span> <span class="n">physical</span>
+          <span class="n">memory</span>
+<span class="n">Bits</span> <span class="mi">4</span><span class="o">-</span><span class="mi">63</span><span class="p">:</span>   <span class="n">Reserved</span><span class="o">.</span>
+</pre></div>
+</div>
+<p>Current configuration is:
+- Kernel Page size unspecified, 2MB aligned base as close as possible to the base of DRAM</p>
+<ul class="simple">
+<li><p>Start physical address: 0x40000000 (DRAM base for emulated virt machine in QEMU)</p></li>
+</ul>
+</section>
+<section id="mmu-and-page-tables">
+<h5><span class="section-number">9.4.1.1.2. </span>MMU and Page Tables<a class="headerlink" href="#mmu-and-page-tables" title="Link to this heading">¶</a></h5>
+<ul class="simple">
+<li><p>The configuration in Linux is 4 KB page size with 4 levels of translation</p></li>
+<li><p>Each table as 512 entries, hence with 64-bit entries and is stored in a 4 KB page.</p></li>
+<li><p>Bit 63 tells which TTBR0/1 is used (1 -&gt; kernel, 0 -&gt; user space)</p></li>
+</ul>
+</section>
+</section>
+</section>
+</section>
+<section id="avz-hypervisor">
+<h2><span class="section-number">9.5. </span>AVZ Hypervisor<a class="headerlink" href="#avz-hypervisor" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>The hypervisor will be located at 0xffff700000000000</p></li>
+</ul>
+</section>
+<section id="realtime-agency">
+<h2><span class="section-number">9.6. </span>Realtime Agency<a class="headerlink" href="#realtime-agency" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">idmap</span></code> page tables have to be built up during the bootstrap of CPU #1 to enable the MMU since these page tables are not configured by CPU #0 (AVZ already enabled the MMU).</p></li>
+<li><p>A RT task creation must have a stack aligned on 64-byte</p></li>
+<li><p>tpidr_el1 has a reference to the current task_sruct and is used to retrieved the IRQ stack initialized during <code class="docutils literal notranslate"><span class="pre">irq_init()</span></code></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="board_issues.html" class="btn btn-neutral float-left" title="8. Board related issues" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dev_flow.html" class="btn btn-neutral float-right" title="10. Development flow" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, HEIG-VD - REDS Institute.
+      <span class="lastupdated">Last updated on 08 Jul 2024, 16:43.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

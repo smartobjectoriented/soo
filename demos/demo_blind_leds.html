@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>13.1. Demo Lahoco/Wago &mdash; Smart Object Oriented 2021.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/style.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/theme_overrides.css?v=7751120a" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/documentation_options.js?v=b4aaf8b5"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="14. “C” coding conventions (Cconv)" href="../coding_conventions.html" />
+    <link rel="prev" title="13. Demos" href="demos.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Smart Object Oriented
+          </a>
+              <div class="version">
+                2021.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/architecture.html">2. SOO Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../drivers/drivers.html">3. Frontend &amp; backend drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rootfs/rootfs.html">4. User applications and rootfs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user_guide.html">5. User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">6. Logging facility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html#enabling-initcall-logging">7. Enabling <code class="docutils literal notranslate"><span class="pre">initcall</span></code> logging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../board_issues.html">8. Board related issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aarch64.html">9. Configuration for AArch64 64-bit architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev_flow.html">10. Development  flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">11. Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ME/ME.html">12. Mobile Entities</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="demos.html">13. Demos</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">13.1. Demo Lahoco/Wago</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#introduction">13.1.1. Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#architecture">13.1.2. Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#hardware-needed">13.1.3. Hardware needed</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#soo-mpv2-knx">13.1.4. SOO-mpv2 KNX</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#setup">13.1.4.1. Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#soo-mpv2-enocean">13.1.5. SOO-mpv2 EnOcean</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">13.1.5.1. Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#rpi4-wagoled">13.1.6. RPi4 Wagoled</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id2">13.1.6.1. Setup</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../coding_conventions.html">14. Coding conventions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Smart Object Oriented</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="demos.html"><span class="section-number">13. </span>Demos</a></li>
+      <li class="breadcrumb-item active"><span class="section-number">13.1. </span>Demo Lahoco/Wago</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="demo-lahoco-wago">
+<span id="demo-blind-leds"></span><h1><span class="section-number">13.1. </span>Demo Lahoco/Wago<a class="headerlink" href="#demo-lahoco-wago" title="Link to this heading">¶</a></h1>
+<section id="introduction">
+<h2><span class="section-number">13.1.1. </span>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h2>
+<p>The goal of this demo is to show the multi-protocol capabilities of the SOO-mpV2 boards. It is assumed that we are working with the 64b configurations with all boards.</p>
+</section>
+<section id="architecture">
+<h2><span class="section-number">13.1.2. </span>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">¶</a></h2>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/SOO_demos_blind_leds.png"><img alt="../_images/SOO_demos_blind_leds.png" src="../_images/SOO_demos_blind_leds.png" style="width: 778.5px; height: 626.0px;" /></a>
+</figure>
+</section>
+<section id="hardware-needed">
+<h2><span class="section-number">13.1.3. </span>Hardware needed<a class="headerlink" href="#hardware-needed" title="Link to this heading">¶</a></h2>
+<p>What you need:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>2x SOO-mpV2</p></li>
+<li><p>1x RPi4</p></li>
+<li><p>1x Wagoled panel with RJ45 cable</p></li>
+<li><p>1x KNX BAOS server with a KNX switch attached</p></li>
+<li><p>1x KNX blind</p></li>
+<li><p>1x Enocean switch</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="soo-mpv2-knx">
+<h2><span class="section-number">13.1.4. </span>SOO-mpv2 KNX<a class="headerlink" href="#soo-mpv2-knx" title="Link to this heading">¶</a></h2>
+<p>This SOO-mpv2 is used to communicate with the KNX BAOS server through the kberry module. It will receive events from the KNX switch and send messages to the KNX blind.</p>
+<dl class="simple">
+<dt>The ME to deploy are:</dt><dd><ul class="simple">
+<li><p>SOO.blind_64: Used to drive the blind when receiving SOO.switch_enocean_64 ME</p></li>
+<li><p>SOO.switch_knx_64: Used to transmit the KNX switch event</p></li>
+</ul>
+</dd>
+<dt>These linux configs must be activated:</dt><dd><ul class="simple">
+<li><p>CONFIG_KBERRY838</p></li>
+<li><p>CONFIG_VKNX_BACKEND</p></li>
+</ul>
+</dd>
+</dl>
+<section id="setup">
+<h3><span class="section-number">13.1.4.1. </span>Setup<a class="headerlink" href="#setup" title="Link to this heading">¶</a></h3>
+<p>Power-on the KNX BAOS server before powering the SOO.SOO-mpV2. It is needed to ensure the kberry module is correctly powered and can communicate with the server and the CM4.
+And you are good to go!</p>
+</section>
+</section>
+<section id="soo-mpv2-enocean">
+<h2><span class="section-number">13.1.5. </span>SOO-mpv2 EnOcean<a class="headerlink" href="#soo-mpv2-enocean" title="Link to this heading">¶</a></h2>
+<p>This SOO-mpv2 is used to receive EnOcean frames coming from the EnOcean witch.</p>
+<dl class="simple">
+<dt>The ME to deploy are:</dt><dd><ul class="simple">
+<li><p>SOO.switch_enocean_64: Used to transmit the EnOcean switch event</p></li>
+</ul>
+</dd>
+<dt>These linux configs must be activated:</dt><dd><ul class="simple">
+<li><p>CONFIG_TCM515</p></li>
+<li><p>CONFIG_VENOCEAN_BACKEND</p></li>
+</ul>
+</dd>
+</dl>
+<section id="id1">
+<h3><span class="section-number">13.1.5.1. </span>Setup<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<p>Nothing special, power the SOO-mpV2 and you are good to go.</p>
+</section>
+</section>
+<section id="rpi4-wagoled">
+<h2><span class="section-number">13.1.6. </span>RPi4 Wagoled<a class="headerlink" href="#rpi4-wagoled" title="Link to this heading">¶</a></h2>
+<p>This RPi4 is used to communicate with the Wago automaton using RJ45.</p>
+<dl class="simple">
+<dt>The ME to deploy are:</dt><dd><ul class="simple">
+<li><p>SOO.wagoled_64: Used to drive the wagoled panel from the SOO.switch_knx_64 ME event.</p></li>
+</ul>
+</dd>
+<dt>These linux configs must be activated:</dt><dd><ul class="simple">
+<li><p>CONFIG_VWAGOLED_BACKEND</p></li>
+</ul>
+</dd>
+</dl>
+<section id="id2">
+<h3><span class="section-number">13.1.6.1. </span>Setup<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>Power-on the wagoled panel <strong>must</strong> be powered-on before the RPi4. Turn on the switch and wait for all the leds to turn OFF. Once it is done, it means the automaton has configured its server and you can now correctly scan the bus and endpoints.
+Power-on the RPi4 and you are good to go.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="demos.html" class="btn btn-neutral float-left" title="13. Demos" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../coding_conventions.html" class="btn btn-neutral float-right" title="14. “C” coding conventions (Cconv)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, HEIG-VD - REDS Institute.
+      <span class="lastupdated">Last updated on 08 Jul 2024, 16:43.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

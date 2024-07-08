@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2.4. Virtualized interfaces (backend/frontend) &mdash; Smart Object Oriented 2021.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/style.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/theme_overrides.css?v=7751120a" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/documentation_options.js?v=b4aaf8b5"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="3. Frontend &amp; backend drivers" href="../../drivers/drivers.html" />
+    <link rel="prev" title="2.3. Mobile Entity (ME)" href="../ME/ME.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Smart Object Oriented
+          </a>
+              <div class="version">
+                2021.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">1. Introduction</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../architecture.html">2. SOO Architecture</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overall.html">2.1. Overall framework architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../agency/agency.html">2.2. Agency</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ME/ME.html">2.3. Mobile Entity (ME)</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">2.4. Virtualized interfaces (backend/frontend)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#backends">2.4.1. Backends</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vbstore-and-storage-of-properties">2.4.1.1. VBstore and storage of properties</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#frontends">2.4.2. Frontends</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vbstore-on-me-side">2.4.2.1. VBstore on ME side</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../drivers/drivers.html">3. Frontend &amp; backend drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rootfs/rootfs.html">4. User applications and rootfs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../user_guide.html">5. User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">6. Logging facility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html#enabling-initcall-logging">7. Enabling <code class="docutils literal notranslate"><span class="pre">initcall</span></code> logging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../board_issues.html">8. Board related issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../aarch64.html">9. Configuration for AArch64 64-bit architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dev_flow.html">10. Development  flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../glossary.html">11. Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ME/ME.html">12. Mobile Entities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../demos/demos.html">13. Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../coding_conventions.html">14. Coding conventions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Smart Object Oriented</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../architecture.html"><span class="section-number">2. </span>SOO Architecture</a></li>
+      <li class="breadcrumb-item active"><span class="section-number">2.4. </span>Virtualized interfaces (backend/frontend)</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="virtualized-interfaces-backend-frontend">
+<span id="virt-interfaces"></span><h1><span class="section-number">2.4. </span>Virtualized interfaces (backend/frontend)<a class="headerlink" href="#virtualized-interfaces-backend-frontend" title="Link to this heading">¶</a></h1>
+<p>The SOO framework has various virtualized interfaces which can be used between the ME and the agency.
+On the agency side, these are <code class="docutils literal notranslate"><span class="pre">backends</span></code> (BE) drivers and can manage several links to MEs which have the
+corresponding <code class="docutils literal notranslate"><span class="pre">frontends</span></code> (FE) drivers. Basically, the backend manage one <em>link</em> for each ME and each FE.</p>
+<section id="backends">
+<h2><span class="section-number">2.4.1. </span>Backends<a class="headerlink" href="#backends" title="Link to this heading">¶</a></h2>
+<p>Linux has a well-defined device and driver model in which the basic structures are <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span></code>.
+On top of that, the <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vbus_device</span></code> structure defined in <em>vbus</em> is used to refer a specific backend device and the
+<code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vbus_driver</span></code> refers to a specific backend driver.</p>
+<p>As usual in Linux, the association between device and driver is done with a matching mechanism between strings which refer
+to a device and to a driver. When a matching between device an driver is done, the structures have the references to each
+other for this spcific binding.</p>
+<figure class="align-default" id="id1">
+<img alt="../../_images/SOO_architecture_v2021_2-BE_structures.png" src="../../_images/SOO_architecture_v2021_2-BE_structures.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 2.9 </span><span class="caption-text">Device and driver model for a backend within Linux</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>In Linux, and in the underlying SOO vbus mechanism which is inspired from the XEN hypervisor (however quite different),
+a <code class="docutils literal notranslate"><span class="pre">vbus_device</span></code> contains the <code class="docutils literal notranslate"><span class="pre">device</span></code> structure.</p>
+<p>Each backend has a private structure which has reference to the <em>vbus</em> definition associated to the device; it contains
+the ring(s) and other fields required for managing the activities related to the interactions with the frontend.</p>
+<p>There is also a private structure attached to the <code class="docutils literal notranslate"><span class="pre">vbus_driver</span></code> associated to a device. The following helpers can
+be used to handle this private structure:</p>
+<p>To attach a private structure to a <em>vbus driver</em></p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.vdrv_set_priv">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">vdrv_set_priv</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vbus_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vdrv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.vdrv_set_priv" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p>To get the private structure attached to a <em>vbus_driver</em></p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.vdrv_get_priv">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">vdrv_get_priv</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vbus_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vdrv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.vdrv_get_priv" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p>Finally, a helper to get the private structure attached to <em>vbus_driver</em> from a particular <em>vbus_device</em></p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.vdrv_get_vdevpriv">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">vdrv_get_vdevpriv</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vbus_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vdev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.vdrv_get_vdevpriv" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p>Defining a private structure attached to a <em>vbus_driver</em> can be done in the <em>init</em> function of the driver.</p>
+<section id="vbstore-and-storage-of-properties">
+<h3><span class="section-number">2.4.1.1. </span>VBstore and storage of properties<a class="headerlink" href="#vbstore-and-storage-of-properties" title="Link to this heading">¶</a></h3>
+<p>Each backend driver must have a basic entry in <code class="docutils literal notranslate"><span class="pre">vbstore</span></code> in order to process properties managed by the frontend.
+The entries are pre-defined in the file <code class="docutils literal notranslate"><span class="pre">soo/kernel/vbstore/vbstorage.c</span></code>.</p>
+<p>Example of such a entry is:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">np</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">of_find_compatible_node</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;vdummy,backend&quot;</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">of_device_is_available</span><span class="p">(</span><span class="n">np</span><span class="p">))</span>
+<span class="w">   </span><span class="n">vbs_store_mkdir</span><span class="p">(</span><span class="s">&quot;/backend/vdummy&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>As we can see, the entry is created only if the backend is enabled in the <em>device tree</em>.</p>
+</section>
+</section>
+<section id="frontends">
+<h2><span class="section-number">2.4.2. </span>Frontends<a class="headerlink" href="#frontends" title="Link to this heading">¶</a></h2>
+<p>SO3 has a slightly different device and driver model. The main structure related to the device is the <code class="docutils literal notranslate"><span class="pre">dev_t</span></code> structure
+which is built during the device tree parsing; as soon as a frontend is detected in the DTS, a corresponding <code class="docutils literal notranslate"><span class="pre">dev_t</span></code> structure
+is allocated and filled with the information from the DTS. The main frontend initialization function is called the private
+structure <code class="docutils literal notranslate"><span class="pre">vdummy_priv_t</span></code> is allocated at this time.</p>
+<figure class="align-default" id="id2">
+<img alt="../../_images/SOO_architecture_v2021_2-FE_structures.png" src="../../_images/SOO_architecture_v2021_2-FE_structures.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 2.10 </span><span class="caption-text">Device and driver model for a frontend within SO3</span><a class="headerlink" href="#id2" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<section id="vbstore-on-me-side">
+<h3><span class="section-number">2.4.2.1. </span>VBstore on ME side<a class="headerlink" href="#vbstore-on-me-side" title="Link to this heading">¶</a></h3>
+<p>Each frontend driver must create its own basic entry in <code class="docutils literal notranslate"><span class="pre">vbstore</span></code>. Properties such as its <em>state</em> will be then added so that
+a <code class="docutils literal notranslate"><span class="pre">watch</span></code> can be attached and trigger a function execution when the state changes.</p>
+<p>The entries are created in the file <code class="docutils literal notranslate"><span class="pre">soo/kernel/vbstore/vbstore_me.c</span></code>.</p>
+<p>Example of such an entry is :</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">fdt_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fdt_find_compatible_node</span><span class="p">(</span><span class="n">__fdt_addr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;vdummy,frontend&quot;</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">fdt_device_is_available</span><span class="p">(</span><span class="n">__fdt_addr</span><span class="p">,</span><span class="w"> </span><span class="n">fdt_node</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="n">DBG</span><span class="p">(</span><span class="s">&quot;%s: removing vdummy from vbstore...</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">__func__</span><span class="p">);</span>
+<span class="w">   </span><span class="n">vbstore_dev_remove</span><span class="p">(</span><span class="n">ME_domID</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;vdummy&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Again, we check the device tree (in SO3) to see if the frontend is enabled or not.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../ME/ME.html" class="btn btn-neutral float-left" title="2.3. Mobile Entity (ME)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../drivers/drivers.html" class="btn btn-neutral float-right" title="3. Frontend &amp; backend drivers" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, HEIG-VD - REDS Institute.
+      <span class="lastupdated">Last updated on 08 Jul 2024, 16:43.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

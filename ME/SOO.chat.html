@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>12.1. SOO.chat &mdash; Smart Object Oriented 2021.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/style.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/theme_overrides.css?v=7751120a" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/documentation_options.js?v=b4aaf8b5"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="13. Demos" href="../demos/demos.html" />
+    <link rel="prev" title="12. Mobile Entities" href="ME.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Smart Object Oriented
+          </a>
+              <div class="version">
+                2021.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/architecture.html">2. SOO Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../drivers/drivers.html">3. Frontend &amp; backend drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rootfs/rootfs.html">4. User applications and rootfs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user_guide.html">5. User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">6. Logging facility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html#enabling-initcall-logging">7. Enabling <code class="docutils literal notranslate"><span class="pre">initcall</span></code> logging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../board_issues.html">8. Board related issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aarch64.html">9. Configuration for AArch64 64-bit architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev_flow.html">10. Development  flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">11. Glossary</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="ME.html">12. Mobile Entities</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">12.1. SOO.chat</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#soo-chat-purposes">12.1.1. SOO.chat purposes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#soo-chat-usage">12.1.2. SOO.chat usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#soo-chat-architecture">12.1.3. SOO.chat architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#distributing-a-message">12.1.3.1. Distributing a message</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#soo-chat-me-behaviour">12.1.3.2. SOO.chat ME behaviour</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../demos/demos.html">13. Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../coding_conventions.html">14. Coding conventions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Smart Object Oriented</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="ME.html"><span class="section-number">12. </span>Mobile Entities</a></li>
+      <li class="breadcrumb-item active"><span class="section-number">12.1. </span>SOO.chat</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="soo-chat">
+<span id="id1"></span><h1><span class="section-number">12.1. </span>SOO.chat<a class="headerlink" href="#soo-chat" title="Link to this heading">¶</a></h1>
+<p>This documents aims at describing the <strong>SOO.chat</strong> role, use-cases and
+architecture.</p>
+<section id="soo-chat-purposes">
+<h2><span class="section-number">12.1.1. </span>SOO.chat purposes<a class="headerlink" href="#soo-chat-purposes" title="Link to this heading">¶</a></h2>
+<p>The <strong>SOO.chat</strong> purposes are:</p>
+<ul class="simple">
+<li><p>Being able to implement a small live chat app (like IIRC) between
+multiple Smart Objects.</p></li>
+<li><p>Demonstarting the network capabilities with multiple Smart Objects.</p></li>
+<li><p>Having a clean base for the ME model (migration, behaviour,
+cooperation, …).</p></li>
+<li><p>Having a full tablet to Smart Object data/events exchange.</p></li>
+<li><p>Implementing the <em>soo.gui</em> protocol handling in the <strong>SOO.chat</strong> ME.</p></li>
+</ul>
+</section>
+<section id="soo-chat-usage">
+<h2><span class="section-number">12.1.2. </span>SOO.chat usage<a class="headerlink" href="#soo-chat-usage" title="Link to this heading">¶</a></h2>
+<p>The <strong>SOO.chat</strong> ME will be in charge to handle and distribute chat
+message between the Smart Objects. The user writes a message on the
+tablet, then it is sent and propagated into the network to update every
+other user connected to another Smart Object available in the network.
+Each tablet then displays the message in it’s message history. For now
+the goal is to only have one chat room where every user can write and
+read the messages.</p>
+<figure class="align-center" id="id2">
+<img alt="../_images/SOO_chat_overview.png" src="../_images/SOO_chat_overview.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 12.1 </span><span class="caption-text">Overview of the a SOO.chat use-case</span><a class="headerlink" href="#id2" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Each tablet can connect to any SO supporting SOO.chat and having a SOO.chat ME residing in it.</p>
+</section>
+<section id="soo-chat-architecture">
+<h2><span class="section-number">12.1.3. </span>SOO.chat architecture<a class="headerlink" href="#soo-chat-architecture" title="Link to this heading">¶</a></h2>
+<p>The SOO.chat architecture only consist of a ME. There is no need for a
+BE in the agency, as all the message are stored in the MEs and the
+communication with the tablet is done using the vuihandler.</p>
+<p>There are two “types” of SOO.chat ME in this system: * The migrating
+ones, which transmit <strong>new</strong> messages into the network. * The residing
+ones, which keeps a minimal history and will collaborate with the
+migrating ones.</p>
+<p>In the end, the migrating ones are just a clone of the residing ME,
+which is sent to dispatch the message through the network.</p>
+<section id="distributing-a-message">
+<h3><span class="section-number">12.1.3.1. </span>Distributing a message<a class="headerlink" href="#distributing-a-message" title="Link to this heading">¶</a></h3>
+<p>The messages are distributed by the The messages are stored in a small
+history in each ME. Each SOO has a residing SOO.chat ME. Here is how a
+message is passed to one tablet to the system:</p>
+<ol class="arabic simple">
+<li><p>The user connects the SOO-gui tablet application to a SOO.</p></li>
+<li><p>The user writes a message on the tablet. The tablet notify the ME for
+each new character typed. The ME keeps the message as a temporary
+buffer.</p></li>
+<li><p>The user press <strong>Send</strong>, which sends a button event to the connected
+Smart Object vuihandler BE.</p></li>
+<li><p>The BE route the event to the SOO.chat ME.</p></li>
+<li><p>The ME adds the message to its temporary history (from itself),
+marking it a <em>new_message</em> so it knows it needs to share it with
+other MEs if it encounters some.</p></li>
+<li><p>The ME sends itself in the network.</p></li>
+<li><p>When arriving in another SOO, the migrating ME initiate a cooperation
+with the residing SOO.chat ME. It then checks if the residing ME
+already has the message. If not, the residing ME merge it with its
+history. It then sends the update to the tablet. As a ME migrates
+when it has a new message to distribute, it should almost always be
+the case.</p></li>
+<li><p>The migrating ME then continues its migration trough the network,
+until it has effectively distributed the new message to the whole
+ecosystem.</p></li>
+</ol>
+<p>It is to note that a migrating ME only carries its new message. It does
+not have a history as its only goal is to distribute its new message.</p>
+</section>
+<section id="soo-chat-me-behaviour">
+<h3><span class="section-number">12.1.3.2. </span>SOO.chat ME behaviour<a class="headerlink" href="#soo-chat-me-behaviour" title="Link to this heading">¶</a></h3>
+<p>This chapter describes:</p>
+<ul class="simple">
+<li><p>The migration behaviours</p></li>
+<li><p>The collaboration behaviour</p></li>
+<li><p>The app behaviour</p></li>
+</ul>
+<section id="migration-and-callbacks">
+<h4><span class="section-number">12.1.3.2.1. </span>Migration and callbacks<a class="headerlink" href="#migration-and-callbacks" title="Link to this heading">¶</a></h4>
+<p>Every Smart Object has a residing SOO.chat ME. Once the tablet sends a
+new message to our residing ME, the ME is sent to migrate in the system.
+The migrating ME now needs to go trough the whole system to distribute
+the message. It keeps a list of <cite>visits</cite> which it visited.</p>
+<figure class="align-center" id="id3">
+<img alt="../_images/SOO_chat_migration.png" src="../_images/SOO_chat_migration.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 12.2 </span><span class="caption-text">Migration flowchart</span><a class="headerlink" href="#id3" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>As described in the diagram above, the ME kills itself if it migrated in
+a visited SO. If it is a new SO, it continues its callback sequence and
+start a cooperation with the present ME. The last part of the diagram is split in two, one path for the migrating ME (initiator), the other one for the target.</p>
+</section>
+<section id="callbacks">
+<h4><span class="section-number">12.1.3.2.2. </span>Callbacks<a class="headerlink" href="#callbacks" title="Link to this heading">¶</a></h4>
+<p>This chapter describes the callbacks behaviors.</p>
+<section id="pre-activate">
+<h5><span class="section-number">12.1.3.2.2.1. </span>pre_activate<a class="headerlink" href="#pre-activate" title="Link to this heading">¶</a></h5>
+<ul class="simple">
+<li><p>The ME retrieve the originUID of the first agency it is deployed on (once).</p></li>
+<li><p>The ME check if the host is already visited.
+* If not: Add the host to the visited list
+* If yes: ask to kill ourself</p></li>
+</ul>
+</section>
+<section id="cooperate">
+<h5><span class="section-number">12.1.3.2.2.2. </span>cooperate<a class="headerlink" href="#cooperate" title="Link to this heading">¶</a></h5>
+<p>Most of the job is done in the <code class="docutils literal notranslate"><span class="pre">cooperate</span></code>. It is described in the migration flowchart.
+The cooperation is always the initiator (migrating ME) cooperating with an already present target ME (it can be a local or a migrating one).</p>
+<p>In our case, four scenarios are possible:</p>
+<ul class="simple">
+<li><p>No ME is present in the SO. So it means the migrating one is alone. We continue our propagation.</p></li>
+<li><p>An ME is present, but it is not a SOO.chat. We continue our propagation.</p></li>
+<li><p>A migrating SOO.chat is present. If we have the same message, merge the histories and kill the initiator, otherwise, don’t do anything and continue our propagation.</p></li>
+<li><p>A local SOO.chat is present. The local SOO.chat checks if it already has the new message, and adds it to its history if needed.</p></li>
+</ul>
+</section>
+<section id="pre-propagate">
+<h5><span class="section-number">12.1.3.2.2.3. </span>pre_propagate<a class="headerlink" href="#pre-propagate" title="Link to this heading">¶</a></h5>
+<p>The pre-propagate will decide if the ME will be propagated or if it must die. It is called periodically (300ms).
+It checks if any of the callbacks asked for a propagation (internal flag). If a propagation is needed, it checks if
+it is dormant. If yes, it means we need to ask to kill ourself, if not, it means the ME must be propagated.
+The internal propagation flag is always resetted here, so if no other callback changes it, the ME will die as soon as it is dormant.</p>
+<section id="soo-chat-app">
+<h6><span class="section-number">12.1.3.2.2.3.1. </span>SOO.chat app<a class="headerlink" href="#soo-chat-app" title="Link to this heading">¶</a></h6>
+<p>The SOO.chat app is the core of the SOO.chat ME. It is able to store a
+small history for the messages which  were distributed. It also
+contains and execute the helpers needed to compare and merge histories.</p>
+</section>
+</section>
+</section>
+<section id="messages-id-management">
+<h4><span class="section-number">12.1.3.2.3. </span>Messages id management<a class="headerlink" href="#messages-id-management" title="Link to this heading">¶</a></h4>
+<p>Each time a new message is received from the tablet, the SOO.chat
+assigns it a <code class="docutils literal notranslate"><span class="pre">id</span></code>, incrementing it each time. It is used as a
+heuristic data, which, in addition to the ME age, is needed when doing
+histories merge.</p>
+<p>A message is stored in the following structure:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Member</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>id</p></td>
+<td><p>uint
+64_t</p></td>
+<td><p>Unique message id. Incremented for each new message,
+by ME</p></td>
+</tr>
+<tr class="row-odd"><td><p>orig
+in_uid</p></td>
+<td><p>uint
+64_t</p></td>
+<td><p>origin agency UID. Used to keep a trace of the
+originating SO</p></td>
+</tr>
+<tr class="row-even"><td><p>text</p></td>
+<td><p>char
+*</p></td>
+<td><p>The message text</p></td>
+</tr>
+</tbody>
+</table>
+<section id="history-management">
+<h5><span class="section-number">12.1.3.2.3.1. </span>History management<a class="headerlink" href="#history-management" title="Link to this heading">¶</a></h5>
+<div class="line-block">
+<div class="line">The residing MEs keep a dictionary of the last message from each SO,
+using the <code class="docutils literal notranslate"><span class="pre">origin_uid</span></code> as a key and the <code class="docutils literal notranslate"><span class="pre">id</span></code> as the value.</div>
+<div class="line">These data are enough to correctly merge the messages when
+collaborating with a residing MEs as seen in the flowchart before.</div>
+</div>
+</section>
+<section id="sending-a-message">
+<h5><span class="section-number">12.1.3.2.3.2. </span>Sending a message<a class="headerlink" href="#sending-a-message" title="Link to this heading">¶</a></h5>
+<p>For now, the ME receive a message from the tablet, each time a new character is typed into the textedit.
+It is done this way, to avoid having dependency and coupling between the widget.</p>
+<p>Here is a flowchart describing how the message temporary received and how the ME knows when to send it.</p>
+<figure class="align-center" id="id4">
+<img alt="../_images/SOO_chat_message_sending.png" src="../_images/SOO_chat_message_sending.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 12.3 </span><span class="caption-text">Message buffering and sending from the <strong>chat</strong> app.</span><a class="headerlink" href="#id4" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>We can see that the ME keeps the temporary message and update it each time a new character is
+typed on the tablet <cite>text-edit</cite> widget. The ME knows it has to send the message when it receives the event
+from the <cite>button-send</cite> widget.</p>
+</section>
+</section>
+<section id="soo-chat-xml-ui-model">
+<h4><span class="section-number">12.1.3.2.4. </span>SOO.chat XML UI model<a class="headerlink" href="#soo-chat-xml-ui-model" title="Link to this heading">¶</a></h4>
+<p>This describes the XML model and how it will interact and be used by the
+tablet.</p>
+<p>The tablet app will look like this:</p>
+<figure class="align-center" id="id5">
+<img alt="../_images/SOO_chat_tablet_mockup.png" src="../_images/SOO_chat_tablet_mockup.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 12.4 </span><span class="caption-text">Tablet chat page mockup</span><a class="headerlink" href="#id5" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<dl class="simple">
+<dt>It is consisted of:</dt><dd><ul class="simple">
+<li><p>A Label inidcating the name of the app</p></li>
+<li><p>A TextEdit used to type our message</p></li>
+<li><p>A <strong>Send</strong> button to send themessage</p></li>
+<li><p>A ScrollView to display the messages</p></li>
+<li><p>Two Label to use as an entry for the ScrollView.</p></li>
+</ul>
+</dd>
+</dl>
+<section id="history-widget">
+<h5><span class="section-number">12.1.3.2.4.1. </span>History widget<a class="headerlink" href="#history-widget" title="Link to this heading">¶</a></h5>
+<p>A new type of widget is to be implemented in the model for the history
+scrollview. It will allow to insert the uid|message pair each time a new
+message is received. It also will allow to scroll the history.</p>
+</section>
+<section id="xml-model">
+<h5><span class="section-number">12.1.3.2.4.2. </span>XML model<a class="headerlink" href="#xml-model" title="Link to this heading">¶</a></h5>
+<p>The following model is used to generate the tablet UI for this ME.</p>
+</section>
+<section id="xml-messages-management">
+<h5><span class="section-number">12.1.3.2.4.3. </span>XML messages management<a class="headerlink" href="#xml-messages-management" title="Link to this heading">¶</a></h5>
+<p>Here are all the message the SOO.chat ME can send to the tablet:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">chat</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_id</span></code>: Originating UID the message was sent from</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">content</span></code>: The message text</p></li>
+</ul>
+</li>
+</ol>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;message</span><span class="w"> </span><span class="na">to=</span><span class="s">&quot;msg-history&quot;</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;chat</span><span class="w"> </span><span class="na">from=</span><span class="s">&quot;UID&quot;</span><span class="nt">&gt;</span>The<span class="w"> </span>message<span class="w"> </span>itself<span class="w"> </span><span class="nt">&lt;/chat&gt;</span>
+<span class="nt">&lt;/message&gt;</span>
+</pre></div>
+</div>
+<p>A chat message is a message augmented with a <cite>chat</cite> member which embed this chat’s metadata (sender and text).
+It is destined to the <cite>msg-history</cite> widget which will create the entry from the metadata and display it.</p>
+</section>
+<section id="xml-events-management">
+<h5><span class="section-number">12.1.3.2.4.4. </span>XML events management<a class="headerlink" href="#xml-events-management" title="Link to this heading">¶</a></h5>
+<p>Here are all the events the SOO.chat ME can receive and handle from the
+tablet:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">text-edit</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">action</span></code>: What is this event about (onValueChanged, onClear, …).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">text</span></code>: The message text.</p></li>
+</ul>
+</li>
+</ol>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;event</span><span class="w"> </span><span class="na">from=</span><span class="s">&quot;text-edit&quot;</span><span class="w"> </span><span class="na">action=</span><span class="s">&quot;valueChanged&quot;</span><span class="nt">&gt;</span>your<span class="w"> </span>new<span class="w"> </span>msg<span class="w"> </span>here<span class="nt">&lt;/event&gt;</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p><code class="docutils literal notranslate"><span class="pre">button-send</span></code>:
+-  <code class="docutils literal notranslate"><span class="pre">action</span></code>: What is this event about (clickDown, clickUp, …).</p></li>
+</ol>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;event</span><span class="w"> </span><span class="na">from=</span><span class="s">&quot;button-send&quot;</span><span class="w"> </span><span class="na">action=</span><span class="s">&quot;clickDown&quot;</span><span class="nt">/&gt;</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ME.html" class="btn btn-neutral float-left" title="12. Mobile Entities" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../demos/demos.html" class="btn btn-neutral float-right" title="13. Demos" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, HEIG-VD - REDS Institute.
+      <span class="lastupdated">Last updated on 08 Jul 2024, 16:43.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

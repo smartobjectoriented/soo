@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2.2. Agency &mdash; Smart Object Oriented 2021.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/style.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/theme_overrides.css?v=7751120a" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/documentation_options.js?v=b4aaf8b5"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="2.2.1. Core subsystem" href="core/core.html" />
+    <link rel="prev" title="2.1. Overall framework architecture" href="../overall.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Smart Object Oriented
+          </a>
+              <div class="version">
+                2021.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">1. Introduction</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../architecture.html">2. SOO Architecture</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overall.html">2.1. Overall framework architecture</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">2.2. Agency</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="core/core.html">2.2.1. Core subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="soolink/soolink.html">2.2.2. SOOlink subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vbus-and-vbstore">2.2.3. VBus and VBstore</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#vbstore">2.2.3.1. VBstore</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../ME/ME.html">2.3. Mobile Entity (ME)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../virt_interfaces/virt_interfaces.html">2.4. Virtualized interfaces (backend/frontend)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../drivers/drivers.html">3. Frontend &amp; backend drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rootfs/rootfs.html">4. User applications and rootfs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../user_guide.html">5. User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">6. Logging facility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html#enabling-initcall-logging">7. Enabling <code class="docutils literal notranslate"><span class="pre">initcall</span></code> logging</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../board_issues.html">8. Board related issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../aarch64.html">9. Configuration for AArch64 64-bit architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dev_flow.html">10. Development  flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../glossary.html">11. Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ME/ME.html">12. Mobile Entities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../demos/demos.html">13. Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../coding_conventions.html">14. Coding conventions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Smart Object Oriented</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../architecture.html"><span class="section-number">2. </span>SOO Architecture</a></li>
+      <li class="breadcrumb-item active"><span class="section-number">2.2. </span>Agency</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="agency">
+<span id="id1"></span><h1><span class="section-number">2.2. </span>Agency<a class="headerlink" href="#agency" title="Link to this heading">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+<p>The agency is the whole software which is resident within a smart object. It is composed of the <code class="docutils literal notranslate"><span class="pre">avz</span></code> hypervisor
+and <code class="docutils literal notranslate"><span class="pre">Linux</span></code> as the main domain. Actually, the domain is divided in <code class="docutils literal notranslate"><span class="pre">domain</span> <span class="pre">#0</span></code> which is the non realtime domain
+of the agency, and <code class="docutils literal notranslate"><span class="pre">domain</span> <span class="pre">#1</span></code> which is a hard realtime domain running independently of the Linux scheduler.
+The hard realtime domain is a highly modified version of the Xenomai/Cobalt kernel with its RTDM API.</p>
+<p>The figure below shows the Agency subsystems and functional blocks.</p>
+<figure class="align-default" id="id2">
+<a class="reference internal image-reference" href="../../_images/SOO_Architecture_general_detailed.png"><img alt="../../_images/SOO_Architecture_general_detailed.png" src="../../_images/SOO_Architecture_general_detailed.png" style="width: 704.0px; height: 404.0px;" /></a>
+<figcaption>
+<p><span class="caption-number">Fig. 2.8 </span><span class="caption-text">SOO Subsystems and functional blocks</span><a class="headerlink" href="#id2" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<section id="vbus-and-vbstore">
+<h2><span class="section-number">2.2.3. </span>VBus and VBstore<a class="headerlink" href="#vbus-and-vbstore" title="Link to this heading">¶</a></h2>
+<p><em>to be completed</em></p>
+<section id="vbstore">
+<h3><span class="section-number">2.2.3.1. </span>VBstore<a class="headerlink" href="#vbstore" title="Link to this heading">¶</a></h3>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Do not forget to free the memory allocated at the return of <code class="docutils literal notranslate"><span class="pre">vbus_read()</span></code>.</p>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../overall.html" class="btn btn-neutral float-left" title="2.1. Overall framework architecture" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="core/core.html" class="btn btn-neutral float-right" title="2.2.1. Core subsystem" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, HEIG-VD - REDS Institute.
+      <span class="lastupdated">Last updated on 08 Jul 2024, 16:43.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
