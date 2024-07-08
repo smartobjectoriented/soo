@@ -41,6 +41,7 @@ Various other packages are required:
    sudo apt-get install device-tree-compiler
    sudo apt-get install fdisk
    sudo apt-get install libncurses-dev
+   sudo apt-get install libssl-dev openssl
    
 The OP-TEE environment requires the following python packages:
 
