@@ -33,17 +33,20 @@
 
 void avz_ME_unpause(domid_t domain_id, addr_t vbstore_pfn)
 {
-	struct domctl op;
+        struct domctl *op;
 
-	lprintk("Trying to unpause ME domain %d...", domain_id);
+        op = kzalloc(sizeof(struct domctl), GFP_KERNEL);
+        BUG_ON(!op);
 
-	op.cmd = DOMCTL_unpauseME;
+        lprintk("Trying to unpause ME domain %d...", domain_id);
 
-	op.domain = domain_id;
+        op->cmd = DOMCTL_unpauseME;
 
-	op.u.unpause_ME.vbstore_pfn = vbstore_pfn;
+	op->domain = domain_id;
 
-	avz_hypercall(__HYPERVISOR_domctl, (long) &op, 0 ,0 ,0);
+	op->u.unpause_ME.vbstore_pfn = vbstore_pfn;
+
+	avz_hypercall(__HYPERVISOR_domctl, virt_to_phys(op), 0 ,0 ,0);
 }
 
 #if defined(CONFIG_SOO) && !defined(CONFIG_LINUXVIRT)

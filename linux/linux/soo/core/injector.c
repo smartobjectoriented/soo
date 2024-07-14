@@ -63,24 +63,30 @@ size_t current_size = 0;
  * @return slotID or -1 if no slotID available.
  */
 int inject_ME(void *buffer, size_t size) {
-	int slotID;
+        int *val;
         void *me = NULL;
+        int slotID;
 
         DBG("Original contents at address: 0x%08x\n with size %d bytes\n", (unsigned long) buffer, size);
 
 	/* Allocate a contiguous memory region to host the ME*/
-        me = kmalloc(size, GFP_KERNEL);
+        me = kzalloc(size, GFP_KERNEL);
         BUG_ON(!me);
 
-        memcpy(me, buffer, size);
+        val = kzalloc(sizeof(int), GFP_KERNEL);
+        BUG_ON(!val);
 
+        memcpy(me, buffer, size);
+        
         /* Now, the virtual address can be converted to the physical one in the
          * soo_hypercall() function */
 
-        soo_hypercall(AVZ_INJECT_ME, me, &slotID, &size);
+        soo_hypercall(AVZ_INJECT_ME, me, val, NULL);
+        slotID = *val;
 
         kfree(me);
-	
+        kfree(val);
+
         return slotID;
 }
 

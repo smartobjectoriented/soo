@@ -33,13 +33,20 @@
 
 int get_ME_state(unsigned int ME_slotID)
 {
-	int val;
+	int *val;
+        int state;
 
-	val = ME_slotID;
+        val = kzalloc(sizeof(int), GFP_KERNEL);
+        BUG_ON(!val);
 
-	soo_hypercall(AVZ_GET_ME_STATE, NULL, &val, NULL);
+        *val = ME_slotID;
 
-	return val;
+        soo_hypercall(AVZ_GET_ME_STATE, NULL, val, NULL);
+        state = *val;
+
+        kfree(val);
+
+        return state;
 }
 
 /*
