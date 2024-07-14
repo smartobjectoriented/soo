@@ -1,4 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
+
+config LINUXVIRT
+	bool "Support to run Linux on AVZ"
+
 config ARM64
 	def_bool y
 	select ACPI_CCA_REQUIRED if ACPI
@@ -1928,28 +1932,6 @@ source "drivers/cpuidle/Kconfig"
 source "drivers/cpufreq/Kconfig"
 
 endmenu
-
-# SOO.tech
-menuconfig XENOMAI
-	bool "Xenomai/cobalt"
-	select IPIPE
-	default y
-	help
-	  Xenomai's Cobalt core is a real-time extension to the Linux
-	  kernel, which exhibits very short interrupt and scheduling
-	  latency, without affecting the regular kernel services.
-
-	  This option enables the set of extended kernel services
-	  required to run the real-time applications in user-space,
-	  over the Xenomai libraries.
-
-	  Please visit http://xenomai.org for more information.
-
-if XENOMAI
-source "arch/$(ARCH)/xenomai/Kconfig"
-source "kernel/ipipe/Kconfig"
-endif
-
 
 source "drivers/firmware/Kconfig"
 

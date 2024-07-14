@@ -43,8 +43,8 @@
 #include <linux/ipipe_base.h>
 
 #include <asm/ipipe_base.h>
-
 #include <asm/memory.h>
+#include <asm/cacheflush.h>
 
 #include <soo/vbus.h>
 #include <soo/vbstore.h>
@@ -414,9 +414,12 @@ void vbstore_init(void) {
 	int res = 0;
 	int i;
 	void *__vaddr;
-	struct evtchn_alloc_unbound alloc_unbound;
+	struct evtchn_alloc_unbound *alloc_unbound;
 
 	lprintk("... vbstore SOO Agency setting up...\n");
+
+	alloc_unbound = kmalloc(sizeof(struct evtchn_alloc_unbound), GFP_KERNEL);
+	BUG_ON(!alloc_unbound);
 
 	/* Allocate a vbstore page for each domain */
 	for (i = 0; i < MAX_DOMAINS; i++) {
@@ -462,15 +465,19 @@ void vbstore_init(void) {
 
 	for (i = 0; i < MAX_DOMAINS; i++) {
 
-		alloc_unbound.dom = DOMID_SELF;
-		alloc_unbound.remote_dom = i;
+		alloc_unbound->dom = DOMID_SELF;
+		alloc_unbound->remote_dom = i;
 
-		hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
+		__flush_dcache_area((void *) alloc_unbound, sizeof(struct evtchn_alloc_unbound));
+		avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, virt_to_phys(alloc_unbound), 0, 0);
+		__inval_dcache_area((void *) alloc_unbound, sizeof(struct evtchn_alloc_unbound));
 
 		/* Store the allocated unbound evtchn.*/
-		DBG("%s: allocating unbound evtchn %d for vbstore shared page on domain: %d (intf = %p)...\n", __func__, alloc_unbound.evtchn, i, vbstore_intf[i]);
-		vbstore_intf[i]->revtchn = alloc_unbound.evtchn;
+		DBG("%s: allocating unbound evtchn %d for vbstore shared page on domain: %d (intf = %p)...\n", __func__, alloc_unbound->evtchn, i, vbstore_intf[i]);
+		vbstore_intf[i]->revtchn = alloc_unbound->evtchn;
 	}
+
+	kfree(alloc_unbound);
 
 	/* Now, initialize the basic vbstore virtual database */
 	vbstorage_agency_init();

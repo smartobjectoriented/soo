@@ -14,8 +14,9 @@
 #include <linux/smp.h>
 #include <linux/device.h>
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 #include <soo/uapi/soo.h>
+#endif
 
 #include "tick-internal.h"
 
@@ -472,8 +473,11 @@ void clockevents_register_device(struct clock_event_device *dev)
 }
 EXPORT_SYMBOL_GPL(clockevents_register_device);
 
-/* SOO.tech */
-/* static */ void clockevents_config(struct clock_event_device *dev, u32 freq)
+#ifdef CONFIG_SOO
+void clockevents_config(struct clock_event_device *dev, u32 freq)
+#else
+static void clockevents_config(struct clock_event_device *dev, u32 freq)
+#endif
 {
 	u64 sec;
 
@@ -513,17 +517,16 @@ void clockevents_config_and_register(struct clock_event_device *dev,
 	dev->min_delta_ticks = min_delta;
 	dev->max_delta_ticks = max_delta;
 	clockevents_config(dev, freq);
-
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 
 	/* We do not expect to configure a periodic tick on the realtime CPU
 	 * this way. We thus avoid a set_next_event() which can trigger a timer IRQ
 	 * before CPU #1 has time to configure the IRQ request.
 	 */
 
-	/* OpenCN */
 	if (smp_processor_id() != AGENCY_RT_CPU)
-		clockevents_register_device(dev);
+#endif
+	clockevents_register_device(dev);
 }
 EXPORT_SYMBOL_GPL(clockevents_config_and_register);
 

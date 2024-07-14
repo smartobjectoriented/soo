@@ -492,6 +492,12 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 LDFLAGS_vmlinux =
 
+ifndef config-build
+ifdef need-config
+include include/config/auto.conf
+endif
+endif
+
 # Use USERINCLUDE when you must reference the UAPI directories only.
 USERINCLUDE    := \
 		-I$(srctree)/arch/$(SRCARCH)/include/uapi \
@@ -507,10 +513,12 @@ LINUXINCLUDE    := \
 		-I$(objtree)/arch/$(SRCARCH)/include/generated \
 		$(if $(building_out_of_srctree),-I$(srctree)/include) \
 		-I$(objtree)/include \
-		$(USERINCLUDE) \
-		-Isoo/include \
-		-Iarch/$(SRCARCH)/xenomai/include -Iinclude/xenomai
+		$(USERINCLUDE) 
 
+
+ifdef CONFIG_SOO
+  LINUXINCLUDE += -Isoo/include -Iarch/$(SRCARCH)/xenomai/include -Iinclude/xenomai
+endif
 
 KBUILD_AFLAGS   := -D__ASSEMBLY__ -fno-PIE
 KBUILD_CFLAGS   := -Wall -Wundef -Werror=strict-prototypes -Wno-trigraphs \
@@ -660,10 +668,6 @@ ifeq ($(MAKECMDGOALS),)
 endif
 
 export KBUILD_MODULES KBUILD_BUILTIN
-
-ifdef need-config
-include include/config/auto.conf
-endif
 
 ifeq ($(KBUILD_EXTMOD),)
 # Objects we will link into vmlinux / subdirs we need to visit
@@ -1125,9 +1129,10 @@ export MODULES_NSDEPS := $(extmod-prefix)modules.nsdeps
 ifeq ($(KBUILD_EXTMOD),)
 core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/
 
-# (SOO.tech) SOO subsystems and drivers
-core-y	 += soo/
-core-y	 += arch/$(SRCARCH)/xenomai/
+ifdef CONFIG_SOO
+  core-y	 += soo/
+  core-y	 += arch/$(SRCARCH)/xenomai/
+endif
 
 vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, \
 		     $(core-y) $(core-m) $(drivers-y) $(drivers-m) \

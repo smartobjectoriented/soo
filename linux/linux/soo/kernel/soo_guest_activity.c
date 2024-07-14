@@ -92,14 +92,14 @@ void set_dc_event(domid_t domID, dc_event_t dc_event)
 	dc_event_args.domID = domID;
 	dc_event_args.dc_event = dc_event;
 
-	soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
+	soo_hypercall(AVZ_DC_SET, NULL, &dc_event_args, NULL);
 	while (dc_event_args.state == -EBUSY) {
 		if (cpu == AGENCY_RT_CPU)
 			xnsched_run();
 		else
 			schedule();
 
-		soo_hypercall(AVZ_DC_SET, NULL, NULL, &dc_event_args, NULL);
+		soo_hypercall(AVZ_DC_SET, NULL, &dc_event_args, NULL);
 	}
 }
 
@@ -183,29 +183,41 @@ void tell_dc_stable(int dc_event)  {
  *
  * Mandatory arguments:
  * - cmd: hypercall
- * - vaddr: a virtual address used within the hypervisor
- * - paddr: a physical address used within the hypervisor
+ * - addr: a virtual address used within the hypervisor
  * - p_val1: a (virtual) address to a first value
  * - p_val2: a (virtual) address to a second value
  */
 
-void soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2)
+void soo_hypercall(int cmd, void *addr, void *p_val1, void *p_val2)
 {
-	soo_hyp_t soo_hyp;
+	soo_hyp_t *soo_hyp;
 
-	soo_hyp.cmd = cmd;
-	soo_hyp.vaddr = (unsigned long) vaddr;
-	soo_hyp.paddr = (unsigned long) paddr;
-	soo_hyp.p_val1 = p_val1;
-	soo_hyp.p_val2 = p_val2;
+        soo_hyp = kzalloc(sizeof(soo_hyp_t), GFP_KERNEL);
+        BUG_ON(!soo_hyp);
+
+        soo_hyp->cmd = cmd;
+#ifdef CONFIG_LINUXVIRT
+	soo_hyp->addr = (unsigned long) addr;
+	soo_hyp->p_val1 = p_val1;
+	soo_hyp->p_val2 = p_val2;
+#else
+        soo_hyp->addr = virt_to_phys(addr);
+        soo_hyp->p_val1 = (void *) virt_to_phys(p_val1);
+        soo_hyp->p_val2 = (void *) virt_to_phys(p_val2);
+#endif
 
 	/* AVZ_DC_SET and AVZ_GET_DOM_DESC are the only hypercalls that are allowed for CPU 1. */
 	if ((smp_processor_id() == AGENCY_RT_CPU) && (cmd != AVZ_DC_SET)) {
 		lprintk("%s: trying to unauthorized hypercall %d from the realtime CPU.\n", __func__, cmd);
 		panic("Unauthorized.\n");
 	}
+#ifdef CONFIG_LINUXVIRT
+	avz_hypercall(__HYPERVISOR_soo_hypercall, (unsigned long) &soo_hyp, 0, 0, 0);
+#else
+	avz_hypercall(__HYPERVISOR_soo_hypercall, virt_to_phys(soo_hyp), 0, 0, 0);
+#endif
 
-	hypercall_trampoline(__HYPERVISOR_soo_hypercall, (long) &soo_hyp, 0, 0, 0);
+        kfree(soo_hyp);
 }
 
 void dump_threads(void)
@@ -243,7 +255,7 @@ void dc_trigger_dev_probe_fn(dc_event_t dc_event) {
 void dc_trigger_local_cooperation(dc_event_t dc_event) {
 	unsigned int domID = atomic_read(&dc_incoming_domID[dc_event]);
 
-	soo_hypercall(AVZ_TRIGGER_LOCAL_COOPERATION, NULL, NULL, &domID, NULL);
+	soo_hypercall(AVZ_TRIGGER_LOCAL_COOPERATION, NULL, &domID, NULL);
 
 	tell_dc_stable(dc_event);
 }

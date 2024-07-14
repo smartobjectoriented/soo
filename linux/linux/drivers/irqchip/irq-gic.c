@@ -47,12 +47,14 @@
 
 #include "irq-gic-common.h"
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 #include <linux/ipipe.h>
 
 #include <soo/evtchn.h>
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
+
+#endif /* CONFIG_SOO */
 
 #ifdef CONFIG_ARM64
 #include <asm/cpufeature.h>
@@ -405,12 +407,12 @@ static void gic_handle_cascade_irq(struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
-
-/* SOO.tech */
+#ifdef CONFIG_SOO
 unsigned int gic_irq_startup(struct irq_data *data) {
 	gic_unmask_irq(data);
 	return 0;
 }
+#endif /* CONFIG_SOO */
 
 static const struct irq_chip gic_chip = {
 	.irq_mask		= gic_mask_irq,
@@ -420,21 +422,22 @@ static const struct irq_chip gic_chip = {
 	.irq_retrigger          = gic_retrigger,
 	.irq_get_irqchip_state	= gic_irq_get_irqchip_state,
 	.irq_set_irqchip_state	= gic_irq_set_irqchip_state,
-/* SOO.tech */
+#ifdef CONFIG_SOO
 	.irq_startup		= gic_irq_startup,
-
+#endif
 	.flags			= IRQCHIP_SET_TYPE_MASKED |
 				  IRQCHIP_SKIP_SET_WAKE |
 				  IRQCHIP_MASK_ON_SUSPEND,
 };
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 static void __ipipe_assign_chip(ipipe_irqdesc_t *irqdesc) {
 	irqdesc->irq_data.chip = &gic_data[0].chip;
 	irqdesc->irq_data.chip_data = &gic_data[0];
 	irqdesc->irq_data.irq = irqdesc->irq_data.hwirq = irqdesc->irq;
 	irqdesc->irq_data.common = &irqdesc->common_data;
 }
+#endif /* CONFIG_SOO */
 
 void __init gic_cascade_irq(unsigned int gic_nr, unsigned int irq)
 {
@@ -829,9 +832,10 @@ void gic_set_cpu(unsigned int cpu, unsigned int irq)
 
 	cpumask_clear(&mask);
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	if (d->hwirq >= NR_IPI_MAX)
 		cpumask_clear_cpu(AGENCY_RT_CPU, &mask);
+#endif
 
 	cpumask_set_cpu(cpu, &mask);
 	gic_set_affinity(d, &mask, true);
@@ -843,14 +847,15 @@ void gic_ipi_send_mask(struct irq_data *d, const struct cpumask *mask)
 	int cpu;
 	unsigned long flags, map = 0;
 
-#if 0
+#ifndef CONFIG_SOO
 	if (unlikely(nr_cpu_ids == 1)) {
 		/* Only one CPU? let's do a self-IPI... */
 		writel_relaxed(2 << 24 | d->hwirq,
 			       gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
 		return;
 	}
-#endif
+#endif /* !CONFIG_SOO */
+
 	gic_lock_irqsave(flags);
 
 	/* Convert our logical CPU mask into a physical one. */
@@ -864,17 +869,16 @@ void gic_ipi_send_mask(struct irq_data *d, const struct cpumask *mask)
 	dmb(ishst);
 
 	/* this always happens on GIC0 */
-	
-	/* SOO.tech */
-
+#if defined(CONFIG_SOO) && defined(CONFIG_LINUXVIRT)
 	avz_send_IPI(d->hwirq, map);
-#if 0
+#else
 	writel_relaxed(map << 16 | d->hwirq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
 #endif
-
 	gic_unlock_irqrestore(flags);
 }
+#ifdef CONFIG_SOO
 EXPORT_SYMBOL(gic_ipi_send_mask);
+#endif
 
 static int gic_starting_cpu(unsigned int cpu)
 {
@@ -893,22 +897,25 @@ static __init void gic_smp_init(void)
 	cpuhp_setup_state_nocalls(CPUHP_AP_IRQ_GIC_STARTING,
 				  "irqchip/arm/gic:starting",
 				  gic_starting_cpu, NULL);
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	/* Proceed with registration of this handler on RT CPU */
 	cpurthp_setup_state(CPUHP_AP_IRQ_GIC_STARTING, "irqchip/arm/gic:starting", gic_starting_cpu, NULL);
 
-	/* SOO.tech */
 	base_sgi = __irq_domain_alloc_irqs(gic_data[0].domain, -1, 11,
 					   NUMA_NO_NODE, &sgi_fwspec,
 					   false, NULL);
-
-
+#else /* CONFIG_SOO */
+	base_sgi = __irq_domain_alloc_irqs(gic_data[0].domain, -1, 8,
+					   NUMA_NO_NODE, &sgi_fwspec,
+					   false, NULL);
+#endif /* !CONFIG_SOO */
 	if (WARN_ON(base_sgi <= 0))
 		return;
-
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	set_smp_ipi_range(base_sgi, 11);
-
+#else
+	set_smp_ipi_range(base_sgi, 8);
+#endif
 }
 #else
 #define gic_smp_init()		do { } while(0)
@@ -1558,13 +1565,14 @@ gic_of_init(struct device_node *node, struct device_node *parent)
 
 	gic_cnt++;
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	if (ipipe_assign_chip) {
 		lprintk("%s: failure, it seems another intc controller already defined.\n", __func__);
 		BUG();
 	}
 
 	ipipe_assign_chip = __ipipe_assign_chip;
+#endif /* CONFIG_SOO */
 
 	return 0;
 }

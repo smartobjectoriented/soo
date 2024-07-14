@@ -37,7 +37,7 @@ int get_ME_state(unsigned int ME_slotID)
 
 	val = ME_slotID;
 
-	soo_hypercall(AVZ_GET_ME_STATE, NULL, NULL, &val, NULL);
+	soo_hypercall(AVZ_GET_ME_STATE, NULL, &val, NULL);
 
 	return val;
 }
@@ -54,7 +54,7 @@ void set_ME_state(unsigned int ME_slotID, ME_state_t state)
 	_state[0] = ME_slotID;
 	_state[1] = state;
 
-	soo_hypercall(AVZ_SET_ME_STATE, NULL, NULL, _state, NULL);
+	soo_hypercall(AVZ_SET_ME_STATE, NULL, _state, NULL);
 }
 
 /**
@@ -63,7 +63,7 @@ void set_ME_state(unsigned int ME_slotID, ME_state_t state)
 void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc) {
 	dom_desc_t dom_desc;
 
-	soo_hypercall(AVZ_GET_DOM_DESC, NULL, NULL, &slotID, &dom_desc);
+	soo_hypercall(AVZ_GET_DOM_DESC, NULL, &slotID, &dom_desc);
 
 	memcpy(ME_desc, &dom_desc.u.ME, sizeof(ME_desc_t));
 }
@@ -81,7 +81,7 @@ int32_t get_ME_free_slot(uint32_t size) {
 
 	DBG("Agency: trying to get a slot for a ME of %d bytes ...\n", val);
 
-	soo_hypercall(AVZ_GET_ME_FREE_SLOT, NULL, NULL, &val, NULL);
+	soo_hypercall(AVZ_GET_ME_FREE_SLOT, NULL, &val, NULL);
 
 	if (val == -1)
 		DBG0("Agency: no slot available anymore ...");

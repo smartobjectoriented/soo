@@ -111,7 +111,7 @@ static void force_terminate(unsigned int ME_slotID) {
 
 	/* Then, final termination of the residual ME */
 	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated))
-		soo_hypercall(AVZ_KILL_ME, NULL, NULL, &ME_slotID, NULL);
+		soo_hypercall(AVZ_KILL_ME, NULL, &ME_slotID, NULL);
 }
 
 /**

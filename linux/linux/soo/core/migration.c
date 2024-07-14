@@ -65,7 +65,7 @@ bool initialize_migration(uint32_t slotID) {
 
 	if (!(ME_state == ME_state_migrating)) {
 
-		soo_hypercall(AVZ_MIG_PRE_PROPAGATE, NULL, NULL, &slotID, &propagate);
+		soo_hypercall(AVZ_MIG_PRE_PROPAGATE, NULL, &slotID, &propagate);
 
 		/* Set a return value so that the caller can decide what to do. */
 		if (get_ME_state(slotID) == ME_state_dead) {
@@ -95,7 +95,7 @@ bool initialize_migration(uint32_t slotID) {
 		do_sync_dom(slotID, DC_SUSPEND);
 	}
 
-	soo_hypercall(AVZ_MIG_INIT, NULL, NULL, &slotID, NULL);
+	soo_hypercall(AVZ_MIG_INIT, NULL, &slotID, NULL);
 
 	/* Ready to be migrated */
 	return true;
@@ -121,7 +121,7 @@ void write_snapshot(uint32_t slotID, void *buffer) {
 	/* Retrieve the info related to the migration structure */
 	memcpy(__buffer, buffer + sizeof(ME_info_transfer_t), ME_info_transfer->size_mig_structure);
 
-	soo_hypercall(AVZ_MIG_WRITE_MIGRATION_STRUCT, __buffer, NULL, NULL, NULL);
+	soo_hypercall(AVZ_MIG_WRITE_MIGRATION_STRUCT, __buffer, NULL, NULL);
 
 	/* We got the pfn of the local destination for this ME, therefore... */
 
@@ -189,7 +189,7 @@ int read_snapshot(uint32_t slotID, void **buffer) {
 	ME_info_transfer = (ME_info_transfer_t *) *buffer;
 	ME_info_transfer->ME_size = ME_desc.size;
 
-	soo_hypercall(AVZ_MIG_READ_MIGRATION_STRUCT, __buffer, NULL, &slotID, &size);
+	soo_hypercall(AVZ_MIG_READ_MIGRATION_STRUCT, __buffer, &slotID, &size);
 
 	/* Store the migration structure within the ME buffer */
 	memcpy(*buffer + sizeof(ME_info_transfer_t), __buffer, size);
@@ -249,13 +249,13 @@ void finalize_migration(uint32_t slotID) {
 		 * see if the Smart Object has the necessary devcaps. To do that,
 		 * we ask the ME to decide.
 		 */
-		soo_hypercall(AVZ_MIG_PRE_ACTIVATE, NULL, NULL, &slotID, NULL);
+		soo_hypercall(AVZ_MIG_PRE_ACTIVATE, NULL, &slotID, NULL);
 
 		/* Check if the pre-activate callback has changed the ME state */
 		if ((get_ME_state(slotID) == ME_state_dead) || (get_ME_state(slotID) == ME_state_dormant))
 			return ;
 
-		soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &slotID, NULL);
+		soo_hypercall(AVZ_MIG_FINAL, NULL, &slotID, NULL);
 
 		/* Check for ME which have been terminated during the cooperate callback. */
 		check_terminated_ME();
@@ -291,7 +291,7 @@ void finalize_migration(uint32_t slotID) {
 		DBG0("SOO migration subsys: Entering post migration tasks...\n");
 
 		if (ME_state != ME_state_dormant) {
-			soo_hypercall(AVZ_MIG_FINAL, NULL, NULL, &slotID, NULL);
+			soo_hypercall(AVZ_MIG_FINAL, NULL, &slotID, NULL);
 
 			DBG0("Call to AVZ_MIG_FINAL terminated\n");
 

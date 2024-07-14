@@ -71,11 +71,12 @@ extern void set_smp_ipi_range(int ipi_base, int nr_ipi);
  */
 asmlinkage void secondary_start_kernel(void);
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 void __ipipe_ipis_request(void);
 void smp_kick_rt_agency_for_task_create(void);
 void smp_kick_rt_agency_for_wakeup(void);
 void smp_trigger_tick(void);
+#endif
 
 /*
  * Initial data for bringing up a secondary CPU.

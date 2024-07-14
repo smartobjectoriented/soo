@@ -236,8 +236,8 @@ static void clocksource_watchdog(struct timer_list *unused)
 
 		/* Check the deviation from the watchdog clocksource. */
 
-/* OpenCN - We know that we can rely on the TSC on x86 platform.  */
-#ifndef CONFIG_X86
+#if defined(CONFIG_SOO) && !defined(CONFIG_X86)
+
 		if (abs(cs_nsec - wd_nsec) > WATCHDOG_THRESHOLD) {
 			pr_warn("timekeeping watchdog on CPU%d: Marking clocksource '%s' as unstable because the skew is too large:\n",
 				smp_processor_id(), cs->name);
@@ -248,7 +248,7 @@ static void clocksource_watchdog(struct timer_list *unused)
 			__clocksource_unstable(cs);
 			continue;
 		}
-#endif /* CONFIG_X86 */
+#endif 
 		if (cs == curr_clocksource && cs->tick_stable)
 			cs->tick_stable(cs);
 

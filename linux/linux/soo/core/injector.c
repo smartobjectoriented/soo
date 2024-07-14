@@ -17,7 +17,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -55,18 +55,33 @@ size_t current_size = 0;
 
 /**
  * Initiate the injection of a ME.
- *
+ * 
+ * The ME is first copied within the kernel heap so that
+ * we get rid of user space paging and have a contiguous memory allocation.
+ * 
  * @param buffer
  * @return slotID or -1 if no slotID available.
  */
 int inject_ME(void *buffer, size_t size) {
 	int slotID;
+        void *me = NULL;
 
-	DBG("Original contents at address: 0x%08x\n with size %d bytes\n", (unsigned int) buffer, size);
+        DBG("Original contents at address: 0x%08x\n with size %d bytes\n", (unsigned long) buffer, size);
 
-	soo_hypercall(AVZ_INJECT_ME, buffer, NULL, &slotID, &size);
+	/* Allocate a contiguous memory region to host the ME*/
+        me = kmalloc(size, GFP_KERNEL);
+        BUG_ON(!me);
 
-	return slotID;
+        memcpy(me, buffer, size);
+
+        /* Now, the virtual address can be converted to the physical one in the
+         * soo_hypercall() function */
+
+        soo_hypercall(AVZ_INJECT_ME, me, &slotID, &size);
+
+        kfree(me);
+	
+        return slotID;
 }
 
 

@@ -23,7 +23,7 @@ case "$1" in
         echo "OK"
 
         echo -n "Starting Agency Core... "
-        /root/agency &
+#        /root/agency &
         echo "OK"
 
         echo -n "Starting Mqtt App for IUOC... "

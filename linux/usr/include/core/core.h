@@ -24,7 +24,7 @@
 
 #include <soo/uapi/soo.h>
 
-#define AGENCY_CORE_VERSION "2022.3"
+#define AGENCY_CORE_VERSION "2024.4"
 
 /* Cycle period express in ms */
 #define AG_CYCLE_PERIOD		100

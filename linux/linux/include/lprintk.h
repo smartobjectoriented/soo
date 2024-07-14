@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Daniel Rossier <daniel.rossier@heig-vd.ch>
+ * Copyright (C) 2016 Daniel Rossier <daniel.rossier@soo.tech>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,29 +16,16 @@
  *
  */
 
-#ifndef _HYPERVISOR_H_
-#define _HYPERVISOR_H_
+#ifndef CONSOLE_H
+#define CONSOLE_H
 
-#include <soo/uapi/avz.h>
+#include <linux/types.h>
+#include <stdarg.h>
 
-#include <soo/uapi/physdev.h>
+#define CONSOLEIO_BUFFER_SIZE 256
 
-#include <linux/cpumask.h>
+extern void (*__printch)(char c);
 
-extern bool __domcall_in_progress;
+void lprintk(char *format, ...);
 
-void avz_dump_page(unsigned int pfn);
-void avz_dump_logbool(void);
-
-void avz_ME_unpause(domid_t domID, addr_t vbstore_pfn);
-void avz_ME_pause(domid_t domID);
-#if defined(CONFIG_SOO) && !defined(CONFIG_LINUXVIRT)
-void avz_get_shared(void);
-#endif
-
-void domcall(int cmd, void *arg);
-void avz_linux_callback(void);
-
-void avz_send_IPI(int ipinr, long cpu_mask);
-
-#endif /* __HYPERVISOR_H__ */
+#endif /* CONSOLE_H */

@@ -21,7 +21,7 @@
 
 extern volatile avz_shared_t *avz_shared;
 
-extern void hypercall_trampoline(int hcall, long a0, long a1, long a2, long a3);
+extern long avz_hypercall(int hcall, long a0, long a1, long a2, long a3);
 
 #define AVZ_shared ((smp_processor_id() == 1) ? (avz_shared)->subdomain_shared : avz_shared)
 

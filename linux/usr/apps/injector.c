@@ -18,7 +18,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -125,7 +125,8 @@ int finalize_migration(unsigned int slotID) {
 
 /**
  * Inject a ME.
- * @ME_buffer: the ITB file of the ME.
+ * @ME_buffer: the ITB file of the ME. ME_buffer is
+ * a virtual address in the user space.
  */
 int inject_ME(void *ME_buffer, size_t size) {
 	int rc;

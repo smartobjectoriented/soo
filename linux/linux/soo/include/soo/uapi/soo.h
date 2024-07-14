@@ -335,8 +335,7 @@ void rtdm_register_dc_event_callback(dc_event_t dc_event, dc_event_fn_t *callbac
  */
 typedef struct migrate_op {
 	int		cmd;
-	unsigned long	vaddr;
-	unsigned long	paddr;
+	unsigned long	addr;
 	void		*p_val1;
 	void		*p_val2;
 } soo_hyp_t;
@@ -501,7 +500,7 @@ typedef struct soo_domcall_arg {
 extern struct semaphore usr_feedback;
 extern struct semaphore injection_sem;
 
-void soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2);
+void soo_hypercall(int cmd, void *vaddr, void *p_val1, void *p_val2);
 
 void cb_pre_propagate(soo_domcall_arg_t *args);
 

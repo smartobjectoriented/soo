@@ -105,7 +105,8 @@
 #include <asm/sections.h>
 #include <asm/cacheflush.h>
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
+
 #include <soo/core/core.h>
 
 #include <soo/uapi/console.h>
@@ -114,6 +115,8 @@
 #include <soo/evtchn.h>
 
 #include <xenomai/rtdm/driver.h>
+
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/initcall.h>
@@ -855,9 +858,10 @@ void __init __weak arch_call_rest_init(void)
 	rest_init();
 }
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 extern void forget_RT_cpu(void);
 extern void showup_RT_cpu(void);
+#endif
 
 asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 {
@@ -881,7 +885,7 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	page_address_init();
 	pr_notice("%s", linux_banner);
 
-/* SOO.tech */
+#if defined(CONFIG_SOO) && !defined(CONFIG_LINUXVIRT) && !defined(CONFIG_X86)
 
 	/* paravirt */
 	lprintk("SOO Agency - %s: HYPERVISOR_VIRT_START=%lx,    __pa()=%lx\n", __func__, (unsigned long) HYPERVISOR_VIRT_START, (unsigned long) __pa(HYPERVISOR_VIRT_START));
@@ -890,6 +894,9 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	lprintk("SOO Agency - %s: VMALLOC_END=%lx               __va()=%lx\n", __func__, (unsigned long) VMALLOC_END, (unsigned long) __va(VMALLOC_END));
 	lprintk("SOO Agency - %s: _end=%lx                      __pa()=%lx\n", __func__, (unsigned long) _end, (unsigned long) __pa(_end));
 
+#endif
+
+	early_security_init();
 	setup_arch(&command_line);
 	setup_boot_config(command_line);
 	setup_command_line(command_line);
@@ -960,9 +967,17 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	 */
 	workqueue_init_early();
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
+
+#ifndef CONFIG_LINUXVIRT
+	/* Get the reference to the AVZ shared data */
+	avz_get_shared();
+#endif
+
 	lprintk("** Agency RT CPU gets invisible for Linux...\n");
 	forget_RT_cpu();
+
+#endif /* CONFIG_SOO */
 
 	rcu_init();
 
@@ -977,8 +992,9 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	early_irq_init();
 	init_IRQ();
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	__ipipe_init_early();
+#endif
 
 	tick_init();
 	rcu_init_nohz();
@@ -986,7 +1002,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	hrtimers_init();
 	softirq_init();
 	timekeeping_init();
-
 	/*
 	 * For best initial stack canary entropy, prepare it after:
 	 * - setup_arch() for any UEFI RNG entropy and boot cmdline access
@@ -1008,8 +1023,9 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 
 	early_boot_irqs_disabled = false;
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	showup_RT_cpu();
+#endif
 
 	local_irq_enable();
 
@@ -1466,14 +1482,16 @@ static int __ref kernel_init(void *unused)
 
 	rcu_end_inkernel_boot();
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 
 	/*
 	 * At this point of time, the remaining initialization task of the SOO agency can be performed.
 	 */
 
 	kernel_thread(agency_late_init_fn, NULL, 0);
-	
+
+#endif /* CONFIG_SOO */
+
 	do_sysctl_args();
 
 	if (ramdisk_execute_command) {
@@ -1547,9 +1565,9 @@ static noinline void __init kernel_init_freeable(void)
 	 */
 	set_mems_allowed(node_states[N_MEMORY]);
 
-	/* SOO.tech */
-
+#ifdef CONFIG_SOO
 	set_cpus_allowed_ptr(current, cpumask_of(AGENCY_CPU));
+#endif
 
 	cad_pid = task_pid(current);
 
@@ -1565,9 +1583,10 @@ static noinline void __init kernel_init_freeable(void)
 	smp_init();
 	sched_init_smp();
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	set_cpus_allowed_ptr(current, cpumask_of(0));
-	
+#endif
+
 	padata_init();
 	page_alloc_init_late();
 	/* Initialize page ext after all struct pages are initialized. */

@@ -24,6 +24,7 @@
 
 #include <soo/hypervisor.h>
 #include <soo/evtchn.h>
+#include <soo/paging.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/schedop.h>
@@ -42,8 +43,38 @@ void avz_ME_unpause(domid_t domain_id, addr_t vbstore_pfn)
 
 	op.u.unpause_ME.vbstore_pfn = vbstore_pfn;
 
-	hypercall_trampoline(__HYPERVISOR_domctl, (long) &op, 0 ,0 ,0);
+	avz_hypercall(__HYPERVISOR_domctl, (long) &op, 0 ,0 ,0);
 }
+
+#if defined(CONFIG_SOO) && !defined(CONFIG_LINUXVIRT)
+
+void avz_get_shared(void) {
+	struct domctl *op;
+
+	op = kmalloc(sizeof(struct domctl), GFP_KERNEL);
+	BUG_ON(!op);
+
+	op->cmd = DOMCTL_get_AVZ_shared;
+
+	avz_hypercall(__HYPERVISOR_domctl, virt_to_phys(op), 0, 0, 0);
+
+	BUG_ON(!op->u.avz_shared_paddr);
+
+	avz_shared = (volatile avz_shared_t *) paging_remap(op->u.avz_shared_paddr, PAGE_SIZE);
+	BUG_ON(!avz_shared);
+
+	BUG_ON(!avz_shared->subdomain_shared_paddr);
+
+	avz_shared->subdomain_shared = (avz_shared_t *) paging_remap(avz_shared->subdomain_shared_paddr, PAGE_SIZE);
+	BUG_ON(!avz_shared->subdomain_shared);
+
+}
+
+void avz_printch(char c) {
+	avz_hypercall(__HYPERVISOR_console_io, c, 0, 0, 0);
+}
+
+#endif
 
 void avz_ME_pause(domid_t domain_id)
 {
@@ -54,17 +85,17 @@ void avz_ME_pause(domid_t domain_id)
 	op.cmd = DOMCTL_pauseME;
 	op.domain = domain_id;
 
-	hypercall_trampoline(__HYPERVISOR_domctl, (long) &op, 0, 0, 0);
+	avz_hypercall(__HYPERVISOR_domctl, (long) &op, 0, 0, 0);
 }
 
 void avz_dump_page(unsigned int pfn)
 {
-	hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_dump_page, (long) &pfn, 0, 0);
+	avz_hypercall(__HYPERVISOR_physdev_op, PHYSDEVOP_dump_page, (long) &pfn, 0, 0);
 }
 
 void avz_dump_logbool(void)
 {
-	hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_dump_logbool, 0 ,0, 0);
+	avz_hypercall(__HYPERVISOR_physdev_op, PHYSDEVOP_dump_logbool, 0 ,0, 0);
 }
 
 void avz_send_IPI(int ipinr, long cpu_mask) {
@@ -73,6 +104,6 @@ void avz_send_IPI(int ipinr, long cpu_mask) {
 	send_ipi_args.ipinr = ipinr;
 	send_ipi_args.cpu_mask = cpu_mask;
 
-	hypercall_trampoline(__HYPERVISOR_physdev_op, PHYSDEVOP_send_ipi, (long) &send_ipi_args, 0, 0);
+	avz_hypercall(__HYPERVISOR_physdev_op, PHYSDEVOP_send_ipi, (long) &send_ipi_args, 0, 0);
 }
 

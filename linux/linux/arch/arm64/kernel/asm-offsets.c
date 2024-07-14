@@ -24,8 +24,11 @@
 #include <linux/kbuild.h>
 #include <linux/arm-smccc.h>
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 #include <soo/uapi/avz.h>
+#else
+#include <avz.h>
+#endif
 
 int main(void)
 {

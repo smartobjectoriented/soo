@@ -147,7 +147,6 @@ $(obj)/kheaders_data.tar.xz: FORCE
 
 clean-files := kheaders_data.tar.xz kheaders.md5
 
-# SOO.tech
-obj-$(CONFIG_IPIPE) += ipipe/
-obj-$(CONFIG_XENOMAI) += xenomai/
+# heig-vd
+obj-$(CONFIG_XENOMAI) += xenomai/ ipipe/
 

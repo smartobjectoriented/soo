@@ -44,7 +44,6 @@
 
 #include <soo/uapi/dcm.h>
 
-
 /**
  * Inject a ME.
  * @ME_buffer: the ITB file of the ME.

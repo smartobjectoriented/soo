@@ -94,7 +94,7 @@ static void rtdm_dc_isr_task_fn(void *arg) {
 		dc_event = atomic_read((const atomic_t *) &AVZ_shared->dc_event);
 
 		/* Reset the dc_event now so that the domain can send another dc_event */
-atomic_set((atomic_t *) &AVZ_shared->dc_event, DC_NO_EVENT);
+		atomic_set((atomic_t *) &AVZ_shared->dc_event, DC_NO_EVENT);
 
 		/* Perform the associated callback function to this particular dc_event */
 		if (rtdm_dc_event_callback[dc_event] != NULL)

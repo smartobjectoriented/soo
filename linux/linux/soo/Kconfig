@@ -1,3 +1,9 @@
+
+config SOO
+	bool "Enabling the Smart Object Oriented (SOO) subsystem"
+	select XENOMAI
+
+if SOO
 menu "SOO Framework and subsystems"
 
 config SOO_CORE_ASF
@@ -15,3 +21,5 @@ source "soo/soolink/Kconfig"
 source "soo/drivers/Kconfig"
 
 endmenu # SOO
+
+endif

@@ -29,10 +29,11 @@
 #include <asm/asm-uaccess.h>
 #include <asm/unistd.h>
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 #include <soo/uapi/soo.h>
 
 .extern __stack_alignment_fault
+#endif
 
 /*
  * Context tracking and irqflag tracing need to instrument transitions between
@@ -424,12 +425,13 @@ SYM_CODE_END(__swpan_exit_el0)
 	mov	x24, scs_sp		// preserve the original shadow stack
 #endif
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	// Do not compare if we are running on CPU #1
 	mrs	x25, mpidr_el1
 	and x25, x25, #3
 	cmp x25, #AGENCY_RT_CPU
 	b.eq 9998f
+#endif
 
 	/*
 	 * Compare sp with the base of the task stack.
@@ -1132,12 +1134,15 @@ SYM_CODE_END(__sdei_asm_handler)
 NOKPROBE(__sdei_asm_handler)
 #endif /* CONFIG_ARM_SDE_INTERFACE */
 
+#ifdef CONFIG_SOO
 
-/* SOO.tech */
+#ifdef CONFIG_LINUXVIRT
+
+.align 5
+
 // We may reach this point only during along the upcall
 // path of a hypercall return.
 
-.align 5
 SYM_CODE_START(avz_linux_callback)
 
 	// Check if the stack is 16-byte aligned.
@@ -1182,7 +1187,6 @@ SYM_CODE_START(avz_linux_callback)
 
 
 SYM_CODE_END(avz_linux_callback)
-
 
 .align 5
     /*
@@ -1247,7 +1251,7 @@ SYM_CODE_START(hypercall_trampoline)
 
 	// Update PSTATE accordingly
 	str		x9, [sp, #S_PSTATE]
-
+ 
 	mov		x0, sp
 	bl 		evtchn_do_upcall
 
@@ -1286,4 +1290,16 @@ out_upcall:
     ret
 
 SYM_CODE_END(hypercall_trampoline)
+
+#else /* CONFIG_LINUXVIRT */
+
+.align 5
+
+SYM_CODE_START(avz_hypercall)
+
+	hvc #0
+	ret
+#endif /* !CONFIG_LINUXVIRT */
+
+#endif /* CONFIG_SOO */
 

@@ -41,8 +41,8 @@
 			arch = "arm64";
 			os = "linux";
 			compression = "none";
-			load = <0x41000000>;
-			entry = <0x41000000>;
+			load = <0x50000000>;
+			entry = <0x50000000>;
 		};
 
  		avz_pv_dt {
@@ -60,7 +60,8 @@
 			type = "avz_dt";
 			arch = "arm64";
 			compression = "none";
-			load = <0x40f00000>;
+			/* Find a region above the heap to preserve the DT */
+			load = <0x46000000>;
 		};
 		
         fdt {
@@ -69,7 +70,7 @@
 			type = "flat_dt";
 			arch = "arm64";
 			compression = "none";
-			load = <0x50000000>;
+			load = <0x60000000>;
 		};
 
 		initrd {
@@ -79,7 +80,7 @@
 			arch = "arm64";
 			os = "linux";			
 			compression = "none";
-			load = <0x50c00000>;
+			load = <0x60c00000>;
 		};
 	};
 
@@ -89,7 +90,7 @@
 		agency {
 			description = "SOO Agency on virt64";
 		    kernel = "avz";
-             loadables = "avz_pv_dt", "linux"; 
+             loadables = "avz_vt_dt", "linux"; 
              fdt = "fdt"; 
              ramdisk = "initrd"; 
 		};

@@ -44,7 +44,7 @@ extern unsigned long __per_cpu_offset[NR_CPUS];
 #define arch_raw_cpu_ptr(ptr) SHIFT_PERCPU_PTR(ptr, __my_cpu_offset)
 #endif
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 
 #define __ipipe_cpu_offset  __my_cpu_offset
 
@@ -52,6 +52,8 @@ extern unsigned long __per_cpu_offset[NR_CPUS];
 #define __ipipe_raw_cpu_ptr(ptr)  SHIFT_PERCPU_PTR(ptr, __ipipe_cpu_offset)
 #endif
 #define __ipipe_raw_cpu_read(var) (*__ipipe_raw_cpu_ptr(&(var)))
+
+#endif /* CONFIG_SOO */
 
 #ifdef CONFIG_HAVE_SETUP_PER_CPU_AREA
 extern void setup_per_cpu_areas(void);

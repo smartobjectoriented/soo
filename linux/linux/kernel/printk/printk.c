@@ -2515,7 +2515,7 @@ skip:
 		stop_critical_timings();	/* don't trace print latency */
 		call_console_drivers(ext_text, ext_len, text, len);
 		start_critical_timings();
-#if 0 /* SOO.tech */
+#if 1 /* SOO.tech */
 	{
 		int ii;
 

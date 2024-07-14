@@ -22,7 +22,7 @@
 #ifndef __LINUX_IPIPE_DOMAIN_H
 #define __LINUX_IPIPE_DOMAIN_H
 
-#ifdef CONFIG_IPIPE
+#ifdef CONFIG_XENOMAI
 
 #include <linux/mutex.h>
 #include <linux/percpu.h>
