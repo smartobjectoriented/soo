@@ -196,26 +196,18 @@ void soo_hypercall(int cmd, void *addr, void *p_val1, void *p_val2)
         BUG_ON(!soo_hyp);
 
         soo_hyp->cmd = cmd;
-#ifdef CONFIG_LINUXVIRT
-	soo_hyp->addr = (unsigned long) addr;
-	soo_hyp->p_val1 = p_val1;
-	soo_hyp->p_val2 = p_val2;
-#else
+
         soo_hyp->addr = virt_to_phys(addr);
         soo_hyp->p_val1 = (void *) virt_to_phys(p_val1);
         soo_hyp->p_val2 = (void *) virt_to_phys(p_val2);
-#endif
 
 	/* AVZ_DC_SET and AVZ_GET_DOM_DESC are the only hypercalls that are allowed for CPU 1. */
 	if ((smp_processor_id() == AGENCY_RT_CPU) && (cmd != AVZ_DC_SET)) {
 		lprintk("%s: trying to unauthorized hypercall %d from the realtime CPU.\n", __func__, cmd);
 		panic("Unauthorized.\n");
 	}
-#ifdef CONFIG_LINUXVIRT
-	avz_hypercall(__HYPERVISOR_soo_hypercall, (unsigned long) &soo_hyp, 0, 0, 0);
-#else
+
 	avz_hypercall(__HYPERVISOR_soo_hypercall, virt_to_phys(soo_hyp), 0, 0, 0);
-#endif
 
         kfree(soo_hyp);
 }

@@ -8,5 +8,5 @@ dtb-$(CONFIG_ARCH_VEXPRESS) += vexpress-v2f-1xv7-ca53x2.dtb
 dtb-$(CONFIG_ARCH_VEXPRESS) += fvp-base-revc.dtb
 
 # SOO.tech
-dtb-$(CONFIG_ARCH_VEXPRESS) += virt64.dtb
+dtb-$(CONFIG_ARCH_VEXPRESS) += virt64.dtb virt64_guest.dtb
 
