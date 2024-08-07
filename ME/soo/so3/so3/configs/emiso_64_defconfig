@@ -54,6 +54,7 @@ CONFIG_SOO_TIMER=y
 # CONFIG_GIC is not set
 CONFIG_SOO_IRQ=y
 # CONFIG_PL111_CLCD is not set
+# CONFIG_QEMU_RAMFB is not set
 # CONFIG_SOO_FB is not set
 # CONFIG_PL050_KMI is not set
 # CONFIG_SOO_INPUT is not set
@@ -85,6 +86,17 @@ CONFIG_MMU=y
 #
 # SOO Mobile Entity - Smart Object Oriented subsystem
 #
+# CONFIG_SOO_REFSO3 is not set
+# CONFIG_SOO_BLIND is not set
+# CONFIG_SOO_OUTDOOR is not set
+# CONFIG_SOO_AGENCY is not set
+# CONFIG_SOO_NET is not set
+# CONFIG_SOO_LEDCTRL is not set
+# CONFIG_SOO_CHAT is not set
+# CONFIG_SOO_WAGOLED is not set
+# CONFIG_SOO_IUOC is not set
+# CONFIG_SOO_SWITCH_KNX is not set
+# CONFIG_SOO_SWITCH_ENOCEAN is not set
 CONFIG_SOO_EMISO=y
 
 #
@@ -92,7 +104,12 @@ CONFIG_SOO_EMISO=y
 #
 # CONFIG_VDUMMY_FRONTEND is not set
 CONFIG_VUART_FRONTEND=y
-
-#
+# CONFIG_VDOGA12V6NM_FRONTEND is not set
+# CONFIG_VWEATHER_FRONTEND is not set
+# CONFIG_VUIHANDLER_FRONTEND is not set
 # CONFIG_VSENSELED_FRONTEND is not set
 # CONFIG_VSENSEJ_FRONTEND is not set
+# CONFIG_VENOCEAN_FRONTEND is not set
+# CONFIG_VWAGOLED_FRONTEND is not set
+# CONFIG_VIUOC_FRONTEND is not set
+# CONFIG_VKNX_FRONTEND is not set
