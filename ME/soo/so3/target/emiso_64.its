@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Jean-Pierre Miceli <jean-pierre.miceli@heig-vd.ch>
+ * Copyright (C) 2018-2019 Daniel Rossier <daniel.rossier@soo.tech>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,25 +16,28 @@
  *
  */
 
-#include "daemon.hpp"
+/dts-v1/;
 
-namespace emiso {
+/ {
+	description = "SO3 image for the SOO.refso3 ME (without rootfs)";
 
-Daemon* Daemon::_daemon = nullptr;
+	images {
+	
+		so3 {
+			description = "SO3 OS kernel";
+			data = /incbin/("../so3/so3.bin");
+			type = "ME";
+			arch = "arm64";
+			os = "linux";
+			compression = "none";
+		};
 
-Daemon::Daemon() {};
-
-Daemon::~Daemon() {};
-
-
-Daemon* Daemon::getInstance()
-{
-
-    if (_daemon == nullptr) {
-		_daemon = new Daemon();
-	}
-
-    return _daemon;
-}
-
-} // namespace emiso
+		fdt {
+			description = "Flattened Device Tree blob";
+			data = /incbin/("../so3/dts/emiso.dtb");
+			type = "flat_dt";
+			arch = "arm64";
+			compression = "none";
+		};	
+    };
+};

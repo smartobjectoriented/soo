@@ -126,8 +126,9 @@ void process_response(struct vbus_device *vdev) {
 
 			notify_remote_via_virq(vuart_priv->vuart.irq);
 
-		} else
-			lprintch(ring_req->c);
+		} else {
+			printk(KERN_CONT "%c", ring_req->c);
+		}
 	}
 
 	vdevback_processing_end(vdev);

@@ -30,6 +30,7 @@
 			arch = "arm";
 			os = "linux";
 			compression = "none";
+<<<<<<< HEAD:target/bbb.its
 			load = <0x80008000>;
 			entry = <0x80008000>;
 		};
@@ -37,6 +38,15 @@
         fdt_linux {
 			description = "Linux device tree blob";
 			data = /incbin/("../linux/linux/arch/arm/boot/dts/am335x-boneblack.dtb");
+=======
+			load = <0x01008000>;
+			entry = <0x01008000>;
+		};
+		
+		fdt {
+			description = "SO3 device tree blob";
+			data = /incbin/("../so3/dts/rpi4.dtb");
+>>>>>>> d0f96911b1 (align with main SO3):so3/target/rpi4_so3_standalone.its
 			type = "flat_dt";
 			arch = "arm";
 			compression = "none";
@@ -47,10 +57,18 @@
 	configurations {
 		default = "conf_linux";
 
+<<<<<<< HEAD:target/bbb.its
 		conf_linux {
 			description = "Linux on BeagleBoneBlack";
             kernel = "linux";
             fdt = "fdt_linux";
+=======
+		conf_so3 {
+			description = "SO3 on Raspberry Pi 4";
+            kernel = "so3";
+            fdt = "fdt";
+            ramdisk = "ramfs";
+>>>>>>> d0f96911b1 (align with main SO3):so3/target/rpi4_so3_standalone.its
 		};
 	};
 };
