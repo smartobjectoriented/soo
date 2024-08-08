@@ -22,7 +22,8 @@
    drivers/drivers
    rootfs/rootfs
    user_guide
-   emiso_engine/emiso_engine.rst
+   docker/docker
+   emiso_engine/emiso_engine
    portainer/portainer
    logging
    board_issues
