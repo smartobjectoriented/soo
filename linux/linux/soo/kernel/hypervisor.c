@@ -58,10 +58,10 @@ void avz_get_shared(void) {
 	BUG_ON(!op);
 
 	op->cmd = DOMCTL_get_AVZ_shared;
+   
+        avz_hypercall(__HYPERVISOR_domctl, virt_to_phys(op), 0, 0, 0);
 
-	avz_hypercall(__HYPERVISOR_domctl, virt_to_phys(op), 0, 0, 0);
-
-	BUG_ON(!op->u.avz_shared_paddr);
+        BUG_ON(!op->u.avz_shared_paddr);
 
 	avz_shared = (volatile avz_shared_t *) paging_remap(op->u.avz_shared_paddr, PAGE_SIZE);
 	BUG_ON(!avz_shared);

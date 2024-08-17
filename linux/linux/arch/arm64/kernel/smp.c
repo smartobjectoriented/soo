@@ -208,8 +208,7 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 	 * CPU was successfully started, wait for it to come online or
 	 * time out.
 	 */
-	wait_for_completion_timeout(&cpu_running,
-				    msecs_to_jiffies(5000));
+	wait_for_completion_timeout(&cpu_running, msecs_to_jiffies(5000));
 	if (cpu_online(cpu))
 		return 0;
 

@@ -34,15 +34,19 @@
 			entry = <0x40080000>;
 		};
 
+/* The location of the linux guest is the same than in the DTS
+   so that we avoid to use the IOMMU
+*/
+
 		linux {
 			description = "Linux kernel";
 			data = /incbin/("../linux/linux/arch/arm64/boot/Image");
-			type = "avz";
+			type = "guest";
 			arch = "arm64";
 			os = "linux";
 			compression = "none";
-			load = <0x50000000>;
-			entry = <0x50000000>;
+			load = <0x41000000>;
+			entry = <0x41000000>;
 		};
 
  		avz_pv_dt {
@@ -66,11 +70,11 @@
 		
         fdt {
 			description = "Linux device tree blob";
-			data = /incbin/("../linux/linux/arch/arm64/boot/dts/arm/virt64.dtb");
+			data = /incbin/("../linux/linux/arch/arm64/boot/dts/arm/virt64_guest.dtb");
 			type = "flat_dt";
 			arch = "arm64";
 			compression = "none";
-			load = <0x60000000>;
+			load = <0x50000000>;
 		};
 
 		initrd {
@@ -80,7 +84,7 @@
 			arch = "arm64";
 			os = "linux";			
 			compression = "none";
-			load = <0x60c00000>;
+			load = <0x50c00000>;
 		};
 	};
 
@@ -94,7 +98,7 @@
              fdt = "fdt"; 
              ramdisk = "initrd"; 
 		};
-		
+	
 	};
 
 };

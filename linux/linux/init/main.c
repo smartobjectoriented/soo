@@ -969,10 +969,8 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 
 #ifdef CONFIG_SOO
 
-#ifndef CONFIG_LINUXVIRT
 	/* Get the reference to the AVZ shared data */
 	avz_get_shared();
-#endif
 
 	lprintk("** Agency RT CPU gets invisible for Linux...\n");
 	forget_RT_cpu();
