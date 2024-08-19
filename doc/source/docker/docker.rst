@@ -4,7 +4,12 @@
 Docker
 ######
 
-The *Docker* engine has to be integrated in the ``EMISO`` environment.
+This chapter provides some information on how to integrate and to use the *Docker*
+engine in the ``SOO`` environment.
+
+.. note::
+
+	The *Docker* engine is not integrated in the ``SOO`` environment.
 
 ***********
 Integration
@@ -17,7 +22,7 @@ kernel modules required to enable Docker support.
 
 * Usage: ``check-config.sh <DEFCONFIG FILE>``
 
-It is located in ``<EMISO HOME>/docker/`` folder.
+It is located in ``<SOO HOME>/docker/`` folder.
 
 **rootfs**
 
@@ -44,17 +49,17 @@ Image integration
 
 The image should be placed in one of the following directories:
 
-* <EMISO HOME>/agency/usr/docker_images/{aarch32, aarch64}
+* <SOO HOME>/agency/usr/docker_images/{aarch32, aarch64}
 
 The following commands shows how to retrieve a *docker* image and place it at the
-correct place in `emiso` repo
+correct place in `SOO` repo
 
 .. code-block:: shell
 
 	$ docker pull <IMAGE>
 	$ docker save -o <IMAGE NAME>.docker <IMAGE NAME>
 	$ zip <IMAGE NAME>.zip <IMAGE NAME>.docker
-	$ mv <IMAGE NAME>.zip <EMISO HOME>/agency/usr/docker_images/{aarch32, aarch64}
+	$ mv <IMAGE NAME>.zip <SOO HOME>/agency/usr/docker_images/{aarch32, aarch64}
 
 .. warning::
 

@@ -21,6 +21,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 
 namespace emiso {
 
@@ -54,6 +55,8 @@ namespace emiso {
         int pause(unsigned contenerId);
         int unpause(unsigned contenerId);
         int remove(unsigned contenerId);
+
+        std::vector<std::string> retrieveLogs(unsigned contenerId, unsigned lineNr);
 
     private:
         std::string meToDockerState(int meState);

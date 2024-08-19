@@ -10,66 +10,103 @@ and containerized applications. It provides a user-friendly web-based interface
 that allows users to interact with Docker and manage containers, images, networks,
 and volumes without needing to use complex command-line tools.
 
-In the context of the EMISO project, *Portainer* will be employed and customized
-to extend its functionality in order to effectively support SO3 Containers.
+In the SOO framework, `Portainer Server CE` is used as the Container Orchestration
+Use User Interface (COUI).
 
-*Portainer* consists of two parts: a Server and an Agent. Both run as lightweight
-containers. The *Portainer* Agent runs on the node in your cluster and communicates
-with the *Portainer* Server.
+************
+Installation
+************
 
-******
-Server
-******
+Portainer Server runs as lightweight Docker containers on a Docker engine. It means
+docker must be installed on the Host PC.
 
-The *Portainer Server* can be started directly from a docker image.
+* Creation of a volume that Portainer Server use to store it database:
 
 .. code-block:: shell
 
-	$ docker volume create portainer_data
-	$ docker run -d -p 8000:8000 -p 9443:9443 \
+    docker volume create portainer_data
+
+* Download and install Portainer Server container:
+
+.. code-block:: shell
+
+    $ docker run -d -p 8000:8000 -p 9443:9443 \
        --name portainer \
        --restart=always \
        -v /var/run/docker.sock:/var/run/docker.sock \
        -v portainer_data:/data \
        portainer/portainer-ce:latest
 
+``docker ps`` command can be used to check if the Portainer server is running
 
-*****
-Agent
-*****
-
-The Agent is also deployed from a docker image, below is the docker run command
-to start it.
+To log-in, open a web browser and to to:
 
 .. code-block:: shell
 
-	$ docker run -d \
-           -p 9001:9001 \
-           --name portainer_agent \
-           --restart=always \
-           -v /var/run/docker.sock:/var/run/docker.sock \
-           -v /var/lib/docker/volumes:/var/lib/docker/volumes \
-            portainer/agent:2.18.4
+    https://localhost:9443
 
-During the initial boot of the system, the process consists of extracting the *Portainer-agent*
-image, loading it into Docker, and subsequently executing it using the docker run
-command.
-After this initial setup, the *Portainer-agent* container is configured to be launched
-automatically at every system boot.
+*************
+Initial setup
+*************
 
-All these steps are handled by ``S62Portainer`` ``init.d`` script.
+Once the Portainer Server has been deployed, and you have navigated to the instance's
+URL, you are ready for the initial setup.
 
-The docker image is stored, in the target, at ``/root/docker_images/portainer_agent_image.zip``
+First time connected to the Portainer server; the first user has to be created.
+This first user will be an administrator. The username defaults to admin and the
+password must be at least 12 characters long.
 
-.. note::
+Once the admin user has been created, the Environment Wizard will automatically
+launch. The wizard will help get you started with Portainer.
 
-	The container starts automatically at boot. If it is manually stopped, it is
-	restarted only when Docker daemon restarts or the container itself is manually
-	restarted.
+The installation process automatically detects your local environment and sets it
+up for you. If you want to add additional environments to manage with this Portainer
+instance, click Add Environments. Otherwise, click Get Started to start using
+Portainer!
+
+*********************
+Create an environment
+*********************
+
+In short, an environment in Portainer represents a SOO mobile entity.
+
+* Select "environment"
+* Click "+ Add environment"
+* Select "Docker Standalone" --> click "Start Wizard"
+    * Select "API"
+    * Provide a name to the environment
+    * Set the API + port (default port is 2375)
+    * no TLS
+
+**********************
+Create a SO3 container
+**********************
+
+* Select the environment on which to create the container
+* Select "Containers" --> click "+ Add container"
+    * Give a name at the container
+    * Provide the image name in image field (``/mnt/ME/<CONTAINER NAME>.itb)``
+    * Click on "Advanced mode" to select the "Simple mode"
+    * Disable "Always pull the image" button
+    * Click on "Deploy the container"
 
 
-***********
-Basic usage
-***********
+***************
+EMISO Container
+***************
 
-TBD
+A simple container, called ``emiso_64`` has been created. It can be used as an
+example of of SO3 container. It simply prints a message/log each second.
+
+* Compilation:
+
+.. code-block:: shell
+
+    $ cd <SOO HOME>/ME
+    $ ./build.sh -k SOO.emiso_64
+
+* Deployment:
+
+.. code-block:: shell
+
+    ./deploy.sh -m SOO.emiso_64

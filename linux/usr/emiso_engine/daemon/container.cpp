@@ -318,4 +318,30 @@ int Container::remove(unsigned contenerId)
     return ret;
 }
 
+std::vector<std::string> Container::retrieveLogs(unsigned contenerId, unsigned lineNr)
+{
+    std::vector<std::string> lines;
+
+    // Create the file path
+    std::string fileName = "/var/log/soo/me_" + std::to_string(contenerId) + ".log";
+
+    std::cout << "[DEBUG] Logfile name: " << fileName << std::endl;
+
+    // Read the file
+    std::ifstream file(fileName);
+
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << fileName << std::endl;
+        return lines; // return empty vector if file couldn't be opened
+    }
+
+    std::string line;
+    while (std::getline(file, line) && lineNr-- > 0) {
+        lines.push_back(line);
+    }
+
+    file.close();
+    return lines;
+}
+
 } // emiso

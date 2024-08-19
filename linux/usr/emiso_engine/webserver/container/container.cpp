@@ -36,6 +36,7 @@ namespace emiso {
             _unpauseHandler = new UnpauseHandler(daemon);
             _removeHandler = new RemoveHandler(daemon);
             _inspectHandler = new InspectHandler(daemon);
+            _logsHandler = new LogsHandler(daemon);
 
             _server->register_resource(path + "/json", _listHandler);
             _server->register_resource("/v[1-9]+.[0-9]+" + path + "/json", _listHandler);
@@ -62,6 +63,9 @@ namespace emiso {
 
             _server->register_resource(path + "/{id|[0-9]+}/json", _inspectHandler);
             _server->register_resource("/v[1-9]+.[0-9]+" + path + "/{id|[0-9]+}/json", _inspectHandler);
+
+            _server->register_resource(path + "/{id|[0-9]+}/logs", _logsHandler);
+            _server->register_resource("/v[1-9]+.[0-9]+" + path + "/{id|[0-9]+}/logs", _logsHandler);
         }
 
         ContainerApi::~ContainerApi() {}

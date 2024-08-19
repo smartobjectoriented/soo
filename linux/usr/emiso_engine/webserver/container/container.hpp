@@ -28,6 +28,7 @@
 #include "../../daemon/daemon.hpp"
 
 #include "container_inspect.hpp"
+#include "container_logs.hpp"
 
 namespace emiso {
 namespace container {
@@ -386,6 +387,7 @@ namespace container {
         RestartHandler *_restartHandler;
         RemoveHandler  *_removeHandler;
         InspectHandler *_inspectHandler;
+        LogsHandler    *_logsHandler;
     };
 
 } // container

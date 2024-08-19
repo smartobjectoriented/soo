@@ -11,6 +11,7 @@ obj-$(CONFIG_SOO_WAGOLED) += wagoled/
 obj-$(CONFIG_SOO_IUOC) += iuoc/
 obj-$(CONFIG_SOO_SWITCH_ENOCEAN) += switch/
 obj-$(CONFIG_SOO_SWITCH_KNX) += switch/
+obj-$(CONFIG_SOO_EMISO) += emiso/
 
 
 
