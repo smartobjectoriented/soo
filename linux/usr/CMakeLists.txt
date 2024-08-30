@@ -4,7 +4,7 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-project(agency-usr LANGUAGES C)
+project(agency-usr LANGUAGES C CXX)
 
 option(WITH_LED_ACTIVITIES "LED activities during migration" OFF)
 
@@ -23,9 +23,12 @@ set(CMAKE_C_FLAGS_RELEASE "-Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -s
 add_subdirectory(core)
 add_subdirectory(dcm)
 add_subdirectory(frozen)
-add_subdirectory(mqtt_iuoc)
+# EMISO - no MKTT
+#add_subdirectory(mqtt_iuoc)
 add_subdirectory(apps)
 add_subdirectory(lib)
 
 add_subdirectory(wago_client)
 
+# EMISO
+add_subdirectory(emiso_engine)

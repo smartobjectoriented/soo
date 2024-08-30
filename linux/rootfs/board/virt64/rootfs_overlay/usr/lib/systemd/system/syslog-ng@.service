@@ -1,0 +1,13 @@
+[Unit]
+Description=System Logging Service
+
+[Service]
+ExecStart=/usr/sbin/syslog-ng -F
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+
+[Install]
+Alias=syslog.service
+WantedBy=multi-user.target
+Enabled=true

@@ -22,6 +22,9 @@
    drivers/drivers
    rootfs/rootfs
    user_guide
+   docker/docker
+   emiso_engine/emiso_engine
+   portainer/portainer
    logging
    board_issues
    aarch64

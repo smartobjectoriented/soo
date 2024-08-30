@@ -25,6 +25,7 @@ dtb-$(CONFIG_SOO_WAGOLED) += wagoled.dtb
 dtb-$(CONFIG_SOO_SWITCH_KNX) += switch_knx.dtb
 dtb-$(CONFIG_SOO_SWITCH_ENOCEAN) += switch_enocean.dtb
 dtb-$(CONFIG_SOO_IUOC) += iuoc.dtb
+dtb-$(CONFIG_SOO_EMISO) += emiso.dtb
 
 endif
 endif

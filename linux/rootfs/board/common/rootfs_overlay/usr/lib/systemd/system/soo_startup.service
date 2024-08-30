@@ -1,0 +1,10 @@
+[Unit]
+Description=SOO startup Service
+
+[Service]
+Type=oneshot
+ExecStart=/etc/soo/startup.sh
+
+[Install]
+WantedBy=multi-user.target
+Enabled=true

@@ -4,13 +4,11 @@ iface lo inet loopback
 
 # Physical eth0 interface 
 auto eth0
-#iface eth0 inet dhcp
-iface eth0 inet6 manual
-up ip link set eth0 up
-down ip link set eth0 down
+iface eth0 inet static
+address 192.168.53.15
+netmask 255.255.255.0
 
 # wifi
 #auto wlan0
 #allow-hotplug wlan0
-
 

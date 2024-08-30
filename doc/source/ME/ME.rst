@@ -1,4 +1,4 @@
-.. _ME:
+.. _ME_so3:
 
 Mobile Entities
 ###############

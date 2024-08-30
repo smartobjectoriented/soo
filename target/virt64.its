@@ -41,8 +41,8 @@
 			arch = "arm64";
 			os = "linux";
 			compression = "none";
-			load = <0x41000000>;
-			entry = <0x41000000>;
+			load = <0x4b000000>;
+			entry = <0x4b000000>;
 		};
 
  		avz_pv_dt {
@@ -51,7 +51,7 @@
 			type = "avz_dt";
 			arch = "arm64";
 			compression = "none";
-			load = <0x40f00000>;
+			load = <0x4a000000>;
 		};
         
          avz_vt_dt {
@@ -60,7 +60,7 @@
 			type = "avz_dt";
 			arch = "arm64";
 			compression = "none";
-			load = <0x40f00000>;
+			load = <0x4a000000>;
 		};
 		
         fdt {
@@ -69,7 +69,7 @@
 			type = "flat_dt";
 			arch = "arm64";
 			compression = "none";
-			load = <0x50000000>;
+			load = <0x5a000000>;
 		};
 
 		initrd {
@@ -79,7 +79,7 @@
 			arch = "arm64";
 			os = "linux";			
 			compression = "none";
-			load = <0x50c00000>;
+			load = <0x5b000000>;
 		};
 	};
 

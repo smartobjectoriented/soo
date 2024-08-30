@@ -68,4 +68,12 @@ choice
 	config SOO_SWITCH_ENOCEAN
 		bool "SOO.switch Mobile Entity using enocean"
 		
+	config SOO_EMISO
+		bool "SOO.emiso Mobile Entity"
+		help
+			SOO.emiso ME simply logs messages each second.
+			It is a simple example of SO3 container and can be used with
+			Portainer server
+
+
 endchoice

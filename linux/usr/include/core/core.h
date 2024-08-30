@@ -50,7 +50,6 @@ bool get_ME_id(uint32_t slotID, ME_id_t *ME_id);
 void read_ME_snapshot(unsigned int slotID, void **buffer, uint32_t *buffer_size);
 void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer);
 
-void *prepare_ME_slot(unsigned int slotID);
 int finalize_migration(unsigned int slotID);
 
 void main_loop(int cycle_period);

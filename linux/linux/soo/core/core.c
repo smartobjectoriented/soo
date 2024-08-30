@@ -284,6 +284,10 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		discovery_blacklist_neighbour((char *) args.buffer);
 		break;
 
+	case AGENCY_IOCTL_INJECT_ME_WITH_SLOTID:
+		args.slotID = inject_ME_with_slotID(args.buffer, args.value, args.slotID);
+		break;
+
 	default:
 		lprintk("%s: Unrecognized IOCTL: 0x%x\n", __func__, cmd);
 		BUG();
