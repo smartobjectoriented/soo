@@ -1,6 +1,5 @@
 .. _emiso_engine:
 
-############
 EMISO Engine
 ############
 
@@ -9,7 +8,7 @@ a subset of the Docker APIs set.
 The following picture presents the communication flow between the *Portainer* Server
 and *SO3 Containers*.
 
-.. figure:: pictures/EMISO-message_flow.png
+.. figure:: /img/emiso_engine/EMISO-message_flow.png
 	:name: _fig-Communication flow
 	:alt: Communication flow
 	:align: center
@@ -72,7 +71,7 @@ Architecture
 The following picture depicts the architecture of the EMISO engine. It is constituted
 by:
 
-.. figure:: pictures/EMISI-engine_architecture.png
+.. figure:: /img/emiso_engine/EMISO-engine_architecture.png
 	:name: _fig-engine_architecture
 	:alt: Engine Architecture
 	:align: center
