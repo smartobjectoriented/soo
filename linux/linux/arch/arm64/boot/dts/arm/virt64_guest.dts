@@ -8,6 +8,19 @@
 	#address-cells = <0x02>;
 	compatible = "linux,dummy-virt";
 
+	reserved-memory {
+		#address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
+		linux,cma {
+			compatible = "shared-dma-pool";
+            reusable;
+            size = <0x0 0x4000000>;
+			alignment = <0x0 0x1000>;
+            linux,cma-default;
+		};
+	};
+
 	chosen {
 	        	/* bootargs = "root=/dev/ram rw slub_debug=PUZ initcall_debug=1 ignore_loglevel"; */
 			bootargs = "root=/dev/ram rw slub_debug=PUZ";

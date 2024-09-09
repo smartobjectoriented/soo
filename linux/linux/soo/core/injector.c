@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2017 Daniel Rossier <daniel.rossier@soo.tech>
- * Copyright (C) 2017,2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2017-2024 Daniel Rossier <daniel.rossier@soo.tech>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -21,16 +20,18 @@
 #define DEBUG
 #endif
 
+#include <linux/completion.h>
+#include <linux/export.h>
 #include <linux/fs.h>
 #include <linux/init.h>
-#include <linux/export.h>
-#include <linux/vmalloc.h>
-#include <linux/uaccess.h>
-#include <linux/spinlock.h>
 #include <linux/kthread.h>
-#include <linux/completion.h>
+#include <linux/miscdevice.h>
 #include <linux/mutex.h>
+#include <linux/spinlock.h>
+#include <linux/uaccess.h>
+#include <linux/vmalloc.h>
 #include <linux/wait.h>
+#include <linux/dma-direct.h>
 
 #include <soo/core/device_access.h>
 #include <soo/core/migmgr.h>
@@ -48,10 +49,25 @@
 /* Buffer in which the ME will be received. It is dynamically allocated
 in injector_prepare */
 uint8_t *ME_buffer;
-/* full size of the me we are receiving */
+
+/* Full size of the me we are receiving */
 size_t ME_size;
+
 /* Current size received */
 size_t current_size = 0;
+
+#define CMA_MALLOC_DEVICE_FILENAME "cma_malloc"
+
+static struct file_operations cma_malloc_fileops = {
+    .owner          =   THIS_MODULE,
+};
+
+static struct miscdevice cma_malloc_miscdevice = {
+    .minor           =   MISC_DYNAMIC_MINOR,
+    .name            =   CMA_MALLOC_DEVICE_FILENAME,
+    .fops            =   &cma_malloc_fileops,
+    .mode            =   S_IRUGO | S_IWUGO,
+};
 
 /**
  * Initiate the injection of a ME.
@@ -66,21 +82,36 @@ int inject_ME(void *buffer, size_t size) {
         int *val;
         void *me = NULL;
         int slotID;
+	dma_addr_t dma_handle;
+        struct device *dev;
+	int ret;
 
         DBG("Original contents at address: 0x%08x\n with size %d bytes\n", (unsigned long) buffer, size);
 
-	/* Allocate a contiguous memory region to host the ME*/
-        me = kzalloc(size, GFP_KERNEL);
+    	ret = misc_register(&cma_malloc_miscdevice);
+        BUG_ON(ret);
+
+        dev = cma_malloc_miscdevice.this_device;
+        dev->coherent_dma_mask = DMA_BIT_MASK(32);
+        dev->dma_mask = &dev->coherent_dma_mask;
+
+        /* Allocate a contiguous memory region to host the ME */
+        me = dma_alloc_coherent(dev, size, &dma_handle, GFP_KERNEL);
         BUG_ON(!me);
 
         val = kzalloc(sizeof(int), GFP_KERNEL);
         BUG_ON(!val);
 
         memcpy(me, buffer, size);
-        
-        /* Now, the virtual address can be converted to the physical one in the
-         * soo_hypercall() function */
 
+        /* Since the ME buffer is in the CMA zone and allocated via the
+         * dma_alloc_cohenrent() function, we cannot use virt_to_phys(). So, we
+         * take the CPU phys addr stored in dma_handle, and we force to a
+         * (wrong) virtual address to make sure the soo_hypercall() function
+         * gets the right physical address; indeeed, it uses virt_to_phys() there.
+         */
+
+        me = phys_to_virt(dma_handle);
         soo_hypercall(AVZ_INJECT_ME, me, val, NULL);
         slotID = *val;
 
