@@ -49,7 +49,7 @@ void avz_ME_unpause(domid_t domain_id, addr_t vbstore_pfn)
 	avz_hypercall(__HYPERVISOR_domctl, virt_to_phys(op), 0 ,0 ,0);
 }
 
-#if defined(CONFIG_SOO) && !defined(CONFIG_LINUXVIRT)
+#if defined(CONFIG_SOO)
 
 void avz_get_shared(void) {
 	struct domctl *op;
@@ -70,6 +70,8 @@ void avz_get_shared(void) {
 
 	avz_shared->subdomain_shared = (avz_shared_t *) paging_remap(avz_shared->subdomain_shared_paddr, PAGE_SIZE);
 	BUG_ON(!avz_shared->subdomain_shared);
+
+	kfree(op);
 
 }
 

@@ -115,7 +115,8 @@ int inject_ME(void *buffer, size_t size) {
         soo_hypercall(AVZ_INJECT_ME, me, val, NULL);
         slotID = *val;
 
-        kfree(me);
+        dma_free_coherent(dev, size, me, dma_handle);
+
         kfree(val);
 
         return slotID;

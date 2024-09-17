@@ -7,7 +7,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -301,7 +300,7 @@ static void unbind_from_virq(unsigned int virq)
 
 	spin_lock(&virq_mapping_update_lock);
 
-	op = kzalloc(sizeof(evtchn_close_t), GFP_ATOMIC);
+	op = kzalloc(sizeof(evtchn_close_t), GFP_ATROMIC);
 	BUG_ON(!op);
 
 	if (--per_cpu(evtchn_info, cpu).virq_bindcount[virq] == 0) {
