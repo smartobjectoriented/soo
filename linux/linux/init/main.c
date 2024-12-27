@@ -885,17 +885,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	page_address_init();
 	pr_notice("%s", linux_banner);
 
-#if defined(CONFIG_SOO) && !defined(CONFIG_LINUXVIRT) && !defined(CONFIG_X86)
-
-	/* paravirt */
-	lprintk("SOO Agency - %s: HYPERVISOR_VIRT_START=%lx,    __pa()=%lx\n", __func__, (unsigned long) HYPERVISOR_VIRT_START, (unsigned long) __pa(HYPERVISOR_VIRT_START));
-	lprintk("SOO Agency - %s: PAGE_OFFSET=%lx,              __pa()=%lx\n", __func__, (unsigned long) PAGE_OFFSET, (unsigned long)  __pa(PAGE_OFFSET));
-	lprintk("SOO Agency - %s: PHYS_OFFSET=%lx,              __va()=%lx\n", __func__, (unsigned long) PHYS_OFFSET, (unsigned long) __va(PHYS_OFFSET));
-	lprintk("SOO Agency - %s: VMALLOC_END=%lx               __va()=%lx\n", __func__, (unsigned long) VMALLOC_END, (unsigned long) __va(VMALLOC_END));
-	lprintk("SOO Agency - %s: _end=%lx                      __pa()=%lx\n", __func__, (unsigned long) _end, (unsigned long) __pa(_end));
-
-#endif
-
 	early_security_init();
 	setup_arch(&command_line);
 	setup_boot_config(command_line);

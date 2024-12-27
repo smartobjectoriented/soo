@@ -53,7 +53,6 @@
 #include <soo/uapi/soo.h>
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
-#include <soo/uapi/logbool.h>
 
 #include <soo/debug/dbgvar.h>
 
@@ -174,8 +173,7 @@ void free_otherend_watch(struct vbus_device *vdev, bool with_vbus) {
 		vdev->otherend_watch.node = NULL;
 	}
 
-	if (vdev->otherend != NULL)
-		vdev->otherend[0] = 0;
+	vdev->otherend[0] = 0;
 }
 
 /*
@@ -813,8 +811,9 @@ static int __init vbus_init(void)
 	unsigned int *p_domID;
 	char buf[20];
 	struct vbus_transaction vbt;
+        avz_hyp_t args;
 
-	res = -ENODEV;
+        res = -ENODEV;
 
 	spin_lock_init(&dc_lock);
 
@@ -826,9 +825,6 @@ static int __init vbus_init(void)
 	/* Now setting up the VBstore */
 	vbstore_init();
 
-	alloc_unbound = kmalloc(sizeof(struct evtchn_alloc_unbound), GFP_KERNEL);
-	BUG_ON(!alloc_unbound);
-
 	/*
 	 * Set up the directcomm communication channel that
 	 * is used between the different domains, mainly between the agency and MEs,
@@ -838,21 +834,22 @@ static int __init vbus_init(void)
 	for (i = 1; i < MAX_DOMAINS; i++) {
 
 		/* Get a free event channel */
-		alloc_unbound->dom = DOMID_SELF;
-		alloc_unbound->remote_dom = i;
+                args.cmd = AVZ_EVENT_CHANNEL_OP;
+                args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_alloc_unbound;
+                args.u.avz_evtchn.evtchn_op.u.alloc_unbound.dom = DOMID_SELF;
+		args.u.avz_evtchn.evtchn_op.u.alloc_unbound.remote_dom = i;
 
-		__flush_dcache_area((void *) alloc_unbound, sizeof(struct evtchn_alloc_unbound));
-		avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, virt_to_phys(alloc_unbound), 0, 0);
-		__inval_dcache_area((void *) alloc_unbound, sizeof(struct evtchn_alloc_unbound));
+                avz_hypercall(&args);
 
-		dc_evtchn[i] = alloc_unbound->evtchn;
+                dc_evtchn[i] = args.u.avz_evtchn.evtchn_op.u.alloc_unbound.evtchn;
+        
+                /* Keep a valid reference to the domID */
+                p_domID = kmalloc(sizeof(int), GFP_KERNEL);
+                BUG_ON(!p_domID);
 
-		/* Keep a valid reference to the domID */
-		p_domID = kmalloc(sizeof(int), GFP_KERNEL);
+                *p_domID = i;
 
-		*p_domID = i;
-
-		/* Binding this event channel to an interrupt handler makes the evtchn state not "unbound" anymore */
+                /* Binding this event channel to an interrupt handler makes the evtchn state not "unbound" anymore */
 		evtchn = bind_evtchn_to_virq_handler(dc_evtchn[i], directcomm_isr, directcomm_isr_thread, 0, "directcomm_isr", p_domID);
 
 		if (evtchn <= 0) {
@@ -882,18 +879,3 @@ static int __init vbus_init(void)
 }
 
 arch_initcall(vbus_init);
-
-
-/*
- * DOMCALL_sync_directcomm
- */
-int do_sync_directcomm(void *arg)
-{
-	struct DOMCALL_directcomm_args *args = arg;
-
-	unsigned int domID = args->directcomm_evtchn;
-
-	args->directcomm_evtchn = dc_evtchn[domID];
-
-	return 0;
-}

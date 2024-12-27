@@ -36,15 +36,12 @@
 #include <soo/core/device_access.h>
 #include <soo/core/migmgr.h>
 
-#include <soo/soolink/datalink.h>
-#include <soo/soolink/discovery.h>
-
 #include <xenomai/rtdm/driver.h>
 
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
-#include <soo/uapi/soo.h>
 #include <soo/uapi/injector.h>
+#include <soo/uapi/avz.h>
 
 /* Buffer in which the ME will be received. It is dynamically allocated
 in injector_prepare */
@@ -79,12 +76,11 @@ static struct miscdevice cma_malloc_miscdevice = {
  * @return slotID or -1 if no slotID available.
  */
 int inject_ME(void *buffer, size_t size) {
-        int *val;
         void *me = NULL;
-        int slotID;
-	dma_addr_t dma_handle;
+	    dma_addr_t dma_handle;
         struct device *dev;
-	int ret;
+	    int ret;
+        avz_hyp_t args;
 
         DBG("Original contents at address: 0x%08x\n with size %d bytes\n", (unsigned long) buffer, size);
 
@@ -98,10 +94,7 @@ int inject_ME(void *buffer, size_t size) {
         /* Allocate a contiguous memory region to host the ME */
         me = dma_alloc_coherent(dev, size, &dma_handle, GFP_KERNEL);
         BUG_ON(!me);
-
-        val = kzalloc(sizeof(int), GFP_KERNEL);
-        BUG_ON(!val);
-
+     
         memcpy(me, buffer, size);
 
         /* Since the ME buffer is in the CMA zone and allocated via the
@@ -111,15 +104,14 @@ int inject_ME(void *buffer, size_t size) {
          * gets the right physical address; indeeed, it uses virt_to_phys() there.
          */
 
-        me = phys_to_virt(dma_handle);
-        soo_hypercall(AVZ_INJECT_ME, me, val, NULL);
-        slotID = *val;
+        args.cmd = AVZ_INJECT_ME;
 
+        args.u.avz_inject_me_args.itb_paddr = (void *) dma_handle;
+        avz_hypercall(&args);
+                
         dma_free_coherent(dev, size, me, dma_handle);
 
-        kfree(val);
-
-        return slotID;
+        return args.u.avz_inject_me_args.slotID;
 }
 
 

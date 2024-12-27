@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -30,9 +30,9 @@
 
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
-#include <soo/uapi/me_access.h>
 #include <soo/uapi/debug.h>
 
+#include <soo/soo.h>
 #include <soo/core/core.h>
 #include <soo/core/migmgr.h>
 
@@ -41,63 +41,39 @@
 
 /*
  * Used to store ioctl args/buffers
- * Cannot be stored on the local stack since it is to big.
+ * Cannot be stored on the local stack since it is too big.
  */
 static uint8_t __buffer[32 * 1024]; /* 32 Ko */
 
 /**
  * Initialize the migration process of a ME.
  *
- * The process starts with the execution of pre_propagate, which might decide to kill (remove) the ME.
- * This is useful to control the propagation of the ME when necessary.
- * Furthermore, if the ME is dormant, pre_propagate is still called, but the rest of the process is skipped.
- *
  * @param slotID
  * @return true if the ME can proceed with the migration, false otherwise.
  */
 bool initialize_migration(uint32_t slotID) {
-	int propagate = 0;
 	ME_state_t ME_state;
+        avz_hyp_t args;
 
-	ME_state = get_ME_state(slotID);
+        ME_state = get_ME_state(slotID);
 
-	BUG_ON(!((ME_state == ME_state_living) || (ME_state == ME_state_dormant) || (ME_state == ME_state_migrating)));
+        BUG_ON(!((ME_state == ME_state_living) || (ME_state == ME_state_dormant)));
+ 
+	do_sync_dom(slotID, DC_PRE_SUSPEND);
 
-	if (!(ME_state == ME_state_migrating)) {
+	/* Set the ME in suspended state */
+	set_ME_state(slotID, ME_state_suspended);
 
-		soo_hypercall(AVZ_MIG_PRE_PROPAGATE, NULL, &slotID, &propagate);
+	vbus_suspend_devices(slotID);
 
-		/* Set a return value so that the caller can decide what to do. */
-		if (get_ME_state(slotID) == ME_state_dead) {
+	do_sync_dom(slotID, DC_SUSPEND);
 
-			/* Just make sure that the ME has not triggered any vbstore entry creation. */
-			/* Remove all associated entries. */
+        args.cmd = AVZ_MIG_INIT;
+        args.u.avz_mig_init_args.slotID = slotID;
 
-#warning Remove all vbstore entries....
+        avz_hypercall(&args);
 
-			return false;
-		}
-
-		if (!propagate)
-			return false;
-
-		/* If dormant, the ME will not be resumed. */
-		if (get_ME_state(slotID) == ME_state_dormant)
-			return true;
-
-		do_sync_dom(slotID, DC_PRE_SUSPEND);
-
-		/* Set the ME in suspended state */
-		set_ME_state(slotID, ME_state_suspended);
-
-		vbus_suspend_devices(slotID);
-
-		do_sync_dom(slotID, DC_SUSPEND);
-	}
-
-	soo_hypercall(AVZ_MIG_INIT, NULL, &slotID, NULL);
-
-	/* Ready to be migrated */
+        /* Ready to be migrated */
 	return true;
 }
 
@@ -111,8 +87,9 @@ void write_snapshot(uint32_t slotID, void *buffer) {
 	ME_desc_t ME_desc;
 	void *target;
 	ME_info_transfer_t *ME_info_transfer;
+        avz_hyp_t args;
 
-	/* Get the ME descriptor corresponding to this slotID. */
+        /* Get the ME descriptor corresponding to this slotID. */
 	get_ME_desc(slotID, &ME_desc);
 
 	/* Beginning of the ME_buffer */
@@ -121,11 +98,14 @@ void write_snapshot(uint32_t slotID, void *buffer) {
 	/* Retrieve the info related to the migration structure */
 	memcpy(__buffer, buffer + sizeof(ME_info_transfer_t), ME_info_transfer->size_mig_structure);
 
-	soo_hypercall(AVZ_MIG_WRITE_MIGRATION_STRUCT, __buffer, NULL, NULL);
+        args.cmd = AVZ_MIG_WRITE_MIGRATION_STRUCT;
+        args.u.avz_migstruct_write_args.migstruct_paddr = (void *) virt_to_phys(__buffer);
+        
+	avz_hypercall(&args);
 
-	/* We got the pfn of the local destination for this ME, therefore... */
+        /* We got the pfn of the local destination for this ME, therefore... */
 
-	target = paging_remap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
+        target = paging_remap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
 	BUG_ON(target == NULL);
 
 	/* Finally, perform the copy */
@@ -172,10 +152,10 @@ int read_snapshot(uint32_t slotID, void **buffer) {
 	ME_desc_t ME_desc;
 	ME_info_transfer_t *ME_info_transfer;
 	void *source;
-	int size;
+        avz_hyp_t args;
 
-	/* Get the ME descriptor corresponding to this slotID. */
-	get_ME_desc(slotID, &ME_desc);
+        /* Get the ME descriptor corresponding to this slotID. */
+        get_ME_desc(slotID, &ME_desc);
 
 	/*
 	 * Prepare a buffer to store the ME and additional header information like migration structure and transfer information.
@@ -189,15 +169,19 @@ int read_snapshot(uint32_t slotID, void **buffer) {
 	ME_info_transfer = (ME_info_transfer_t *) *buffer;
 	ME_info_transfer->ME_size = ME_desc.size;
 
-	soo_hypercall(AVZ_MIG_READ_MIGRATION_STRUCT, __buffer, &slotID, &size);
+        args.cmd = AVZ_MIG_READ_MIGRATION_STRUCT;
+        args.u.avz_migstruct_read_args.migstruct_paddr = (void *) virt_to_phys(__buffer);
+        args.u.avz_migstruct_read_args.slotID = slotID;
 
-	/* Store the migration structure within the ME buffer */
-	memcpy(*buffer + sizeof(ME_info_transfer_t), __buffer, size);
+        avz_hypercall(&args);
+
+        /* Store the migration structure within the ME buffer */
+	memcpy(*buffer + sizeof(ME_info_transfer_t), __buffer, args.u.avz_migstruct_read_args.size);
 
 	/* Keep the size of migration structure */
-	ME_info_transfer->size_mig_structure = size;
+        ME_info_transfer->size_mig_structure = args.u.avz_migstruct_read_args.size;
 
-	/* Finally, store the ME in this buffer. */
+        /* Finally, store the ME in this buffer. */
 	source = ioremap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
 	BUG_ON(source == NULL);
 
@@ -214,10 +198,10 @@ int read_snapshot(uint32_t slotID, void **buffer) {
  * finalization".
  */
 void finalize_migration(uint32_t slotID) {
+        avz_hyp_t args;
+        int ME_state;
 
-	int ME_state;
-
-	if (get_ME_state(slotID) == ME_state_booting) {
+        if (get_ME_state(slotID) == ME_state_booting) {
 
 
 		DBG("Unpause the ME (slot %d)...\n", slotID);
@@ -226,7 +210,7 @@ void finalize_migration(uint32_t slotID) {
 		 * During the unpause operation, we take the opportunity to pass the pfn of the shared page used for exchange
 		 * between the ME and VBstore.
 		 */
-		avz_ME_unpause(slotID, virt_to_pfn((unsigned long) __vbstore_vaddr[slotID]));
+		avz_ME_unpause(slotID, vbstore_grant_ref[slotID]);
 
 		/*
 		 * Now, we must wait for the ME to set its state to ME_state_preparing to pause it. We'll then be able
@@ -244,33 +228,22 @@ void finalize_migration(uint32_t slotID) {
 		/* Pause the ME */
 		avz_ME_pause(slotID);
 
-		/*
-		 * Now we pursue with a call to pre-activate callback to
-		 * see if the Smart Object has the necessary devcaps. To do that,
-		 * we ask the ME to decide.
-		 */
-		soo_hypercall(AVZ_MIG_PRE_ACTIVATE, NULL, &slotID, NULL);
+                args.cmd = AVZ_MIG_FINAL;
+                args.u.avz_mig_final_args.slotID = slotID;
+                
+		avz_hypercall(&args);
 
-		/* Check if the pre-activate callback has changed the ME state */
-		if ((get_ME_state(slotID) == ME_state_dead) || (get_ME_state(slotID) == ME_state_dormant))
-			return ;
-
-		soo_hypercall(AVZ_MIG_FINAL, NULL, &slotID, NULL);
-
-		/* Check for ME which have been terminated during the cooperate callback. */
-		check_terminated_ME();
-
-		ME_state = get_ME_state(slotID);
+                ME_state = get_ME_state(slotID);
 
 		if ((ME_state != ME_state_dead) && (ME_state != ME_state_dormant)) {
 
-			/* Tell the ME that it can go further */
+			/* Trigger the container that can go further */
 			set_ME_state(slotID, ME_state_booting);
 
 			DBG("Unpause the ME and waiting boot completion...\n");
 
 			/* Unpause the ME */
-			avz_ME_unpause(slotID, virt_to_pfn((unsigned long) __vbstore_vaddr[slotID]));
+			avz_ME_unpause(slotID, vbstore_grant_ref[slotID]);
 
 			/* Wait for all backend/frontend initialized. */
 			wait_for_completion(&backend_initialized);
@@ -291,12 +264,13 @@ void finalize_migration(uint32_t slotID) {
 		DBG0("SOO migration subsys: Entering post migration tasks...\n");
 
 		if (ME_state != ME_state_dormant) {
-			soo_hypercall(AVZ_MIG_FINAL, NULL, &slotID, NULL);
+
+			args.cmd = AVZ_MIG_FINAL;
+                	args.u.avz_mig_final_args.slotID = slotID;
+                
+			avz_hypercall(&args);
 
 			DBG0("Call to AVZ_MIG_FINAL terminated\n");
-
-			/* Check for ME which have been terminated during the cooperate callback. */
-			check_terminated_ME();
 		}
 
 		ME_state = get_ME_state(slotID);

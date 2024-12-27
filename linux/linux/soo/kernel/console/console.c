@@ -80,6 +80,7 @@ int avz_switch_console(char ch)
 	struct device_node *np;
 	int active = 0;
 	u32 focus_max = N_SWITCH_FOCUS - 1;
+        avz_hyp_t args;
 
 #if 0 /* Interactions with RT domain? */
 	int next = 1;
@@ -135,9 +136,14 @@ int avz_switch_console(char ch)
 			return 1;
 
 		case 7: /* Input to avz */
-			avz_hypercall(__HYPERVISOR_console_io, CONSOLEIO_process_char, 1, (long) &ch, 0);
-			return 1;
-		}
+                        args.cmd = AVZ_CONSOLE_IO_OP;
+
+                        args.u.avz_console_io_args.console.cmd = CONSOLE_IO_KEYHANDLER;
+                        args.u.avz_console_io_args.console.c = ch;
+
+                        avz_hypercall(&args);
+                        return 1;
+                }
 	}
 
 	return 0;

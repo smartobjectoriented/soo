@@ -25,8 +25,6 @@
 #include <soo/uapi/soo.h>
 #include <soo/uapi/console.h>
 
-extern uint32_t devcaps[DEVCAPS_CLASS_NR];
-
 /* Helper function to display agencyUID or any 64-bit identifier */
 static inline void soo_log_printUID(uint64_t uid) {
 	int i;
@@ -47,27 +45,6 @@ static inline void soo_log_printlnUID(uint64_t uid) {
 }
 
 void set_agencyUID(uint64_t val);
-
-bool devaccess_devcaps_class_supported(uint32_t class);
-bool devaccess_devcaps_supported(uint32_t class, uint8_t devcaps);
-
-void devaccess_set_devcaps(uint32_t class, uint8_t devcaps, bool available);
-void devaccess_dump_devcaps(void);
-
-void devaccess_set_soo_name(char *name);
-void devaccess_get_soo_name(char *ptr);
-void devaccess_dump_soo_name(void);
-
-void devaccess_store_upgrade_addr(uint32_t update_buffer_pfn, uint32_t buffer_size);
-uint32_t devaccess_get_upgrade_img(void **upgrade_img);
-
-uint32_t devaccess_get_upgrade_size(void);
-addr_t devaccess_get_upgrade_pfn(void);
-unsigned int devaccess_get_upgrade_ME_slotID(void);
-
-void devaccess_store_upgrade(addr_t update_buffer_pfn, uint32_t buffer_size, unsigned int ME_slotID);
-
-void devaccess_init(void);
 
 /* sysfs handlers */
 ssize_t agencyUID_show(struct device *dev, struct device_attribute *attr, char *buf);

@@ -27,8 +27,7 @@
 #include <soo/hypervisor.h>
 #include <soo/avz.h>
 
-#include <soo/uapi/event_channel.h>
-#include <soo/uapi/soo.h>
+#include <soo/uapi/avz.h>
 #include <soo/uapi/console.h>
 
 #include <soo/vbstore.h>
@@ -50,18 +49,14 @@ static inline void clear_evtchn(u32 evtchn) {
 
 static inline void notify_remote_via_evtchn(uint32_t evtchn)
 {
-	evtchn_send_t *op;
+        avz_hyp_t args;
 
-	op = kzalloc(sizeof(evtchn_send_t), GFP_ATOMIC);
-	BUG_ON(!op);
+        args.cmd = AVZ_EVENT_CHANNEL_OP;
+        
+        args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_send;
+        args.u.avz_evtchn.evtchn_op.u.send.evtchn = evtchn;
 
-	op->evtchn = evtchn;
-
-	__flush_dcache_area((void *) op, sizeof(evtchn_send_t));
-	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_send, virt_to_phys(op), 0, 0);
-	__inval_dcache_area((void *) op, sizeof(evtchn_send_t));
-
-	kfree(op);
+        avz_hypercall(&args);
 }
 
 /* Entry point for notifications into Linux subsystems. */

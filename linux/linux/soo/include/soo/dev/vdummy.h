@@ -20,7 +20,6 @@
 #define VDUMMY_H
 
 #include <soo/ring.h>
-#include <soo/grant_table.h>
 #include <soo/vdevback.h>
 
 #define VDUMMY_PACKET_SIZE	32
@@ -44,7 +43,6 @@ DEFINE_RING_TYPES(vdummy, vdummy_request_t, vdummy_response_t);
 /*
  * General structure for this virtual device (backend side)
  */
-
 typedef struct {
 
 	/* Must be the first field */

@@ -16,59 +16,28 @@
  *
  */
 
+/*
+ * A few words about the grant tables: 
+ * 
+ * Each domain has a grant table which keeps the reference to
+ * shared pages.
+ * 
+ * The normal approach consists in the container domain which asks
+ * for a shared page. The container gets a grant reference which will be used
+ * by the taget domain (Linux normally). The Linux domain can then ask 
+ * the hypervisor to get a physical (extra-domain) address in order to access the
+ * granted page.
+ * 
+ */
+
 #ifndef GNTTAB_H
 #define GNTTAB_H
 
-#include <soo/grant_table.h>
+#include <soo/uapi/soo.h>
 
-#include <linux/version.h>
+void gnttab_map(domid_t domid, grant_ref_t grant_ref, void **vaddr);
+void gnttab_unmap(void *vaddr) ;
 
-#define NR_GRANT_FRAMES 4
-#define NR_GRANT_ENTRIES (NR_GRANT_FRAMES * PAGE_SIZE / sizeof(grant_entry_t))
-
-static inline void gnttab_set_map_op(struct gnttab_map_grant_ref *map, phys_addr_t addr, uint32_t flags, grant_ref_t ref, domid_t domid, unsigned int offset, unsigned int size)
-{
-	map->host_addr = addr;
-	map->flags = flags;
-	map->ref = ref;
-	map->dom = domid;
-
-	map->handle = 0;
-
-	map->dev_bus_addr = 0;
-	map->status = 0;
-
-	map->size = size;   /* By default... */
-	map->offset = offset;
-
-}
-
-static inline void gnttab_set_unmap_op(struct gnttab_unmap_grant_ref *unmap, phys_addr_t addr, uint32_t flags, grant_handle_t handle)
-{
-	unmap->host_addr = addr;
-	unmap->dev_bus_addr = 0;
-	unmap->flags = flags;
-	unmap->ref = 0;
-
-	unmap->handle = handle;
-
-	unmap->dev_bus_addr = 0;
-	unmap->status = 0;
-
-	unmap->size = PAGE_SIZE;   /* By default... */
-	unmap->offset = 0;
-
-}
-
-void grant_table_op(unsigned int cmd, void *uop, unsigned int count);
-
-extern void gnttab_map(struct gnttab_map_grant_ref *op);
-extern void gnttab_unmap(struct gnttab_unmap_grant_ref *op);
-extern void gnttab_copy(struct gnttab_copy *op);
-extern void gnttab_map_with_copy(struct gnttab_map_grant_ref *op);
-extern void gnttab_unmap_with_copy(struct gnttab_unmap_grant_ref *op);
-
-void postmig_gnttab_update(void);
-
+int gnttab_grant_foreign_access(domid_t domid, unsigned long pfn);
 
 #endif /* GNTTAB_H */

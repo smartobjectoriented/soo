@@ -19,8 +19,6 @@
 #include <linux/kthread.h>
 #include <linux/mutex.h>
 
-#include <soo/sooenv.h>
-
 #include <soo/dev/vuart.h>
 
 #include <soo/hypervisor.h>
@@ -34,31 +32,6 @@
 
 /* Agency Core */
 static bool log_soo_core = false;
-
-/* DCM */
-static bool log_soo_dcm = false;
-
-/* SOOlink */
-static bool log_soo_soolink = false;
-
-/* Discovery */
-static bool log_soo_soolink_discovery = false;
-
-/* Transcoder */
-static bool log_soo_soolink_transcoder = false;
-static bool log_soo_soolink_transcoder_block = false;
-
-/* Winenet */
-static bool log_soo_soolink_winenet = false;
-static bool log_soo_soolink_winenet_beacon = false;
-static bool log_soo_soolink_winenet_neighbour = false;
-static bool log_soo_soolink_winenet_state = false;
-static bool log_soo_soolink_winenet_state_idle = false;
-
-static bool log_soo_soolink_winenet_ping = false;
-static bool log_soo_soolink_winenet_ack = false;
-
-static bool log_soo_soolink_plugin = false;
 
 /* Backends */
 static bool log_soo_backend_vsenseled = true;
@@ -122,13 +95,8 @@ void __lprintk(const char *format, va_list va) {
 #else /* !CONFIG_X86 */
 
 	for (i = 0; i < strlen(__start); i++)
-#ifdef CONFIG_LINUXVIRT
-	        if (likely(__printch))
-	                __printch(__start[i]);
-#else
 		avz_printch(__start[i]);
-#endif
-
+ 
 #endif /* !CONFIG_X86 */
 
 }
@@ -152,9 +120,7 @@ void __soo_log(char *info, char *buf) {
 	char prefix[50];
 	static char __internal_buf[CONSOLEIO_BUFFER_SIZE] = { };
 	int i;
-#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
-	int j;
-#endif
+
 	bool outlog = false;
 	static bool force_log = false;
 
@@ -163,14 +129,6 @@ void __soo_log(char *info, char *buf) {
 		if ((buf[0] == '*') && (buf[1] == '*') && (buf[2] == '*'))
 			force_log = true;
 
-#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
-		/* Make a friendly indentation according to the SOO number */
-		sscanf(current_soo->name, "SOO-%d", &i);
-
-		for (j = 0; j < (i-1)*8; j++)
-			strcat(__internal_buf, " ");
-
-#endif
 		/* Add log information */
 		sprintf(prefix, "(%s) ", info);
 		strcat(__internal_buf, prefix);
@@ -183,35 +141,6 @@ void __soo_log(char *info, char *buf) {
 
 	/* Agency Core */
 	if ((log_soo_core && (strstr(__internal_buf, "[soo:core"))))
-		outlog = true;
-
-	/* DCM */
-	if ((log_soo_dcm && (strstr(__internal_buf, "[soo:dcm"))))
-		outlog = true;
-
-	/* SOOlink overall logs */
-	if (log_soo_soolink && (strstr(__internal_buf, "[soo:soolink")))
-		outlog = true;
-
-	/* SOOlink Discovery functional block */
-	if (log_soo_soolink_discovery && (strstr(__internal_buf, "[soo:soolink:discovery")))
-		outlog = true;
-
-	/* SOOlink Transcoder functional block */
-	if ((log_soo_soolink_transcoder && (strstr(__internal_buf, "[soo:soolink:transcoder"))) ||
-	    (log_soo_soolink_transcoder_block && (strstr(__internal_buf, "[soo:soolink:transcoder:block"))))
-		outlog = true;
-
-	/* SOOlink Winenet protocol */
-	if ((log_soo_soolink_winenet && (strstr(__internal_buf, "[soo:soolink:winenet"))) ||
-	    (log_soo_soolink_winenet_state && (strstr(__internal_buf, "[soo:soolink:winenet:state"))) ||
-	    (log_soo_soolink_winenet_state_idle && (strstr(__internal_buf, "[soo:soolink:winenet:state:idle"))) ||
-	    (log_soo_soolink_winenet_neighbour && (strstr(__internal_buf, "[soo:soolink:winenet:neighbour"))) ||
-	    (log_soo_soolink_winenet_ack && (strstr(__internal_buf, "[soo:soolink:winenet:ack"))) ||
-	    (log_soo_soolink_winenet_ping && (strstr(__internal_buf, "[soo:soolink:winenet:ping"))) ||
-	    (log_soo_soolink_winenet_beacon && (strstr(__internal_buf, "[soo:soolink:winenet:beacon"))) ||
-	    (log_soo_soolink_plugin && (strstr(__internal_buf, "[soo:soolink:plugin")))
-	    )
 		outlog = true;
 
 	/* Backends */
@@ -251,7 +180,7 @@ void soo_log(char *format, ...) {
 	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
 	va_end(va);
 
-	__soo_log(current_soo->name, buf);
+	__soo_log("SOO: ", buf);
 
 	mutex_unlock(&soo_log_lock);
 }

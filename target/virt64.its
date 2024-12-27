@@ -49,15 +49,6 @@
 			entry = <0x41000000>;
 		};
 
- 		avz_pv_dt {
-			description = "Flattened Device Tree blob";
-			data = /incbin/("../avz/dts/virt64_avz_pv.dtb");
-			type = "avz_dt";
-			arch = "arm64";
-			compression = "none";
-			load = <0x40f00000>;
-		};
-        
          avz_vt_dt {
 			description = "Flattened Device Tree blob";
 			data = /incbin/("../avz/dts/virt64_avz_vt.dtb");

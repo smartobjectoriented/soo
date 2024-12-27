@@ -25,6 +25,8 @@
 
 #include <linux/irq.h>
 
+#include <soo/uapi/avz.h>
+
 #include <asm/irq.h>
 
 struct kvm_vcpu;

@@ -56,13 +56,12 @@
 #endif
 #endif
 
-#include <soo/sooenv.h>
-
 #include <soo/uapi/avz.h>
 #include <soo/uapi/console.h>
 
 #include <soo/debug/dbgvar.h>
 
+#include <soo/soo.h>
 #include <soo/evtchn.h>
 #include <soo/guest_api.h>
 #include <soo/hypervisor.h>
@@ -74,21 +73,14 @@
 #include <soo/core/core.h>
 #include <soo/core/migmgr.h>
 #include <soo/core/device_access.h>
-#include <soo/core/upgrader.h>
-
-#include <soo/soolink/discovery.h>
 
 #include <soo/uapi/avz.h>
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
-#include <soo/uapi/logbool.h>
-#include <soo/uapi/me_access.h>
 #include <soo/uapi/injector.h>
 
 #define AGENCY_DEV_NAME "soo/core"
 #define AGENCY_DEV_MAJOR 126
-
-#ifndef CONFIG_X86
 
 static struct soo_driver soo_core_driver;
 
@@ -102,6 +94,7 @@ static struct device soo_dev;
  *
  */
 static void force_terminate(unsigned int ME_slotID) {
+	avz_hyp_t args;
 
 	/* The ME may be ME_state_terminated after a cooperate callback */
 
@@ -110,8 +103,10 @@ static void force_terminate(unsigned int ME_slotID) {
 		do_sync_dom(ME_slotID, DC_FORCE_TERMINATE);
 
 	/* Then, final termination of the residual ME */
-	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated))
-		soo_hypercall(AVZ_KILL_ME, NULL, &ME_slotID, NULL);
+	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated)) {
+                args.cmd = AVZ_KILL_ME;
+                args.u.avz_kill_me_args.slotID = ME_slotID;
+        }
 }
 
 /**
@@ -140,11 +135,8 @@ void check_terminated_ME(void) {
 	DBG("Done\n");
 }
 
-#endif /* !CONFIG_X86 */
 
 /* Agency ctl domcalls operations */
-
-#ifndef CONFIG_X86
 
 int agency_open(struct inode *inode, struct file *file) {
 	return 0;
@@ -153,69 +145,6 @@ int agency_open(struct inode *inode, struct file *file) {
 int agency_release(struct inode *inode, struct file *filp) {
 	return 0;
 }
-
-#endif /* !CONFIG_X86 */
-
-#if 0 /* Debugging */
-/*
- * Debugging purposes
- */
-/* To get the address of the L2 page table from a L1 descriptor */
-
-#define L1DESC_TYPE_MASK 0x3
-#define L1DESC_TYPE_SECT 0x2
-#define L1DESC_TYPE_PT 0x1
-
-#define L1_PAGETABLE_ORDER 12
-#define L2_PAGETABLE_ORDER 8
-
-#define L1_PAGETABLE_ENTRIES (1 << L1_PAGETABLE_ORDER)
-#define L2_PAGETABLE_ENTRIES (1 << L2_PAGETABLE_ORDER)
-
-#define L1_PAGETABLE_SHIFT 20
-#define L2_PAGETABLE_SHIFT 12
-
-#define L1_PAGETABLE_SIZE (PAGE_SIZE << 2)
-
-#define PAGE_SHIFT 12
-
-#define __PAGE_MASK (~(PAGE_SIZE - 1))
-#define L1_SECT_SIZE (0x100000)
-#define L1_SECT_MASK (~(L1_SECT_SIZE - 1))
-#define L2DESC_SMALL_PAGE_ADDR_MASK (~(PAGE_SIZE - 1))
-/* To get the address of the L2 page table from a L1 descriptor */
-#define L1DESC_L2PT_BASE_ADDR_SHIFT 10
-#define L1DESC_L2PT_BASE_ADDR_OFFSET (1 << L1DESC_L2PT_BASE_ADDR_SHIFT)
-#define L1DESC_L2PT_BASE_ADDR_MASK (~(L1DESC_L2PT_BASE_ADDR_OFFSET - 1))
-#define l1pte_index(a) ((((u32)a) >> L1_PAGETABLE_SHIFT) & (L1_PAGETABLE_ENTRIES - 1))
-#define l2pte_index(a) ((((u32)a) >> L2_PAGETABLE_SHIFT) & (L2_PAGETABLE_ENTRIES - 1))
-#define l2pte_offset(l1pte, addr) (((u32 *)(((u32)phys_to_virt(*l1pte)) & L1DESC_L2PT_BASE_ADDR_MASK)) + l2pte_index(addr))
-
-u32 virt_to_phys_pt(u32 vaddr) {
-	u32 *l1pte, *l2pte;
-	u32 offset;
-
-	offset = vaddr & ~__PAGE_MASK;
-
-	/* Get the L1 PTE. */
-	l1pte = (u32 *) (((u32 *)swapper_pg_dir) + l1pte_index(vaddr));
-
-	BUG_ON(!*l1pte);
-	if ((*l1pte & L1DESC_TYPE_MASK) == L1DESC_TYPE_SECT) {
-		printk("### l1pte content: %x\n", *l1pte);
-		return *l1pte & L1_SECT_MASK;
-
-	} else {
-		printk("### l1pte content: %x\n", *l1pte);
-		l2pte = l2pte_offset(l1pte, vaddr);
-		printk("### -  l2pte content: %x\n", *l2pte);
-		return (*l2pte & L2DESC_SMALL_PAGE_ADDR_MASK) | offset;
-	}
-
-}
-#endif /* 0 */
-
-#ifndef CONFIG_X86
 
 long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
@@ -259,15 +188,7 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	case AGENCY_IOCTL_FORCE_TERMINATE:
 		force_terminate(args.slotID);
 		break;
-
-	case AGENCY_IOCTL_GET_UPGRADE_IMG:
-		get_upgrade_image((uint32_t *) &args.value, &args.slotID);
-		break;
-
-	case AGENCY_IOCTL_STORE_VERSIONS:
-		store_versions((upgrade_versions_args_t *) args.buffer);
-		break;
-	
+			
 	case AGENCY_IOCTL_GET_ME_SNAPSHOT:
 		/* - args.value contains the (kernel) address of the ME
 		 * - args.buffer contains the ME buffer itself
@@ -278,10 +199,6 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 	
 	case AGENCY_IOCTL_GET_ME_ID_ARRAY:
 		get_ME_id_array((ME_id_t *) args.buffer);
-		break;
-		
-	case AGENCY_IOCTL_BLACKLIST_SOO:
-		discovery_blacklist_neighbour((char *) args.buffer);
 		break;
 
 	default:
@@ -302,7 +219,6 @@ struct file_operations agency_fops = {
     .open = agency_open,
     .release = agency_release,
     .unlocked_ioctl = agency_ioctl,
-    .mmap = agency_upgrade_mmap,
 };
 
 /*  Driver core definition */
@@ -374,19 +290,6 @@ static struct device soo_dev = {
     .bus = &soo_subsys,
 };
 
-#endif /* !CONFIG_X86 */
-
-int evtchn;
-
-/* For testing purposes */
-
-irqreturn_t dummy_interrupt(int irq, void *dev_id) {
-
-	lprintk("### Got the interrupt %d on CPU: %d\n", irq, smp_processor_id());
-
-	notify_remote_via_evtchn(evtchn);
-	return IRQ_HANDLED;
-};
 
 static int agency_reboot_notify(struct notifier_block *nb, unsigned long code, void *unused)
 {
@@ -428,9 +331,6 @@ int agency_late_init_fn(void *args) {
 
 	lprintk("SOO Agency last initialization part processing now...\n");
 
-	/* At this point, we can start the Discovery process */
-	sooenv_init();
-
 #ifdef CONFIG_SOO_RT_APP
 	/* This thread will start various debugging testings possibly in RT domain .*/
 	kernel_thread(rtapp_main, NULL, 0);
@@ -443,17 +343,14 @@ int agency_late_init_fn(void *args) {
 }
 
 int agency_init(void) {
-#ifndef CONFIG_X86
+
 	int rc;
-#endif
 
 	DBG("SOO Migration subsystem registering...\n");
 
 	soo_sysfs_init();
 
 	soo_guest_activity_init();
-
-#ifndef CONFIG_X86
 
 	rc = subsys_system_register(&soo_subsys, NULL);
 	if (rc < 0) {
@@ -475,15 +372,7 @@ int agency_init(void) {
 
 	DBG("SOO Migration subsystem registered...\n");
 
-	/* Initialize the agency UID and the dev caps bitmap */
-	devaccess_init();
-
-	/* Initialize the dbgvar facility */
-	dbgvar_init();
-
 	register_reboot_notifier(&agency_reboot_nb);
-
-#endif
 
 	return 0;
 }

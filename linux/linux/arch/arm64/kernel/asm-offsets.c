@@ -24,11 +24,7 @@
 #include <linux/kbuild.h>
 #include <linux/arm-smccc.h>
 
-#ifdef CONFIG_SOO
 #include <soo/uapi/avz.h>
-#else
-#include <avz.h>
-#endif
 
 int main(void)
 {
@@ -153,8 +149,6 @@ int main(void)
 
   /* SOO.tech */
   DEFINE(AVZ_DOM_PHYS_OFFSET, offsetof(avz_shared_t, dom_phys_offset));
-  DEFINE(AVZ_PAGETABLE_PADDR, offsetof(avz_shared_t, pagetable_paddr));
-  DEFINE(AVZ_PAGETABLE_VADDR, offsetof(avz_shared_t, pagetable_vaddr));
-
+  
   return 0;
 }

@@ -52,8 +52,7 @@ typedef struct {
 } soo_uevent_t;
 
 int soo_uevent(struct device *dev, struct kobj_uevent_env *env);
-void agency_ctl(agency_ctl_args_t *agency_ctl_args);
-
+ 
 void vunmap_page_range(unsigned long addr, unsigned long end);
 
 #endif /* GUEST_API_INCLUDE */

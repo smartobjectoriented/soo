@@ -30,8 +30,9 @@ void *paging_remap(unsigned long paddr, size_t size) {
 	void *vaddr;
 
 	vaddr = __arm_ioremap(paddr, size, MT_MEMORY_RWX_NONCACHED);
-
-	return vaddr;
+        BUG_ON(!*vaddr);
+	
+        return vaddr;
 }
 
 void paging_remap_page_range(unsigned long addr, unsigned long end, phys_addr_t physaddr) {

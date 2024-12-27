@@ -52,7 +52,7 @@
 #include <asm/mmu_context.h>
 
 #include <lprintk.h>
-#include <avz.h>
+#include <soo/uapi/avz.h>
 
 #if defined(CONFIG_LINUXVIRT) && !defined(CONFIG_SOO)
 

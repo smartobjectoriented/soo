@@ -31,14 +31,6 @@
 
 #include <asm/cacheflush.h>
 
-#include <soo/soolink/soolink.h>
-
-#include <soo/soolink/plugin/common.h>
-#include <soo/soolink/plugin/loopback.h>
-#include <soo/soolink/plugin/ethernet.h>
-#include <soo/soolink/plugin/bluetooth.h>
-#include <soo/soolink/plugin/wlan.h>
-
 #include <soo/vbstore.h>
 #include <soo/hypervisor.h>
 #include <soo/uapi/console.h>

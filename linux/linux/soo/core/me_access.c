@@ -29,24 +29,17 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/soo.h>
 #include <soo/uapi/debug.h>
-#include <soo/uapi/me_access.h>
 
 int get_ME_state(unsigned int ME_slotID)
 {
-	int *val;
-        int state;
+        avz_hyp_t args;
 
-        val = kzalloc(sizeof(int), GFP_KERNEL);
-        BUG_ON(!val);
+        args.cmd = AVZ_GET_ME_STATE;
+        args.u.avz_me_state_args.slotID = ME_slotID;
 
-        *val = ME_slotID;
+        avz_hypercall(&args);
 
-        soo_hypercall(AVZ_GET_ME_STATE, NULL, val, NULL);
-        state = *val;
-
-        kfree(val);
-
-        return state;
+        return args.u.avz_me_state_args.state;
 }
 
 /*
@@ -56,23 +49,28 @@ int get_ME_state(unsigned int ME_slotID)
  */
 void set_ME_state(unsigned int ME_slotID, ME_state_t state)
 {
-	int _state[2];
+        avz_hyp_t args;
 
-	_state[0] = ME_slotID;
-	_state[1] = state;
+        args.cmd = AVZ_SET_ME_STATE;
 
-	soo_hypercall(AVZ_SET_ME_STATE, NULL, _state, NULL);
+        args.u.avz_me_state_args.slotID = ME_slotID;
+	args.u.avz_me_state_args.state = state;
+
+        avz_hypercall(&args);
 }
 
 /**
- * Retrieve the ME descriptor including the SPID, the state and the SPAD.
+ * Retrieve the ME descriptor including the SPID, the state.
  */
 void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc) {
-	dom_desc_t dom_desc;
+        avz_hyp_t args;
 
-	soo_hypercall(AVZ_GET_DOM_DESC, NULL, &slotID, &dom_desc);
+        args.cmd = AVZ_GET_DOM_DESC;
+        args.u.avz_dom_desc_args.slotID = slotID;
 
-	memcpy(ME_desc, &dom_desc.u.ME, sizeof(ME_desc_t));
+        avz_hypercall(&args);
+
+	memcpy(ME_desc, &args.u.avz_dom_desc_args.dom_desc, sizeof(ME_desc_t));
 }
 
 /**
@@ -82,24 +80,25 @@ void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc) {
  * @return slotID or -1  if no slot available.
  */
 int32_t get_ME_free_slot(uint32_t size) {
-	int val;
-
-	val = size;
+        avz_hyp_t args;
 
 	DBG("Agency: trying to get a slot for a ME of %d bytes ...\n", val);
 
-	soo_hypercall(AVZ_GET_ME_FREE_SLOT, NULL, &val, NULL);
+        args.cmd = AVZ_GET_ME_FREE_SLOT;
+        args.u.avz_free_slot_args.size = size;
 
-	if (val == -1)
+        avz_hypercall(&args);
+
+	if (args.u.avz_free_slot_args.slotID == -1)
 		DBG0("Agency: no slot available anymore ...");
 	else
-		DBG("Agency: ME slot ID %d available.\n", val);
+		DBG("Agency: ME slot ID %d available.\n", args.u.avz_free_slot_args.slotID);
 
-	return val;
+	return args.u.avz_free_slot_args.slotID;
 }
 
 /**
- * Retrieve the ME identity information including SPID, state and SPAD capabilities.
+ * Retrieve the ME identity information including SPID, state.
  *
  * @param slotID
  * @param ME_id
@@ -126,13 +125,7 @@ bool get_ME_id(uint32_t slotID, ME_id_t *ME_id) {
 	} else {
 		sscanf(prop, "%llx", &ME_id->spid);
 		kfree(prop);
-
-		prop = vbus_read(VBT_NIL, rootname, "spadcaps", &len);
-		BUG_ON(len == 1);
-
-		sscanf(prop, "%llx", &ME_id->spadcaps);
-		kfree(prop);
-
+ 
 		prop = vbus_read(VBT_NIL, rootname, "name", &len);
 
 		strcpy(ME_id->name, prop);

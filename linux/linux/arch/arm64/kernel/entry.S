@@ -1138,7 +1138,7 @@ NOKPROBE(__sdei_asm_handler)
 
 .align 5
 
-SYM_CODE_START(avz_hypercall)
+SYM_CODE_START(__avz_hypercall)
 
 	hvc #0
 	ret

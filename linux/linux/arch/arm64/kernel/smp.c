@@ -60,7 +60,6 @@
 #include <soo/evtchn.h>
 
 #include <soo/uapi/console.h>
-#include <soo/uapi/logbool.h>
 #include <soo/uapi/soo.h>
 
 void smp_cross_call(const struct cpumask *target, unsigned int ipinr);

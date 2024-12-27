@@ -49,11 +49,9 @@
 #include <soo/evtchn.h>
 
 #include <soo/uapi/soo.h>
-#include <soo/uapi/event_channel.h>
 #include <soo/uapi/console.h>
 
 #include <soo/uapi/debug.h>
-#include <soo/uapi/physdev.h>
 
 /* Convenient shorthand for packed representation of an unbound IRQ. */
 #define IRQ_UNBOUND	mk_virq_info(IRQT_UNBOUND, 0, 0)
@@ -230,95 +228,69 @@ static int bind_evtchn_to_virq(unsigned int evtchn)
 
 void unbind_domain_evtchn(unsigned int domID, unsigned int evtchn)
 {
-	struct evtchn_bind_interdomain *bind_interdomain;
+	avz_hyp_t args;
 
-	bind_interdomain = kzalloc(sizeof(struct evtchn_bind_interdomain), GFP_ATOMIC);
-	BUG_ON(!bind_interdomain);
+        args.cmd = AVZ_EVENT_CHANNEL_OP;
+        args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_unbind_domain;
 
-	bind_interdomain->remote_dom = domID;
-	bind_interdomain->local_evtchn = evtchn;
+        args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_dom = domID;
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.local_evtchn = evtchn;
 
-	__flush_dcache_area((void *) bind_interdomain, sizeof(struct evtchn_bind_interdomain));
-	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_unbind_domain, virt_to_phys(bind_interdomain), 0, 0);
-	__inval_dcache_area((void *) bind_interdomain, sizeof(struct evtchn_bind_interdomain));
+        avz_hypercall(&args);
 
-	evtchn_info.valid[evtchn] = false;
-
-	kfree(bind_interdomain);
+        evtchn_info.valid[evtchn] = false;
 }
 
 static int bind_interdomain_evtchn_to_virq(unsigned int remote_domain, unsigned int remote_evtchn)
 {
-	struct evtchn_bind_interdomain *bind_interdomain;
-	int virq;
+        avz_hyp_t args;
+        int virq;
 
-	bind_interdomain = kzalloc(sizeof(struct evtchn_bind_interdomain), GFP_ATOMIC);
-	BUG_ON(!bind_interdomain);
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_dom = remote_domain;
+        args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_evtchn = remote_evtchn;
 
-	bind_interdomain->remote_dom = remote_domain;
-	bind_interdomain->remote_evtchn = remote_evtchn;
+        avz_hypercall(&args);
 
-	__flush_dcache_area((void *) bind_interdomain, sizeof(struct evtchn_bind_interdomain));
-	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, virt_to_phys(bind_interdomain), 0, 0);
-	__inval_dcache_area((void *) bind_interdomain, sizeof(struct evtchn_bind_interdomain));
-
-	virq = bind_evtchn_to_virq(bind_interdomain->local_evtchn);
-
-	kfree(bind_interdomain);
+        virq = bind_evtchn_to_virq(args.u.avz_evtchn.evtchn_op.u.bind_interdomain.local_evtchn);
 
 	return virq;
 }
 
 int bind_existing_interdomain_evtchn(unsigned local_evtchn, unsigned int remote_domain, unsigned int remote_evtchn)
 {
-	struct evtchn_bind_interdomain *bind_interdomain;
-	int virq;
+        avz_hyp_t args;
+        int virq;
 
-	bind_interdomain = kzalloc(sizeof(struct evtchn_bind_interdomain), GFP_ATOMIC);
-	BUG_ON(!bind_interdomain);
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.local_evtchn = local_evtchn;
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_dom  = remote_domain;
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_evtchn = remote_evtchn;
 
-	bind_interdomain->local_evtchn = local_evtchn;
-	bind_interdomain->remote_dom  = remote_domain;
-	bind_interdomain->remote_evtchn = remote_evtchn;
+ 	avz_hypercall(&args);
 
-	__flush_dcache_area((void *) bind_interdomain, sizeof(struct evtchn_bind_interdomain));
-	avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_existing_interdomain, virt_to_phys(bind_interdomain), 0, 0);
-	__inval_dcache_area((void *) bind_interdomain, sizeof(struct evtchn_bind_interdomain));
-
-	virq = bind_evtchn_to_virq(bind_interdomain->local_evtchn);
-
-	kfree(bind_interdomain);
+	virq = bind_evtchn_to_virq(args.u.avz_evtchn.evtchn_op.u.bind_interdomain.local_evtchn);
 
 	return virq;
 }
 
 static void unbind_from_virq(unsigned int virq)
 {
-	evtchn_close_t *op;
-	int evtchn = evtchn_from_virq(virq);
+        avz_hyp_t args;
+        int evtchn = evtchn_from_virq(virq);
 	int cpu = smp_processor_id();
 
 	spin_lock(&virq_mapping_update_lock);
 
-	op = kzalloc(sizeof(evtchn_close_t), GFP_ATROMIC);
-	BUG_ON(!op);
-
 	if (--per_cpu(evtchn_info, cpu).virq_bindcount[virq] == 0) {
-		op->evtchn = evtchn;
+		args.u.avz_evtchn.evtchn_op.u.close.evtchn = evtchn;
 
-		__flush_dcache_area((void *) op, sizeof(evtchn_close_t));
-		avz_hypercall(__HYPERVISOR_event_channel_op, EVTCHNOP_close, virt_to_phys(op), 0, 0);
-		__inval_dcache_area((void *) op, sizeof(evtchn_close_t));
+		avz_hypercall(&args);
 
 		per_cpu(evtchn_info, cpu).evtchn_to_virq[evtchn] = -1;
 		per_cpu(evtchn_info, cpu).valid[evtchn] = false;
 	}
 
-	kfree(op);
-
 	spin_unlock(&virq_mapping_update_lock);
 }
-
 
 int bind_evtchn_to_virq_handler(unsigned int evtchn, irq_handler_t handler, irq_handler_t thread_fn, unsigned long irqflags, const char *devname, void *dev_id)
 {
@@ -326,6 +298,7 @@ int bind_evtchn_to_virq_handler(unsigned int evtchn, irq_handler_t handler, irq_
 	int retval;
 
 	virq = bind_evtchn_to_virq(evtchn);
+ 
 	retval = request_threaded_irq(VIRQ_BASE + virq, handler, thread_fn, irqflags, devname, dev_id);
 	if (retval != 0) {
 		unbind_from_virq(virq);

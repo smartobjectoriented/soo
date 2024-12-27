@@ -14,7 +14,6 @@ struct pt_regs;
 #define PIRQ_BASE       0
 
 #define VIRQ_BASE       (PIRQ_BASE + NR_PIRQS)
-#define NR_VIRQS        256
 
 /* Max number of possible IPIs */
 #define NR_IPIS		16

@@ -19,6 +19,7 @@
 #include <linux/version.h>
 #include <linux/cpumask.h>
 #include <linux/mm_types.h>
+#include <linux/memblock.h>
 
 #include <asm/pgtable.h>
 
@@ -27,88 +28,107 @@
 #include <soo/paging.h>
 
 #include <soo/uapi/avz.h>
-#include <soo/uapi/schedop.h>
-#include <soo/uapi/domctl.h>
-#include <soo/uapi/physdev.h>
 
-void avz_ME_unpause(domid_t domain_id, addr_t vbstore_pfn)
+/*
+ * SOO hypercall
+ *
+ * Mandatory arguments:
+ * - cmd: hypercall
+ * - addr: a virtual address used within the hypervisor
+ * - p_val1: a (virtual) address to a first value
+ * - p_val2: a (virtual) address to a second value
+ */
+
+void avz_hypercall(avz_hyp_t *avz_hyp)
 {
-        struct domctl *op;
+        avz_hyp_t *__avz_hyp;
 
-        op = kzalloc(sizeof(struct domctl), GFP_KERNEL);
-        BUG_ON(!op);
+	/* Make sure the avz_hyp details are in a linear-mapped zone
+	 * to be able to pass the physical address to the hypervisor.
+	 */
+	__avz_hyp = kmalloc(sizeof(avz_hyp_t), GFP_KERNEL);
+        BUG_ON(!__avz_hyp);
 
-        lprintk("Trying to unpause ME domain %d...", domain_id);
+        memcpy(__avz_hyp, avz_hyp, sizeof(avz_hyp_t));
 
-        op->cmd = DOMCTL_unpauseME;
+        __flush_dcache_area((void *) __avz_hyp, sizeof(avz_hyp_t));
+        __avz_hypercall(AVZ_HYPERCALL_TRAP, virt_to_phys(__avz_hyp));
+        __inval_dcache_area((void *) __avz_hyp, sizeof(avz_hyp_t));
 
-	op->domain = domain_id;
+        memcpy(avz_hyp, __avz_hyp, sizeof(avz_hyp_t));
 
-	op->u.unpause_ME.vbstore_pfn = vbstore_pfn;
+        kfree(__avz_hyp);
+}
 
-	avz_hypercall(__HYPERVISOR_domctl, virt_to_phys(op), 0 ,0 ,0);
+void avz_ME_unpause(domid_t domain_id, grant_ref_t vbstore_grant_ref)
+{
+        avz_hyp_t args;
+
+	lprintk("Trying to unpause ME domain %d...", domain_id);
+
+        args.cmd = AVZ_DOMAIN_CONTROL_OP;
+
+        args.u.avz_domctl_args.domctl.cmd = DOMCTL_unpauseME;
+	args.u.avz_domctl_args.domctl.domain = domain_id;
+        args.u.avz_domctl_args.domctl.u.vbstore_grant_ref = vbstore_grant_ref;
+
+        avz_hypercall(&args);
 }
 
 #if defined(CONFIG_SOO)
 
 void avz_get_shared(void) {
-	struct domctl *op;
+        avz_hyp_t args;
 
-	op = kmalloc(sizeof(struct domctl), GFP_KERNEL);
-	BUG_ON(!op);
+        args.cmd = AVZ_DOMAIN_CONTROL_OP;
+        args.u.avz_domctl_args.domctl.cmd = DOMCTL_get_AVZ_shared;
 
-	op->cmd = DOMCTL_get_AVZ_shared;
-   
-        avz_hypercall(__HYPERVISOR_domctl, virt_to_phys(op), 0, 0, 0);
+        avz_hypercall(&args);
 
-        BUG_ON(!op->u.avz_shared_paddr);
+        BUG_ON(!args.u.avz_domctl_args.domctl.u.avz_shared_paddr);
 
-	avz_shared = (volatile avz_shared_t *) paging_remap(op->u.avz_shared_paddr, PAGE_SIZE);
+        avz_shared = (volatile avz_shared_t *) paging_remap(args.u.avz_domctl_args.domctl.u.avz_shared_paddr, PAGE_SIZE);
 	BUG_ON(!avz_shared);
 
 	BUG_ON(!avz_shared->subdomain_shared_paddr);
 
 	avz_shared->subdomain_shared = (avz_shared_t *) paging_remap(avz_shared->subdomain_shared_paddr, PAGE_SIZE);
 	BUG_ON(!avz_shared->subdomain_shared);
-
-	kfree(op);
-
 }
 
 void avz_printch(char c) {
-	avz_hypercall(__HYPERVISOR_console_io, c, 0, 0, 0);
+        avz_hyp_t args;
+
+        args.cmd = AVZ_CONSOLE_IO_OP;
+
+        args.u.avz_console_io_args.console.cmd = CONSOLE_IO_PRINTCH;
+        args.u.avz_console_io_args.console.c = c;
+
+        avz_hypercall(&args);
+}
+
+void avz_gnttab(gnttab_op_t *op) {
+        avz_hyp_t args;
+
+        args.cmd = AVZ_GRANT_TABLE_OP;
+
+        memcpy(&args.u.avz_gnttab_args.gnttab_op, op, sizeof(gnttab_op_t));
+        avz_hypercall(&args);
+        memcpy(op, &args.u.avz_gnttab_args.gnttab_op, sizeof(gnttab_op_t));
 }
 
 #endif
 
 void avz_ME_pause(domid_t domain_id)
 {
-	struct domctl op;
+        avz_hyp_t args;
 
-	lprintk("Trying to pause domain %d...", domain_id);
+        lprintk("Trying to pause domain %d...", domain_id);
 
-	op.cmd = DOMCTL_pauseME;
-	op.domain = domain_id;
-
-	avz_hypercall(__HYPERVISOR_domctl, (long) &op, 0, 0, 0);
-}
-
-void avz_dump_page(unsigned int pfn)
-{
-	avz_hypercall(__HYPERVISOR_physdev_op, PHYSDEVOP_dump_page, (long) &pfn, 0, 0);
-}
-
-void avz_dump_logbool(void)
-{
-	avz_hypercall(__HYPERVISOR_physdev_op, PHYSDEVOP_dump_logbool, 0 ,0, 0);
-}
-
-void avz_send_IPI(int ipinr, long cpu_mask) {
-	send_ipi_args_t send_ipi_args;
-
-	send_ipi_args.ipinr = ipinr;
-	send_ipi_args.cpu_mask = cpu_mask;
-
-	avz_hypercall(__HYPERVISOR_physdev_op, PHYSDEVOP_send_ipi, (long) &send_ipi_args, 0, 0);
+        args.cmd = AVZ_DOMAIN_CONTROL_OP;
+        args.u.avz_domctl_args.domctl.cmd = DOMCTL_pauseME;
+        args.u.avz_domctl_args.domctl.domain = domain_id;
+        
+	avz_hypercall(&args);
 }
 
