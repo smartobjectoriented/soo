@@ -139,7 +139,7 @@ int avz_switch_console(char ch)
                         args.cmd = AVZ_CONSOLE_IO_OP;
 
                         args.u.avz_console_io_args.console.cmd = CONSOLE_IO_KEYHANDLER;
-                        args.u.avz_console_io_args.console.c = ch;
+                        args.u.avz_console_io_args.console.u.c = ch;
 
                         avz_hypercall(&args);
                         return 1;

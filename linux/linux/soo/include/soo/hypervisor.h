@@ -24,6 +24,7 @@
 #include <linux/cpumask.h>
 
 void avz_printch(char c);
+void avz_printstr(char *s);
 
 void avz_ME_unpause(domid_t domain_id, grant_ref_t vbstore_grant_ref);
 void avz_ME_pause(domid_t domID);

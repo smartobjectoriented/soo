@@ -102,8 +102,19 @@ void avz_printch(char c) {
         args.cmd = AVZ_CONSOLE_IO_OP;
 
         args.u.avz_console_io_args.console.cmd = CONSOLE_IO_PRINTCH;
-        args.u.avz_console_io_args.console.c = c;
+        args.u.avz_console_io_args.console.u.c = c;
 
+        avz_hypercall(&args);
+}
+
+void avz_printstr(char *s) {
+        avz_hyp_t args;
+
+        args.cmd = AVZ_CONSOLE_IO_OP;
+        args.u.avz_console_io_args.console.cmd = CONSOLE_IO_PRINTSTR;
+
+        strncpy(args.u.avz_console_io_args.console.u.str, s, CONSOLE_STR_MAX_LEN);
+       
         avz_hypercall(&args);
 }
 

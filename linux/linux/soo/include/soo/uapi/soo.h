@@ -387,10 +387,16 @@ void rtdm_register_dc_event_callback(dc_event_t dc_event, dc_event_fn_t *callbac
 
 #define CONSOLE_IO_KEYHANDLER           0
 #define CONSOLE_IO_PRINTCH              1
+#define CONSOLE_IO_PRINTSTR             2
+
+#define CONSOLE_STR_MAX_LEN             128
 
 typedef struct {
         int cmd;
-        char c;
+        union {
+                char c;
+                char str[CONSOLE_STR_MAX_LEN];
+        } u;
 } console_t;
 
 /*

@@ -93,10 +93,7 @@ void __lprintk(const char *format, va_list va) {
 	}
 
 #else /* !CONFIG_X86 */
-
-	for (i = 0; i < strlen(__start); i++)
-		avz_printch(__start[i]);
- 
+        avz_printstr(__start);
 #endif /* !CONFIG_X86 */
 
 }
