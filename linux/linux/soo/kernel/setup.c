@@ -41,7 +41,6 @@ extern u64 __pv_offset;
 
 void __init avz_setup(void)
 {
-	__printch = AVZ_shared->printch;
 
 	lprintk("  - SOO Agency Virtualizer (avz) Start info :\n");
 	lprintk("  - Hypercall addr: %lx\n", (unsigned long) HYPERVISOR_hypercall_addr);

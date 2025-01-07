@@ -81,12 +81,15 @@ void gnttab_map(domid_t domid, grant_ref_t grant_ref, void **vaddr) {
 
         avz_gnttab(&gnttab_op);
 
+        *vaddr = ioremap_wc(__pfn_to_phys(gnttab_op.pfn), PAGE_SIZE);
+#if 0
         area = get_vm_area(PAGE_SIZE, VM_IOREMAP);
         BUG_ON(!area);
-        
-        paging_remap_page_range((unsigned long) area->addr, (unsigned long) area->addr + PAGE_SIZE, __pfn_to_phys(gnttab_op.pfn));      
+        printk("### GOT %x\n", gnttab_op.pfn);
+        paging_remap_page_range((unsigned long) area->addr, (unsigned long) area->addr + PAGE_SIZE, __pfn_to_phys(gnttab_op.pfn));
 
         *vaddr = area->addr;
+#endif
 }
 
 void gnttab_unmap(void *vaddr) {

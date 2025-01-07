@@ -38,8 +38,6 @@
 #include <sys/mman.h>
 #include <stdbool.h>
 
-#include <soo/uapi/soo.h>
-
 #include <core/core.h>
 #include <core/debug.h>
 #include <core/types.h>
@@ -170,7 +168,7 @@ void ME_inject(unsigned char *ME_buffer, uint32_t size) {
 void inject_MEs_from_filesystem(char *filename) {
 	int fd;
 	int nread, ME_size;
-	unsigned char *ME_buffer;
+	void *ME_buffer;
 	struct stat filestat;
 
 	stat(filename, &filestat);
@@ -188,7 +186,7 @@ void inject_MEs_from_filesystem(char *filename) {
 	/* Allocate the ME buffer */
 	ME_buffer = malloc(ME_size);
 
-	DBG("agency_core: size to read from sd : %d, buffer address : 0x%08x\n", ME_size, (unsigned int) ME_buffer);
+	DBG("agency_core: size to read from sd : %d, buffer address : 0x%08lx\n", ME_size, (unsigned long) ME_buffer);
 
 	/* Read the ME content  */
 	nread = read(fd, ME_buffer, ME_size);

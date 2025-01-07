@@ -113,7 +113,7 @@ static void __probe(struct vbus_device *vdev) {
 	vdevback_t *vdevback;
 	vdrvback_t *vdrvback = to_vdrvback(vdev);
 
-	DBG("%s: SOO dummy backend driver for testing\n", __func__);
+	DBG("%s: SOO backend driver...\n", __func__);
 
 	vdrvback->probe(vdev);
 

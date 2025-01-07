@@ -131,9 +131,9 @@ void do_sync_dom(int domID, dc_event_t dc_event)
 	set_dc_event(domID, dc_event);
 
 	DBG("%s: notifying via evtchn %d...\n", __func__, dc_evtchn[domID]);
-	notify_remote_via_evtchn(dc_evtchn[domID]);
+        notify_remote_via_evtchn(dc_evtchn[domID]);
 
-	/* Wait for the response from the outgoing domain, and reset the barrier. */
+        /* Wait for the response from the outgoing domain, and reset the barrier. */
 	if (cpu == AGENCY_RT_CPU) {
 		rtdm_event_wait(&rtdm_dc_stable_event[dc_event]);
 		atomic_set(&rtdm_dc_outgoing_domID[dc_event], -1);

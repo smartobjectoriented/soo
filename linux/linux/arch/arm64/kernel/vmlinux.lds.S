@@ -120,10 +120,6 @@ SECTIONS
 	.head.text : {
 		_text = .;
 
-#ifdef CONFIG_LINUXVIRT
-		*(.init.fromavz_start)
-#endif
-
 		HEAD_TEXT
 	}
 	.text : {			/* Real text segment		*/

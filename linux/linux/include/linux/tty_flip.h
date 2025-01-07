@@ -23,7 +23,7 @@ static inline int tty_insert_flip_char(struct tty_port *port,
 	struct tty_buffer *tb = port->buf.tail;
 	int change;
 
-#ifdef CONFIG_LINUXVIRT
+#ifdef CONFIG_SOO
 	/*
 	 * SOO.tech
 	 * (Only chars coming from the main console should be considered)

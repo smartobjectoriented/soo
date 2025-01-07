@@ -16,8 +16,8 @@
  *
  */
 
-#ifndef __ASM_EVTCHN_H__
-#define __ASM_EVTCHN_H__
+#ifndef EVTCHN_H
+#define EVTCHN_H
 
 #include <linux/interrupt.h>
 #include <asm/ptrace.h>
@@ -55,12 +55,12 @@ static inline void notify_remote_via_evtchn(uint32_t evtchn)
         
         args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_send;
         args.u.avz_evtchn.evtchn_op.u.send.evtchn = evtchn;
-
+        printk("## EVTCHN: %d\n", evtchn);
         avz_hypercall(&args);
 }
 
 /* Entry point for notifications into Linux subsystems. */
-asmlinkage void evtchn_do_upcall(struct pt_regs *regs);
+void evtchn_do_upcall(void *data);
 
 /*
  * LOW-LEVEL DEFINITIONS
@@ -79,8 +79,6 @@ extern int bind_interdomain_evtchn_to_virqhandler(unsigned int remote_domain, un
 extern int bind_existing_interdomain_evtchn(unsigned int local_channel, unsigned int remote_domain, unsigned int remote_evtchn);
 extern int bind_virq_to_virqhandler(unsigned int virq, irq_handler_t handler, unsigned long irqflags, const char *devname, void *dev_id);
 
-extern void virtshare_mask_irq(struct irq_data *irq_data);
-extern void virtshare_unmask_irq(struct irq_data *irq_data);
 
 int rtdm_bind_evtchn_to_virq_handler(rtdm_irq_t *irq_handle, unsigned int evtchn, rtdm_irq_handler_t handler, unsigned long irqflags, const char *devname, void *dev_id);
 int rtdm_bind_interdomain_evtchn_to_virqhandler(rtdm_irq_t *irq_handle, unsigned int remote_domain, unsigned int remote_evtchn, rtdm_irq_handler_t handler, unsigned long irqflags, const char *devname, void *dev_id);
@@ -110,4 +108,4 @@ extern void notify_remote_via_virq(int virq);
 
 void virq_init(void);
 
-#endif
+#endif /* EVTCHN_H */

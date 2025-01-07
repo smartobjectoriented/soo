@@ -18,6 +18,7 @@
  */
 #include <linux/kthread.h>
 #include <linux/mutex.h>
+#include <linux/console.h>
 
 #include <soo/dev/vuart.h>
 
@@ -51,15 +52,10 @@ atomic64_t str_to_print;
 
 #endif
 
-void (*__printch)(char c) = NULL;
-
 void __lprintk(const char *format, va_list va) {
 	char buf[CONSOLEIO_BUFFER_SIZE];
 	char *__start;
-#ifndef CONFIG_X86
-	int i;
-#endif
-
+ 
 	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
 
 	__start = buf;
@@ -99,8 +95,15 @@ void __lprintk(const char *format, va_list va) {
 }
 
 void lprintch(char c) {
-	if (likely(__printch))
-		__printch(c);
+	struct console *cons = console_drivers;
+	 
+  	while (cons) {
+        	if (cons->write) {
+            		cons->write(cons, &c, 1);  
+            		break;
+       		 }
+        	cons = cons->next;
+   	 }
 }
 
 void lprintk(char *format, ...) {
@@ -116,7 +119,6 @@ void lprintk(char *format, ...) {
 void __soo_log(char *info, char *buf) {
 	char prefix[50];
 	static char __internal_buf[CONSOLEIO_BUFFER_SIZE] = { };
-	int i;
 
 	bool outlog = false;
 	static bool force_log = false;
@@ -155,11 +157,9 @@ void __soo_log(char *info, char *buf) {
 
 	/* Out to the interface...*/
 
-	for (i = 0; i < strlen(__internal_buf); i++)
-		if (likely(__printch))
-			__printch(__internal_buf[i]);
+        printk("%s", __internal_buf);
 
-	__internal_buf[0] = 0;
+        __internal_buf[0] = 0;
 }
 
 void soo_log(char *format, ...) {
@@ -239,3 +239,5 @@ void lprintk_int64_post(s64 number, char *post) {
 void lprintk_int64(s64 number) {
 	lprintk_int64_post(number, "\n");
 }
+
+ 

@@ -29,6 +29,9 @@
 	        	/* bootargs = "console=ttyAMA0,115200n8 root=/dev/ram rw initcall_debug=1"; */
 	        	/* bootargs = "console=ttyAMA0,115200n8 root=/dev/mmcblk0p2 rw earlyprintk"; */
 		};
+ 	console {
+		focus-dom-max = <3>;
+	};
 	
 	psci {
 		migrate = <0xc4000005>;

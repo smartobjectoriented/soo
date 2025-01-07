@@ -247,6 +247,7 @@ typedef enum {
  */
 typedef struct {
 	unsigned int	slotID;
+        uint64_t        spid;
 
 	ME_state_t	state;
 

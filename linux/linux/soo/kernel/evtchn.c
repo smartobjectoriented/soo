@@ -135,7 +135,7 @@ static struct irq_chip virtirq_chip;
  * -> For VIRQ_TIMER_IRQ, avoid change the bind_virq_to_irqhandler.....
  *
  */
-asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
+void evtchn_do_upcall(void *data)
 {
 	unsigned int evtchn;
 	int l1, virq;
@@ -175,7 +175,7 @@ retry:
 
 		clear_evtchn(evtchn_from_virq(virq));
 
-		__handle_domain_irq(NULL, VIRQ_BASE + virq, false, regs);
+		__handle_domain_irq(NULL, VIRQ_BASE + virq, false, data);
 
 		BUG_ON(!hard_irqs_disabled());
 	};
@@ -246,6 +246,9 @@ static int bind_interdomain_evtchn_to_virq(unsigned int remote_domain, unsigned 
         avz_hyp_t args;
         int virq;
 
+ 	args.cmd = AVZ_EVENT_CHANNEL_OP;
+        args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_bind_interdomain;
+	
 	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_dom = remote_domain;
         args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_evtchn = remote_evtchn;
 
