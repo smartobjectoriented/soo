@@ -26,9 +26,7 @@ void finalize_migration(uint32_t slotID);
 
 void write_snapshot(uint32_t slotID, void *buffer);
 
-void copy_ME_snapshot_to_user(void *ME_snapshot, void *user_addr, uint32_t size);
-int read_snapshot(uint32_t slotID, void **ME_buffer);
-
+void read_snapshot(uint32_t slotID, void *buffer, uint32_t *size);
 
 #endif /* MIGMGR_H */
 

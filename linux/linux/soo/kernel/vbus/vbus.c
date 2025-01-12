@@ -760,6 +760,7 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	DBG("Received directcomm interrupt for event: %d\n", AVZ_shared->dc_event);
 
 	/* We should not receive twice a same dc_event, before it has been fully processed. */
+
 	BUG_ON(atomic_read(&dc_incoming_domID[dc_event]) != -1);
 
 	atomic_set(&dc_incoming_domID[dc_event], domID);

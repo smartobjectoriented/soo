@@ -106,6 +106,8 @@ static void force_terminate(unsigned int ME_slotID) {
 	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated)) {
                 args.cmd = AVZ_KILL_ME;
                 args.u.avz_kill_me_args.slotID = ME_slotID;
+
+                avz_hypercall(&args);
         }
 }
 
@@ -170,7 +172,7 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		break;
 
 	case AGENCY_IOCTL_READ_SNAPSHOT:
-		args.value = read_snapshot(args.slotID, &args.buffer);
+		read_snapshot(args.slotID, args.buffer, (uint32_t *) &args.value);
 		break;
 
 	case AGENCY_IOCTL_WRITE_SNAPSHOT:
@@ -189,14 +191,6 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		force_terminate(args.slotID);
 		break;
 			
-	case AGENCY_IOCTL_GET_ME_SNAPSHOT:
-		/* - args.value contains the (kernel) address of the ME
-		 * - args.buffer contains the ME buffer itself
-		 * - args.slotID contains the size of this buffer
-		 */
-		copy_ME_snapshot_to_user(args.buffer, (void *) args.value, args.slotID);
-		break;
-	
 	case AGENCY_IOCTL_GET_ME_ID_ARRAY:
 		get_ME_id_array((ME_id_t *) args.buffer);
 		break;

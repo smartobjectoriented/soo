@@ -35,6 +35,7 @@
 
 #include <soo/core/device_access.h>
 #include <soo/core/migmgr.h>
+#include <soo/soo.h>
 
 #include <xenomai/rtdm/driver.h>
 
@@ -77,9 +78,9 @@ static struct miscdevice cma_malloc_miscdevice = {
  */
 int inject_ME(void *buffer, size_t size) {
         void *me = NULL;
-	    dma_addr_t dma_handle;
+	dma_addr_t dma_handle;
         struct device *dev;
-	    int ret;
+	int ret;
         avz_hyp_t args;
 
         DBG("Original contents at address: 0x%08x\n with size %d bytes\n", (unsigned long) buffer, size);
@@ -110,59 +111,99 @@ int inject_ME(void *buffer, size_t size) {
         avz_hypercall(&args);
                 
         dma_free_coherent(dev, size, me, dma_handle);
+	
+	misc_deregister(&cma_malloc_miscdevice);
 
         return args.u.avz_inject_me_args.slotID;
 }
 
-
 /**
- * injector_receive_ME() - Receive the ME into the injector buffer
+ * Read a ME snapshot for migration or saving.
+ * The ME is read and stored in a vmalloc'd memory area.
  *
- * @ME: pointer to the ME chunk received from the vUIHandler 
- * @size: Size of the ME chunk
+ * @param slotID
+ * @param buffer pointer to the ME buffer
  */
-void injector_receive_ME(void *ME, size_t size) {
+void read_snapshot(uint32_t slotID, void *buffer, uint32_t *size) {
+	ME_desc_t ME_desc;
+        avz_hyp_t args;
+        struct device *dev;
+	void *me = NULL;
+        int ret;
+	dma_addr_t dma_handle;
 
-	memcpy(ME_buffer+current_size, ME, size);
-	current_size += size;
+        /* Ask the size only */
+        if (*size == 0) {
+                args.cmd = AVZ_ME_READ_SNAPSHOT;
+                args.u.avz_snapshot_args.slotID = slotID;
+                args.u.avz_snapshot_args.size = 0;
 
-	/* We received the full ME */ 
-	if (current_size == ME_size) {
-		int slotID = -1;
+                avz_hypercall(&args);
+                *size = args.u.avz_snapshot_args.size;
+                
+                return;
+        }
 
-		/* Inject it, and if successful, finalize the migration */
-		slotID = inject_ME(ME_buffer, ME_size);
-		if (slotID != -1) {
-			soo_log("[soo:injector] Finalizing migration in slot %d\n", slotID);
-			finalize_migration(slotID);
-		}
-		/* Free the Injector internal buffer */
-		injector_clean_ME();
-	}	
+	ret = misc_register(&cma_malloc_miscdevice);
+
+        dev = cma_malloc_miscdevice.this_device;
+        dev->coherent_dma_mask = DMA_BIT_MASK(32);
+        dev->dma_mask = &dev->coherent_dma_mask;
+
+       	/*
+	 * Prepare a buffer to store the ME and additional header information like migration structure.
+	 */
+
+        me = dma_alloc_coherent(dev, *size, &dma_handle, GFP_KERNEL);
+        BUG_ON(!me);
+
+        args.cmd = AVZ_ME_READ_SNAPSHOT;
+        args.u.avz_snapshot_args.slotID = slotID;
+        args.u.avz_snapshot_args.snapshot_paddr = (void *) dma_handle;
+        
+        avz_hypercall(&args);
+
+        /* Copy the snapshot to the user buffer */
+        ret = copy_to_user(buffer, me, *size);
+        BUG_ON(ret);
 }
 
 /**
- * Allocate the ME and handle the sizes for the upcoming injection.
- * It is called once at the begining of the reception.
- * 
- * @size: Size of the ME ITB which will be injected.
+ * Write a ME snapshot provided a ME_info_transfer_t descriptor.
+ *
+ * @param slotID
+ * @param buffer  Adresse of a buffer of ME_info_transfert_t
  */
-void injector_prepare(uint32_t size) {
-	current_size = 0;
-	ME_size = size;
+void write_snapshot(uint32_t slotID, void *buffer) {
+	ME_desc_t ME_desc;
+	void *target;
+        avz_hyp_t args;
 
-	/* The buffer is allocated here and freed once the ME is completely received
-	and injected in the `injector_receive_ME` function */
-	ME_buffer = vzalloc(size);
-	if (ME_buffer == NULL) {
-		lprintk("[Injector][%s]: Cannot allocate the ME buffer!\n", __func__);
-		BUG();
-	}
+#if 0
+        /* Get the ME descriptor corresponding to this slotID. */
+	get_ME_desc(slotID, &ME_desc);
+
+	/* Beginning of the ME_buffer */
+	ME_info_transfer = (ME_info_transfer_t *) buffer;
+
+	/* Retrieve the info related to the migration structure */
+	memcpy(__buffer, buffer + sizeof(ME_info_transfer_t), ME_info_transfer->size_mig_structure);
+
+        args.cmd = AVZ_MIG_WRITE_MIGRATION_STRUCT;
+        args.u.avz_migstruct_write_args.migstruct_paddr = (void *) virt_to_phys(__buffer);
+        
+	avz_hypercall(&args);
+
+        /* We got the pfn of the local destination for this ME, therefore... */
+
+        target = paging_remap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
+	BUG_ON(target == NULL);
+
+	/* Finally, perform the copy */
+	memcpy(target, (void *) (buffer + sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure), ME_desc.size);
+
+	/* Relase the map used to copy the ME to its final location */
+	iounmap(target);
+#endif
 }
 
-
-void injector_clean_ME(void) {
-	vfree((void *)ME_buffer);
-	ME_size = 0;
-	current_size = 0;
-}

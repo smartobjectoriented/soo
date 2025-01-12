@@ -55,7 +55,7 @@ static inline void notify_remote_via_evtchn(uint32_t evtchn)
         
         args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_send;
         args.u.avz_evtchn.evtchn_op.u.send.evtchn = evtchn;
-        printk("## EVTCHN: %d\n", evtchn);
+        
         avz_hypercall(&args);
 }
 

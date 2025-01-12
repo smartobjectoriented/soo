@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Daniel Rossier <daniel.rossier@soo.tech>
+ * Copyright (C) 2014-2025 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -41,42 +41,7 @@ int initialize_migration(unsigned int ME_slotID) {
 
 	return args.value;
 }
-
-void read_ME_snapshot(unsigned int slotID, void **buffer, size_t *buffer_size) {
-	struct agency_ioctl_args args;
-	int ret;
-
-	args.slotID = slotID;
-
-	ret = ioctl(fd_core, AGENCY_IOCTL_READ_SNAPSHOT, &args);
-	assert(ret == 0);
-
-	*buffer = args.buffer;
-	*buffer_size = args.value;
-}
-
-
-/*
- * Read a valid (user space) address to the ME snapshot.
- */
-void *get_ME_snapshot_user(void *origin, size_t size) {
-
-	struct agency_ioctl_args args;
-	int ret;
-
-	args.buffer = origin;
-	args.slotID = size;
-
-	args.value = (unsigned long) malloc(size);
-	assert(args.value != 0);
-
-	ret = ioctl(fd_core, AGENCY_IOCTL_GET_ME_SNAPSHOT, &args);
-	assert(ret == 0);
-
-	return (void *) args.value;
-
-}
-
+ 
 void finalize_migration(unsigned int slotID) {
 	int rc;
 	struct agency_ioctl_args args;
@@ -88,12 +53,11 @@ void finalize_migration(unsigned int slotID) {
 }
 
 int main(int argc, char *argv[]) {
-	void *buffer;
-	size_t buffer_size;
 	int ret;
 	struct zip_t *zip;
+        struct agency_ioctl_args args;
 
-	printf("*** SOO - Mobile Entity snapshot saver ***\n");
+        printf("*** SOO - Mobile Entity snapshot saver ***\n");
 
 	if (argc != 2) {
 		printf("## Usage is : saveme <filename> where <filename> is the file containing the ME snapshot.\n");
@@ -113,13 +77,23 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	/* Get the snapshot */
-	read_ME_snapshot(2, &buffer, &buffer_size);
+        args.slotID = 2;
+        args.value = 0;
 
-	buffer = get_ME_snapshot_user(buffer, buffer_size);
+	/* Get the size of the snapshot */
+        ret = ioctl(fd_core, AGENCY_IOCTL_READ_SNAPSHOT, &args);
+        assert(ret == 0);
 
 	/* The use of %zu formatter enables to print a size_t variable regardless the underlying architecture. */
-	printf("  * Got a ME buffer of %zu bytes.\n", buffer_size);
+        printf("## Size of the snapshot: %zu bytes.\n", args.value);
+        
+	/* Get the snapshot */
+	args.buffer = malloc(args.value);
+	assert(args.buffer != NULL);
+
+	/* Get the size of the snapshot */
+        ret = ioctl(fd_core, AGENCY_IOCTL_READ_SNAPSHOT, &args);
+        assert(ret == 0);
 
 	finalize_migration(2);
 
@@ -130,7 +104,7 @@ int main(int argc, char *argv[]) {
 	zip = zip_open(argv[1], ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
 
 	zip_entry_open(zip, "me");
-	zip_entry_write(zip, buffer, buffer_size);
+	zip_entry_write(zip, args.buffer, args.value);
 	zip_entry_close(zip);
 
 	zip_close(zip);

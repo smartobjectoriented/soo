@@ -39,12 +39,6 @@
 #include <soo/vbus.h>
 #include <soo/paging.h>
 
-/*
- * Used to store ioctl args/buffers
- * Cannot be stored on the local stack since it is too big.
- */
-static uint8_t __buffer[32 * 1024]; /* 32 Ko */
-
 /**
  * Initialize the migration process of a ME.
  *
@@ -77,121 +71,6 @@ bool initialize_migration(uint32_t slotID) {
 	return true;
 }
 
-/**
- * Write a ME snapshot provided a ME_info_transfer_t descriptor.
- *
- * @param slotID
- * @param buffer  Adresse of a buffer of ME_info_transfert_t
- */
-void write_snapshot(uint32_t slotID, void *buffer) {
-	ME_desc_t ME_desc;
-	void *target;
-	ME_info_transfer_t *ME_info_transfer;
-        avz_hyp_t args;
-
-        /* Get the ME descriptor corresponding to this slotID. */
-	get_ME_desc(slotID, &ME_desc);
-
-	/* Beginning of the ME_buffer */
-	ME_info_transfer = (ME_info_transfer_t *) buffer;
-
-	/* Retrieve the info related to the migration structure */
-	memcpy(__buffer, buffer + sizeof(ME_info_transfer_t), ME_info_transfer->size_mig_structure);
-
-        args.cmd = AVZ_MIG_WRITE_MIGRATION_STRUCT;
-        args.u.avz_migstruct_write_args.migstruct_paddr = (void *) virt_to_phys(__buffer);
-        
-	avz_hypercall(&args);
-
-        /* We got the pfn of the local destination for this ME, therefore... */
-
-        target = paging_remap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
-	BUG_ON(target == NULL);
-
-	/* Finally, perform the copy */
-	memcpy(target, (void *) (buffer + sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure), ME_desc.size);
-
-	/* Relase the map used to copy the ME to its final location */
-	iounmap(target);
-}
-
-/*
- * Retrieve a valid (user space) address to the ME snapshot which has been previously
- * read with the READ_SNAPSOT ioctl.
- *
- * In tx_args_t <args>, the following fields are used as follows:
- *
- * @buffer:	pointer to the vmalloc'd memory (not be used in the user space, but will be used in following calls
- * @ME_slotID: 	the *size* of the contents to be copied.
- * @value: 	the target user space address the ME has to be copied to
- */
-/**
- * Kernel address returned by vmalloc() cannot be used directly from the user space.
- * The user space can provide a valid address (resulting from malloc() for example) and this
- * function will copy the snapshot.
- *
- * @param ME_snapshot
- * @param user_addr
- * @param size
- */
-void copy_ME_snapshot_to_user(void *ME_snapshot, void *user_addr, uint32_t size) {
-
-	/* Awful usage of these fields, the name will have to evolve... */
-	memcpy(user_addr, ME_snapshot, size);
-}
-
-/**
- * Read a ME snapshot for migration or saving.
- * The ME is read and stored in a vmalloc'd memory area.
- *
- * @param slotID
- * @param buffer pointer to the ME buffer. The address is returned by vmalloc().
- * @return size of the buffer
- */
-int read_snapshot(uint32_t slotID, void **buffer) {
-	ME_desc_t ME_desc;
-	ME_info_transfer_t *ME_info_transfer;
-	void *source;
-        avz_hyp_t args;
-
-        /* Get the ME descriptor corresponding to this slotID. */
-        get_ME_desc(slotID, &ME_desc);
-
-	/*
-	 * Prepare a buffer to store the ME and additional header information like migration structure and transfer information.
-	 * The buffer must be free'd once it has been sent out (by the DCM).
-	 */
-
-	*buffer = __vmalloc(ME_desc.size + ME_EXTRA_BUFFER_SIZE, GFP_HIGHUSER | __GFP_ZERO);
-	BUG_ON(*buffer == NULL);
-
-	/* Beginning of the ME buffer to transmit - We start with the information transfer. */
-	ME_info_transfer = (ME_info_transfer_t *) *buffer;
-	ME_info_transfer->ME_size = ME_desc.size;
-
-        args.cmd = AVZ_MIG_READ_MIGRATION_STRUCT;
-        args.u.avz_migstruct_read_args.migstruct_paddr = (void *) virt_to_phys(__buffer);
-        args.u.avz_migstruct_read_args.slotID = slotID;
-
-        avz_hypercall(&args);
-
-        /* Store the migration structure within the ME buffer */
-	memcpy(*buffer + sizeof(ME_info_transfer_t), __buffer, args.u.avz_migstruct_read_args.size);
-
-	/* Keep the size of migration structure */
-        ME_info_transfer->size_mig_structure = args.u.avz_migstruct_read_args.size;
-
-        /* Finally, store the ME in this buffer. */
-	source = ioremap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
-	BUG_ON(source == NULL);
-
-	memcpy(*buffer + sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure, source, ME_desc.size);
-
-	iounmap(source);
-
-	return sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure + ME_desc.size;
-
-}
 
 /**
  * Initiate the last stage of the migration process of a ME, so called "migration

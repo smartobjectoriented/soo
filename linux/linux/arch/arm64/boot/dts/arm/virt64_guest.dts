@@ -10,12 +10,12 @@
 
 	reserved-memory {
 		#address-cells = <2>;
-        #size-cells = <2>;
-        ranges;
+        	#size-cells = <2>;
+        	ranges;
 		linux,cma {
 			compatible = "shared-dma-pool";
-            reusable;
-            size = <0x0 0x4000000>;
+            		reusable;
+            		size = <0x0 0x5000000>;
 			alignment = <0x0 0x1000>;
             linux,cma-default;
 		};

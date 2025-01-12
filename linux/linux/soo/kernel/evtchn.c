@@ -264,6 +264,9 @@ int bind_existing_interdomain_evtchn(unsigned local_evtchn, unsigned int remote_
         avz_hyp_t args;
         int virq;
 
+	args.cmd = AVZ_EVENT_CHANNEL_OP;
+        args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_bind_existing_interdomain;
+
 	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.local_evtchn = local_evtchn;
 	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_dom  = remote_domain;
 	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_evtchn = remote_evtchn;
@@ -284,7 +287,11 @@ static void unbind_from_virq(unsigned int virq)
 	spin_lock(&virq_mapping_update_lock);
 
 	if (--per_cpu(evtchn_info, cpu).virq_bindcount[virq] == 0) {
-		args.u.avz_evtchn.evtchn_op.u.close.evtchn = evtchn;
+
+		args.cmd = AVZ_EVENT_CHANNEL_OP;
+                args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_close;
+
+                args.u.avz_evtchn.evtchn_op.u.close.evtchn = evtchn;
 
 		avz_hypercall(&args);
 

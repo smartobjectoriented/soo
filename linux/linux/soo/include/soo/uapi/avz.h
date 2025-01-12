@@ -87,9 +87,6 @@ struct avz_shared {
 
 	addr_t fdt_paddr;
 
-	/* Low-level print function mainly for debugging purpose */
-	void (*printch)(char c);
-
 	/* VBstore shared page grant reference */
         grant_ref_t vbstore_grant_ref;
 
