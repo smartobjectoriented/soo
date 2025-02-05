@@ -74,30 +74,6 @@ void get_ME_desc(unsigned int slotID, ME_desc_t *ME_desc) {
 }
 
 /**
- * Get an available ME slot from the hypervisor for a ME with a specific size (<size>).
- *
- * @param size which is required
- * @return slotID or -1  if no slot available.
- */
-int32_t get_ME_free_slot(uint32_t size) {
-        avz_hyp_t args;
-
-	DBG("Agency: trying to get a slot for a ME of %d bytes ...\n", val);
-
-        args.cmd = AVZ_GET_ME_FREE_SLOT;
-        args.u.avz_free_slot_args.size = size;
-
-        avz_hypercall(&args);
-
-	if (args.u.avz_free_slot_args.slotID == -1)
-		DBG0("Agency: no slot available anymore ...");
-	else
-		DBG("Agency: ME slot ID %d available.\n", args.u.avz_free_slot_args.slotID);
-
-	return args.u.avz_free_slot_args.slotID;
-}
-
-/**
  * Retrieve the ME identity information including SPID, state.
  *
  * @param slotID
@@ -151,9 +127,12 @@ bool get_ME_id(uint32_t slotID, ME_id_t *ME_id) {
 void get_ME_id_array(ME_id_t *ME_id_array) {
 	uint32_t slotID;
 
-	/* Walk through all entries in vbstore regarding MEs */
+	/* Empty the array first */
+        memset(ME_id_array, 0, MAX_DOMAINS * sizeof(ME_id_array));
+	
+        /* Walk through all entries in vbstore regarding MEs */
 
-	for (slotID = 2; slotID < MAX_DOMAINS; slotID++)
+        for (slotID = 2; slotID < MAX_DOMAINS; slotID++)
 		get_ME_id(slotID, &ME_id_array[slotID-2]);
 
 }

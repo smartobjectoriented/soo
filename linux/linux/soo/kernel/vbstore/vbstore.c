@@ -155,9 +155,11 @@ static void send_reply(volatile vbstore_intf_t *intf, vbus_msg_t *reply) {
 
 	/* Implies mb(): other side will see the updated producer. */
 
-        DBG("   VBstore replying with msg type: %d for msg: %d notifying on remote evtchn: %d ...\n", reply->type, reply->id, intf->revtchn);
+        DBG("   VBstore replying with msg type: %d for msg: %d notifying on remote evtchn: %d ...\n", reply->type, reply->id, 
+				avz_shared->dom_desc.u.agency.vbstore_evtchn[intf->domid]);
 
-     	notify_remote_via_evtchn(intf->revtchn);
+	/* We are vbstore, so we notify the remote which is our local :-) */
+     	notify_remote_via_evtchn(avz_shared->dom_desc.u.agency.vbstore_evtchn[intf->domid]);
 }
 
 /*
@@ -182,7 +184,8 @@ void vbs_notify_watchers(vbus_msg_t msg, struct vbs_node *node) {
 
 			vbs_get_absolute_path(node, path);
 
-			DBG("SENDING WATCH_EVENT %s to watcher revtchn: %d (intf: %p)\n", path, watcher->intf->revtchn, watcher->intf);
+			DBG("SENDING WATCH_EVENT %s to watcher revtchn: %d (intf: %p)\n", path, 
+			avz_shared->dom_desc.u.agency.vbstore_evtchn[watcher->intf->domid], watcher->intf);
 
 			msg.payload = path;
 			msg.len = strlen(path) + 1;
@@ -341,7 +344,7 @@ void vbs_notify_watchers(vbus_msg_t msg, struct vbs_node *node) {
 
 		case VBS_TRANSACTION_END:
 
-			DBG("VBS_TRANSACTION_END: evtchn : %d\n", intf->revtchn);
+			DBG("VBS_TRANSACTION_END: evtchn : %d\n", avz_shared->dom_desc.u.agency.vbstore_evtchn[intf->domid]);
 
 			/* A Write operation has been done, we need to notify the watchers. */
 
@@ -416,7 +419,8 @@ void vbstore_init(void) {
 
 		/* Make sure the page will not be cached */
 		vbstore_intf[i] = (struct vbstore_domain_interface *) paging_remap(virt_to_phys(vaddr), PAGE_SIZE);
-
+		vbstore_intf[i]->domid = i;
+		
 		if (i == DOMID_AGENCY)
 			
 			/* Set our local interface to vbstore */
@@ -428,7 +432,6 @@ void vbstore_init(void) {
                         __intf_rt = vbstore_intf[i];
                 else 
                         vbstore_grant_ref[i] = gnttab_grant_foreign_access(i, virt_to_phys(vaddr) >> PAGE_SHIFT);
-         
 	}
 	
         /*
@@ -454,8 +457,9 @@ void vbstore_init(void) {
                 /* Store the allocated unbound evtchn.*/
 		DBG("%s: allocating unbound evtchn %d for vbstore shared page on domain: %d (intf = %lx)...\n", __func__, 
 			args.u.avz_evtchn.evtchn_op.u.alloc_unbound.evtchn, i, vbstore_intf[i]);
-			
-		vbstore_intf[i]->revtchn = args.u.avz_evtchn.evtchn_op.u.alloc_unbound.evtchn;
+		
+		/* This evtchn will be the remote for all clients, including the agency itself and the ME (using their levtchn). */
+		avz_shared->dom_desc.u.agency.vbstore_evtchn[i] = args.u.avz_evtchn.evtchn_op.u.alloc_unbound.evtchn;
         }
 
         /* Now, initialize the basic vbstore virtual database */
@@ -465,9 +469,10 @@ void vbstore_init(void) {
 	for (i = 0; i < MAX_DOMAINS; i++) {
 
 		/* Bind IRQ used as event channel to discuss with the ME to the vbstore interrupt handler */
-		DBG("%s: binding evtchn %d to vbstore_interrupt handler..\n", __func__, vbstore_intf[i]->revtchn);
+		DBG("%s: binding evtchn %d to vbstore_interrupt handler..\n", __func__, avz_shared->dom_desc.u.agency.vbstore_evtchn[i]);
 
-		res = bind_evtchn_to_virq_handler(vbstore_intf[i]->revtchn, vbstore_interrupt, NULL, IRQF_DISABLED, "vbstore", vbstore_intf[i]);
+		res = bind_evtchn_to_virq_handler(avz_shared->dom_desc.u.agency.vbstore_evtchn[i], 
+						vbstore_interrupt, NULL, IRQF_DISABLED, "vbstore", vbstore_intf[i]);
 		if (res < 0) {
 			lprintk(KERN_ERR "VBus request virq failed %i\n", res);
 			BUG();

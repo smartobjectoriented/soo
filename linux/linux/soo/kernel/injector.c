@@ -16,7 +16,7 @@
  *
  */
 
-#if 1
+#if 0
 #define DEBUG
 #endif
 
@@ -36,6 +36,7 @@
 #include <soo/core/device_access.h>
 #include <soo/core/migmgr.h>
 #include <soo/soo.h>
+#include <soo/vbus.h>
 
 #include <xenomai/rtdm/driver.h>
 
@@ -82,10 +83,12 @@ int inject_ME(void *buffer, size_t size) {
         struct device *dev;
 	int ret;
         avz_hyp_t args;
+        ME_state_t ME_state;
+        uint32_t slotID;
 
         DBG("Original contents at address: 0x%08x\n with size %d bytes\n", (unsigned long) buffer, size);
 
-    	ret = misc_register(&cma_malloc_miscdevice);
+        ret = misc_register(&cma_malloc_miscdevice);
         BUG_ON(ret);
 
         dev = cma_malloc_miscdevice.this_device;
@@ -108,13 +111,25 @@ int inject_ME(void *buffer, size_t size) {
         args.cmd = AVZ_INJECT_ME;
 
         args.u.avz_inject_me_args.itb_paddr = (void *) dma_handle;
+        
         avz_hypercall(&args);
-                
+        
+        slotID = args.u.avz_inject_me_args.slotID;
+
         dma_free_coherent(dev, size, me, dma_handle);
-	
 	misc_deregister(&cma_malloc_miscdevice);
 
-        return args.u.avz_inject_me_args.slotID;
+        /* Wait for all backend/frontend initialized. */
+        wait_for_completion(&backend_initialized);
+
+        DBG("The ME is now living, continuing the injection...\n");
+
+        ME_state = get_ME_state(slotID);
+
+        DBG("Putting ME domid %d in state living...\n", slotID);
+        set_ME_state(slotID, ME_state_living);
+
+        return slotID;
 }
 
 /**
@@ -125,12 +140,12 @@ int inject_ME(void *buffer, size_t size) {
  * @param buffer pointer to the ME buffer
  */
 void read_snapshot(uint32_t slotID, void *buffer, uint32_t *size) {
-	ME_desc_t ME_desc;
         avz_hyp_t args;
         struct device *dev;
 	void *me = NULL;
         int ret;
 	dma_addr_t dma_handle;
+        ME_state_t ME_state;
 
         /* Ask the size only */
         if (*size == 0) {
@@ -144,7 +159,17 @@ void read_snapshot(uint32_t slotID, void *buffer, uint32_t *size) {
                 return;
         }
 
-	ret = misc_register(&cma_malloc_miscdevice);
+        /* Suspend the ME */
+        do_sync_dom(slotID, DC_PRE_SUSPEND);
+
+	/* Set the ME in suspended state */
+	set_ME_state(slotID, ME_state_suspended);
+
+	vbus_suspend_devices(slotID);
+
+	do_sync_dom(slotID, DC_SUSPEND);
+
+        ret = misc_register(&cma_malloc_miscdevice);
 
         dev = cma_malloc_miscdevice.this_device;
         dev->coherent_dma_mask = DMA_BIT_MASK(32);
@@ -166,6 +191,25 @@ void read_snapshot(uint32_t slotID, void *buffer, uint32_t *size) {
         /* Copy the snapshot to the user buffer */
         ret = copy_to_user(buffer, me, *size);
         BUG_ON(ret);
+
+        dma_free_coherent(dev, *size, me, dma_handle);
+        misc_deregister(&cma_malloc_miscdevice);
+
+        ME_state = get_ME_state(slotID);
+        BUG_ON(ME_state != ME_state_resuming);
+
+        DBG0("SOO migration subsys: Entering post migration tasks...\n");
+	DBG("Pinging ME %d for DC_RESUME...\n", slotID);
+	do_sync_dom(slotID, DC_RESUME);
+
+	DBG("Resuming all devices (resuming from backend devices) on domain %d...\n", slotID);
+	vbus_resume_devices(slotID);
+
+	DBG("Pinging ME %d for DC_POST_ACTIVATE...\n", slotID);
+	do_sync_dom(slotID, DC_POST_ACTIVATE);
+
+	DBG("Putting ME domid %d in state living...\n", slotID);
+	set_ME_state(slotID, ME_state_living);
 }
 
 /**
@@ -173,37 +217,85 @@ void read_snapshot(uint32_t slotID, void *buffer, uint32_t *size) {
  *
  * @param slotID
  * @param buffer  Adresse of a buffer of ME_info_transfert_t
+ * @return 0 in case of success, -1 if no available slot
  */
-void write_snapshot(uint32_t slotID, void *buffer) {
-	ME_desc_t ME_desc;
-	void *target;
+int write_snapshot(void *buffer) {
         avz_hyp_t args;
+        struct device *dev;
+	void *me = NULL;
+        int ret;
+	dma_addr_t dma_handle;
+        uint32_t snapshot_size;
+        uint32_t slotID;
+        ME_state_t ME_state;
 
-#if 0
-        /* Get the ME descriptor corresponding to this slotID. */
-	get_ME_desc(slotID, &ME_desc);
-
-	/* Beginning of the ME_buffer */
-	ME_info_transfer = (ME_info_transfer_t *) buffer;
-
-	/* Retrieve the info related to the migration structure */
-	memcpy(__buffer, buffer + sizeof(ME_info_transfer_t), ME_info_transfer->size_mig_structure);
-
-        args.cmd = AVZ_MIG_WRITE_MIGRATION_STRUCT;
-        args.u.avz_migstruct_write_args.migstruct_paddr = (void *) virt_to_phys(__buffer);
+        snapshot_size = *((uint32_t *) buffer);
         
-	avz_hypercall(&args);
+        args.cmd = AVZ_ME_WRITE_SNAPSHOT;
 
-        /* We got the pfn of the local destination for this ME, therefore... */
+        args.u.avz_snapshot_args.size = snapshot_size;
+        args.u.avz_snapshot_args.slotID = 0;
+      
+        avz_hypercall(&args);
 
-        target = paging_remap(ME_desc.pfn << PAGE_SHIFT, ME_desc.size);
-	BUG_ON(target == NULL);
+        if (!args.u.avz_snapshot_args.slotID)
+                return -1; /* No free space */
 
-	/* Finally, perform the copy */
-	memcpy(target, (void *) (buffer + sizeof(ME_info_transfer_t) + ME_info_transfer->size_mig_structure), ME_desc.size);
+        printk("### found slotID: %d\n", args.u.avz_snapshot_args.slotID);
+        
+        slotID = args.u.avz_snapshot_args.slotID;
 
-	/* Relase the map used to copy the ME to its final location */
-	iounmap(target);
-#endif
+        ret = misc_register(&cma_malloc_miscdevice);
+
+        dev = cma_malloc_miscdevice.this_device;
+        dev->coherent_dma_mask = DMA_BIT_MASK(32);
+        dev->dma_mask = &dev->coherent_dma_mask;
+
+       	/*
+	 * Prepare a buffer to store the ME and additional header information like migration structure.
+	 */
+        me = dma_alloc_coherent(dev, snapshot_size, &dma_handle, GFP_KERNEL);
+        BUG_ON(!me);
+
+        /* Copy the snapshot to the user buffer */
+        ret = copy_from_user(me, buffer, snapshot_size);
+        BUG_ON(ret);
+         
+        args.cmd = AVZ_ME_WRITE_SNAPSHOT;
+        
+        args.u.avz_snapshot_args.snapshot_paddr = (void *) dma_handle;
+        
+        avz_hypercall(&args);
+
+        dma_free_coherent(dev, snapshot_size, me, dma_handle);
+        misc_deregister(&cma_malloc_miscdevice);
+
+        /* Pursue with */
+        ME_state = get_ME_state(slotID);
+        BUG_ON((ME_state != ME_state_hibernate) && (ME_state != ME_state_awakened));
+
+        DBG0("SOO migration subsys: Entering post migration tasks...\n");
+
+        while (1) {
+                schedule();
+
+                if (get_ME_state(slotID) == ME_state_awakened) {
+                        DBG("ME now resuming...\n");
+                        break;
+                }
+        }
+
+        DBG("Pinging ME %d for DC_RESUME...\n", slotID);
+        do_sync_dom(slotID, DC_RESUME);
+
+        DBG("Resuming all devices (resuming from backend devices) on domain %d...\n", slotID);
+        vbus_resume_devices(slotID);
+
+        DBG("Pinging ME %d for DC_POST_ACTIVATE...\n", slotID);
+        do_sync_dom(slotID, DC_POST_ACTIVATE);
+
+        DBG("Putting ME domid %d in state living...\n", slotID);
+        set_ME_state(slotID, ME_state_living);
+
+        return 0;
 }
-

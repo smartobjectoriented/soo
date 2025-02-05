@@ -109,7 +109,7 @@ void dump_evtchn_pending(void) {
 
 	for (i = 0; i < NR_EVTCHN; i++)
 		lprintk("e:%d m:%d p:%d  ", i, per_cpu(evtchn_info, smp_processor_id()).evtchn_mask[i],
-			AVZ_shared->evtchn_pending[i]);
+			avz_shared->evtchn_pending[i]);
 
 	lprintk("\n\n");
 }
@@ -153,11 +153,11 @@ void evtchn_do_upcall(void *data)
 
 retry:
 
-	l1 = xchg(&AVZ_shared->evtchn_upcall_pending, 0);
+	l1 = xchg(&avz_shared->evtchn_upcall_pending, 0);
 
 	while (true) {
 		for (evtchn = 0; evtchn < NR_EVTCHN; evtchn++)
-			if ((AVZ_shared->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
+			if ((avz_shared->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
 				break;
 
 		if (evtchn == NR_EVTCHN)
@@ -180,7 +180,7 @@ retry:
 		BUG_ON(!hard_irqs_disabled());
 	};
 
-	if (AVZ_shared->evtchn_upcall_pending)
+	if (avz_shared->evtchn_upcall_pending)
 		goto retry;
 
 	per_cpu(in_upcall_progress, smp_processor_id()) = false;

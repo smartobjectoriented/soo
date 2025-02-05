@@ -248,10 +248,7 @@ void vbus_cleanup_device(const char *path, struct bus_type *bus);
 
 struct work_struct;
 
-extern unsigned int dc_evtchn[];
-
 extern struct completion backend_initialized;
-
 
 extern int vbus_match(struct device *_dev, struct device_driver *_drv);
 extern int vbus_dev_probe(struct device *_dev);

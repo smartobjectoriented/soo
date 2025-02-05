@@ -400,7 +400,7 @@ void *vbs_talkv_rt(struct vbus_transaction t, vbus_msg_type_t type, const msgvec
 
 	mb();
 
-	notify_remote_via_evtchn(__intf_rt->levtchn);
+	notify_remote_via_evtchn(avz_shared->dom_desc.u.agency.vbstore_levtchn);
 
 	/* Now we are waiting for the answer from vbstore */
 	DBG("Now, we wait for the reply / msg ID: %d (0x%lx)\n", msg.id, &msg.list);

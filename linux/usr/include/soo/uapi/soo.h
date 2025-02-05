@@ -29,19 +29,19 @@
  * - ME_state_preparing:	ME is being paused during the boot process, in the case of an injection, before the frontend initialization
  * - ME_state_living:		ME is full-functional and activated (all frontend devices are consistent)
  * - ME_state_suspended:	ME is suspended before migrating. This state is maintained for the resident ME instance
- * - ME_state_migrating:	ME just arrived in SOO
- * - ME_state_dormant:		ME is resident, but not living (running) - all frontends are closed/shutdown
- * - ME_state_killed:		ME has been killed before to be resumed
+ * - ME_state_hibernate:	ME is in a state of hibernate snapshot
+ * - ME_state_resuming:         ME ready to perform resuming (after recovering)
+ * - ME_state_awakened:         ME is just being awakened
  * - ME_state_terminated:	ME has been terminated (by a force_terminate)
  * - ME_state_dead:		ME does not exist
  */
 typedef enum {
 	ME_state_booting,
-	ME_state_preparing,
 	ME_state_living,
 	ME_state_suspended,
-	ME_state_migrating,
-	ME_state_dormant,
+	ME_state_hibernate,
+	ME_state_resuming,
+        ME_state_awakened,
 	ME_state_killed,
 	ME_state_terminated,
 	ME_state_dead
@@ -59,8 +59,10 @@ typedef struct {
 
 	ME_state_t	state;
 
-	unsigned int	size; /* Size of the ME */
-	unsigned int	pfn;
+	unsigned int	size; /* Size of the ME with the struct dom_context size */
+        unsigned int    dc_evtchn;
+
+        void (*resume_fn)(void);
 
 } ME_desc_t;
 
@@ -98,7 +100,6 @@ typedef struct {
 #define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 5, agency_ioctl_args_t)
 #define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 6, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID			_IOWR('S', 7, agency_ioctl_args_t)
-#define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 10, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 11, agency_ioctl_args_t)
 #define AGENCY_IOCTL_BLACKLIST_SOO		_IOW('S', 12, agency_ioctl_args_t)
 

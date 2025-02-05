@@ -26,8 +26,7 @@
 #include <soo/hypervisor.h>
 #include <soo/evtchn.h>
 #include <soo/paging.h>
-
-#include <soo/uapi/avz.h>
+#include <soo/avz.h>
 
 /*
  * SOO hypercall
@@ -60,21 +59,6 @@ void avz_hypercall(avz_hyp_t *avz_hyp)
         kfree(__avz_hyp);
 }
 
-void avz_ME_unpause(domid_t domain_id, grant_ref_t vbstore_grant_ref)
-{
-        avz_hyp_t args;
-
-	lprintk("Trying to unpause ME domain %d...", domain_id);
-
-        args.cmd = AVZ_DOMAIN_CONTROL_OP;
-
-        args.u.avz_domctl_args.domctl.cmd = DOMCTL_unpauseME;
-	args.u.avz_domctl_args.domctl.domain = domain_id;
-        args.u.avz_domctl_args.domctl.u.vbstore_grant_ref = vbstore_grant_ref;
-
-        avz_hypercall(&args);
-}
-
 #if defined(CONFIG_SOO)
 
 void avz_get_shared(void) {
@@ -85,15 +69,15 @@ void avz_get_shared(void) {
 
         avz_hypercall(&args);
 
-        BUG_ON(!args.u.avz_domctl_args.domctl.u.avz_shared_paddr);
+        BUG_ON(!args.u.avz_domctl_args.domctl.avz_shared_paddr);
 
-        avz_shared = (volatile avz_shared_t *) paging_remap(args.u.avz_domctl_args.domctl.u.avz_shared_paddr, PAGE_SIZE);
-	BUG_ON(!avz_shared);
+        __avz_shared = (volatile avz_shared_t *) paging_remap(args.u.avz_domctl_args.domctl.avz_shared_paddr, PAGE_SIZE);
+	BUG_ON(!__avz_shared);
 
-	BUG_ON(!avz_shared->subdomain_shared_paddr);
+	BUG_ON(!__avz_shared->subdomain_shared_paddr);
 
-	avz_shared->subdomain_shared = (avz_shared_t *) paging_remap(avz_shared->subdomain_shared_paddr, PAGE_SIZE);
-	BUG_ON(!avz_shared->subdomain_shared);
+	__avz_shared->subdomain_shared = (avz_shared_t *) paging_remap(avz_shared->subdomain_shared_paddr, PAGE_SIZE);
+	BUG_ON(!__avz_shared->subdomain_shared);
 }
 
 void avz_printch(char c) {

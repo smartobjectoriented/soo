@@ -1,7 +1,6 @@
 
 obj-y	+= kernel/
 obj-y 	+= drivers/
-obj-y	+= core/
  
 obj-$(CONFIG_VIUOC_BACKEND)   += iuoc/
 

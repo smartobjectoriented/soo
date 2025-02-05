@@ -21,64 +21,24 @@
 #define DEBUG
 #endif
 
-#if 0
-#define ENABLE_LOGBOOL
-#endif
-
-#include <linux/cdev.h>
-#include <linux/completion.h>
-#include <linux/delay.h>
-#include <linux/device.h>
-#include <linux/errno.h>
-#include <linux/fs.h>
-#include <linux/ioctl.h>
-#include <linux/kernel.h>
-#include <linux/mm.h>
-#include <linux/mmc/host.h>
-#include <linux/module.h>
-#include <linux/mutex.h>
-#include <linux/random.h>
 #include <linux/reboot.h>
 #include <linux/sched.h>
-#include <linux/sched/signal.h>
-#include <linux/slab.h>
-#include <linux/wait.h>
-#include <linux/string.h>
+#include <linux/uaccess.h>
+#include <linux/module.h>
+#include <linux/device.h>
 
-#include <asm/io.h>
 #include <asm/uaccess.h>
 
-#ifndef CONFIG_X86
-#ifdef CONFIG_ARM
-#include <asm/mach/map.h>
-#else
-#include <asm/pgtable-prot.h>
-#endif
-#endif
-
 #include <soo/uapi/avz.h>
 #include <soo/uapi/console.h>
-
-#include <soo/debug/dbgvar.h>
-
-#include <soo/soo.h>
-#include <soo/evtchn.h>
-#include <soo/guest_api.h>
-#include <soo/hypervisor.h>
-#include <soo/vbstore.h>
-#include <soo/vbus.h>
-#include <soo/paging.h>
-
-#include <soo/core/sysfs.h>
-#include <soo/core/core.h>
-#include <soo/core/migmgr.h>
-#include <soo/core/device_access.h>
-
-#include <soo/uapi/avz.h>
-#include <soo/uapi/console.h>
-#include <soo/uapi/soo.h>
 #include <soo/uapi/injector.h>
 
+#include <soo/core/sysfs.h>
+#include <soo/core/migmgr.h>
+
+#include <soo/guest_api.h>
+#include <soo/soo.h> 
+ 
 #define AGENCY_DEV_NAME "soo/core"
 #define AGENCY_DEV_MAJOR 126
 
@@ -103,42 +63,13 @@ static void force_terminate(unsigned int ME_slotID) {
 		do_sync_dom(ME_slotID, DC_FORCE_TERMINATE);
 
 	/* Then, final termination of the residual ME */
-	if ((get_ME_state(ME_slotID) == ME_state_dormant) || (get_ME_state(ME_slotID) == ME_state_terminated)) {
+	if (get_ME_state(ME_slotID) == ME_state_terminated) {
                 args.cmd = AVZ_KILL_ME;
                 args.u.avz_kill_me_args.slotID = ME_slotID;
 
                 avz_hypercall(&args);
         }
 }
-
-/**
- * Walk through all MEs to see if some have to be terminated.
- * Called after final migration.
- */
-void check_terminated_ME(void) {
-	int slotID;
-	ME_desc_t desc;
-
-	DBG("Checking if some MEs must be force_terminate'd...\n");
-
-	for (slotID = 2; slotID < MAX_DOMAINS; slotID++) {
-
-		/*
-		 * Check if the ME slot is used or not in order to not
-		   call force_terminate on an empty slot, which would cause an error.
-		 */
-		get_ME_desc(slotID, &desc);
-
-		if ((desc.size > 0) && (desc.state == ME_state_terminated))  {
-			DBG("Terminating ME %d...\n", slotID);
-			force_terminate(slotID);
-		}
-	}
-	DBG("Done\n");
-}
-
-
-/* Agency ctl domcalls operations */
 
 int agency_open(struct inode *inode, struct file *file) {
 	return 0;
@@ -149,23 +80,15 @@ int agency_release(struct inode *inode, struct file *filp) {
 }
 
 long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
+        int ret = 0;
+        agency_ioctl_args_t args;
 
-	agency_ioctl_args_t args;
-
-	if ((copy_from_user(&args, (void *) arg, sizeof(agency_ioctl_args_t))) != 0) {
+        if ((copy_from_user(&args, (void *) arg, sizeof(agency_ioctl_args_t))) != 0) {
 		lprintk("Agency: %s:%d Failed to retrieve args from userspace\n", __func__, __LINE__);
 		BUG();
 	}
 
 	switch (cmd) {
-
-	case AGENCY_IOCTL_INIT_MIGRATION:
-		args.value = (initialize_migration(args.slotID) ? 0 : -1);
-		break;
-
-	case AGENCY_IOCTL_GET_ME_FREE_SLOT:
-		args.slotID = get_ME_free_slot(args.value);
-		break;
 
 	case AGENCY_IOCTL_GET_ME_ID:
 		args.value = (get_ME_id(args.slotID, (ME_id_t *) args.buffer) ? 0 : -1);
@@ -176,11 +99,7 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		break;
 
 	case AGENCY_IOCTL_WRITE_SNAPSHOT:
-		write_snapshot(args.slotID, args.buffer);
-		break;
-
-	case AGENCY_IOCTL_FINAL_MIGRATION:
-		finalize_migration(args.slotID);
+		ret = write_snapshot(args.buffer);
 		break;
 
 	case AGENCY_IOCTL_INJECT_ME:
@@ -205,7 +124,7 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		BUG();
 	}
 
-	return 0;
+	return ret;
 }
 
 struct file_operations agency_fops = {

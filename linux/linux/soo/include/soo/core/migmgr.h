@@ -24,7 +24,7 @@
 bool initialize_migration(uint32_t slotID);
 void finalize_migration(uint32_t slotID);
 
-void write_snapshot(uint32_t slotID, void *buffer);
+int write_snapshot(void *buffer);
 
 void read_snapshot(uint32_t slotID, void *buffer, uint32_t *size);
 

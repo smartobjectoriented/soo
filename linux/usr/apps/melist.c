@@ -27,22 +27,22 @@
 #include <sys/ioctl.h>
 
 #include <soo/uapi/soo.h>
-
+ 
 const char *ME_state_str(int state) {
 
 	switch (state) {
 	case ME_state_booting:
 		return "ME_state_booting";
-	case ME_state_preparing:
-		return "ME_state_preparing";
 	case ME_state_living:
 		return "ME_state_living";
 	case ME_state_suspended:
 		return "ME_state_suspended";
-	case ME_state_migrating:
-		return "ME_state_migrating";
-	case ME_state_dormant:
-		return "ME_state_dormant";
+	case ME_state_hibernate:
+		return "ME_state_hibernate";
+	case ME_state_resuming:
+		return "ME_state_resuming";
+	case ME_state_awakened:
+		return "ME_state_awakened";
 	case ME_state_killed:
 		return "ME_state_killed";
 	case ME_state_terminated:

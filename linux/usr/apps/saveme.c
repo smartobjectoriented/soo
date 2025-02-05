@@ -30,33 +30,11 @@
 
 int fd_core;
 
-int initialize_migration(unsigned int ME_slotID) {
-	int rc;
-	struct agency_ioctl_args args;
-
-	args.slotID = ME_slotID;
-
-	rc = ioctl(fd_core, AGENCY_IOCTL_INIT_MIGRATION, &args);
-	assert(rc == 0);
-
-	return args.value;
-}
- 
-void finalize_migration(unsigned int slotID) {
-	int rc;
-	struct agency_ioctl_args args;
-
-	args.slotID = slotID;
-
-	rc = ioctl(fd_core, AGENCY_IOCTL_FINAL_MIGRATION, &args);
-	assert(rc == 0);
-}
-
 int main(int argc, char *argv[]) {
 	int ret;
 	struct zip_t *zip;
         struct agency_ioctl_args args;
-
+       
         printf("*** SOO - Mobile Entity snapshot saver ***\n");
 
 	if (argc != 2) {
@@ -69,23 +47,15 @@ int main(int argc, char *argv[]) {
 	fd_core = open("/dev/soo/core", O_RDWR);
 	assert(fd_core > 0);
 
-	/* Prepare to suspend */
-
-	ret = initialize_migration(2);
-	if (ret) {
-		printf("## No possibility to read the snapshot...\n");
-		return -1;
-	}
-
         args.slotID = 2;
-        args.value = 0;
+        args.value = 0; /* To get the size of the snapshot */
 
 	/* Get the size of the snapshot */
         ret = ioctl(fd_core, AGENCY_IOCTL_READ_SNAPSHOT, &args);
         assert(ret == 0);
 
 	/* The use of %zu formatter enables to print a size_t variable regardless the underlying architecture. */
-        printf("## Size of the snapshot: %zu bytes.\n", args.value);
+        printf("  * Size of the snapshot: %zu bytes.\n", args.value);
         
 	/* Get the snapshot */
 	args.buffer = malloc(args.value);
@@ -95,12 +65,10 @@ int main(int argc, char *argv[]) {
         ret = ioctl(fd_core, AGENCY_IOCTL_READ_SNAPSHOT, &args);
         assert(ret == 0);
 
-	finalize_migration(2);
+        printf("  * Saving to the file...");
+        fflush(stdout);
 
-	printf("  * Saving to the file...");
-	fflush(stdout);
-
-	/* Save the snapshot to file */
+        /* Compress the snapshot */
 	zip = zip_open(argv[1], ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
 
 	zip_entry_open(zip, "me");

@@ -251,9 +251,9 @@ static void *vbs_talkv(struct vbus_transaction t, vbus_msg_type_t type, const ms
 
 	mb();
 
-	notify_remote_via_evtchn(__intf->levtchn);
+        notify_remote_via_evtchn(avz_shared->dom_desc.u.agency.vbstore_levtchn);
 
-	/* Now we are waiting for the answer from vbstore */
+        /* Now we are waiting for the answer from vbstore */
 	DBG("Now, we wait for the reply / msg ID: %d (0x%lx)\n", msg.id, &msg.list);
 
 	wait_for_completion(msg.u.reply_wait);
@@ -970,7 +970,6 @@ int vbus_vbstore_init(void)
 {
 	struct task_struct *task;
 	struct vbus_device dev;
-	int evtchn;
 	struct sched_param param;
 	int vbus_irq;
 
@@ -981,16 +980,16 @@ int vbus_vbstore_init(void)
 	/* dev temporary used to set up event channel used by vbstore. */
 
 	dev.otherend_id = 0;
-	DBG("%s: binding a local event channel to the remote evtchn %d in Agency (intf: %lx) ...\n", __func__, __intf->revtchn, __intf);
+	DBG("%s: binding a local event channel to the remote evtchn %d in Agency. ...\n", __func__, 
+		avz_shared->dom_desc.u.agency.vbstore_evtchn[DOMID_AGENCY]);
 
-	vbus_bind_evtchn(&dev, __intf->revtchn, &evtchn);
+        vbus_bind_evtchn(&dev, avz_shared->dom_desc.u.agency.vbstore_evtchn[DOMID_AGENCY], 
+			(uint32_t *) &avz_shared->dom_desc.u.agency.vbstore_levtchn);
 
-	/* This is our local event channel */
-	__intf->levtchn = evtchn;
+        DBG("Local vbstore_evtchn is %d (remote is %d)\n", avz_shared->dom_desc.u.agency.vbstore_levtchn,
+            avz_shared->dom_desc.u.agency.vbstore_evtchn[DOMID_AGENCY]);
 
-	DBG("Local vbstore_evtchn is %d (remote is %d)\n", __intf->levtchn, __intf->revtchn);
-
-	INIT_LIST_HEAD(&vbs_state.reply_list);
+        INIT_LIST_HEAD(&vbs_state.reply_list);
 
 	mutex_init(&vbs_state.request_mutex);
 	mutex_init(&vbs_state.transaction_mutex);
@@ -1003,8 +1002,7 @@ int vbus_vbstore_init(void)
 
 	init_completion(&vbs_state.watch_wait);
 
-	/* Initialize the shared memory rings to talk to vbstore */
-	vbus_irq = bind_evtchn_to_virq_handler(__intf->levtchn, vbus_vbstore_isr, NULL, IRQF_DISABLED, "vbus_vbstore", NULL);
+	vbus_irq = bind_evtchn_to_virq_handler(avz_shared->dom_desc.u.agency.vbstore_levtchn, vbus_vbstore_isr, NULL, IRQF_DISABLED, "vbus_vbstore", NULL);
 	if (vbus_irq <= 0) {
 		lprintk(KERN_ERR "VBus request irq failed %i\n", vbus_irq);
 		BUG();

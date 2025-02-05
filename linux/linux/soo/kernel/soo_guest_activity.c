@@ -130,8 +130,8 @@ void do_sync_dom(int domID, dc_event_t dc_event)
 
 	set_dc_event(domID, dc_event);
 
-	DBG("%s: notifying via evtchn %d...\n", __func__, dc_evtchn[domID]);
-        notify_remote_via_evtchn(dc_evtchn[domID]);
+	DBG("%s: notifying via evtchn %d...\n", __func__, avz_shared->dom_desc.u.agency.dc_evtchn[domID]);
+        notify_remote_via_evtchn(avz_shared->dom_desc.u.agency.dc_evtchn[domID]);
 
         /* Wait for the response from the outgoing domain, and reset the barrier. */
 	if (cpu == AGENCY_RT_CPU) {
@@ -171,12 +171,11 @@ void tell_dc_stable(int dc_event)  {
 
 	if (cpu == AGENCY_RT_CPU) {
 		atomic_set(&rtdm_dc_incoming_domID[dc_event], -1);
-		notify_remote_via_evtchn(dc_evtchn[DOMID_AGENCY]);
+		notify_remote_via_evtchn(avz_shared->dom_desc.u.agency.dc_evtchn[DOMID_AGENCY]);
 	} else {
 		atomic_set(&dc_incoming_domID[dc_event], -1);
-		notify_remote_via_evtchn(dc_evtchn[domID]);
+		notify_remote_via_evtchn(avz_shared->dom_desc.u.agency.dc_evtchn[domID]);
 	}
-
 }
 
 void dump_threads(void)

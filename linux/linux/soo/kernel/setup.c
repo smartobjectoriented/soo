@@ -34,7 +34,7 @@
 volatile unsigned long *HYPERVISOR_hypercall_addr;
 
 /* Updated in kernel/head.S */
-volatile avz_shared_t *avz_shared;
+volatile avz_shared_t *__avz_shared;
 
 extern unsigned long __pv_phys_pfn_offset;
 extern u64 __pv_offset;
@@ -44,9 +44,8 @@ void __init avz_setup(void)
 
 	lprintk("  - SOO Agency Virtualizer (avz) Start info :\n");
 	lprintk("  - Hypercall addr: %lx\n", (unsigned long) HYPERVISOR_hypercall_addr);
-	lprintk("  - Total Pages allocated to this domain : %ld\n", AVZ_shared->nr_pages);
-	lprintk("  - Domain physical address : 0x%lx\n", AVZ_shared->dom_phys_offset);
-	lprintk("  - FDT device tree paddr, if any: %lx\n", AVZ_shared->fdt_paddr);
+	lprintk("  - Total Pages allocated to this domain : %ld\n", avz_shared->nr_pages);
+	lprintk("  - FDT device tree paddr, if any: %lx\n", avz_shared->fdt_paddr);
 	
 	lprintk("  - All right! AVZ setup successfull.\n");
 }

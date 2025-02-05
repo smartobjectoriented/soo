@@ -22,8 +22,8 @@
 
 #include <soo/uapi/avz.h>
 
-#define AVZ_shared ((smp_processor_id() == 1) ? (avz_shared)->subdomain_shared : avz_shared)
+#define avz_shared ((smp_processor_id() == 1) ? __avz_shared->subdomain_shared : __avz_shared)
 
-#define AVZ_primary_shared ((avz_shared_t *) avz_shared)
+#define avz_primary_shared ((avz_shared_t *) __avz_shared)
 
 #endif /* AVZ_H */

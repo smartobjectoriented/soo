@@ -44,7 +44,7 @@ enum {
 };
 
 static inline void clear_evtchn(u32 evtchn) {
-	AVZ_shared->evtchn_pending[evtchn] = false;
+	avz_shared->evtchn_pending[evtchn] = false;
 }
 
 static inline void notify_remote_via_evtchn(uint32_t evtchn)
