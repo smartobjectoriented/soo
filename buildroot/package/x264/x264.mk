@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-X264_VERSION = 35417dcd65a57321fbadf98c9a4cff1cb741db4b
+X264_VERSION = baee400fa9ced6f5481a728138fed6e867b0ff7f
 X264_SITE = https://code.videolan.org/videolan/x264.git
 X264_SITE_METHOD = git
 X264_LICENSE = GPL-2.0+
@@ -14,9 +14,15 @@ X264_INSTALL_STAGING = YES
 X264_CONF_OPTS = --disable-avs --disable-lavf --disable-swscale
 
 ifeq ($(BR2_i386)$(BR2_x86_64),y)
+ifeq ($(BR2_TOOLCHAIN_USES_MUSL)$(BR2_PIC_PIE),yy)
+# libx264 uses large amounts of non-pic assembly code, resulting in text
+# section relocations, which are not supported on musl-libc's ld.so.
+X264_CONF_OPTS += --disable-asm
+else
 # nasm needed for assembly files
 X264_DEPENDENCIES += host-nasm
 X264_CONF_ENV += AS="$(HOST_DIR)/bin/nasm"
+endif
 else ifeq ($(BR2_ARM_CPU_ARMV7A)$(BR2_aarch64),y)
 # We need to pass gcc as AS, because the ARM assembly files have to be
 # preprocessed

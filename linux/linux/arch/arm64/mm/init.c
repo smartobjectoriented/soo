@@ -60,7 +60,11 @@ EXPORT_SYMBOL(memstart_addr);
  * bit addressable memory area.
  */
 phys_addr_t arm64_dma_phys_limit __ro_after_init;
+#ifdef CONFIG_SOO
 phys_addr_t arm64_dma32_phys_limit __ro_after_init;
+#else
+static phys_addr_t arm64_dma32_phys_limit __ro_after_init;
+#endif
 
 #ifdef CONFIG_KEXEC_CORE
 /*

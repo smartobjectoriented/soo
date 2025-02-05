@@ -4,9 +4,10 @@
 #
 ################################################################################
 
-DHCP_VERSION = 4.4.3
+DHCP_VERSION = 4.4.3-P1
 DHCP_SITE = https://ftp.isc.org/isc/dhcp/$(DHCP_VERSION)
 DHCP_INSTALL_STAGING = YES
+DHCP_SELINUX_MODULES = dhcp
 DHCP_LICENSE = MPL-2.0
 DHCP_LICENSE_FILES = LICENSE
 DHCP_DEPENDENCIES = host-gawk
@@ -32,6 +33,9 @@ DHCP_CONF_ENV = \
 	CFLAGS='$(TARGET_CFLAGS) -DISC_CHECK_NONE=1'
 
 DHCP_BIND_EXTRA_CONFIG = \
+	--build=$(GNU_HOST_NAME) \
+	--host=$(GNU_TARGET_NAME) \
+	--target=$(GNU_TARGET_NAME) \
 	BUILD_CC='$(HOSTCC)' \
 	BUILD_CFLAGS='$(HOST_CFLAGS)' \
 	BUILD_CPPFLAGS='$(HOST_CPPFLAGS)' \
@@ -81,6 +85,14 @@ endif
 
 ifeq ($(BR2_PACKAGE_DHCP_SERVER_DELAYED_ACK),y)
 DHCP_CONF_OPTS += --enable-delayed-ack
+else
+DHCP_CONF_OPTS += --disable-delayed-ack
+endif
+
+ifeq ($(BR2_PACKAGE_DHCP_SERVER_ENABLE_PARANOIA),y)
+DHCP_CONF_OPTS += --enable-paranoia
+else
+DHCP_CONF_OPTS += --disable-paranoia
 endif
 
 define DHCP_INSTALL_LIBS

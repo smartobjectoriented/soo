@@ -8,17 +8,17 @@
 
 struct pt_regs;
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 
 #define	NR_PIRQS	256
 #define PIRQ_BASE       0
 
 #define VIRQ_BASE       (PIRQ_BASE + NR_PIRQS)
-#define NR_VIRQS        256
 
 /* Max number of possible IPIs */
 #define NR_IPIS		16
 
+#endif
 
 static inline int nr_legacy_irqs(void)
 {

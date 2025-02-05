@@ -1,35 +1,36 @@
-From cb583beba1acba55112fbb4636c1c73d9ae691a0 Mon Sep 17 00:00:00 2001
+From bfcc72e5bb96fc9fc1f3558191a1a3f40c7f159a Mon Sep 17 00:00:00 2001
 From: Johan Oudinet <johan.oudinet@gmail.com>
-Date: Fri, 20 Nov 2020 00:33:30 +0100
+Date: Fri, 2 Aug 2024 17:32:37 +0200
 Subject: [PATCH] Makefile.in: do not download or compile dependencies
 
 Signed-off-by: Johan Oudinet <johan.oudinet@gmail.com>
+Upstream: N/A, not upstreamable
 ---
  Makefile.in | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index abd64835..06f876bb 100644
+index 5adf241d5..74aad3156 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -97,7 +97,7 @@ ifneq ($(INSTALLGROUP),)
-   G_USER=-g $(INSTALLGROUP)
- endif
+@@ -201,7 +201,7 @@ endif
+ #' main targets
+ #
  
--all: deps src
-+all: src
+-all: scripts deps src
++all: scripts src
  
- deps: deps/.got
+ deps: $(DEPSDIR)/.got
  
-@@ -111,7 +111,7 @@ deps/.built: deps/.got
- 	$(REBAR) configure-deps
- 	$(REBAR) compile && :> deps/.built
+@@ -215,7 +215,7 @@ $(DEPSDIR)/.got:
+ $(DEPSDIR)/.built: $(DEPSDIR)/.got
+ 	$(REBAR) compile && :> $(DEPSDIR)/.built
  
--src: deps/.built
+-src: $(DEPSDIR)/.built
 +src:
- 	$(REBAR) skip_deps=true compile
+ 	$(REBAR) $(SKIPDEPS) compile
+ 	$(EXPLICIT_ELIXIR_COMPILE)
  
- update:
 -- 
-2.29.2
+2.34.1
 

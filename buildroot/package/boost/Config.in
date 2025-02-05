@@ -4,7 +4,7 @@ comment "boost needs a toolchain w/ C++, threads, wchar"
 config BR2_PACKAGE_BOOST
 	bool "boost"
 	depends on BR2_INSTALL_LIBSTDCPP
-	# Boost could theorically be built with threading=single, but
+	# Boost could theoretically be built with threading=single, but
 	# that unfortunately doesn't work. Until someone fixes that,
 	# let's depend on threads.
 	depends on BR2_TOOLCHAIN_HAS_THREADS
@@ -15,40 +15,6 @@ config BR2_PACKAGE_BOOST
 	  http://www.boost.org/
 
 if BR2_PACKAGE_BOOST
-
-choice
-	prompt "Layout"
-	default BR2_PACKAGE_BOOST_LAYOUT_SYSTEM
-	help
-	  Selects the layout of Boost binary names
-
-config BR2_PACKAGE_BOOST_LAYOUT_SYSTEM
-	bool "system"
-	help
-	  Boost binary names do not include the Boost version number
-	  or the name and version number of the compiler.
-
-config BR2_PACKAGE_BOOST_LAYOUT_TAGGED
-	bool "tagged"
-	help
-	  Boost binary names include the encoded build properties such
-	  as variant and threading, but do not include compiler name
-	  and version, or Boost version. This option is useful if you
-	  build several variants of Boost, using the same compiler.
-
-config BR2_PACKAGE_BOOST_LAYOUT_VERSIONED
-	bool "versioned"
-	help
-	  Boost binary names include the Boost version number, name
-	  and version of the compiler and encoded build properties.
-
-endchoice
-
-config BR2_PACKAGE_BOOST_LAYOUT
-	string
-	default "system" if BR2_PACKAGE_BOOST_LAYOUT_SYSTEM
-	default "tagged" if BR2_PACKAGE_BOOST_LAYOUT_TAGGED
-	default "versioned" if BR2_PACKAGE_BOOST_LAYOUT_VERSIONED
 
 config BR2_PACKAGE_BOOST_ATOMIC
 	bool "boost-atomic"
@@ -84,12 +50,13 @@ config BR2_PACKAGE_BOOST_CONTEXT_ARCH_SUPPORTS
 config BR2_PACKAGE_BOOST_CONTEXT
 	bool "boost-context"
 	depends on BR2_PACKAGE_BOOST_CONTEXT_ARCH_SUPPORTS
-	depends on BR2_TOOLCHAIN_SUPPORTS_ALWAYS_LOCKFREE_ATOMIC_INTS \
-		|| BR2_TOOLCHAIN_GCC_AT_LEAST_6 # boost-thread
+	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_4_8
 	depends on !BR2_TOOLCHAIN_HAS_GCC_BUG_64735
-	select BR2_PACKAGE_BOOST_THREAD if !BR2_TOOLCHAIN_GCC_AT_LEAST_6
 	help
 	  C++11 context switching library.
+
+comment "boost-context needs a toolchain w/ C++11, gcc>=4.8"
+	depends on !BR2_TOOLCHAIN_GCC_AT_LEAST_4_8
 
 config BR2_PACKAGE_BOOST_CONTRACT
 	bool "boost-contract"
@@ -106,15 +73,19 @@ config BR2_PACKAGE_BOOST_COROUTINE
 	bool "boost-coroutine"
 	depends on BR2_PACKAGE_BOOST_CONTEXT_ARCH_SUPPORTS
 	depends on BR2_TOOLCHAIN_SUPPORTS_ALWAYS_LOCKFREE_ATOMIC_INTS # boost-thread
+	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_4_8 # boost-context
 	depends on !BR2_TOOLCHAIN_HAS_GCC_BUG_64735 # boost-context, boost-thread
 	select BR2_PACKAGE_BOOST_CHRONO
 	select BR2_PACKAGE_BOOST_CONTEXT
 	select BR2_PACKAGE_BOOST_SYSTEM
 	select BR2_PACKAGE_BOOST_THREAD
 	help
-	  deprecated coroutine library, the non-depricated coroutine2
+	  deprecated coroutine library, the non-deprecated coroutine2
 	  library is a header-only library and does not need to be
 	  selected.
+
+comment "boost-coroutine needs a toolchain w/ C++11, gcc>=4.8"
+	depends on !BR2_TOOLCHAIN_GCC_AT_LEAST_4_8
 
 comment "boost-coroutine needs a toolchain not affected by GCC bug 64735"
 	depends on BR2_PACKAGE_BOOST_CONTEXT_ARCH_SUPPORTS
@@ -143,21 +114,20 @@ config BR2_PACKAGE_BOOST_FIBER
 	depends on !BR2_MIPS_CPU_MIPS32 && !BR2_MIPS_CPU_MIPS64
 	depends on BR2_TOOLCHAIN_SUPPORTS_ALWAYS_LOCKFREE_ATOMIC_INTS # boost-filesystem
 	depends on !BR2_TOOLCHAIN_HAS_GCC_BUG_64735 # boost-context
+	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_4_8
 	select BR2_PACKAGE_BOOST_CONTEXT
 	select BR2_PACKAGE_BOOST_FILESYSTEM
 	select BR2_PACKAGE_BOOST_SYSTEM
 	help
 	  C++11 userland threads library.
 
-comment "boost-fiber needs a toolchain w/ NPTL"
+comment "boost-fiber needs a toolchain w/ NPTL, C++11, gcc>=4.8"
 	depends on BR2_PACKAGE_BOOST_CONTEXT_ARCH_SUPPORTS
-	depends on BR2_TOOLCHAIN_SUPPORTS_ALWAYS_LOCKFREE_ATOMIC_INTS
-	depends on !BR2_TOOLCHAIN_HAS_THREADS_NPTL
+	depends on !BR2_TOOLCHAIN_HAS_THREADS_NPTL \
+		|| !BR2_TOOLCHAIN_GCC_AT_LEAST_4_8
 
 comment "boost-fiber needs a toolchain not affected by GCC bug 64735"
 	depends on BR2_PACKAGE_BOOST_CONTEXT_ARCH_SUPPORTS
-	depends on BR2_TOOLCHAIN_SUPPORTS_ALWAYS_LOCKFREE_ATOMIC_INTS \
-		|| BR2_TOOLCHAIN_GCC_AT_LEAST_6
 	depends on BR2_TOOLCHAIN_HAS_GCC_BUG_64735
 
 config BR2_PACKAGE_BOOST_FILESYSTEM
@@ -253,6 +223,7 @@ comment "boost-log needs a toolchain not affected by GCC bug 64735"
 
 config BR2_PACKAGE_BOOST_MATH
 	bool "boost-math"
+	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_5 # C++14
 	help
 	  Boost.Math includes several contributions in the domain of
 	  mathematics:
@@ -270,10 +241,13 @@ config BR2_PACKAGE_BOOST_MATH
 	  C++ standard.
 
 	  Quaternions are a relative of complex numbers often used to
-	  parameterise rotations in three dimentional space.
+	  parameterise rotations in three dimensional space.
 
 	  Octonions, like quaternions, are a relative of complex
 	  numbers.
+
+comment "boost-math needs a toolchain w/ C++14, gcc>=5.0"
+	depends on !BR2_TOOLCHAIN_GCC_AT_LEAST_5
 
 config BR2_PACKAGE_BOOST_MPI
 	bool "boost-mpi"
@@ -374,6 +348,19 @@ config BR2_PACKAGE_BOOST_TYPE_ERASURE
 
 comment "boost-type_erasure needs a toolchain not affected by GCC bug 64735"
 	depends on BR2_TOOLCHAIN_HAS_GCC_BUG_64735
+
+config BR2_PACKAGE_BOOST_URL
+	bool "boost-url"
+	help
+	  Boost.URL is a portable C++ library which provides containers
+	  and algorithms which model a "URL," more formally described
+	  using the Uniform Resource Identifier (URI) specification.
+
+	  This library understands the grammars related to URLs and
+	  provides functionality to validate, parse, examine, and
+	  modify urls, and apply normalization or resolution algorithms.
+
+	  To use the library "header-only" this option is not needed.
 
 config BR2_PACKAGE_BOOST_WAVE
 	bool "boost-wave"

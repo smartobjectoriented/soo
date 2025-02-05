@@ -4,13 +4,13 @@
 #
 ################################################################################
 
-SANE_BACKENDS_VERSION = 1.0.32
+SANE_BACKENDS_VERSION = 1.1.1
 SANE_BACKENDS_SITE = \
-	https://gitlab.com/sane-project/backends/uploads/104f09c07d35519cc8e72e604f11643f
+	https://gitlab.com/sane-project/backends/uploads/7d30fab4e115029d91027b6a58d64b43
 SANE_BACKENDS_CONFIG_SCRIPTS = sane-config
 SANE_BACKENDS_LICENSE = GPL-2.0+
 SANE_BACKENDS_LICENSE_FILES = COPYING
-SANE_BACKENDS_CPE_ID_VENDOR = sane-backends_project
+SANE_BACKENDS_CPE_ID_VALID = YES
 SANE_BACKENDS_INSTALL_STAGING = YES
 
 SANE_BACKENDS_CONF_OPTS = \

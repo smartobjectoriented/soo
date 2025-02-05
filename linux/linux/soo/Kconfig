@@ -1,3 +1,9 @@
+
+config SOO
+	bool "Enabling the Smart Object Oriented (SOO) subsystem"
+	select XENOMAI
+
+if SOO
 menu "SOO Framework and subsystems"
 
 config SOO_CORE_ASF
@@ -10,8 +16,8 @@ config SOO_RT_APP
 		Simple app to try various things related to Cobalt API and others
 	default Y
 
-source "soo/dcm/Kconfig"
-source "soo/soolink/Kconfig"
 source "soo/drivers/Kconfig"
 
 endmenu # SOO
+
+endif

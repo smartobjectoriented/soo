@@ -17,7 +17,6 @@
 #include <linux/elf.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/of_platform.h>
 #include <linux/personality.h>
 #include <linux/preempt.h>
 #include <linux/printk.h>
@@ -25,6 +24,10 @@
 #include <linux/sched.h>
 #include <linux/smp.h>
 #include <linux/delay.h>
+
+#ifdef CONFIG_SOO
+#include <linux/of_platform.h>
+#endif
 
 /*
  * In case the boot CPU is hotpluggable, we record its initial state and
@@ -138,10 +141,12 @@ static int c_show(struct seq_file *m, void *v)
 {
 	int i, j;
 	bool compat = personality(current->personality) == PER_LINUX32;
+#ifdef CONFIG_SOO
 	struct device_node *np;
 	const char *model;
 	const char *serial;
 	u32 revision;
+#endif
 
 	for_each_online_cpu(i) {
 		struct cpuinfo_arm64 *cpuinfo = &per_cpu(cpu_data, i);
@@ -201,6 +206,7 @@ static int c_show(struct seq_file *m, void *v)
 		seq_printf(m, "CPU part\t: 0x%03x\n", MIDR_PARTNUM(midr));
 		seq_printf(m, "CPU revision\t: %d\n\n", MIDR_REVISION(midr));
 	}
+#ifdef CONFIG_SOO
 
 	seq_printf(m, "Hardware\t: BCM2835\n");
 
@@ -221,6 +227,8 @@ static int c_show(struct seq_file *m, void *v)
 			seq_printf(m, "Model\t\t: %s\n", model);
 		of_node_put(np);
 	}
+
+#endif
 
 	return 0;
 }

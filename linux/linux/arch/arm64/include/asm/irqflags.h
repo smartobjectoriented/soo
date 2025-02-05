@@ -10,15 +10,16 @@
 #include <asm/ptrace.h>
 #include <asm/sysreg.h>
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 #include <asm/percpu.h>
 
-/* SOO.tech */
 /*
  * This boolean is true if we are in progress within the do_evtchn_upcall execution.
  * We should never re-enable the IRQs during a evtchn_upcall execution.
  */
 DECLARE_PER_CPU(bool, in_upcall_progress);
+
+#endif
 
 /*
  * Aarch64 has flags for masking: Debug, Asynchronous (serror), Interrupts and

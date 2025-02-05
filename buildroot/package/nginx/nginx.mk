@@ -4,8 +4,8 @@
 #
 ################################################################################
 
-NGINX_VERSION = 1.20.1
-NGINX_SITE = http://nginx.org/download
+NGINX_VERSION = 1.26.2
+NGINX_SITE = https://nginx.org/download
 NGINX_LICENSE = BSD-2-Clause
 NGINX_LICENSE_FILES = LICENSE
 NGINX_CPE_ID_VENDOR = f5
@@ -80,8 +80,8 @@ else
 NGINX_CONF_ENV += ngx_force_have_libatomic=no
 endif
 
-ifeq ($(BR2_PACKAGE_PCRE),y)
-NGINX_DEPENDENCIES += pcre
+ifeq ($(BR2_PACKAGE_PCRE2),y)
+NGINX_DEPENDENCIES += pcre2
 NGINX_CONF_OPTS += --with-pcre
 else
 NGINX_CONF_OPTS += --without-pcre
@@ -93,7 +93,7 @@ endif
 # - pcre-jit          (want to rebuild pcre)
 
 # Notes:
-# * Feature/module option are *not* symetric.
+# * Feature/module option are *not* symmetric.
 #   If a feature is on by default, only its --without-xxx option exists;
 #   if a feature is off by default, only its --with-xxx option exists.
 # * The configure script fails if unknown options are passed on the command
@@ -164,7 +164,7 @@ NGINX_CONF_OPTS += --without-http_gzip_module
 endif
 
 ifeq ($(BR2_PACKAGE_NGINX_HTTP_REWRITE_MODULE),y)
-NGINX_DEPENDENCIES += pcre
+NGINX_DEPENDENCIES += pcre2
 else
 NGINX_CONF_OPTS += --without-http_rewrite_module
 endif

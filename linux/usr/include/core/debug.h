@@ -23,8 +23,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <soo/uapi/debug.h>
+#ifdef DEBUG
+#undef DBG
 
-#define BUG() do { force_print("BUG\n"); fflush(stdout); exit(-1); } while (0);
+#define DBG(fmt, ...) \
+	do { \
+		printf("(user) %s:%d > "fmt, __func__, __LINE__, ##__VA_ARGS__); \
+	} while (0)
+
+#define BUG() do { printf("BUG\n"); fflush(stdout); exit(-1); } while (0);
+
+#define DBG0(...) DBG("%s", ##__VA_ARGS__)
+
+#else
+
+#define DBG(fmt, ...)
+#define RTDBG(fmt, ...)
+#define DBG0(...)
+#define DBG_BUFFER(buffer, ...)
+#define DBG_ON__
+#define DBG_OFF__
+
+#endif
 
 #endif /* DEBUG_H */

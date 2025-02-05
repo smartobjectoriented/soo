@@ -1,7 +1,6 @@
 config BR2_TARGET_ARM_TRUSTED_FIRMWARE
 	bool "ARM Trusted Firmware (ATF)"
-	depends on (BR2_ARM_CPU_ARMV8A || BR2_ARM_CPU_ARMV7A) && \
-		   (BR2_TARGET_UBOOT || BR2_TARGET_EDK2)
+	depends on (BR2_ARM_CPU_ARMV8A || BR2_ARM_CPU_ARMV7A)
 	help
 	  Enable this option if you want to build the ATF for your ARM
 	  based embedded device.
@@ -15,7 +14,17 @@ choice
 	  Select the specific ATF version you want to use
 
 config BR2_TARGET_ARM_TRUSTED_FIRMWARE_LATEST_VERSION
-	bool "v2.5"
+	bool "v2.11"
+
+config BR2_TARGET_ARM_TRUSTED_FIRMWARE_LATEST_LTS_2_10_VERSION
+	bool "latest lts-v2.10.x"
+	help
+	  Select the latest LTS v2.10.x version available
+
+config BR2_TARGET_ARM_TRUSTED_FIRMWARE_LATEST_LTS_2_8_VERSION
+	bool "latest lts-v2.8.x"
+	help
+	  Select the latest LTS v2.8.x version available
 
 config BR2_TARGET_ARM_TRUSTED_FIRMWARE_CUSTOM_VERSION
 	bool "Custom version"
@@ -43,7 +52,9 @@ config BR2_TARGET_ARM_TRUSTED_FIRMWARE_CUSTOM_VERSION_VALUE
 
 config BR2_TARGET_ARM_TRUSTED_FIRMWARE_VERSION
 	string
-	default "v2.5"		if BR2_TARGET_ARM_TRUSTED_FIRMWARE_LATEST_VERSION
+	default "v2.11"		if BR2_TARGET_ARM_TRUSTED_FIRMWARE_LATEST_VERSION
+	default "lts-v2.10.5"	if BR2_TARGET_ARM_TRUSTED_FIRMWARE_LATEST_LTS_2_10_VERSION
+	default "lts-v2.8.20"	if BR2_TARGET_ARM_TRUSTED_FIRMWARE_LATEST_LTS_2_8_VERSION
 	default "custom"	if BR2_TARGET_ARM_TRUSTED_FIRMWARE_CUSTOM_TARBALL
 	default BR2_TARGET_ARM_TRUSTED_FIRMWARE_CUSTOM_REPO_VERSION \
 				if BR2_TARGET_ARM_TRUSTED_FIRMWARE_CUSTOM_GIT
@@ -66,7 +77,13 @@ endif
 config BR2_TARGET_ARM_TRUSTED_FIRMWARE_PLATFORM
 	string "ATF platform"
 	help
-	  Target plaform to build for.
+	  Target platform to build for.
+
+config BR2_TARGET_ARM_TRUSTED_FIRMWARE_TARGET_BOARD
+	string "ATF target board"
+	help
+	  Target board to build for. In many cases, this can be left
+	  empty.
 
 config BR2_TARGET_ARM_TRUSTED_FIRMWARE_CUSTOM_DTS_PATH
 	string "Device Tree Source file paths"
@@ -124,14 +141,59 @@ config BR2_TARGET_ARM_TRUSTED_FIRMWARE_BL32_OPTEE
 
 endchoice
 
+choice
+	prompt "BL33"
+	default BR2_TARGET_ARM_TRUSTED_FIRMWARE_NONE_AS_BL33
+	help
+	  Select the image to include as BL33.
+
+config BR2_TARGET_ARM_TRUSTED_FIRMWARE_NONE_AS_BL33
+	bool "None"
+
+config BR2_TARGET_ARM_TRUSTED_FIRMWARE_BAREBOX_AS_BL33
+	bool "Barebox"
+	depends on BR2_TARGET_BAREBOX
+	help
+	  This option allows to embed the Barebox generic BL33 image in
+	  the ARM Trusted Firmware. It ensures that the Barebox package
+	  gets built before ATF, and that the appropriate BL33
+	  variable pointing to the generic bl33 image is passed
+	  when building ATF.
+
 config BR2_TARGET_ARM_TRUSTED_FIRMWARE_UBOOT_AS_BL33
-	bool "Use U-Boot as BL33"
+	bool "U-Boot"
 	depends on BR2_TARGET_UBOOT
 	help
 	  This option allows to embed u-boot.bin as the BL33 part of
 	  the ARM Trusted Firmware. It ensures that the u-boot package
 	  gets built before ATF, and that the appropriate BL33
 	  variable pointing to u-boot.bin is passed when building ATF.
+
+config BR2_TARGET_ARM_TRUSTED_FIRMWARE_EDK2_AS_BL33
+	bool "EDK2"
+	depends on BR2_TARGET_EDK2
+	help
+	  This option allows to embed EDK2 as the BL33 part of
+	  the ARM Trusted Firmware. It ensures that the EDK2 package
+	  gets built before ATF, and that the appropriate BL33
+	  variable pointing to the EDK2 is passed when building ATF.
+
+	  Do not choose this option if you intend to build ATF and EDK2
+	  for the 'qemu_sbsa' platform. In this case, due to the EDK2
+	  build system, the dependency between ATF and EDK is reversed.
+
+endchoice
+
+if BR2_TARGET_ARM_TRUSTED_FIRMWARE_BAREBOX_AS_BL33
+
+config BR2_TARGET_ARM_TRUSTED_FIRMWARE_BAREBOX_BL33_IMAGE
+	string "Barebox BL33 image name"
+	default "*-generic-bl33.img"
+	help
+	  Name of the Barebox BL33 image to include in ATF, it must
+	  have been installed to BINARIES_DIR by the Barebox package.
+
+endif
 
 if BR2_TARGET_ARM_TRUSTED_FIRMWARE_UBOOT_AS_BL33
 
@@ -144,18 +206,13 @@ config BR2_TARGET_ARM_TRUSTED_FIRMWARE_UBOOT_BL33_IMAGE
 
 endif
 
-config BR2_TARGET_ARM_TRUSTED_FIRMWARE_EDK2_AS_BL33
-	bool "Use EDK2 as BL33"
-	depends on BR2_TARGET_EDK2
+config BR2_TARGET_ARM_TRUSTED_FIRMWARE_RCW
+	bool "Include NXP RCW in BL2"
+	depends on BR2_PACKAGE_HOST_QORIQ_RCW
 	help
-	  This option allows to embed EDK2 as the BL33 part of
-	  the ARM Trusted Firmware. It ensures that the EDK2 package
-	  gets built before ATF, and that the appropriate BL33
-	  variable pointing to the EDK2 is passed when building ATF.
-
-	  Do not choose this option if you intend to build ATF and EDK2
-	  for the 'qemu_sbsa' platform. In this case, due to the EDK2
-	  build system, the dependency between ATF and EDK is reversed.
+	  Include the NXP RCW (Reset Control Word) in BL2. See
+	  package/qoriq-rcw/ for more details. This is mostly useful
+	  on NXP LayerScape platforms.
 
 config BR2_TARGET_ARM_TRUSTED_FIRMWARE_ADDITIONAL_TARGETS
 	string "Additional ATF make targets"
@@ -199,7 +256,6 @@ config BR2_TARGET_ARM_TRUSTED_FIRMWARE_NEEDS_ARM32_TOOLCHAIN
 
 config BR2_TARGET_ARM_TRUSTED_FIRMWARE_SSP
 	bool "Build with SSP"
-	default y
 	depends on BR2_TOOLCHAIN_HAS_SSP
 	depends on !BR2_SSP_NONE
 	help
@@ -213,10 +269,6 @@ config BR2_TARGET_ARM_TRUSTED_FIRMWARE_SSP
 
 config BR2_TARGET_ARM_TRUSTED_FIRMWARE_SSP_LEVEL
 	string
-	# While newer versions of TF-A support "none" as
-	# ENABLE_STACK_PROTECTOR value, older versions (e.g 2.0) only
-	# supported "0" to disable SSP.
-	default "0"    	  if !BR2_TARGET_ARM_TRUSTED_FIRMWARE_SSP
 	default "default" if BR2_SSP_REGULAR
 	default "strong"  if BR2_SSP_STRONG
 	default "all"     if BR2_SSP_ALL

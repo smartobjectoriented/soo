@@ -35,7 +35,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.plantuml',
+  #  'sphinxcontrib.plantuml',
     'rstFlatTable',
 #    'sphinxcontrib.bibtex',
     'sphinx.ext.extlinks',

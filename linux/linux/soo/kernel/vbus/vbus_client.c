@@ -25,16 +25,15 @@
 #include <linux/types.h>
 #include <linux/vmalloc.h>
 
+#include <asm/cacheflush.h>
+
 #include <soo/gnttab.h>		 
-#include <soo/grant_table.h>
-
 #include <soo/hypervisor.h>
-#include <soo/uapi/avz.h>
-#include <soo/uapi/event_channel.h>
-
 #include <soo/evtchn.h>
-#include <soo/uapi/console.h>
 #include <soo/vbus.h>
+
+#include <soo/uapi/avz.h>
+#include <soo/uapi/console.h>
 
 #include <linux/ipipe_base.h>
 
@@ -120,14 +119,17 @@ void vbus_watch_pathfmt(struct vbus_device *dev, struct vbus_watch *watch, void 
  */
 void vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
 {
-	struct evtchn_alloc_unbound alloc_unbound;
+        avz_hyp_t args;
 
-	alloc_unbound.dom = DOMID_SELF;
+        args.cmd = AVZ_EVENT_CHANNEL_OP;
 
-	alloc_unbound.remote_dom = dev->otherend_id;
+        args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_alloc_unbound;
+        args.u.avz_evtchn.evtchn_op.u.alloc_unbound.dom = DOMID_SELF;
+        args.u.avz_evtchn.evtchn_op.u.alloc_unbound.remote_dom = dev->otherend_id;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
-	*evtchn = alloc_unbound.evtchn;
+        avz_hypercall(&args);
+
+        *evtchn = args.u.avz_evtchn.evtchn_op.u.alloc_unbound.evtchn;
 }
 
 
@@ -138,15 +140,19 @@ void vbus_alloc_evtchn(struct vbus_device *dev, uint32_t *evtchn)
  */
 void vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_evtchn, uint32_t *evtchn)
 {
-	struct evtchn_bind_interdomain bind_interdomain;
+        avz_hyp_t args;
 
-	bind_interdomain.remote_dom = dev->otherend_id;
-	bind_interdomain.remote_evtchn = remote_evtchn;
+        args.cmd = AVZ_EVENT_CHANNEL_OP;
+        args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_bind_interdomain;
+        
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_dom = dev->otherend_id;
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_evtchn = remote_evtchn;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
+        avz_hypercall(&args);
+	
+        *evtchn = args.u.avz_evtchn.evtchn_op.u.bind_interdomain.local_evtchn;
 
-	*evtchn = bind_interdomain.local_evtchn;
-	DBG("%s: got local evtchn: %d for remote evtchn: %d\n", __func__, *evtchn, remote_evtchn);
+   	DBG("%s: got local evtchn: %d for remote evtchn: %d\n", __func__, *evtchn, remote_evtchn);
 }
 
 /**
@@ -154,158 +160,14 @@ void vbus_bind_evtchn(struct vbus_device *dev, uint32_t remote_evtchn, uint32_t 
  */
 void vbus_free_evtchn(struct vbus_device *dev, uint32_t evtchn)
 {
-	struct evtchn_close close;
+        avz_hyp_t args;
 
-	close.evtchn = evtchn;
+        args.cmd = AVZ_EVENT_CHANNEL_OP;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &close, 0, 0);
-}
-
-/**
- * vbus_map_ring_valloc
- * @dev: vbus device
- * @gnt_ref: grant reference
- * @vaddr: pointer to address to be filled out by mapping
- *
- * Based on Rusty Russell's skeleton driver's map_page.
- * Map a page of memory into this domain from another domain's grant table.
- * vbus_map_ring_valloc allocates a page of virtual address space, maps the
- * page to that address, and sets *vaddr to that address.
- * Returns 0 on success, and GNTST_* (see include/interface/grant_table.h)
- * or -ENOMEM on error. If an error is returned, device will switch to
- * VbusStateClosing and the error message will be saved in VBstore.
- */
-void vbus_map_ring_valloc(struct vbus_device *dev, int gnt_ref, void **vaddr)
-{
-	struct gnttab_map_grant_ref op = {
-		.flags = GNTMAP_host_map,
-		.ref   = gnt_ref,
-		.dom   = dev->otherend_id,
-	};
-	struct vm_struct *area;
-
-	DBG("%u\n", gnt_ref);
-
-	*vaddr = NULL;
-
-	area = get_vm_area(PAGE_SIZE, VM_IOREMAP);
-	if (!area)
-		BUG();
-
-	op.host_addr = (unsigned long) area->addr;
-
-	grant_table_op(GNTTABOP_map_grant_ref, &op, 1);
-
-#ifdef DEBUG
-	lprintk("op: ");
-	lprintk_buffer(&op, sizeof(struct gnttab_map_grant_ref));
-#endif
-
-	if (op.status != GNTST_okay) {
-		free_vm_area(area);
-		lprintk("%s - line %d: Mapping in shared page %d from domain %d failed for device %s\n", __func__, __LINE__, gnt_ref, dev->otherend_id, dev->nodename);
-		BUG();
-	}
-
-	/* Stuff the handle in an unused field */
-	area->phys_addr = (unsigned long) op.handle;
-
-	*vaddr = area->addr;
-}
-
-/**
- * vbus_map_ring
- * @dev: vbus device
- * @gnt_ref: grant reference
- * @handle: pointer to grant handle to be filled
- * @vaddr: address to be mapped to
- *
- * Map a page of memory into this domain from another domain's grant table.
- * vbus_map_ring does not allocate the virtual address space (you must do
- * this yourself!). It only maps in the page to the specified address.
- * Returns 0 on success, and GNTST_* (see include/interface/grant_table.h)
- * or -ENOMEM on error. If an error is returned, device will switch to
- * VbusStateClosing and the error message will be saved in VBStore.
- */
-void vbus_map_ring(struct vbus_device *dev, int gnt_ref, grant_handle_t *handle, void *vaddr)
-{
-	struct gnttab_map_grant_ref op = {
-		.host_addr = (unsigned long)vaddr,
-		.flags     = GNTMAP_host_map,
-		.ref       = gnt_ref,
-		.dom       = dev->otherend_id,
-	};
-
-	grant_table_op(GNTTABOP_map_grant_ref, &op, 1);
-
-	if (op.status != GNTST_okay) {
-		lprintk("%s - line %d: Mapping in shared page %d from domain %d failed for device %s\n", __func__, __LINE__, gnt_ref, dev->otherend_id, dev->nodename);
-		BUG();
-	} else
-		*handle = op.handle;
-}
-
-/**
- * vbus_unmap_ring_vfree
- * @dev: vbus device
- * @vaddr: addr to unmap
- *
- * Based on Rusty Russell's skeleton driver's unmap_page.
- * Unmap a page of memory in this domain that was imported from another domain.
- * Use vbus_unmap_ring_vfree if you mapped in your memory with
- * vbus_map_ring_valloc (it will free the virtual address space).
- * Returns 0 on success and returns GNTST_* on error
- * (see include/interface/grant_table.h).
- */
-void vbus_unmap_ring_vfree(struct vbus_device *dev, void *vaddr)
-{
-	struct vm_struct *area;
-	struct gnttab_unmap_grant_ref op = {
-		.host_addr = (unsigned long)vaddr,
-	};
-	
-	area = find_vm_area(vaddr);
-
-	if (!area) {
-		lprintk("%s - line %d: can't find mapped virtual address %p for device %s\n", __func__, __LINE__, vaddr, dev->nodename);
-		BUG();
-	}
-
-	op.handle = (grant_handle_t)area->phys_addr;
-
-	grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1);
-
-	if (op.status == GNTST_okay)
-		free_vm_area(area);
-	else {
-		lprintk("%s - line %d: Unmapping page at handle %d error %d for device %s\n", __func__, __LINE__,  (int16_t) area->phys_addr, op.status, dev->nodename);
-		BUG();
-	}
-}
-
-/**
- * vbus_unmap_ring
- * @dev: vbus device
- * @handle: grant handle
- * @vaddr: addr to unmap
- *
- * Unmap a page of memory in this domain that was imported from another domain.
- * Returns 0 on success and returns GNTST_* on error
- * (see include/interface/grant_table.h).
- */
-void vbus_unmap_ring(struct vbus_device *dev, grant_handle_t handle, void *vaddr)
-{
-	struct gnttab_unmap_grant_ref op = {
-		.host_addr = (unsigned long)vaddr,
-		.handle    = handle,
-	};
-
-	grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1);
-
-	if (op.status != GNTST_okay) {
-		lprintk("%s - line %d: Unmapping page at handle %d error %d for device %s\n", __func__, __LINE__,  handle, op.status, dev->nodename);
-		BUG();
-	}
+        args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_close;
+        args.u.avz_evtchn.evtchn_op.u.close.evtchn = evtchn;
+        
+	avz_hypercall(&args);
 }
 
 /**

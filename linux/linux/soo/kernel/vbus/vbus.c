@@ -53,7 +53,6 @@
 #include <soo/uapi/soo.h>
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
-#include <soo/uapi/logbool.h>
 
 #include <soo/debug/dbgvar.h>
 
@@ -73,9 +72,6 @@ extern void sdio_wake_up_sdio_irq_thread(void);
 #ifdef CONFIG_ARCH_VEXPRESS
 extern void propagate_interrupt_from_rt(void);
 #endif
-
-/* Event channels used for directcomm channel between agency and agency-RT or ME */
-unsigned int dc_evtchn[MAX_DOMAINS];
 
 spinlock_t dc_lock;
 
@@ -174,8 +170,7 @@ void free_otherend_watch(struct vbus_device *vdev, bool with_vbus) {
 		vdev->otherend_watch.node = NULL;
 	}
 
-	if (vdev->otherend != NULL)
-		vdev->otherend[0] = 0;
+	vdev->otherend[0] = 0;
 }
 
 /*
@@ -737,10 +732,10 @@ void vbus_dev_changed(const char *node, char *type, struct vbus_type *bus) {
 static irqreturn_t directcomm_isr_thread(int irq, void *args) {
 	dc_event_t dc_event;
 
-	dc_event = atomic_read((const atomic_t *) &AVZ_shared->dc_event);
+	dc_event = atomic_read((const atomic_t *) &avz_shared->dc_event);
 
 	/* Reset the dc_event now so that the domain can send another dc_event */
-	atomic_set((atomic_t *) &AVZ_shared->dc_event, DC_NO_EVENT);
+	atomic_set((atomic_t *) &avz_shared->dc_event, DC_NO_EVENT);
 
 	/* Perform the associated callback function to this particular dc_event */
 	if (dc_event_callback[dc_event] != NULL)
@@ -757,11 +752,12 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	dc_event_t dc_event;
 	unsigned int domID = *((unsigned int *) args);
 
-	dc_event = atomic_read((const atomic_t *) &AVZ_shared->dc_event);
+	dc_event = atomic_read((const atomic_t *) &avz_shared->dc_event);
 
-	DBG("Received directcomm interrupt for event: %d\n", AVZ_shared->dc_event);
+	DBG("Received directcomm interrupt for event: %d\n", avz_shared->dc_event);
 
 	/* We should not receive twice a same dc_event, before it has been fully processed. */
+
 	BUG_ON(atomic_read(&dc_incoming_domID[dc_event]) != -1);
 
 	atomic_set(&dc_incoming_domID[dc_event], domID);
@@ -799,7 +795,7 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	}
 
 	/* Reset the dc_event now so that the domain can send another dc_event */
-	atomic_set((atomic_t *) &AVZ_shared->dc_event, DC_NO_EVENT);
+	atomic_set((atomic_t *) &avz_shared->dc_event, DC_NO_EVENT);
 
 	return IRQ_HANDLED;
 }
@@ -809,12 +805,13 @@ static int __init vbus_init(void)
 	int res = 0;
 	int i;
 	int evtchn;
-	struct evtchn_alloc_unbound alloc_unbound;
+	struct evtchn_alloc_unbound *alloc_unbound;
 	unsigned int *p_domID;
 	char buf[20];
 	struct vbus_transaction vbt;
+        avz_hyp_t args;
 
-	res = -ENODEV;
+        res = -ENODEV;
 
 	spin_lock_init(&dc_lock);
 
@@ -833,21 +830,30 @@ static int __init vbus_init(void)
 	 */
 
 	for (i = 1; i < MAX_DOMAINS; i++) {
+
 		/* Get a free event channel */
-		alloc_unbound.dom = DOMID_SELF;
-		alloc_unbound.remote_dom = i;
+                args.cmd = AVZ_EVENT_CHANNEL_OP;
+                args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_alloc_unbound;
+                args.u.avz_evtchn.evtchn_op.u.alloc_unbound.dom = DOMID_SELF;
+		args.u.avz_evtchn.evtchn_op.u.alloc_unbound.remote_dom = i;
 
-		hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_alloc_unbound, (long) &alloc_unbound, 0, 0);
+                avz_hypercall(&args);
 
-		dc_evtchn[i] = alloc_unbound.evtchn;
+                avz_shared->dom_desc.u.agency.dc_evtchn[i] = args.u.avz_evtchn.evtchn_op.u.alloc_unbound.evtchn;
+        
+                /* Keep a valid reference to the domID */
+                p_domID = kmalloc(sizeof(int), GFP_KERNEL);
+                BUG_ON(!p_domID);
 
-		/* Keep a valid reference to the domID */
-		p_domID = kmalloc(sizeof(int), GFP_KERNEL);
+                *p_domID = i;
 
-		*p_domID = i;
-
-		/* Binding this event channel to an interrupt handler makes the evtchn state not "unbound" anymore */
-		evtchn = bind_evtchn_to_virq_handler(dc_evtchn[i], directcomm_isr, directcomm_isr_thread, 0, "directcomm_isr", p_domID);
+                /* Binding this event channel to an interrupt handler makes the evtchn state not "unbound" anymore */
+		evtchn = bind_evtchn_to_virq_handler(avz_shared->dom_desc.u.agency.dc_evtchn[i], 
+						directcomm_isr, 
+						directcomm_isr_thread, 
+						0, 
+						"directcomm_isr", 
+						p_domID);
 
 		if (evtchn <= 0) {
 			printk(KERN_ERR "Error: bind_evtchn_to_irqhandler failed");
@@ -861,12 +867,15 @@ static int __init vbus_init(void)
 		vbus_transaction_start(&vbt);
 
 		sprintf(buf, "soo/directcomm/%d", i);
-		vbus_printf(vbt, buf, "event-channel", "%d", (unsigned int) dc_evtchn[i]);
+		vbus_printf(vbt, buf, "event-channel", "%d", (unsigned int) avz_shared->dom_desc.u.agency.dc_evtchn[i]);
 
 		vbus_transaction_end(vbt);
 
-		DBG("%s: direct communication set up between Agency and ME %d with event channel: %d irq: %d\n", __func__, i, dc_evtchn[i], evtchn);
+		DBG("%s: direct communication set up between Agency and ME %d with event channel: %d irq: %d\n", __func__, i, 
+		avz_shared->dom_desc.u.agency.dc_evtchn[i], evtchn);
 	}
+
+	kfree(alloc_unbound);
 
 	DBG("vbus_init OK!\n");
 
@@ -874,18 +883,3 @@ static int __init vbus_init(void)
 }
 
 arch_initcall(vbus_init);
-
-
-/*
- * DOMCALL_sync_directcomm
- */
-int do_sync_directcomm(void *arg)
-{
-	struct DOMCALL_directcomm_args *args = arg;
-
-	unsigned int domID = args->directcomm_evtchn;
-
-	args->directcomm_evtchn = dc_evtchn[domID];
-
-	return 0;
-}

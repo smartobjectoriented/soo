@@ -24,7 +24,6 @@
 #include <linux/kbuild.h>
 #include <linux/arm-smccc.h>
 
-/* SOO.tech */
 #include <soo/uapi/avz.h>
 
 int main(void)
@@ -147,11 +146,6 @@ int main(void)
   DEFINE(PTRAUTH_KERNEL_KEY_APIA,	offsetof(struct ptrauth_keys_kernel, apia));
   BLANK();
 #endif
-
-  /* SOO.tech */
-  DEFINE(AVZ_DOM_PHYS_OFFSET, offsetof(avz_shared_t, dom_phys_offset));
-  DEFINE(AVZ_PAGETABLE_PADDR, offsetof(avz_shared_t, pagetable_paddr));
-  DEFINE(AVZ_PAGETABLE_VADDR, offsetof(avz_shared_t, pagetable_vaddr));
 
   return 0;
 }

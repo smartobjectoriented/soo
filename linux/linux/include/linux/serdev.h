@@ -17,7 +17,7 @@ struct serdev_device;
  * serdev device structures
  */
 
-/** SOO tech **/
+#ifdef CONFIG_SOO
 struct serport {
 	struct tty_port *port;
 	struct tty_struct *tty;
@@ -25,6 +25,7 @@ struct serport {
 	int tty_idx;
 	unsigned long flags;
 };
+#endif
 
 /**
  * struct serdev_device_ops - Callback operations for a serdev device

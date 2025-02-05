@@ -31,24 +31,14 @@
 
 #include <asm/cacheflush.h>
 
-#include <soo/soolink/soolink.h>
-
-#include <soo/soolink/plugin/common.h>
-#include <soo/soolink/plugin/loopback.h>
-#include <soo/soolink/plugin/ethernet.h>
-#include <soo/soolink/plugin/bluetooth.h>
-#include <soo/soolink/plugin/wlan.h>
-
 #include <soo/vbstore.h>
 #include <soo/hypervisor.h>
+#include <soo/evtchn.h>
+
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
-#include <soo/hypervisor.h>
 #include <soo/uapi/soo.h>
-#include <soo/evtchn.h>
 #include <soo/uapi/avz.h>
-
-#include <soo/uapi/soo.h>
 
 #include <linux/sched/task.h>
 
@@ -91,10 +81,10 @@ static void rtdm_dc_isr_task_fn(void *arg) {
 	while (true) {
 		rtdm_event_wait(&dc_isr_event);
 
-		dc_event = atomic_read((const atomic_t *) &AVZ_shared->dc_event);
+		dc_event = atomic_read((const atomic_t *) &avz_shared->dc_event);
 
 		/* Reset the dc_event now so that the domain can send another dc_event */
-atomic_set((atomic_t *) &AVZ_shared->dc_event, DC_NO_EVENT);
+		atomic_set((atomic_t *) &avz_shared->dc_event, DC_NO_EVENT);
 
 		/* Perform the associated callback function to this particular dc_event */
 		if (rtdm_dc_event_callback[dc_event] != NULL)
@@ -135,9 +125,9 @@ void rtdm_dc_sl_fn(dc_event_t dc_event) {
 static int rtdm_dc_isr(rtdm_irq_t *unused) {
 	dc_event_t dc_event;
 
-	DBG("(ME domid %d): Received directcomm interrupt for event: %d\n", smp_processor_id(), AVZ_shared->dc_event);
+	DBG("(ME domid %d): Received directcomm interrupt for event: %d\n", smp_processor_id(), avz_shared->dc_event);
 
-	dc_event = atomic_read((const atomic_t *) &AVZ_shared->dc_event);
+	dc_event = atomic_read((const atomic_t *) &avz_shared->dc_event);
 
 	/* We should not receive twice a same dc_event, before it has been fully processed. */
 	BUG_ON(atomic_read(&rtdm_dc_incoming_domID[dc_event]) != -1);
@@ -163,12 +153,12 @@ static int rtdm_dc_isr(rtdm_irq_t *unused) {
 		break;
 
 	default:
-		lprintk("%s: something weird happened on CPU %d, RT directcomm interrupt was triggered, but no DC event (%d) was configured !\n", __func__, smp_processor_id(), AVZ_shared->dc_event);
+		lprintk("%s: something weird happened on CPU %d, RT directcomm interrupt was triggered, but no DC event (%d) was configured !\n", __func__, smp_processor_id(), avz_shared->dc_event);
 		break;
 	}
 
 	/* Reset the dc_event now so that the domain can send another dc_event */
-	atomic_set((atomic_t *) &AVZ_shared->dc_event, DC_NO_EVENT);
+	atomic_set((atomic_t *) &avz_shared->dc_event, DC_NO_EVENT);
 
 	return RTDM_IRQ_HANDLED;
 }
@@ -179,7 +169,7 @@ static int rtdm_dc_isr(rtdm_irq_t *unused) {
 void rtdm_vbus_task_fn(void *unused) {
 	int vbus_irq;
 	struct vbus_device dev;
-	int nort_dc_evtchn, evtchn, i, res;
+	int nort_dc_evtchn, i, res;
 	char buf[20];
 	struct vbus_transaction vbt;
 
@@ -188,14 +178,14 @@ void rtdm_vbus_task_fn(void *unused) {
 	 */
 	dev.otherend_id = 0;
 
-	DBG("%s: binding a local event channel (RT side) to the remote evtchn %d in Agency (intf: %lx) ...\n", __func__, __intf_rt->revtchn, __intf_rt);
+	DBG("%s: binding a local event channel (RT side) to the remote evtchn %d in Agency (intf: %lx) ...\n", __func__,
+	 	avz_primary_shared->dom_desc.u.agency.vbstore_evtchn[DOMID_AGENCY_RT], __intf_rt);
 
-	vbus_bind_evtchn(&dev, __intf_rt->revtchn, &evtchn);
+	vbus_bind_evtchn(&dev, avz_primary_shared->dom_desc.u.agency.vbstore_evtchn[DOMID_AGENCY_RT], 
+			(uint32_t *) &avz_shared->dom_desc.u.agency.vbstore_levtchn);
 
-	/* This is our local event channel */
-	__intf_rt->levtchn = evtchn;
-
-	DBG("Local vbstore_evtchn (RT side) is %d (remote is %d)\n", __intf_rt->levtchn, __intf_rt->revtchn);
+	DBG("Local vbstore_evtchn (RT side) is %d (remote is %d)\n", avz_shared->dom_desc.u.agency.vbstore_levtchn,
+				 avz_primary_shared->dom_desc.u.agency.vbstore_evtchn[DOMID_AGENCY_RT]);
 
 	INIT_LIST_HEAD(&rtdm_vbs_state.reply_list);
 
@@ -213,7 +203,9 @@ void rtdm_vbus_task_fn(void *unused) {
 
 	/* Perform the binding with the IRQ used for notification */
 	/* Initialize the shared memory rings to talk to vbstore */
-	vbus_irq = rtdm_bind_evtchn_to_virq_handler(&vbus_vbstore_irq_handle, __intf_rt->levtchn, rtdm_vbus_vbstore_isr, 0, "rtdm_vbus_vbstore_isr", NULL);
+	vbus_irq = rtdm_bind_evtchn_to_virq_handler(&vbus_vbstore_irq_handle, 
+		avz_shared->dom_desc.u.agency.vbstore_levtchn, rtdm_vbus_vbstore_isr, 0, "rtdm_vbus_vbstore_isr", NULL);
+
 	if (vbus_irq < 0) {
 		lprintk(KERN_ERR "RTDM vbus request irq failed %i\n", vbus_irq);
 		BUG();
@@ -258,9 +250,10 @@ void rtdm_vbus_task_fn(void *unused) {
 		BUG();
 	}
 
-	dc_evtchn[0] = evtchn_from_virq(vbus_irq);
+	avz_shared->dom_desc.u.agency.dc_evtchn[DOMID_AGENCY_RT] = evtchn_from_virq(vbus_irq);
 
-	DBG("%s: local event channel bound to directcomm towards non-RT Agency : %d\n", __func__, dc_evtchn[0]);
+	DBG("%s: local event channel bound to directcomm towards non-RT Agency : %d\n", __func__, 
+		avz_shared->dom_desc.u.agency.dc_evtchn[DOMID_AGENCY_RT]);
 
 	/* Entering the watch monitor loop */
 

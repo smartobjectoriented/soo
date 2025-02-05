@@ -47,6 +47,9 @@ typedef struct {
 	/* Must be the first field */
 	vdummy_t vdummy;
 
+	/* Reference to the ring */
+        grant_ref_t ring_ref;
+
 } vdummy_priv_t;
 
 static struct vbus_device *vdummy_dev = NULL;
@@ -107,7 +110,8 @@ static void vdummy_close(struct vbus_device *vdev) {
 	BACK_RING_INIT(&vdummy_priv->vdummy.ring, (&vdummy_priv->vdummy.ring)->sring, PAGE_SIZE);
 	unbind_from_virqhandler(vdummy_priv->vdummy.irq, vdev);
 
-	vbus_unmap_ring_vfree(vdev, vdummy_priv->vdummy.ring.sring);
+	gnttab_unmap(vdummy_priv->vdummy.ring.sring);
+
 	vdummy_priv->vdummy.ring.sring = NULL;
 }
 
@@ -122,7 +126,6 @@ static void vdummy_resume(struct vbus_device *vdev) {
 }
 
 static void vdummy_reconfigured(struct vbus_device *vdev) {
-	unsigned long ring_ref;
 	unsigned int evtchn;
 	vdummy_sring_t *sring;
 	vdummy_priv_t *vdummy_priv = dev_get_drvdata(&vdev->dev);
@@ -133,11 +136,11 @@ static void vdummy_reconfigured(struct vbus_device *vdev) {
 	 * Set up a ring (shared page & event channel) between the agency and the ME.
 	 */
 
-	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
+	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &vdummy_priv->ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
-	DBG("BE: ring-ref=%u, event-channel=%u\n", ring_ref, evtchn);
+	DBG("BE: ring-ref=%u, event-channel=%u\n", vdummy_priv->ring_ref, evtchn);
 
-	vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
+	gnttab_map(vdev->otherend_id, vdummy_priv->ring_ref, (void **) &sring);
 
 	BACK_RING_INIT(&vdummy_priv->vdummy.ring, sring, PAGE_SIZE);
 

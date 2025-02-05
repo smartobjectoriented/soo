@@ -51,6 +51,21 @@
 #include <asm/xen/hypervisor.h>
 #include <asm/mmu_context.h>
 
+#include <lprintk.h>
+#include <soo/uapi/avz.h>
+
+#if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
+char fpe_type[8];
+
+static int __init fpe_setup(char *line)
+{
+	memcpy(fpe_type, line, 8);
+	return 1;
+}
+
+__setup("fpe=", fpe_setup);
+#endif
+
 static int num_standard_resources;
 static struct resource *standard_resources;
 

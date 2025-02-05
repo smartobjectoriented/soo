@@ -22,10 +22,11 @@
 #include <asm/daifflags.h>
 #include <asm/vmap_stack.h>
 
-/* SOO.tech */
+#ifdef CONFIG_SOO
 #include <soo/uapi/soo.h>
 
 #include <soo/evtchn.h>
+#endif /* CONFIG_SOO */
 
 /* Only access this in an NMI enter/exit */
 DEFINE_PER_CPU(struct nmi_ctx, nmi_contexts);
@@ -43,10 +44,12 @@ static void init_irq_stacks(void)
 		per_cpu(irq_stack_ptr, cpu) = p;
 	}
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	/* The RT CPU is not visible as possible CPU but needs a IRQ_STACK as well. */
 	p = arch_alloc_vmap_stack(IRQ_STACK_SIZE, cpu_to_node(AGENCY_RT_CPU));
 	per_cpu(irq_stack_ptr, AGENCY_RT_CPU) = p;
+#endif /* CONFIG_SOO */
+
 }
 #else
 /* irq stack only needs to be 16 byte aligned - not IRQ_STACK_SIZE aligned. */
@@ -64,8 +67,9 @@ static void init_irq_stacks(void)
 void __init init_IRQ(void)
 {
 
-	/* SOO.tech */
+#ifdef CONFIG_SOO
 	virq_init();
+#endif
 
 	init_irq_stacks();
 	irqchip_init();

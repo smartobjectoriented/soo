@@ -37,7 +37,7 @@ if [ "$PLATFORM" == "virt64" ]; then
 else    
 
 	echo Starting on ARM32
-	sudo qemu/build/arm-softmmu/qemu-system-arm $@ ${USR_OPTION} \
+	sudo qemu/build/arm-softmmu/qemu-system-arm $@ ${USR_OPTION} -s \
 		-smp 4 \
 		-serial mon:stdio  \
 		-M virt -cpu cortex-a15 \-device virtio-blk-device,drive=hd0 \

@@ -47,6 +47,9 @@ typedef struct {
 	/* Must be the first field */
 	vuart_t vuart;
 
+	/* Reference to the ring */
+        grant_ref_t ring_ref;
+	
 } vuart_priv_t;
 
 /*
@@ -101,7 +104,7 @@ void del_console(struct vbus_device *vdev_console) {
 	BUG();
 }
 
-void process_response(struct vbus_device *vdev) {
+void process_request(struct vbus_device *vdev) {
 	vuart_priv_t *vuart_priv = dev_get_drvdata(&vdev->dev);
 	vuart_request_t *ring_req;
 	vuart_response_t *ring_rsp;
@@ -136,7 +139,7 @@ void process_response(struct vbus_device *vdev) {
 irqreturn_t vuart_interrupt_bh(int irq, void *dev_id) {
 	struct vbus_device *vdev = (struct vbus_device *) dev_id;
 
-	process_response(vdev);
+	process_request(vdev);
 
 	return IRQ_HANDLED;
 }
@@ -219,7 +222,8 @@ void vuart_close(struct vbus_device *vdev) {
 	BACK_RING_INIT(&vuart_priv->vuart.ring, vuart_priv->vuart.ring.sring, PAGE_SIZE);
 	unbind_from_virqhandler(vuart_priv->vuart.irq, vdev);
 
-	vbus_unmap_ring_vfree(vdev, vuart_priv->vuart.ring.sring);
+	gnttab_unmap(vuart_priv->vuart.ring.sring);
+	
 	vuart_priv->vuart.ring.sring = NULL;
 }
 
@@ -234,7 +238,6 @@ void vuart_resume(struct vbus_device *vdev) {
 }
 
 void vuart_reconfigured(struct vbus_device *vdev) {
-	unsigned long ring_ref;
 	unsigned int evtchn;
 	vuart_sring_t *sring;
 	vuart_priv_t *vuart_priv = dev_get_drvdata(&vdev->dev);
@@ -245,12 +248,12 @@ void vuart_reconfigured(struct vbus_device *vdev) {
 	 * Set up a ring (shared page & event channel) between the agency and the ME.
 	 */
 
-	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
+	vbus_gather(VBT_NIL, vdev->otherend, "ring-ref", "%lu", &vuart_priv->ring_ref, "ring-evtchn", "%u", &evtchn, NULL);
 
 	DBG("BE: ring-ref=%lu, event-channel=%u\n", ring_ref, evtchn);
-
-	vbus_map_ring_valloc(vdev, ring_ref, (void **) &sring);
-
+ 
+        gnttab_map(vdev->otherend_id, vuart_priv->ring_ref, (void **) &sring);
+	 
 	BACK_RING_INIT(&vuart_priv->vuart.ring, sring, PAGE_SIZE);
 
 	vuart_priv->vuart.irq = bind_interdomain_evtchn_to_virqhandler(vdev->otherend_id, evtchn, vuart_interrupt, vuart_interrupt_bh, 0, VUART_NAME "-backend", vdev);
@@ -260,7 +263,7 @@ void vuart_connected(struct vbus_device *vdev) {
 
 	DBG(VUART_PREFIX "Backend connected: %d\n",vdev->otherend_id);
 
-	process_response(vdev);
+	process_request(vdev);
 }
 
 vdrvback_t vuartdrv = {

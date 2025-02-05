@@ -182,13 +182,21 @@ static void __init register_insn_emulation(struct insn_emulation_ops *ops)
 
 	switch (ops->status) {
 	case INSN_DEPRECATED:
-#if 0
+#ifdef CONFIG_LINUXVIRT
+		insn->current_mode = INSN_HW;
+		run_all_cpu_set_hw_mode(insn, true);
+		insn->max = INSN_HW;
+
+#else /* CONFIG_LINUXVIRT */
+
+#ifdef CONFIG_SOO
+		insn->current_mode = INSN_HW;
+		run_all_cpu_set_hw_mode(insn, true);
+#else
 		insn->current_mode = INSN_EMULATE;
 		/* Disable the HW mode if it was turned on at early boot time */
 		run_all_cpu_set_hw_mode(insn, false);
-#else
-		insn->current_mode = INSN_HW;
-		run_all_cpu_set_hw_mode(insn, true);
+#endif /* !CONFIG_SOO */
 		insn->max = INSN_HW;
 #endif
 		break;

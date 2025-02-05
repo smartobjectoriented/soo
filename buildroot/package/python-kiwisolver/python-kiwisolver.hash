@@ -1,3 +1,5 @@
-# Locally calculated
-sha256 48168c0ace18319c649e31907f6d8586f648e503560f506f128798b99393bcdb  python-kiwisolver-1.1.0.tar.gz
-sha256 95c32f73d43fa54d8146badbcbd73b83acb7fa2cc81a7cef7784b3cd33b146a0  LICENSE
+# md5, sha256 from https://pypi.org/pypi/kiwisolver/json
+md5  3e1406c57a4fdce3804096f57a9b4855  kiwisolver-1.4.7.tar.gz
+sha256  9893ff81bd7107f7b685d3017cc6583daadb4fc26e4a888350df530e41980a60  kiwisolver-1.4.7.tar.gz
+# Locally computed sha256 checksums
+sha256  238e69906d7e507a94832b9831131862c4176d58c002b388e2e99db5d83677d2  LICENSE

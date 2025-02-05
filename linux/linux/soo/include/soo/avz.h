@@ -17,12 +17,13 @@
  *
  */
 
+#ifndef AVZ_H
+#define AVZ_H
+
 #include <soo/uapi/avz.h>
 
-extern volatile avz_shared_t *avz_shared;
+#define avz_shared ((smp_processor_id() == 1) ? __avz_shared->subdomain_shared : __avz_shared)
 
-extern void hypercall_trampoline(int hcall, long a0, long a1, long a2, long a3);
+#define avz_primary_shared ((avz_shared_t *) __avz_shared)
 
-#define AVZ_shared ((smp_processor_id() == 1) ? (avz_shared)->subdomain_shared : avz_shared)
-
-#define AVZ_primary_shared ((avz_shared_t *) avz_shared)
+#endif /* AVZ_H */

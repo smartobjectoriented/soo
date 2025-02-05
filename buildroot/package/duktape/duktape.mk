@@ -4,13 +4,14 @@
 #
 ################################################################################
 
-DUKTAPE_VERSION = 2.6.0
+DUKTAPE_VERSION = 2.7.0
 DUKTAPE_SOURCE = duktape-$(DUKTAPE_VERSION).tar.xz
 DUKTAPE_SITE = \
 	https://github.com/svaarala/duktape/releases/download/v$(DUKTAPE_VERSION)
 DUKTAPE_LICENSE = MIT
 DUKTAPE_LICENSE_FILES = LICENSE.txt
 DUKTAPE_INSTALL_STAGING = YES
+DUKTAPE_CPE_ID_VALID = YES
 
 define DUKTAPE_BUILD_CMDS
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D) -f Makefile.sharedlibrary

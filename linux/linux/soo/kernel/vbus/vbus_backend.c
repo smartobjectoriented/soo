@@ -33,15 +33,15 @@
 
 #include <asm/page.h>
 #include <asm/pgtable.h>
+
 #include <soo/hypervisor.h>
 #include <soo/vbstore.h>
+#include <soo/guest_api.h>
+#include <soo/soo.h>
+
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
-#include <soo/guest_api.h>
-#include <soo/uapi/soo.h>
-
-#include <soo/uapi/logbool.h>
-
+ 
 static struct vbus_type vbus_backend;
 
 struct completion backend_initialized;

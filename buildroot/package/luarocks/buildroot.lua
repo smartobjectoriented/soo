@@ -265,10 +265,10 @@ local function generate_hash (rockspec, lcname, rock_file, licenses, digest)
    local f = assert(io.open(fname, 'w'))
    util.printout('write ' .. fname)
    f:write('# computed by luarocks/buildroot\n')
-   f:write('sha256 ' .. digest[rock_file] .. '  ' .. rock_file .. '\n')
+   f:write('sha256  ' .. digest[rock_file] .. '  ' .. rock_file .. '\n')
    for i = 1, #licenses do
       local file = licenses[i]
-      f:write('sha256 ' .. digest[file] .. '  ' .. subdir .. '/' .. file .. '\n')
+      f:write('sha256  ' .. digest[file] .. '  ' .. subdir .. '/' .. file .. '\n')
    end
    f:close()
 end
@@ -350,8 +350,11 @@ function buildroot.command(args)
       return nil, "Error loading rockspec: " .. err
    end
    if rockspec.source.file then
+      rockspec.source.dir = rockspec.source.dir or dir.deduce_base_dir(rockspec.source.file)
       ok, err = fs.unpack_archive(rockspec.source.file)
       if not ok then return nil, err end
+   else
+      rockspec.source.dir = rockspec.source.dir or '.'
    end
 
    if rockspec.source.dir ~= '.' then

@@ -1,1 +1,1 @@
-obj-$(CONFIG_IPIPE)	+= core.o timer.o
+obj-$(CONFIG_XENOMAI)	+= core.o timer.o

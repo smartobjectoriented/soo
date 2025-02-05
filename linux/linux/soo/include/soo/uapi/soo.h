@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Daniel Rossier <daniel.rossier@soo.tech>
- * Copyright (C) 2016, 2018 Baptiste Delporte <bonel@bonel.net>
+ * Copyright (C) 2014-2025 Daniel Rossier <daniel.rossier@heig-vd.ch>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,11 +16,15 @@
  *
  */
 
-#ifndef SOO_H
-#define SOO_H
+#ifndef UAPI_SOO_H
+#define UAPI_SOO_H
 
 #ifndef __ASSEMBLY__
-#include <soo/uapi/me_access.h>
+
+/* This signature is used to check the coherency of the ME image, after a migration
+ * or a restoration for example.
+ */
+#define SOO_ME_SIGNATURE	"SooZ"
 
 #define MAX_ME_DOMAINS	5
 
@@ -33,32 +36,214 @@
 #define AGENCY_RT_CPU	 1
 
 #ifndef __ASSEMBLY__
-#ifdef __KERNEL__
-
-/* For struct list_head */
-#if !defined(__AVZ__)
-#include <linux/types.h>
-#include <linux/string.h>
-#else
-#include <list.h>
-#endif
 
 #include <asm/atomic.h>
 
-#else /* __KERNEL__ */
+#ifndef DOMID_T
+#define DOMID_T
+typedef uint16_t domid_t;
+typedef unsigned long addr_t;
+#endif
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
+typedef uint32_t grant_ref_t;
 
-typedef unsigned short uint16_t;
+/* Grant table management */
+#define GRANT_INVALID_REF	0
 
-#endif /* !__KERNEL__ */
+/* List of grant table commands which are processed by the hypervisor */
+
+#define GNTTAB_grant_page       1
+#define GNTTAB_revoke_page      2
+#define GNTTAB_map_page         3
+#define GNTTAB_unmap_page       4
+
+struct gnttab_op {
+
+        /* Command to be processed in the hypercall */
+        uint32_t cmd;
+
+        /* Peer domain */
+        domid_t domid;
+
+        /* pfn to be granted or pfn associated to an existing ref */
+        addr_t pfn;
+
+        /* Grant reference */
+        grant_ref_t ref;
+
+};
+typedef struct gnttab_op gnttab_op_t;
+
+void do_gnttab(gnttab_op_t *args);
+
+/* Event channel management */
+
+#define ECS_FREE         0 /* Channel is available for use.                  */
+#define ECS_RESERVED     1 /* Channel is reserved.                           */
+#define ECS_UNBOUND      2 /* Channel is waiting to bind to a remote domain. */
+#define ECS_INTERDOMAIN  3 /* Channel is bound to another domain.            */
+#define ECS_VIRQ         4 /* Channel is bound to a virtual IRQ line.        */
+
+#define EVTCHNSTAT_closed       0  /* Channel is not in use.                 */
+#define EVTCHNSTAT_unbound      1  /* Channel is waiting interdom connection.*/
+#define EVTCHNSTAT_interdomain  2  /* Channel is connected to remote domain. */
+#define EVTCHNSTAT_virq         3  /* Channel is bound to a virtual IRQ line */
+/*
+ * EVTCHNOP_alloc_unbound: Allocate a evtchn in domain <dom> and mark as
+ * accepting interdomain bindings from domain <remote_dom>. A fresh evtchn
+ * is allocated in <dom> and returned as <evtchn>.
+ * NOTES:
+ *  1. If the caller is unprivileged then <dom> must be DOMID_SELF.
+ *  2. <rdom> may be DOMID_SELF, allowing loopback connections.
+ */
+#define EVTCHNOP_alloc_unbound    6
+struct evtchn_alloc_unbound {
+    /* IN parameters */
+    domid_t dom, remote_dom;
+    /* OUT parameters */
+    uint32_t evtchn;
+    uint32_t use;
+};
+typedef struct evtchn_alloc_unbound evtchn_alloc_unbound_t;
+
+/*
+ * EVTCHNOP_bind_interdomain: Construct an interdomain event channel between
+ * the calling domain and <remote_dom>. <remote_dom,remote_evtchn> must identify
+ * a evtchn that is unbound and marked as accepting bindings from the calling
+ * domain. A fresh evtchn is allocated in the calling domain and returned as
+ * <local_evtchn>.
+ * NOTES:
+ *  2. <remote_dom> may be DOMID_SELF, allowing loopback connections.
+ */
+#define EVTCHNOP_bind_interdomain     	      0
+#define EVTCHNOP_bind_existing_interdomain    7
+#define EVTCHNOP_unbind_domain 		      12
+
+struct evtchn_bind_interdomain {
+    /* IN parameters. */
+    domid_t remote_dom;
+    uint32_t remote_evtchn;
+    uint32_t use;
+    /* OUT parameters. */
+    uint32_t local_evtchn;
+};
+typedef struct evtchn_bind_interdomain evtchn_bind_interdomain_t;
+
+#define EVTCHNOP_bind_virq        1
+struct evtchn_bind_virq {
+    /* IN parameters. */
+    uint32_t virq;
+    /* OUT parameters. */
+    uint32_t evtchn;
+};
+typedef struct evtchn_bind_virq evtchn_bind_virq_t;
+
+/*
+ * EVTCHNOP_close: Close a local event channel <evtchn>. If the channel is
+ * interdomain then the remote end is placed in the unbound state
+ * (EVTCHNSTAT_unbound), awaiting a new connection.
+ */
+#define EVTCHNOP_close            3
+struct evtchn_close {
+    /* IN parameters. */
+    uint32_t evtchn;
+};
+typedef struct evtchn_close evtchn_close_t;
+
+/*
+ * EVTCHNOP_send: Send an event to the remote end of the channel whose local
+ * endpoint is <evtchn>.
+ */
+#define EVTCHNOP_send             4
+struct evtchn_send {
+    /* IN parameters. */
+    uint32_t evtchn;
+};
+typedef struct evtchn_send evtchn_send_t;
+
+struct evtchn_op {
+    uint32_t cmd; /* EVTCHNOP_* */
+    union {
+        struct evtchn_alloc_unbound    alloc_unbound;
+        struct evtchn_bind_interdomain bind_interdomain;
+        struct evtchn_bind_virq        bind_virq;
+        struct evtchn_close            close;
+	struct evtchn_send             send;
+    } u;
+};
+typedef struct evtchn_op evtchn_op_t;
+ 
+/* Domain control management */
+/*
+ * There are two main scheduling policies: the one used for normal (standard) ME, and
+ * a second one used for realtime ME.
+ */
+#define AVZ_SCHEDULER_FLIP	0
+#define AVZ_SCHEDULER_RT	1
+
+#define DOMCTL_pauseME       	1
+#define DOMCTL_unpauseME     	2
+#define DOMCTL_get_AVZ_shared	3
+
+struct domctl {
+    uint32_t cmd;
+    domid_t  domain;
+    addr_t avz_shared_paddr;    
+};
+typedef struct domctl domctl_t;
+
+/*
+ * ME states:
+ * - ME_state_booting:		ME is currently booting...
+ * - ME_state_living:		ME is full-functional and activated (all frontend devices are consistent)
+ * - ME_state_suspended:	ME is suspended before migrating. This state is maintained for the resident ME instance
+ * - ME_state_hibernate:	ME is in a state of hibernate snapshot
+ * - ME_state_resuming:         ME ready to perform resuming (after recovering)
+ * - ME_state_awakened:         ME is just being awakened
+ * - ME_state_terminated:	ME has been terminated (by a force_terminate)
+ * - ME_state_dead:		ME does not exist
+ */
+typedef enum {
+	ME_state_booting,
+	ME_state_living,
+	ME_state_suspended,
+	ME_state_hibernate,
+	ME_state_resuming,
+        ME_state_awakened,
+	ME_state_killed,
+	ME_state_terminated,
+	ME_state_dead
+} ME_state_t;
+
+/* Keep information about slot availability
+ * FREE:	the slot is available (no ME)
+ * BUSY:	the slot is allocated a ME
+ */
+typedef enum {
+	ME_SLOT_FREE,
+	ME_SLOT_BUSY
+} ME_slotState_t;
+
+/* ME ID related information */
+#define ME_NAME_SIZE				40
+#define ME_SHORTDESC_SIZE			1024
+
+/*
+ * Definition of ME ID information used by functions which need
+ * to get a list of running MEs with their information.
+ */
+typedef struct {
+	uint32_t slotID;
+	ME_state_t state;
+
+	uint64_t spid;
+
+	char name[ME_NAME_SIZE];
+	char shortdesc[ME_SHORTDESC_SIZE];
+} ME_id_t;
 
 struct work_struct;
 struct semaphore;
-
-typedef uint16_t domid_t;
 
 /*
  * Directcomm event management
@@ -81,19 +266,8 @@ typedef enum {
  */
 typedef void(dc_event_fn_t)(dc_event_t dc_event);
 
-#ifdef __KERNEL__
-
 extern atomic_t dc_outgoing_domID[DC_EVENT_MAX];
 extern atomic_t dc_incoming_domID[DC_EVENT_MAX];
-
-#endif /* __KERNEL__ */
-
-#ifdef __KERNEL__
-
-void set_pfn_offset(int pfn_offset);
-int get_pfn_offset(void);
-
-#endif /* __KERNEL__ */
 
 /*
  * IOCTL commands for migration.
@@ -111,15 +285,32 @@ int get_pfn_offset(void);
 #define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 5, agency_ioctl_args_t)
 #define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 6, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID			_IOWR('S', 7, agency_ioctl_args_t)
-#define AGENCY_IOCTL_GET_UPGRADE_IMG	 	_IOR('S', 8, agency_ioctl_args_t)
-#define AGENCY_IOCTL_STORE_VERSIONS	 	_IOW('S', 9, agency_ioctl_args_t)
-#define AGENCY_IOCTL_GET_ME_SNAPSHOT		_IOWR('S', 10, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 11, agency_ioctl_args_t)
 #define AGENCY_IOCTL_BLACKLIST_SOO		_IOW('S', 12, agency_ioctl_args_t)
 
 #define SOO_NAME_SIZE				16
 
-#ifdef __KERNEL__
+/*
+ * ME descriptor
+ *
+ * WARNING !! Be careful when modifying this structure. It *MUST* be aligned with
+ * the same structure used in the ME.
+ */
+typedef struct {
+	unsigned int	slotID;
+        uint64_t        spid;
+
+	ME_state_t	state;
+
+	unsigned int	size; /* Size of the ME with the struct dom_context size */
+        unsigned int    dc_evtchn;
+
+        unsigned int    vbstore_revtchn, vbstore_levtchn;
+        addr_t          vbstore_pfn;
+
+        void (*resume_fn)(void);
+
+} ME_desc_t;
 
 /*
  * Agency descriptor
@@ -133,56 +324,16 @@ typedef struct {
 
 	uint64_t agencyUID; /* Agency UID */
 
+        /* Event channels used for directcomm channel between agency and agency-RT or ME */
+        unsigned int dc_evtchn[MAX_DOMAINS];
+        
+        /* Event channels used by vbstore */
+        unsigned int vbstore_evtchn[MAX_DOMAINS];
+
+        /* Local agency event channel for vbstore */
+        uint32_t vbstore_levtchn;
+
 } agency_desc_t;
-
-#endif /* __KERNEL__ */
-
-/* This part is shared between the kernel and user spaces */
-
-#ifdef __KERNEL__
-
-/*
- * Device Capabilities (Devcaps)
- *
- * The agency holds a table of devcaps (device capabilities).
-
- * A device capability is a 32-bit number.
- *
- * DEVCAPS are organized in classes and attributes. For each devcaps, the 8 first higher bits are the
- * class number while attributes are encoded in the 24 lower bits.
- *
- * A devcap class represents a global functionality while devcap attributes are the *real* devcaps belongig to a specific class.
- *
- */
-
-#define DEVCAPS_CLASS_FRAMEBUFFER	0x01000000
-#define DEVCAP_FRAMEBUFFER_FB0		(1 << 0)
-
-#define DEVCAPS_CLASS_INPUT		0x02000000
-#define DEVCAP_INPUT_EVENT		(1 << 0)
-#define DEVCAP_REMOTE_TABLET		(1 << 1)
-
-#define DEVCAPS_CLASS_COMM		0x03000000
-#define DEVCAP_COMM_UIHANDLER		(1 << 0)
-
-#define DEVCAPS_CLASS_LED		0x04000000
-#define DEVCAP_LED_RGB_SHIELD		(1 << 0)
-#define DEVCAP_LED_6LED			(1 << 1)
-
-#define DEVCAPS_CLASS_NET		0x05000000
-
-#define DEVCAPS_CLASS_DOMOTICS		0x06000000
-#define DEVCAP_BLIND_MOTOR		(1 << 0)
-#define DEVCAP_WEATHER_DATA		(1 << 1)
-
-/*
- * This devcap class is intended to be replaced by a generic framebuffer devcap in a near future.
- */
-#define DEVCAPS_CLASS_APP		0x07000000
-#define DEVCAP_APP_BLIND		(1 << 0)
-#define DEVCAP_APP_OUTDOOR		(1 << 1)
-
-#define DEVCAPS_CLASS_NR		16
 
 /*
  * SOO agency & ME descriptor - This structure is used in the shared info page of the agency or ME domain.
@@ -195,8 +346,6 @@ typedef struct {
 	} u;
 } dom_desc_t;
 
-#endif /* __KERNEL__ */
-
 /* struct agency_ioctl_args used in IOCTLs */
 typedef struct agency_ioctl_args {
 	void	*buffer; /* IN/OUT */
@@ -204,66 +353,11 @@ typedef struct agency_ioctl_args {
 	long	value;   /* IN/OUT */
 } agency_ioctl_args_t;
 
-typedef struct {
-    unsigned int itb;
-    unsigned int uboot;
-    unsigned int rootfs;
-} upgrade_versions_args_t;
-
-#ifdef __KERNEL__
-
-/*
- * SOO hypercall management
- */
-
-typedef struct {
-	unsigned int domID;
-	dc_event_t dc_event;
-	int state;
-} soo_hyp_dc_event_t;
-
-
-typedef struct {
-	unsigned int	pid;
-	unsigned int	addr;
-} dump_page_t;
-
-
-#endif /* __KERNEL__ */
-
-/* This part is shared between the kernel and user spaces */
-
-/*
- * ME uevent-type events
- */
-
-#define ME_EVENT_NR			6
-
-#define ME_FORCE_TERMINATE		0
-#define ME_PRE_SUSPEND			1
-#define ME_PRE_RESUME			2
-#define ME_LOCALINFO_UPDATE		3
-#define ME_POST_ACTIVATE		4
-#define ME_IMEC_SETUP_PEER		5
-
-#ifdef __KERNEL__
 
 #define NSECS           	1000000000ull
 #define SECONDS(_s)     	((u64)((_s)  * 1000000000ull))
 #define MILLISECS(_ms)  	((u64)((_ms) * 1000000ull))
 #define MICROSECS(_us)  	((u64)((_us) * 1000ull))
-
-/* Periods are expressed in ns as it is used by the function APIs */
-
-#define SL_TX_REQUEST_TASK_PRIO		50
-#define SL_SEND_TASK_PRIO		50
-#define SL_RECV_TASK_PRIO		50
-
-#define SL_PLUGIN_WLAN_TASK_PRIO	50
-#define SL_PLUGIN_ETHERNET_TASK_PRIO	50
-#define SL_PLUGIN_TCP_TASK_PRIO		50
-#define SL_PLUGIN_BLUETOOTH_TASK_PRIO	50
-#define SL_PLUGIN_LOOPBACK_TASK_PRIO	50
 
 #define VBUS_TASK_PRIO			50
 
@@ -277,31 +371,6 @@ typedef struct {
 #define SDIO_IRQ_TASK_PRIO		50
 #define SDHCI_FINISH_TASK_PRIO		50
 
-/* Soolink definition */
-
-/* Discovery */
-
-#define DISCOVERY_TASK_PRIO		50
-#define DISCOVERY_TASK_PERIOD_MS	1000
-
-/* Soolink Coder */
-
-#define CODER_TASK_PRIO			50
-
-/* Soolink Decoder */
-
-#define DECODER_WATCHDOG_TASK_PRIO	50
-#define DECODER_WATCHDOG_TASK_PERIOD_MS 1000
-
-/* Soolink Winenet Datalink */
-
-#define WINENET_TASK_PRIO               50
-
-/* Tests related */
-#define PLUGIN_TEST_TASK_PRIO		50
-#define TRANSCODER_TEST_TASK_PRIO	50
-#define DISCOVERY_TEST_TASK_PRIO	50
-
 #ifndef __ASSEMBLY__
 
 extern volatile bool __cobalt_ready;
@@ -310,78 +379,136 @@ void rtdm_register_dc_event_callback(dc_event_t dc_event, dc_event_fn_t *callbac
 
 #endif /* __ASSEMBLY__ */
 
-/* Hypercall commands */
-#define AVZ_MIG_PRE_PROPAGATE		0
-#define AVZ_MIG_PRE_ACTIVATE		1
-#define AVZ_MIG_INIT			2
-#define AVZ_MIG_PUT_ME_INFO		3
-#define AVZ_GET_ME_FREE_SLOT		4
-#define AVZ_MIG_PUT_ME_SLOT		5
-#define AVZ_MIG_READ_MIGRATION_STRUCT	6
-#define AVZ_MIG_WRITE_MIGRATION_STRUCT	7
-#define AVZ_MIG_FINAL			8
+/* Console management */
+
+#define CONSOLE_IO_KEYHANDLER           0
+#define CONSOLE_IO_PRINTCH              1
+#define CONSOLE_IO_PRINTSTR             2
+
+#define CONSOLE_STR_MAX_LEN             128
+
+typedef struct {
+        int cmd;
+        union {
+                char c;
+                char str[CONSOLE_STR_MAX_LEN];
+        } u;
+} console_t;
+
+/*
+ * SOO hypercall management
+ */
+
+/* AVZ hypercalls devoted to SOO */
+#define AVZ_ME_READ_SNAPSHOT   	        6
+#define AVZ_ME_WRITE_SNAPSHOT  	        7
 #define AVZ_INJECT_ME			9
 #define AVZ_KILL_ME			10
-#define AVZ_DC_SET			11
-#define AVZ_DC_RELEASE			12
+#define AVZ_DC_EVENT_SET		11
 #define AVZ_GET_ME_STATE		13
 #define AVZ_SET_ME_STATE		14
-#define AVZ_AGENCY_CTL			15
 #define AVZ_GET_DOM_DESC		16
-#define AVZ_TRIGGER_LOCAL_COOPERATION	17
+#define AVZ_EVENT_CHANNEL_OP		17
+#define AVZ_CONSOLE_IO_OP		18
+#define AVZ_DOMAIN_CONTROL_OP           19
+#define AVZ_GRANT_TABLE_OP              20
 
-/*
- * General structure to use with the SOO migration hypercall
- */
-typedef struct migrate_op {
-	int		cmd;
-	unsigned long	vaddr;
-	unsigned long	paddr;
-	void		*p_val1;
-	void		*p_val2;
-} soo_hyp_t;
-
-/*
- * SOO domcalls management
- */
-
+/* AVZ_EVENT_CHANNEL_OP */
 typedef struct {
-	void *val;
-} pre_activate_args_t;
+        evtchn_op_t evtchn_op;
+} avz_evtchn_t;
 
-/*
- * pre_propagate to tell the agency if the ME must be propagated or not.
- */
-#define PROPAGATE_STATUS_YES 	1
-#define PROPAGATE_STATUS_NO	0
-
+/* AVZ_INJECT_ME */
 typedef struct {
-	int propagate_status;
-} pre_propagate_args_t;
+        void *itb_paddr;
+        int slotID;
+} avz_inject_me_t;
 
-/* Cooperate roles */
-#define COOPERATE_INITIATOR	0x1
-#define COOPERATE_TARGET	0x2
-
+/* AVZ_DC_EVENT_SET */
 typedef struct {
+	unsigned int domID;
+	dc_event_t dc_event;
+	int state;
+} avz_dc_event_t;
+
+/* AVZ_GET_ME_STATE */
+/* AVZ_SET_ME_STATE */
+typedef struct {
+        uint32_t slotID;
+        int state;
+} avz_me_state_t;
+
+/* AVZ_GET_DOM_DESC */
+typedef struct {
+        uint32_t slotID;
+        dom_desc_t dom_desc;
+} avz_dom_desc_t;
+
+/* AVZ_GET_ME_FREE_SLOT */
+typedef struct {
+        int slotID;
+        int size;
+} avz_free_slot_t;
+
+/* AVZ_MIG_INIT */
+typedef struct {
+        int slotID;
+} avz_mig_init_t;
+
+/* AVZ_READ_SNAPSHOT */
+/* AVZ_WRITE_SNAPSHOT */
+typedef struct {
+	void *snapshot_paddr;
 	uint32_t slotID;
-	uint64_t spid;
-	spad_t spad;
-	addr_t pfn;
-} coop_t;
+        int size;
+} avz_snapshot_t;
 
+/* AVZ_MIG_FINAL */
 typedef struct {
+        uint32_t slotID;
+} avz_mig_final_t;
 
-	int role; /* Specific to each ME (see drivers/soo/soo_core.c */
+/* AVZ_KILL_ME */
+typedef struct {
+        uint32_t slotID;
+} avz_kill_me_t;
 
-	bool alone; /* true if there is no ME in this SOO */
+/* AVZ_CONSOLE_IO_OP */
+typedef struct {
+        console_t console;
+} avz_console_io_t;
 
+/* AVZ_DOMAIN_CONTROL_OP */
+typedef struct {
+        domctl_t domctl;
+} avz_domctl_t;
+
+/* AVZ_GRANT_TABLE_OP */
+typedef struct {
+        gnttab_op_t gnttab_op;
+} avz_gnttab_t;
+
+/*
+ * AVZ hypercall argument
+ */
+typedef struct {
+        int cmd;
 	union {
-		coop_t target_coop;
-		coop_t initiator_coop;
-	} u;
-
-} cooperate_args_t;
+                avz_evtchn_t avz_evtchn;
+                avz_inject_me_t avz_inject_me_args;
+                avz_dc_event_t avz_dc_event_args;
+                avz_me_state_t avz_me_state_args;
+                avz_dom_desc_t avz_dom_desc_args;
+                avz_free_slot_t avz_free_slot_args;
+                avz_mig_init_t avz_mig_init_args;
+                avz_snapshot_t avz_snapshot_args;
+                avz_mig_final_t avz_mig_final_args;
+                avz_kill_me_t avz_kill_me_args;
+                avz_console_io_t avz_console_io_args;
+                avz_domctl_t avz_domctl_args;
+                avz_gnttab_t avz_gnttab_args;
+        } u;
+} avz_hyp_t;
 
 typedef struct {
 	void *val;
@@ -400,56 +527,14 @@ typedef struct {
  * !! WARNING !! The ME must implement the same definitions.
  */
 
-#define AG_AGENCY_UPGRADE	0x10
 #define AG_INJECT_ME		0x11
 #define AG_KILL_ME		0x12
-#define AG_COOPERATE		0x13
-#define AG_LOCAL_COOPERATE 	0x14
-
-#define AG_AGENCY_UID		0x20
-#define AG_SOO_NAME		0x21
-
-#define AG_CHECK_DEVCAPS_CLASS	0x30
-#define AG_CHECK_DEVCAPS	0x31
-
-/* AG_SKIP_ACTIVATION args */
-
-typedef struct {
-	unsigned int delay;  /* at the moment, 0 means definitively, otherwise during a certain time (unit to be defined) */
-	void *pfn; /* pfn of the ME's data buffer */
-} skip_activation_args_t;
-
-typedef struct {
-	uint32_t	class;
-	uint8_t		devcaps;
-	bool		supported;   /* OUT */
-} devcaps_args_t;
 
 typedef struct {
 	char	soo_name[SOO_NAME_SIZE];
 } soo_name_args_t;
 
-typedef struct {
-    addr_t buffer_pfn;
-    uint32_t buffer_len;
-} agency_upgrade_args_t;
-
-/* agency_ctl args */
-
-typedef struct {
-	unsigned int slotID;
-	unsigned int cmd;
-
-	union {
-		coop_t cooperate_args;
-		uint64_t agencyUID;
-		devcaps_args_t devcaps_args;
-		soo_name_args_t soo_name_args;
-		agency_upgrade_args_t agency_upgrade_args;
-	} u;
-
-} agency_ctl_args_t;
-
+ 
 /*
  * SOO callback functions.
  * The following definitions are used as argument in domcalls or in the
@@ -457,16 +542,10 @@ typedef struct {
  *
  */
 
-#define CB_PRE_PROPAGATE	1
-#define CB_PRE_ACTIVATE		2
-#define CB_COOPERATE		3
 #define CB_PRE_SUSPEND		4
 #define CB_PRE_RESUME		5
 #define CB_POST_ACTIVATE	6
-#define CB_DUMP_BACKTRACE	7
-#define CB_DUMP_VBSTORE		8
 #define CB_AGENCY_CTL		9
-#define CB_KILL_ME		10
 
 typedef struct soo_domcall_arg {
 
@@ -477,36 +556,17 @@ typedef struct soo_domcall_arg {
 	unsigned int			slotID; /* Origin of the domcall */
 
 	union {
-		pre_propagate_args_t	pre_propagate_args;
-		pre_activate_args_t	pre_activate_args;
-		cooperate_args_t	cooperate_args;
-
 		pre_suspend_args_t	pre_suspend_args;
 		pre_resume_args_t	pre_resume_args;
 
 		post_activate_args_t	post_activate_args;
 		ME_state_t		set_me_state_args;
-
-		agency_ctl_args_t	agency_ctl_args;
 	} u;
-
-	/* Reference to the agency_ctl() function implemented in AVZ.
-	 * Used for some function calls initiated by the ME. In this context,
-	 * this function can be considered as a short-path-hypercall.
-	 */
-	void (*__agency_ctl)(agency_ctl_args_t *);
 
 } soo_domcall_arg_t;
 
 extern struct semaphore usr_feedback;
 extern struct semaphore injection_sem;
-
-void soo_hypercall(int cmd, void *vaddr, void *paddr, void *p_val1, void *p_val2);
-
-void cb_pre_propagate(soo_domcall_arg_t *args);
-
-/* Specific ME callbacks issued from the Agency */
-void cb_pre_activate(soo_domcall_arg_t *args);
 
 /* Callbacks initiated by agency ping */
 void cb_pre_resume(soo_domcall_arg_t *args);
@@ -514,7 +574,6 @@ void cb_pre_suspend(soo_domcall_arg_t *args);
 
 void cb_cooperate(soo_domcall_arg_t *args);
 void cb_post_activate(soo_domcall_arg_t *args);
-void cb_kill_me(soo_domcall_arg_t *args);
 
 void cb_force_terminate(void);
 
@@ -534,15 +593,10 @@ void do_async_dom(int slotID, dc_event_t);
 
 void perform_task(dc_event_t dc_event);
 
-int pick_next_uevent(void);
-
 void shutdown_ME(unsigned int ME_slotID);
 
 void cache_flush_all(void);
 
-void check_terminated_ME(void);
-
-#endif /* __KERNEL__ */
 #endif /* __ASSEMBLY__ */
 
-#endif /* SOO_H */
+#endif /* UAPI_SOO_H */

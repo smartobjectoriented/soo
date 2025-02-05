@@ -4,12 +4,16 @@
 #
 ################################################################################
 
-BUSYBOX_VERSION = 1.35.0
+BUSYBOX_VERSION = 1.36.1
 BUSYBOX_SITE = https://www.busybox.net/downloads
 BUSYBOX_SOURCE = busybox-$(BUSYBOX_VERSION).tar.bz2
 BUSYBOX_LICENSE = GPL-2.0, bzip2-1.0.4
 BUSYBOX_LICENSE_FILES = LICENSE archival/libarchive/bz/LICENSE
 BUSYBOX_CPE_ID_VENDOR = busybox
+
+# 0003-libbb-sockaddr2str-ensure-only-printable-characters-.patch
+# 0004-nslookup-sanitize-all-printed-strings-with-printable.patch
+BUSYBOX_IGNORE_CVES += CVE-2022-28391
 
 BUSYBOX_CFLAGS = \
 	$(TARGET_CFLAGS)
@@ -48,7 +52,7 @@ BUSYBOX_DEPENDENCIES = \
 	$(if $(BR2_PACKAGE_MTD),mtd) \
 	$(if $(BR2_PACKAGE_NET_TOOLS),net-tools) \
 	$(if $(BR2_PACKAGE_NETCAT),netcat) \
-	$(if $(BR2_PACKAGE_NETCAT_OPENSBSD),netcat-openbsd) \
+	$(if $(BR2_PACKAGE_NETCAT_OPENBSD),netcat-openbsd) \
 	$(if $(BR2_PACKAGE_NMAP),nmap) \
 	$(if $(BR2_PACKAGE_NTP),ntp) \
 	$(if $(BR2_PACKAGE_PCIUTILS),pciutils) \
@@ -64,6 +68,7 @@ BUSYBOX_DEPENDENCIES = \
 	$(if $(BR2_PACKAGE_UNZIP),unzip) \
 	$(if $(BR2_PACKAGE_USBUTILS),usbutils) \
 	$(if $(BR2_PACKAGE_UTIL_LINUX),util-linux) \
+	$(if $(BR2_PACKAGE_TINYINIT),tinyinit) \
 	$(if $(BR2_PACKAGE_VIM),vim) \
 	$(if $(BR2_PACKAGE_WATCHDOG),watchdog) \
 	$(if $(BR2_PACKAGE_WGET),wget) \
@@ -102,6 +107,9 @@ BUSYBOX_MAKE_OPTS = \
 	CONFIG_PREFIX="$(TARGET_DIR)" \
 	SKIP_STRIP=y
 
+# specifying BUSYBOX_CONFIG_FILE on the command-line overrides the .config
+# setting.
+# check-package disable Ifdef
 ifndef BUSYBOX_CONFIG_FILE
 BUSYBOX_CONFIG_FILE = $(call qstrip,$(BR2_PACKAGE_BUSYBOX_CONFIG))
 endif
@@ -155,6 +163,10 @@ define BUSYBOX_SET_MDEV
 	$(call KCONFIG_ENABLE_OPT,CONFIG_FEATURE_MDEV_EXEC)
 	$(call KCONFIG_ENABLE_OPT,CONFIG_FEATURE_MDEV_LOAD_FIRMWARE)
 endef
+endif
+
+ifeq ($(BR2_PACKAGE_LIBXCRYPT),y)
+BUSYBOX_DEPENDENCIES += libxcrypt
 endif
 
 # sha passwords need USE_BB_CRYPT_SHA
@@ -269,6 +281,15 @@ define BUSYBOX_INSTALL_INDIVIDUAL_BINARIES
 endef
 endif
 
+# Disable SHA1 and SHA256 HWACCEL to avoid segfault in init
+# with some x86 toolchains (mostly musl?).
+ifeq ($(BR2_i386),y)
+define BUSYBOX_MUSL_DISABLE_SHA_HWACCEL
+	$(call KCONFIG_DISABLE_OPT,CONFIG_SHA1_HWACCEL)
+	$(call KCONFIG_DISABLE_OPT,CONFIG_SHA256_HWACCEL)
+endef
+endif
+
 # Only install our logging scripts if no other package does it.
 ifeq ($(BR2_PACKAGE_SYSKLOGD)$(BR2_PACKAGE_RSYSLOG)$(BR2_PACKAGE_SYSLOG_NG),)
 define BUSYBOX_INSTALL_LOGGING_SCRIPT
@@ -293,6 +314,29 @@ define BUSYBOX_INSTALL_SYSCTL_SCRIPT
 		$(INSTALL) -m 0755 -D package/busybox/S02sysctl \
 			$(TARGET_DIR)/etc/init.d/S02sysctl ; \
 	fi
+endef
+endif
+
+# Only install our crond script if no other package does it.
+ifeq ($(BR2_PACKAGE_DCRON),)
+define BUSYBOX_INSTALL_CROND_SCRIPT
+	if grep -q CONFIG_CROND=y $(@D)/.config; \
+	then \
+		mkdir -p $(TARGET_DIR)/etc/cron/crontabs ; \
+		$(INSTALL) -m 0755 -D package/busybox/S50crond \
+			$(TARGET_DIR)/etc/init.d/S50crond; \
+	fi;
+endef
+endif
+
+# Only install our ifplugd script if no other package does it.
+ifeq ($(BR2_PACKAGE_IFPLUGD),)
+define BUSYBOX_INSTALL_IFPLUGD_SCRIPT
+	if grep -q CONFIG_IFPLUGD=y $(@D)/.config; \
+	then \
+		$(INSTALL) -m 0755 -D package/busybox/S41ifplugd \
+			$(TARGET_DIR)/etc/init.d/S41ifplugd; \
+	fi;
 endef
 endif
 
@@ -357,6 +401,7 @@ endef
 BUSYBOX_TARGET_FINALIZE_HOOKS += BUSYBOX_INSTALL_ADD_TO_SHELLS
 
 define BUSYBOX_KCONFIG_FIXUP_CMDS
+	$(BUSYBOX_MUSL_DISABLE_SHA_HWACCEL)
 	$(BUSYBOX_SET_MMU)
 	$(BUSYBOX_PREFER_STATIC)
 	$(BUSYBOX_SET_MDEV)
@@ -390,6 +435,8 @@ define BUSYBOX_INSTALL_INIT_OPENRC
 	$(BUSYBOX_INSTALL_MDEV_SCRIPT)
 	$(BUSYBOX_INSTALL_LOGGING_SCRIPT)
 	$(BUSYBOX_INSTALL_WATCHDOG_SCRIPT)
+	$(BUSYBOX_INSTALL_IFPLUGD_SCRIPT)
+	$(BUSYBOX_INSTALL_CROND_SCRIPT)
 	$(BUSYBOX_INSTALL_TELNET_SCRIPT)
 endef
 
@@ -402,6 +449,8 @@ define BUSYBOX_INSTALL_INIT_SYSV
 	$(BUSYBOX_INSTALL_LOGGING_SCRIPT)
 	$(BUSYBOX_INSTALL_WATCHDOG_SCRIPT)
 	$(BUSYBOX_INSTALL_SYSCTL_SCRIPT)
+	$(BUSYBOX_INSTALL_IFPLUGD_SCRIPT)
+	$(BUSYBOX_INSTALL_CROND_SCRIPT)
 	$(BUSYBOX_INSTALL_TELNET_SCRIPT)
 endef
 

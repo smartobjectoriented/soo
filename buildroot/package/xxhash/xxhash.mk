@@ -4,30 +4,34 @@
 #
 ################################################################################
 
-XXHASH_VERSION = 0.8.1
+XXHASH_VERSION = 0.8.2
 XXHASH_SITE = $(call github,Cyan4973,xxHash,v$(XXHASH_VERSION))
 XXHASH_LICENSE = BSD-2-Clause (library), GPL-2.0+ (xxhsum)
 XXHASH_LICENSE_FILES = LICENSE cli/COPYING
 XXHASH_INSTALL_STAGING = YES
 
-XXHASH_TARGETS = xxhsum
-XXHASH_INSTALL_TARGETS = install_xxhsum
+# The package is a dependency to ccache so ccache cannot be a dependency
+HOST_XXHASH_ADD_CCACHE_DEPENDENCY = NO
 
-ifeq ($(BR2_STATIC_LIBS),y)
-XXHASH_TARGETS += libxxhash.a libxxhash.pc
-XXHASH_INSTALL_TARGETS += install_libxxhash.a install_libxxhash.pc
-else ifeq ($(BR2_SHARED_LIBS),y)
-XXHASH_TARGETS += libxxhash libxxhash.pc
-XXHASH_INSTALL_TARGETS += install_libxxhash install_libxxhash.pc
-else ifeq ($(BR2_SHARED_STATIC_LIBS),y)
-XXHASH_TARGETS += libxxhash.a libxxhash libxxhash.pc
-XXHASH_INSTALL_TARGETS += \
-	install_libxxhash.a install_libxxhash install_libxxhash.pc
+XXHASH_TARGETS = xxhsum libxxhash.pc
+XXHASH_INSTALL_TARGETS = \
+	install_libxxhash.includes \
+	install_libxxhash.pc \
+	install_xxhsum
+
+ifeq ($(BR2_STATIC_LIBS)$(BR2_SHARED_STATIC_LIBS),y)
+XXHASH_TARGETS += libxxhash.a
+XXHASH_INSTALL_TARGETS += install_libxxhash.a
+endif
+
+ifeq ($(BR2_SHARED_LIBS)$(BR2_SHARED_STATIC_LIBS),y)
+XXHASH_TARGETS += libxxhash
+XXHASH_INSTALL_TARGETS += install_libxxhash
 endif
 
 define XXHASH_BUILD_CMDS
 	$(TARGET_MAKE_ENV) $(TARGET_CONFIGURE_OPTS) $(MAKE) -C $(@D) \
-		$(XXHASH_TARGETS)
+		MOREFLAGS=-DXXH_NO_INLINE_HINTS $(XXHASH_TARGETS)
 endef
 
 define XXHASH_INSTALL_STAGING_CMDS
@@ -40,4 +44,17 @@ define XXHASH_INSTALL_TARGET_CMDS
 		PREFIX=/usr DESTDIR=$(TARGET_DIR) $(XXHASH_INSTALL_TARGETS)
 endef
 
+# we are a ccache dependency, so we can't use ccache
+HOST_XXHASH_ENV = $(HOST_MAKE_ENV) $(HOST_CONFIGURE_OPTS) CC="$(HOSTCC_NOCCACHE)" CXX="$(HOSTCXX_NOCCACHE)"
+HOST_XXHASH_OPTS += DESTDIR=$(HOST_DIR) PREFIX=/usr
+
+define HOST_XXHASH_BUILD_CMDS
+	$(HOST_XXHASH_ENV) $(MAKE) $(HOST_XXHASH_OPTS) -C $(@D)
+endef
+
+define HOST_XXHASH_INSTALL_CMDS
+	$(HOST_XXHASH_ENV) $(MAKE) $(HOST_XXHASH_OPTS) -C $(@D) install
+endef
+
 $(eval $(generic-package))
+$(eval $(host-generic-package))

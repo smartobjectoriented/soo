@@ -31,37 +31,13 @@
 
 int fd_core;
 
-int initialize_migration(unsigned int slotID) {
-	int rc;
-	struct agency_ioctl_args args;
-
-	args.slotID = slotID;
-
-	rc = ioctl(fd_core, AGENCY_IOCTL_INIT_MIGRATION, &args);
-	assert(rc == 0);
-
-	return args.value;
-}
-
-/**
- * Restore the snapshot of a ME.
- */
-void write_ME_snapshot(unsigned int slotID, unsigned char *ME_buffer) {
-	agency_ioctl_args_t args;
-
-	args.slotID = slotID;
-	args.buffer = ME_buffer;
-
-	ioctl(fd_core, AGENCY_IOCTL_WRITE_SNAPSHOT, &args);
-}
-
 int main(int argc, char *argv[]) {
 	struct agency_ioctl_args args;
 	void *buffer = NULL;
 	size_t buffer_size;
 	struct zip_t *zip;
 
-	printf("*** SOO - Mobile Entity snapshot restorer ***\n");
+        printf("*** SOO - Mobile Entity snapshot restorer ***\n");
 
 	if (argc != 2) {
 		printf("## Usage is : restoreme <filename> where <filename> is the file containing the ME snapshot.\n");
@@ -73,33 +49,23 @@ int main(int argc, char *argv[]) {
 	fd_core = open("/dev/soo/core", O_RDWR);
 	assert(fd_core > 0);
 
-	/* Save the snapshot to file */
+	/* Uncompress the saved snapshot */
 	zip = zip_open(argv[1], 0, 'r');
+	 
 	if (!zip) {
-		perror("");
-		return -1;
+                printf("Failed to open the zip file. Is there a bad sync after saving the snapshot?...");
+                return EXIT_FAILURE;
 	}
 
 	zip_entry_open(zip, "me");
-	zip_entry_read(zip, &buffer, &buffer_size);
+	zip_entry_read(zip, &args.buffer, &buffer_size);
 	zip_entry_close(zip);
 
 	zip_close(zip);
-
+        
 	printf("  ** ME memory re-implantation and resuming...\n");
 
-	args.value = buffer_size;
-
-	ioctl(fd_core, AGENCY_IOCTL_GET_ME_FREE_SLOT, &args);
-	assert(args.slotID == 2);
-
-	initialize_migration(2);
-
-	write_ME_snapshot(2, buffer);
-
-	args.slotID = 2;
-
-	ioctl(fd_core, AGENCY_IOCTL_FINAL_MIGRATION, &args);
+	ioctl(fd_core, AGENCY_IOCTL_WRITE_SNAPSHOT, &args);
 
 	close(fd_core);
 

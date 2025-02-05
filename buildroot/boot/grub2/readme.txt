@@ -10,20 +10,20 @@ Notes on using Grub2 for BIOS-based platforms
       is enough free space *before* the first partition to
       store Grub2. Leaving 1 MB of free space is safe.
 3. Setup loop device and loop partitions
-   sudo losetup -f disk.img
-   sudo partx -a /dev/loop0
+   loop_dev=$(sudo losetup -f disk.img)
+   sudo partx -a "$loop_dev"
 4. Prepare the root partition
-   sudo mkfs.ext3 -L root /dev/loop0p1
-   sudo mount /dev/loop0p1 /mnt
+   sudo mkfs.ext3 -L root "${loop_dev}p1"
+   sudo mount "${loop_dev}p1" /mnt
    sudo tar -C /mnt -xf output/images/rootfs.tar
    sudo umount /mnt
 5. Install Grub2
    sudo ./output/host/sbin/grub-bios-setup \
         -b ./output/host/lib/grub/i386-pc/boot.img \
-        -c ./output/images/grub.img -d . /dev/loop0
+        -c ./output/images/grub.img -d . "$loop_dev"
 6. Cleanup loop device
-   sudo partx -d /dev/loop0
-   sudo losetup -d /dev/loop0
+   sudo partx -d "$loop_dev"
+   sudo losetup -d "$loop_dev"
 7. Your disk.img is ready!
 
 Using genimage
@@ -65,38 +65,35 @@ Notes on using Grub2 for x86/x86_64 EFI-based platforms
     - Create a second partition, type 8300, for the root
       filesystem.
 3. Setup loop device and loop partitions
-   sudo losetup -f disk.img
-   sudo partx -a /dev/loop0
+   loop_dev=$(sudo losetup -f disk.img)
+   sudo partx -a "$loop_dev"
 4. Prepare the boot partition
-   sudo mkfs.vfat -n boot /dev/loop0p1
-   sudo mount /dev/loop0p1 /mnt
+   sudo mkfs.vfat -n boot "${loop_dev}p1"
+   sudo mount "${loop_dev}p1" /mnt
    sudo cp -a output/images/efi-part/* /mnt/
    sudo cp output/images/bzImage /mnt/
    sudo umount /mnt
 5. Prepare the root partition
-   sudo mkfs.ext3 -L root /dev/loop0p2
-   sudo mount /dev/loop0p2 /mnt
+   sudo mkfs.ext3 -L root "${loop_dev}p2"
+   sudo mount "${loop_dev}p2" /mnt
    sudo tar -C /mnt -xf output/images/rootfs.tar
    sudo umount /mnt
 6  Cleanup loop device
-   sudo partx -d /dev/loop0
-   sudo losetup -d /dev/loop0
+   sudo partx -d "$loop_dev"
+   sudo losetup -d "$loop_dev"
 7. Your disk.img is ready!
 
 To test your i386/x86-64 EFI image in Qemu
 ------------------------------------------
 
-1. Download the EFI BIOS for Qemu
-   Version IA32 or X64 depending on the chosen Grub2
-   platform (i386-efi vs. x86-64-efi)
-   https://www.kraxel.org/repos/jenkins/edk2/
-   (or use one provided by your distribution as OVMF)
-2. Extract, and rename OVMF.fd to bios.bin and
-   CirrusLogic5446.rom to vgabios-cirrus.bin.
-3. qemu-system-{i386,x86-64} -L ovmf-dir/ -hda disk.img
-4. Make sure to pass pci=nocrs to the kernel command line,
-   to workaround a bug in the EFI BIOS regarding the
-   EFI framebuffer.
+1. Download/install the EFI BIOS for Qemu
+   You can get it using the edk2 package in Buildroot (installed
+   in BINARIES_DIR), grab prebuilt images from the unofficial nightly
+   builds [0], or use one provided by your distribution as OVMF.
+
+   [0] https://github.com/retrage/edk2-nightly
+
+2. qemu-system-{i386,x86-64} -bios <path-to-OVMF.fd> -hda disk.img
 
 Notes on using Grub2 for ARM u-boot-based platforms
 ===================================================
@@ -177,8 +174,13 @@ using qemu and EFI firmware built for qemu.
  2. make
 
  3. Download the EFI firmware for qemu aarch64
-    https://www.kraxel.org/repos/jenkins/edk2/
-    (or use one provided by your distribution as OVMF-aarch64 or AAVMF)
+
+    You can get it using the edk2 package in Buildroot (installed
+    in BINARIES_DIR), grab prebuilt images from the unofficial nightly
+    builds [1], or use one provided by your distribution as OVMF-aarch64
+    or AAVMF.
+
+    [1] https://github.com/retrage/edk2-nightly
 
  4. Run qemu with:
 

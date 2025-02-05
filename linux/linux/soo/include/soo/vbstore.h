@@ -122,7 +122,7 @@ struct vbstore_domain_interface {
 	volatile VBSTORE_RING_IDX req_cons, req_prod, req_pvt;
 	volatile VBSTORE_RING_IDX rsp_cons, rsp_prod, rsp_pvt;
 
-	unsigned int levtchn, revtchn;
+        domid_t domid;
 };
 typedef volatile struct vbstore_domain_interface vbstore_intf_t;
 
@@ -163,7 +163,7 @@ void vbs_dump(void);
 void vbs_dump_watches(void);
 
 extern struct vbstore_domain_interface *vbstore_intf[MAX_DOMAINS];
-extern void *__vbstore_vaddr[MAX_DOMAINS];
+extern grant_ref_t vbstore_grant_ref[MAX_DOMAINS];
 
 extern vbstore_intf_t *__intf;
 

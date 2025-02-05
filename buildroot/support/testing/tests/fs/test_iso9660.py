@@ -29,7 +29,16 @@ def test_mount_internal_external(emulator, builddir, internal=True, efi=False):
     img = os.path.join(builddir, "images", "rootfs.iso9660")
     if efi:
         efi_img = os.path.join(builddir, "images", "OVMF.fd")
-        emulator.boot(arch="i386", options=["-cdrom", img, "-bios", efi_img])
+        # In QEMU v5.1.0 up to v7.2.0, the CPU hotplug register block misbehaves.
+        # EDK2 hang if the bug is detected in Qemu after printing errors to IO port 0x402
+        # (requires BR2_TARGET_EDK2_OVMF_DEBUG_ON_SERIAL to see them)
+        # The Docker image used by the Buildroot gitlab-ci uses Qemu 5.2.0, the workaround
+        # can be removed as soon as the Docker image is updated to provided Qemu >= 8.0.0.
+        # This workaround is needed only when efi=True since it imply EDK2 is used.
+        # https://github.com/tianocore/edk2/commit/bf5678b5802685e07583e3c7ec56d883cbdd5da3
+        # http://lists.busybox.net/pipermail/buildroot/2023-July/670825.html
+        qemu_fw_cfg = "name=opt/org.tianocore/X-Cpuhp-Bugcheck-Override,string=yes"
+        emulator.boot(arch="i386", options=["-cdrom", img, "-bios", efi_img, "-fw_cfg", qemu_fw_cfg])
     else:
         emulator.boot(arch="i386", options=["-cdrom", img])
     emulator.login()
@@ -126,6 +135,28 @@ class TestIso9660Grub2EFI(infra.basetest.BRTest):
         """.format(infra.filepath("conf/grub2-efi.cfg"),
                    infra.filepath("conf/grub2.cfg"))
 
+    def __init__(self, names):
+        """Setup common test variables."""
+        super(TestIso9660Grub2EFI, self).__init__(names)
+        """All EDK2 releases <= edk2-stable202408 can't be fetched from git
+           anymore due to a missing git submodule as reported by [1].
+
+           Usually Buildroot fall-back using https://sources.buildroot.net
+           thanks to BR2_BACKUP_SITE where a backup of the generated archive
+           is available. But the BRConfigTest remove BR2_BACKUP_SITE default
+           value while generating the .config used by TestIso9660Grub2EFI.
+
+           Replace the BR2_BACKUP_SITE override from BRConfigTest in order
+           to continue testing EDK2 package using the usual backup site.
+
+           To be removed with the next EDK2 version bump using this commit
+           [2].
+
+           [1] https://github.com/tianocore/edk2/issues/6398
+           [2] https://github.com/tianocore/edk2/commit/95d8a1c255cfb8e063d679930d08ca6426eb5701
+        """
+        self.config = self.config.replace('BR2_BACKUP_SITE=""\n', '')
+
     def test_run(self):
         exit_code = test_mount_internal_external(self.emulator,
                                                  self.builddir, internal=True,
@@ -153,6 +184,28 @@ class TestIso9660Grub2Hybrid(infra.basetest.BRTest):
         BR2_TARGET_EDK2=y
         """.format(infra.filepath("conf/grub2-efi.cfg"),
                    infra.filepath("conf/grub2.cfg"))
+
+    def __init__(self, names):
+        """Setup common test variables."""
+        super(TestIso9660Grub2Hybrid, self).__init__(names)
+        """All EDK2 releases <= edk2-stable202408 can't be fetched from git
+           anymore due to a missing git submodule as reported by [1].
+
+           Usually Buildroot fall-back using https://sources.buildroot.net
+           thanks to BR2_BACKUP_SITE where a backup of the generated archive
+           is available. But the BRConfigTest remove BR2_BACKUP_SITE default
+           value while generating the .config used by TestIso9660Grub2Hybrid.
+
+           Replace the BR2_BACKUP_SITE override from BRConfigTest in order
+           to continue testing EDK2 package using the usual backup site.
+
+           To be removed with the next EDK2 version bump using this commit
+           [2].
+
+           [1] https://github.com/tianocore/edk2/issues/6398
+           [2] https://github.com/tianocore/edk2/commit/95d8a1c255cfb8e063d679930d08ca6426eb5701
+        """
+        self.config = self.config.replace('BR2_BACKUP_SITE=""\n', '')
 
     def test_run(self):
         exit_code = test_mount_internal_external(self.emulator,

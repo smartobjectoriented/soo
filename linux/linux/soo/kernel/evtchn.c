@@ -7,7 +7,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -50,11 +49,9 @@
 #include <soo/evtchn.h>
 
 #include <soo/uapi/soo.h>
-#include <soo/uapi/event_channel.h>
 #include <soo/uapi/console.h>
 
 #include <soo/uapi/debug.h>
-#include <soo/uapi/physdev.h>
 
 /* Convenient shorthand for packed representation of an unbound IRQ. */
 #define IRQ_UNBOUND	mk_virq_info(IRQT_UNBOUND, 0, 0)
@@ -112,7 +109,7 @@ void dump_evtchn_pending(void) {
 
 	for (i = 0; i < NR_EVTCHN; i++)
 		lprintk("e:%d m:%d p:%d  ", i, per_cpu(evtchn_info, smp_processor_id()).evtchn_mask[i],
-			AVZ_shared->evtchn_pending[i]);
+			avz_shared->evtchn_pending[i]);
 
 	lprintk("\n\n");
 }
@@ -138,7 +135,7 @@ static struct irq_chip virtirq_chip;
  * -> For VIRQ_TIMER_IRQ, avoid change the bind_virq_to_irqhandler.....
  *
  */
-asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
+void evtchn_do_upcall(void *data)
 {
 	unsigned int evtchn;
 	int l1, virq;
@@ -155,11 +152,12 @@ asmlinkage void evtchn_do_upcall(struct pt_regs *regs)
 	per_cpu(in_upcall_progress, smp_processor_id()) = true;
 
 retry:
-	l1 = xchg(&AVZ_shared->evtchn_upcall_pending, 0);
+
+	l1 = xchg(&avz_shared->evtchn_upcall_pending, 0);
 
 	while (true) {
 		for (evtchn = 0; evtchn < NR_EVTCHN; evtchn++)
-			if ((AVZ_shared->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
+			if ((avz_shared->evtchn_pending[evtchn]) && !evtchn_is_masked(evtchn))
 				break;
 
 		if (evtchn == NR_EVTCHN)
@@ -177,12 +175,12 @@ retry:
 
 		clear_evtchn(evtchn_from_virq(virq));
 
-		__handle_domain_irq(NULL, VIRQ_BASE + virq, false, regs);
+		__handle_domain_irq(NULL, VIRQ_BASE + virq, false, data);
 
 		BUG_ON(!hard_irqs_disabled());
 	};
 
-	if (AVZ_shared->evtchn_upcall_pending)
+	if (avz_shared->evtchn_upcall_pending)
 		goto retry;
 
 	per_cpu(in_upcall_progress, smp_processor_id()) = false;
@@ -230,53 +228,72 @@ static int bind_evtchn_to_virq(unsigned int evtchn)
 
 void unbind_domain_evtchn(unsigned int domID, unsigned int evtchn)
 {
-	struct evtchn_bind_interdomain bind_interdomain;
+	avz_hyp_t args;
 
-	bind_interdomain.remote_dom = domID;
-	bind_interdomain.local_evtchn = evtchn;
+        args.cmd = AVZ_EVENT_CHANNEL_OP;
+        args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_unbind_domain;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_unbind_domain, (long) &bind_interdomain, 0, 0);
+        args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_dom = domID;
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.local_evtchn = evtchn;
 
-	evtchn_info.valid[evtchn] = false;
+        avz_hypercall(&args);
+
+        evtchn_info.valid[evtchn] = false;
 }
 
 static int bind_interdomain_evtchn_to_virq(unsigned int remote_domain, unsigned int remote_evtchn)
 {
-	struct evtchn_bind_interdomain bind_interdomain;
+        avz_hyp_t args;
+        int virq;
 
-	bind_interdomain.remote_dom  = remote_domain;
-	bind_interdomain.remote_evtchn = remote_evtchn;
+ 	args.cmd = AVZ_EVENT_CHANNEL_OP;
+        args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_bind_interdomain;
+	
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_dom = remote_domain;
+        args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_evtchn = remote_evtchn;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_interdomain, (long) &bind_interdomain, 0, 0);
+        avz_hypercall(&args);
 
-	return bind_evtchn_to_virq(bind_interdomain.local_evtchn);
+        virq = bind_evtchn_to_virq(args.u.avz_evtchn.evtchn_op.u.bind_interdomain.local_evtchn);
+
+	return virq;
 }
 
 int bind_existing_interdomain_evtchn(unsigned local_evtchn, unsigned int remote_domain, unsigned int remote_evtchn)
 {
-	struct evtchn_bind_interdomain bind_interdomain;
+        avz_hyp_t args;
+        int virq;
 
-	bind_interdomain.local_evtchn = local_evtchn;
-	bind_interdomain.remote_dom  = remote_domain;
-	bind_interdomain.remote_evtchn = remote_evtchn;
+	args.cmd = AVZ_EVENT_CHANNEL_OP;
+        args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_bind_existing_interdomain;
 
-	hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_bind_existing_interdomain, (long) &bind_interdomain, 0, 0);
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.local_evtchn = local_evtchn;
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_dom  = remote_domain;
+	args.u.avz_evtchn.evtchn_op.u.bind_interdomain.remote_evtchn = remote_evtchn;
 
-	return bind_evtchn_to_virq(bind_interdomain.local_evtchn);
+ 	avz_hypercall(&args);
+
+	virq = bind_evtchn_to_virq(args.u.avz_evtchn.evtchn_op.u.bind_interdomain.local_evtchn);
+
+	return virq;
 }
 
 static void unbind_from_virq(unsigned int virq)
 {
-	evtchn_close_t op;
-	int evtchn = evtchn_from_virq(virq);
+        avz_hyp_t args;
+        int evtchn = evtchn_from_virq(virq);
 	int cpu = smp_processor_id();
 
 	spin_lock(&virq_mapping_update_lock);
 
 	if (--per_cpu(evtchn_info, cpu).virq_bindcount[virq] == 0) {
-		op.evtchn = evtchn;
 
-		hypercall_trampoline(__HYPERVISOR_event_channel_op, EVTCHNOP_close, (long) &op, 0, 0);
+		args.cmd = AVZ_EVENT_CHANNEL_OP;
+                args.u.avz_evtchn.evtchn_op.cmd = EVTCHNOP_close;
+
+                args.u.avz_evtchn.evtchn_op.u.close.evtchn = evtchn;
+
+		avz_hypercall(&args);
 
 		per_cpu(evtchn_info, cpu).evtchn_to_virq[evtchn] = -1;
 		per_cpu(evtchn_info, cpu).valid[evtchn] = false;
@@ -285,13 +302,13 @@ static void unbind_from_virq(unsigned int virq)
 	spin_unlock(&virq_mapping_update_lock);
 }
 
-
 int bind_evtchn_to_virq_handler(unsigned int evtchn, irq_handler_t handler, irq_handler_t thread_fn, unsigned long irqflags, const char *devname, void *dev_id)
 {
 	unsigned int virq;
 	int retval;
 
 	virq = bind_evtchn_to_virq(evtchn);
+ 
 	retval = request_threaded_irq(VIRQ_BASE + virq, handler, thread_fn, irqflags, devname, dev_id);
 	if (retval != 0) {
 		unbind_from_virq(virq);

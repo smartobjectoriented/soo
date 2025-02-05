@@ -18,40 +18,21 @@
  */
 #include <linux/kthread.h>
 #include <linux/mutex.h>
+#include <linux/console.h>
 
-#include <soo/sooenv.h>
+#include <soo/dev/vuart.h>
 
 #include <soo/hypervisor.h>
 
 #include <soo/uapi/console.h>
 
+#ifdef CONFIG_X86
+#include <linux/smp.h>
+#include <opencn/frontend/vlog.h>
+#endif
+
 /* Agency Core */
 static bool log_soo_core = false;
-
-/* DCM */
-static bool log_soo_dcm = false;
-
-/* SOOlink */
-static bool log_soo_soolink = false;
-
-/* Discovery */
-static bool log_soo_soolink_discovery = false;
-
-/* Transcoder */
-static bool log_soo_soolink_transcoder = false;
-static bool log_soo_soolink_transcoder_block = false;
-
-/* Winenet */
-static bool log_soo_soolink_winenet = false;
-static bool log_soo_soolink_winenet_beacon = false;
-static bool log_soo_soolink_winenet_neighbour = false;
-static bool log_soo_soolink_winenet_state = false;
-static bool log_soo_soolink_winenet_state_idle = false;
-
-static bool log_soo_soolink_winenet_ping = false;
-static bool log_soo_soolink_winenet_ack = false;
-
-static bool log_soo_soolink_plugin = false;
 
 /* Backends */
 static bool log_soo_backend_vsenseled = true;
@@ -63,13 +44,18 @@ bool __soo_log_lock_initialized = false;
 
 extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
-void (*__printch)(char c) = NULL;
+#ifdef CONFIG_X86
+extern bool send_to_uart(char *str);
+extern void smp_kick_vt_out(void);
+
+atomic64_t str_to_print;
+
+#endif
 
 void __lprintk(const char *format, va_list va) {
 	char buf[CONSOLEIO_BUFFER_SIZE];
 	char *__start;
-	int i;
-
+ 
 	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
 
 	__start = buf;
@@ -78,15 +64,46 @@ void __lprintk(const char *format, va_list va) {
 	if ((*__start != 0) && (*__start < 10))
 		__start += 2;
 
-	for (i = 0; i < strlen(__start); i++)
-		if (likely(__printch))
-			__printch(__start[i]);
+#ifdef CONFIG_X86
+	if (vlog_enabled && (smp_processor_id() == AGENCY_RT_CPU)) {
+
+	        vlog_send(__start);
+	        return;
+	}
+
+	if (!send_to_uart(__start)) {
+	        if (smp_processor_id() == AGENCY_RT_CPU) {
+	                /* Make sure a previous IPI is not being processed... */
+	                while (atomic64_cmpxchg(&str_to_print, 0ull, (u64) __start) != 0ull) ;
+
+	                smp_kick_vt_out();
+	        } else {
+	                if (*__start == 0) {
+	                        /* On OPENCN_CPU0, printk() is executed natively */
+	                        printk("%s", (char *) atomic64_read(&str_to_print));
+
+	                        atomic64_set(&str_to_print, 0);
+	                } else
+	                        printk("%s", __start);
+	        }
+	}
+
+#else /* !CONFIG_X86 */
+        avz_printstr(__start);
+#endif /* !CONFIG_X86 */
 
 }
 
 void lprintch(char c) {
-	if (likely(__printch))
-		__printch(c);
+	struct console *cons = console_drivers;
+	 
+  	while (cons) {
+        	if (cons->write) {
+            		cons->write(cons, &c, 1);  
+            		break;
+       		 }
+        	cons = cons->next;
+   	 }
 }
 
 void lprintk(char *format, ...) {
@@ -102,10 +119,7 @@ void lprintk(char *format, ...) {
 void __soo_log(char *info, char *buf) {
 	char prefix[50];
 	static char __internal_buf[CONSOLEIO_BUFFER_SIZE] = { };
-	int i;
-#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
-	int j;
-#endif
+
 	bool outlog = false;
 	static bool force_log = false;
 
@@ -114,14 +128,6 @@ void __soo_log(char *info, char *buf) {
 		if ((buf[0] == '*') && (buf[1] == '*') && (buf[2] == '*'))
 			force_log = true;
 
-#ifdef CONFIG_SOOLINK_PLUGIN_SIMULATION
-		/* Make a friendly indentation according to the SOO number */
-		sscanf(current_soo->name, "SOO-%d", &i);
-
-		for (j = 0; j < (i-1)*8; j++)
-			strcat(__internal_buf, " ");
-
-#endif
 		/* Add log information */
 		sprintf(prefix, "(%s) ", info);
 		strcat(__internal_buf, prefix);
@@ -134,35 +140,6 @@ void __soo_log(char *info, char *buf) {
 
 	/* Agency Core */
 	if ((log_soo_core && (strstr(__internal_buf, "[soo:core"))))
-		outlog = true;
-
-	/* DCM */
-	if ((log_soo_dcm && (strstr(__internal_buf, "[soo:dcm"))))
-		outlog = true;
-
-	/* SOOlink overall logs */
-	if (log_soo_soolink && (strstr(__internal_buf, "[soo:soolink")))
-		outlog = true;
-
-	/* SOOlink Discovery functional block */
-	if (log_soo_soolink_discovery && (strstr(__internal_buf, "[soo:soolink:discovery")))
-		outlog = true;
-
-	/* SOOlink Transcoder functional block */
-	if ((log_soo_soolink_transcoder && (strstr(__internal_buf, "[soo:soolink:transcoder"))) ||
-	    (log_soo_soolink_transcoder_block && (strstr(__internal_buf, "[soo:soolink:transcoder:block"))))
-		outlog = true;
-
-	/* SOOlink Winenet protocol */
-	if ((log_soo_soolink_winenet && (strstr(__internal_buf, "[soo:soolink:winenet"))) ||
-	    (log_soo_soolink_winenet_state && (strstr(__internal_buf, "[soo:soolink:winenet:state"))) ||
-	    (log_soo_soolink_winenet_state_idle && (strstr(__internal_buf, "[soo:soolink:winenet:state:idle"))) ||
-	    (log_soo_soolink_winenet_neighbour && (strstr(__internal_buf, "[soo:soolink:winenet:neighbour"))) ||
-	    (log_soo_soolink_winenet_ack && (strstr(__internal_buf, "[soo:soolink:winenet:ack"))) ||
-	    (log_soo_soolink_winenet_ping && (strstr(__internal_buf, "[soo:soolink:winenet:ping"))) ||
-	    (log_soo_soolink_winenet_beacon && (strstr(__internal_buf, "[soo:soolink:winenet:beacon"))) ||
-	    (log_soo_soolink_plugin && (strstr(__internal_buf, "[soo:soolink:plugin")))
-	    )
 		outlog = true;
 
 	/* Backends */
@@ -180,11 +157,9 @@ void __soo_log(char *info, char *buf) {
 
 	/* Out to the interface...*/
 
-	for (i = 0; i < strlen(__internal_buf); i++)
-		if (likely(__printch))
-			__printch(__internal_buf[i]);
+        printk("%s", __internal_buf);
 
-	__internal_buf[0] = 0;
+        __internal_buf[0] = 0;
 }
 
 void soo_log(char *format, ...) {
@@ -202,7 +177,7 @@ void soo_log(char *format, ...) {
 	vsnprintf(buf, CONSOLEIO_BUFFER_SIZE, format, va);
 	va_end(va);
 
-	__soo_log(current_soo->name, buf);
+	__soo_log("SOO: ", buf);
 
 	mutex_unlock(&soo_log_lock);
 }
@@ -264,3 +239,5 @@ void lprintk_int64_post(s64 number, char *post) {
 void lprintk_int64(s64 number) {
 	lprintk_int64_post(number, "\n");
 }
+
+ 
