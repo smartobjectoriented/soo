@@ -277,16 +277,14 @@ extern atomic_t dc_incoming_domID[DC_EVENT_MAX];
 /*
  * IOCTL codes
  */
-#define AGENCY_IOCTL_INIT_MIGRATION		_IOWR('S', 0, agency_ioctl_args_t)
+
 #define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR('S', 1, agency_ioctl_args_t)
 #define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 2, agency_ioctl_args_t)
 #define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 3, agency_ioctl_args_t)
-#define AGENCY_IOCTL_FINAL_MIGRATION    	_IOW('S', 4, agency_ioctl_args_t)
 #define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 5, agency_ioctl_args_t)
 #define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 6, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID			_IOWR('S', 7, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 11, agency_ioctl_args_t)
-#define AGENCY_IOCTL_BLACKLIST_SOO		_IOW('S', 12, agency_ioctl_args_t)
 
 #define SOO_NAME_SIZE				16
 
@@ -368,8 +366,6 @@ typedef struct agency_ioctl_args {
  */
 #define DC_ISR_TASK_PRIO		55
 
-#define SDIO_IRQ_TASK_PRIO		50
-#define SDHCI_FINISH_TASK_PRIO		50
 
 #ifndef __ASSEMBLY__
 
@@ -565,14 +561,10 @@ typedef struct soo_domcall_arg {
 
 } soo_domcall_arg_t;
 
-extern struct semaphore usr_feedback;
-extern struct semaphore injection_sem;
-
 /* Callbacks initiated by agency ping */
 void cb_pre_resume(soo_domcall_arg_t *args);
 void cb_pre_suspend(soo_domcall_arg_t *args);
 
-void cb_cooperate(soo_domcall_arg_t *args);
 void cb_post_activate(soo_domcall_arg_t *args);
 
 void cb_force_terminate(void);

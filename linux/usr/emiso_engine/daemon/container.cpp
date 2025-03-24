@@ -46,15 +46,9 @@ std::string Container::meToDockerState(int meState)
     switch (meState) {
     case ME_state_booting:
         return "created";   // WARNING - not a valid Docker state
-    case ME_state_preparing:
-        return "created";    // WARNING - not a valid Docker state
     case ME_state_living:
         return "running";
     case ME_state_suspended:
-        return "paused";
-    case ME_state_migrating:
-        return "error ";
-    case ME_state_dormant:
         return "paused";
     case ME_state_killed:
         return "dead";
@@ -146,7 +140,7 @@ int Container::create(std::string imageName, std::string containerName, int slot
 
     std::cout << "[EMISO] Creating container from '" << imageName << "'" << std::endl;
 
-    std::ifstream image(imageName.c_str(), std::ios::in | std::ios::binary | std::ios::ate) ;
+    std::ifstream image(imageName.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
 
     containerSize = image.tellg();
     containerBuf = new char [containerSize];
@@ -159,13 +153,15 @@ int Container::create(std::string imageName, std::string containerName, int slot
 
     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
 
+#if 0 /* Useful? */
     if (slotID != -1) {
         args.slotID = slotID;
         ret = ioctl(fd, AGENCY_IOCTL_INJECT_ME_WITH_SLOTID, &args);
 
     } else {
+#endif
         ret = ioctl(fd, AGENCY_IOCTL_INJECT_ME, &args);
-    }
+    //}
 
     if (ret < 0) {
         printf("Failed to inject ME (%d)\n", ret);
@@ -183,13 +179,13 @@ int Container::create(std::string imageName, std::string containerName, int slot
     return args.slotID;
 }
 
-int Container::start(unsigned contenerId)
+int Container::start(unsigned containerId)
 {
     int fd;
     int ret;
     struct agency_ioctl_args args;
 
-    args.slotID = contenerId;
+    args.slotID = containerId;
 
      fd = open(SOO_CORE_DRV_PATH, O_RDWR);
      ret = ioctl(fd, AGENCY_IOCTL_FINAL_MIGRATION, &args);
@@ -203,7 +199,7 @@ int Container::start(unsigned contenerId)
     return ret;
 }
 
-int Container::stop(unsigned contenerId)
+int Container::stop(unsigned containerId)
 {
     int ret;
     int fd;
@@ -211,7 +207,7 @@ int Container::stop(unsigned contenerId)
 
 
     // == Force ME termination ==
-    args.slotID = contenerId;
+    args.slotID = containerId;
 
      fd = open(SOO_CORE_DRV_PATH, O_RDWR);
      ret = ioctl(fd, AGENCY_IOCTL_FORCE_TERMINATE, &args);
@@ -227,7 +223,7 @@ int Container::stop(unsigned contenerId)
     std::string containerName;
 
     // 1. Retrieve the image file
-    auto it = _containersId.find(contenerId);
+    auto it = _containersId.find(containerId);
 
     if (it != _containersId.end()) {
         imageName     = it->second.image;
@@ -240,32 +236,31 @@ int Container::stop(unsigned contenerId)
      // experiment - let time to free the slot memory !
      sleep(0.5);
 
-    // int slotId = this->create(imageName, containerName, contenerId);
     int slotId = this->create(imageName, containerName);
 
     return ret;
 }
 
 
-int Container::restart(unsigned contenerId)
+int Container::restart(unsigned containerId)
 {
     std::cout << "[DAEMON] Restart cmd - stop" << std::endl;
-    this->stop(contenerId);
+    this->stop(containerId);
     std::cout << "[DAEMON] Restart cmd - start" << std::endl;
-    this->start(contenerId);
+    this->start(containerId);
     std::cout << "[DAEMON] Restart cmd - completed" << std::endl;
 
     return 0;
 
 }
 
-int Container::pause(unsigned contenerId)
+int Container::pause(unsigned containerId)
 {
     int fd;
     int ret;
     struct agency_ioctl_args args;
 
-    args.slotID = contenerId;
+    args.slotID = containerId;
 
     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
 
@@ -278,13 +273,13 @@ int Container::pause(unsigned contenerId)
     return ret;
 }
 
-int Container::unpause(unsigned contenerId)
+int Container::unpause(unsigned containerId)
 {
     int fd;
     int ret;
     struct agency_ioctl_args args;
 
-    args.slotID = contenerId;
+    args.slotID = containerId;
 
     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
 
@@ -299,7 +294,7 @@ int Container::unpause(unsigned contenerId)
     return ret;
 }
 
-int Container::remove(unsigned contenerId)
+int Container::remove(unsigned containerId)
 {
     int ret;
     int fd;
@@ -307,7 +302,7 @@ int Container::remove(unsigned contenerId)
 
 
     // == Force ME termination ==
-    args.slotID = contenerId;
+    args.slotID = containerId;
 
     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
     ret = ioctl(fd, AGENCY_IOCTL_FORCE_TERMINATE, &args);
@@ -318,12 +313,12 @@ int Container::remove(unsigned contenerId)
     return ret;
 }
 
-std::vector<std::string> Container::retrieveLogs(unsigned contenerId, unsigned lineNr)
+std::vector<std::string> Container::retrieveLogs(unsigned containerId, unsigned lineNr)
 {
     std::vector<std::string> lines;
 
     // Create the file path
-    std::string fileName = "/var/log/soo/me_" + std::to_string(contenerId) + ".log";
+    std::string fileName = "/var/log/soo/me_" + std::to_string(containerId) + ".log";
 
     std::cout << "[DEBUG] Logfile name: " << fileName << std::endl;
 

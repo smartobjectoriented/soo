@@ -43,8 +43,6 @@
 
 #include <asm/ipipe.h>
 
-#include <soo/debug/dbgvar.h>
-
 #include <soo/hypervisor.h>
 #include <soo/evtchn.h>
 

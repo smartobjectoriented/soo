@@ -26,7 +26,6 @@
 /*
  * ME states:
  * - ME_state_booting:		ME is currently booting...
- * - ME_state_preparing:	ME is being paused during the boot process, in the case of an injection, before the frontend initialization
  * - ME_state_living:		ME is full-functional and activated (all frontend devices are consistent)
  * - ME_state_suspended:	ME is suspended before migrating. This state is maintained for the resident ME instance
  * - ME_state_hibernate:	ME is in a state of hibernate snapshot
@@ -92,16 +91,13 @@ typedef struct {
 /*
  * IOCTL codes
  */
-#define AGENCY_IOCTL_INIT_MIGRATION		_IOWR('S', 0, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR('S', 1, agency_ioctl_args_t)
 #define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 2, agency_ioctl_args_t)
 #define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 3, agency_ioctl_args_t)
-#define AGENCY_IOCTL_FINAL_MIGRATION    	_IOW('S', 4, agency_ioctl_args_t)
 #define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 5, agency_ioctl_args_t)
 #define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 6, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID			_IOWR('S', 7, agency_ioctl_args_t)
 #define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 11, agency_ioctl_args_t)
-#define AGENCY_IOCTL_BLACKLIST_SOO		_IOW('S', 12, agency_ioctl_args_t)
 
 /* struct agency_ioctl_args used in IOCTLs */
 typedef struct agency_ioctl_args {

@@ -49,14 +49,14 @@ namespace emiso {
         void info(int id, ContainerInfo &info);
 
         int create(std::string imageName, std::string containerName, int slotId=-1);
-        int start(unsigned contenerId);
-        int stop(unsigned contenerId);
-        int restart(unsigned contenerId);
-        int pause(unsigned contenerId);
-        int unpause(unsigned contenerId);
-        int remove(unsigned contenerId);
+        int start(unsigned containerId);
+        int stop(unsigned containerId);
+        int restart(unsigned containerId);
+        int pause(unsigned containerId);
+        int unpause(unsigned containerId);
+        int remove(unsigned containerId);
 
-        std::vector<std::string> retrieveLogs(unsigned contenerId, unsigned lineNr);
+        std::vector<std::string> retrieveLogs(unsigned containerId, unsigned lineNr);
 
     private:
         std::string meToDockerState(int meState);

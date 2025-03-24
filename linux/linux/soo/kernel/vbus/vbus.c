@@ -54,8 +54,6 @@
 #include <soo/uapi/console.h>
 #include <soo/uapi/debug.h>
 
-#include <soo/debug/dbgvar.h>
-
 #define SYNC_BACKFRONT_COMPLETE		0
 #define SYNC_BACKFRONT_SUSPEND		1
 #define SYNC_BACKFRONT_RESUME		2

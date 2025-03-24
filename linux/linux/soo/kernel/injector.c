@@ -69,10 +69,9 @@ static struct miscdevice cma_malloc_miscdevice = {
 };
 
 /**
- * Initiate the injection of a ME.
+ * Initiate the injection of a capsule
  * 
- * The ME is first copied within the kernel heap so that
- * we get rid of user space paging and have a contiguous memory allocation.
+ * The capsule is allocated within the CMA-dedicated memory.
  * 
  * @param buffer
  * @return slotID or -1 if no slotID available.
