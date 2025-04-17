@@ -7,6 +7,5 @@ tmpfs		/tmp		tmpfs	mode=1777	0	0
 tmpfs		/run		tmpfs	mode=0755,nosuid,nodev	0	0
 sysfs		/sys		sysfs	defaults	0	0
 /dev/vda1	/mnt/boot	vfat	defaults	0	2
-/dev/vda2  	/mnt/rootfs1    ext4    defaults        0       2
+/dev/vda2  	/mnt/rootfs    ext4    defaults        0       2
 /dev/vda3  	/mnt/ME 	ext4    defaults   	0   	2
-/dev/vda4  	/mnt/rootfs2    ext4    defaults        0       2

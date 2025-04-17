@@ -148,7 +148,7 @@ int vbus_probe_backend(int domid)
 		kfree(dir);
 	
 	/* Keep the synchronization with the injector */
-	if (get_ME_state(domid) == ME_state_booting)
+	if (get_ME_state(domid) == ME_state_stopped)
 		complete(&backend_initialized);
 
 	return err;

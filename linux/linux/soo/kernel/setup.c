@@ -36,9 +36,6 @@ volatile unsigned long *HYPERVISOR_hypercall_addr;
 /* Updated in kernel/head.S */
 volatile avz_shared_t *__avz_shared;
 
-extern unsigned long __pv_phys_pfn_offset;
-extern u64 __pv_offset;
-
 void __init avz_setup(void)
 {
 

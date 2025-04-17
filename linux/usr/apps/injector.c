@@ -31,6 +31,8 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <assert.h>
+#include <getopt.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -46,28 +48,48 @@
  * Main entry point of the Agency core subsystem.
  */
 int main(int argc, char *argv[]) {
-        int fd_migration, fd, ret;
-        int nread, ME_size;
-        void *ME_buffer;
+	int fd_migration, fd, ret;
+	int nread, ME_size;
+	void *ME_buffer;
 	struct stat filestat;
 	struct agency_ioctl_args args;
+	bool hold_capsule = false;
+	int opt;
+
+	// Parse command-line options
+	while ((opt = getopt(argc, argv, "s")) != -1) {
+		switch (opt) {
+			case 's':
+				hold_capsule = true;
+				break;
+			default:
+				fprintf(stderr, "Usage: %s [-s] <ME_file_path>\n", argv[0]);
+				exit(EXIT_FAILURE);
+		}
+	}
+
+	if (optind >= argc) {
+		fprintf(stderr, "Expected ME file path after options\n");
+		exit(EXIT_FAILURE);
+	}
+
+	char *me_file_path = argv[optind];
 
 	printf("SOO ME injector (Smart Object Oriented based virtualization framework).\n");
 	printf("Version: %s\n", AGENCY_CORE_VERSION);
 
-        fd_migration = open(SOO_CORE_DEVICE, O_RDWR);
-        if (fd_migration < 0) {
-                printf("Failed to open device: " SOO_CORE_DEVICE " (%d)\n", fd_migration);
+	fd_migration = open(SOO_CORE_DEVICE, O_RDWR);
+	if (fd_migration < 0) {
+		printf("Failed to open device: " SOO_CORE_DEVICE " (%d)\n", fd_migration);
 		exit(EXIT_FAILURE);
-        }
+	}
 
-        stat(argv[1], &filestat);
+	stat(me_file_path, &filestat);
 
-	fd = open(argv[1], O_RDONLY);
-
+	fd = open(me_file_path, O_RDONLY);
 	if (fd < 0) {
-		perror(argv[1]);
-		printf("%s not found.\n", argv[1]);
+		perror(me_file_path);
+		printf("%s not found.\n", me_file_path);
 		exit(EXIT_FAILURE);
 	}
 
@@ -75,23 +97,23 @@ int main(int argc, char *argv[]) {
 
 	/* Allocate the ME buffer */
 	ME_buffer = malloc(ME_size);
+	assert(ME_buffer != NULL);
 
 	DBG("agency_core: size to read from sd : %d, buffer address : 0x%08lx\n", ME_size, (unsigned long) ME_buffer);
 
 	/* Read the ME content  */
 	nread = read(fd, ME_buffer, ME_size);
-
 	if (nread < 0) {
 		printf("Error when reading the ME\n");
 		exit(EXIT_FAILURE);
 	}
 
-	/* Inject the ME */
-	
+	/* Inject the capsule */
 	args.buffer = ME_buffer;
 	args.value = ME_size;
+	args.slotID = -1; /* Wherever */
 
-	if ((ret = ioctl(fd_migration, AGENCY_IOCTL_INJECT_ME, &args)) < 0) {
+	if ((ret = ioctl(fd_migration, AGENCY_IOCTL_INJECT_CAPSULE, &args)) < 0) {
 		printf("Failed to inject ME (%d)\n", ret);
 		exit(EXIT_FAILURE);
 	}
@@ -100,9 +122,15 @@ int main(int argc, char *argv[]) {
 		printf("No available ME slot further...\n");
 		exit(EXIT_FAILURE);
 	}
-	
+
+	if (!hold_capsule) {
+		ioctl(fd_migration, AGENCY_IOCTL_START_CAPSULE, &args);
+	}
+
 	close(fd);
+
 	free(ME_buffer);
 
 	return 0;
 }
+

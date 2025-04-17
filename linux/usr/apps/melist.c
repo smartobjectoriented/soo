@@ -31,8 +31,8 @@
 const char *ME_state_str(int state) {
 
 	switch (state) {
-	case ME_state_booting:
-		return "ME_state_booting";
+	case ME_state_stopped:
+		return "ME_state_stopped";
 	case ME_state_living:
 		return "ME_state_living";
 	case ME_state_suspended:

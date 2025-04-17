@@ -194,17 +194,17 @@ typedef struct domctl domctl_t;
 
 /*
  * ME states:
- * - ME_state_booting:		ME is currently booting...
+ * - ME_state_stopped:		Capsule is stopped (right after start or later)
  * - ME_state_living:		ME is full-functional and activated (all frontend devices are consistent)
  * - ME_state_suspended:	ME is suspended before migrating. This state is maintained for the resident ME instance
  * - ME_state_hibernate:	ME is in a state of hibernate snapshot
  * - ME_state_resuming:         ME ready to perform resuming (after recovering)
  * - ME_state_awakened:         ME is just being awakened
- * - ME_state_terminated:	ME has been terminated (by a force_terminate)
+ * - ME_state_terminated:	ME has been terminated (by a shutdown)
  * - ME_state_dead:		ME does not exist
  */
 typedef enum {
-	ME_state_booting,
+	ME_state_stopped,
 	ME_state_living,
 	ME_state_suspended,
 	ME_state_hibernate,
@@ -253,7 +253,7 @@ typedef enum {
 	DC_PRE_SUSPEND,
 	DC_SUSPEND,
 	DC_RESUME,
-	DC_FORCE_TERMINATE,
+	DC_SHUTDOWN,
 	DC_POST_ACTIVATE,
 	DC_TRIGGER_DEV_PROBE,
 	DC_TRIGGER_LOCAL_COOPERATION,
@@ -278,13 +278,13 @@ extern atomic_t dc_incoming_domID[DC_EVENT_MAX];
  * IOCTL codes
  */
 
-#define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR('S', 1, agency_ioctl_args_t)
-#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 2, agency_ioctl_args_t)
-#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 3, agency_ioctl_args_t)
-#define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 5, agency_ioctl_args_t)
-#define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 6, agency_ioctl_args_t)
-#define AGENCY_IOCTL_GET_ME_ID			_IOWR('S', 7, agency_ioctl_args_t)
-#define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 11, agency_ioctl_args_t)
+#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 1, agency_ioctl_args_t)
+#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 2, agency_ioctl_args_t)
+#define AGENCY_IOCTL_SHUTDOWN   		_IOW('S', 3, agency_ioctl_args_t)
+#define AGENCY_IOCTL_INJECT_CAPSULE     	_IOWR('S', 4, agency_ioctl_args_t)
+#define AGENCY_IOCTL_START_CAPSULE              _IOWR('S', 5, agency_ioctl_args_t)
+#define AGENCY_IOCTL_GET_ME_ID			_IOWR('S', 6, agency_ioctl_args_t)
+#define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 7, agency_ioctl_args_t)
 
 #define SOO_NAME_SIZE				16
 
@@ -398,7 +398,8 @@ typedef struct {
 /* AVZ hypercalls devoted to SOO */
 #define AVZ_ME_READ_SNAPSHOT   	        6
 #define AVZ_ME_WRITE_SNAPSHOT  	        7
-#define AVZ_INJECT_ME			9
+#define AVZ_START_CAPSULE               8
+#define AVZ_INJECT_CAPSULE      	9
 #define AVZ_KILL_ME			10
 #define AVZ_DC_EVENT_SET		11
 #define AVZ_GET_ME_STATE		13
@@ -414,11 +415,16 @@ typedef struct {
         evtchn_op_t evtchn_op;
 } avz_evtchn_t;
 
-/* AVZ_INJECT_ME */
+/* AVZ_INJECT_CAPSULE */
 typedef struct {
         void *itb_paddr;
         int slotID;
-} avz_inject_me_t;
+} avz_inject_capsule_t;
+
+/* AVZ_START_CAPSULE */
+typedef struct {
+        int slotID;
+} avz_start_capsule_t;
 
 /* AVZ_DC_EVENT_SET */
 typedef struct {
@@ -491,7 +497,8 @@ typedef struct {
         int cmd;
 	union {
                 avz_evtchn_t avz_evtchn;
-                avz_inject_me_t avz_inject_me_args;
+                avz_inject_capsule_t avz_inject_capsule_args;
+                avz_start_capsule_t avz_start_capsule_args;
                 avz_dc_event_t avz_dc_event_args;
                 avz_me_state_t avz_me_state_args;
                 avz_dom_desc_t avz_dom_desc_args;
@@ -518,19 +525,11 @@ typedef struct {
 	void *val;
 } post_activate_args_t;
 
-/*
- * Further agency ctl commands that may be used by MEs.
- * !! WARNING !! The ME must implement the same definitions.
- */
-
-#define AG_INJECT_ME		0x11
-#define AG_KILL_ME		0x12
 
 typedef struct {
 	char	soo_name[SOO_NAME_SIZE];
 } soo_name_args_t;
 
- 
 /*
  * SOO callback functions.
  * The following definitions are used as argument in domcalls or in the
@@ -567,7 +566,7 @@ void cb_pre_suspend(soo_domcall_arg_t *args);
 
 void cb_post_activate(soo_domcall_arg_t *args);
 
-void cb_force_terminate(void);
+void cb_shutdown(void);
 
 void callbacks_init(void);
 

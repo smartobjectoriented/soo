@@ -204,17 +204,6 @@ void soo_sysfs_init(void) {
 	ret = sysfs_create_group(root_kobj, &soo_group);
 	BUG_ON(ret);
 
-	/** SOOlink **/
-	soolink_kobj = kobject_create_and_add("soolink", root_kobj);
-	BUG_ON(!soolink_kobj);
-
-	/**** Discovery ****/
-	soolink_discovery_kobj = kobject_create_and_add("discovery", soolink_kobj);
-	BUG_ON(!soolink_discovery_kobj);
-
-	ret = sysfs_create_group(soolink_discovery_kobj, &soolink_discovery_group);
-	BUG_ON(ret);
-
 	/** Backends **/
 	backend_kobj = kobject_create_and_add("backend", root_kobj);
 	BUG_ON(!backend_kobj);

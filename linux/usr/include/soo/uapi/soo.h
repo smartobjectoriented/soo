@@ -25,17 +25,17 @@
 
 /*
  * ME states:
- * - ME_state_booting:		ME is currently booting...
+ * - ME_state_stopped:		Capsule is stopped (right after start or later)
  * - ME_state_living:		ME is full-functional and activated (all frontend devices are consistent)
  * - ME_state_suspended:	ME is suspended before migrating. This state is maintained for the resident ME instance
  * - ME_state_hibernate:	ME is in a state of hibernate snapshot
  * - ME_state_resuming:         ME ready to perform resuming (after recovering)
  * - ME_state_awakened:         ME is just being awakened
- * - ME_state_terminated:	ME has been terminated (by a force_terminate)
+ * - ME_state_terminated:	ME has been terminated (by a shutdown)
  * - ME_state_dead:		ME does not exist
  */
 typedef enum {
-	ME_state_booting,
+	ME_state_stopped,
 	ME_state_living,
 	ME_state_suspended,
 	ME_state_hibernate,
@@ -46,24 +46,14 @@ typedef enum {
 	ME_state_dead
 } ME_state_t;
 
-/*
- * ME descriptor
- *
- * WARNING !! Be careful when modifying this structure. It *MUST* be aligned with
- * the same structure used in the ME.
+/* Keep information about slot availability
+ * FREE:	the slot is available (no ME)
+ * BUSY:	the slot is allocated a ME
  */
-typedef struct {
-	unsigned int	slotID;
-        uint64_t        spid;
-
-	ME_state_t	state;
-
-	unsigned int	size; /* Size of the ME with the struct dom_context size */
-        unsigned int    dc_evtchn;
-
-        void (*resume_fn)(void);
-
-} ME_desc_t;
+typedef enum {
+	ME_SLOT_FREE,
+	ME_SLOT_BUSY
+} ME_slotState_t;
 
 /* ME ID related information */
 #define ME_NAME_SIZE				40
@@ -91,13 +81,14 @@ typedef struct {
 /*
  * IOCTL codes
  */
-#define AGENCY_IOCTL_GET_ME_FREE_SLOT		_IOWR('S', 1, agency_ioctl_args_t)
-#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 2, agency_ioctl_args_t)
-#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 3, agency_ioctl_args_t)
-#define AGENCY_IOCTL_FORCE_TERMINATE		_IOW('S', 5, agency_ioctl_args_t)
-#define AGENCY_IOCTL_INJECT_ME			_IOWR('S', 6, agency_ioctl_args_t)
-#define AGENCY_IOCTL_GET_ME_ID			_IOWR('S', 7, agency_ioctl_args_t)
-#define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 11, agency_ioctl_args_t)
+
+#define AGENCY_IOCTL_READ_SNAPSHOT		_IOWR('S', 1, agency_ioctl_args_t)
+#define AGENCY_IOCTL_WRITE_SNAPSHOT		_IOW('S', 2, agency_ioctl_args_t)
+#define AGENCY_IOCTL_SHUTDOWN			_IOW('S', 3, agency_ioctl_args_t)
+#define AGENCY_IOCTL_INJECT_CAPSULE     	_IOWR('S', 4, agency_ioctl_args_t)
+#define AGENCY_IOCTL_START_CAPSULE              _IOWR('S', 5, agency_ioctl_args_t)
+#define AGENCY_IOCTL_GET_ME_ID			_IOWR('S', 6, agency_ioctl_args_t)
+#define AGENCY_IOCTL_GET_ME_ID_ARRAY		_IOR('S', 7, agency_ioctl_args_t)
 
 /* struct agency_ioctl_args used in IOCTLs */
 typedef struct agency_ioctl_args {

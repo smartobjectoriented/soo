@@ -7,9 +7,8 @@ fi
 
 # Partition layout on the sdcard (virt32 for example):
 # - Partition #1: 128 MB (u-boot, kernel, etc.)
-# - Partition #2: 400 MB (agency rootfs 1)
-# - Partition #3: 100 MB (MEs)
-# - Partition #4: remaining size (agency rootfs 2)
+# - Partition #2: 400 MB (Linux rootfs)
+# - Partition #3: 100 MB (Capsules)
 
 if [ "$1" == "virt32" -o "$1" == "virt64"  ]; then
     #create image first
@@ -34,7 +33,7 @@ fi
 
 if [ "$1" == "virt32" -o "$1" == "virt64" -o "$1" == "rpi4" -o "$1" == "rpi4_64" -o "$1" == "cm4_64" ]; then
 #create the partition layout this way
-    (echo o; echo n; echo p; echo; echo; echo +128M; echo t; echo c; echo n; echo p; echo; echo; echo +400M; echo n; echo p; echo; echo; echo +100M; echo n; echo p; echo; echo; echo; echo w)   | sudo fdisk /dev/"$devname";
+    (echo o; echo n; echo p; echo; echo; echo +128M; echo t; echo c; echo n; echo p; echo; echo; echo +400M; echo n; echo p; echo; echo; echo; echo w)   | sudo fdisk /dev/"$devname";
 fi
 
 echo Waiting...
@@ -48,7 +47,6 @@ fi
 sudo mkfs.fat -F32 -v /dev/"$devname"1
 sudo mkfs.ext4 /dev/"$devname"2
 sudo mkfs.ext4 /dev/"$devname"3
-sudo mkfs.ext4 /dev/"$devname"4
 
 if [ "$1" == "virt32" -o "$1" == "virt64" ]; then
 	sudo losetup -D

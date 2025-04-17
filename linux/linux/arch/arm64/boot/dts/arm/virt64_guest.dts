@@ -420,6 +420,8 @@
 
 &agency {
 
+	uid = <0xffffeeeeddddaaaaa>;
+
 	backends {
 
 		vuart {

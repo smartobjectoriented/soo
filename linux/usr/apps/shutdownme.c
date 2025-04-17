@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 
 	agency_ioctl_args.slotID = atoi(argv[1]) + 1;
 
-	ioctl(fd_core, AGENCY_IOCTL_FORCE_TERMINATE, &agency_ioctl_args);
+	ioctl(fd_core, AGENCY_IOCTL_SHUTDOWN, &agency_ioctl_args);
 
 	printf("done.\n");
 

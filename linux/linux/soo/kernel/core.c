@@ -38,6 +38,7 @@
 
 #include <soo/guest_api.h>
 #include <soo/soo.h> 
+#include <soo/avz.h>
  
 #define AGENCY_DEV_NAME "soo/core"
 #define AGENCY_DEV_MAJOR 126
@@ -50,17 +51,17 @@ struct bus_type soo_subsys;
 static struct device soo_dev;
 
 /*
- * Perform a force terminate of ME in <ME_slotID>
+ * Perform a shutdown of the capsule in <ME_slotID>
  *
  */
-static void force_terminate(unsigned int ME_slotID) {
+static void shutdown_capsule(unsigned int ME_slotID) {
 	avz_hyp_t args;
 
 	/* The ME may be ME_state_terminated after a cooperate callback */
 
 	/* Asynchronous termination of the ME */
 	if ((get_ME_state(ME_slotID) == ME_state_living) || (get_ME_state(ME_slotID) == ME_state_terminated))
-		do_sync_dom(ME_slotID, DC_FORCE_TERMINATE);
+		do_sync_dom(ME_slotID, DC_SHUTDOWN);
 
 	/* Then, final termination of the residual ME */
 	if (get_ME_state(ME_slotID) == ME_state_terminated) {
@@ -102,12 +103,16 @@ long agency_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 		ret = write_snapshot(args.buffer);
 		break;
 
-	case AGENCY_IOCTL_INJECT_ME:
-		args.slotID = inject_ME(args.buffer, args.value);
+	case AGENCY_IOCTL_INJECT_CAPSULE:
+		args.slotID = inject_capsule(args.buffer, args.value, args.slotID);
+		break;
+	
+	case AGENCY_IOCTL_START_CAPSULE:
+		start_capsule(args.slotID);
 		break;
 
-	case AGENCY_IOCTL_FORCE_TERMINATE:
-		force_terminate(args.slotID);
+	case AGENCY_IOCTL_SHUTDOWN:
+		shutdown_capsule(args.slotID);
 		break;
 			
 	case AGENCY_IOCTL_GET_ME_ID_ARRAY:
@@ -215,14 +220,14 @@ static int agency_reboot_notify(struct notifier_block *nb, unsigned long code, v
 
 		/*
 		 * Check if the ME slot is used or not in order to not
-		   call force_terminate on an empty slot, which would cause an error.
+		   call shutdown on an empty slot, which would cause an error.
 		 */
 
 		get_ME_desc(slotID, &desc);
 
 		if (desc.size > 0) {
 			lprintk("%s: terminating ME %d...\n", __func__, slotID);
-			force_terminate(slotID);
+			shutdown_capsule(slotID);
 		}
 	}
 
@@ -253,6 +258,15 @@ int agency_late_init_fn(void *args) {
 	do_exit(0);
 
 	return 0;
+}
+
+/**
+ * @brief Retrieve the agency UID
+ * 
+ * @param str 
+ */
+void agencyUID_read(char *str) {
+	sprintf(str, "%16llx", avz_shared->dom_desc.u.agency.agencyUID);
 }
 
 int agency_init(void) {
@@ -286,6 +300,8 @@ int agency_init(void) {
 	DBG("SOO Migration subsystem registered...\n");
 
 	register_reboot_notifier(&agency_reboot_nb);
+
+	soo_sysfs_register(agencyUID, agencyUID_read, NULL);
 
 	return 0;
 }

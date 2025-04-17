@@ -97,7 +97,8 @@ void injector_set_full(bool _full);
 
 void injector_receive_ME(void *ME, size_t size);
 
-int inject_ME(void *buffer, size_t size);
+int inject_capsule(void *buffer, size_t size, int slotID);
+void start_capsule(int slotID);
 
 ssize_t agency_read(struct file *fp, char *buff, size_t length, loff_t *ppos);
 
