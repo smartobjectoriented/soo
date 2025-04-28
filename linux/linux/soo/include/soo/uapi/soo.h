@@ -461,14 +461,9 @@ typedef struct {
 /* AVZ_WRITE_SNAPSHOT */
 typedef struct {
 	void *snapshot_paddr;
-	uint32_t slotID;
+	int32_t slotID;
         int size;
 } avz_snapshot_t;
-
-/* AVZ_MIG_FINAL */
-typedef struct {
-        uint32_t slotID;
-} avz_mig_final_t;
 
 /* AVZ_KILL_ME */
 typedef struct {
@@ -505,7 +500,6 @@ typedef struct {
                 avz_free_slot_t avz_free_slot_args;
                 avz_mig_init_t avz_mig_init_args;
                 avz_snapshot_t avz_snapshot_args;
-                avz_mig_final_t avz_mig_final_args;
                 avz_kill_me_t avz_kill_me_args;
                 avz_console_io_t avz_console_io_args;
                 avz_domctl_t avz_domctl_args;

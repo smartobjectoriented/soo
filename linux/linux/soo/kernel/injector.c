@@ -16,7 +16,7 @@
  *
  */
 
-#if 0
+#if 1
 #define DEBUG
 #endif
 
@@ -161,6 +161,9 @@ void read_snapshot(uint32_t slotID, void *buffer, uint32_t *size) {
 
         /* Ask the size only */
         if (*size == 0) {
+
+                DBG("%s: ask the snapshot size...\n", __func__);
+
                 args.cmd = AVZ_ME_READ_SNAPSHOT;
                 args.u.avz_snapshot_args.slotID = slotID;
                 args.u.avz_snapshot_args.size = 0;
@@ -214,7 +217,6 @@ void read_snapshot(uint32_t slotID, void *buffer, uint32_t *size) {
 
         if (ME_state == ME_state_resuming) {
 
-                DBG0("SOO migration subsys: Entering post migration tasks...\n");
                 DBG("Pinging ME %d for DC_RESUME...\n", slotID);
                 do_sync_dom(slotID, DC_RESUME);
 
@@ -248,18 +250,6 @@ int write_snapshot(void *buffer) {
 
         snapshot_size = *((uint32_t *) buffer);
 
-        args.cmd = AVZ_ME_WRITE_SNAPSHOT;
-
-        args.u.avz_snapshot_args.size = snapshot_size;
-        args.u.avz_snapshot_args.slotID = 0;
-
-        avz_hypercall(&args);
-
-        if (!args.u.avz_snapshot_args.slotID)
-                return -1; /* No free space */
-
-        slotID = args.u.avz_snapshot_args.slotID;
-
         ret = misc_register(&cma_malloc_miscdevice);
 
         dev = cma_malloc_miscdevice.this_device;
@@ -277,10 +267,21 @@ int write_snapshot(void *buffer) {
         BUG_ON(ret);
 
         args.cmd = AVZ_ME_WRITE_SNAPSHOT;
-
+     
+        args.u.avz_snapshot_args.size = snapshot_size;
+        args.u.avz_snapshot_args.slotID = -1;
         args.u.avz_snapshot_args.snapshot_paddr = (void *) dma_handle;
 
+        DBG("%s: Now asking AVZ to re-implement the snapshot of size %d bytes...\n", __func__, snapshot_size);
+
         avz_hypercall(&args);
+
+        if (!args.u.avz_snapshot_args.slotID) {
+                printk("%s: No free space...\n", __func__);
+                return -1; /* No free space */
+        }
+
+        slotID = args.u.avz_snapshot_args.slotID;
 
         dma_free_coherent(dev, snapshot_size, me, dma_handle);
         misc_deregister(&cma_malloc_miscdevice);

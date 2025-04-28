@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
 	zip = zip_open(argv[1], 0, 'r');
 	 
 	if (!zip) {
-                printf("Failed to open the zip file. Is there a bad sync after saving the snapshot?...");
+                printf("Failed to open the zip file. Is there a bad sync after saving the snapshot?...\n");
                 return EXIT_FAILURE;
 	}
 
@@ -63,8 +63,9 @@ int main(int argc, char *argv[]) {
 
 	zip_close(zip);
         
-	printf("  ** ME memory re-implantation and resuming...\n");
+	printf("  ** ME memory re-implantation and resuming the capsule.\n");
 
+	args.slotID = -1;
 	ioctl(fd_core, AGENCY_IOCTL_WRITE_SNAPSHOT, &args);
 
 	close(fd_core);

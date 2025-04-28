@@ -770,7 +770,7 @@ static irqreturn_t directcomm_isr(int irq, void *args) {
 	case DC_PRE_SUSPEND:
 	case DC_SUSPEND:
 	case DC_RESUME:
-	case DC_FORCE_TERMINATE:
+	case DC_SHUTDOWN:
 	case DC_POST_ACTIVATE:
 	case DC_TRIGGER_DEV_PROBE:
 	case DC_TRIGGER_LOCAL_COOPERATION:
