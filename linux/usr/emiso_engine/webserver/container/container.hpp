@@ -123,6 +123,10 @@ namespace container {
 
                     payload_json[idx]["Id"]       =  std::to_string(it->second.id);
                     payload_json[idx]["Names"][0] = "/" + it->second.name;
+
+            std::cout << "**** " << it->second.name;
+
+
                     payload_json[idx]["Image"]    = it->second.image + ":latest";
                     payload_json[idx]["ImageID"]  = imageInfo.id;
                     payload_json[idx]["Command"]  = "/inject";
@@ -242,11 +246,9 @@ namespace container {
         Daemon *_daemon;
     };
 
-
-
     class StopHandler : public httpserver::http_resource {
     public:
-         StopHandler(Daemon *daemon) : _daemon(daemon) {};
+        StopHandler(Daemon *daemon) : _daemon(daemon) {};
 
         std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request &req) {
             std::string payload_str = "";

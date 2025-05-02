@@ -50,21 +50,22 @@ struct bus_type soo_subsys;
 
 static struct device soo_dev;
 
-/*
- * Perform a shutdown of the capsule in <ME_slotID>
- *
+/**
+ * @brief Shutdown the capsule in a way it depends on its state.
+ * 
+ * @param ME_slotID 
  */
 static void shutdown_capsule(unsigned int ME_slotID) {
-	avz_hyp_t args;
+	avz_hyp_t args; 
 
-	/* The ME may be ME_state_terminated after a cooperate callback */
-
-	/* Asynchronous termination of the ME */
-	if ((get_ME_state(ME_slotID) == ME_state_living) || (get_ME_state(ME_slotID) == ME_state_terminated))
+	/* Asynchronous termination of the capsule */
+	if (get_ME_state(ME_slotID) != ME_state_stopped)
 		do_sync_dom(ME_slotID, DC_SHUTDOWN);
 
 	/* Then, final termination of the residual ME */
-	if (get_ME_state(ME_slotID) == ME_state_terminated) {
+	if ((get_ME_state(ME_slotID) == ME_state_terminated) ||
+	    (get_ME_state(ME_slotID) == ME_state_stopped)) {
+
                 args.cmd = AVZ_KILL_ME;
                 args.u.avz_kill_me_args.slotID = ME_slotID;
 

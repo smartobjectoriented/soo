@@ -28,7 +28,9 @@
 
 #include "container.hpp"
 
-#define EMISO_IMAGE_PATH     "/mnt/ME/"
+#define EMISO_IMAGE_PATH            "/mnt/ME/"
+#define EMISO_CAPSULE_CACHE_DIR     "/mnt/capsule/cache"
+
 #define SOO_CORE_DRV_PATH    ("/dev/soo/core")
 
 namespace emiso {
@@ -44,16 +46,21 @@ Container::~Container() {};
 std::string Container::meToDockerState(int meState)
 {
     switch (meState) {
-    case ME_state_booting:
+    case ME_state_stopped:
         return "created";   // WARNING - not a valid Docker state
+
     case ME_state_living:
         return "running";
+    
     case ME_state_suspended:
         return "paused";
+    
     case ME_state_killed:
         return "dead";
+    
     case ME_state_terminated:
         return "exited";
+    
     case ME_state_dead:
         return "dead";
     }
@@ -128,6 +135,16 @@ void Container::info(int id, ContainerInfo &info)
     }
 }
 
+ /**
+  * @brief  The create() method of Container leads to the injection of a capsule, but
+  *         without starting its execution. It will perform a snapshot, write it to
+  *         a specific location and shutdown the stopped capsule.
+  * 
+  * @param imageName 
+  * @param containerName 
+  * @param slotID 
+  * @return int 
+  */
 int Container::create(std::string imageName, std::string containerName, int slotID)
 {
     int fd;
@@ -150,21 +167,16 @@ int Container::create(std::string imageName, std::string containerName, int slot
 
     args.buffer = containerBuf;
     args.value = containerSize;
+	 
+	args.slotID = -1; /* Wherever */
 
     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
 
-#if 0 /* Useful? */
-    if (slotID != -1) {
-        args.slotID = slotID;
-        ret = ioctl(fd, AGENCY_IOCTL_INJECT_ME_WITH_SLOTID, &args);
+    ioctl(fd, AGENCY_IOCTL_INJECT_CAPSULE, &args);
 
-    } else {
-#endif
-        ret = ioctl(fd, AGENCY_IOCTL_INJECT_ME, &args);
-    //}
-
-    if (ret < 0) {
-        printf("Failed to inject ME (%d)\n", ret);
+	if (args.slotID == -1) {
+		printf("No available ME slot further...\n");
+		exit(EXIT_FAILURE);
     }
 
     ContainerId id;
@@ -187,9 +199,10 @@ int Container::start(unsigned containerId)
 
     args.slotID = containerId;
 
-     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
+    fd = open(SOO_CORE_DRV_PATH, O_RDWR);
+    #if 0
      ret = ioctl(fd, AGENCY_IOCTL_FINAL_MIGRATION, &args);
-
+#endif
     if (ret < 0) {
         printf("Failed to initialize migration (%d)\n", ret);
     }
@@ -205,20 +218,22 @@ int Container::stop(unsigned containerId)
     int fd;
     struct agency_ioctl_args args;
 
-
-    // == Force ME termination ==
+    // == Shutdown a capsule ==
     args.slotID = containerId;
 
-     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
-     ret = ioctl(fd, AGENCY_IOCTL_FORCE_TERMINATE, &args);
+    printf("** Perform a shutdown of capsule #%d (slotID %d)...", containerId, containerId+1);
+	fflush(stdout);
+     
+    fd = open(SOO_CORE_DRV_PATH, O_RDWR);
+    ret = ioctl(fd, AGENCY_IOCTL_SHUTDOWN, &args);
 
     if (ret < 0) {
         printf("Failed to force termination (%d)\n", ret);
     }
 
-    // close(fd);
+    close(fd);
 
-    // == inject ME ==
+    #if 0
     std::string imageName;
     std::string containerName;
 
@@ -229,14 +244,15 @@ int Container::stop(unsigned containerId)
         imageName     = it->second.image;
         containerName = it->second.name;
 
-     } else {
+    } else {
         // BUG - the ME has to be in _containersId MAP
-     }
+    }
 
-     // experiment - let time to free the slot memory !
-     sleep(0.5);
+    // experiment - let time to free the slot memory !
+    sleep(0.5);
 
     int slotId = this->create(imageName, containerName);
+#endif
 
     return ret;
 }
@@ -263,9 +279,9 @@ int Container::pause(unsigned containerId)
     args.slotID = containerId;
 
     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
-
+#if 0
     ret = ioctl(fd, AGENCY_IOCTL_INIT_MIGRATION, &args);
-
+#endif
     if (ret < 0) {
         printf("Failed to initialize migration (%d)\n", ret);
     }
@@ -282,9 +298,9 @@ int Container::unpause(unsigned containerId)
     args.slotID = containerId;
 
     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
-
+#if 0
     ret = ioctl(fd, AGENCY_IOCTL_FINAL_MIGRATION, &args);
-
+#endif
     if (ret < 0) {
         printf("Failed to initialize migration (%d)\n", ret);
     }
@@ -305,9 +321,9 @@ int Container::remove(unsigned containerId)
     args.slotID = containerId;
 
     fd = open(SOO_CORE_DRV_PATH, O_RDWR);
-    ret = ioctl(fd, AGENCY_IOCTL_FORCE_TERMINATE, &args);
+    ret = ioctl(fd, AGENCY_IOCTL_SHUTDOWN, &args);
     if (ret < 0) {
-        printf("Failed to force termination (%d)\n", ret);
+        printf("Failed to shutdown (%d)\n", ret);
     }
 
     return ret;

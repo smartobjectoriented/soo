@@ -44,9 +44,13 @@
 #include <core/types.h>
 #include <core/injector.h>
 
-/**
- * Main entry point of the Agency core subsystem.
- */
+ /**
+  * @brief Injector performs loading of a capsule and start its execution.
+  * 
+  * @param argc 
+  * @param argv 
+  * @return int 
+  */
 int main(int argc, char *argv[]) {
 	int fd_migration, fd, ret;
 	int nread, ME_size;

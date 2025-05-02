@@ -288,10 +288,17 @@ int write_snapshot(void *buffer) {
 
         ME_state = get_ME_state(slotID);
 
+        if (ME_state == ME_state_stopped)
+                /* Normal processing, start of the capsule */
+                return 0;
+
         BUG_ON((ME_state != ME_state_hibernate) && (ME_state != ME_state_awakened));
 
-        DBG0("SOO migration subsys: Entering post migration tasks...\n");
-
+        DBG0("SOO migration subsys: Entering restoring tasks...\n");
+        
+        /* The capsule is performing an asynchronous signal-based resume callback and will
+         * be set to ME_state_awakened after its execution
+         */
         while (1) {
                 schedule();
 
